@@ -253,6 +253,17 @@ class MatrixUtils
                                 Teuchos::Array<int>& ordering,
                                 Teuchos::ParameterList& probDescription);
 
+    //! creates a map of the form (i0:i1,j0:j1,k0:k1),
+    //! column-major access (i is fastest).           
+    //! Small letters indicate the bounds of the      
+    //! subdomain, capital letters the bounds of the  
+    //! global domain. The indices of subdomains are  
+    //! allowed to overlap                          */
+    static Teuchos::RCP<Epetra_Map> CreateMap(int i0, int i1, int j0, int j1, int k0, int k1,
+                             int I0, int I1, int J0, int J1, int K0, int K1,
+                             const Epetra_Comm& comm);
+    
+
   private:
   
     //! read array from file

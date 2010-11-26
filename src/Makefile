@@ -13,7 +13,7 @@ OBJ=    HYMLS_Solver.o \
         HYMLS_Tools.o
         
 
-LIBNAMEBASE=trilinos_hymls_${PLAT}
+LIBNAMEBASE=hymls_${PLAT}
 LIBNAME=lib${LIBNAMEBASE}.a
 
 default: main main_direct

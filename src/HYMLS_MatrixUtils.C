@@ -1580,6 +1580,43 @@ MatrixUtils::Dump(*ord1, "ordering1.txt");
     }
   return 0;  
   }
+
+    Teuchos::RCP<Epetra_Map> 
+    MatrixUtils::CreateMap(int i0, int i1, int j0, int j1, int k0, int k1,        
+                           int I0, int I1, int J0, int J1, int K0, int K1,
+                           const Epetra_Comm& comm)
+      {
+      Teuchos::RCP<Epetra_Map> result = Teuchos::null;
+      
+      DEBUG("MatrixUtils::CreateMap ");
+      DEBUG("["<<i0<<".."<<i1<<"]");
+      DEBUG("["<<j0<<".."<<j1<<"]");
+      DEBUG("["<<k0<<".."<<k1<<"]");
+      
+      int n = i1-i0+1; int N=I1-I0+1;
+      int m = j1-j0+1; int M=J1-J0+1;
+      int l = k1-k0+1; int L=K1-K0+1;
+      
+      DEBVAR(M);
+      DEBVAR(N);
+      DEBVAR(L);
+      
+      int NumMyElements = n*m*l;
+      int NumGlobalElements = -1; // note that there may be overlap
+      int *MyGlobalElements = new int[NumMyElements];
+      
+      int pos = 0;
+      for (int k=k0; k<=k1; k++)
+        for (int j=j0; j<=j1; j++)
+          for (int i=i0; i<=i1; i++)
+            {
+            MyGlobalElements[pos++] = k*N*M + j*N + MOD((double)i,(double)N);
+            }
+      result = Teuchos::rcp(new Epetra_Map(NumGlobalElements,
+                NumMyElements,MyGlobalElements,0,comm));
+      delete [] MyGlobalElements;
+      return result;
+      }
   
 
 }
