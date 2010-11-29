@@ -22,8 +22,8 @@
     <Parameter name="Equations" type="string" value="Laplace"/>
     <Parameter name="Dimension" type="int" value="2"/>
 
-    <Parameter name="nx" type="int" value="256"/>
-    <Parameter name="ny" type="int" value="256"/>
+    <Parameter name="nx" type="int" value="128"/>
+    <Parameter name="ny" type="int" value="128"/>
     <Parameter name="nz" type="int" value="1"/>
     
   </ParameterList><!--}-->

@@ -114,7 +114,7 @@ namespace HYMLS {
     // these two are alternatives:
     if (solverList.isParameter("Separator Length"))
       {
-      int sepx=solverList.get("Separator Length (x)",4);
+      int sepx=solverList.get("Separator Length",4);
       solverList_.set("Separator Length (x)",sepx);
       solverList_.set("Separator Length (y)",sepx);
       solverList_.set("Separator Length (z)",dim>2?sepx:1);

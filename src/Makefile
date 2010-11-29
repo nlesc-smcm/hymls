@@ -1,4 +1,6 @@
-include make.inc/Makefile.${PLAT}
+include Makefile.inc
+
+LIBS=${MY_LIBRARIES} ${TRILINOS_LIBRARIES} ${TPL_LIBRARIES} ${EXTRA_LD_FLAGS}
 
 OBJ=    HYMLS_Solver.o \
         HYMLS_SchurComplement.o \
@@ -16,7 +18,7 @@ OBJ=    HYMLS_Solver.o \
 LIBNAMEBASE=hymls_${PLAT}
 LIBNAME=lib${LIBNAMEBASE}.a
 
-default: main main_direct
+default: main 
 
 main: main.C ${LIBNAME}
 	${CXX} ${CXX_FLAGS} -o main $< ${INCLUDES} -L. -l${LIBNAMEBASE} ${LIBS} 
