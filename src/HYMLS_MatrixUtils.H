@@ -67,6 +67,10 @@ class MatrixUtils
     //! is the variable to be extracted, i.e. 0, 1,...dof-1 
     static Teuchos::RCP<Epetra_Map> CreateSubMap(const Epetra_Map& map, int dof, int var);
 
+    //! extract a map with all indices of the original one between min_gid and max_gid 
+    //! (including the bounds)
+    static Teuchos::RCP<Epetra_Map> ExtractRange(const Epetra_Map& map, int min_gid, int max_gid);
+
     //! extract a map for two variables from a map with dof variables. 'var'
     //! are the variables to be extracted, i.e. {0,1}, {4,5} etc.
     static Teuchos::RCP<Epetra_Map> CreateSubMap(const Epetra_Map& map, int dof, const int var[2]);

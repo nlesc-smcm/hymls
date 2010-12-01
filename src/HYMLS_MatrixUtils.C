@@ -144,6 +144,35 @@ return CreateMap(offX,offX+nXloc-1,
       return result;
       }
 
+  // extract indices in a given global range [i1,i2]
+  Teuchos::RCP<Epetra_Map> MatrixUtils::ExtractRange(const Epetra_Map& M, int i1, int i2)
+    {
+    
+    int n = M.MaxAllGID();
+
+#ifdef TESTING
+ if (i1<0||i1>n) Error("CreateSubMap: lower bound out of range!",__FILE__,__LINE__);
+ if (i2<0||i2>n) Error("CreateSubMap: upper bound out of range!",__FILE__,__LINE__);
+ if (i2<i1) Error("CreateSubMap: invalid interval bounds!",__FILE__,__LINE__);
+#endif    
+
+    int *MyGlobalElements = new int[M.NumMyElements()];
+    int p=0;
+    int gid;
+    for (int i=0;i<M.NumMyElements();i++)
+      {
+      gid = M.GID(i);
+      if (gid>=i1 && gid<=i2) MyGlobalElements[p++]=gid;
+      }
+    
+    
+    // build the two new maps. Set global num el. to -1 so Epetra recomputes it
+    Teuchos::RCP<Epetra_Map> M1 = Teuchos::rcp(new 
+Epetra_Map(-1,p,MyGlobalElements,M.IndexBase(),M.Comm()) );
+    delete [] MyGlobalElements;
+    return M1;
+    }
+    
 
     //! extract a map with nun=nvars from a map with nun=6. 'var'
     //! is the array of variables to be extracted.

@@ -127,6 +127,26 @@ namespace HYMLS
      DEBUG("@@ START OF HYMLS DEBUGGING OUTPUT          @@");
      DEBUG("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
      }
+
+   static void InitializeIO_std(Teuchos::RCP<const Epetra_Comm> comm,
+                            Teuchos::RCP<std::ostream> output=Teuchos::null,
+                            Teuchos::RCP<std::ostream> debug=Teuchos::null)
+     {
+     Teuchos::RCP<Teuchos::FancyOStream> fancy_out=Teuchos::null;
+     Teuchos::RCP<Teuchos::FancyOStream> fancy_deb=Teuchos::null;
+     
+     if (output!=Teuchos::null)
+       {
+       fancy_out = Teuchos::rcp(new Teuchos::FancyOStream(output));
+       }
+#ifdef DEBUGGING
+     if (debug!=Teuchos::null)
+       {
+       fancy_deb = Teuchos::rcp(new Teuchos::FancyOStream(debug));
+       }
+#endif
+     InitializeIO(comm,fancy_out,fancy_deb);
+     }
      
    static bool InitializedIO() {return output_stream!=Teuchos::null;}
 
@@ -178,7 +198,7 @@ namespace HYMLS
 #ifdef TESTING    
     if ((idx<0)||(idx>=(nx*ny*nz*dof)))
       {
-      std::cerr << "dim=["<<nx<<","<<ny<<","<<nz<<"]: ind="<<idx<<std::endl;
+      std::cerr << "dim=["<<nx<<","<<ny<<","<<nz<<"], dof="<<dof<<": ind="<<idx<<std::endl;
       Tools::Error("ind2sub: Index out of range!",__FILE__,__LINE__);
       }
 #endif      
