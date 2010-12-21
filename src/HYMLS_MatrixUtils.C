@@ -151,9 +151,9 @@ return CreateMap(offX,offX+nXloc-1,
     int n = M.MaxAllGID();
 
 #ifdef TESTING
- if (i1<0||i1>n) Error("CreateSubMap: lower bound out of range!",__FILE__,__LINE__);
- if (i2<0||i2>n) Error("CreateSubMap: upper bound out of range!",__FILE__,__LINE__);
- if (i2<i1) Error("CreateSubMap: invalid interval bounds!",__FILE__,__LINE__);
+ if (i1<0||i1>n) Tools::Error("CreateSubMap: lower bound out of range!",__FILE__,__LINE__);
+ if (i2<0||i2>n) Tools::Error("CreateSubMap: upper bound out of range!",__FILE__,__LINE__);
+ if (i2<i1) Tools::Error("CreateSubMap: invalid interval bounds!",__FILE__,__LINE__);
 #endif    
 
     int *MyGlobalElements = new int[M.NumMyElements()];
