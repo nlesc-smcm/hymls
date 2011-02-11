@@ -30,6 +30,7 @@
 #endif
 
 #include "Galeri_Maps.h"
+#include "Galeri_Periodic.h"
 #include "Galeri_Star2D.h"
 #include "Galeri_Star3D.h"
 
@@ -110,6 +111,9 @@ void OverlappingPartitioner::UpdateParameters()
   {
   START_TIMER2(label_,"UpdateParameters");
   Teuchos::ParameterList& problParams=params_->sublist("Problem");
+  
+  dim_=problParams.get("Dimension",2);  
+  
   if (!problParams.isSublist("Problem Definition"))
     {
     // this sublist is created by class Solver if you set "Equations" to something
@@ -121,6 +125,14 @@ void OverlappingPartitioner::UpdateParameters()
   Teuchos::ParameterList defiParams=problParams.sublist("Problem Definition");
   
   dof_=defiParams.get("Degrees of Freedom",1);
+  
+  perio_=defiParams.get("Periodicity",Galeri::NO_PERIO);
+  
+  if (dim_==2 && perio_!=Galeri::NO_PERIO)
+    {
+    HYMLS::Tools::Error("Cannot handle periodic BC in 2D right now!",
+        __FILE__,__LINE__);
+    }
   
   // on the first level we typically substitute the graph by an idealized
   // one to get a 'good' HID reordering. This typically fails on coarser
@@ -138,8 +150,6 @@ void OverlappingPartitioner::UpdateParameters()
     retainIsolated_[i]=defiParams.get("Retain Isolated ("+Teuchos::toString(i)+")",false);
     }
   
-  dim_=problParams.get("Dimension",2);
-
   nx_=problParams.get("nx",-1);
   ny_=problParams.get("ny",nx_);
   if (dim_>2)
@@ -232,7 +242,7 @@ void OverlappingPartitioner::CreateGraph()
    else if (dim_==3)
      {
      scalarLaplace=Teuchos::rcp(Galeri::Matrices::Star3D(scalarMap.get(),nx_,ny_,nz_,
-                                       1.0,1.0,1.0,1.0));
+                                       1.0,1.0,1.0,1.0,perio_));
      }
    } catch (Galeri::Exception G) {G.Print();}  
 

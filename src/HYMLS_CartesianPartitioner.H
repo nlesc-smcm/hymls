@@ -32,7 +32,7 @@ class CartesianPartitioner : public BasePartitioner
   //! destructor
   ~CartesianPartitioner();
   
-  //! partition an [nx x ny x nz] grid with one DoF per node
+  //! partition an [nx x ny x nz] grid with (possibly) several DoF per node
   //! into nparts global subdomains.
   void Partition(int nparts);
   

@@ -26,6 +26,9 @@
 #include "BelosPCPGSolMgr.hpp"
 #include "Teuchos_StandardCatchMacros.hpp"
 
+#include "Galeri_Periodic.h"
+
+
 typedef Teuchos::Array<int>::iterator int_i;
 
 namespace HYMLS {
@@ -84,9 +87,14 @@ namespace HYMLS {
     // general settings for all problems
     int dim=probList.get("Dimension",2);
     probList_.set("Dimension", dim);
+
     if (dim>=1) probList_.set("nx", probList.get("nx",16));
     if (dim>=2) probList_.set("ny", probList.get("ny",16));
     if (dim>=3) probList_.set("nz", probList.get("nz",16));
+
+    if (dim>=1) probList_.set("x-periodic", probList.get("x-periodic",false));
+    if (dim>=2) probList_.set("y-periodic", probList.get("y-periodic",false));
+    if (dim>=3) probList_.set("z-periodic", probList.get("z-periodic",false));
 
     Teuchos::ParameterList& solverList_ = params_->sublist("Solver");
     Teuchos::ParameterList& solverList = List.sublist("Solver");
@@ -1072,6 +1080,21 @@ int Solver::SetProblemDefinition(string eqn, Teuchos::ParameterList& list)
   Teuchos::ParameterList& solverList=list.sublist("Solver");
 
   int dim=probList.get("Dimension",2);
+  
+  bool xperio=false;
+  bool yperio=false;
+  bool zperio=false;
+  xperio=probList.get("x-periodic",xperio);
+  if (dim>=1) yperio=probList.get("y-periodic",yperio);
+  if (dim>=2) zperio=probList.get("z-periodic",zperio);
+  
+  Galeri::PERIO_Flag perio=Galeri::NO_PERIO;
+  
+  if (xperio) perio=(Galeri::PERIO_Flag)(perio|Galeri::X_PERIO);
+  if (yperio) perio=(Galeri::PERIO_Flag)(perio|Galeri::Y_PERIO);
+  if (zperio) perio=(Galeri::PERIO_Flag)(perio|Galeri::Z_PERIO);
+  
+  defList.set("Periodicity",perio);
 
   if (eqn=="Laplace")
     {

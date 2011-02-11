@@ -3,6 +3,7 @@
 
 #include "HYMLS_RecursiveOverlappingPartitioner.H"
 #include "Teuchos_RCP.hpp"
+#include "Galeri_Periodic.h"
 
 // forward declarations
 
@@ -94,6 +95,8 @@ protected:
 
   //! number of variables per grid-cell
   int dof_;
+  
+  Galeri::PERIO_Flag perio_;
   
   //! this parameter can be set by the entry "Substitute Graph" 
   //! in the "Problem"->"Problem Definition" sublist, and it    

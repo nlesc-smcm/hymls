@@ -12,7 +12,8 @@ OBJ=    HYMLS_Solver.o \
         HYMLS_MatrixUtils.o \
         HYMLS_View_MultiVector.o \
         HYMLS_Householder.o \
-        HYMLS_Tools.o
+        HYMLS_Tools.o \
+        Galeri_Periodic.o
         
 
 LIBNAMEBASE=hymls_${PLAT}
@@ -35,6 +36,9 @@ ${LIBNAME}: ${OBJ}
 	ar vrcs ${LIBNAME} ${OBJ}
 
 %.o: %.C %.H
+	${CXX} ${CXX_FLAGS} -c $< ${INCLUDES} 
+
+%.o: %.cpp %.h
 	${CXX} ${CXX_FLAGS} -c $< ${INCLUDES} 
 
 clean:

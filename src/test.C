@@ -15,181 +15,72 @@
 #include "Epetra_Map.h"
 
 #include "HYMLS_Tools.H"
+#include "Galeri_Periodic.h"
+
+using namespace Galeri;
 
 int main(int argc, char** argv)
   {
-  MPI_Init(&argc,&argv);
+  std::cout << "true: " << std::endl;
+  std::cout << (X_PERIO&X_PERIO) << std::endl;
+  std::cout << (XY_PERIO&X_PERIO) << std::endl;
+  std::cout << (XZ_PERIO&X_PERIO) << std::endl;
+  std::cout << (XYZ_PERIO&X_PERIO) << std::endl;
+  std::cout << std::endl;
 
-  Epetra_MpiComm comm(MPI_COMM_WORLD);
-  Epetra_SerialComm serialComm;
+  std::cout << (Y_PERIO&Y_PERIO) << std::endl;
+  std::cout << (XY_PERIO&Y_PERIO) << std::endl;
+  std::cout << (YZ_PERIO&Y_PERIO) << std::endl;
+  std::cout << (XYZ_PERIO&Y_PERIO) << std::endl;
+  std::cout << std::endl;
+
+  std::cout << (Z_PERIO&Z_PERIO) << std::endl;
+  std::cout << (XZ_PERIO&Z_PERIO) << std::endl;
+  std::cout << (YZ_PERIO&Z_PERIO) << std::endl;
+  std::cout << (XYZ_PERIO&Z_PERIO) << std::endl;
+  std::cout << std::endl;
   
-  HYMLS::Tools::InitializeIO(Teuchos::rcp(&comm,false));
-  std::cout << std::setw(15)<<std::setprecision(15);
-//{
-#if 0
 
-  if (comm.NumProc()!=4)
-    {
-    HYMLS::Tools::Error("intended for four procs!",__FILE__,__LINE__);
-    }
+  std::cout << "false: " << std::endl;
+  std::cout << (Y_PERIO&X_PERIO) << std::endl;
+  std::cout << (Z_PERIO&X_PERIO) << std::endl;
+  std::cout << (YZ_PERIO&X_PERIO) << std::endl;
+  std::cout << std::endl;
 
-int nx=16;
-int ny=16;
+  std::cout << (X_PERIO&Y_PERIO) << std::endl;
+  std::cout << (Z_PERIO&Y_PERIO) << std::endl;
+  std::cout << (XZ_PERIO&Y_PERIO) << std::endl;
+  std::cout << std::endl;
 
-int nx_loc=8;
-int ny_loc=8;
+  std::cout << (X_PERIO&Z_PERIO) << std::endl;
+  std::cout << (Y_PERIO&Z_PERIO) << std::endl;
+  std::cout << (XY_PERIO&Z_PERIO) << std::endl;
+  std::cout << std::endl;
 
-int xoff, yoff;
+  int nx=2; 
+  int ny=2;
+  int nz=2;
+  int left,right,lower,upper,below,above;
+  PERIO_Flag perio=Y_PERIO;
+  int center=6;
+  GetNeighboursCartesian3d(center,nx,ny,nz,
+        left,right,lower,upper,below,above,perio);
 
-if (comm.MyPID()==1)
-  {
-  xoff=8;
-  }
+  std::cout << std::endl;
+  std::cout << "\t"<< above << std::endl;
+  std::cout << std::endl;
 
-if (comm.MyPID()==2)
-  {
-  yoff=8;
-  }
+  std::cout << std::endl;
 
-if (comm.MyPID()==3)
-  {
-  xoff=8;
-  yoff=8;
-  }
+  std::cout << " stencil: "<<std::endl;
+  std::cout << "\t"<<upper<<std::endl;
+  std::cout << left << "\t"<<center<<"\t"<<right<<std::endl;
+  std::cout << "\t"<<lower<<std::endl;
 
-int NumMyElements = nx_loc*ny_loc;
-int *MyElements = new int[NumMyElements];
+  std::cout << std::endl;
 
-int pos=0;
-for (int j=0;j<ny_loc;j++)
-  for (int i=0;i<nx_loc;i++)
-    {
-    MyElements[pos++]=(yoff+j)*nx+xoff+i;
-    }
- 
-Teuchos::RCP<Epetra_Map> baseMap = Teuchos::rcp(new Epetra_Map
-        (-1, NumMyElements, MyElements, 0, comm));
+  std::cout << std::endl;
+  std::cout << "\t"<< below << std::endl;
+  std::cout << std::endl;
 
-delete [] MyElements;
-
-DEBVAR(*baseMap);
-
-int numOverlapElements=0;
-// create an overlapping map
-if (comm.MyPID()==0)
-  {
-  numOverlapElements=17;
-  }
-if (comm.MyPID()==1)
-  {
-  numOverlapElements=8;
-  }
-if (comm.MyPID()==2)
-  {
-  numOverlapElements=8;
-  }
-
-NumMyElements=NumMyElements+numOverlapElements;
-MyElements = new int[NumMyElements];
-
-delete [] MyElements;
-
-#endif
-//}
-// local maps {
-#if 0  
-  
-  if (comm.NumProc()!=2)
-    {
-    HYMLS::Tools::Error("intended for two procs!",__FILE__,__LINE__);
-    }
-
-  int nrows=10;
-  
-  int NumMyElements;
-  int *MyElements;
-  int offset;
-  
-  if (comm.MyPID()==0)
-    {
-    NumMyElements=4;
-    offset=0;
-    }
-  else
-    {
-    NumMyElements=6;
-    offset=4;
-    }
-  
-  MyElements = new int[NumMyElements];
-  for (int i=0;i<NumMyElements;i++) 
-    {
-    MyElements[i]=offset+i;
-    }
-
-  Epetra_Map map(-1, NumMyElements, MyElements, 0, comm);
-  int groupSize=2;
-  int numLocalGroups=NumMyElements/groupSize;
-  Teuchos::Array<Teuchos::RCP<Epetra_Map> > localMaps;
-  localMaps.resize(numLocalGroups);
-  
-  DEBVAR(map);
-  
-  for (int grp=0;grp<numLocalGroups;grp++)
-    {
-    int elements[2];
-    elements[0]=offset+grp*groupSize;
-    elements[1]=offset+grp*groupSize+1;
-    localMaps[grp]=Teuchos::rcp(new Epetra_Map(2,2,elements,0,serialComm));
-    DEBVAR(*localMaps[grp]);
-    }
-
-#endif
-//}
-// Householder transform {
-#if 1
-  Teuchos::RCP<HYMLS::OrthogonalTransform> T;
-  T=Teuchos::rcp(new HYMLS::Householder());
-  Epetra_SerialDenseVector v,Tv;
-  std::cout << "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n";
-  /*
-  for (int n=1;n<=8;n++)
-    {
-    std::cout << "n="<<n<<std::endl;
-    v.Size(n);
-    Tv.Size(n);
-    for (int i=0;i<n;i++) v[i]=1.0;
-    std::cout << v;
-    T->Apply(v,Tv);
-    std::cout << Tv;
-    T->ApplyInverse(Tv,v);
-    std::cout << v;
-    std::cout << "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n";
-    }
-    */
-  int m=5, n=8;
-  v.Size(n);
-  Tv.Size(n);
-  v.Random();
-  std::cout << v;
-  T->Apply(v,Tv);
-  T->ApplyInverse(Tv,v);
-  std::cout << Tv;
-  std::cout << v;
-
-  Epetra_SerialDenseMatrix A(m,n);
-  Epetra_SerialDenseMatrix TAT(m,n);
-  A.Random();
-  
-  std::cout << "n="<<n<<", m="<<m<<std::endl;
-  std::cout << A;
-  T->Apply(A,TAT);
-  std::cout << TAT;
-  T->ApplyInverse(TAT,A);
-  std::cout << A;
-#endif
-//}
-
-  
-  MPI_Finalize();
   }
