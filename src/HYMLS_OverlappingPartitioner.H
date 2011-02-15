@@ -123,7 +123,7 @@ protected:
   //! surrounding velocities belong to separators (full     
   //! conservation cell)                                    
   Teuchos::Array<bool> retainIsolated_;
-  
+    
 private:
   
   //! extract parameters from list and verify their values

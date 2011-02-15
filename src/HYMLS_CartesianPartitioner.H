@@ -8,6 +8,8 @@
 #include "Epetra_Map.h"
 #include "HYMLS_BasePartitioner.H"
 
+#include "Galeri_Periodic.h"
+
 class Epetra_Comm;
 class Epetra_Import;
 
@@ -27,7 +29,7 @@ class CartesianPartitioner : public BasePartitioner
   
   //! constructor
   CartesianPartitioner(Teuchos::RCP<const Epetra_Map> map, int nx, int ny, 
-        int nz=1, int dof=1);
+        int nz=1, int dof=1, Galeri::PERIO_Flag perio=Galeri::NO_PERIO);
   
   //! destructor
   ~CartesianPartitioner();
@@ -100,7 +102,13 @@ class CartesianPartitioner : public BasePartitioner
   //! get global index of element j in local subdomain i
   inline int GID(int i, int j) const {return Map().GID(First(i)+j);}
               
-                
+  //! impose ordering on subdomains
+  int flow(int gid1, int gid2);
+
+  private:
+  
+  //! compute distance between two points/subdomains
+  int calc_distance(int n, int i1, int i2, bool perio);
 
   protected:
 
@@ -130,6 +138,9 @@ class CartesianPartitioner : public BasePartitioner
   
   //! number of variables per node
   int dof_;
+  
+  //! type of periodicity in the problem
+  Galeri::PERIO_Flag perio_;
 
   //! pointers into map
   Teuchos::Array<int> subdomainPointer_;

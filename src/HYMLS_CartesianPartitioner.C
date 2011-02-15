@@ -11,8 +11,9 @@ namespace HYMLS {
   
   // constructor 
   CartesianPartitioner::CartesianPartitioner
-        (Teuchos::RCP<const Epetra_Map> map, int nx, int ny, int nz, int dof)
-        : BasePartitioner(), baseMap_(map), nx_(nx), ny_(ny),nz_(nz),dof_(dof)
+        (Teuchos::RCP<const Epetra_Map> map, int nx, int ny, int nz, int dof, 
+        Galeri::PERIO_Flag perio)
+        : BasePartitioner(), baseMap_(map), nx_(nx), ny_(ny),nz_(nz),dof_(dof),perio_(perio)
         {
         
         comm_=Teuchos::rcp(&(baseMap_->Comm()),false);
@@ -49,6 +50,133 @@ namespace HYMLS {
     DEBUG("CartesianPartitioner::~CartesianPartitioner()");
     }
 
+  int CartesianPartitioner::flow(int gid1, int gid2)
+    {
+    int sd1 = (*this)(gid1);
+    int sd2 = (*this)(gid2);
+    
+    //DEBUG("### FLOW("<<gid1<<", "<<gid2<<") ###");
+    
+    if (sd1==sd2)
+      {
+      //DEBUG("# same subdomain, return 0");
+      return 0;
+      }
+
+    const int stencilWidth=1;
+
+    int i1,j1,k1,i2,j2,k2;
+    int var1,var2;
+      
+    Tools::ind2sub(nx_,ny_,nz_,dof_,gid1,i1,j1,k1,var1);
+    Tools::ind2sub(nx_,ny_,nz_,dof_,gid2,i2,j2,k2,var2);
+    
+    int di,dj,dk;
+
+    di=calc_distance(nx_,i1,i2,(perio_&Galeri::X_PERIO));
+    dj=calc_distance(ny_,j1,j2,(perio_&Galeri::Y_PERIO));
+    dk=calc_distance(nz_,k1,k2,(perio_&Galeri::Z_PERIO));
+
+    // if the cells are not connected:
+    if (std::abs(di)>stencilWidth || 
+        std::abs(dj)>stencilWidth || 
+        std::abs(dk)> stencilWidth)
+        {
+        //DEBUG("# not adjacent grid cells, return 0");  
+        return 0;
+        }
+
+    // the cells are connected and in different subdomains, so we have to
+    // return a nonzero value.
+
+    // for non-periodic problems it is fairly simple:
+    if (perio_==Galeri::NO_PERIO)
+      {
+      //DEBUG("# not a periodic problem, return "<<sd1-sd2);
+      return sd1-sd2;
+      }
+
+    // problem is periodic in at least one direction
+
+    int value;
+    int I1,J1,K1,I2,J2,K2;
+    int dI, dJ, dK;
+    int dum;
+
+    Tools::ind2sub(npx_,npy_,npz_,1,sd1,I1,J1,K1,dum);
+    Tools::ind2sub(npx_,npy_,npz_,1,sd2,I2,J2,K2,dum);
+
+    dI=calc_distance(npx_,I1,I2,(perio_&Galeri::X_PERIO));
+    dJ=calc_distance(npy_,J1,J2,(perio_&Galeri::Y_PERIO));
+    dK=calc_distance(npz_,K1,K2,(perio_&Galeri::Z_PERIO));
+
+    if (abs(dK)> 0)
+      {
+#ifdef DEBUGGING______
+      if (dk<0)
+        {
+        DEBUG("# top edge, return "<<dk);
+        }
+      else
+        {
+        DEBUG("# bottom edge, return "<<dk);
+        }
+#endif      
+      return dk;
+      }
+    if (abs(dJ)> 0)
+      {
+#ifdef DEBUGGING_______________
+      if (dj<0)
+        {
+        DEBUG("# north edge, return "<<dj);
+        }
+      else
+        {
+        DEBUG("# south edge, return "<<dj);
+        }
+#endif      
+      return dj;
+      }
+    if (abs(dI)> 0)
+      {
+#ifdef DEBUGGING_____________
+      if (di<0)
+        {
+        DEBUG("# east edge, return "<<di);
+        }
+      else
+        {
+        DEBUG("# west edge, return "<<di);
+        }
+#endif      
+      return di;
+      }
+    DEBUG("weird case, return 0");
+    return 0;
+    }
+
+  // private
+  int CartesianPartitioner::calc_distance(int n, int i1,int i2,bool perio)
+    {
+    int di=i1-i2;
+    if (perio)
+      {
+      if (i1<i2)
+        {
+        i1+=n;
+        }
+      else
+        {
+        i2+=n;
+        }
+      if (abs(i1-i2)<abs(di))
+        {
+        di=i1-i2;
+        }
+      }
+    return di;
+    }
 
   void CartesianPartitioner::Partition(int nparts)
     {

@@ -145,9 +145,9 @@ void OverlappingPartitioner::UpdateParameters()
   
   for (int i=0;i<dof_;i++)
     {
-    variableType_[i]=defiParams.get("Variable Type ("+Teuchos::toString(i)+")",
-                        "Laplace");
-    retainIsolated_[i]=defiParams.get("Retain Isolated ("+Teuchos::toString(i)+")",false);
+    Teuchos::ParameterList& varList=defiParams.sublist("Variable "+Teuchos::toString(i));
+    variableType_[i]=varList.get("Variable Type","Laplace");
+    retainIsolated_[i]=varList.get("Retain Isolated",false);
     }
   
   nx_=problParams.get("nx",-1);
@@ -367,7 +367,7 @@ void OverlappingPartitioner::Partition()
   START_TIMER2(label_,"Partition");
   if (partitioningMethod_=="Cartesian")
     {
-    partitioner_=Teuchos::rcp(new CartesianPartitioner(baseMap_,nx_,ny_,nz_,dof_));
+    partitioner_=Teuchos::rcp(new CartesianPartitioner(baseMap_,nx_,ny_,nz_,dof_,perio_));
     }
   else
     {
@@ -510,13 +510,40 @@ void OverlappingPartitioner::DetectSeparators()
         {
         CHECK_ZERO(G.ExtractGlobalRowCopy(row,MaxNumEntriesPerRow,len,cols));
 
-        // if a node connects to a subdomain with higher ID, 
-        // it is marked as a separator node:
+        // if a node connects to a subdomain with higher ID,            
+        // it is marked as a separator node. To make this work          
+        // for periodic boundary conditions, we built in a function     
+        // to impose an ordering on the subdomains in the class         
+        // BasePartitioner. Just using the higher subdomain ID would    
+        // result in a situation like this:                             
+        //                                                              
+        // -------------+ +-------------                
+        // SD2          | |         SD3                 
+        //              | |                             
+        //--------------+ +-------------                
+        //                                              
+        //--------------+ +-------------                
+        //              | |                             
+        // SD0          | |         SD1                 
+        //              | |                             
+        //--------------+ +-------------                
+        // *****************************                
+        //                                              
+        // where the pressures marked by * are identified as    
+        // isolated because they do not couple to interior V-   
+        // nodes in subdomain 0. However, they do couple to     
+        // interior V-nodes of subdomain 2. So the partitioner  
+        // has to make sure that the separator nodes are taken  
+        // from SD2 instead: flow(gid1,gid2) has to be either   
+        // positive or negative, depending on wether gid1 and   
+        // gid2 couple across the inner or the outer boundary.  
+        
         for (int j=0;j<len;j++)
           {
-          int colsub=(*partitioner_)(cols[j]);
-          if (colsub>sub)
+          //int colsub=(*partitioner_)(cols[j]);
+          if (partitioner_->flow(row,cols[j])<0)
             {
+            DEBUG("node "<<row<<" not interior");
             interior=false;
             }
           }
@@ -538,9 +565,11 @@ void OverlappingPartitioner::DetectSeparators()
           {
           for (int j=0;j<len;j++)
             {
-            int colsub=(*partitioner_)(cols[j]);
+            //int colsub=(*partitioner_)(cols[j]);
             int coltype=partitioner_->VariableType(cols[j]);
-            if ((colsub<sub) && (coltype==type))
+            DEBVAR(type);
+            DEBVAR(coltype);
+            if ((partitioner_->flow(row,cols[j])>0) && (coltype==type))
               {
               separator_nodes[sd].append(cols[j]);
               DEBUG("  include "<<cols[j]);

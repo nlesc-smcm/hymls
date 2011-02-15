@@ -1108,11 +1108,16 @@ int Solver::SetProblemDefinition(string eqn, Teuchos::ParameterList& list)
     defList.set("Degrees of Freedom",dim+1);
     for (int i=0;i<dim;i++)
       {
-      defList.set("Variable Type ("+Teuchos::toString(i)+")", "Laplace");
+      Teuchos::ParameterList& velList =
+        defList.sublist("Variable "+Teuchos::toString(i));      
+      velList.set("Variable Type","Laplace");
       }
     // pressure:
-    defList.set("Variable Type ("+Teuchos::toString(dim)+")", "Retain 1");
-    defList.set("Retain Isolated ("+Teuchos::toString(dim)+")", true);
+    Teuchos::ParameterList& presList =
+      defList.sublist("Variable "+Teuchos::toString(dim));
+    presList.set("Variable Type","Retain 1");
+    presList.set("Retain Isolated",true);
+    
     // we fix the singularity by inserting a Dirichlet condition for 
     // global pressure node 2 
     solverList.set("Fix GID 1",dim);
