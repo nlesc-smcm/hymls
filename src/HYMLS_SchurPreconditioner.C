@@ -268,8 +268,9 @@ namespace HYMLS {
     std::ofstream ofs("pS.txt");
     std::ofstream ofs1("pS1.txt");
     std::ofstream ofs2("pS2.txt");
+    std::ofstream begI("begI.txt");
     std::ofstream begS("begS.txt");
-      
+          
     bool linear_indices=true;
     
     Teuchos::RCP<const Epetra_Map> newMap=map_;
@@ -280,11 +281,24 @@ namespace HYMLS {
       newMap=Teuchos::rcp(new Epetra_Map(-1,myLength,0,*comm_));
       }
       
+    int off = 0;
+    for (int sd=0;sd<hid_->NumMySubdomains();sd++)
+      {
+      begI << off << std::endl;
+      off = off + hid_->NumInteriorElements(sd);
+      }
+    begI << off << std::endl;
+    
+    int offset=0;
+          
     for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
       {
       for (int grp=0;grp<sepObject->NumGroups(sep);grp++)
         {
-        begS << sepObject->LID(sep,grp,0)<<std::endl;
+        begS << offset << std::endl;
+        offset = offset + sepObject->NumElements(sep,grp);
+        //begS << sepObject->LID(sep,grp,0)<<std::endl;
+        
         // V-sum nodes
         ofs << newMap->GID(map_->LID(sepObject->GID(sep,grp,0))) << std::endl;
         ofs2 << newMap->GID(map_->LID(sepObject->GID(sep,grp,0))) << std::endl;
@@ -302,6 +316,7 @@ namespace HYMLS {
     ofs.close();
     ofs1.close();
     ofs2.close();
+    begI.close();
     begS.close();
     
 //    MatrixUtils::Dump(*matrix_,"SchurPreconditioner.txt",false);

@@ -1074,7 +1074,17 @@ for (int i=0;i<comm_->NumProc();i++)
       for (int j=0;j<len;j++)
         {
         //DEBUG("col: "<<cols[j]<<" part: "<<(*partitioner_)(cols[j]));
-        connectedSubs[j]=(*partitioner_)(cols[j]);
+        int flow = partitioner_->flow(row,cols[j]);
+        // if the row and col are not in the same subdomain, multiply
+        // the partition ID by +1 or -1, depending on the "direction of
+        // flow" across the separator. If we don't do this, for periodic
+        // BC we can get two different separators identified as one, e.g
+        //                                                              
+        // | SD1 | SD2 |        (here separators s1 and s2 both connect 
+        // s1    s2    s1       to subdomains SD1 and SD2)              
+        //                                                              
+        int sign = flow? flow:1;
+        connectedSubs[j]=sign*(*partitioner_)(cols[j]);
         }
       int variableType=partitioner_->VariableType(row);
       SepNode S(row,connectedSubs,variableType);
