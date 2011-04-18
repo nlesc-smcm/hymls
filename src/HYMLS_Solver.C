@@ -566,6 +566,24 @@ STOP_TIMER2(label_,"Subdomain factorization");
   START_TIMER2(label_,"Construct Schur-Complement");
   CHECK_ZERO(Schur_->Construct());
   STOP_TIMER2(label_,"Construct Schur-Complement");
+  
+  // the scaling is somewhat adhoc right now.
+  
+  // TODO: this is not true in general but works for some       
+  //       problems we're trying to tackle:                     
+  //    Laplace - no scaling                                    
+  //    Navier-Stokes with uv(w)p ording - diagonal scaling of  
+  //            V-nodes not coupled to P-nodes                  
+  //    THCM - doesn't work because P is variable 4 out of 6.   
+  if (hid_->Partitioner().DofPerNode()>4)
+    {
+    Tools::Error("scaling not implemented for THCM",__FILE__,__LINE__);
+    }
+  int pvar=hid_->Partitioner().DofPerNode()-1;
+  schurScaLeft_=Schur_->ConstructLeftScaling(pvar);
+  schurScaRight_=Schur_->ConstructRightScaling();
+    
+  CHECK_ZERO(Schur_->Scale(schurScaLeft_,schurScaRight_));
     
   if (usePreconditioner_)
     {
@@ -753,10 +771,13 @@ STOP_TIMER2(label_,"Subdomain factorization");
       // set initial vector to 0
       EPETRA_CHK_ERR(schurSol_->PutScalar(0.0));
       }
-      
+
+  // left-scale rhs with schurScaLeft_
+  CHECK_ZERO(schurRhs_->Multiply(1.0, *schurScaLeft_, *schurRhs_, 0.0))
+    
 #ifdef TESTING      
     MatrixUtils::Dump(*(*schurRhs_)(0), "SchurRHS.txt",true);
-#endif    
+#endif
     // solve Schur-complement problem
     DEBUG("solve Schur...");    
     CHECK_TRUE(schurProblemPtr_->setProblem());
@@ -770,6 +791,9 @@ STOP_TIMER2(label_,"Subdomain factorization");
 #ifdef TESTING
     MatrixUtils::Dump(*(*schurSol_)(0), "SchurSOL.txt",true);
 #endif
+
+  // unscale rhs with schurScaRight_
+  CHECK_ZERO(schurSol_->ReciprocalMultiply(1.0, *schurScaRight_, *schurSol_, 0.0))
 
     //
     // Get the number of iterations for this solve.

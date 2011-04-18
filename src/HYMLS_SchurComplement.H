@@ -111,6 +111,31 @@ public:
 
   //@}
 
+  //! get appropriate left scaling vector for this Schur complement
+  
+  /*! currently diagonal scaling with this vector makes all diagonal entries of
+      rows that are coupled to P-nodes 1. This scaling is actually only computed
+      when the Schur-complement is explicitly constructed using Construct(), otherwise
+      an all 1 vector is returned and a warning is issued.
+      p_variable indicates which variables are the P-nodes, i.e. the class BasePartitioner
+      will return VariableType(gid)=p_variable if gid is a P-node.
+  */
+  Teuchos::RCP<Epetra_Vector> ConstructLeftScaling(int p_variable);
+
+  //! get appropriate right scaling vector for this Schur complement
+  
+  /*! currently this vector contains all ones.
+  */
+  Teuchos::RCP<Epetra_Vector> ConstructRightScaling() {return sca_right_;}
+  
+  //! apply left and right scaling to matrix representation. Currently a nonzero
+  //! error code is returned if the matrix is not constructed.
+  int Scale(Teuchos::RCP<Epetra_Vector> sca_left,Teuchos::RCP<Epetra_Vector> sca_right);
+
+  //! apply inverse of left and right scaling to matrix representation. Currently a nonzero
+  //! error code is returned if the matrix is not constructed.
+  int Unscale(Teuchos::RCP<Epetra_Vector> sca_left,Teuchos::RCP<Epetra_Vector> sca_right);
+
   //! get number of flops during Apply()
   double ApplyFlops() const {return flopsApply_;}
 
@@ -136,6 +161,9 @@ protected:
  
   Teuchos::RCP<const Epetra_CrsMatrix> Scrs_;
  
+   //! left and right scaling vectors
+  Teuchos::RCP<Epetra_Vector> sca_left_,sca_right_;
+
  //! indicates if the operator is constructed in sparse matrix form
  bool isConstructed_;
   
@@ -153,7 +181,7 @@ protected:
 
   //! flops performed during Construct()
   mutable double flopsCompute_;
-  
+    
 protected:
 
   //! creates the global indices associated with a partial Schur-complement for one 

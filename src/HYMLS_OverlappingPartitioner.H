@@ -3,6 +3,7 @@
 
 #include "HYMLS_RecursiveOverlappingPartitioner.H"
 #include "Teuchos_RCP.hpp"
+#include "Teuchos_Array.hpp"
 #include "Galeri_Periodic.h"
 
 // forward declarations

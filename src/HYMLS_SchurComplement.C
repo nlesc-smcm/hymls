@@ -43,6 +43,10 @@ namespace HYMLS {
     sparseMatrixRepresentation_ = Teuchos::rcp(new 
       Epetra_FECrsMatrix(Copy,map,hid.NumSeparatorElements(0)));
     Scrs_=sparseMatrixRepresentation_;
+    sca_left_=Teuchos::rcp(new Epetra_Vector(map));
+    sca_right_=Teuchos::rcp(new Epetra_Vector(map));
+    sca_left_->PutScalar(1.0);
+    sca_right_->PutScalar(1.0);
     }
 
   // destructor
@@ -350,6 +354,86 @@ namespace HYMLS {
     return 0;
     }
 
+Teuchos::RCP<Epetra_Vector> SchurComplement::ConstructLeftScaling(int p_variable)
+  {
+  sca_left_->PutScalar(1.0);
+  double *val; 
+  int* ind;
+  int len;
+  bool has_pcol;
+  double diag;
+  const OverlappingPartitioner& hid = mother_->Partitioner();
+  const BasePartitioner& BP = hid.Partitioner();
+  if (!IsConstructed())
+    {
+    Tools::Warning("Schur-complement not constructed, using default scaling",__FILE__,__LINE__);
+    }
+  else
+    {
+    for (int i=0;i<Scrs_->NumMyRows();i++)
+      {
+      diag=1.0;
+      has_pcol=false;
+      CHECK_ZERO(Scrs_->ExtractMyRowView(i,len,val,ind));
+      for (int j=0;j<len;j++)
+        {
+        if (Scrs_->GRID(i)==Scrs_->GCID(ind[j]))
+          {
+          diag=abs(val[j]);
+          }
+        if (BP.VariableType(Scrs_->GCID(ind[j]))==p_variable)
+          {
+          has_pcol=true;
+          }
+        }
+      if ((has_pcol==false) && (diag>1.0e-10))
+        {
+        (*sca_left_)[i] = 1.0/diag;
+        }
+      }
+    }
+  return sca_left_;
+  }
+
+int SchurComplement::Scale(Teuchos::RCP<Epetra_Vector> sca_left, Teuchos::RCP<Epetra_Vector> sca_right)
+  {
+  int ierr=0;
+  if (!IsConstructed())    
+    {
+    ierr=1;
+    }
+  else
+    {
+    ierr=sparseMatrixRepresentation_->LeftScale(*sca_left);
+    if (ierr==0)
+      {
+      ierr=sparseMatrixRepresentation_->RightScale(*sca_right);
+      }
+    }
+  return ierr;
+  }
+
+int SchurComplement::Unscale(Teuchos::RCP<Epetra_Vector> sca_left, Teuchos::RCP<Epetra_Vector> sca_right)
+  {
+  int ierr=0;
+  if (!IsConstructed())    
+    {
+    ierr=1;
+    }
+  else
+    {
+    Epetra_Vector left(sca_left->Map());
+    left.Reciprocal(*sca_left);
+    Epetra_Vector right(sca_right->Map());
+    right.Reciprocal(*sca_right);
+    ierr=sparseMatrixRepresentation_->LeftScale(left);
+    if (ierr==0)
+      {
+      ierr=sparseMatrixRepresentation_->RightScale(right);
+      }
+    }
+  return ierr;
+  }
 
 }
 

@@ -218,7 +218,10 @@ protected:
   Teuchos::Array<Teuchos::RCP<ifpackSolverType_> > subdomainSolver_;
   
   //! operator representation of our Schur-complement
-  Teuchos::RCP<SchurComplement> Schur_;
+  mutable Teuchos::RCP<SchurComplement> Schur_;
+  
+  //! left- and right scaling for the Schur complement
+  Teuchos::RCP<Epetra_Vector> schurScaLeft_, schurScaRight_;
 
   //! A12, A21 and A22-part of matrix
   //! 1: associated with interior variables
