@@ -383,7 +383,7 @@ Teuchos::RCP<Epetra_Vector> SchurComplement::ConstructLeftScaling(int p_variable
           }
         if (BP.VariableType(Scrs_->GCID(ind[j]))==p_variable)
           {
-          has_pcol=true;
+          if (abs(val[j])>1.0e-8) has_pcol=true;
           }
         }
       if ((has_pcol==false) && (diag>1.0e-10))

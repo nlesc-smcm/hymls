@@ -26,6 +26,8 @@
 #include "HYMLS_Solver.H"
 #include "HYMLS_MatrixUtils.H"
 
+#include "main_utils.H"
+
 using namespace Teuchos;
 
 
@@ -83,6 +85,23 @@ int status=0;
     int numSolves=driverList.get("Number of solves",1);
     double perturbation = driverList.get("Diagonal Perturbation",0.0);
 
+    bool read_problem=driverList.get("Read Linear System",false);
+    string datadir,file_format;
+    bool have_exact_sol;
+
+    if (read_problem)
+      {
+      datadir = driverList.get("Data Directory","not specified");
+      if (datadir=="not specified")
+        {
+        HYMLS::Tools::Error("'Data Directory' not specified although 'Read Linear System' is true",
+                __FILE__,__LINE__);
+        }                
+      file_format = driverList.get("File Format","MatrixMarket");
+      have_exact_sol = driverList.get("Exact Solution Available",false);
+      }
+
+
     driverList.unused(std::cerr);
     params->remove("Driver");
 
@@ -92,45 +111,71 @@ int status=0;
     int dim=probl_params.get("Dimension",2);
     std::string eqn=probl_params.get("Equations","Laplace");
 
+  int nx=probl_params.get("nx",32);
+  int ny=probl_params.get("ny",nx);
+  int nz=probl_params.get("nz",dim>2? nx:1);
 
   ParameterList galeriList;
   
-  galeriList.set("nx",probl_params.get("nx",32));
-  galeriList.set("ny",probl_params.get("ny",32));
-  galeriList.set("nz",probl_params.get("nz",(dim>2)?32:1));
-    
-  std::string mapType="Cartesian"+toString(dim)+"D";
+  galeriList.set("nx",nx);
+  galeriList.set("ny",ny);
+  galeriList.set("nz",nz);
 
-  HYMLS::Tools::Out("Create map");
-  try {
-  map=rcp(Galeri::CreateMap(mapType, *comm, galeriList));
-  } catch (Galeri::Exception G) {G.Print();}
+  if (eqn=="Laplace")
+    {    
+    std::string mapType="Cartesian"+toString(dim)+"D";
 
-  HYMLS::Tools::Out("Create matrix");
+    HYMLS::Tools::Out("Create map");
+    try {
+    map=rcp(Galeri::CreateMap(mapType, *comm, galeriList));
+    } catch (Galeri::Exception G) {G.Print();}
+    }
+  else if (eqn=="Stokes-C")
+    {
+    int dof=dim+1;
+    map=HYMLS::MatrixUtils::CreateMap(nx,ny,nz,dof,0,*comm);
+    }
+  else
+    {
+    HYMLS::Tools::Error("cannot determine problem type from 'Equation' parameter "+eqn,
+        __FILE__, __LINE__);
+    }
 
-  std::string matrixType=eqn+toString(dim)+"D";
-  try {
-  K=rcp(Galeri::CreateCrsMatrix(matrixType, map.get(), galeriList));
-  } catch (Galeri::Exception G) {G.Print();}
-
-#ifdef TESTING  
-  HYMLS::MatrixUtils::Dump(*K, "Matrix.txt");
-#endif  
-
-  // create a random exact solution
-  Teuchos::RCP<Epetra_Vector> x_ex = Teuchos::rcp(new Epetra_Vector(*map));
-#ifdef DEBUGGING
-  int seed=42;
-  CHECK_ZERO(HYMLS::MatrixUtils::Random(*x_ex, seed));
-#else
-  CHECK_ZERO(HYMLS::MatrixUtils::Random(*x_ex));
-#endif
-
-  // construct right-hand side
-  Teuchos::RCP<Epetra_Vector> b = Teuchos::rcp(new Epetra_Vector(*map));
+  // right-hand side
+  Teuchos::RCP<Epetra_Vector> b;
 
   // approximate solution
   Teuchos::RCP<Epetra_Vector> x = Teuchos::rcp(new Epetra_Vector(*map));
+
+  // exact solution
+  Teuchos::RCP<Epetra_Vector> x_ex;
+
+  if (read_problem)
+    {
+    K=read_matrix(datadir,file_format,map);
+    b=read_vector("rhs",datadir,file_format,map);
+    if (have_exact_sol)
+      {
+      x_ex=read_vector("sol",datadir,file_format,map);
+      }
+    }
+  else
+    {
+    HYMLS::Tools::Out("Create matrix");
+
+    std::string matrixType=eqn+toString(dim)+"D";
+    try {
+    K=rcp(Galeri::CreateCrsMatrix(matrixType, map.get(), galeriList));
+    } catch (Galeri::Exception G) {G.Print();}
+
+    // create a random exact solution
+    x_ex = Teuchos::rcp(new Epetra_Vector(*map));
+    b = Teuchos::rcp(new Epetra_Vector(*map));
+    have_exact_sol=true;
+    }
+#ifdef TESTING  
+  HYMLS::MatrixUtils::Dump(*K, "Matrix.txt");
+#endif  
   
   
   HYMLS::Tools::Out("Create Solver");
@@ -147,6 +192,7 @@ int status=0;
 
 for (int f=0;f<numComputes;f++)
   {
+  /*
   // change the matrix values just to see if that works
   Epetra_Vector diag(*x_ex);
   CHECK_ZERO(K->ExtractDiagonalCopy(diag));
@@ -157,6 +203,7 @@ for (int f=0;f<numComputes;f++)
     diag[i]=diag[i] + diag_pert[i]*perturbation;
     }
   CHECK_ZERO(K->ReplaceDiagonalValues(diag));
+  */
   HYMLS::Tools::Out("Compute Solver ("+Teuchos::toString(f+1)+")");
   START_TIMER(std::string("main"),"COMPUTE");
   CHECK_ZERO(solver->Compute());
@@ -166,13 +213,31 @@ for (int f=0;f<numComputes;f++)
   
   for (int s=0;s<numSolves;s++)
     {
-    CHECK_ZERO(HYMLS::MatrixUtils::Random(*x_ex));
-    CHECK_ZERO(K->Multiply(false,*x_ex,*b));
+    if (!read_problem)
+      {
+      CHECK_ZERO(HYMLS::MatrixUtils::Random(*x_ex));
+      CHECK_ZERO(K->Multiply(false,*x_ex,*b));
+      }
 
     HYMLS::Tools::Out("Solve ("+Teuchos::toString(s+1)+")");
     START_TIMER(std::string("main"),"SOLVE");
     CHECK_ZERO(solver->ApplyInverse(*b,*x));
     STOP_TIMER(std::string("main"),"SOLVE");
+    
+    // subtract constant from pressure if solving Stokes-C
+    if (eqn=="Stokes-C")
+      {
+      int dof=dim+1;
+      double pref=(*x)[dim];
+      if (have_exact_sol)
+        {
+        pref -= (*x_ex)[dim];
+        }
+      for (int i=dim; i<x->MyLength();i+=dof)
+        {
+        (*x)[i]-=pref;
+        }
+      }
   
     HYMLS::Tools::Out("Compute residual.");
   
@@ -183,8 +248,10 @@ for (int f=0;f<numComputes;f++)
 
     CHECK_ZERO(K->Multiply(false,*x,*res));
     CHECK_ZERO(res->Update(1.0,*b,-1));
-  
-    CHECK_ZERO(err->Update(1.0,*x,-1.0,*x_ex,0.0));
+    if (have_exact_sol)
+      {
+      CHECK_ZERO(err->Update(1.0,*x,-1.0,*x_ex,0.0));
+      }
   
     double errNorm,resNorm;
   
@@ -192,7 +259,10 @@ for (int f=0;f<numComputes;f++)
     res->Norm2(&resNorm);
   
     HYMLS::Tools::Out("Residual Norm: "+toString(resNorm));
-    HYMLS::Tools::Out("Error Norm: "+toString(errNorm));
+    if (have_exact_sol)
+      {
+      HYMLS::Tools::Out("Error Norm: "+toString(errNorm));
+      }
     }
   }
   

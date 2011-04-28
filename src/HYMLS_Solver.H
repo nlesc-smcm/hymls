@@ -221,6 +221,7 @@ protected:
   mutable Teuchos::RCP<SchurComplement> Schur_;
   
   //! left- and right scaling for the Schur complement
+  bool scaleSchur_;
   Teuchos::RCP<Epetra_Vector> schurScaLeft_, schurScaRight_;
 
   //! A12, A21 and A22-part of matrix

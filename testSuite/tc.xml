@@ -11,25 +11,25 @@
     <Parameter name="Number of solves" type="int" value="1"/>
     <Parameter name="Diagonal Perturbation" type="double" value="0.0"/>
   
-    <Parameter name="Store Solution" type="bool" value="0"/>
+    <Parameter name="Store Solution" type="bool" value="1"/>
     <Parameter name="Store Matrix" type="bool" value="0"/>
     
     <Parameter name="Read Linear System" type="bool" value="1"/>
-    <Parameter name="Data Directory" type="string" value="data/TaylorCouette/16x16x16"/>
+    <Parameter name="Data Directory" type="string" value="data/TaylorCouette/32x32x32"/>
     <Parameter name="File Format" type="string" value="MatrixMarket"/>
     <Parameter name="Exact Solution Available" type="bool" value="1"/>
   
   </ParameterList>
 
   <ParameterList name="Problem"><!--{-->
-  
+
     <Parameter name="Equations" type="string" value="Stokes-C"/>
      <Parameter name="y-periodic" type="bool" value="1"/>
     <Parameter name="Dimension" type="int" value="3"/>
 
-    <Parameter name="nx" type="int" value="16"/>
-    <Parameter name="ny" type="int" value="16"/>
-    <Parameter name="nz" type="int" value="16"/>
+    <Parameter name="nx" type="int" value="32"/>
+    <Parameter name="ny" type="int" value="32"/>
+    <Parameter name="nz" type="int" value="32"/>
     
   </ParameterList><!--}-->
   
@@ -43,10 +43,14 @@
     <!-- number of levels to be created (1: direct solver for Schur complement, -->
     <!-- 2: solve Schur iteratively and reduced Schur directly,                 -->
     <!-- >2: not implemented.                                                   -->
-    <Parameter name="Number of Levels" type="int" value="1"/>
+    <Parameter name="Number of Levels" type="int" value="2"/>
     
     <!-- set this to 'true' to disable preconditioning for the Schur-complement -->
     <Parameter name="No Preconditioning" type="bool" value="0"/>
+    
+    <!-- apply diagonal scaling to Schur-complement -->
+    <!-- We currently scale those rows to 1 that do not have an entry in a P-column -->
+    <Parameter name="Scale Schur-Complement" type="bool" value="0"/>
     
     <!-- This is intended for debugging in the first place - build complete -->
     <!-- Schur complement as a sparse matrix instead of just building       -->

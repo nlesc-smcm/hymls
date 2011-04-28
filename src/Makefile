@@ -13,8 +13,8 @@ OBJ=    HYMLS_Solver.o \
         HYMLS_View_MultiVector.o \
         HYMLS_Householder.o \
         HYMLS_Tools.o \
-        Galeri_Periodic.o
-        
+        Galeri_Periodic.o \
+        main_utils.o
 
 LIBNAMEBASE=hymls_${PLAT}
 LIBNAME=lib${LIBNAMEBASE}.a
