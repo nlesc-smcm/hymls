@@ -198,9 +198,10 @@ namespace HYMLS {
     {
     // drop numerical zeros:
     reducedSchur_ = MatrixUtils::DropByValue(SchurMatrix_, 1.0e-8, MatrixUtils::Absolute);
-    
+
     // compute scaling for reduced Schur
-    EPETRA_CHK_ERR(ComputeScaling(*reducedSchur_,reducedSchurScaLeft_,reducedSchurScaRight_));
+    //EPETRA_CHK_ERR(ComputeScaling(*reducedSchur_,reducedSchurScaLeft_,reducedSchurScaRight_));
+    CHECK_ZERO(ComputeScaling(*reducedSchur_,reducedSchurScaLeft_,reducedSchurScaRight_));
 
     DEBUG("scale matrix");
     EPETRA_CHK_ERR(reducedSchur_->LeftScale(*reducedSchurScaLeft_));
@@ -213,6 +214,7 @@ namespace HYMLS {
 #ifdef TESTING
     MatrixUtils::Dump(*linearMatrix_,"ScaledS2.txt");    
 #endif        
+    
     Teuchos::ParameterList& amesosList=params_->sublist("Solver").sublist("Coarse Solver");
     if (amesosList.get("amesos: solver type","Amesos_Klu")=="Amesos_Mumps")
       {
@@ -244,7 +246,6 @@ namespace HYMLS {
       }
         
         
-
     reducedSchurSolver_= Teuchos::rcp(new Ifpack_Amesos(linearMatrix_.get()));
     IFPACK_CHK_ERR(reducedSchurSolver_->SetParameters(amesosList));
   

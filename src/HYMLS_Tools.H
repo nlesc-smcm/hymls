@@ -17,8 +17,13 @@
 #include "Teuchos_FancyOStream.hpp"
 #include "Teuchos_ParameterList.hpp"
 
+#ifdef DEBUGGING
+#define TIMING_LEVEL 10
+#define PRINT_TIMING false
+#else
 #define TIMING_LEVEL 1
 #define PRINT_TIMING false
+#endif
 
 #if TIMING_LEVEL>0
 #define START_TIMER(s1,s2) HYMLS::Tools::StartTiming(s1+": "+s2);

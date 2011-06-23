@@ -788,7 +788,7 @@ void MatrixUtils::Dump(const Epetra_CrsMatrix& A, const string& filename,bool re
       {
       ofs = rcp(new std::ofstream(filename.c_str()));
       }
-    *ofs << std::setw(15) << std::setprecision(15);
+    *ofs << std::scientific << std::setw(15) << std::setprecision(15);
     *ofs << *(MatrixUtils::Gather(A,0));
 #else
     int my_rank = A.Comm().MyPID();
@@ -805,7 +805,7 @@ void MatrixUtils::Dump(const Epetra_CrsMatrix& A, const string& filename,bool re
           {
           ofs = rcp(new std::ofstream(filename.c_str(),std::ios::app));
           }          
-        *ofs << std::setw(15) << std::setprecision(15);
+        *ofs << std::scientific << std::setw(15) << std::setprecision(15);
         *ofs << A;
         ofs->close();
         }
@@ -871,7 +871,7 @@ void MatrixUtils::Dump(const Epetra_MultiVector& x, const string& filename,bool 
       {
       ofs = rcp(new std::ofstream(filename.c_str()));
       }
-    *ofs << std::setw(15) << std::setprecision(15);
+    *ofs << std::scientific << std::setw(15) << std::setprecision(15);
     *ofs << *(MatrixUtils::Gather(*(x(0)),0));
     }
   }
@@ -1221,7 +1221,7 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
     new_len=0;
     for (int j=0;j<len;j++)
       {
-      if (std::abs(values[j]) > thres)
+      if ( (std::abs(values[j]) > thres)||(A->GCID(indices[j])==A->GRID(i)) )
         {
         new_values[new_len]=values[j];
         new_indices[new_len]=A->GCID(indices[j]);
@@ -1234,6 +1234,7 @@ for (int j=0;j<new_len;j++)
   {
   Tools::deb() << "("<<new_indices[j]<<", "<<new_values[j]<<") ";
   }
+Tools::deb() << std::endl;
 #endif    
     CHECK_ZERO(mat->InsertGlobalValues(A->GRID(i),new_len,new_values,new_indices));
     }
@@ -1241,6 +1242,7 @@ for (int j=0;j<new_len;j++)
   delete [] new_indices;
   delete [] new_values;
 
+  DEBUG("calling FillComplete()");
   CHECK_ZERO(mat->FillComplete());
   
 #ifdef TESTING
@@ -1255,7 +1257,6 @@ Tools::Out(" => dropped "+Teuchos::toString(percent_dropped)+"% of nonzeros");
 #endif
 
   STOP_TIMER2(std::string("MatrixUtils"),"DropByValue");
-  
   return mat;
   }
 

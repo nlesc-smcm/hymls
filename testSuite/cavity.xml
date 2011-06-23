@@ -82,7 +82,7 @@
     <ParameterList name="Coarse Solver">
       <!-- "Amesos_Klu" is the default here. This system is distributed, and  -->
       <!-- it may be worthwile using Amesos_Mumps, for instance.              -->
-      <Parameter name="amesos: solver type" type="string" value="Amesos_Mumps"/>
+      <Parameter name="amesos: solver type" type="string" value="Amesos_Klu"/>
       <ParameterList name="mumps">
         <!-- output stream: stdout=6, none=-1 -->
         <Parameter name="ICNTL(1)" type="int" value="-1"/>

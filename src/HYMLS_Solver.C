@@ -568,6 +568,15 @@ STOP_TIMER2(label_,"Subdomain factorization");
     
   START_TIMER2(label_,"Construct Schur-Complement");
   CHECK_ZERO(Schur_->Construct());
+
+#ifdef TESTING
+  if (Schur_->IsConstructed())
+    {
+    //MatrixUtils::Dump(*(Schur_->Matrix()),"SchurComplement.txt",false);
+    MatrixUtils::Dump(*(Schur_->Matrix()),"SchurReindexed.txt",true);
+    }
+#endif
+
   STOP_TIMER2(label_,"Construct Schur-Complement");
   
   if (scaleSchur_)
@@ -605,14 +614,6 @@ STOP_TIMER2(label_,"Subdomain factorization");
     CHECK_ZERO(schurPrec_->Compute());
     }
 
-#ifdef TESTING
-  if (Schur_->IsConstructed())
-    {
-    //MatrixUtils::Dump(*(Schur_->Matrix()),"SchurComplement.txt",false);
-    MatrixUtils::Dump(*(Schur_->Matrix()),"SchurReindexed.txt",true);
-    }
-#endif    
-  
   computed_ = true;
   timeCompute_ += time_->ElapsedTime();
   numCompute_++;
