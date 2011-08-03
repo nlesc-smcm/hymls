@@ -264,6 +264,13 @@ namespace HYMLS {
       hid_=Teuchos::rcp(new HYMLS::OverlappingPartitioner(matrix_,params_));
       }
 
+#ifdef TESTING
+  this->Visualize("hid_data_deb.m",false);
+  // preconditioner will do the same thing,
+  // so the hid_data_deb.m file is always written,
+  // even if the program crashes before the end of
+  // the Compute() phase.
+#endif
 
     // create all arrays we need
     DEBUG("allocate memory for blocks");
@@ -956,7 +963,9 @@ if (comm_->MyPID()==0)
 
     if (ret!=Belos::Converged) 
       {
-      Tools::Warning("Belos did not converge!",__FILE__,__LINE__);    
+      // the nature of the problem is kind of hard to determine...
+      Tools::Warning("Level "+Teuchos::toString(myLevel_)+
+        ": Belos returned "+Teuchos::toString((int)ret)+"!",__FILE__,__LINE__);    
 #ifdef TESTING     
       Teuchos::RCP<const Epetra_CrsMatrix> Acrs =
         Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_);

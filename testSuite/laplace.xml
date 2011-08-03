@@ -40,7 +40,7 @@
     <!-- number of levels to be created (1: direct solver for Schur complement, -->
     <!-- 2: solve Schur iteratively and reduced Schur directly,                 -->
     <!-- >2: not implemented.                                                   -->
-    <Parameter name="Number of Levels" type="int" value="3"/>
+    <Parameter name="Number of Levels" type="int" value="4"/>
     
     <!-- when using more than two levels, use a krylov method on each level? -->
     <Parameter name="Nested Iterations" type="bool" value="1"/>

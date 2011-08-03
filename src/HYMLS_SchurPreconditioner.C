@@ -207,6 +207,11 @@
     // drop numerical zeros:
     reducedSchur_ = MatrixUtils::DropByValue(SchurMatrix_, 1.0e-8, MatrixUtils::Absolute);
 
+    for (int i=0;i<fix_gid_.length();i++)
+      {
+      EPETRA_CHK_ERR(MatrixUtils::PutDirichlet(*reducedSchur_,fix_gid_[i]));
+      }
+
     // compute scaling for reduced Schur
     //EPETRA_CHK_ERR(ComputeScaling(*reducedSchur_,reducedSchurScaLeft_,reducedSchurScaRight_));
     CHECK_ZERO(ComputeScaling(*reducedSchur_,reducedSchurScaLeft_,reducedSchurScaRight_));
@@ -343,12 +348,11 @@
   EPETRA_CHK_ERR(reducedSchur_->Import(*matrix_, *vsumImporter_, Insert));
 
   EPETRA_CHK_ERR(reducedSchur_->FillComplete(*vsumMap_,*vsumMap_));
-  for (int i=0;i<fix_gid_.length();i++)
-    {
-    EPETRA_CHK_ERR(MatrixUtils::PutDirichlet(*reducedSchur_,fix_gid_[i]));
-    }
-  
-  //reducedSchur_ = MatrixUtils::DropByValue(reducedSchur_, 1.0e-14,MatrixUtils::Absolute);
+
+  //TODO: at this point we would like to throw out numerical zeros, I think.
+  //      However, that would mean resetting the pointer and invalidating
+  //      the reducedSchurSolver. Possibly it is not necessary, though.
+//  reducedSchur_ = MatrixUtils::DropByValue(reducedSchur_, 1.0e-14,MatrixUtils::Absolute);
   
 #ifdef STORE_MATRICES
     MatrixUtils::Dump(*reducedSchur_,"Schur"+Teuchos::toString(myLevel_+1)+".txt",true);
@@ -377,6 +381,7 @@
   computed_ = true;
   timeCompute_ += time_->ElapsedTime();
   numCompute_++;
+  STOP_TIMER(label_,"Compute");
   return 0;
   }
 
@@ -514,25 +519,21 @@ int SchurPreconditioner::InitializeSeparatorGroups()
     }
 
 #ifdef DEBUGGING
-    std::ofstream ofs1,ofs2,ofs3;
+    std::ofstream ofs1,ofs2;
     if (myLevel_==1)
       {
-//      ofs1.open("hid_data.m",std::ios::out);
-      ofs2.open("sep_data.m",std::ios::out);
-      std::ofstream ofs3("lsep_data.m",std::ios::out);
+      ofs1.open("sep_data.m",std::ios::out);
+      ofs2.open("lsep_data.m",std::ios::out);
       }
     else
       {
-//      ofs1.open("hid_data.m",std::ios::app);
-      ofs2.open("sep_data.m",std::ios::app);
-      std::ofstream ofs3("lsep_data.m",std::ios::app);
+      ofs1.open("sep_data.m",std::ios::app);
+      ofs2.open("lsep_data.m",std::ios::app);
       }
-//    ofs1 << *hid_;
+    ofs1<<*(hid_->Spawn(RecursiveOverlappingPartitioner::Separators));
     ofs1.close();
-    ofs2<<*(hid_->Spawn(RecursiveOverlappingPartitioner::Separators));
+    ofs2<<*(hid_->Spawn(RecursiveOverlappingPartitioner::LocalSeparators));
     ofs2.close();
-    ofs3<<*(hid_->Spawn(RecursiveOverlappingPartitioner::LocalSeparators));
-    ofs3.close();
 #endif      
 
   STOP_TIMER2(label_,"InitializeSeparatorGroups");
@@ -652,6 +653,7 @@ int SchurPreconditioner::InitializeOT()
 
       reducedSchur_=Teuchos::rcp(new 
             Epetra_CrsMatrix(Copy,*vsumMap_,*vsumColMap_,numBlocks));
+            
       vsumImporter_=Teuchos::rcp(new Epetra_Import(*vsumMap_,*map_));
 
       // import sparsity pattern for S2
@@ -659,14 +661,16 @@ int SchurPreconditioner::InitializeOT()
       CHECK_ZERO(reducedSchur_->Import(*matrix_, *vsumImporter_, Insert));
       CHECK_ZERO(reducedSchur_->FillComplete(*vsumMap_,*vsumMap_));
 
+      // drop numerical zeros so that the domain decomposition works
+      reducedSchur_=MatrixUtils::DropByValue(reducedSchur_,1.0e-14,MatrixUtils::Absolute);
+      
       // I think this is required to make the matrix Ifpack-proof:
       reducedSchur_ = MatrixUtils::RemoveColMap(reducedSchur_);
       CHECK_ZERO(reducedSchur_->FillComplete(*vsumMap_,*vsumMap_));
   
-      for (int i=0;i<fix_gid_.length();i++)
-        {
-        CHECK_ZERO(MatrixUtils::PutDirichlet(*reducedSchur_,fix_gid_[i]));
-        }    
+#ifdef TESTING
+  this->Visualize("hid_data_deb.m",false);
+#endif
 
   DEBVAR("Create solver for reduced Schur");
 
@@ -685,6 +689,11 @@ int SchurPreconditioner::InitializeOT()
     }
   else
     {
+    // fix pressure on coarsest level:
+    for (int i=0;i<fix_gid_.length();i++)
+      {
+      CHECK_ZERO(MatrixUtils::PutDirichlet(*reducedSchur_,fix_gid_[i]));
+      }    
     // create another level of HYMLS::SchurPreconditioner, it will figure out
     // itself that it is a direct solver. Therefore it also doesn't need an
     // OverlappingPartitioner object.
@@ -1150,7 +1159,7 @@ int SchurPreconditioner::ComputeScaling(const Epetra_CrsMatrix& A,
   return 0;
   } 
 
-void SchurPreconditioner::Visualize(std::string mfilename) const
+void SchurPreconditioner::Visualize(std::string mfilename,bool recurse) const
   {
   if (myLevel_<maxLevel_)
     {
@@ -1170,9 +1179,12 @@ void SchurPreconditioner::Visualize(std::string mfilename) const
       comm_->Barrier();
       }
     ofs.close();
-    Teuchos::RCP<const HYMLS::Solver> hymls =
-        Teuchos::rcp_dynamic_cast<const HYMLS::Solver>(reducedSchurSolver_);
-    if (!Teuchos::is_null(hymls)) hymls->Visualize(mfilename);
+    if (recurse)
+      {
+      Teuchos::RCP<const HYMLS::Solver> hymls =
+          Teuchos::rcp_dynamic_cast<const HYMLS::Solver>(reducedSchurSolver_);
+      if (!Teuchos::is_null(hymls)) hymls->Visualize(mfilename);
+      }
     }
   }
 }// namespace

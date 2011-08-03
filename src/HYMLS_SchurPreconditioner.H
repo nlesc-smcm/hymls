@@ -71,7 +71,7 @@ public:
   ~SchurPreconditioner();
   
   //! write matlab data for visualization
-  void Visualize(std::string filename) const;
+  void Visualize(std::string filename, bool recurse=true) const;
 
   //!\name Ifpack_Preconditioner interface
   
