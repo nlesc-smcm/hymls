@@ -17,6 +17,7 @@
 #include "Teuchos_FancyOStream.hpp"
 #include "Teuchos_ParameterList.hpp"
 
+
 #ifdef DEBUGGING
 #define TIMING_LEVEL 10
 #ifndef FUNCTION_TRACING
@@ -24,7 +25,7 @@
 #endif
 #define PRINT_TIMING false
 #else
-#define TIMING_LEVEL 1
+#define TIMING_LEVEL 2
 #define PRINT_TIMING false
 #endif
 

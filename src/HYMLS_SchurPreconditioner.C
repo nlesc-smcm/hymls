@@ -31,7 +31,7 @@
 #include "EpetraExt_Reindex_MultiVector.h" 
 #include "EpetraExt_MatrixMatrix.h"
 
-namespace HYMLS {
+        namespace HYMLS {
 
 
   // constructor
@@ -332,12 +332,12 @@ namespace HYMLS {
 #endif
 
   // compute LU decompositions of blocks...
-  START_TIMER2(label_,"factor blocks");
+  START_TIMER(label_,"factor blocks");
   for (int i=0;i<blockSolver_.size();i++)
     {
     IFPACK_CHK_ERR(blockSolver_[i]->Compute(*matrix_));
     }
-  STOP_TIMER2(label_,"factor blocks");
+  STOP_TIMER(label_,"factor blocks");
 
   // extract the Vsum part of the preconditioner (reduced Schur)
   EPETRA_CHK_ERR(reducedSchur_->Import(*matrix_, *vsumImporter_, Insert));
@@ -715,7 +715,7 @@ int SchurPreconditioner::InitializeOT()
 
   int SchurPreconditioner::TransformAndDrop()
     {
-    START_TIMER2(label_,"TransformAndDrop");
+    START_TIMER(label_,"TransformAndDrop");
 #ifdef DEBUGGING    
     MatrixUtils::Dump(*SchurMatrix_,"S"+Teuchos::toString(myLevel_)+".txt",true);
     MatrixUtils::Dump(*sparseMatrixOT_,"H"+Teuchos::toString(myLevel_)+".txt",true);
@@ -735,7 +735,7 @@ int SchurPreconditioner::InitializeOT()
       }
 
     EPETRA_CHK_ERR(matrix_->FillComplete());
-    STOP_TIMER2(label_,"TransformAndDrop");
+    STOP_TIMER(label_,"TransformAndDrop");
     return 0;
     }
 
@@ -1152,28 +1152,27 @@ int SchurPreconditioner::ComputeScaling(const Epetra_CrsMatrix& A,
 
 void SchurPreconditioner::Visualize(std::string mfilename) const
   {
-  std::ofstream ofs(mfilename.c_str(),std::ios::app);
-  for (int i=0;i<comm_->NumProc();i++)
-    {
-    if (comm_->MyPID()==i)
-      {
-      ofs << "% rank "<<comm_->MyPID() << ": prec label "<<Label()<<std::endl;
-      ofs << "p{"<<myLevel_<<"}{"<<1+i<<"}.vsums=[";
-      for (int j=0;j<vsumMap_->NumMyElements();j++)
-        {
-        ofs << vsumMap_->GID(j) << " ";
-        }
-      ofs << "];"<<std::endl;
-      }
-    comm_->Barrier();
-    }
-  ofs.close();
   if (myLevel_<maxLevel_)
     {
+    std::ofstream ofs(mfilename.c_str(),std::ios::app);
+    for (int i=0;i<comm_->NumProc();i++)
+      {
+      if (comm_->MyPID()==i)
+        {
+        ofs << "% rank "<<comm_->MyPID() << ": "<<Label()<<std::endl;
+        ofs << "p{"<<myLevel_<<"}{"<<1+i<<"}.vsums=[";
+        for (int j=0;j<vsumMap_->NumMyElements();j++)
+          {
+          ofs << vsumMap_->GID(j) << " ";
+          }
+        ofs << "];"<<std::endl;
+        }
+      comm_->Barrier();
+      }
+    ofs.close();
     Teuchos::RCP<const HYMLS::Solver> hymls =
         Teuchos::rcp_dynamic_cast<const HYMLS::Solver>(reducedSchurSolver_);
     if (!Teuchos::is_null(hymls)) hymls->Visualize(mfilename);
     }
-  }                                         
-
+  }
 }// namespace

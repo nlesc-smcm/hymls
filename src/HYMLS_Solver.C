@@ -636,7 +636,7 @@ int Solver::InitializeCompute()
 
 InitializeCompute();
 
-START_TIMER2(label_,"Subdomain factorization");
+START_TIMER(label_,"Subdomain factorization");
 
   for (int sd=0;sd<hid_->NumMySubdomains();sd++)
     {
@@ -647,10 +647,11 @@ START_TIMER2(label_,"Subdomain factorization");
       }
     }
 
-STOP_TIMER2(label_,"Subdomain factorization");
+STOP_TIMER(label_,"Subdomain factorization");
     
-  START_TIMER2(label_,"Construct Schur-Complement");
+  START_TIMER(label_,"Construct Schur-Complement");
   CHECK_ZERO(Schur_->Construct());
+  STOP_TIMER(label_,"Construct Schur-Complement");
 
 #ifdef STORE_MATRICES
   if (Schur_->IsConstructed())
@@ -675,7 +676,6 @@ for (int sd=0;sd<hid_->NumMySubdomains();sd++)
   }
 #endif
 
-  STOP_TIMER2(label_,"Construct Schur-Complement");
   if (scaleSchur_)
     {
     // the scaling is somewhat adhoc right now.
@@ -1324,7 +1324,7 @@ int Solver::SetProblemDefinition(string eqn, Teuchos::ParameterList& list)
   }
 
 void Solver::Visualize(std::string mfilename, bool no_recurse) const
-  {  
+  {
   if ( (comm_->MyPID()==0) && (myLevel_==1))
     {
     std::ofstream ofs(mfilename.c_str(),std::ios::out);
@@ -1348,7 +1348,10 @@ void Solver::Visualize(std::string mfilename, bool no_recurse) const
   comm_->Barrier();
   ofs << *hid_<<std::endl;
   ofs.close();
-  hid_->DumpGraph();
+//  hid_->DumpGraph(); //that's the same as of the original matrix right now
+  Teuchos::RCP<const Epetra_CrsMatrix> A = Teuchos::rcp_dynamic_cast
+        <const Epetra_CrsMatrix>(matrix_);
+  if (A!=Teuchos::null) MatrixUtils::Dump(*A,"matrix"+Teuchos::toString(myLevel_)+".txt");
   if ((schurPrec_!=Teuchos::null) && (no_recurse!=true))
     {
     schurPrec_->Visualize(mfilename);
