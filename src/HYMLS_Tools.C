@@ -22,8 +22,12 @@ void Tools::StartTiming(string fname)
     {
     Error("no comm available - cannot time!",__FILE__,__LINE__);
     }
+#ifdef FUNCTION_TRACING
 #ifdef DEBUGGING
   deb() << "@@@@@ ENTER "<<fname<<" @@@@@"<<std::endl;
+#else
+  out() << "@@@@@ ENTER "<<fname<<" @@@@@"<<std::endl;
+#endif  
 #endif    
   RCP<Epetra_Time> T=rcp(new Epetra_Time(*comm_));
   timerList_.sublist("timers").set(fname,T);
@@ -33,8 +37,12 @@ void Tools::StartTiming(string fname)
 void Tools::StopTiming(string fname,bool print)
   {
 
+#ifdef FUNCTION_TRACING
 #ifdef DEBUGGING
   deb() << "@@@@@ LEAVE "<<fname<<" @@@@@"<<std::endl;
+#else
+  out() << "@@@@@ LEAVE "<<fname<<" @@@@@"<<std::endl;
+#endif  
 #endif    
   
   RCP<Epetra_Time> T = null;

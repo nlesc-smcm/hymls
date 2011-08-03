@@ -81,6 +81,10 @@ public:
 
   //! destructor
   ~Solver();
+  
+  //! write solver data (like domain decomposition, separators ...) 
+  //! to an m-file so that it can be imported to MATLAB.            
+  void Visualize(std::string mfilename, bool no_recurse=false) const;
 
   //!\name Ifpack_Preconditioner interface
   
@@ -336,6 +340,10 @@ protected:
   mutable double timeApplyInverse_;
   
   //!@}
+
+#ifdef TESTING
+  mutable bool dumpVectors_;
+#endif
 
 #ifdef DEBUGGING
 public:

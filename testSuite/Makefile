@@ -1,7 +1,7 @@
 default: main
 
 main: dummy
-	cd ../src/ && make;
+	+cd ../src/ && make;
 
 test:
 	cd ../src/ && make test;

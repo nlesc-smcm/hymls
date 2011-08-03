@@ -1,37 +1,35 @@
 
 #include "HYMLS_SchurPreconditioner.H"
 
-#include "HYMLS_Tools.H"
+#include "HYMLS_Tools.H" 
 #include "HYMLS_MatrixUtils.H"
 
-#include "HYMLS_OverlappingPartitioner.H"
-#include "HYMLS_SchurComplement.H"
-#include "HYMLS_Householder.H"
+#include "HYMLS_OverlappingPartitioner.H" 
+#include "HYMLS_SchurComplement.H" 
+#include "HYMLS_Householder.H" 
 #include "HYMLS_SepNode.H"
 
-#include "Epetra_Comm.h"
-#include "Epetra_Map.h"
-#include "Epetra_RowMatrix.h"
-#include "Epetra_Import.h"
-#include "Epetra_IntVector.h"
-#include "Epetra_MultiVector.h"
-#include "Epetra_FECrsMatrix.h"
-#include "Epetra_SerialDenseVector.h"
-#include "Ifpack_Amesos.h"
-#include "Teuchos_RCP.hpp"
-#include "Teuchos_ArrayView.hpp"
-#include "Teuchos_ParameterList.hpp"
+#include "Epetra_Comm.h" 
+#include "Epetra_Map.h" 
+#include "Epetra_RowMatrix.h" 
+#include "Epetra_Import.h" 
+#include "Epetra_IntVector.h" 
+#include "Epetra_MultiVector.h" 
+#include "Epetra_FECrsMatrix.h" 
+#include "Epetra_SerialDenseVector.h" 
+#include "Ifpack_Amesos.h" 
+#include "Teuchos_RCP.hpp" 
+#include "Teuchos_ArrayView.hpp" 
+#include "Teuchos_ParameterList.hpp" 
 #include "Teuchos_StandardCatchMacros.hpp"
 
-#include "Ifpack_DenseContainer.h"
-#include "Ifpack_SparseContainer.h"
+#include "Ifpack_DenseContainer.h" 
+#include "Ifpack_SparseContainer.h" 
 #include "Ifpack_Amesos.h"
 
-#include "EpetraExt_Reindex_CrsMatrix.h"
-#include "EpetraExt_Reindex_MultiVector.h"
+#include "EpetraExt_Reindex_CrsMatrix.h" 
+#include "EpetraExt_Reindex_MultiVector.h" 
 #include "EpetraExt_MatrixMatrix.h"
-
-//#define MASSIVE_TESTING
 
 namespace HYMLS {
 
@@ -84,6 +82,14 @@ namespace HYMLS {
         Tools::Error("not on coarsest level and no HID available!",
                 __FILE__,__LINE__);
         }
+      if (hid_->NumMySubdomains()==1)
+        {
+        //This can cause trouble if a processor partition has no local separators at all,
+        //     not quite sure why but for now we should avoid this situation.
+        Tools::Warning("PID "+Teuchos::toString(comm_->MyPID())+" has only one subdomain "+
+        "on level "+Teuchos::toString(myLevel_)+", this case is not well-implemented!",
+                __FILE__,__LINE__);
+        }
 /*        
       std::cout << "PRECONDITIONER LEVEL "<<myLevel_<<std::endl;
       std::cout << *hid_ << std::endl;
@@ -93,6 +99,10 @@ namespace HYMLS {
   //TODO: may want to give the user a choice here, currently we just have
   //      Householder.
   OT=Teuchos::rcp(new Householder());
+
+#ifdef TESTING
+  dumpVectors_=true;
+#endif  
     
   STOP_TIMER2(label_,"constructor");
   }
@@ -151,7 +161,6 @@ namespace HYMLS {
     {
     START_TIMER(label_,"Initialize");
     time_->ResetStartTime();
-
     DEBVAR(myLevel_);
     DEBVAR(maxLevel_);
     
@@ -172,7 +181,6 @@ namespace HYMLS {
     numInitialize_++;
 
     timeInitialize_+=time_->ElapsedTime();
-    
     STOP_TIMER(label_,"Initialize");
     return 0;
     }
@@ -211,9 +219,9 @@ namespace HYMLS {
     //linearMatrix_ = Teuchos::rcp(&((*reindex_)(const_cast<Epetra_CrsMatrix&>(*SchurMatrix_))),false);
     linearMatrix_ = Teuchos::rcp(&((*reindex_)(*reducedSchur_)),false);
 
-#ifdef TESTING
-    MatrixUtils::Dump(*linearMatrix_,"ScaledS2.txt");    
-#endif        
+#ifdef STORE_MATRICES
+    //MatrixUtils::Dump(*linearMatrix_,"ScaledS2.txt");    
+#endif
     
     Teuchos::ParameterList& amesosList=params_->sublist("Solver").sublist("Coarse Solver");
     if (amesosList.get("amesos: solver type","Amesos_Klu")=="Amesos_Mumps")
@@ -244,8 +252,7 @@ namespace HYMLS {
           }
         }
       }
-        
-        
+                
     reducedSchurSolver_= Teuchos::rcp(new Ifpack_Amesos(linearMatrix_.get()));
     IFPACK_CHK_ERR(reducedSchurSolver_->SetParameters(amesosList));
   
@@ -261,7 +268,7 @@ namespace HYMLS {
     {
     EPETRA_CHK_ERR(TransformAndDrop());
     
-#ifdef TESTING
+#ifdef STORE_MATRICES_disabled
     // dump a reordering for the Schur-complement (for checking in MATLAB)
     Teuchos::RCP<const RecursiveOverlappingPartitioner>
         sepObject = hid_->Spawn(RecursiveOverlappingPartitioner::LocalSeparators);
@@ -343,9 +350,8 @@ namespace HYMLS {
   
   //reducedSchur_ = MatrixUtils::DropByValue(reducedSchur_, 1.0e-14,MatrixUtils::Absolute);
   
-#ifdef TESTING
-    MatrixUtils::Dump(*reducedSchur_,"Schur"+Teuchos::toString(myLevel_+1)+"Reindexed.txt",true);
-    MatrixUtils::Dump(*reducedSchur_,"Schur"+Teuchos::toString(myLevel_+1)+".txt",false);
+#ifdef STORE_MATRICES
+    MatrixUtils::Dump(*reducedSchur_,"Schur"+Teuchos::toString(myLevel_+1)+".txt",true);
 #endif  
 
     }
@@ -355,7 +361,7 @@ namespace HYMLS {
   int ierr=reducedSchurSolver_->Compute();
   if (ierr!=0)
     {
-#ifdef TESTING  
+#ifdef STORE_MATRICES
     Teuchos::RCP<const Epetra_CrsMatrix> dumpMatrix
         = reducedSchur_;
     if (myLevel_==maxLevel_)
@@ -371,8 +377,6 @@ namespace HYMLS {
   computed_ = true;
   timeCompute_ += time_->ElapsedTime();
   numCompute_++;
-
-  STOP_TIMER(label_,"Compute");
   return 0;
   }
 
@@ -510,15 +514,25 @@ int SchurPreconditioner::InitializeSeparatorGroups()
     }
 
 #ifdef DEBUGGING
-      std::ofstream ofs1("hid_data.m");
-      ofs1 << *hid_;
-      ofs1.close();
-      std::ofstream ofs2("sep_data.m");
-      ofs2<<*(hid_->Spawn(RecursiveOverlappingPartitioner::Separators));
-      ofs2.close();
-      std::ofstream ofs3("lsep_data.m");
-      ofs3<<*(hid_->Spawn(RecursiveOverlappingPartitioner::LocalSeparators));
-      ofs3.close();
+    std::ofstream ofs1,ofs2,ofs3;
+    if (myLevel_==1)
+      {
+//      ofs1.open("hid_data.m",std::ios::out);
+      ofs2.open("sep_data.m",std::ios::out);
+      std::ofstream ofs3("lsep_data.m",std::ios::out);
+      }
+    else
+      {
+//      ofs1.open("hid_data.m",std::ios::app);
+      ofs2.open("sep_data.m",std::ios::app);
+      std::ofstream ofs3("lsep_data.m",std::ios::app);
+      }
+//    ofs1 << *hid_;
+    ofs1.close();
+    ofs2<<*(hid_->Spawn(RecursiveOverlappingPartitioner::Separators));
+    ofs2.close();
+    ofs3<<*(hid_->Spawn(RecursiveOverlappingPartitioner::LocalSeparators));
+    ofs3.close();
 #endif      
 
   STOP_TIMER2(label_,"InitializeSeparatorGroups");
@@ -528,6 +542,7 @@ int SchurPreconditioner::InitializeSeparatorGroups()
 int SchurPreconditioner::InitializeOT()
   {
   START_TIMER2(label_,"InitializeOT");
+
   // create orthogonal transform as a sparse matrix representation
   if (sparseMatrixOT_==Teuchos::null)
     {
@@ -535,8 +550,9 @@ int SchurPreconditioner::InitializeOT()
     // get an object with only local separators and remote connected separators:
     Teuchos::RCP<const RecursiveOverlappingPartitioner> sepObject
         = hid_->Spawn(RecursiveOverlappingPartitioner::LocalSeparators);
-        
+
     Epetra_IntSerialDenseVector inds;
+
     sparseMatrixOT_ = Teuchos::rcp(new
         Epetra_CrsMatrix(Copy,*map_,sepObject->NumInteriorElements(0)));
   
@@ -548,7 +564,7 @@ int SchurPreconditioner::InitializeOT()
       for (int grp=0;grp<sepObject->NumGroups(sep);grp++)
         {
         int len = sepObject->NumElements(sep,grp);
-        if (inds.Length()!=len)
+        if ((inds.Length()!=len) && (len>0))
           {
           inds.Size(len);
           }
@@ -556,18 +572,22 @@ int SchurPreconditioner::InitializeOT()
           {
           inds[j] = sepObject->GID(sep,grp,j);
           }
-        int ierr=OT->Construct(*sparseMatrixOT_,inds);
-        if (ierr<0) 
+        if (len>0)
           {
-          Tools::Warning("Error code "+Teuchos::toString(ierr)+" returned from Epetra call!",
+          int ierr=OT->Construct(*sparseMatrixOT_,inds);
+          if (ierr<0) 
+            {
+            Tools::Warning("Error code "+Teuchos::toString(ierr)+" returned from Epetra call!",
                         __FILE__, __LINE__);                        
-          return ierr;
+            return ierr;
+            }
           }
-        }
+        }      
       }
+    
     CHECK_ZERO(sparseMatrixOT_->FillComplete())
     }
-#ifdef TESTING
+#ifdef STORE_MATRICES_disabled
   MatrixUtils::Dump(*sparseMatrixOT_, 
         "Householder_level_"+Teuchos::toString(myLevel_)+".txt",false);
   MatrixUtils::Dump(*sparseMatrixOT_, 
@@ -580,9 +600,9 @@ int SchurPreconditioner::InitializeOT()
   int SchurPreconditioner::InitializeNextLevel()
     {
   START_TIMER2(label_,"InitializeNextLevel");
+
     Teuchos::RCP<const RecursiveOverlappingPartitioner>
         sepObject = hid_->Spawn(RecursiveOverlappingPartitioner::LocalSeparators);
-        
     
     int numBlocks = 0;
     for (int i=0;i<sepObject->NumMySubdomains();i++)
@@ -590,7 +610,7 @@ int SchurPreconditioner::InitializeOT()
       numBlocks+=sepObject->NumGroups(i);
       }
     
-    DEBVAR(numBlocks);
+    DEBVAR(numBlocks);            
     
     // create a map for the reduced Schur-complement. Note that this is a distributed
     // matrix, in contrast to the other diagonal blocks, so we can't use an Ifpack 
@@ -599,8 +619,10 @@ int SchurPreconditioner::InitializeOT()
     int pos=0;
     for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
       {
+      DEBVAR(sep)
       for (int grp = 0 ; grp < sepObject->NumGroups(sep) ; grp++)
         {
+        DEBVAR(sepObject->GID(sep,grp,0));
         MyVsumElements[pos++] = sepObject->GID(sep,grp,0);
         }
       }
@@ -645,6 +667,7 @@ int SchurPreconditioner::InitializeOT()
         {
         CHECK_ZERO(MatrixUtils::PutDirichlet(*reducedSchur_,fix_gid_[i]));
         }    
+
   DEBVAR("Create solver for reduced Schur");
 
   nextLevelParams_ = Teuchos::rcp(new Teuchos::ParameterList(*params_));
@@ -668,9 +691,9 @@ int SchurPreconditioner::InitializeOT()
     reducedSchurSolver_= Teuchos::rcp(new
         SchurPreconditioner(reducedSchur_,nextLevelHID_,nextLevelParams_,myLevel_+1));
     }
-    
-  IFPACK_CHK_ERR(reducedSchurSolver_->SetParameters(*params_));
 
+  IFPACK_CHK_ERR(reducedSchurSolver_->SetParameters(*nextLevelParams_));
+    
   DEBUG("Initialize solver for reduced Schur");
 
   int status;
@@ -694,8 +717,8 @@ int SchurPreconditioner::InitializeOT()
     {
     START_TIMER2(label_,"TransformAndDrop");
 #ifdef DEBUGGING    
-    MatrixUtils::Dump(*SchurMatrix_,"S.txt",true);
-    MatrixUtils::Dump(*sparseMatrixOT_,"H.txt",true);
+    MatrixUtils::Dump(*SchurMatrix_,"S"+Teuchos::toString(myLevel_)+".txt",true);
+    MatrixUtils::Dump(*sparseMatrixOT_,"H"+Teuchos::toString(myLevel_)+".txt",true);
 #endif        
     // currently we simply compute T'*S*T using a sparse matmul.
     // I tried more fancy block-variants, but they were quite tedious
@@ -708,7 +731,6 @@ int SchurPreconditioner::InitializeOT()
       }
     else
       {
-      //matrix_=OT->Apply(*sparseMatrixOT_, *SchurMatrix_);
       OT->Apply(*matrix_,*sparseMatrixOT_, *SchurMatrix_);
       }
 
@@ -809,14 +831,16 @@ int SchurPreconditioner::InitializeOT()
     START_TIMER(label_,"ApplyInverse");
     numApplyInverse_++;
     time_->ResetStartTime();
-    
     if (!IsComputed())
       {
       return -1;
       }
 
-#ifdef MASSIVE_TESTING
-MatrixUtils::Dump(*(X(0)),"schurPrecRhs_"+Teuchos::toString(myLevel_)+".txt",true);
+#ifdef TESTING
+if (dumpVectors_)
+  {
+  MatrixUtils::Dump(*(X(0)),"Precond"+Teuchos::toString(myLevel_)+"_Rhs.txt",true);
+  }
 #endif
 
     if (myLevel_==maxLevel_)
@@ -829,10 +853,31 @@ MatrixUtils::Dump(*(X(0)),"schurPrecRhs_"+Teuchos::toString(myLevel_)+".txt",tru
                         __FILE__,__LINE__);
         }
 #endif      
+
+// there was a bug that when reusing a solver for many solves,
+// the memory would fill up (on Hopf, at least). This is solved
+// by not using the MV reindex object, although this is of course
+// a hotfix.
+#define MEMLEAK_BUG
+
+#ifndef MEMLEAK_BUG
       Epetra_MultiVector Xcopy(X.Map(),X.NumVectors());
       // left-scale the rhs
       EPETRA_CHK_ERR(Xcopy.Multiply(1.0,*reducedSchurScaLeft_,X,0.0));
       Epetra_MultiVector& linearRhs = (*reindexMV_)(Xcopy);
+      Epetra_MultiVector& linearSol = (*reindexMV_)(Y);
+#else
+      Epetra_MultiVector linearRhs(*linearMap_,X.NumVectors());
+      for (int j=0;j<X.NumVectors();j++)
+        {
+        for (int i=0;i<X.MyLength();i++)
+          {
+          linearRhs[j][i]=X[j][i] * (*reducedSchurScaLeft_)[i];
+          }
+        }
+      Epetra_MultiVector linearSol(*linearMap_,X.NumVectors());
+#endif           
+
       for (int i=0;i<fix_gid_.length();i++)
         {
         int lid = X.Map().LID(fix_gid_[i]);
@@ -842,10 +887,19 @@ MatrixUtils::Dump(*(X(0)),"schurPrecRhs_"+Teuchos::toString(myLevel_)+".txt",tru
           }
         }
 
-      Epetra_MultiVector& linearSol = (*reindexMV_)(Y);
       IFPACK_CHK_ERR(reducedSchurSolver_->ApplyInverse(linearRhs,linearSol));
       // unscale the solution
+#ifndef MEMLEAK_BUG
       EPETRA_CHK_ERR(Y.Multiply(1.0,*reducedSchurScaRight_,Y,0.0));
+#else
+      for (int j=0;j<X.NumVectors();j++)
+        {
+        for (int i=0;i<X.MyLength();i++)
+          {
+          Y[j][i]=linearSol[j][i] * (*reducedSchurScaRight_)[i];
+          }
+        }
+#endif      
       }
     else
       {
@@ -853,9 +907,7 @@ MatrixUtils::Dump(*(X(0)),"schurPrecRhs_"+Teuchos::toString(myLevel_)+".txt",tru
       Epetra_MultiVector B(X);
     
       ApplyOT(true,B,&flopsApplyInverse_);
-#ifdef MASSIVE_TESTING
-      MatrixUtils::Dump(*(B(0)),"schurPrecTransformedRhs_"+Teuchos::toString(myLevel_)+".txt",true);
-#endif
+
       int numBlocks=blockSolver_.size(); // will be 0 on coarsest level
       
       START_TIMER(label_,"solve blocks");
@@ -892,33 +944,22 @@ MatrixUtils::Dump(*(X(0)),"schurPrecRhs_"+Teuchos::toString(myLevel_)+".txt",tru
         }
       STOP_TIMER(label_,"solve blocks");
 
-#ifdef MASSIVE_TESTING
-      MatrixUtils::Dump(*(Y(0)),"schurPrecSol1_"+Teuchos::toString(myLevel_)+".txt",true);
-#endif
-
       // solve reduced Schur-complement problem
 
       EPETRA_CHK_ERR(vsumRhs_->Import(B,*vsumImporter_,Insert));
       IFPACK_CHK_ERR(reducedSchurSolver_->ApplyInverse(*vsumRhs_,*vsumSol_));
       EPETRA_CHK_ERR(Y.Export(*vsumSol_,*vsumImporter_,Insert));
-
-
-#ifdef MASSIVE_TESTING
-MatrixUtils::Dump(*(Y(0)),"schurPrecUntransformedSol_"+Teuchos::toString(myLevel_)+".txt",true);
-#endif
-          
+      
       // transform back
       ApplyOT(false,Y,&flopsApplyInverse_);
       }
 
-#ifdef MASSIVE_TESTING
-MatrixUtils::Dump(*(Y(0)),"schurPrecSol_"+Teuchos::toString(myLevel_)+".txt",true);
-
-if (myLevel_==1)
+#ifdef TESTING
+if (dumpVectors_)
   {
-  //Tools::Error("STOP HERE",__FILE__,__LINE__);
+  MatrixUtils::Dump(*(Y(0)),"Precond"+Teuchos::toString(myLevel_)+"_Sol.txt",true);
+  dumpVectors_=false;
   }
-
 #endif
       
     timeApplyInverse_+=time_->ElapsedTime();
@@ -1108,6 +1149,31 @@ int SchurPreconditioner::ComputeScaling(const Epetra_CrsMatrix& A,
   STOP_TIMER2(label_,"ComputeScaling");
   return 0;
   } 
-                                         
+
+void SchurPreconditioner::Visualize(std::string mfilename) const
+  {
+  std::ofstream ofs(mfilename.c_str(),std::ios::app);
+  for (int i=0;i<comm_->NumProc();i++)
+    {
+    if (comm_->MyPID()==i)
+      {
+      ofs << "% rank "<<comm_->MyPID() << ": prec label "<<Label()<<std::endl;
+      ofs << "p{"<<myLevel_<<"}{"<<1+i<<"}.vsums=[";
+      for (int j=0;j<vsumMap_->NumMyElements();j++)
+        {
+        ofs << vsumMap_->GID(j) << " ";
+        }
+      ofs << "];"<<std::endl;
+      }
+    comm_->Barrier();
+    }
+  ofs.close();
+  if (myLevel_<maxLevel_)
+    {
+    Teuchos::RCP<const HYMLS::Solver> hymls =
+        Teuchos::rcp_dynamic_cast<const HYMLS::Solver>(reducedSchurSolver_);
+    if (!Teuchos::is_null(hymls)) hymls->Visualize(mfilename);
+    }
+  }                                         
 
 }// namespace

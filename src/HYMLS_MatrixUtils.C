@@ -336,6 +336,8 @@ if (Comm.NumProc()>1)
 
     MPI_Gatherv(MyGlobalElements, NumMyElements,MPI_INTEGER, 
                 AllGlobalElements, counts,disps, MPI_INTEGER, root, MpiComm.GetMpiComm());
+  delete [] counts;
+  delete [] disps;                
 #else
   Tools::Error("No MPI but still parallel??? We don't do that.",__FILE__,__LINE__);
 #endif
@@ -405,6 +407,8 @@ else
 
     MPI_Allgatherv(MyGlobalElements, NumMyElements,MPI_INTEGER, 
                 AllGlobalElements, counts,disps, MPI_INTEGER, MpiComm.GetMpiComm());
+    delete [] counts;
+    delete [] disps;
 #else
     Tools::Error("No MPI but still parallel? We don't do tthat.",__FILE__,__LINE__);                
 #endif

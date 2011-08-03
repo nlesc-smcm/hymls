@@ -153,11 +153,8 @@ int status=0;
   // create a random exact solution
   Teuchos::RCP<Epetra_Vector> x_ex = Teuchos::rcp(new Epetra_Vector(*map));
 
-#ifdef DEBUGGING
+#ifdef TESTING
   int seed=42;
-  CHECK_ZERO(HYMLS::MatrixUtils::Random(*x_ex, seed));
-#else
-  CHECK_ZERO(HYMLS::MatrixUtils::Random(*x_ex));
 #endif
 
   // construct right-hand side
@@ -206,7 +203,12 @@ for (int f=0;f<numComputes;f++)
     {
     if (read_problem==false)
       {
+#ifdef TESTING
+      seed++;
+      CHECK_ZERO(HYMLS::MatrixUtils::Random(*x_ex, seed));
+#else
       CHECK_ZERO(HYMLS::MatrixUtils::Random(*x_ex));
+#endif
       CHECK_ZERO(K->Multiply(false,*x_ex,*b));
       }
 

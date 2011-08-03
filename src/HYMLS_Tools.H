@@ -19,6 +19,9 @@
 
 #ifdef DEBUGGING
 #define TIMING_LEVEL 10
+#ifndef FUNCTION_TRACING
+#define FUNCTION_TRACING
+#endif
 #define PRINT_TIMING false
 #else
 #define TIMING_LEVEL 1
@@ -180,6 +183,16 @@ namespace HYMLS
   
     static void Error(std::string msg, const char* file, int line)
       {
+      if (!Teuchos::is_null(output_stream))
+        {
+        output_stream=Teuchos::null;
+        }
+#ifdef DEBUGGING
+      if (!Teuchos::is_null(output_stream))
+        {
+        debug_stream=Teuchos::null;
+        }
+#endif
       std::cerr << "HYMLS Error: "<<msg<<std::endl;
       std::cerr << "(in "<<file<<", line "<<line<<")"<<std::endl;
       DEBUG("HYMLS Error: "<<msg);

@@ -66,8 +66,21 @@ class BasePartitioner
   //! default implementation returns 0
   virtual int VariableType(int gid) const {return 0;}
   
-  //! get non-overlapping subdomain id 
+  //! get non-overlapping global subdomain id 
   virtual int operator()(int gid) const = 0;
+  
+  //! given a local subdomain index, find the global one.
+  virtual int GPID(int sd) const
+    {
+    int gpid = -1;
+    if (NumElements(sd)>0) gpid = (*this)(GID(sd,0));
+#ifdef TESTING
+    if (gpid==-1) Tools::Error
+        ("partitioner function not implemented for the case of empty subdomains!",
+                __FILE__,__LINE__);
+#endif    
+    return gpid;        
+    }
   
   //! get the (re-)partitioned map (here elements belonging
   //! to a subdomain have contiguous local indexing)
@@ -88,6 +101,13 @@ class BasePartitioner
   //! handled correctly by the solver. For non-periodic    
   //! problems it is OK to use the default implementation, 
   //! which is flow(gid1,gid2)=sd(gid1)-sd(gid2).          
+  //!                                                      
+  //! If gid1 and gid2 belong to different variable types  
+  //! (e.g. u- and v-velocities, or a velocity and a pres- 
+  //! sure, flow(gid1,gid2) should always return 0 to      
+  // make sure our algorithms do the same for Navier-Stokes
+  // as for Stokes.                                         
+  //!                                                      
   //! For periodic problems it should be something like    
   //! this for the 2-domain case:                          
   //!                                                      
@@ -113,7 +133,11 @@ class BasePartitioner
   //!                                                      
   virtual int flow(int gid1, int gid2)
     {
-    return operator()(gid1)-operator()(gid2);
+    if (VariableType(gid1)==VariableType(gid2))
+      {
+      return operator()(gid1)-operator()(gid2);
+      }
+    return 0;
     };
       
   };

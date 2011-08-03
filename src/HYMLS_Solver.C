@@ -1,4 +1,3 @@
-
 //#define BLOCK_IMPLEMENTATION 1
 #include "HYMLS_Solver.H"
 
@@ -55,6 +54,9 @@ namespace HYMLS {
     serialComm_=Teuchos::rcp(new Epetra_SerialComm());
     time_=Teuchos::rcp(new Epetra_Time(K->Comm()));
     SetParameters(*params);
+#ifdef TESTING
+    dumpVectors_=true;
+#endif    
     }
 
 
@@ -95,6 +97,8 @@ namespace HYMLS {
     if (dim>=1) probList_.set("x-periodic", probList.get("x-periodic",false));
     if (dim>=2) probList_.set("y-periodic", probList.get("y-periodic",false));
     if (dim>=3) probList_.set("z-periodic", probList.get("z-periodic",false));
+    
+    probList_.set("Visualize Solver", probList.get("Visualize Solver",false));
 
     Teuchos::ParameterList& solverList_ = params_->sublist("Solver");
     Teuchos::ParameterList& solverList = List.sublist("Solver");
@@ -122,30 +126,63 @@ namespace HYMLS {
         }
       }
 
+    // for the recursive solver, store the original separator length
+    int sepx, sepy, sepz;
+    int base_sepx, base_sepy, base_sepz;
+
     // these two are alternatives:
     if (solverList.isParameter("Separator Length"))
       {
-      int sepx=solverList.get("Separator Length",4);
-      solverList_.set("Separator Length (x)",sepx);
-      solverList_.set("Separator Length (y)",sepx);
-      solverList_.set("Separator Length (z)",dim>2?sepx:1);
+      sepx=solverList.get("Separator Length",4);
+      sepy=sepx; 
+      sepz=dim>2? sepx:1;
       }
     else if (solverList.isParameter("Separator Length (x)"))
       {
-      int sepx=solverList.get("Separator Length (x)",4);
-      solverList_.set("Separator Length (x)",sepx);
-      solverList_.set("Separator Length (y)", solverList.get("Separator Length (y)",sepx));
-      solverList_.set("Separator Length (z)", solverList.get("Separator Length (z)",dim>2?sepx:1));
+      sepx=solverList.get("Separator Length (x)",4);
+      sepy=solverList.get("Separator Length (y)",sepx);
+      sepz=solverList.get("Separator Length (z)",dim>2?sepx:1);
       }
     else
       {
+      sepx=-1;
       solverList_.set("Number of Subdomains", solverList.get("Number of Subdomains",16));
       }
+    if (sepx>0)
+      {
+      solverList_.set("Separator Length (x)", sepx);
+      solverList_.set("Separator Length (y)", sepy);
+      solverList_.set("Separator Length (z)", sepz);
+      }
+
+    if (solverList.isParameter("Base Separator Length"))
+      {
+      base_sepx=solverList.get("Base Separator Length",sepx);
+      base_sepy=base_sepx;
+      base_sepz=dim>2?base_sepx:1;
+      }
+    else if (solverList.isParameter("Base Separator Length (x)"))
+      {
+      base_sepx=solverList.get("Base Separator Length (x)",sepx);
+      base_sepy=solverList.get("Base Separator Length (y)",sepy);
+      base_sepz=solverList.get("Base Separator Length (z)",sepz);
+      }
+    else
+      {
+      base_sepx=sepx;
+      base_sepy=sepy;
+      base_sepz=sepz;
+      }
+    
+    solverList_.set("Base Separator Length (x)", base_sepx);
+    solverList_.set("Base Separator Length (y)", base_sepy);
+    solverList_.set("Base Separator Length (z)", base_sepz);
     
     solverList_.set("Subdivide Separators",solverList.get("Subdivide Separators",false));
     solverList_.set("Subdivide based on variable",solverList.get("Subdivide based on variable",-1));
 
     solverList_.set("Number of Levels",solverList.get("Number of Levels",2));
+    solverList_.set("Nested Iterations",solverList.get("Nested Iterations",false));
 
     solverList_.sublist("Subdomain Solver")
        = solverList.sublist("Subdomain Solver");
@@ -160,7 +197,7 @@ namespace HYMLS {
 
     solverList_.set("Krylov Method",solverList.get("Krylov Method","GMRES"));
     solverList_.set("Initial Vector",solverList.get("Initial Vector","Previous"));
-
+    solverList_.set("Left or Right Preconditioning",solverList.get("Left or Right Preconditioning","Right"));
     // Belos parameters should be specified in this list:
     solverList_.sublist("Iterative Solver")=solverList.sublist("Iterative Solver");
 
@@ -179,6 +216,8 @@ namespace HYMLS {
         Tools::Out("in your parameter list. You should set only one of them.");
         return -1;
         }
+      probList_.set("Complex Arithmetic",probList.get("Complex Arithmetic",false));  
+      
       eqn=probList.get("Equations",eqn);
       probList_.set("Equations",eqn);
       this->SetProblemDefinition(eqn,*params_);
@@ -192,12 +231,25 @@ namespace HYMLS {
         Tools::Warning("You have not set the 'Equations' parameter or 'Problem Definition' correctly",__FILE__,__LINE__);        
         }
       probList_.sublist("Problem Definition")=probList.sublist("Problem Definition");
+      if (probList.isParameter("Complex Arithmetic"))
+        {
+        bool complex = probList.get("Complex Arithmetic",false);
+        if (complex)
+          {
+          // user should manually adjust the sublist instead of expecting us to do it
+          Tools::Warning(std::string("You have set the 'Complex Arithmetic' parameter in combination \n")+
+                       std::string("with the 'Problem Definition' sublist, it will be ignored!"),
+                       __FILE__,__LINE__);
+        
+          }
+        }
       }
 
 
     List.unused(std::cerr);
     DEBVAR(*params_);
-    
+//    std::cout << Label() << std::endl;
+//    std::cout << *params_ << std::endl;
     DEBUG("Leave Solver::SetParameters()");
     return 0;
     }
@@ -234,7 +286,7 @@ namespace HYMLS {
         hid_->Spawn(RecursiveOverlappingPartitioner::Interior);
     Teuchos::RCP<const RecursiveOverlappingPartitioner> separatorParts = 
         hid_->Spawn(RecursiveOverlappingPartitioner::Separators);
-    
+
   map1_ = interiorParts->GetMap();
   map2_ = separatorParts->GetMap();
 
@@ -243,9 +295,12 @@ namespace HYMLS {
 #ifdef TESTING
   if (rangeMap_->NumMyElements()!=(map1_->NumMyElements()+map2_->NumMyElements()))
     {
-    DEBVAR(*rangeMap_);
+    std::ofstream ofs("hid_data.m",std::ios::app);
+    ofs << *hid_<<std::endl;
+    ofs.close();
     DEBVAR(*map1_);
     DEBVAR(*map2_);
+    DEBVAR(*rangeMap_);
     Tools::Error("inconsistent maps found",__FILE__,__LINE__);
     }
 #endif
@@ -289,12 +344,12 @@ namespace HYMLS {
     Tools::Error("Currently requires an Epetra_CrsMatrix!",__FILE__,__LINE__);
     }
 
-#ifdef DEBUGGING
-MatrixUtils::Dump(*rangeMap_,"originalMap.txt");
+#ifdef STORE_MATRICES
+MatrixUtils::Dump(*rangeMap_,"originalMap"+Teuchos::toString(myLevel_)+".txt");
 #endif
 
-#ifdef TESTING
-MatrixUtils::Dump(*rowMap_,"reorderedMap.txt");
+#ifdef STORE_MATRICES
+MatrixUtils::Dump(*rowMap_,"reorderedMap"+Teuchos::toString(myLevel_)+".txt");
 #endif
 
   DEBUG("Reorder global matrix");
@@ -364,6 +419,12 @@ try {
       CHECK_ZERO(A12_->FillComplete(*map2_,*map1_));
       CHECK_ZERO(A21_->FillComplete(*map1_,*map2_));
       CHECK_ZERO(A22_->FillComplete(*map2_,*map2_));
+
+#ifdef STORE_MATRICES
+MatrixUtils::Dump(*A12_, "Solver"+Teuchos::toString(myLevel_)+"_A12.txt");
+MatrixUtils::Dump(*A21_, "Solver"+Teuchos::toString(myLevel_)+"_A21.txt");
+MatrixUtils::Dump(*A22_, "Solver"+Teuchos::toString(myLevel_)+"_A22.txt");
+#endif
       
   DEBUG("initialize subdomain solvers...");
 
@@ -395,6 +456,12 @@ try {
   // pass in pointers of the LU's)
   Schur_=Teuchos::rcp(new SchurComplement(Teuchos::rcp(this,false)));
   Teuchos::RCP<const Epetra_CrsMatrix> SC = Schur_->Matrix();
+  
+#ifdef TESTING
+Tools::out() << "LEVEL "<< myLevel_<<std::endl;
+Tools::out() << "SIZE OF A: "<< rowMap_->NumGlobalElements()<<std::endl;
+Tools::out() << "SIZE OF S: "<< map2_->NumGlobalElements()<<std::endl;
+#endif  
 
   
   if (usePreconditioner_)
@@ -420,12 +487,25 @@ try {
   if (usePreconditioner_)
     {
     schurPrecPtr_=Teuchos::rcp(new belosPrecType_(schurPrec_));
-    schurProblemPtr_->setRightPrec(schurPrecPtr_);
+    string lor = params_->sublist("Solver").get("Left or Right Preconditioning","Right");
+    if (lor=="Left")
+      {
+      schurProblemPtr_->setLeftPrec(schurPrecPtr_);
+      }
+    else if (lor=="Right")
+      {
+      schurProblemPtr_->setRightPrec(schurPrecPtr_);      
+      }
+    else
+      {
+      Tools::Error("Parameter 'Left or Right Preconditioning' has an invalid value",
+                __FILE__, __LINE__);
+      }
     }
 
   Teuchos::ParameterList& belosList = params_->sublist("Solver").sublist("Iterative Solver");
-  string linearSolver = params_->get("Krylov Method","GMRES");
-  
+  string linearSolver = params_->sublist("Solver").get("Krylov Method","GMRES");
+
   belosList.set("Output Style",Belos::Brief);
   belosList.set("Verbosity",Belos::Errors+Belos::Warnings
                            +Belos::IterationDetails
@@ -454,6 +534,10 @@ else if (linearSolver=="GMRES")
         Belos::BlockGmresSolMgr<double,Epetra_MultiVector,Epetra_Operator>
         (schurProblemPtr_,belosListPtr));
   }
+else if (linearSolver=="None")
+  {
+  schurSolverPtr_=Teuchos::null;
+  }
 else
   {
   Tools::Error("Currently only 'GMRES' is supported as 'Belos Solver'",__FILE__,__LINE__);
@@ -476,7 +560,6 @@ else
   numInitialize_++;
   timeInitialize_+=time_->ElapsedTime();
 
-
   STOP_TIMER(label_,"Initialize");
   return 0;
   }
@@ -497,8 +580,8 @@ int Solver::InitializeCompute()
     EPETRA_CHK_ERR(reorderedMatrix_->Import(*Acrs,*importer_,Insert));
     
 
-#ifdef TESTING
-    MatrixUtils::Dump(*Acrs,"originalMatrix.txt");
+#ifdef STORE_MATRICES
+    MatrixUtils::Dump(*Acrs,"originalMatrix"+Teuchos::toString(myLevel_)+".txt");
 #endif    
 
   for (int sd=0;sd<hid_->NumMySubdomains();sd++)
@@ -569,16 +652,30 @@ STOP_TIMER2(label_,"Subdomain factorization");
   START_TIMER2(label_,"Construct Schur-Complement");
   CHECK_ZERO(Schur_->Construct());
 
-#ifdef TESTING
+#ifdef STORE_MATRICES
   if (Schur_->IsConstructed())
     {
     //MatrixUtils::Dump(*(Schur_->Matrix()),"SchurComplement.txt",false);
-    MatrixUtils::Dump(*(Schur_->Matrix()),"SchurReindexed.txt",true);
+    MatrixUtils::Dump(*(Schur_->Matrix()),"SchurReindexed"+Teuchos::toString(myLevel_)+".txt",true);
     }
+
+for (int sd=0;sd<hid_->NumMySubdomains();sd++)
+  {
+  if (subdomainSolver_[sd]->NumRows()>0)
+    {
+    Tools::out() << "Level: "<<myLevel_<<", save A11 block "<<sd<<std::endl;
+    Teuchos::RCP<const Epetra_CrsMatrix> A11 = subdomainSolver_[sd]->Matrix();
+    MatrixUtils::Dump(*A11, 
+      "Solver"+Teuchos::toString(myLevel_)+"_A11_"+Teuchos::toString(sd)+".txt");  
+    }
+  else
+    {
+    Tools::out() << "Level: "<<myLevel_<<", subdomain "<<sd<<" has 0 rows!"<<std::endl;
+    }
+  }
 #endif
 
   STOP_TIMER2(label_,"Construct Schur-Complement");
-  
   if (scaleSchur_)
     {
     // the scaling is somewhat adhoc right now.
@@ -617,8 +714,25 @@ STOP_TIMER2(label_,"Subdomain factorization");
   computed_ = true;
   timeCompute_ += time_->ElapsedTime();
   numCompute_++;
+#ifdef TESTING
+{
+Epetra_Vector test_lhs(*map1_);
+Epetra_Vector test_rhs(*map1_);
+MatrixUtils::Random(test_rhs);
+CHECK_ZERO(this->ApplyInverseA11(test_rhs,test_lhs));
+MatrixUtils::Dump(test_rhs,"Solver"+Teuchos::toString(myLevel_)+"_test_Rhs1.txt",true);
+MatrixUtils::Dump(test_lhs,"Solver"+Teuchos::toString(myLevel_)+"_test_Sol1.txt",true);
+}
+#endif
 
     STOP_TIMER(label_,"Compute");
+
+  if (params_->sublist("Problem").get("Visualize Solver",false)==true)
+    {
+    Tools::out() << "MATLAB file for visualizing the solver is written to hid_data.m" << std::endl;
+    this->Visualize("hid_data.m");
+    }
+
   return 0;
   }
 
@@ -725,7 +839,10 @@ STOP_TIMER2(label_,"Subdomain factorization");
     time_->ResetStartTime();
 
 #ifdef TESTING
-    MatrixUtils::Dump(*(B(0)), "rhs.txt",true);
+if (dumpVectors_)
+  {
+  MatrixUtils::Dump(*(B(0)), "Solver"+Teuchos::toString(myLevel_)+"_Rhs.txt",true);
+  }
 #endif    
     int numvec=X.NumVectors();   // these are used for calculating flops
     int veclen=X.GlobalLength();
@@ -784,22 +901,23 @@ STOP_TIMER2(label_,"Subdomain factorization");
     // left-scale rhs with schurScaLeft_
     CHECK_ZERO(schurRhs_->Multiply(1.0, *schurScaLeft_, *schurRhs_, 0.0))
     }
-#ifdef TESTING      
-    MatrixUtils::Dump(*(*schurRhs_)(0), "SchurRHS.txt",true);
-#endif
     // solve Schur-complement problem
     DEBUG("solve Schur...");    
     CHECK_TRUE(schurProblemPtr_->setProblem());
     DEBVAR(*(schurProblemPtr_->getInitResVec()));
     Belos::ReturnType ret;
     int status;
-    try {
-    ret=schurSolverPtr_->solve();
-    } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr, status);
-
-#ifdef TESTING
-    MatrixUtils::Dump(*(*schurSol_)(0), "SchurSOL.txt",true);
-#endif
+    if (schurSolverPtr_!=Teuchos::null)
+      {
+      try {
+      ret=schurSolverPtr_->solve();
+      } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr, status);
+      }
+    else
+      {
+      CHECK_ZERO(schurPrecPtr_->ApplyInverse(*schurRhs_,*schurSol_));
+      ret=Belos::Converged;//TODO: check preconditinoer return code
+      }
 
   // unscale rhs with schurScaRight_
   if (scaleSchur_)
@@ -810,20 +928,36 @@ STOP_TIMER2(label_,"Subdomain factorization");
     //
     // Get the number of iterations for this solve.
     //
-    int numIters = schurSolverPtr_->getNumIters();
-    if (comm_->MyPID()==0)
+    if (schurSolverPtr_!=Teuchos::null)
       {
-      Tools::Out("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
-      Tools::Out("iterations on Schur complement (level "+Teuchos::toString(myLevel_)+
-        "): "+Teuchos::toString(numIters));
-      Tools::Out("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
-      Tools::Out("");
+      int numIters = schurSolverPtr_->getNumIters();
+      if (comm_->MyPID()==0)
+        {
+        Tools::Out("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+        Tools::Out("iterations on Schur complement (level "+Teuchos::toString(myLevel_)+"): "+Teuchos::toString(numIters));
+        Tools::Out("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+        Tools::Out("");
+        }
       }
+
+#ifdef TESTING
+// compute explicit residual of Schur problem
+Epetra_Vector SchurRes(schurRhs_->Map());
+CHECK_ZERO(Schur_->Apply(*schurSol_,SchurRes));
+CHECK_ZERO(SchurRes.Update(1.0,*schurRhs_,-1.0));
+double resNorm;
+SchurRes.Norm2(&resNorm);
+if (comm_->MyPID()==0)
+  {
+  Tools::out() << "LEVEL "<< myLevel_<< ", Residual norm of Schur problem: ";
+  Tools::out() << resNorm << std::endl;
+  }
+#endif
 
     if (ret!=Belos::Converged) 
       {
       Tools::Warning("Belos did not converge!",__FILE__,__LINE__);    
-#ifdef TESTING      
+#ifdef TESTING     
       Teuchos::RCP<const Epetra_CrsMatrix> Acrs =
         Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_);
       MatrixUtils::Dump(*Acrs,"FailedMatrix.txt");
@@ -868,7 +1002,11 @@ STOP_TIMER2(label_,"Subdomain factorization");
       */
 
 #ifdef TESTING
-    MatrixUtils::Dump(*(X(0)), "sol.txt",true);
+  if (dumpVectors_)
+    {
+    MatrixUtils::Dump(*(X(0)), "Solver"+Teuchos::toString(myLevel_)+"_Sol.txt",true);
+    dumpVectors_=false;
+    }
 #endif    
     timeApplyInverse_+=time_->ElapsedTime();
     STOP_TIMER(label_,"ApplyInverse");
@@ -1131,32 +1269,50 @@ int Solver::SetProblemDefinition(string eqn, Teuchos::ParameterList& list)
   if (zperio) perio=(Galeri::PERIO_Flag)(perio|Galeri::Z_PERIO);
   
   defList.set("Periodicity",perio);
+  
+  bool is_complex = probList.get("Complex Arithmetic",false);
 
   if (eqn=="Laplace")
     {
     defList.set("Dimension",dim);
-    defList.set("Degrees of Freedom",1);
-    defList.set("Variable Type (0)","Laplace");
+    defList.set("Substitute Graph",false); 
+    if (!is_complex)
+      {
+      defList.set("Degrees of Freedom",1);
+      defList.set("Variable Type (0)","Laplace");
+      }
+    else
+      {
+      defList.set("Degrees of Freedom",2);
+      defList.set("Variable Type (0)","Laplace");
+      defList.set("Variable Type (1)","Laplace");
+      }
+    
     }
   else if (eqn=="Stokes-C")
     {
     defList.set("Dimension",dim);
-    defList.set("Degrees of Freedom",dim+1);
-    for (int i=0;i<dim;i++)
+    defList.set("Substitute Graph",false); 
+    int factor = is_complex? 2 : 1;
+    defList.set("Degrees of Freedom",(dim+1)*factor);
+    for (int i=0;i<dim*factor;i++)
       {
       Teuchos::ParameterList& velList =
         defList.sublist("Variable "+Teuchos::toString(i));      
       velList.set("Variable Type","Laplace");
       }
     // pressure:
-    Teuchos::ParameterList& presList =
-      defList.sublist("Variable "+Teuchos::toString(dim));
-    presList.set("Variable Type","Retain 1");
-    presList.set("Retain Isolated",true);
-    
+    for (int i=0;i<factor;i++)
+      {
+      Teuchos::ParameterList& presList =
+        defList.sublist("Variable "+Teuchos::toString(dim*factor+i));
+      presList.set("Variable Type","Retain 1");
+      presList.set("Retain Isolated",true);
+      }
     // we fix the singularity by inserting a Dirichlet condition for 
     // global pressure node 2 
-    solverList.set("Fix GID 1",dim);
+    solverList.set("Fix GID 1",factor*dim);
+    if (is_complex) solverList.set("Fix GID 2",2*dim+1);
     }
   else
     {
@@ -1167,5 +1323,35 @@ int Solver::SetProblemDefinition(string eqn, Teuchos::ParameterList& list)
   return 0;
   }
 
-
+void Solver::Visualize(std::string mfilename, bool no_recurse) const
+  {  
+  if ( (comm_->MyPID()==0) && (myLevel_==1))
+    {
+    std::ofstream ofs(mfilename.c_str(),std::ios::out);
+    int dim=params_->sublist("Problem").get("Dimension",-1);
+    int dof=params_->sublist("Problem").sublist("Problem Definition").get("Degrees of Freedom",1);
+    int nx=params_->sublist("Problem").get("nx",-1);
+    int ny=params_->sublist("Problem").get("ny",-1);
+    ofs << "dim="<<dim<<";"<<std::endl;
+    ofs << "dof="<<dof<<";"<<std::endl;
+    ofs << "nx="<<nx<<";"<<std::endl;
+    ofs << "ny="<<ny<<";"<<std::endl;
+    if (dim>2)
+      {
+      int nz=params_->sublist("Problem").get("nz",-1);
+      ofs << "nz="<<nz<<";"<<std::endl;
+      }
+    ofs.close();    
+    }
+  comm_->Barrier();
+  std::ofstream ofs(mfilename.c_str(),std::ios::app);
+  comm_->Barrier();
+  ofs << *hid_<<std::endl;
+  ofs.close();
+  hid_->DumpGraph();
+  if ((schurPrec_!=Teuchos::null) && (no_recurse!=true))
+    {
+    schurPrec_->Visualize(mfilename);
+    }
+  }
 }

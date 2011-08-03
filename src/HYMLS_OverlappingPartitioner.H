@@ -6,8 +6,6 @@
 #include "Teuchos_Array.hpp"
 #include "Galeri_Periodic.h"
 
-// forward declarations
-
 namespace Teuchos 
   {
   class ParameterList;
@@ -16,6 +14,8 @@ namespace Teuchos
 namespace HYMLS {
 class BasePartitioner;
 }
+
+class Epetra_IntVector;
 
 namespace HYMLS {
 
@@ -33,7 +33,7 @@ public:
 
   //! constructor
   OverlappingPartitioner(Teuchos::RCP<const Epetra_RowMatrix> K, 
-      Teuchos::RCP<Teuchos::ParameterList> params);
+      Teuchos::RCP<Teuchos::ParameterList> params, int level=1);
 
   //! destructor
   ~OverlappingPartitioner();
@@ -69,14 +69,25 @@ public:
   Teuchos::RCP<const OverlappingPartitioner> SpawnNextLevel
         (Teuchos::RCP<const Epetra_RowMatrix> reducedMatrix,
         Teuchos::RCP<Teuchos::ParameterList> newParamList) const;
+
+  //! write the graph used by this class to a text file
+  
+  //! file originalGraph<level>.txt: original matrix graph on this level
+  void DumpGraph() const;
   
 protected: 
   
   //! matrix
   Teuchos::RCP<const Epetra_RowMatrix> matrix_;
 
-  //! scalar graph on which we base our separator detection
-  Teuchos::RCP<const Epetra_CrsGraph> graph_;
+  //! graph of the problem and a variant with overlap
+  //! between partitions (but not subdomains)
+  Teuchos::RCP<const Epetra_CrsGraph> graph_,parallelGraph_;
+  
+  //! vector of node types (0: interior, 1: standard separator, 
+  //! 2: secondary separator (vertex in 2D, edge in 3D),        
+  //! 3: vertex (3D only), 4: retained in Schur complement.     
+  Teuchos::RCP<Epetra_IntVector> nodeType_, p_nodeType_;
   
   //! Parameter List
   Teuchos::RCP<Teuchos::ParameterList> params_;
@@ -135,12 +146,51 @@ private:
 
   //! create graph to be used for identifying separators
   void CreateGraph();
+
+  //! if the sparsity pattern of the matrix is used as graph,
+  //! do some preprocessing to make sure the algorithm works.
+  void PreprocessGraph();
     
   //! construct overlapping maps after partitioning
   void DetectSeparators();
   
   //! reorder and group separators
   void GroupSeparators();
+  
+  //! build parallel graph after detecting separators
+  Teuchos::RCP<Epetra_CrsGraph> CreateParallelGraph();
+
+  //!\name functions called from DetectSeparators()
+  //!@{
+  
+  //! build initial vector with 0 (interior), 1 (separator) or 2 (retained
+  void BuildInitialNodeTypeVector(const Epetra_CrsGraph& parallelGraph, 
+                                        Epetra_IntVector& nodeTypes,
+                                        int& num_retained) const;
+  
+  //! detect isolated interior nodes and mark them 'retain' (3)
+  void DetectIsolated(const Epetra_CrsGraph& parallelGraph, 
+                      const Epetra_IntVector& p_nodeTypes,
+                            Epetra_IntVector& nodeTypes,
+                            int& num_retaineed) const;
+  
+  //! form list with interior, separator and retained nodes for subdomain
+  // sd. Links separators to subdomains.
+  void BuildNodeLists(int sd, const Epetra_CrsGraph& parallelGraph, 
+                              const Epetra_IntVector& nodeTypes,
+                              const Epetra_IntVector& p_nodeTypes,
+                              Teuchos::Array<int>& interiorNodes,
+                              Teuchos::Array<int>& separatorNodes,
+                              Teuchos::Array<int>& retainedNodes) const;
+  
+  void FindMissingSepNodes(int my_sd, 
+                           const Epetra_CrsGraph& parallelGraph,
+                           const Epetra_IntVector& p_nodeTypes,
+                           const std::set<int>& input_array,
+                                 std::set<int>& output_array) const;
+    
+  //!@}
+
 
   };
 

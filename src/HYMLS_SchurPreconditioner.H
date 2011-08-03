@@ -69,6 +69,9 @@ public:
 
   //! destructor
   ~SchurPreconditioner();
+  
+  //! write matlab data for visualization
+  void Visualize(std::string filename) const;
 
   //!\name Ifpack_Preconditioner interface
   
@@ -312,6 +315,10 @@ protected:
   //! based on the Grad-part, so that the transform is applied to variables
   //! coupling to the same set of pressures.
   bool subdivideSeparators_;
+
+#ifdef TESTING
+  mutable bool dumpVectors_;
+#endif  
   
 private:
 

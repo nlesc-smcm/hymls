@@ -6,6 +6,16 @@
 
 using Teuchos::toString;
 
+#ifdef DEBUG
+//#define FLOW_DEBUGGING
+#endif
+
+#ifdef FLOW_DEBUGGING
+#define FLOW_DEBUG(s) DEBUG(s)
+#else
+#define FLOW_DEBUG(s)
+#endif
+
 namespace HYMLS {
 
   
@@ -15,6 +25,8 @@ namespace HYMLS {
         Galeri::PERIO_Flag perio)
         : BasePartitioner(), baseMap_(map), nx_(nx), ny_(ny),nz_(nz),dof_(dof),perio_(perio)
         {
+        
+        node_distance_=1; //default, can be adjusted by calling SetNodeDistance()
         
         comm_=Teuchos::rcp(&(baseMap_->Comm()),false);
         cartesianMap_=Teuchos::null;
@@ -51,19 +63,25 @@ namespace HYMLS {
     }
 
   int CartesianPartitioner::flow(int gid1, int gid2)
-    {
+    {    
     int sd1 = (*this)(gid1);
     int sd2 = (*this)(gid2);
+    int type1 = this->VariableType(gid1);
+    int type2 = this->VariableType(gid2);
     
-    //DEBUG("### FLOW("<<gid1<<", "<<gid2<<") ###");
+    FLOW_DEBUG("### FLOW("<<gid1<<", "<<gid2<<") ###");
     
     if (sd1==sd2)
       {
-      //DEBUG("# same subdomain, return 0");
+      FLOW_DEBUG("# same subdomain, return 0");
       return 0;
       }
-
-    const int stencilWidth=1;
+    
+    if (type1!=type2)
+      {
+      FLOW_DEBUG("# different variable types, return 0");
+      return 0;
+      }
 
     int i1,j1,k1,i2,j2,k2;
     int var1,var2;
@@ -76,13 +94,17 @@ namespace HYMLS {
     di=calc_distance(nx_,i1,i2,(perio_&Galeri::X_PERIO));
     dj=calc_distance(ny_,j1,j2,(perio_&Galeri::Y_PERIO));
     dk=calc_distance(nz_,k1,k2,(perio_&Galeri::Z_PERIO));
-
+#ifdef FLOW_DEBUGGING
+DEBVAR(di);
+DEBVAR(dj);
+DEBVAR(dk);
+#endif
     // if the cells are not connected:
-    if (std::abs(di)>stencilWidth || 
-        std::abs(dj)>stencilWidth || 
-        std::abs(dk)> stencilWidth)
+    if ((std::abs(di)>stencil_width_) || 
+        (std::abs(dj)>stencil_width_) || 
+        (std::abs(dk)> stencil_width_))
         {
-        //DEBUG("# not adjacent grid cells, return 0");  
+        FLOW_DEBUG("# not adjacent grid cells, return 0");  
         return 0;
         }
 
@@ -92,7 +114,7 @@ namespace HYMLS {
     // for non-periodic problems it is fairly simple:
     if (perio_==Galeri::NO_PERIO)
       {
-      //DEBUG("# not a periodic problem, return "<<sd1-sd2);
+      FLOW_DEBUG("# return "<<sd1-sd2);
       return sd1-sd2;
       }
 
@@ -112,7 +134,7 @@ namespace HYMLS {
 
     if (abs(dK)> 0)
       {
-#ifdef DEBUGGING______
+#ifdef FLOW_DEBUGGING
       if (dk<0)
         {
         DEBUG("# top edge, return "<<dk);
@@ -126,7 +148,7 @@ namespace HYMLS {
       }
     if (abs(dJ)> 0)
       {
-#ifdef DEBUGGING_______________
+#ifdef FLOW_DEBUGGING
       if (dj<0)
         {
         DEBUG("# north edge, return "<<dj);
@@ -140,7 +162,7 @@ namespace HYMLS {
       }
     if (abs(dI)> 0)
       {
-#ifdef DEBUGGING_____________
+#ifdef FLOW_DEBUGGING
       if (di<0)
         {
         DEBUG("# east edge, return "<<di);
@@ -152,7 +174,7 @@ namespace HYMLS {
 #endif      
       return di;
       }
-    DEBUG("weird case, return 0");
+    FLOW_DEBUG("weird case, return 0");
     return 0;
     }
 
@@ -175,7 +197,7 @@ namespace HYMLS {
         di=i1-i2;
         }
       }
-    return di;
+    return ceil((double)di/node_distance_);
     }
 
   void CartesianPartitioner::Partition(int nparts)
