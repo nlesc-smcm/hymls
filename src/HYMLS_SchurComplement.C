@@ -29,7 +29,7 @@ namespace HYMLS {
 // Also provides functionality to explicitly construct parts
 // of the SC or the whole thing as sparse or dense matrix.
 
-  SchurComplement::SchurComplement(Teuchos::RCP<const Solver> mother)
+  SchurComplement::SchurComplement(Teuchos::RCP<const Preconditioner> mother)
        : mother_(mother),
          comm_(Teuchos::rcp(&(mother->Comm()),false)),
          useTranspose_(false), normInf_(-1.0),
@@ -215,7 +215,7 @@ namespace HYMLS {
     const Epetra_CrsMatrix& A12 = mother_->A12(sd);
     const Epetra_CrsMatrix& A21 = mother_->A21(sd);
     const Epetra_CrsMatrix& A22 = mother_->A22();
-    Solver::ifpackSolverType_& A11 = mother_->SolverA11(sd);
+    Preconditioner::ifpackSolverType_& A11 = mother_->SolverA11(sd);
     
     if (sd<0 || sd>hid.NumMySubdomains())
       {

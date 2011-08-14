@@ -7,11 +7,6 @@
 #include "Ifpack_SparseContainer.h"
 #include "Epetra_Time.h"
 
-#include "BelosLinearProblem.hpp"
-#include "BelosSolverManager.hpp"
-#include "BelosEpetraAdapter.hpp"
-#include "BelosOutputManager.hpp"
-
 #include "HYMLS_OverlappingPartitioner.H"
 #include "HYMLS_OrthogonalTransform.H"
 

@@ -13,11 +13,14 @@
 
 #define REINDEX_BY_DEFAULT false
 
+class Epetra_Comm;
+class Epetra_BlockMap;
 class Epetra_Map;
 class Epetra_Vector;
 class Epetra_IntVector;
 class Epetra_MultiVector;
 class Epetra_CrsMatrix;
+class Epetra_RowMatrix;
 class Epetra_Import;
 class Ifpack_Container;
 
@@ -165,7 +168,7 @@ class MatrixUtils
 
     //! dump CrsMatrix to file (the matrix is gathered so it can be easily
     //! read into MATLAB etc., but this is only meant for debugging etc.)
-    static void Dump(const Epetra_CrsMatrix& A, const string& filename,
+    static void Dump(const Epetra_CrsMatrix& A, const std::string& filename,
            bool reindex=REINDEX_BY_DEFAULT);
     
     //! dump CrsMatrix in binary file (HDF5 format), which is parallel,   
@@ -176,25 +179,25 @@ class MatrixUtils
     //! if new_file==true, a new HDF file is created, deleting any old    
     //! file with the same name. Otherwise, an old file is opened, which  
     //! has to exist or an exception will be thrown.                      
-    static void DumpHDF(const Epetra_CrsMatrix& A, const string& filename, 
-        const string& groupname, bool new_file=true);
+    static void DumpHDF(const Epetra_CrsMatrix& A, const std::string& filename, 
+        const std::string& groupname, bool new_file=true);
 
     //! dump Vector to file (the vector is gathered so it can be easily
     //! read into MATLAB etc., but this is only meant for debugging etc.)
-    static void Dump(const Epetra_MultiVector& x, const string& filename, bool 
+    static void Dump(const Epetra_MultiVector& x, const std::string& filename, bool 
         reindex=REINDEX_BY_DEFAULT);
 
     //! dump Vector to file (the vector is gathered so it can be easily
     //! read into MATLAB etc., but this is only meant for debugging etc.)
-    static void Dump(const Epetra_IntVector& x, const string& filename); 
+    static void Dump(const Epetra_IntVector& x, const std::string& filename); 
 
     //! dump Map to file (the map is gathered so it can be easily
     //! read into MATLAB etc., but this is only meant for debugging etc.)
-    static void Dump(const Epetra_Map& M, const string& filename);
+    static void Dump(const Epetra_Map& M, const std::string& filename);
         
     //! dump vector in binary (HDF5) format (see comment on DumpMatrixHDF)
-    static void DumpHDF(const Epetra_MultiVector& x, const string& filename, 
-        const string& groupname, bool new_file=true);
+    static void DumpHDF(const Epetra_MultiVector& x, const std::string& filename, 
+        const std::string& groupname, bool new_file=true);
     
     
     //! Print an Epetra_RowMatrix to a stream
@@ -226,7 +229,7 @@ class MatrixUtils
     //! reads sparse matrix from THCM's beg/co/jco/info format
     //! if the prefix is, for instance, "A", then the matrix  
     //! is read from A.info, A.beg etc.
-    static Teuchos::RCP<Epetra_CrsMatrix> ReadThcmMatrix(string prefix, const Epetra_Comm& comm, 
+    static Teuchos::RCP<Epetra_CrsMatrix> ReadThcmMatrix(std::string prefix, const Epetra_Comm& comm, 
            const Epetra_Map& rowmap, const Epetra_Map& colmap,
            const Epetra_Map* rangemap=NULL,const Epetra_Map* domainmap=NULL);
                        
@@ -271,10 +274,10 @@ class MatrixUtils
   private:
   
     //! read array from file
-    static void read_fortran_array(int n, int* array, string filename);
+    static void read_fortran_array(int n, int* array, std::string filename);
     
     //! read array from file
-    static void read_fortran_array(int n, double* array, string filename);
+    static void read_fortran_array(int n, double* array, std::string filename);
 
   };
 

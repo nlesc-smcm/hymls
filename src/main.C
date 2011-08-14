@@ -25,6 +25,7 @@
 */
 
 #include "HYMLS_Tools.H"
+#include "HYMLS_Preconditioner.H"
 #include "HYMLS_Solver.H"
 #include "HYMLS_MatrixUtils.H"
 
@@ -172,12 +173,15 @@ int status=0;
       }
     }
   
+  HYMLS::Tools::Out("Create Preconditioner");
+
+  RCP<HYMLS::Preconditioner> precond = rcp(new HYMLS::Preconditioner(K, params));
+
+  HYMLS::Tools::Out("Initialize Preconditioner...");
+  CHECK_ZERO(precond->Initialize());
+
   HYMLS::Tools::Out("Create Solver");
-
-  RCP<HYMLS::Solver> solver = rcp(new HYMLS::Solver(K, params));
-
-  HYMLS::Tools::Out("Initialize Solver...");
-  CHECK_ZERO(solver->Initialize());
+  RCP<HYMLS::Solver> solver = rcp(new HYMLS::Solver(K, precond, params));
 
 for (int f=0;f<numComputes;f++)
   {
@@ -195,7 +199,7 @@ for (int f=0;f<numComputes;f++)
     CHECK_ZERO(K->ReplaceDiagonalValues(diag));
     }
   HYMLS::Tools::Out("Compute Solver ("+Teuchos::toString(f+1)+")");
-  CHECK_ZERO(solver->Compute());
+  CHECK_ZERO(precond->Compute());
   
  // std::cout << *solver << std::endl;
   
@@ -266,23 +270,6 @@ for (int f=0;f<numComputes;f++)
     HYMLS::MatrixUtils::Dump(*x, "Solution.txt");
     HYMLS::MatrixUtils::Dump(*b, "RHS.txt");
     }
-
-if (comm->MyPID()==0)
-  {
-  double tInit = solver->InitializeTime();
-  double fInit = solver->InitializeFlops();
-  double tCompute = solver->ComputeTime();
-  double fCompute = solver->ComputeFlops();
-  double tSolve = solver->ApplyInverseTime();
-  double fSolve = solver->ApplyInverseFlops();
-  std::cout << std::scientific;
-  std::cout << "======= TIMING & PERFORMANCE ========"<<std::endl;
-  std::cout << " Init: "<<tInit<<"s ("<<fInit/tInit << " flop/s"<<std::endl;
-  std::cout << "Setup: "<<tCompute<<"s ("<<fCompute/tCompute << " flop/s"<<std::endl;
-  std::cout << "Solve: "<<tSolve<<"s ("<<fSolve/tSolve << " flop/s"<<std::endl;
-  std::cout << "====================================="<<std::endl;
-  }
-
   
     } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr, status);
 

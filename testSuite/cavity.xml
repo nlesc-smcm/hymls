@@ -44,13 +44,14 @@
     <!-- number of levels to be created (1: direct solver for Schur complement, -->
     <!-- 2: solve Schur iteratively and reduced Schur directly,                 -->
     <!-- >2: not implemented.                                                   -->
-    <Parameter name="Number of Levels" type="int" value="3"/>
+    <Parameter name="Number of Levels" type="int" value="2"/>
     
     <!-- use inner GMRES if more than 2 levels are used -->
     <Parameter name="Nested Iterations" type="bool" value="1"/>
     
-    <!-- set this to 'true' to disable preconditioning for the Schur-complement -->
-    <Parameter name="No Preconditioning" type="bool" value="0"/>
+    <Parameter name="Deflated Subspace Dimension" type="int" value="0"/>
+    
+    <Parameter name="Scale Schur-Complement" type="bool" value="1"/>
     
     <!-- This is intended for debugging in the first place - build complete -->
     <!-- Schur complement as a sparse matrix instead of just building       -->
@@ -110,7 +111,7 @@
       <Parameter name="Maximum Iterations" type="int" value="500"/>
       <Parameter name="Maximum Restarts" type="int" value="1"/>
       <Parameter name="Convergence Tolerance" type="double" value="1.0e-6"/>
-      <Parameter name="Flexible Gmres" type="bool" value="1"/>
+      <Parameter name="Flexible Gmres" type="bool" value="0"/>
       <Parameter name="Output Frequency" type="int" value="1"/>
       <Parameter name="Show Maximum Residual Norm Only" type="bool" value="1"/>
     </ParameterList>

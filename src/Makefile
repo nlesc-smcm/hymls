@@ -3,6 +3,7 @@ include Makefile.inc
 LIBS=${MY_LIBRARIES} ${TRILINOS_LIBRARIES} ${TPL_LIBRARIES} ${EXTRA_LD_FLAGS}
 
 OBJ=    HYMLS_Solver.o \
+        HYMLS_Preconditioner.o \
         HYMLS_SchurComplement.o \
         HYMLS_SchurPreconditioner.o \
         HYMLS_OverlappingPartitioner.o \
@@ -10,11 +11,13 @@ OBJ=    HYMLS_Solver.o \
         HYMLS_CartesianPartitioner.o \
         HYMLS_SepNode.o \
         HYMLS_MatrixUtils.o \
+        HYMLS_EigenUtils.o \
         HYMLS_View_MultiVector.o \
         HYMLS_Householder.o \
         HYMLS_Tools.o \
         Galeri_Periodic.o \
-        main_utils.o
+        main_utils.o \
+        NOX_Epetra_LinearSystem_Hymls.o
 
 LIBNAMEBASE=hymls_${PLAT}
 LIBNAME=lib${LIBNAMEBASE}.a
@@ -42,4 +45,4 @@ ${LIBNAME}: ${OBJ}
 	${CXX} ${CXX_FLAGS} -c $< ${INCLUDES} 
 
 clean:
-	-rm *.o ${LIBNAME} main
+	-rm *.o ${LIBNAME} main main_direct

@@ -6,6 +6,7 @@
 
 #include "HYMLS_OverlappingPartitioner.H" 
 #include "HYMLS_SchurComplement.H" 
+#include "HYMLS_Preconditioner.H" 
 #include "HYMLS_Householder.H" 
 #include "HYMLS_SepNode.H"
 
@@ -31,7 +32,7 @@
 #include "EpetraExt_Reindex_MultiVector.h" 
 #include "EpetraExt_MatrixMatrix.h"
 
-        namespace HYMLS {
+namespace HYMLS {
 
 
   // constructor
@@ -272,8 +273,8 @@
   else
     {
     EPETRA_CHK_ERR(TransformAndDrop());
-    
-#ifdef STORE_MATRICES_disabled
+
+#ifdef STORE_MATRICES
     // dump a reordering for the Schur-complement (for checking in MATLAB)
     Teuchos::RCP<const RecursiveOverlappingPartitioner>
         sepObject = hid_->Spawn(RecursiveOverlappingPartitioner::LocalSeparators);
@@ -685,7 +686,7 @@ int SchurPreconditioner::InitializeOT()
     
     // create another level of HYMLS::Solver
     reducedSchurSolver_ = Teuchos::rcp(new
-        Solver(reducedSchur_, nextLevelParams_, nextLevelHID_, myLevel_+1));
+        Preconditioner(reducedSchur_, nextLevelParams_, nextLevelHID_, myLevel_+1));
     }
   else
     {
@@ -1181,8 +1182,8 @@ void SchurPreconditioner::Visualize(std::string mfilename,bool recurse) const
     ofs.close();
     if (recurse)
       {
-      Teuchos::RCP<const HYMLS::Solver> hymls =
-          Teuchos::rcp_dynamic_cast<const HYMLS::Solver>(reducedSchurSolver_);
+      Teuchos::RCP<const HYMLS::Preconditioner> hymls =
+          Teuchos::rcp_dynamic_cast<const HYMLS::Preconditioner>(reducedSchurSolver_);
       if (!Teuchos::is_null(hymls)) hymls->Visualize(mfilename);
       }
     }

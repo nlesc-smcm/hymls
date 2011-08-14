@@ -5,8 +5,8 @@
 #include "Epetra_Time.h"
 
 #include "HYMLS_Tools.H"
+#include "HYMLS_Preconditioner.H"
 #include "HYMLS_SchurPreconditioner.H"
-#include "HYMLS_Solver.H"
 
 // forward declarations
 
@@ -42,7 +42,7 @@ class SchurComplement : public Epetra_Operator
 public:
 
   //! constructor
-  SchurComplement(Teuchos::RCP<const Solver> mother);
+  SchurComplement(Teuchos::RCP<const Preconditioner> mother);
 
   //! destructor
   ~SchurComplement();
@@ -149,7 +149,7 @@ protected:
 
   //! calling class (our solver that does the domain decomposition,
   //! splits the matrix, factors A11 etc.)
-  Teuchos::RCP<const Solver> mother_;
+  Teuchos::RCP<const Preconditioner> mother_;
   
   //! spare matrix representation of the Schur-complement (computed when
   //! Construct() is called).
