@@ -11,9 +11,10 @@
 
 #include "Epetra_RowMatrix.h"
 
-#include "HYMLS_EigenUtils.H"
+#include "HYMLS_MatrixUtils.H"
 
 // forward declarations
+class Epetra_MultiVector;
 class Epetra_Comm;
 class Epetra_Map;
 class Epetra_Import;
@@ -110,6 +111,11 @@ public:
 
   //@}
 
+  //! computes the modes closest to 0 and sets up the solver's deflation
+  //! capabilities. If maxEigs==-2, the value "Deflated Subspace Dimension"
+  //! from the "Solver" sublist is used.
+  int SetupDeflation(int maxEigs=-2);
+
 protected: 
 
   //! communicator
@@ -157,10 +163,19 @@ int numDeflated_;
 double deflThres_;
 
 //! eigen-pairs of the preconditioner
-Teuchos::RCP<EigenUtils::Solution> schurEigs_;
+Teuchos::RCP<MatrixUtils::Eigensolution> precEigs_;
 
 //! basis for the eigenspace to be deflated
-Teuchos::RCP<Epetra_MultiVector> deflBase_;
+Teuchos::RCP<Epetra_MultiVector> V_;
+
+//! W1rhs = V_orth'AV
+Teuchos::RCP<Epetra_MultiVector> W1rhs_;
+
+//! W1 = (V_orth'AV_orth)\W1rhs (W_A)
+Teuchos::RCP<Epetra_MultiVector> W1_;
+
+//! projected operator (V_orth' A V_orth)
+Teuchos::RCP<Epetra_Operator> Aorth_;
 
 //@}
 
@@ -174,11 +189,7 @@ Teuchos::RCP<Epetra_MultiVector> deflBase_;
   std::string label_;
 
 private:
-   
-  //! computes the modes closest to 0 and sets up the solver's deflation
-  //! capabilities.
-  int SetupDeflation();
-  
+     
   };
 
 

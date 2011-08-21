@@ -14,7 +14,9 @@
 #include "BelosOutputManager.hpp"
 
 #include "HYMLS_OverlappingPartitioner.H"
-#include "HYMLS_EigenUtils.H"
+#include "HYMLS_DenseUtils.H"
+
+#include "HYMLS_BorderedSolver.H"
 
 // forward declarations
 class Epetra_Comm;
@@ -27,6 +29,7 @@ namespace HYMLS
   {
   class SchurComplement;
   class SchurPreconditioner;
+  class BorderedLU;
   }
 
 namespace Teuchos 
@@ -67,16 +70,12 @@ namespace HYMLS {
   implemented.
   
 */
-class Preconditioner : public Ifpack_Preconditioner
+class Preconditioner : public Ifpack_Preconditioner, public BorderedSolver
   {
   
 public:
 
   typedef Ifpack_SparseContainer<Ifpack_Amesos> ifpackSolverType_;
-  typedef Belos::EpetraPrecOp belosPrecType_;
-  typedef Belos::LinearProblem<double,Epetra_MultiVector,Epetra_Operator> belosProblemType_;
-  typedef Belos::SolverManager<double,Epetra_MultiVector,Epetra_Operator> belosSolverType_;
-  typedef Belos::OutputManager<double> belosOutputType_;
 
   //! Our Schur-complement is our friend:
   friend class SchurComplement;
@@ -103,9 +102,6 @@ public:
   //! destructor
   ~Preconditioner();
 
-  //! for eigenvalue computations - set mass matrix
-  void SetMassMatrix(Teuchos::RCP<const Epetra_CrsMatrix> B);
-  
   //! write solver data (like domain decomposition, separators ...) 
   //! to an m-file so that it can be imported to MATLAB.            
   void Visualize(std::string mfilename, bool no_recurse=false) const;
@@ -210,6 +206,24 @@ public:
 
   //@}
 
+  //!\name HYMLS::BorderedSolver interface
+  //@{
+  
+  //! add a border to the preconditioner. So instead of solving
+  //! Px=y we then solve Px+Vs=y, W'x+Cs=0.
+  int SetBorder(Teuchos::RCP<const Epetra_MultiVector> V,
+                Teuchos::RCP<const Epetra_MultiVector> W,
+                Teuchos::RCP<const Epetra_SerialDenseMatrix> C);
+
+  //! if a border has been added, apply [Y T]' = [P V; W' C] [X S]'
+  int Apply(const Epetra_MultiVector& X, const Epetra_SerialDenseMatrix& S,
+                  Epetra_MultiVector& Y,       Epetra_SerialDenseMatrix& T) const;
+
+  //! if a border has been added, apply [X S]' = [K V; W' C]\[Y T]'
+  int ApplyInverse(const Epetra_MultiVector& Y, const Epetra_SerialDenseMatrix& T,
+                         Epetra_MultiVector& X,       Epetra_SerialDenseMatrix& S) const;
+  //@}
+
 protected: 
 
   //! level of this solver (1: finest)
@@ -292,63 +306,37 @@ protected:
   //! importers for global parts
   Teuchos::RCP<Epetra_Import> import1_, import2_;
 
-//!\name Belos data structures for solving the Schur-complement problem iteratively
-//@{
+  //! right-hand side vector for Schur complement
+  mutable Teuchos::RCP<Epetra_MultiVector> schurRhs_;
 
-  //! right-hand side vector
-  Teuchos::RCP<Epetra_MultiVector> schurRhs_;
-
-  //! solution vector
-  Teuchos::RCP<Epetra_MultiVector> schurSol_;
+  //! solution vector for Schur complement
+  mutable Teuchos::RCP<Epetra_MultiVector> schurSol_;
   
   //! preconditioning operator
   Teuchos::RCP<SchurPreconditioner> schurPrec_;
 
-  //! Belos preconditioner interface
-  Teuchos::RCP<belosPrecType_> schurPrecPtr_;
+  //! \name data structures for solving a 'bordered' system
+  //@{
 
-  //! Belos linear problem interface
-  Teuchos::RCP<belosProblemType_> schurProblemPtr_;
+  //! bordering: if SetBorder has been called, we solve [P V; W' C] [x; s] = [b; O].
+  Teuchos::RCP<Epetra_MultiVector> borderV_, borderW_;
+  
+  //! bordering: block C
+  Teuchos::RCP<const Epetra_SerialDenseMatrix> borderC_;
+  
+  //! bordering: if SetBorder has been called, we solve [K V; W' C] [x; s] = [b; O].
+  Teuchos::RCP<Epetra_MultiVector> borderV1_, borderV2_, borderW1_, borderW2_;
 
-  //! Belos solver
-  Teuchos::RCP<belosSolverType_> schurSolverPtr_;
-
-  //! Belos output manager (not sure if this is actually needed)
-  Teuchos::RCP<belosOutputType_> schurOutputPtr_;
-
-//@}
-
-//!\name data structures to monitor and deflate unstable modes
-//@{
-
-//! mass matrix - can be set using SetmassMatrix(). If not set, the 
-//! standard eigenproblem is solved.
-Teuchos::RCP<const Epetra_CrsMatrix> massMatrix_;
-
-  //! mass matrix for eigenvalue computations
-  Teuchos::RCP<Epetra_CrsMatrix> schurMass_;
-
-//! number of eigenvalues computed initially
-int numEigs_;
-
-//! number of deflated eigenmodes
-int numDeflated_;
-
-//! tolerance to remove a mode. An eigenmode            
-//! is deflated if |lambda(P^{-1}A)-1|>tol (set by      
-//! "Deflation Threshold" in the "Solver" sublist).     
-double deflThres_;
-
-//! eigen-pairs of the preconditioner
-Teuchos::RCP<EigenUtils::Solution> schurEigs_;
-
-//! basis for the eigenspace to be deflated
-Teuchos::RCP<Epetra_MultiVector> deflBase_;
-
-//@}
-
-  //! if false, no preconditioner is constructed for the Schur-complement
-  bool usePreconditioner_;
+  //! border for the Schur complement (after eliminating A11)
+  Teuchos::RCP<Epetra_MultiVector> borderSchurV_, borderSchurW_;
+  
+  //! lower right block of bordered Schur system
+  Teuchos::RCP<Epetra_SerialDenseMatrix> borderSchurC_;
+  
+  //! bordered solver for the Schur-complement
+  Teuchos::RCP<BorderedLU> borderedSchurSolver_;
+  
+  //@}
   
   //! use transposed operator?
   bool useTranspose_;
@@ -463,16 +451,12 @@ protected:
 
   //! get entire matrix A22
   const Epetra_CrsMatrix& A22() const {return *A22_;}
-
+  
  private:
  
    //! executed as part of Initialize() and Compute() (import matrices etc)
    int InitializeCompute();
    
-   //! setup deflation of nasty eigenmodes after computing the standard
-   //! preconditioner for the Schur-complement.
-   int SetupDeflation();
-
    //! in this function we define a number of standard problems
    //! for which the solver can be set up by simply setting the
    //! "Equations" parameter in the "Problem" list. If it is

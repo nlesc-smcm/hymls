@@ -11,13 +11,15 @@ OBJ=    HYMLS_Solver.o \
         HYMLS_CartesianPartitioner.o \
         HYMLS_SepNode.o \
         HYMLS_MatrixUtils.o \
-        HYMLS_EigenUtils.o \
+        HYMLS_DenseUtils.o \
+        HYMLS_ProjectedOperator.o \
+        HYMLS_BorderedLU.o \
         HYMLS_View_MultiVector.o \
         HYMLS_Householder.o \
         HYMLS_Tools.o \
+        NOX_Epetra_LinearSystem_Hymls.o \
         Galeri_Periodic.o \
         main_utils.o \
-        NOX_Epetra_LinearSystem_Hymls.o
 
 LIBNAMEBASE=hymls_${PLAT}
 LIBNAME=lib${LIBNAMEBASE}.a

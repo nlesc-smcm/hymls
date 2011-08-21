@@ -3,6 +3,7 @@
 #include "NOX_Epetra_LinearSystem_Hymls.H"	// class definition
 
 #include "HYMLS_Solver.H"
+#include "HYMLS_Preconditioner.H"
 
 #include "BelosTypes.hpp"
 
@@ -84,9 +85,11 @@ LinearSystemHymls(
  const Teuchos::RCP<NOX::Epetra::Interface::Preconditioner>& iPrec, 
  const Teuchos::RCP<Epetra_Operator>& preconditioner,
  const NOX::Epetra::Vector& cloneVector,
- const Teuchos::RCP<NOX::Epetra::Scaling> s):
+ const Teuchos::RCP<NOX::Epetra::Scaling> s,
+ Teuchos::RCP<Epetra_CrsMatrix> massMatrix):
    LinearSystemAztecOO(printParams, linearSolverParams,
-            iReq, iPrec, preconditioner, cloneVector, s)
+            iReq, iPrec, preconditioner, cloneVector, s),
+            massMatrix_(massMatrix)
 {  
   reset(linearSolverParams);
 }
@@ -101,9 +104,11 @@ LinearSystemHymls(
  const Teuchos::RCP<NOX::Epetra::Interface::Preconditioner>& iPrec, 
  const Teuchos::RCP<Epetra_Operator>& preconditioner,
  const NOX::Epetra::Vector& cloneVector,
- const Teuchos::RCP<NOX::Epetra::Scaling> s):
+ const Teuchos::RCP<NOX::Epetra::Scaling> s,
+ Teuchos::RCP<Epetra_CrsMatrix> massMatrix):
    LinearSystemAztecOO(printParams, linearSolverParams, 
-            iJac, jacobian, iPrec, preconditioner, cloneVector, s)
+            iJac, jacobian, iPrec, preconditioner, cloneVector, s),
+            massMatrix_(massMatrix)
 {  
   reset(linearSolverParams);
 }
@@ -172,9 +177,35 @@ reset(Teuchos::ParameterList& p)
     }
   
   hymls_ = Teuchos::rcp(new 
-        HYMLS::Solver(mat,precPtr,Teuchos::rcp(&p,false),1));
+        HYMLS::Solver(mat,precPtr,Teuchos::rcp(&hymlsList,false),1));
     
 }
+
+bool NOX::Epetra::LinearSystemHymls::
+createPreconditioner(const NOX::Epetra::Vector& x, Teuchos::ParameterList& p, 
+                     bool recomputeGraph) const
+  {
+  LinearSystemAztecOO::createPreconditioner(x,p,recomputeGraph);
+  // setup deflation in the solver
+  if (massMatrix_!=Teuchos::null)
+    {
+    hymls_->SetMassMatrix(massMatrix_);
+    }
+  hymls_->SetupDeflation();
+  return true;
+  }
+
+bool NOX::Epetra::LinearSystemHymls::
+recomputePreconditioner(const NOX::Epetra::Vector& x, Teuchos::ParameterList& p) const
+  {
+  LinearSystemAztecOO::recomputePreconditioner(x,p);
+  // setup deflation in the solver
+  if (massMatrix_!=Teuchos::null)
+    {
+    hymls_->SetMassMatrix(massMatrix_);
+    }
+  hymls_->SetupDeflation();
+  }
 
 // ***********************************************************************
 

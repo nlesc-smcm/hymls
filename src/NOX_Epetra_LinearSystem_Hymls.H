@@ -69,8 +69,8 @@ public:
     const Teuchos::RCP<NOX::Epetra::Interface::Preconditioner>& iPrec,
     const Teuchos::RCP<Epetra_Operator>& M,
     const NOX::Epetra::Vector& cloneVector,
-    const Teuchos::RCP<NOX::Epetra::Scaling> scalingObject = 
-    Teuchos::null);
+    const Teuchos::RCP<NOX::Epetra::Scaling> scalingObject = Teuchos::null, 
+    Teuchos::RCP<Epetra_CrsMatrix> massMat=Teuchos::null);
   
   //! Constructor with user supplied separate objects for the
   //! Jacobian (J) and Preconditioner (M).  
@@ -83,8 +83,8 @@ public:
     const Teuchos::RCP<NOX::Epetra::Interface::Preconditioner>& iPrec, 
     const Teuchos::RCP<Epetra_Operator>& M,
     const NOX::Epetra::Vector& cloneVector,
-    const Teuchos::RCP<NOX::Epetra::Scaling> scalingObject = 
-    Teuchos::null);
+    const Teuchos::RCP<NOX::Epetra::Scaling> scalingObject = Teuchos::null,
+    Teuchos::RCP<Epetra_CrsMatrix> massMatrix=Teuchos::null);
 
   //! Destructor.
   virtual ~LinearSystemHymls();
@@ -112,6 +112,16 @@ protected:
   */
   virtual void setAztecOOPreconditioner() const;
 
+  //! overloaded to include setup of deflation
+  virtual bool createPreconditioner(const NOX::Epetra::Vector& x, 
+                                    Teuchos::ParameterList& linearSolverParams,
+                                    bool recomputeGraph) const;
+
+  //! overloaded to include setup of deflation
+  virtual bool recomputePreconditioner(const NOX::Epetra::Vector& x, 
+                             Teuchos::ParameterList& linearSolverParams) const;
+
+
 protected:
 
 //!\name HYMLS data structures
@@ -119,6 +129,9 @@ protected:
 
 //! iterative solver
 Teuchos::RCP<HYMLS::Solver> hymls_;
+
+//! mass matrix
+Teuchos::RCP<const Epetra_CrsMatrix> massMatrix_;
   
 //@}
 

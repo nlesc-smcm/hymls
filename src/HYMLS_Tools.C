@@ -11,6 +11,7 @@ RCP<const Epetra_Comm> Tools::comm_=null;
 ParameterList Tools::timerList_;
 RCP<FancyOStream> Tools::output_stream = null;
 RCP<FancyOStream> Tools::debug_stream = null;
+int Tools::traceLevel_=0;
 
 //////////////////////////////////////////////////////////////////
 // Timing functionality                                         //
@@ -23,10 +24,11 @@ void Tools::StartTiming(string fname)
     Error("no comm available - cannot time!",__FILE__,__LINE__);
     }
 #ifdef FUNCTION_TRACING
+  traceLevel_++;
 #ifdef DEBUGGING
-  deb() << "@@@@@ ENTER "<<fname<<" @@@@@"<<std::endl;
+  deb() << tabstring(traceLevel_)<<"@@@@@ ENTER "<<fname<<" @@@@@"<<std::endl;
 #else
-  out() << "@@@@@ ENTER "<<fname<<" @@@@@"<<std::endl;
+  out() << tabstring(traceLevel_)<<"@@@@@ ENTER "<<fname<<" @@@@@"<<std::endl;
 #endif  
 #endif    
   RCP<Epetra_Time> T=rcp(new Epetra_Time(*comm_));
@@ -39,10 +41,11 @@ void Tools::StopTiming(string fname,bool print)
 
 #ifdef FUNCTION_TRACING
 #ifdef DEBUGGING
-  deb() << "@@@@@ LEAVE "<<fname<<" @@@@@"<<std::endl;
+  deb() << tabstring(traceLevel_)<<"@@@@@ LEAVE "<<fname<<" @@@@@"<<std::endl;
 #else
-  out() << "@@@@@ LEAVE "<<fname<<" @@@@@"<<std::endl;
-#endif  
+  out() << tabstring(traceLevel_)<<"@@@@@ LEAVE "<<fname<<" @@@@@"<<std::endl;
+#endif
+  traceLevel_--;
 #endif    
   
   RCP<Epetra_Time> T = null;

@@ -101,7 +101,7 @@ namespace HYMLS {
   //      Householder.
   OT=Teuchos::rcp(new Householder());
 
-#ifdef TESTING
+#ifdef DEBUGGING
   dumpVectors_=true;
 #endif  
     
@@ -893,7 +893,10 @@ if (dumpVectors_)
         int lid = X.Map().LID(fix_gid_[i]);
         if (lid>0)
           {
-          linearRhs[0][lid]=0.0;
+          for (int k=0;k<X.NumVectors();k++)
+            {
+            linearRhs[k][lid]=0.0;
+            }
           }
         }
 
@@ -930,7 +933,6 @@ if (dumpVectors_)
         for (int j = 0 ; j < blockSolver_[blk]->NumRows() ; j++)
           {
           int lid = blockSolver_[blk]->ID(j);
-          DEBVAR(B.Map().GID(lid));
           for (int k = 0 ; k < X.NumVectors() ; k++)
             {
             blockSolver_[blk]->RHS(j,k) = B[k][lid];
@@ -955,6 +957,11 @@ if (dumpVectors_)
       STOP_TIMER(label_,"solve blocks");
 
       // solve reduced Schur-complement problem
+      if (X.NumVectors()!=vsumRhs_->NumVectors())
+        {
+        vsumRhs_ = Teuchos::rcp(new Epetra_MultiVector(*vsumMap_,X.NumVectors()));
+        vsumSol_ = Teuchos::rcp(new Epetra_MultiVector(*vsumMap_,X.NumVectors()));
+        }
 
       EPETRA_CHK_ERR(vsumRhs_->Import(B,*vsumImporter_,Insert));
       IFPACK_CHK_ERR(reducedSchurSolver_->ApplyInverse(*vsumRhs_,*vsumSol_));

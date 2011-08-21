@@ -10,6 +10,7 @@
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_Array.hpp"
 #include "Teuchos_ParameterList.hpp"
+#include "AnasaziTypes.hpp"
 
 #define REINDEX_BY_DEFAULT false
 
@@ -41,6 +42,8 @@ class MatrixUtils
   Relative, // drop if abs(value) < tol*abs(diag)
   Absolute   // drop if abs(value) < tol
   } DropType;
+  
+  typedef Anasazi::Eigensolution<double,Epetra_MultiVector> Eigensolution;
 
     //! create a map for a 3D problem with multiple degrees of freedom per node
     
@@ -224,7 +227,27 @@ class MatrixUtils
     //! is already known (C is Filled)
     static void MatrixProduct(Teuchos::RCP<Epetra_CrsMatrix> M, bool transA, const Epetra_CrsMatrix& A,
                                  bool transB, const Epetra_CrsMatrix& B);
-                                 
+
+    //! compute a number of eigenvalues and eigenvectors of the sparse
+    //! matrix pencil [A,B]. The most dominant eigs are found, so if  
+    //! you want e.g. those of smallest magnitude, you have to supply 
+    //! thie inverse operator yourself. The solution is returned as an
+    //! Anasazi::Eigensolution, which contains eigenvalues, -vectors  
+    //! and an orthogonal basis for the found eigenspace.             
+    //!                                                               
+    //! The method used is the Anasazi Block-Krylov-Schur algorithm   
+    //! (Arnoldi, no symmetry is taken into account).                 
+    //!                                                               
+    //! B may be Teuchos::null, in which case the standard eigenvalue 
+    //! problem Ax=lambda x is solved.                                
+    //!                                                               
+    //! The eigenvectors returned are the right eigenvectors of [A,B].
+    //!                                                               
+    static Teuchos::RCP<Eigensolution> Eigs(
+                Teuchos::RCP<const Epetra_Operator> A, 
+                Teuchos::RCP<const Epetra_Operator> B, 
+                int howMany=6,
+                double tol=1.0e-6);
                                  
     //! reads sparse matrix from THCM's beg/co/jco/info format
     //! if the prefix is, for instance, "A", then the matrix  
@@ -272,6 +295,9 @@ class MatrixUtils
     
 
   private:
+  
+    //! returns a string describing the class
+    static std::string Label() {return "MatrixUtils";}
   
     //! read array from file
     static void read_fortran_array(int n, int* array, std::string filename);

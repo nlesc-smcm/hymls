@@ -240,7 +240,7 @@ protected:
   Teuchos::RCP<Epetra_CrsMatrix> reducedSchur_;
 
   //! right-hand side and solution for the reduced SC (based on linear map)
-  Teuchos::RCP<Epetra_MultiVector> vsumRhs_, vsumSol_;
+  mutable Teuchos::RCP<Epetra_MultiVector> vsumRhs_, vsumSol_;
 
   // View of SC2 with linear map
   Teuchos::RCP<Epetra_CrsMatrix> linearMatrix_;

@@ -103,6 +103,7 @@ namespace HYMLS
                             Teuchos::RCP<Teuchos::FancyOStream> output=Teuchos::null,
                             Teuchos::RCP<Teuchos::FancyOStream> debug=Teuchos::null)
      {
+     traceLevel_=0;
      comm_=comm;
      if (output==Teuchos::null)
        {
@@ -355,6 +356,20 @@ private:
     
     //! communicator for timing
     static Teuchos::RCP<const Epetra_Comm> comm_;
+    
+    //! for function tracing (nice indented output)        
+    static int traceLevel_;
+    
+    //! get intentation string
+    static std::string tabstring(int indent)
+      {
+      std::string ret="";
+      for (int i=0;i<std::max(0,indent);i++)
+        {
+        ret=ret+"  ";
+        }
+      return ret;
+      }
     
     };
   

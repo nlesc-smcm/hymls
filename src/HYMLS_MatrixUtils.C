@@ -39,6 +39,9 @@
 
 #include "Isorropia_EpetraOrderer.hpp"
 
+#include "AnasaziBlockKrylovSchurSolMgr.hpp"
+#include "AnasaziBasicEigenproblem.hpp"
+#include "AnasaziEpetraAdapter.hpp"
 
 using Teuchos::null;
 using Teuchos::rcp;
@@ -1083,6 +1086,156 @@ void MatrixUtils::MatrixProduct(Teuchos::RCP<Epetra_CrsMatrix> AB,bool transA, c
 
     DEBUG("done!");
     }
+
+
+Teuchos::RCP<MatrixUtils::Eigensolution> MatrixUtils::Eigs(
+                Teuchos::RCP<const Epetra_Operator> A,
+                Teuchos::RCP<const Epetra_Operator> B,
+                int howMany,
+                double tol)
+  {
+  START_TIMER(Label(),"Eigs");
+
+  typedef double ST;
+  typedef Epetra_MultiVector MV;
+  typedef Epetra_Operator OP;
+  typedef Teuchos::ScalarTraits<ST>        SCT;
+  typedef SCT::magnitudeType               MagnitudeType;
+  typedef Anasazi::MultiVecTraits<ST,MV>     MVT;
+  typedef Anasazi::OperatorTraits<ST,MV,OP>  OPT;
+
+  int ierr;
+
+  // ************************************
+  // Start the block Arnoldi iteration
+  // ***********************************
+  //
+  //  Variables used for the Block Krylov Schur Method
+  //
+  bool boolret;
+  int MyPID = A->Comm().MyPID();
+
+  bool verbose = true;
+  bool debug = false;
+#ifdef TESTING
+  verbose=true;
+#endif
+
+  std::string which("LR");
+
+  int blockSize = 1;
+  int numBlocks = 250;
+  int maxRestarts = 10;
+
+  // Create a sort manager to pass into the block Krylov-Schur solver manager
+  // -->  Make sure the reference-counted pointer is of type Anasazi::SortManager<>
+  // -->  The block Krylov-Schur solver manager uses Anasazi::BasicSort<> by default,
+  //      so you can also pass in the parameter "Which", instead of a sort manager.
+//  Teuchos::RCP<Anasazi::SortManager<ST> > MySort =
+//    Teuchos::rcp( new Anasazi::BasicSort<ST>( which ) );
+
+  // Set verbosity level
+  int verbosity = Anasazi::Errors + Anasazi::Warnings;
+  if (verbose) {
+    verbosity += Anasazi::FinalSummary + Anasazi::TimingDetails;
+  }
+  if (debug) {
+    verbosity += Anasazi::Debug;
+  }
+
+  //
+  // Create parameter list to pass into solver manager
+  //
+  Teuchos::ParameterList MyPL;
+  MyPL.set( "Verbosity", verbosity );
+  //TODO: in the Trilinos version on Huygens, one can't 
+  //      set the output stream, is that fixed in the   
+  //      more recent versions?
+  MyPL.set( "Output Stream",Tools::out().getOStream());
+  
+
+//  MyPL.set( "Sort Manager", MySort );
+  MyPL.set( "Which", which );
+  MyPL.set( "Block Size", blockSize );
+  MyPL.set( "Num Blocks", numBlocks );
+  MyPL.set( "Maximum Restarts", maxRestarts );
+  //MyPL.set( "Step Size", stepSize );
+  MyPL.set( "Convergence Tolerance", tol );
+
+  // Create an Epetra_MultiVector for an initial vector to start the solver.
+  // Note:  This needs to have the same number of columns as the blocksize.
+  Teuchos::RCP<Epetra_MultiVector> ivec =
+    Teuchos::rcp( new Epetra_MultiVector(A->OperatorRangeMap(), blockSize) );
+  MatrixUtils::Random(*ivec);
+  
+  Epetra_MultiVector tmp = *ivec;
+  if (!Teuchos::is_null(B))
+    {
+    CHECK_ZERO(B->Apply(tmp,*ivec));
+    }
+  // Create the eigenproblem.
+  Teuchos::RCP<Anasazi::BasicEigenproblem<ST, MV, OP> > MyProblem;
+
+  if (Teuchos::is_null(B))
+    {
+    MyProblem =  Teuchos::rcp( new Anasazi::BasicEigenproblem<ST, MV, OP>(A, ivec) );
+    }
+  else
+    { 
+    MyProblem =  Teuchos::rcp( new Anasazi::BasicEigenproblem<ST, MV, OP>(A,B, ivec) );
+    }
+
+  // Inform the eigenproblem that the operator A is symmetric
+  MyProblem->setHermitian(false);
+
+  // Set the number of eigenvalues requested
+  MyProblem->setNEV( howMany );
+
+  // Inform the eigenproblem that you are finishing passing it information
+  boolret = MyProblem->setProblem();
+  if (boolret != true)
+    {
+    Tools::Error("Anasazi::BasicEigenproblem::setProblem() returned with error.",
+        __FILE__,__LINE__);
+    }
+
+  // Initialize the Block Arnoldi solver
+  Anasazi::BlockKrylovSchurSolMgr<ST, MV, OP> MySolverMgr(MyProblem, MyPL);
+
+  // Solve the problem to the specified tolerances or length
+  Anasazi::ReturnType returnCode;
+  returnCode = MySolverMgr.solve();
+  if (returnCode != Anasazi::Converged)
+    {
+    Tools::Warning("Anasazi::EigensolverMgr::solve() returned unconverged.",
+        __FILE__,__LINE__);
+    }
+
+  // Get the Ritz values from the eigensolver
+  std::vector<Anasazi::Value<double> > ritzValues = MySolverMgr.getRitzValues();
+
+  if (verbose)
+    {
+    // Output computed eigenvalues and their direct residuals
+    int numritz = (int)ritzValues.size();
+    Tools::out()<<"operator: "<<A->Label()<<std::endl;
+    Tools::out()<<std::endl<< "Computed Ritz Values"<< std::endl;
+    Tools::out()<< std::setw(16) << "Real Part"
+            << std::setw(16) << "Imag Part"
+            << std::endl;
+    Tools::out()<<"-----------------------------------------------------------"<<std::endl;
+    for (int i=0; i<numritz; i++)
+      {
+      Tools::out()<< std::setw(16) << ritzValues[i].realpart
+              << std::setw(16) << ritzValues[i].imagpart
+              << std::endl;
+      }
+    Tools::out()<<"-----------------------------------------------------------"<<std::endl;
+    }
+
+  STOP_TIMER(Label(),"Eigs");
+  return Teuchos::rcp(new Eigensolution(MyProblem->getSolution()));
+  }
 
 
 Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::ReadThcmMatrix(string prefix, const Epetra_Comm& comm,

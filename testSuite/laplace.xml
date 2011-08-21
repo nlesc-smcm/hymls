@@ -51,6 +51,9 @@
     <Parameter name="Initial Vector" type="string" value="Random"/>
     
     <Parameter name="Left or Right Preconditioning" type="string" value="Left"/>
+    
+    <!-- this is not necessary for Laplace, of course, but we can test the eigensolver: -->
+    <Parameter name="Deflated Subspace Dimension" type="int" value="0"/>
 
     <!-- parameters for the direct solvers (Ifpack_Amesos) -->
 

@@ -146,6 +146,9 @@ int status=0;
     try {
       K=rcp(Galeri::CreateCrsMatrix(matrixType, map.get(), galeriList));
       } catch (Galeri::Exception G) {G.Print();}
+    K->Scale(-1.0); // we like our matrix negative definite
+                     // (just to conform with the diffusion operator in the NSE,
+                     // the solver works anyway, of course).
     }
 #ifdef TESTING  
   HYMLS::MatrixUtils::Dump(*K, "Matrix.txt");
@@ -200,7 +203,7 @@ for (int f=0;f<numComputes;f++)
     }
   HYMLS::Tools::Out("Compute Solver ("+Teuchos::toString(f+1)+")");
   CHECK_ZERO(precond->Compute());
-  
+  CHECK_ZERO(solver->SetupDeflation());
  // std::cout << *solver << std::endl;
   
   for (int s=0;s<numSolves;s++)
