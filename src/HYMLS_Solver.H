@@ -16,6 +16,7 @@
 // forward declarations
 class Epetra_MultiVector;
 class Epetra_Comm;
+class Epetra_SerialDenseMatrix;
 class Epetra_Map;
 class Epetra_Import;
 
@@ -26,6 +27,8 @@ namespace Teuchos
   }
 
 namespace HYMLS {
+
+class BorderedLU;
 
 /*! iterative solver class, currently a very simple 
    Epetra wrapper for Belos.
@@ -145,6 +148,13 @@ protected:
 //@}
 
 //!\name data structures to monitor and deflate unstable modes
+
+/*! we compute a number of delicate eigenmodes and form their basis V.
+We then solve [V_orth'AV_orth   V_orth'AV; V'AV_orth   V'AV] [v; v_orth]=[V_orth'b;V'b]
+and form the solution as V*v+V_orth v_orth. The solution is computed using the class
+BorderedLU.
+*/
+
 //@{
 
 //! mass matrix - can be set using SetmassMatrix(). If not set, the 
@@ -168,14 +178,21 @@ Teuchos::RCP<MatrixUtils::Eigensolution> precEigs_;
 //! basis for the eigenspace to be deflated
 Teuchos::RCP<Epetra_MultiVector> V_;
 
-//! W1rhs = V_orth'AV
-Teuchos::RCP<Epetra_MultiVector> W1rhs_;
+//! V_orth'AV and V'AV_orth (border of the block system)
+//! borderV_ = V_orth'AV, borderW_ = (V'AV_orth)'.
+Teuchos::RCP<Epetra_MultiVector> borderV_, borderW_;
 
-//! W1 = (V_orth'AV_orth)\W1rhs (W_A)
-Teuchos::RCP<Epetra_MultiVector> W1_;
+//! VAV
+Teuchos::RCP<Epetra_SerialDenseMatrix> borderC_;
 
 //! projected operator (V_orth' A V_orth)
 Teuchos::RCP<Epetra_Operator> Aorth_;
+
+//! a belos solver for Aorth_, disguised as an Epetra_Operator
+Teuchos::RCP<Epetra_Operator> AorthSolver_;
+
+//! object handling the bordered solve
+Teuchos::RCP<BorderedLU> LU_;
 
 //@}
 

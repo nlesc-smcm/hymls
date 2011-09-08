@@ -1,8 +1,9 @@
 #ifndef HYMLS_MULTIVECTOR_VIEW_H
 #define HYMLS_MULTIVECTOR_VIEW_H
 
-#include <EpetraExt_Transform.h>
 #include "Epetra_BlockMap.h"
+#include "Teuchos_RCP.hpp"
+#include "Teuchos_Array.hpp"
 
 class Epetra_MultiVector;
 
@@ -14,12 +15,13 @@ namespace HYMLS {
 //! at the first element. This class still requires the new map to be a contiguous subset
 //! of the old map, but it may start anywhere inside the old map. A typical use of this
 //! would be to view a block of a vector, i.e. v(5:18).
-class MultiVector_View : public EpetraExt::ViewTransform<Epetra_MultiVector> {
-
+//! In contrast to the EpetraExt view classes, this object is memory safe and returns RCP's
+//! rather than references to internal raw pointers.
+class MultiVector_View 
+  {
   const Epetra_BlockMap & OrigMap_;
   const Epetra_BlockMap & NewMap_;
 
-  const int NumVec_;
   int Offset_;  
 
  public:
@@ -29,11 +31,9 @@ class MultiVector_View : public EpetraExt::ViewTransform<Epetra_MultiVector> {
 
   //! Constructor
   MultiVector_View( const Epetra_BlockMap & orig_map,
-                    const Epetra_BlockMap & new_map,
-                    const int num_vec = -1 )
+                    const Epetra_BlockMap & new_map)
   : OrigMap_(orig_map),
-    NewMap_(new_map),
-    NumVec_(num_vec)
+    NewMap_(new_map)
   {
   Offset_=0;
   while (OrigMap_.GID(Offset_)!=NewMap_.GID(0) && Offset_<OrigMap_.NumMyElements())
@@ -42,15 +42,34 @@ class MultiVector_View : public EpetraExt::ViewTransform<Epetra_MultiVector> {
     }
   if (Offset_+NewMap_.NumMyElements()>OrigMap_.NumMyElements())
     {
+    std::cout << "MultiVector_View: size of original map: "<<OrigMap_.NumMyElements()<<std::endl;
+    std::cout << "MultiVector_View: size of view: "<<NewMap_.NumMyElements()<<std::endl;
+    std::cout << "MultiVector_View: offset = "<< Offset_<<std::endl;
     throw("HYMLS::MultiVector_View: bad submap!");
     }
   }
 
   //! Transformation Operator
-  NewTypeRef operator()( OriginalTypeRef orig );
+  Teuchos::RCP<Epetra_MultiVector> operator()
+        (Teuchos::RCP<Epetra_MultiVector> orig );
 
   //! Transformation Operator (const version)
-  const Epetra_MultiVector& operator()(const Epetra_MultiVector& orig );
+  Teuchos::RCP<const Epetra_MultiVector> operator()
+        (Teuchos::RCP<const Epetra_MultiVector> orig );
+
+  //! Transformation Operator
+  Teuchos::RCP<Epetra_MultiVector> operator()
+        (Epetra_MultiVector& orig );
+
+  //! Transformation Operator (const version)
+  Teuchos::RCP<const Epetra_MultiVector> operator()
+        (const Epetra_MultiVector& orig );
+
+private:
+
+//! store an RCP to each object that the user wants to view so the original
+//! can't be deleted before the view.
+Teuchos::Array<Teuchos::RCP<const Epetra_MultiVector> > origObj_;
 
 };
 

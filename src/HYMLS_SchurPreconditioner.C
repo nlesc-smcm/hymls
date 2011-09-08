@@ -756,77 +756,6 @@ int SchurPreconditioner::InitializeOT()
   // Returns true if the  preconditioner has been successfully computed, false otherwise.
   bool SchurPreconditioner::IsComputed() const {return computed_;}
 
-  double SchurPreconditioner::InitializeFlops() const
-    {
-    // the total number of flops is computed each time InitializeFlops() is
-    // called. This is becase I also have to add the contribution from each
-    // container.
-    double total = flopsInitialize_;
-    for (int i=0;i<blockSolver_.size();i++)
-      {
-      if (blockSolver_[i]!=Teuchos::null)
-        {
-        total+=blockSolver_[i]->InitializeFlops();
-        }
-      }
-    if (reducedSchurSolver_!=Teuchos::null)
-      {
-      total += reducedSchurSolver_->InitializeFlops();
-      }
-    return(total);
-    }
-
-  double SchurPreconditioner::ComputeFlops() const
-    {
-    double total = flopsCompute_;
-    for (int i=0;i<blockSolver_.size();i++)
-      {
-      if (blockSolver_[i]!=Teuchos::null)
-        {
-        total+=blockSolver_[i]->ComputeFlops();
-        }
-      }
-    if (reducedSchurSolver_!=Teuchos::null)
-      {
-      total += reducedSchurSolver_->ComputeFlops();
-      }
-    return(total);
-    }
-
-  double SchurPreconditioner::ApplyInverseFlops() const
-    {
-    double total = flopsApplyInverse_;
-    for (int i=0;i<blockSolver_.size();i++)
-      {
-      if (blockSolver_[i]!=Teuchos::null)
-        {
-        total+=blockSolver_[i]->ApplyInverseFlops();
-        }
-      }
-    if (reducedSchurSolver_!=Teuchos::null)
-      {
-      total += reducedSchurSolver_->ApplyInverseFlops();
-      }
-    return(total);
-    }
-
-
-  // Computes the condition number estimate, returns its value.
-  double SchurPreconditioner::Condest(const Ifpack_CondestType CT,
-                         const int MaxIters,
-                         const double Tol,
-                         Epetra_RowMatrix* Matrix)
-                         {
-                         Tools::Warning("not implemented!",__FILE__,__LINE__);
-                         return -1.0; // not implemented.
-                         }
-
-  // Returns the computed condition number estimate, or -1.0 if not computed.
-  double SchurPreconditioner::Condest() const
-    {
-    Tools::Warning("not implemented!",__FILE__,__LINE__);
-    return -1.0;
-    }
 
   int SchurPreconditioner::Apply(const Epetra_MultiVector& X,
                            Epetra_MultiVector& Y) const
@@ -867,7 +796,9 @@ if (dumpVectors_)
 // there was a bug that when reusing a solver for many solves,
 // the memory would fill up (on Hopf, at least). This is solved
 // by not using the MV reindex object, although this is of course
-// a hotfix.
+// a hotfix. (EpetraExt's transform classes are kind of unsafe, I
+// believe now that you can use each object only for a single
+// transform operation)
 #define MEMLEAK_BUG
 
 #ifndef MEMLEAK_BUG
@@ -947,7 +878,6 @@ if (dumpVectors_)
         for (int j = 0 ; j < blockSolver_[blk]->NumRows() ; j++)
           {
           int lid = blockSolver_[blk]->ID(j);
-          DEBVAR(Y.Map().GID(lid));
           for (int k = 0 ; k < X.NumVectors() ; k++)
             {
             Y[k][lid] = blockSolver_[blk]->LHS(j,k);
@@ -992,6 +922,78 @@ if (dumpVectors_)
         {
         return *SchurMatrix_;
         }
+
+  double SchurPreconditioner::InitializeFlops() const
+    {
+    // the total number of flops is computed each time InitializeFlops() is
+    // called. This is becase I also have to add the contribution from each
+    // container.
+    double total = flopsInitialize_;
+    for (int i=0;i<blockSolver_.size();i++)
+      {
+      if (blockSolver_[i]!=Teuchos::null)
+        {
+        total+=blockSolver_[i]->InitializeFlops();
+        }
+      }
+    if (reducedSchurSolver_!=Teuchos::null)
+      {
+      total += reducedSchurSolver_->InitializeFlops();
+      }
+    return(total);
+    }
+
+  double SchurPreconditioner::ComputeFlops() const
+    {
+    double total = flopsCompute_;
+    for (int i=0;i<blockSolver_.size();i++)
+      {
+      if (blockSolver_[i]!=Teuchos::null)
+        {
+        total+=blockSolver_[i]->ComputeFlops();
+        }
+      }
+    if (reducedSchurSolver_!=Teuchos::null)
+      {
+      total += reducedSchurSolver_->ComputeFlops();
+      }
+    return(total);
+    }
+
+  double SchurPreconditioner::ApplyInverseFlops() const
+    {
+    double total = flopsApplyInverse_;
+    for (int i=0;i<blockSolver_.size();i++)
+      {
+      if (blockSolver_[i]!=Teuchos::null)
+        {
+        total+=blockSolver_[i]->ApplyInverseFlops();
+        }
+      }
+    if (reducedSchurSolver_!=Teuchos::null)
+      {
+      total += reducedSchurSolver_->ApplyInverseFlops();
+      }
+    return(total);
+    }
+
+
+  // Computes the condition number estimate, returns its value.
+  double SchurPreconditioner::Condest(const Ifpack_CondestType CT,
+                         const int MaxIters,
+                         const double Tol,
+                         Epetra_RowMatrix* Matrix)
+                         {
+                         Tools::Warning("not implemented!",__FILE__,__LINE__);
+                         return -1.0; // not implemented.
+                         }
+
+  // Returns the computed condition number estimate, or -1.0 if not computed.
+  double SchurPreconditioner::Condest() const
+    {
+    Tools::Warning("not implemented!",__FILE__,__LINE__);
+    return -1.0;
+    }
 
   // Returns the number of calls to Initialize().
   int SchurPreconditioner::NumInitialize() const {return numInitialize_;}

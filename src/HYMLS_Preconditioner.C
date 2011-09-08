@@ -660,6 +660,143 @@ MatrixUtils::Dump(test_lhs,"Solver"+Teuchos::toString(myLevel_)+"_test_Sol1.txt"
   // Returns true if the  preconditioner has been successfully computed, false otherwise.
   bool Preconditioner::IsComputed() const {return computed_;}
 
+  // Applies the preconditioner to vector X, returns the result in Y.
+  int Preconditioner::ApplyInverse(const Epetra_MultiVector& B,
+                           Epetra_MultiVector& X) const
+    {
+    START_TIMER(label_,"ApplyInverse");
+    numApplyInverse_++;
+    time_->ResetStartTime();
+
+#ifdef DEBUGGING
+if (dumpVectors_)
+  {
+  MatrixUtils::Dump(*(B(0)), "Preconditioner"+Teuchos::toString(myLevel_)+"_Rhs.txt",true);
+  }
+#endif    
+    int numvec=X.NumVectors();   // these are used for calculating flops
+    int veclen=X.GlobalLength();
+
+    
+    // create some vectors based on the map we use internally (first all internal and then 
+    // all separator variables):
+    Teuchos::RCP<Epetra_MultiVector> x,y,z,b;
+    x = Teuchos::rcp( new Epetra_MultiVector(*rowMap_,X.NumVectors()) );
+    y = Teuchos::rcp( new Epetra_MultiVector(*rowMap_,X.NumVectors()) );
+    z = Teuchos::rcp( new Epetra_MultiVector(*rowMap_,X.NumVectors()) );
+    b = Teuchos::rcp( new Epetra_MultiVector(*rowMap_,X.NumVectors()) );
+
+    EPETRA_CHK_ERR(b->Import(B,*importer_,Zero)); // should just be a local reordering
+
+    // create a view of the '1' part of vectors - TODO: we might keep these objects for 
+    // efficiency reasons. The 'interior' view is only required for the bordering process.
+    HYMLS::MultiVector_View interior(*rowMap_,*map1_);
+
+    Teuchos::RCP<Epetra_MultiVector> x1 = interior(x);
+    Teuchos::RCP<Epetra_MultiVector> z1 = interior(z);
+
+    // create a view of the Schur-part of these vectors. Note that EpetraExt's version
+    // doesn't work here because it assumes the submap to be the first part of the original
+    HYMLS::MultiVector_View separators(*rowMap_,*map2_);
+
+    // create appropriate views of the vectors
+    Teuchos::RCP<Epetra_MultiVector> x2=separators(x);
+    Teuchos::RCP<Epetra_MultiVector> y2=separators(y);
+    Teuchos::RCP<Epetra_MultiVector> z2=separators(z);
+    Teuchos::RCP<Epetra_MultiVector> b2=separators(b);
+    
+    DEBUG("solve subdomains...");
+    CHECK_ZERO(ApplyInverseA11(*b, *x));
+    
+    DEBUG("apply A21...");    
+    //CHECK_ZERO(ApplyA21(*x,z2,&flopsApplyInverse_));
+    CHECK_ZERO(ApplyA21(*x,*z,&flopsApplyInverse_));
+
+    if (schurRhs_->NumVectors()!=X.NumVectors())
+      {
+      schurRhs_=Teuchos::rcp(new Epetra_MultiVector(*map2_,X.NumVectors()));
+      schurSol_=Teuchos::rcp(new Epetra_MultiVector(*map2_,X.NumVectors()));
+      schurSol_->PutScalar(0.0);
+      }        
+    schurRhs_->Update(1.0,*b2,-1.0,*z2,0.0);
+    flopsApplyInverse_+=veclen*numvec;
+
+    Epetra_SerialDenseMatrix q,s;
+
+    if (borderW_!=Teuchos::null)
+      {
+      CHECK_ZERO(DenseUtils::MatMul(*borderW1_,*z1,q));
+      CHECK_ZERO(q.Scale(-1));
+      s.Reshape(q.M(),q.N());
+      }
+
+  if (scaleSchur_)
+    {
+    // left-scale rhs with schurScaLeft_
+    CHECK_ZERO(schurRhs_->Multiply(1.0, *schurScaLeft_, *schurRhs_, 0.0))
+    }
+  if (borderV_!=Teuchos::null)
+    {
+    //TODO: for recursive application we should probably 
+    //      use the next level HYMLS::Preconditioner as the
+    //      bordered Solver instead of a borderedLU.
+    if (borderedSchurSolver_==Teuchos::null)
+      {
+      Tools::Error("cannot handle bordered Schur system!",__FILE__,__LINE__);
+      }
+    else
+      {
+      CHECK_ZERO(borderedSchurSolver_->ApplyInverse(*schurRhs_,q,*schurSol_,s));  
+      }
+    }
+  else
+    {
+    CHECK_ZERO(schurPrec_->ApplyInverse(*schurRhs_,*schurSol_));  
+    }
+  // unscale rhs with schurScaRight_
+  if (scaleSchur_)
+    {
+    CHECK_ZERO(schurSol_->ReciprocalMultiply(1.0, *schurScaRight_, *schurSol_, 0.0))
+    }
+
+  //TODO: avoid this copy operation
+  *x2=*schurSol_;
+    
+  // this gives z1
+  DEBUG("Apply A12...");
+  CHECK_ZERO(ApplyA12(*x2, *z,&flopsApplyInverse_));
+  // this gives y1, y2=0   
+  DEBUG("solve subdomains...");
+  CHECK_ZERO(ApplyInverseA11(*z, *y));
+  // this gives the final result [x1-y1; x2]
+  CHECK_ZERO(x->Update(-1.0,*y,1.0));
+  flopsApplyInverse_+=numvec*veclen;
+  
+  if (borderQ1_!=Teuchos::null)
+    {
+    Teuchos::RCP<Epetra_MultiVector> ss = DenseUtils::CreateView(s);
+    CHECK_ZERO(x1->Multiply('N','N',-1.0,*borderQ1_,*ss,1.0));
+    }   
+
+  DEBUG("export solution.");
+  EPETRA_CHK_ERR(X.Export(*x,*importer_,Zero)); // should just be a local reordering
+
+#ifdef DEBUGGING
+  if (dumpVectors_)
+    {
+    MatrixUtils::Dump(*(X(0)), 
+    "Preconditioner"+Teuchos::toString(myLevel_)+"_Sol.txt",true);
+    dumpVectors_=false;
+    }
+#endif    
+    timeApplyInverse_+=time_->ElapsedTime();
+    STOP_TIMER(label_,"ApplyInverse");
+    return 0;
+    }
+
+  // Returns a pointer to the matrix to be preconditioned.
+  const Epetra_RowMatrix& Preconditioner::Matrix() const {return *matrix_;}
+
 //TODO: the flops-counters currently do not include anything inside Belos
 
   double Preconditioner::InitializeFlops() const
@@ -742,108 +879,6 @@ MatrixUtils::Dump(test_lhs,"Solver"+Teuchos::toString(myLevel_)+"_test_Sol1.txt"
     return -1.0;
     }
 
-  // Applies the preconditioner to vector X, returns the result in Y.
-  int Preconditioner::ApplyInverse(const Epetra_MultiVector& B,
-                           Epetra_MultiVector& X) const
-    {
-    START_TIMER(label_,"ApplyInverse");
-    numApplyInverse_++;
-    time_->ResetStartTime();
-
-#ifdef DEBUGGING
-if (dumpVectors_)
-  {
-  MatrixUtils::Dump(*(B(0)), "Preconditioner"+Teuchos::toString(myLevel_)+"_Rhs.txt",true);
-  }
-#endif    
-    int numvec=X.NumVectors();   // these are used for calculating flops
-    int veclen=X.GlobalLength();
-
-    
-    // create some vectors based on the map we use internally (first all internal and then 
-    // all separator variables):
-    Teuchos::RCP<Epetra_MultiVector> x,y,z,b;
-    x = Teuchos::rcp( new Epetra_MultiVector(*rowMap_,X.NumVectors()) );
-    y = Teuchos::rcp( new Epetra_MultiVector(*rowMap_,X.NumVectors()) );
-    z = Teuchos::rcp( new Epetra_MultiVector(*rowMap_,X.NumVectors()) );
-    b = Teuchos::rcp( new Epetra_MultiVector(*rowMap_,X.NumVectors()) );
-
-    EPETRA_CHK_ERR(b->Import(B,*importer_,Zero)); // should just be a local reordering
-
-    // create a view of the Schur-part of these vectors. Note that EpetraExt's version
-    // doesn't work here because it assumes the submap to be the first part of the original
-    HYMLS::MultiVector_View separators(*rowMap_,*map2_);
-
-    // create appropriate views of the vectors
-    Epetra_MultiVector& x2=separators(*x);
-    Epetra_MultiVector& y2=separators(*y);
-    Epetra_MultiVector& z2=separators(*z);
-    Epetra_MultiVector& b2=separators(*b);
-
-    
-    DEBUG("solve subdomains...");
-    CHECK_ZERO(ApplyInverseA11(*b, *x));
-    
-    DEBUG("apply A21...");    
-    //CHECK_ZERO(ApplyA21(*x,z2,&flopsApplyInverse_));
-    CHECK_ZERO(ApplyA21(*x,*z,&flopsApplyInverse_));
-
-    if (schurRhs_->NumVectors()!=X.NumVectors())
-      {
-      schurRhs_=Teuchos::rcp(new Epetra_MultiVector(*map2_,X.NumVectors()));
-      schurSol_=Teuchos::rcp(new Epetra_MultiVector(*map2_,X.NumVectors()));
-      schurSol_->PutScalar(0.0);
-      }        
-    schurRhs_->Update(1.0,b2,-1.0,z2,0.0);
-    flopsApplyInverse_+=veclen*numvec;
-
-  if (scaleSchur_)
-    {
-    // left-scale rhs with schurScaLeft_
-    CHECK_ZERO(schurRhs_->Multiply(1.0, *schurScaLeft_, *schurRhs_, 0.0))
-    }
-  //TROET: this solves the bordered Schur problem (approximately),
-  //       but we need to back-substitute correctly to get the 
-  //       complete solution orthogonal to V.
-  CHECK_ZERO(schurPrec_->ApplyInverse(*schurRhs_,*schurSol_));  
-
-  // unscale rhs with schurScaRight_
-  if (scaleSchur_)
-    {
-    CHECK_ZERO(schurSol_->ReciprocalMultiply(1.0, *schurScaRight_, *schurSol_, 0.0))
-    }
-
-  //TODO: avoid this copy operation
-  x2=*schurSol_;
-    
-  // this gives z1
-  DEBUG("Apply A12...");
-  CHECK_ZERO(ApplyA12(x2, *z,&flopsApplyInverse_));
-  // this gives y1, y2=0   
-  DEBUG("solve subdomains...");
-  CHECK_ZERO(ApplyInverseA11(*z, *y));
-  // this gives the final result [x1-y1; x2]
-  CHECK_ZERO(x->Update(-1.0,*y,1.0));
-  flopsApplyInverse_+=numvec*veclen;    
-
-  DEBUG("export solution.");
-  EPETRA_CHK_ERR(X.Export(*x,*importer_,Zero)); // should just be a local reordering
-
-#ifdef DEBUGGING
-  if (dumpVectors_)
-    {
-    MatrixUtils::Dump(*(X(0)), 
-    "Preconditioner"+Teuchos::toString(myLevel_)+"_Sol.txt",true);
-    dumpVectors_=false;
-    }
-#endif    
-    timeApplyInverse_+=time_->ElapsedTime();
-    STOP_TIMER(label_,"ApplyInverse");
-    return 0;
-    }
-
-  // Returns a pointer to the matrix to be preconditioned.
-  const Epetra_RowMatrix& Preconditioner::Matrix() const {return *matrix_;}
 
   // Returns the number of calls to Initialize().
   int Preconditioner::NumInitialize() const {return numInitialize_;}
@@ -944,9 +979,32 @@ int Preconditioner::ApplyInverseA11(const Epetra_MultiVector& B, Epetra_MultiVec
     return 0;
     }
 
+// solve a block diagonal system with A11^T. Vectors are based on rowMap_
+int Preconditioner::ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVector& X) const
+  {
+  int ierr=0;
+  int nsd=subdomainSolver_.size();
+  Teuchos::Array<bool> prevtrans(nsd); // remember if the solvers were already transposed
+  for (int sd=0;sd<nsd;sd++)
+    {
+    prevtrans[sd]=subdomainSolver_[sd]->Inverse()->UseTranspose();
+    //TODO: this cast is dangerous as we may want to use something else then Ifpack_Amesos 
+    //      one day... (same cast is used a few lines down, too).
+    CHECK_ZERO(Teuchos::rcp_const_cast<Ifpack_Amesos>(subdomainSolver_[sd]->Inverse())->SetUseTranspose(true));
+    }
+
+  ierr = this->ApplyInverseA11(B,X);
+
+  for (int sd=0;sd<nsd;sd++)
+    {
+    CHECK_ZERO(Teuchos::rcp_const_cast<Ifpack_Amesos>(subdomainSolver_[sd]->Inverse())->SetUseTranspose(prevtrans[sd]));
+    }
+  return ierr;
+  }
+
 
   // apply Y=A12*X. This only works if the solver is computed. The input vector
-  // Y should be based on rowMap__, X on rowMap_ or map2_.
+  // Y should be based on rowMap_ or map1_, X on rowMap_ or map2_.
   int Preconditioner::ApplyA12(const Epetra_MultiVector& X, 
                              Epetra_MultiVector& Y,
                              double* flops) const
@@ -963,19 +1021,37 @@ int Preconditioner::ApplyInverseA11(const Epetra_MultiVector& B, Epetra_MultiVec
     for (int sd=0;sd<hid_->NumMySubdomains();sd++)
       {
       HYMLS::MultiVector_View interior(Y.Map(),*localMap1_[sd]);
-      EPETRA_CHK_ERR(localA12_[sd]->Apply(separators(X),interior(Y)));
+      EPETRA_CHK_ERR(localA12_[sd]->Apply(*(separators(X)),*(interior(Y))));
       if (flops) *flops+=2*localA12_[sd]->NumGlobalNonzeros();
       }  
 #else
       HYMLS::MultiVector_View interior(Y.Map(),*map1_);
-      EPETRA_CHK_ERR(A12_->Apply(separators(X),interior(Y)));
+      EPETRA_CHK_ERR(A12_->Apply(*separators(X),*interior(Y)));
       if (flops) *flops+=2*A12_->NumGlobalNonzeros();
 #endif      
     return 0;
     }
 
+  // apply Y=A12*X. This only works if the solver is computed. The input vector
+  // Y should be based on rowMap_ or map2_, X on rowMap_ or map1_.
+  int Preconditioner::ApplyA12T(const Epetra_MultiVector& X, 
+                             Epetra_MultiVector& Y,
+                             double* flops) const
+  {
+    if (!IsComputed())
+      {
+      Tools::Warning("solver not computed!",__FILE__,__LINE__);
+      return -1;
+      }
+
+    HYMLS::MultiVector_View interior(X.Map(),*map1_);
+    HYMLS::MultiVector_View separators(Y.Map(),*map2_);
+    EPETRA_CHK_ERR(A12_->Multiply(true,*interior(X),*separators(Y)));
+    if (flops) *flops+=2*A12_->NumGlobalNonzeros();
+  return 0;
+  }
   // apply Y=A21*X. This only works if the solver is computed. The input vector
-  // X should be based on rowMap_ and Y on rowMap_ or map2_.
+  // X should be based on rowMap_ or map1_, and Y on rowMap_ or map2_.
   int Preconditioner::ApplyA21(const Epetra_MultiVector& X, 
                              Epetra_MultiVector& Y,
                              double* flops) const
@@ -995,7 +1071,7 @@ int Preconditioner::ApplyInverseA11(const Epetra_MultiVector& B, Epetra_MultiVec
 // and them export it to the non-overlapping one. This code fragment doesn't work!!!
     Epetra_MultiVector tmp(*map2_, Y.NumVectors());
     
-    EPETRA_CHK_ERR(separators(Y).PutScalar(0.0))
+    EPETRA_CHK_ERR(separators(Y)->PutScalar(0.0))
 
     for (int sd=0;sd<hid_->NumMySubdomains();sd++)
       {
@@ -1007,25 +1083,46 @@ int Preconditioner::ApplyInverseA11(const Epetra_MultiVector& B, Epetra_MultiVec
       // zeros out the vector in each step. That's why we need a temporary
       // vector (TODO: this is a hotfix, really, we should rethink the
       // implementation).
-      EPETRA_CHK_ERR(localA21_[sd]->Apply(interior(X),loc_tmp));
+      EPETRA_CHK_ERR(localA21_[sd]->Apply(*(interior(X)),loc_tmp));
       tmp.PutScalar(0.0);
       EPETRA_CHK_ERR(tmp.Import(loc_tmp,import,Insert));
-      EPETRA_CHK_ERR(separators(Y).Update(1.0,tmp,1.0));
-      //EPETRA_CHK_ERR(separators(Y).Import(loc_tmp,import,Add));
+      EPETRA_CHK_ERR(separators(Y)->Update(1.0,tmp,1.0));
+      //EPETRA_CHK_ERR(separators(Y)->Import(loc_tmp,import,Add));
       DEBVAR(import);
       DEBVAR(*localA21_[sd]);
       DEBVAR(loc_tmp);
-      DEBVAR(interior(X));
+      DEBVAR(*interior(X));
       DEBVAR(tmp);
 
       if (flops) *flops+=2*localA21_[sd]->NumGlobalNonzeros();
       }
 #else
       HYMLS::MultiVector_View interior(X.Map(),*map1_);
-      EPETRA_CHK_ERR(A21_->Apply(interior(X),separators(Y)));
+      EPETRA_CHK_ERR(A21_->Apply(*interior(X),*separators(Y)));
       if (flops) *flops+=2*A21_->NumGlobalNonzeros();
 
 #endif      
+    return 0;
+    }
+
+  // apply Y=A21^T*X. This only works if the solver is computed. The input vector
+  // X should be based on rowMap_ or map2_, and Y on rowMap_ or map1_.
+  int Preconditioner::ApplyA21T(const Epetra_MultiVector& X, 
+                             Epetra_MultiVector& Y,
+                             double* flops) const
+    {    
+    if (!IsComputed())
+      {
+      Tools::Warning("solver not computed!",__FILE__,__LINE__);
+      return -1;
+      }
+
+    HYMLS::MultiVector_View separators(X.Map(),*map2_);
+    HYMLS::MultiVector_View interior(Y.Map(),*map1_);
+    
+    EPETRA_CHK_ERR(A21_->Multiply(true,*separators(X),*interior(Y)));
+    if (flops) *flops+=2*A21_->NumGlobalNonzeros();
+
     return 0;
     }
 
@@ -1061,16 +1158,40 @@ int Preconditioner::ApplyInverseA11(const Epetra_MultiVector& B, Epetra_MultiVec
       // zeros out the vector in each step. That's why we need a temporary
       // vector (TODO: this is a hotfix, really, we should rethink the
       // implementation)
-      EPETRA_CHK_ERR(localA22_[sd]->Apply(separators(X),tmp));
-      EPETRA_CHK_ERR(separators(Y).Update(1.0,tmp,1.0));
+      EPETRA_CHK_ERR(localA22_[sd]->Apply(*separators(X),tmp));
+      EPETRA_CHK_ERR(separators(Y)->Update(1.0,tmp,1.0));
       if (flops) *flops+=2*localA22_[sd]->NumGlobalNonzeros();
       }
 #else
     HYMLS::MultiVector_View separators(X.Map(),*map2_);
 
-    EPETRA_CHK_ERR(A22_->Apply(separators(X),separators(Y)));
+    EPETRA_CHK_ERR(A22_->Apply(*separators(X),*separators(Y)));
     if (flops) *flops+=2*A22_->NumGlobalNonzeros();
 #endif
+    return 0;
+    }
+
+  //! apply Y=A22^T*X. This only works if the solver is computed. The input vectors
+  //! can be based on rowMap_ or map2_ 
+  int Preconditioner::ApplyA22T(const Epetra_MultiVector& X, 
+                             Epetra_MultiVector& Y,
+                             double *flops) const
+    {
+    if (!IsComputed())
+      {
+      Tools::Warning("solver not computed!",__FILE__,__LINE__);
+      return -1;
+      }
+    if (!(X.Map().SameAs(Y.Map())))
+      {
+      Tools::Warning("incompatible maps!",__FILE__,__LINE__);
+      return -2;
+      }
+
+    HYMLS::MultiVector_View separators(X.Map(),*map2_);
+
+    EPETRA_CHK_ERR(A22_->Multiply(true,*separators(X),*separators(Y)));
+    if (flops) *flops+=2*A22_->NumGlobalNonzeros();
     return 0;
     }
 
@@ -1258,16 +1379,24 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
 
     // build the border for the Schur-complement
     borderSchurV_ = Teuchos::rcp(new Epetra_MultiVector(*map2_,m));
+    borderQ1_= Teuchos::rcp(new Epetra_MultiVector(*map1_,m));
+
+    CHECK_ZERO(ApplyInverseA11(*borderV1_,*borderQ1_));
+    CHECK_ZERO(ApplyA21(*borderQ1_, *borderSchurV_));
+    CHECK_ZERO(borderSchurV_->Update(1.0,*borderV2_,-1.0));
+
+    // borderSchurW is given by W2 - (A11\A12)'W1
+    borderSchurW_ = Teuchos::rcp(new Epetra_MultiVector(*map2_,m));
+    // TODO: we use the formulation W2 - A12'(A11'\W1) instead, not
+    //       sure which is the more efficient implementation, but this
+    //       seemed to be easier to do quickly.
+    Epetra_MultiVector w1tmp(*map1_,m);
+    CHECK_ZERO(this->ApplyInverseA11T(*borderW1_,w1tmp));
+    CHECK_ZERO(this->ApplyA12T(w1tmp,*borderSchurW_));
+    CHECK_ZERO(borderSchurW_->Update(1.0,*borderW2_,-1.0));
     
-    Teuchos::RCP<Epetra_MultiVector> A11invV1 
-        = Teuchos::rcp(new Epetra_MultiVector(*map2_,m));
-
-    CHECK_ZERO(ApplyInverseA11(*borderV1_,*A11invV1));
-    CHECK_ZERO(ApplyA21(*A11invV1, *borderSchurV_));
-    CHECK_ZERO(borderSchurV_->Update(1.0,*borderV1_,-1.0));
-
     borderSchurC_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(m,m));
-    DenseUtils::MatMul(*borderW1_,*A11invV1,*borderSchurC_);
+    CHECK_ZERO(DenseUtils::MatMul(*borderW1_,*borderQ1_,*borderSchurC_));
     CHECK_ZERO(borderSchurC_->Scale(-1.0));
     *borderSchurC_ += *borderC_;
     
@@ -1277,11 +1406,10 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
       {
       Tools::Error("not implemented!",__FILE__,__LINE__);
       }
-    
     borderedSchurSolver_ = Teuchos::rcp
         (new BorderedLU(schurPrec_,borderSchurV_,borderSchurW_,borderSchurC_));
 
-    STOP_TIMER(label_,"SetBorder");    
+    STOP_TIMER(label_,"SetBorder");
     return 0;
     }
 

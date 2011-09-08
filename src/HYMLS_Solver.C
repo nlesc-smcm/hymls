@@ -5,6 +5,7 @@
 #include "HYMLS_MatrixUtils.H"
 #include "HYMLS_DenseUtils.H"
 #include "HYMLS_BorderedSolver.H"
+#include "HYMLS_BorderedLU.H"
 #include "HYMLS_ProjectedOperator.H"
 
 #include <Epetra_Time.h> 
@@ -26,6 +27,8 @@
 #include "BelosBlockGmresSolMgr.hpp"
 #include "BelosBlockCGSolMgr.hpp"
 #include "BelosPCPGSolMgr.hpp"
+#include "BelosEpetraOperator.h"
+
 #include "Teuchos_StandardCatchMacros.hpp"
 
 namespace HYMLS {
@@ -318,7 +321,7 @@ if (precEigs_->Espace==Teuchos::null)
 #ifdef TESTING
       Tools::out() << "lambda(V'P\\SV)["<<i<<"]=";
       Tools::out() << lambda_r[i] << " + i (" << lambda_i[i] << ")"<<std::endl;
-#endif      
+#endif
     if ((re*re+im*im)>tol)
       {
       Tools::out() << "deflating eigenmode "<<i<<": lambda(V'P\\SV)=";
@@ -365,19 +368,24 @@ if (precEigs_->Espace==Teuchos::null)
     V_=Teuchos::rcp(new Epetra_MultiVector(V.Map(),numDeflated_));
     CHECK_ZERO(V_->Multiply('N','N',1.0,V_hat,*W_hat,0.0));
     
-    // construct the vector V_orth' [AV,b]. The last column
-    // is left empty for the rhs during ApplyInverse().
-    W1rhs_=Teuchos::rcp(new Epetra_MultiVector(V.Map(),numDeflated_));
-    // compute W_A = V_orth'KV (=V_orth*KV)
-    DenseUtils::ApplyOrth(V,KV,*W1rhs_);
-    W1_=Teuchos::rcp(new Epetra_MultiVector(V.Map(),numDeflated_));
-    
+    borderV_=Teuchos::rcp(new Epetra_MultiVector(V_->Map(),numDeflated_));    
+    // compute V_orth'KV
+    DenseUtils::ApplyOrth(*V_,KV,*borderV_);
+    // compute V'KV_orth (K is not symmetric, so we
+    // actually compute borderW_' = V_orthK'V. V_orth=I-VV' is symmetric)
+    borderW_=Teuchos::rcp(new Epetra_MultiVector(V_->Map(),numDeflated_));
+    CHECK_ZERO(matrix_->Multiply(true,*V_,V_hat));
+    CHECK_ZERO(DenseUtils::ApplyOrth(*V_,V_hat,*borderW_));
+    // compute V'KV
+    borderC_=Teuchos::rcp(new Epetra_SerialDenseMatrix(numDeflated_,numDeflated_));
+  CHECK_ZERO(DenseUtils::MatMul(*V_,KV,*borderC_));
+
     // check if the preconditioner can handle a bordered system. It has to
     // solve a system of the form                               
     // |A  V| |x|   |b|                                         
     // |V' O| |s| = |0| now to maintain orthogonality wrt V.    
     //                                                          
-    Teuchos::RCP<HYMLS::BorderedSolver> borderedPrec = 
+    Teuchos::RCP<HYMLS::BorderedSolver> borderedPrec =
         Teuchos::rcp_dynamic_cast<HYMLS::BorderedSolver>(precond_);
     
     if (Teuchos::is_null(borderedPrec))
@@ -392,12 +400,30 @@ if (precEigs_->Espace==Teuchos::null)
       }
 
     Aorth_=Teuchos::rcp(new ProjectedOperator(matrix_,V_,true));
+
     belosProblemPtr_->setOperator(Aorth_);
     belosProblemPtr_->setProblem();
+
+  Teuchos::ParameterList& belosList = params_->sublist("Solver").sublist("Iterative Solver");
+  string linearSolver = params_->sublist("Solver").get("Krylov Method","GMRES");
     
-    //TODO: tell Belos to maintain orthogonality wrt. V
-    
-    // TROET: now we have to solve W1_=(V_orth'KV_orth)\W1rhs_
+    Teuchos::RCP<Teuchos::ParameterList> belosParamPtr = Teuchos::rcp(
+        new Teuchos::ParameterList(belosList));
+        
+    if (linearSolver=="GMRES")
+      {
+      belosParamPtr->set("Solver","BlockGmres");
+      }
+    else
+      {
+      Tools::Error("not implemented",__FILE__,__LINE__);
+      }
+
+    AorthSolver_ = Teuchos::rcp(new Belos::EpetraOperator
+        (belosProblemPtr_,belosParamPtr));
+
+    // setup the LU decomposition
+    LU_=Teuchos::rcp(new BorderedLU(AorthSolver_,borderV_,borderW_,borderC_));
     
     }//numDeflated_>0
 
@@ -410,7 +436,14 @@ int Solver::ApplyInverse(const Epetra_MultiVector& B,
                            Epetra_MultiVector& X) const
   {
   START_TIMER(label_,"ApplyInverse");
-
+  int ierr=0;
+  if (LU_!=Teuchos::null)
+    {
+    // bordered solve
+    ierr=LU_->ApplyInverse(B,X);
+    }
+  else
+    {
 #ifdef TESTING
   if (X.NumVectors()!=B.NumVectors())
     {
@@ -471,7 +504,7 @@ int Solver::ApplyInverse(const Epetra_MultiVector& B,
 
     //TODO: avoid this copy operation
     X=*belosSol_;
-    
+/*    
     for (int j=0;j<X.NumVectors();j++)
       {
       for (int i=0;i<X.MyLength();i++)
@@ -482,7 +515,7 @@ int Solver::ApplyInverse(const Epetra_MultiVector& B,
           Tools::Error("Copy operation failed!",__FILE__,__LINE__);
           }
       }
-
+*/
 #ifdef TESTING
 // compute explicit residual of Schur problem
 Epetra_MultiVector resid(belosRhs_->Map(),belosRhs_->NumVectors());
@@ -511,10 +544,11 @@ if (comm_->MyPID()==0)
       MatrixUtils::Dump(*Acrs,"FailedMatrix.txt");
       MatrixUtils::Dump(B,"FailedRhs.txt");
 #endif      
+      ierr = -1;
       }
-      
+    }
     STOP_TIMER(label_,"ApplyInverse");
-    return 0;
+    return ierr;
     }
 
 

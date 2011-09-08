@@ -15,14 +15,16 @@ namespace HYMLS
              Teuchos::RCP<const Epetra_MultiVector> V,
              Teuchos::RCP<const Epetra_MultiVector> W,
              Teuchos::RCP<const Epetra_SerialDenseMatrix> C)
-  : A_(A_),useTranspose_(false),label_("BorderedLU(A="+std::string(A->Label())+")")
+  : A_(A),useTranspose_(false),label_("BorderedLU(A="+std::string(A->Label())+")")
   {
-  this->SetBorder(V,W,C);
+  START_TIMER2(label_,"Constructor");
+  CHECK_ZERO(this->SetBorder(V,W,C));
+  STOP_TIMER2(label_,"Constructor");
   }
 
   int BorderedLU::SetUseTranspose(bool UseTranspose)
     {
-    useTranspose_ = UseTranspose;  
+    useTranspose_ = UseTranspose;
     // we don't implement this at the moment
     return -1;
     }
@@ -46,6 +48,9 @@ namespace HYMLS
                   Teuchos::RCP<const Epetra_SerialDenseMatrix> C)
   {
   V_=V; W_=W; C_=C;
+  if (V==Teuchos::null) Tools::Error("V is null",__FILE__,__LINE__);
+  if (W==Teuchos::null) Tools::Error("W is null",__FILE__,__LINE__);
+  if (C==Teuchos::null) Tools::Error("C is null",__FILE__,__LINE__);
   return this->Compute();
   }
   
@@ -53,11 +58,13 @@ namespace HYMLS
     int BorderedLU::Apply(const Epetra_MultiVector& X, const Epetra_SerialDenseMatrix& S,
                     Epetra_MultiVector& Y,       Epetra_SerialDenseMatrix& T) const
   {
+  START_TIMER3(label_,"Apply");
   CHECK_ZERO(A_->Apply(X,Y));
   Teuchos::RCP<const Epetra_MultiVector> s = DenseUtils::CreateView(S);
   CHECK_ZERO(Y.Multiply('N','N',1.0,*V_,*s,1.0));
   CHECK_ZERO(DenseUtils::MatMul(*W_,X,T));
   CHECK_ZERO(T.Multiply('N','N',1.0,*C_,S,1.0));
+  STOP_TIMER3(label_,"Apply");
   return 0;
   }                    
 
@@ -65,6 +72,7 @@ namespace HYMLS
     int BorderedLU::ApplyInverse(const Epetra_MultiVector& Y, const Epetra_SerialDenseMatrix& T,
                            Epetra_MultiVector& X,       Epetra_SerialDenseMatrix& S) const
   {
+  START_TIMER3(label_,"ApplyInverse");
   CHECK_ZERO(A_->ApplyInverse(Y,X));
   if (V_==Teuchos::null)
     {
@@ -87,16 +95,22 @@ namespace HYMLS
   CHECK_ZERO(Qs.Multiply('N','N',1.0,*Q_,*s,0.0));
 
   CHECK_ZERO(X.Update(-1.0,Qs,1.0));        
+  STOP_TIMER3(label_,"ApplyInverse");
   return 0;
   }
 
 int BorderedLU::Compute()
   {
-  int m = V_->NumVectors();
+  START_TIMER2(label_,"Compute");
+  if (V_==Teuchos::null || W_==Teuchos::null || C_==Teuchos::null)
+    {
+    Tools::Error("border not set in BorderedLU::Compute",__FILE__,__LINE__);
+    }
   if (!(OperatorRangeMap().SameAs(V_->Map())&&V_->Map().SameAs(W_->Map())))
     {
     Tools::Error("incompatible maps found",__FILE__,__LINE__);
     }
+  int m = V_->NumVectors();
   if (W_->NumVectors()!=m)
     {     
     Tools::Error("bordering: V and W must have same number of columns",
@@ -117,10 +131,11 @@ int BorderedLU::Compute()
   DenseUtils::MatMul(*W_,*Q_,*S_);
   CHECK_ZERO(S_->Scale(-1.0));
   *S_ += *C_;
-        
+
   // factor it using LAPACK
   LU_.SetMatrix(*S_);
   CHECK_ZERO(LU_.Factor());
+  START_TIMER2(label_,"ApplyInverse");
   return 0;
   }
     

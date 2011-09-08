@@ -9,50 +9,59 @@ namespace HYMLS {
 MultiVector_View::
 ~MultiVector_View()
 {
-  if( newObj_ ) delete newObj_;
 }
 
-MultiVector_View::NewTypeRef
+Teuchos::RCP<Epetra_MultiVector>
 MultiVector_View::
-operator()( OriginalTypeRef orig )
+operator()( Teuchos::RCP<Epetra_MultiVector> orig )
 {
-  origObj_ = &orig;
+  // make sure the original is not deleted before this view object is
+  origObj_.append(orig);
 
-  int numVec = NumVec_;
-  if( numVec == -1 ) numVec = orig.NumVectors();
+  int numVec = orig->NumVectors();
   
   int origLDA;
   double * ptr;
-  orig.ExtractView( &ptr, &origLDA );
+  orig->ExtractView( &ptr, &origLDA );
 
-  Epetra_MultiVector * newMV = new Epetra_MultiVector( View, NewMap_, 
-        ptr+Offset_, origLDA, numVec);
+  Teuchos::RCP<Epetra_MultiVector> newMV = 
+        Teuchos::rcp(new Epetra_MultiVector( View, NewMap_, 
+        ptr+Offset_, origLDA, numVec));
 
-  newObj_ = newMV;
-
-  return *newMV;
+  return newMV;
 }
 
-const Epetra_MultiVector&
+Teuchos::RCP<const Epetra_MultiVector>
 MultiVector_View::
-operator()(const Epetra_MultiVector& orig )
+operator()(Teuchos::RCP<const Epetra_MultiVector> orig )
   {
-  origObj_ = const_cast<Epetra_MultiVector*>(&orig);
+  // make sure the original is not deleted before this view object is
+  origObj_.append(orig);
 
-  int numVec = NumVec_;
-  if( numVec == -1 ) numVec = orig.NumVectors();
+  int numVec = orig->NumVectors();
   
   int origLDA;
   double * ptr;
-  orig.ExtractView( &ptr, &origLDA );
+  orig->ExtractView( &ptr, &origLDA );
 
-  Epetra_MultiVector * newMV = new Epetra_MultiVector( View, NewMap_, 
-        ptr+Offset_, origLDA, numVec);
+  Teuchos::RCP<const Epetra_MultiVector> newMV = Teuchos::rcp(new Epetra_MultiVector( View, NewMap_, 
+        ptr+Offset_, origLDA, numVec));
 
-  newObj_ = newMV;
-
-  return *newMV;
+  return newMV;
   }
 
-} // namespace EpetraExt
+Teuchos::RCP<Epetra_MultiVector>
+MultiVector_View::operator()(Epetra_MultiVector& orig )
+  {
+  return this->operator()(Teuchos::rcp(&orig,false));
+  }
+
+Teuchos::RCP<const Epetra_MultiVector>
+MultiVector_View::operator()(const Epetra_MultiVector& orig )
+  {
+  return this->operator()(Teuchos::rcp(&orig,false));
+  }
+
+
+} // namespace HYMLS
 

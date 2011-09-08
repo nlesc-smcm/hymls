@@ -87,14 +87,18 @@ int DenseUtils::Eig(const Epetra_SerialDenseMatrix& A,
 int DenseUtils::MatMul(const Epetra_MultiVector& V, const Epetra_MultiVector& W,
                        Epetra_SerialDenseMatrix& C)
   {
-  if (!(W.Map().SameAs(V.Map()) && (W.NumVectors()==V.NumVectors())))
+  if (!(W.Map().SameAs(V.Map())))
     {
+    DEBUG("DenseUtils::MatMul(V,W) failed because the maps are not the same");
+    DEBVAR(V.Map());
+    DEBVAR(W.Map());
     return -1;
     }
-  int n = V.NumVectors();
-  if ((C.N()!=n)||(C.M()!=n))
+  int m = V.NumVectors();
+  int n = W.NumVectors();
+  if ((C.N()!=n)||(C.M()!=m))
     {
-    C.Reshape(n,n);
+    C.Reshape(m,n);
     }
 
   // this object is replicated on all procs because of the LocalMap:
@@ -112,7 +116,7 @@ int DenseUtils::ApplyOrth(const Epetra_MultiVector& V, const Epetra_MultiVector&
                            Epetra_MultiVector& Z)
   {
   int ierr=0;
-  if (!(W.Map().SameAs(V.Map()) && (W.NumVectors()==V.NumVectors())))
+  if (W.Map().SameAs(V.Map())==false)
     {
     //input args not correctly shaped
     return -1;
@@ -123,13 +127,14 @@ int DenseUtils::ApplyOrth(const Epetra_MultiVector& V, const Epetra_MultiVector&
     return -2;
     }
   int m=V.NumVectors();
+  int k=W.NumVectors();
   
-  Epetra_SerialDenseMatrix C(m,m);
+  Epetra_SerialDenseMatrix C(m,k);
   // this object is replicated on all procs because of the LocalMap:
   Teuchos::RCP<Epetra_MultiVector> VW=CreateView(C);
   //VW=V'W
   CHECK_ZERO(VW->Multiply('T','N',1.0,V,W,0.0));
-  //Z=Z-VV'W
+  //Z=W-VV'W
   Z=W;
   CHECK_ZERO(Z.Multiply('N','N',-1.0,V,*VW,1.0));
   return 0;
@@ -167,11 +172,12 @@ int DenseUtils::Orthogonalize(Epetra_SerialDenseMatrix& A)
 //! create a multivector view of a dense matrix
 Teuchos::RCP<Epetra_MultiVector> DenseUtils::CreateView(Epetra_SerialDenseMatrix& A)
   {
-  int n = A.N();
+  int nrows = A.M();
+  int ncols = A.N();
   Epetra_SerialComm comm;
-  Epetra_LocalMap tinyMap(n,0,comm);
+  Epetra_LocalMap tinyMap(nrows,0,comm);
   Teuchos::RCP<Epetra_MultiVector> MV = 
-        Teuchos::rcp(new Epetra_MultiVector(View,tinyMap,A.A(),A.LDA(),n));
+        Teuchos::rcp(new Epetra_MultiVector(View,tinyMap,A.A(),A.LDA(),ncols));
   return MV;
   }
 

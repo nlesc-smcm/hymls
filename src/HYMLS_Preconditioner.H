@@ -327,6 +327,9 @@ protected:
   //! bordering: if SetBorder has been called, we solve [K V; W' C] [x; s] = [b; O].
   Teuchos::RCP<Epetra_MultiVector> borderV1_, borderV2_, borderW1_, borderW2_;
 
+  //! A11\V1
+  Teuchos::RCP<Epetra_MultiVector> borderQ1_;
+
   //! border for the Schur complement (after eliminating A11)
   Teuchos::RCP<Epetra_MultiVector> borderSchurV_, borderSchurW_;
   
@@ -398,19 +401,38 @@ protected:
   //! should be based on RowMap(), but only interior variables (Map1(:)) are touched..
   int ApplyInverseA11(const Epetra_MultiVector& B, Epetra_MultiVector& X) const;
 
+  //! apply X=A11^T\B. This only works if the solver is computed. The input vectors  
+  //! should be based on RowMap(), but only interior variables (Map1(:)) are touched..
+  int ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVector& X) const;
+
   //! apply Y=A12*X. This only works if the solver is computed. The input vector
-  //! X can be based on RowMap() or Map2(), Y should be based on RowMap().
+  //! X can be based on RowMap() or Map2(), Y should be based on RowMap() or Map1().
   int ApplyA12(const Epetra_MultiVector& X, Epetra_MultiVector& Y,
                double *flops_count=NULL) const;
 
+  //! apply Y=A12^T*X. This only works if the solver is computed. The input vector
+  //! X can be based on RowMap() or Map1(), Y should be based on RowMap() or Map2().
+  int ApplyA12T(const Epetra_MultiVector& X, Epetra_MultiVector& Y,
+               double *flops_count=NULL) const;
+
   //! apply Y=A21*X. This only works if the solver is computed. The input vector
-  //! Y can be based on RowMap() or Map2(), X should be based on RowMap().
+  //! Y can be based on RowMap() or Map1(), X should be based on RowMap() or Map2().
   int ApplyA21(const Epetra_MultiVector& X, Epetra_MultiVector& Y,
-               double* flops_cuont=NULL) const;
+               double* flops_count=NULL) const;
+
+  //! apply Y=A21^T*X. This only works if the solver is computed. The input vector
+  //! Y can be based on RowMap() or Map2(), X should be based on RowMap() or Map1().
+  int ApplyA21T(const Epetra_MultiVector& X, Epetra_MultiVector& Y,
+               double* flops_count=NULL) const;
 
   //! apply Y=A22*X. This only works if the solver is computed. The input vectors  
-  //! can be based on RowMap() or Map2().
+  //! can be based on RowMap() or Map2(). Both vectors must use the same map.
   int ApplyA22(const Epetra_MultiVector& X, Epetra_MultiVector& Y,
+               double* flops_count=NULL) const;
+
+  //! apply Y=A22^T*X. This only works if the solver is computed. The input vectors  
+  //! can be based on RowMap() or Map2(). Both vectors must use the same map.
+  int ApplyA22T(const Epetra_MultiVector& X, Epetra_MultiVector& Y,
                double* flops_count=NULL) const;
   
   //! map for all variables (same as OperatorRangeMap() and OperatorDomainMap())
