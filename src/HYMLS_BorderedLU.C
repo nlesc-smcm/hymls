@@ -128,14 +128,14 @@ int BorderedLU::Compute()
   CHECK_ZERO(A_->ApplyInverse(*V_,*Q_));
 
   S_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(m,m));
-  DenseUtils::MatMul(*W_,*Q_,*S_);
+  CHECK_ZERO(DenseUtils::MatMul(*W_,*Q_,*S_));
   CHECK_ZERO(S_->Scale(-1.0));
   *S_ += *C_;
 
   // factor it using LAPACK
   LU_.SetMatrix(*S_);
   CHECK_ZERO(LU_.Factor());
-  START_TIMER2(label_,"ApplyInverse");
+  STOP_TIMER2(label_,"Compute");
   return 0;
   }
     

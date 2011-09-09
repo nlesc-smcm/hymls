@@ -7,6 +7,7 @@
 #include "Epetra_MpiComm.h"
 #include "Epetra_Map.h"
 #include "Epetra_Vector.h"
+#include "Epetra_MultiVector.h"
 #include "Epetra_CrsMatrix.h"
 
 #include "Teuchos_RCP.hpp"
@@ -74,6 +75,7 @@ int status=0;
     bool store_matrix = driverList.get("Store Matrix",false);
     int numComputes=driverList.get("Number of factorizations",1);
     int numSolves=driverList.get("Number of solves",1);
+    int numRhs   =driverList.get("Number of rhs",1);
     double perturbation = driverList.get("Diagonal Perturbation",0.0);
     
     bool read_problem=driverList.get("Read Linear System",false);
@@ -155,17 +157,17 @@ int status=0;
 #endif  
 
   // create a random exact solution
-  Teuchos::RCP<Epetra_Vector> x_ex = Teuchos::rcp(new Epetra_Vector(*map));
+  Teuchos::RCP<Epetra_MultiVector> x_ex = Teuchos::rcp(new Epetra_MultiVector(*map,numRhs));
 
 #ifdef TESTING
   int seed=42;
 #endif
 
   // construct right-hand side
-  Teuchos::RCP<Epetra_Vector> b = Teuchos::rcp(new Epetra_Vector(*map));
+  Teuchos::RCP<Epetra_MultiVector> b = Teuchos::rcp(new Epetra_MultiVector(*map,numRhs));
 
   // approximate solution
-  Teuchos::RCP<Epetra_Vector> x = Teuchos::rcp(new Epetra_Vector(*map));
+  Teuchos::RCP<Epetra_MultiVector> x = Teuchos::rcp(new Epetra_MultiVector(*map,numRhs));
   
   if (read_problem)
     {
@@ -184,16 +186,16 @@ int status=0;
   CHECK_ZERO(precond->Initialize());
 
   HYMLS::Tools::Out("Create Solver");
-  RCP<HYMLS::Solver> solver = rcp(new HYMLS::Solver(K, precond, params));
+  RCP<HYMLS::Solver> solver = rcp(new HYMLS::Solver(K, precond, params,numRhs));
 
 for (int f=0;f<numComputes;f++)
   {
   if (perturbation!=0)
     {
     // change the matrix values just to see if that works
-    Epetra_Vector diag(*x_ex);
+    Epetra_Vector diag(*map);
     CHECK_ZERO(K->ExtractDiagonalCopy(diag));
-    Epetra_Vector diag_pert(*x_ex);
+    Epetra_Vector diag_pert(*map);
     HYMLS::MatrixUtils::Random(diag_pert);
     for (int i=0;i<diag_pert.MyLength();i++)
       {
@@ -226,37 +228,52 @@ for (int f=0;f<numComputes;f++)
     if (eqn=="Stokes-C")
       {
       int dof=dim+1;
-      double pref=(*x)[dim];
-      if (have_exact_sol)
+      for (int k=0;k<numRhs;k++)
         {
-        pref -= (*x_ex)[dim];
-        }
-      for (int i=dim; i<x->MyLength();i+=dof)
-        {
-        (*x)[i]-=pref;
+        double pref=(*x)[k][dim];
+        if (have_exact_sol)
+          {
+          pref -= (*x_ex)[k][dim];
+          }
+        for (int i=dim; i<x->MyLength();i+=dof)
+          {
+          (*x)[k][i]-=pref;
+          }
         }
       }
-  
+DEBVAR(*x);
+DEBVAR(*b);
     HYMLS::Tools::Out("Compute residual.");
   
     // compute residual and error vectors
 
-    Teuchos::RCP<Epetra_Vector> res = Teuchos::rcp(new Epetra_Vector(*map));
-    Teuchos::RCP<Epetra_Vector> err = Teuchos::rcp(new Epetra_Vector(*map));
+    Teuchos::RCP<Epetra_MultiVector> res = Teuchos::rcp(new 
+        Epetra_MultiVector(*map,numRhs));
+    Teuchos::RCP<Epetra_MultiVector> err = Teuchos::rcp(new 
+        Epetra_MultiVector(*map,numRhs));
 
     CHECK_ZERO(K->Multiply(false,*x,*res));
     CHECK_ZERO(res->Update(1.0,*b,-1));
   
     CHECK_ZERO(err->Update(1.0,*x,-1.0,*x_ex,0.0));
   
-    double errNorm,resNorm,rhsNorm;
+    double errNorm[numRhs],resNorm[numRhs],rhsNorm[numRhs];
   
-    err->Norm2(&errNorm);
-    res->Norm2(&resNorm);
-    b->Norm2(&rhsNorm);
+    err->Norm2(errNorm);
+    res->Norm2(resNorm);
+    b->Norm2(rhsNorm);
   
-    HYMLS::Tools::Out("Residual Norm ||Ax-b||/||b||: "+Teuchos::toString(resNorm/rhsNorm));
-    HYMLS::Tools::Out("Error Norm ||x-x_ex||/||b||: "+Teuchos::toString(errNorm/rhsNorm));
+    HYMLS::Tools::out()<< "Residual Norm ||Ax-b||/||b||: ";
+    for (int k=0;k<numRhs;k++)
+      {
+      HYMLS::Tools::out()<<std::setw(8)<<std::setprecision(8)<<std::scientific<<Teuchos::toString(resNorm[k]/rhsNorm[k])<<"  ";
+      }
+    HYMLS::Tools::out()<<std::endl;
+    HYMLS::Tools::out()<<"Error Norm ||x-x_ex||/||b||: ";
+    for (int k=0;k<numRhs;k++)
+      {
+      HYMLS::Tools::out()<<std::setw(8)<<std::setprecision(8)<<std::scientific<<Teuchos::toString(errNorm[k]/rhsNorm[k])<<"  ";
+      }
     }
   }
   

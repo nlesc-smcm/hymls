@@ -9,6 +9,8 @@
     <Parameter name="Number of factorizations" type="int" value="1"/>
     <!-- for each matrix, solve with several right-hand sides in a row -->
     <Parameter name="Number of solves" type="int" value="1"/>
+    <!-- number of right-hand sides per solve -->
+    <Parameter name="Number of rhs" type="int" value="4"/>
     <!-- add random perturbation to the diagonal? -->
     <Parameter name="Diagonal Perturbation" type="double" value="0.0"/>
   
@@ -22,8 +24,8 @@
     <Parameter name="Equations" type="string" value="Laplace"/>
     <Parameter name="Dimension" type="int" value="2"/>
 
-    <Parameter name="nx" type="int" value="128"/>
-    <Parameter name="ny" type="int" value="128"/>
+    <Parameter name="nx" type="int" value="32"/>
+    <Parameter name="ny" type="int" value="32"/>
     <Parameter name="nz" type="int" value="1"/>
     
     <Parameter name="Visualize Solver" type="bool" value="1"/>
@@ -50,10 +52,13 @@
     <!-- vector to start the Krylov sequence: "Zero", "Random", "Previous" -->
     <Parameter name="Initial Vector" type="string" value="Random"/>
     
+    <!-- apply preconditioning from left or right (if Krylov Method!="None") -->
     <Parameter name="Left or Right Preconditioning" type="string" value="Left"/>
     
     <!-- this is not necessary for Laplace, of course, but we can test the eigensolver: -->
     <Parameter name="Deflated Subspace Dimension" type="int" value="0"/>
+    
+    <Parameter name="Deflation Threshold" type="double" value="0.0"/>
 
     <!-- parameters for the direct solvers (Ifpack_Amesos) -->
 
@@ -88,7 +93,8 @@
 
     <!-- parameters for the iterative solver (Belos) -->
     <ParameterList name="Iterative Solver">
-      <Parameter name="Maximum Iterations" type="int" value="500"/>
+      <Parameter name="Maximum Iterations" type="int" value="50"/>
+      <Parameter name="Block Size" type="int" value="4"/>
       <Parameter name="Flexible Gmres" type="bool" value="0"/>
       <Parameter name="Explicit Residual Test" type="bool" value="0"/>
       <Parameter name="Maximum Restarts" type="int" value="5"/>

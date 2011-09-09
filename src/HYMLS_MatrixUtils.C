@@ -1331,7 +1331,7 @@ int MatrixUtils::Random(Epetra_MultiVector& v, int seed)
     gVec=Gather(*v(k),0);
     if (seed>0)
       {
-      gVec->SetSeed(seed);
+      gVec->SetSeed(seed+k);
       }
     gVec->Random();
     *v(k) = *Scatter(*gVec,v.Map());
