@@ -274,6 +274,7 @@ DEBVAR(*b);
       {
       HYMLS::Tools::out()<<std::setw(8)<<std::setprecision(8)<<std::scientific<<Teuchos::toString(errNorm[k]/rhsNorm[k])<<"  ";
       }
+    HYMLS::Tools::out() << std::endl;
     }
   }
   
@@ -294,6 +295,7 @@ DEBVAR(*b);
     } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr, status);
 
   STOP_TIMER(std::string("main"),"entire run");  
+  
   HYMLS::Tools::PrintTiming(HYMLS::Tools::out());
 
 comm->Barrier();
