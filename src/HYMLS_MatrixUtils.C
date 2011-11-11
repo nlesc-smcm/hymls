@@ -27,9 +27,9 @@
 #include "HYMLS_Tools.H"
 
 #include "Teuchos_StandardCatchMacros.hpp"
-
+#ifdef HAVE_HDF5
 #include "EpetraExt_HDF5.h"
-
+#endif
 #include "EpetraExt_Reindex_CrsMatrix.h"
 #include "EpetraExt_Reindex_MultiVector.h"
 #include "EpetraExt_RowMatrixOut.h"
@@ -297,9 +297,16 @@ MyGlobalElements,
 
 
   // create "Gather" map from "Solve" map
-  Teuchos::RCP<Epetra_Map> MatrixUtils::Gather(const Epetra_BlockMap& map, int root)
+  Teuchos::RCP<Epetra_BlockMap> MatrixUtils::Gather(const Epetra_BlockMap& map, int root)
     {
-
+    int ElementSize = map.ElementSize();
+#ifdef TESTING
+    if (ElementSize>1)
+      {
+      Tools::Warning("this is possibly not implemented correctly!",
+        __FILE__, __LINE__);
+      }
+#endif
     int NumMyElements = map.NumMyElements();
     int NumGlobalElements = map.NumGlobalElements();
     const Epetra_Comm& Comm = map.Comm();
@@ -360,8 +367,9 @@ else
       }
 
   // build the new (gathered) map
-  Teuchos::RCP<Epetra_Map> gmap = rcp(new Epetra_Map (NumGlobalElements, NumMyElements, 
-                       AllGlobalElements, map.IndexBase(), Comm) );
+  Teuchos::RCP<Epetra_BlockMap> gmap = rcp(new Epetra_BlockMap
+        (NumGlobalElements, NumMyElements, AllGlobalElements, 
+        ElementSize, map.IndexBase(), Comm) );
     
     if (Comm.MyPID()==root)
       {      
@@ -371,15 +379,165 @@ else
     
     delete [] MyGlobalElements;
     
-    return gmap;
-    
+    return gmap;    
     }
 
 
   // create "col" map from "Solve" map
-  Teuchos::RCP<Epetra_Map> MatrixUtils::AllGather(const Epetra_BlockMap& map, bool reorder)
+  Teuchos::RCP<Epetra_BlockMap> MatrixUtils::AllGather(const Epetra_BlockMap& map, bool reorder)
     {
+    int ElementSize = map.ElementSize();
+    int NumMyElements = map.NumMyElements();
+    int NumGlobalElements = map.NumGlobalElements();
+    const Epetra_Comm& Comm = map.Comm();
 
+#ifdef TESTING
+    if (ElementSize>1)
+      {
+      Tools::Warning("this is possibly not implemented correctly!",
+        __FILE__, __LINE__);
+      }
+#endif
+    
+    int *MyGlobalElements = new int[NumMyElements];
+    int *AllGlobalElements = new int[NumGlobalElements];
+    
+    for (int i=0; i<NumMyElements;i++)
+      {
+      MyGlobalElements[i] = map.GID(i);
+      }
+    
+  if (Comm.NumProc()>1)
+    {
+#ifdef HAVE_MPI
+    const Epetra_MpiComm MpiComm = dynamic_cast<const Epetra_MpiComm&>(Comm);
+    int *counts, *disps;
+    counts = new int[Comm.NumProc()];
+    disps = new int[Comm.NumProc()+1];
+    MPI_Allgather(&NumMyElements,1,MPI_INTEGER,
+               counts,1,MPI_INTEGER,MpiComm.GetMpiComm());
+    
+    disps[0]=0;
+    for (int p=0;p<Comm.NumProc();p++)
+      {
+      disps[p+1] = disps[p]+counts[p];
+      }
+
+    MPI_Allgatherv(MyGlobalElements, NumMyElements,MPI_INTEGER, 
+                AllGlobalElements, counts,disps, MPI_INTEGER, MpiComm.GetMpiComm());
+    delete [] counts;
+    delete [] disps;
+#else
+    Tools::Error("No MPI but still parallel? We don't do tthat.",__FILE__,__LINE__);                
+#endif
+    }
+  else
+    {
+    for (int i=0;i<NumMyElements;i++) AllGlobalElements[i]=MyGlobalElements[i];
+    }
+    
+  NumMyElements=NumGlobalElements;
+  NumGlobalElements = -1;
+  
+  if (reorder)
+    {
+    std::sort(AllGlobalElements,AllGlobalElements+NumMyElements);
+    }
+
+  // build the new (gathered) map
+  Teuchos::RCP<Epetra_BlockMap> gmap = rcp(new Epetra_BlockMap (NumGlobalElements, NumMyElements, 
+                       AllGlobalElements, ElementSize, map.IndexBase(), Comm) );
+    
+    
+    
+    delete [] MyGlobalElements;
+    delete [] AllGlobalElements;
+    
+    return gmap;    
+    }//AllGather
+
+  // create "Gather" map from "Solve" map
+  Teuchos::RCP<Epetra_Map> MatrixUtils::Gather(const Epetra_Map& map, int root)
+    {
+    int NumMyElements = map.NumMyElements();
+    int NumGlobalElements = map.NumGlobalElements();
+    const Epetra_Comm& Comm = map.Comm();
+    
+    int *MyGlobalElements = new int[NumMyElements];
+    int *AllGlobalElements = NULL;
+
+    for (int i=0; i<NumMyElements;i++)
+      {
+      MyGlobalElements[i] = map.GID(i);
+      }
+    
+    if (Comm.MyPID()==root)
+      {
+      AllGlobalElements = new int[NumGlobalElements];
+      }
+
+if (Comm.NumProc()>1)
+  {    
+#ifdef HAVE_MPI    
+
+    const Epetra_MpiComm MpiComm = dynamic_cast<const Epetra_MpiComm&>(Comm);
+    int *counts, *disps;
+    counts = new int[Comm.NumProc()];
+    disps = new int[Comm.NumProc()+1];
+    MPI_Gather(&NumMyElements,1,MPI_INTEGER,
+               counts,1,MPI_INTEGER,root,MpiComm.GetMpiComm());
+    
+    if (Comm.MyPID()==root)
+      {
+      disps[0]=0;
+      for (int p=0;p<Comm.NumProc();p++)
+        {
+        disps[p+1] = disps[p]+counts[p];
+        }
+      }
+
+    MPI_Gatherv(MyGlobalElements, NumMyElements,MPI_INTEGER, 
+                AllGlobalElements, counts,disps, MPI_INTEGER, root, MpiComm.GetMpiComm());
+  delete [] counts;
+  delete [] disps;                
+#else
+  Tools::Error("No MPI but still parallel??? We don't do that.",__FILE__,__LINE__);
+#endif
+  }
+else
+  {
+  for (int i=0;i<NumMyElements;i++) AllGlobalElements[i]=MyGlobalElements[i];
+  }  
+    if (Comm.MyPID()!=root) 
+      {
+      NumMyElements=0;
+      }
+    else
+      {
+      NumMyElements=NumGlobalElements;
+      std::sort(AllGlobalElements,AllGlobalElements+NumGlobalElements);
+      }
+
+  // build the new (gathered) map
+  Teuchos::RCP<Epetra_Map> gmap = rcp(new Epetra_Map
+        (NumGlobalElements, NumMyElements, AllGlobalElements, 
+        map.IndexBase(), Comm) );
+    
+    if (Comm.MyPID()==root)
+      {      
+      delete [] AllGlobalElements;
+      }
+    
+    
+    delete [] MyGlobalElements;
+    
+    return gmap;    
+    }
+
+
+  // create "col" map from "Solve" map
+  Teuchos::RCP<Epetra_Map> MatrixUtils::AllGather(const Epetra_Map& map, bool reorder)
+    {
     int NumMyElements = map.NumMyElements();
     int NumGlobalElements = map.NumGlobalElements();
     const Epetra_Comm& Comm = map.Comm();
@@ -438,17 +596,17 @@ else
     delete [] MyGlobalElements;
     delete [] AllGlobalElements;
     
-    return gmap;
-    
+    return gmap;    
     }//AllGather
     
-    Teuchos::RCP<Epetra_Vector> MatrixUtils::Gather(const Epetra_Vector& vec, int root)
+    Teuchos::RCP<Epetra_MultiVector> MatrixUtils::Gather(const Epetra_MultiVector& vec, int root)
       {
       DEBUG("Gather vector "<<vec.Label());
       const Epetra_BlockMap& map_dist = vec.Map();
-      Teuchos::RCP<Epetra_Map> map = Gather(map_dist,root);
+      Teuchos::RCP<Epetra_BlockMap> map = Gather(map_dist,root);
       
-      Teuchos::RCP<Epetra_Vector> gvec = rcp(new Epetra_Vector(*map));
+      Teuchos::RCP<Epetra_MultiVector> gvec = 
+        rcp(new Epetra_MultiVector(*map,vec.NumVectors()));
       
       Teuchos::RCP<Epetra_Import> import = rcp(new Epetra_Import(*map,map_dist) );
       
@@ -456,16 +614,15 @@ else
       
       gvec->SetLabel(vec.Label());
       
-      return gvec;
-      
+      return gvec;      
       }
 
-    Teuchos::RCP<Epetra_Vector> MatrixUtils::AllGather(const Epetra_Vector& vec)
+    Teuchos::RCP<Epetra_MultiVector> MatrixUtils::AllGather(const Epetra_MultiVector& vec)
       {
       DEBUG("AllGather vector "<<vec.Label());
       const Epetra_BlockMap& map_dist = vec.Map();
-      Teuchos::RCP<Epetra_Map> map = AllGather(map_dist);
-      Teuchos::RCP<Epetra_Vector> gvec = rcp(new Epetra_Vector(*map));
+      Teuchos::RCP<Epetra_BlockMap> map = AllGather(map_dist);
+      Teuchos::RCP<Epetra_MultiVector> gvec = rcp(new Epetra_Vector(*map,vec.NumVectors()));
       
       Teuchos::RCP<Epetra_Import> import = rcp(new Epetra_Import(*map,map_dist) );
       
@@ -482,7 +639,7 @@ else
       {
       DEBUG("Gather vector "<<vec.Label());
       const Epetra_BlockMap& map_dist = vec.Map();
-      Teuchos::RCP<Epetra_Map> map = Gather(map_dist,root);
+      Teuchos::RCP<Epetra_BlockMap> map = Gather(map_dist,root);
       
       Teuchos::RCP<Epetra_IntVector> gvec = rcp(new Epetra_IntVector(*map));
       
@@ -500,7 +657,7 @@ else
       {
       DEBUG("AllGather vector "<<vec.Label());
       const Epetra_BlockMap& map_dist = vec.Map();
-      Teuchos::RCP<Epetra_Map> map = AllGather(map_dist);
+      Teuchos::RCP<Epetra_BlockMap> map = AllGather(map_dist);
       Teuchos::RCP<Epetra_IntVector> gvec = rcp(new Epetra_IntVector(*map));
       
       Teuchos::RCP<Epetra_Import> import = rcp(new Epetra_Import(*map,map_dist) );
@@ -541,9 +698,10 @@ else
       }
 
   // distribute a gathered vector among processors
-  Teuchos::RCP<Epetra_Vector> MatrixUtils::Scatter(const Epetra_Vector& vec, const Epetra_BlockMap& distmap)
+  Teuchos::RCP<Epetra_MultiVector> MatrixUtils::Scatter
+        (const Epetra_MultiVector& vec, const Epetra_BlockMap& distmap)
     {
-    Teuchos::RCP<Epetra_Vector> dist_vec =  rcp(new Epetra_Vector(distmap));
+    Teuchos::RCP<Epetra_MultiVector> dist_vec =  rcp(new Epetra_MultiVector(distmap,vec.NumVectors()));
     Teuchos::RCP<Epetra_Import> import = rcp(new Epetra_Import(vec.Map(),distmap));
     CHECK_ZERO(dist_vec->Export(vec,*import,Insert));
     return dist_vec;
@@ -828,8 +986,8 @@ void MatrixUtils::DumpHDF(const Epetra_CrsMatrix& A,
                                 const string& groupname,
                                 bool new_file)
   {
-#ifndef HAVE_XDMF
-  Tools::Error("HDF format can't be stored, recompile with -DHAVE_XDMF",__FILE__,__LINE__);
+#ifndef HAVE_HDF5
+  Tools::Error("HDF format can't be stored, recompile with -DHAVE_HDF5",__FILE__,__LINE__);
 #else
   bool verbose=true;
   bool success;
@@ -850,7 +1008,7 @@ try {
 #endif  
   }                                
 
-// write CRS matrix to file
+// write vector/dense matrix to file
 void MatrixUtils::Dump(const Epetra_MultiVector& x, const string& filename,bool reindex)
   {  
   if (reindex)
@@ -867,19 +1025,14 @@ void MatrixUtils::Dump(const Epetra_MultiVector& x, const string& filename,bool 
 
     //EpetraExt::VectorToMatrixMarketFile(filename.c_str(),x);
     
-    if (x.NumVectors()!=1)
-      {
-      Tools::Warning("Only dumping vector 1!",__FILE__,__LINE__);
-      }
-    
     Teuchos::RCP<std::ostream> ofs = rcp(new Teuchos::oblackholestream());
     int my_rank = x.Comm().MyPID();
     if (my_rank==0)
       {
       ofs = rcp(new std::ofstream(filename.c_str()));
       }
-    *ofs << std::scientific << std::setw(15) << std::setprecision(15);
-    *ofs << *(MatrixUtils::Gather(*(x(0)),0));
+    *ofs << std::scientific << std::setw(15) << std::setprecision(15);    
+    *ofs << *(MatrixUtils::Gather(x,0));
     }
   }
 
@@ -906,8 +1059,8 @@ void MatrixUtils::DumpHDF(const Epetra_MultiVector& x,
                                 const string& groupname,
                                 bool new_file)
   {
-#ifndef HAVE_XDMF
-  Tools::Error("HDF format can't be stored, recompile with -DHAVE_XDMF",__FILE__,__LINE__);
+#ifndef HAVE_HDF5
+  Tools::Error("HDF format can't be stored, recompile with -DHAVE_HDF5",__FILE__,__LINE__);
 #else
   bool verbose=true;
   bool success;
@@ -1325,17 +1478,13 @@ void MatrixUtils::read_fortran_array(int n, double* array, string filename)
 
 int MatrixUtils::Random(Epetra_MultiVector& v, int seed)
   {
-  Teuchos::RCP<Epetra_Vector> gVec;
-  for (int k=0;k<v.NumVectors();k++)
+  Teuchos::RCP<Epetra_MultiVector> gVec=Gather(v,0);
+  if (seed>0)
     {
-    gVec=Gather(*v(k),0);
-    if (seed>0)
-      {
-      gVec->SetSeed(seed+k);
-      }
-    gVec->Random();
-    *v(k) = *Scatter(*gVec,v.Map());
+    gVec->SetSeed(seed);
     }
+  gVec->Random();
+  v = *Scatter(*gVec,v.Map());
   return 0;
   }
 
@@ -1425,17 +1574,17 @@ int MatrixUtils::PutDirichlet(Epetra_CrsMatrix& A, int gid)
 
   int lid, pid;
   
-  EPETRA_CHK_ERR(A.RowMap().RemoteIDList(1,&gid,&pid,&lid));
+  CHECK_ZERO(A.RowMap().RemoteIDList(1,&gid,&pid,&lid));
 
   // find out how long that row is (how many nonzeros)
   int len;
 
   if (pid==A.Comm().MyPID())
     {
-    EPETRA_CHK_ERR(A.NumMyRowEntries(lid,len));
+    CHECK_ZERO(A.NumMyRowEntries(lid,len));
     }
   
-  EPETRA_CHK_ERR(A.Comm().Broadcast(&len,1,pid));
+  CHECK_ZERO(A.Comm().Broadcast(&len,1,pid));
 
   int* indices=new int[len];
   double* values=new double[len];
@@ -1443,7 +1592,7 @@ int MatrixUtils::PutDirichlet(Epetra_CrsMatrix& A, int gid)
   if (pid==A.Comm().MyPID())
     {
     int dummy_len;
-    EPETRA_CHK_ERR(A.ExtractGlobalRowCopy(gid,len,dummy_len,values,indices));
+    CHECK_ZERO(A.ExtractGlobalRowCopy(gid,len,dummy_len,values,indices));
     // set row to 0 and diagonal to 1
     for (int i=0;i<len;i++)
       {
@@ -1456,12 +1605,12 @@ int MatrixUtils::PutDirichlet(Epetra_CrsMatrix& A, int gid)
         values[i]=0.0;
         }
       // put it back in
-      EPETRA_CHK_ERR(A.ReplaceGlobalValues(gid,len,values,indices));
+      CHECK_ZERO(A.ReplaceGlobalValues(gid,len,values,indices));
       }
     }
 
   // broadcast indices to everyone
-  EPETRA_CHK_ERR(A.Comm().Broadcast(indices,len,pid));
+  CHECK_ZERO(A.Comm().Broadcast(indices,len,pid));
   
   // we assume that the pattern of the matrix is symmetric and process all the rows in 
   // indices, setting any coupling to gid to 0
@@ -1476,7 +1625,7 @@ int MatrixUtils::PutDirichlet(Epetra_CrsMatrix& A, int gid)
       if (grid!=gid)
         {
         int lrid = A.LRID(grid);
-        EPETRA_CHK_ERR(A.ExtractMyRowView(lrid,len_i,values_i,indices_i));
+        CHECK_ZERO(A.ExtractMyRowView(lrid,len_i,values_i,indices_i));
         for (int j=0;j<len_i;j++)
           {
           if (A.GCID(indices_i[j])==gid)
@@ -1667,7 +1816,7 @@ std::cout << "call Isorropia to reorder"<<std::endl;
   // right positions
   const int* velocity_ordering;
   int len;
-  EPETRA_CHK_ERR(reorder.extractPermutationView(len,velocity_ordering));
+  CHECK_ZERO(reorder.extractPermutationView(len,velocity_ordering));
   if (len!=map1->NumMyElements())
     {
     Tools::Error("in- and output array size inconsistent?",

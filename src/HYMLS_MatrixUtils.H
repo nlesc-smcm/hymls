@@ -12,7 +12,7 @@
 #include "Teuchos_ParameterList.hpp"
 #include "AnasaziTypes.hpp"
 
-#define REINDEX_BY_DEFAULT false
+#define REINDEX_BY_DEFAULT true
 
 class Epetra_Comm;
 class Epetra_BlockMap;
@@ -101,7 +101,7 @@ class MatrixUtils
 
     //! a general function for gathering vectors. It is fairly slow
     //! as it rebuilds the required "GatherMap" every time.
-    static Teuchos::RCP<Epetra_Vector> Gather(const Epetra_Vector& vec, int root);
+    static Teuchos::RCP<Epetra_MultiVector> Gather(const Epetra_MultiVector& vec, int root);
 
     //! a general function for gathering vectors. It is fairly slow
     //! as it rebuilds the required "GatherMap" every time.
@@ -109,25 +109,36 @@ class MatrixUtils
 
     //! transform a "solve" or "standard" into a replicated "gather" map
     //! The new map will have its indices sorted in ascending order.    
-    static Teuchos::RCP<Epetra_Map> Gather(const Epetra_BlockMap& map, int root);
+    static Teuchos::RCP<Epetra_BlockMap> Gather(const Epetra_BlockMap& map, int root);
+
+    //! transform a "solve" or "standard" into a replicated "gather" map
+    //! The new map will have its indices sorted in ascending order.    
+    static Teuchos::RCP<Epetra_Map> Gather(const Epetra_Map& map, int root);
 
     //! transform a "solve" into a replicated "col" map, i.e.     
     //! the resulting map will have all gid's of the original one 
     //! on every process. The new map will have its indices       
     //! sorted in ascending order if you choose reorder=true,     
     //! otherwise the ordering is retained as it is.              
-    static Teuchos::RCP<Epetra_Map> AllGather(const Epetra_BlockMap& map, bool reorder=true);
+    static Teuchos::RCP<Epetra_BlockMap> AllGather(const Epetra_BlockMap& map, bool reorder=true);
+
+    //! transform a "solve" into a replicated "col" map, i.e.     
+    //! the resulting map will have all gid's of the original one 
+    //! on every process. The new map will have its indices       
+    //! sorted in ascending order if you choose reorder=true,     
+    //! otherwise the ordering is retained as it is.              
+    static Teuchos::RCP<Epetra_Map> AllGather(const Epetra_Map& map, bool reorder=true);
 
     //! a general function for gathering vectors. It is fairly slow
     //! as it rebuilds the required "GatherMap" every time.
-    static Teuchos::RCP<Epetra_Vector> AllGather(const Epetra_Vector& vec);
+    static Teuchos::RCP<Epetra_MultiVector> AllGather(const Epetra_MultiVector& vec);
 
     //! a general function for gathering vectors. It is fairly slow
     //! as it rebuilds the required "GatherMap" every time.
     static Teuchos::RCP<Epetra_IntVector> AllGather(const Epetra_IntVector& vec);
     
     //! convert a 'gathered' vector into a distributed vector
-    static Teuchos::RCP<Epetra_Vector> Scatter(const Epetra_Vector& vec, 
+    static Teuchos::RCP<Epetra_MultiVector> Scatter(const Epetra_MultiVector& vec, 
                                                const Epetra_BlockMap& distmap);
 
     //! Workaround for the buggy 'ReplaceRowMap' routine in Trilinos 7.0.
