@@ -63,27 +63,27 @@ namespace HYMLS {
     int ierr=0;
     if (IsConstructed())
       {
-      EPETRA_CHK_ERR(sparseMatrixRepresentation_->Apply(X,Y));
+      CHECK_ZERO(sparseMatrixRepresentation_->Apply(X,Y));
       flopsApply_+=2*sparseMatrixRepresentation_->NumGlobalNonzeros();
       }
     else
       {
       // The Schur-complement is given by A22-A21*A11\A12      
-      EPETRA_CHK_ERR(mother_->ApplyA22(X,Y, &flopsApply_));
+      CHECK_ZERO(mother_->ApplyA22(X,Y, &flopsApply_));
       
       // 2) compute y2 = A21*A11\A12*X      
       Epetra_MultiVector Y1(mother_->RowMap(), Y.NumVectors());
       Epetra_MultiVector Z1(mother_->RowMap(), Y.NumVectors());
       Epetra_MultiVector Y2(mother_->Map2(), Y.NumVectors());
       
-      EPETRA_CHK_ERR(mother_->ApplyA12(X,Y1,&flopsApply_));
+      CHECK_ZERO(mother_->ApplyA12(X,Y1,&flopsApply_));
 
-      EPETRA_CHK_ERR(mother_->ApplyInverseA11(Y1,Z1));
+      CHECK_ZERO(mother_->ApplyInverseA11(Y1,Z1));
       
-      EPETRA_CHK_ERR(mother_->ApplyA21(Z1,Y2,&flopsApply_));
+      CHECK_ZERO(mother_->ApplyA21(Z1,Y2,&flopsApply_));
       
       // 3) compute Y = Y-Y2
-      EPETRA_CHK_ERR(Y.Update(-1.0,Y2,1.0));
+      CHECK_ZERO(Y.Update(-1.0,Y2,1.0));
       flopsApply_+=Y.GlobalLength()*Y.NumVectors();
 
       }
@@ -108,7 +108,7 @@ namespace HYMLS {
     const OverlappingPartitioner& hid = mother_->Partitioner();
     
     isConstructed_=true;
-    EPETRA_CHK_ERR(this->Construct(sparseMatrixRepresentation_));
+    CHECK_ZERO(this->Construct(sparseMatrixRepresentation_));
     return 0;
     }
 
@@ -132,7 +132,7 @@ namespace HYMLS {
   
       for (int k=0;k<hid.NumMySubdomains();k++)
         {
-        EPETRA_CHK_ERR(this->Construct(k, indices));
+        CHECK_ZERO(this->Construct(k, indices));
         if (indices.Length()!=Sk.N())
           {
           Sk.Shape(indices.Length(),indices.Length());
@@ -147,23 +147,23 @@ namespace HYMLS {
         }
   
       DEBUG("SchurComplement: Assembly with all zeros...");
-      EPETRA_CHK_ERR(S->GlobalAssemble());
+      CHECK_ZERO(S->GlobalAssemble());
       }
     
-    EPETRA_CHK_ERR(S->PutScalar(0.0));
+    CHECK_ZERO(S->PutScalar(0.0));
     
     for (int k=0;k<hid.NumMySubdomains();k++)
       {
       // construct values for separators around subdomain k
-      EPETRA_CHK_ERR(this->Construct(k, indices));
-      EPETRA_CHK_ERR(this->Construct(k, Sk, indices, &flopsCompute_));
+      CHECK_ZERO(this->Construct(k, indices));
+      CHECK_ZERO(this->Construct(k, Sk, indices, &flopsCompute_));
       
-      EPETRA_CHK_ERR(S->SumIntoGlobalValues(indices,Sk));
+      CHECK_ZERO(S->SumIntoGlobalValues(indices,Sk));
       }
     DEBUG("SchurComplement - GlobalAssembly");
-    EPETRA_CHK_ERR(S->GlobalAssemble());
+    CHECK_ZERO(S->GlobalAssemble());
     //DEBVAR(mother_->A22());
-    EPETRA_CHK_ERR(EpetraExt::MatrixMatrix::Add(mother_->A22(), false, 1.0, 
+    CHECK_ZERO(EpetraExt::MatrixMatrix::Add(mother_->A22(), false, 1.0, 
                                                 *S,-1.0));
     
     return 0;
@@ -185,7 +185,7 @@ namespace HYMLS {
     // resize input arrays if necessary
     if (inds.Length()!=nrows)
       {
-      EPETRA_CHK_ERR(inds.Size(nrows));
+      CHECK_ZERO(inds.Size(nrows));
       }
     
     // create vector with global indices
@@ -246,7 +246,7 @@ namespace HYMLS {
 
     if (Sk.M()!=nrows || Sk.N()!=nrows) 
       {
-      EPETRA_CHK_ERR(Sk.Shape(nrows,nrows));
+      CHECK_ZERO(Sk.Shape(nrows,nrows));
       }
 
     if (A11.NumRows()==0)
@@ -326,11 +326,11 @@ namespace HYMLS {
     // import separator information we need from other procs
     Epetra_MultiVector Aloc(mother_->Map2(sd),B.NumVectors());
 
-    EPETRA_CHK_ERR(A21.Multiply(false,B,Aloc));
+    CHECK_ZERO(A21.Multiply(false,B,Aloc));
     
     Epetra_Import import(mother_->Map2(), mother_->Map2(sd));
     
-    EPETRA_CHK_ERR(A.Import(Aloc,import,Insert));
+    CHECK_ZERO(A.Import(Aloc,import,Insert));
     
     //DEBVAR(A);
     //DEBVAR(Aloc);

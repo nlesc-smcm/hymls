@@ -30,6 +30,10 @@ Teuchos::RCP<Epetra_CrsMatrix> read_matrix(string datadir,string file_format, Te
     {
     suffix=".mtx";
     }
+  else if (file_format=="MatrixMarket (2)")
+    {
+    suffix="2.mtx";
+    }
   else
     {
     HYMLS::Tools::Error("File format '"+file_format+"' not supported",__FILE__,__LINE__);
@@ -43,6 +47,12 @@ Teuchos::RCP<Epetra_CrsMatrix> read_matrix(string datadir,string file_format, Te
   Teuchos::RCP<Epetra_CrsMatrix> K=Teuchos::null;
 
   if (file_format=="MatrixMarket")
+    {
+    Epetra_CrsMatrix* Kptr;
+    CHECK_ZERO(EpetraExt::MatrixMarketFileToCrsMatrix(filename.c_str(),*map,Kptr));
+    K=Teuchos::rcp(Kptr,true);
+    }
+  else if (file_format=="MatrixMarket (2)")
     {
     Epetra_CrsMatrix* Kptr;
     CHECK_ZERO(EpetraExt::MatrixMarketFileToCrsMatrix(filename.c_str(),*map,Kptr));
@@ -69,6 +79,10 @@ Teuchos::RCP<Epetra_Vector>  read_vector(string name,string datadir,
     {
     suffix=".mtx";
     }
+  else if (file_format=="MatrixMarket (2)")
+    {
+    suffix="2.mtx";
+    }
   else
     {
     HYMLS::Tools::Error("File format '"+file_format+"' not supported",__FILE__,__LINE__);
@@ -81,7 +95,7 @@ Teuchos::RCP<Epetra_Vector>  read_vector(string name,string datadir,
   
   Teuchos::RCP<Epetra_Vector> v;
 
-  if (file_format=="MatrixMarket")
+  if (file_format=="MatrixMarket" || file_format=="MatrixMarket (2)")
     {
     Epetra_Vector* vptr;
     CHECK_ZERO(EpetraExt::MatrixMarketFileToVector(filename.c_str(),*map,vptr));

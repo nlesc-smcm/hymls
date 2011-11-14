@@ -117,7 +117,7 @@ int status=0;
   std::string mapType="Cartesian"+Teuchos::toString(dim)+"D";
 
   HYMLS::Tools::Out("Create map");
-  
+  int dof=1;
   if (eqn=="Laplace")
     {
     try {
@@ -126,7 +126,7 @@ int status=0;
     }
   else if (eqn=="Stokes-C")
     {
-    int dof=dim+1;
+    dof=dim+1;
     map=HYMLS::MatrixUtils::CreateMap(nx,ny,nz,dof,0,*comm);
     }
   else
@@ -177,6 +177,40 @@ int status=0;
       x_ex=read_vector("sol",datadir,file_format,map);
       }
     }
+
+  ParameterList& solver_params = params->sublist("Solver");
+  bool do_deflation = (solver_params.get("Deflated Subspace Dimension",0)>0);
+  Teuchos::RCP<Epetra_CrsMatrix> M = Teuchos::null;
+  if (do_deflation) // need a mass matrix
+    {
+    HYMLS::Tools::Out("Create dummy mass matrix");
+    M=Teuchos::rcp(new Epetra_CrsMatrix(Copy,*map,1,true));
+    int gid;
+    double val1=1.0/(nx*ny*nz);
+    double val0=0.0;
+    if (dof>1)
+      {
+      for (int i=0;i<M->NumMyRows();i+=dof)
+        {
+        for (int j=i;j<i+dof-1;j++)
+          {
+          gid = map->GID(j);
+          CHECK_ZERO(M->InsertGlobalValues(gid,1,&val1,&gid));
+          }
+        gid = map->GID(i+dof-1);
+        CHECK_ZERO(M->InsertGlobalValues(gid,1,&val0,&gid));
+        }
+      }
+    else
+      {
+      for (int i=0;i<M->NumMyRows();i++)
+        {
+        gid = map->GID(i);
+        CHECK_ZERO(M->InsertGlobalValues(gid,1,&val1,&gid));
+        }
+      }
+    CHECK_ZERO(M->FillComplete());
+    }
   
   HYMLS::Tools::Out("Create Preconditioner");
 
@@ -205,7 +239,12 @@ for (int f=0;f<numComputes;f++)
     }
   HYMLS::Tools::Out("Compute Solver ("+Teuchos::toString(f+1)+")");
   CHECK_ZERO(precond->Compute());
-  CHECK_ZERO(solver->SetupDeflation());
+  if (do_deflation)
+    {
+    solver->SetMassMatrix(M);
+    CHECK_ZERO(solver->SetupDeflation());
+    }
+    
  // std::cout << *solver << std::endl;
   
   for (int s=0;s<numSolves;s++)

@@ -43,8 +43,13 @@
 #include "AnasaziBasicEigenproblem.hpp"
 #include "AnasaziEpetraAdapter.hpp"
 
-using Teuchos::null;
-using Teuchos::rcp;
+// ASCII output formatting
+
+// unfortunately Epetra sets the width to 20 so we can't really change that here.
+#define OUTPUT_WIDTH 20
+// to keep the output human readable we only use 12 digits behind the comma, so there
+// still is white space between multivector entries.
+#define OUTPUT_PREC 12
 
 namespace HYMLS 
   {
@@ -113,7 +118,7 @@ return CreateMap(offX,offX+nXloc-1,
                            int dof,
                            const Epetra_Comm& comm)
       {
-      Teuchos::RCP<Epetra_Map> result = null;
+      Teuchos::RCP<Epetra_Map> result = Teuchos::null;
       
       DEBUG("MatrixUtils::CreateMap ");
       DEBUG("["<<i0<<".."<<i1<<"]");
@@ -141,7 +146,7 @@ return CreateMap(offX,offX+nXloc-1,
               MyGlobalElements[pos++] = 
                 Tools::sub2ind(N,M,L,dof,i,j,k,var);
               }
-      result = rcp(new Epetra_Map(NumGlobalElements,
+      result = Teuchos::rcp(new Epetra_Map(NumGlobalElements,
                 NumMyElements,MyGlobalElements,0,comm));
       delete [] MyGlobalElements;
       return result;
@@ -286,7 +291,7 @@ MyGlobalElements,
         }
       }
     
-    Teuchos::RCP<Epetra_Map> new_map = rcp(new 
+    Teuchos::RCP<Epetra_Map> new_map = Teuchos::rcp(new 
            Epetra_Map(-1,n_new,new_elements,old_map.IndexBase(),old_map.Comm()));
     
     delete [] new_elements;
@@ -367,7 +372,7 @@ else
       }
 
   // build the new (gathered) map
-  Teuchos::RCP<Epetra_BlockMap> gmap = rcp(new Epetra_BlockMap
+  Teuchos::RCP<Epetra_BlockMap> gmap = Teuchos::rcp(new Epetra_BlockMap
         (NumGlobalElements, NumMyElements, AllGlobalElements, 
         ElementSize, map.IndexBase(), Comm) );
     
@@ -445,7 +450,7 @@ else
     }
 
   // build the new (gathered) map
-  Teuchos::RCP<Epetra_BlockMap> gmap = rcp(new Epetra_BlockMap (NumGlobalElements, NumMyElements, 
+  Teuchos::RCP<Epetra_BlockMap> gmap = Teuchos::rcp(new Epetra_BlockMap (NumGlobalElements, NumMyElements, 
                        AllGlobalElements, ElementSize, map.IndexBase(), Comm) );
     
     
@@ -519,7 +524,7 @@ else
       }
 
   // build the new (gathered) map
-  Teuchos::RCP<Epetra_Map> gmap = rcp(new Epetra_Map
+  Teuchos::RCP<Epetra_Map> gmap = Teuchos::rcp(new Epetra_Map
         (NumGlobalElements, NumMyElements, AllGlobalElements, 
         map.IndexBase(), Comm) );
     
@@ -588,7 +593,7 @@ else
     }
 
   // build the new (gathered) map
-  Teuchos::RCP<Epetra_Map> gmap = rcp(new Epetra_Map (NumGlobalElements, NumMyElements, 
+  Teuchos::RCP<Epetra_Map> gmap = Teuchos::rcp(new Epetra_Map (NumGlobalElements, NumMyElements, 
                        AllGlobalElements, map.IndexBase(), Comm) );
     
     
@@ -606,9 +611,9 @@ else
       Teuchos::RCP<Epetra_BlockMap> map = Gather(map_dist,root);
       
       Teuchos::RCP<Epetra_MultiVector> gvec = 
-        rcp(new Epetra_MultiVector(*map,vec.NumVectors()));
+        Teuchos::rcp(new Epetra_MultiVector(*map,vec.NumVectors()));
       
-      Teuchos::RCP<Epetra_Import> import = rcp(new Epetra_Import(*map,map_dist) );
+      Teuchos::RCP<Epetra_Import> import = Teuchos::rcp(new Epetra_Import(*map,map_dist) );
       
       CHECK_ZERO(gvec->Import(vec,*import,Insert));
       
@@ -622,9 +627,9 @@ else
       DEBUG("AllGather vector "<<vec.Label());
       const Epetra_BlockMap& map_dist = vec.Map();
       Teuchos::RCP<Epetra_BlockMap> map = AllGather(map_dist);
-      Teuchos::RCP<Epetra_MultiVector> gvec = rcp(new Epetra_Vector(*map,vec.NumVectors()));
+      Teuchos::RCP<Epetra_MultiVector> gvec = Teuchos::rcp(new Epetra_Vector(*map,vec.NumVectors()));
       
-      Teuchos::RCP<Epetra_Import> import = rcp(new Epetra_Import(*map,map_dist) );
+      Teuchos::RCP<Epetra_Import> import = Teuchos::rcp(new Epetra_Import(*map,map_dist) );
       
       CHECK_ZERO(gvec->Import(vec,*import,Insert));
       
@@ -641,9 +646,9 @@ else
       const Epetra_BlockMap& map_dist = vec.Map();
       Teuchos::RCP<Epetra_BlockMap> map = Gather(map_dist,root);
       
-      Teuchos::RCP<Epetra_IntVector> gvec = rcp(new Epetra_IntVector(*map));
+      Teuchos::RCP<Epetra_IntVector> gvec = Teuchos::rcp(new Epetra_IntVector(*map));
       
-      Teuchos::RCP<Epetra_Import> import = rcp(new Epetra_Import(*map,map_dist) );
+      Teuchos::RCP<Epetra_Import> import = Teuchos::rcp(new Epetra_Import(*map,map_dist) );
       
       CHECK_ZERO(gvec->Import(vec,*import,Insert));
       
@@ -658,9 +663,9 @@ else
       DEBUG("AllGather vector "<<vec.Label());
       const Epetra_BlockMap& map_dist = vec.Map();
       Teuchos::RCP<Epetra_BlockMap> map = AllGather(map_dist);
-      Teuchos::RCP<Epetra_IntVector> gvec = rcp(new Epetra_IntVector(*map));
+      Teuchos::RCP<Epetra_IntVector> gvec = Teuchos::rcp(new Epetra_IntVector(*map));
       
-      Teuchos::RCP<Epetra_Import> import = rcp(new Epetra_Import(*map,map_dist) );
+      Teuchos::RCP<Epetra_Import> import = Teuchos::rcp(new Epetra_Import(*map,map_dist) );
       
       CHECK_ZERO(gvec->Import(vec,*import,Insert));
       
@@ -684,9 +689,9 @@ else
       //we only guess the number of row entries, this routine is not performance critical
       // as it should only be used for debugging anyway
       int num_entries = mat.NumGlobalNonzeros()/mat.NumGlobalRows();
-      Teuchos::RCP<Epetra_CrsMatrix> gmat = rcp(new Epetra_CrsMatrix(Copy,*rowmap, *colmap, num_entries) );
+      Teuchos::RCP<Epetra_CrsMatrix> gmat = Teuchos::rcp(new Epetra_CrsMatrix(Copy,*rowmap, *colmap, num_entries) );
       
-      Teuchos::RCP<Epetra_Import> import = rcp(new Epetra_Import(*rowmap,rowmap_dist) );
+      Teuchos::RCP<Epetra_Import> import = Teuchos::rcp(new Epetra_Import(*rowmap,rowmap_dist) );
       
       CHECK_ZERO(gmat->Import(mat,*import,Insert));
       
@@ -701,8 +706,8 @@ else
   Teuchos::RCP<Epetra_MultiVector> MatrixUtils::Scatter
         (const Epetra_MultiVector& vec, const Epetra_BlockMap& distmap)
     {
-    Teuchos::RCP<Epetra_MultiVector> dist_vec =  rcp(new Epetra_MultiVector(distmap,vec.NumVectors()));
-    Teuchos::RCP<Epetra_Import> import = rcp(new Epetra_Import(vec.Map(),distmap));
+    Teuchos::RCP<Epetra_MultiVector> dist_vec =  Teuchos::rcp(new Epetra_MultiVector(distmap,vec.NumVectors()));
+    Teuchos::RCP<Epetra_Import> import = Teuchos::rcp(new Epetra_Import(vec.Map(),distmap));
     CHECK_ZERO(dist_vec->Export(vec,*import,Insert));
     return dist_vec;
     }
@@ -720,11 +725,11 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::ReplaceRowMap(Teuchos::RCP<Epetra_Cr
    Teuchos::RCP<Epetra_CrsMatrix> tmpmat;
    if (A->HaveColMap())
      {
-     tmpmat = rcp(new Epetra_CrsMatrix(Copy,newmap,A->ColMap(), row_lengths) );
+     tmpmat = Teuchos::rcp(new Epetra_CrsMatrix(Copy,newmap,A->ColMap(), row_lengths) );
      }
    else
      {
-     tmpmat = rcp(new Epetra_CrsMatrix(Copy,newmap, row_lengths) );
+     tmpmat = Teuchos::rcp(new Epetra_CrsMatrix(Copy,newmap, row_lengths) );
      }
    
    int rowA,rowNew;
@@ -755,7 +760,7 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::ReplaceColMap(Teuchos::RCP<Epetra_Cr
    int *row_lengths = new int[nloc];
    for (int i=0;i<nloc;i++) row_lengths[i]=A->NumMyEntries(i);
    Teuchos::RCP<Epetra_CrsMatrix> tmpmat;
-   tmpmat = rcp(new Epetra_CrsMatrix(Copy,A->RowMap(),
+   tmpmat = Teuchos::rcp(new Epetra_CrsMatrix(Copy,A->RowMap(),
         newcolmap, row_lengths) );
    
    int grid;
@@ -792,7 +797,7 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::RemoveColMap(Teuchos::RCP<Epetra_Crs
    int *row_lengths = new int[nloc];
    for (int i=0;i<nloc;i++) row_lengths[i]=A->NumMyEntries(i);
    Teuchos::RCP<Epetra_CrsMatrix> tmpmat;
-   tmpmat = rcp(new Epetra_CrsMatrix(Copy,A->RowMap(), row_lengths) );
+   tmpmat = Teuchos::rcp(new Epetra_CrsMatrix(Copy,A->RowMap(), row_lengths) );
    
    int grid;
    for (int i=0;i<A->NumMyRows();i++)
@@ -827,7 +832,7 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::ReplaceBothMaps(Teuchos::RCP<Epetra_
    int *row_lengths = new int[nloc];
    for (int i=0;i<nloc;i++) row_lengths[i]=A->NumMyEntries(i);
    Teuchos::RCP<Epetra_CrsMatrix> tmpmat;
-   tmpmat = rcp(new Epetra_CrsMatrix(Copy,newmap,newcolmap,row_lengths) );
+   tmpmat = Teuchos::rcp(new Epetra_CrsMatrix(Copy,newmap,newcolmap,row_lengths) );
    
    int rowA,rowNew;
    
@@ -947,13 +952,13 @@ void MatrixUtils::Dump(const Epetra_CrsMatrix& A, const string& filename,bool re
 #if 0
     EpetraExt::RowMatrixToMatrixMarketFile(filename.c_str(),A);
 #elif 0
-    Teuchos::RCP<std::ostream> ofs = rcp(new Teuchos::oblackholestream());
+    Teuchos::RCP<std::ostream> ofs = Teuchos::rcp(new Teuchos::oblackholestream());
     int my_rank = A.Comm().MyPID();
     if (my_rank==0)
       {
-      ofs = rcp(new std::ofstream(filename.c_str()));
+      ofs = Teuchos::rcp(new std::ofstream(filename.c_str()));
       }
-    *ofs << std::scientific << std::setw(15) << std::setprecision(15);
+    *ofs << std::scientific << std::setw(OUTPUT_WIDTH) << std::setprecision(OUTPUT_PREC);
     *ofs << *(MatrixUtils::Gather(A,0));
 #else
     int my_rank = A.Comm().MyPID();
@@ -964,13 +969,13 @@ void MatrixUtils::Dump(const Epetra_CrsMatrix& A, const string& filename,bool re
         Teuchos::RCP<std::ofstream> ofs;
         if (p==0)
           {
-          ofs = rcp(new std::ofstream(filename.c_str(),std::ios::trunc));
+          ofs = Teuchos::rcp(new std::ofstream(filename.c_str(),std::ios::trunc));
           }
         else
           {
-          ofs = rcp(new std::ofstream(filename.c_str(),std::ios::app));
+          ofs = Teuchos::rcp(new std::ofstream(filename.c_str(),std::ios::app));
           }          
-        *ofs << std::scientific << std::setw(15) << std::setprecision(15);
+        *ofs << std::scientific << std::setw(OUTPUT_WIDTH) << std::setprecision(OUTPUT_PREC);
         *ofs << A;
         ofs->close();
         }
@@ -992,7 +997,7 @@ void MatrixUtils::DumpHDF(const Epetra_CrsMatrix& A,
   bool verbose=true;
   bool success;
   DEBUG("Matrix with label "<<A.Label()<<" is written to HDF5 file "<<filename<<", group "<<groupname);
-  RCP<EpetraExt::HDF5> hdf5 = rcp(new EpetraExt::HDF5(A.Comm()));
+  RCP<EpetraExt::HDF5> hdf5 = Teuchos::rcp(new EpetraExt::HDF5(A.Comm()));
 try {
   if (new_file)
     {       
@@ -1025,13 +1030,13 @@ void MatrixUtils::Dump(const Epetra_MultiVector& x, const string& filename,bool 
 
     //EpetraExt::VectorToMatrixMarketFile(filename.c_str(),x);
     
-    Teuchos::RCP<std::ostream> ofs = rcp(new Teuchos::oblackholestream());
+    Teuchos::RCP<std::ostream> ofs = Teuchos::rcp(new Teuchos::oblackholestream());
     int my_rank = x.Comm().MyPID();
     if (my_rank==0)
       {
-      ofs = rcp(new std::ofstream(filename.c_str()));
+      ofs = Teuchos::rcp(new std::ofstream(filename.c_str()));
       }
-    *ofs << std::scientific << std::setw(15) << std::setprecision(15);    
+    *ofs << std::scientific << std::setw(OUTPUT_WIDTH) << std::setprecision(OUTPUT_PREC);    
     *ofs << *(MatrixUtils::Gather(x,0));
     }
   }
@@ -1043,13 +1048,13 @@ void MatrixUtils::Dump(const Epetra_IntVector& x, const string& filename)
 
   //EpetraExt::VectorToMatrixMarketFile(filename.c_str(),x);
     
-  Teuchos::RCP<std::ostream> ofs = rcp(new Teuchos::oblackholestream());
+  Teuchos::RCP<std::ostream> ofs = Teuchos::rcp(new Teuchos::oblackholestream());
   int my_rank = x.Comm().MyPID();
   if (my_rank==0)
     {
-    ofs = rcp(new std::ofstream(filename.c_str()));
+    ofs = Teuchos::rcp(new std::ofstream(filename.c_str()));
     }
-  *ofs << std::setw(15) << std::setprecision(15);
+  *ofs << std::setw(OUTPUT_WIDTH) << std::setprecision(OUTPUT_PREC);
   *ofs << *(MatrixUtils::Gather(x,0));
   }
 
@@ -1065,7 +1070,7 @@ void MatrixUtils::DumpHDF(const Epetra_MultiVector& x,
   bool verbose=true;
   bool success;
   DEBUG("Vector with label "<<x.Label()<<" is written to HDF5 file "<<filename<<", group   "<<groupname);
-  RCP<EpetraExt::HDF5> hdf5 = rcp(new EpetraExt::HDF5(x.Comm()));
+  RCP<EpetraExt::HDF5> hdf5 = Teuchos::rcp(new EpetraExt::HDF5(x.Comm()));
 try {
   if (new_file)
     {       
@@ -1088,13 +1093,13 @@ void MatrixUtils::Dump(const Epetra_Map& M, const string& filename)
   DEBUG("Map with label "<<M.Label()<<" is written to file "<<filename);
   EpetraExt::BlockMapToMatrixMarketFile(filename.c_str(),M);
   /*
-  Teuchos::RCP<std::ostream> ofs = rcp(new Teuchos::oblackholestream());
+  Teuchos::RCP<std::ostream> ofs = Teuchos::rcp(new Teuchos::oblackholestream());
   int my_rank = M.Comm().MyPID();
   if (my_rank==0)
     {
-    ofs = rcp(new std::ofstream(filename.c_str()));
+    ofs = Teuchos::rcp(new std::ofstream(filename.c_str()));
     }
-  *ofs << std::setw(15) << std::setprecision(15);
+  *ofs << std::setw(OUTPUT_WIDTH) << std::setprecision(OUTPUT_PREC);
   *ofs << *(MatrixUtils::Gather(M,0));  
   */
   }
@@ -1165,13 +1170,13 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::TripleProduct(bool transA, const Epe
     if(transA) Tools::Error("This case is not implemented: trans(A)*op(B)*op(C)\n",__FILE__,__LINE__);
   
     // temp matrix
-    Teuchos::RCP<Epetra_CrsMatrix> AB = rcp(new Epetra_CrsMatrix(Copy,A.RowMap(),A.MaxNumEntries()) );
+    Teuchos::RCP<Epetra_CrsMatrix> AB = Teuchos::rcp(new Epetra_CrsMatrix(Copy,A.RowMap(),A.MaxNumEntries()) );
 
     DEBUG("compute A*B...");
     CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(A,transA,B,transB,*AB));
 
     // result matrix
-    Teuchos::RCP<Epetra_CrsMatrix> ABC = rcp(new Epetra_CrsMatrix(Copy,AB->RowMap(),AB->MaxNumEntries()) );
+    Teuchos::RCP<Epetra_CrsMatrix> ABC = Teuchos::rcp(new Epetra_CrsMatrix(Copy,AB->RowMap(),AB->MaxNumEntries()) );
 
     DEBUG("compute ABC...");
     CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(*AB,false,C,transC,*ABC));
@@ -1186,7 +1191,7 @@ void MatrixUtils::TripleProduct(Teuchos::RCP<Epetra_CrsMatrix> ABC, bool transA,
   {
   
     // temp matrix
-    Teuchos::RCP<Epetra_CrsMatrix> AB = rcp(new Epetra_CrsMatrix(Copy,ABC->Graph()) );
+    Teuchos::RCP<Epetra_CrsMatrix> AB = Teuchos::rcp(new Epetra_CrsMatrix(Copy,ABC->Graph()) );
 
     DEBUG("compute A*B...");
     CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(A,transA,B,transB,*AB));
@@ -1202,7 +1207,7 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::MatrixProduct(bool transA, const Epe
                                           bool transB, const Epetra_CrsMatrix& B)
   {
   
-    Teuchos::RCP<Epetra_CrsMatrix> AB = rcp(new Epetra_CrsMatrix(Copy,A.RowMap(),A.MaxNumEntries()) );
+    Teuchos::RCP<Epetra_CrsMatrix> AB = Teuchos::rcp(new Epetra_CrsMatrix(Copy,A.RowMap(),A.MaxNumEntries()) );
 
     DEBUG("compute A*B...");
     DEBVAR(transA);
@@ -1373,14 +1378,14 @@ Teuchos::RCP<MatrixUtils::Eigensolution> MatrixUtils::Eigs(
     int numritz = (int)ritzValues.size();
     Tools::out()<<"operator: "<<A->Label()<<std::endl;
     Tools::out()<<std::endl<< "Computed Ritz Values"<< std::endl;
-    Tools::out()<< std::setw(16) << "Real Part"
-            << std::setw(16) << "Imag Part"
+    Tools::out()<< std::setw(OUTPUT_WIDTH) << "Real Part"
+            << std::setw(OUTPUT_WIDTH) << "Imag Part"
             << std::endl;
     Tools::out()<<"-----------------------------------------------------------"<<std::endl;
     for (int i=0; i<numritz; i++)
       {
-      Tools::out()<< std::setw(16) << ritzValues[i].realpart
-              << std::setw(16) << ritzValues[i].imagpart
+      Tools::out()<< std::setw(OUTPUT_WIDTH) << ritzValues[i].realpart
+              << std::setw(OUTPUT_WIDTH) << ritzValues[i].imagpart
               << std::endl;
       }
     Tools::out()<<"-----------------------------------------------------------"<<std::endl;
@@ -1426,7 +1431,7 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::ReadThcmMatrix(string prefix, const 
     len[i] = begA[i+1]-begA[i];
     }
 
-Teuchos::RCP<Epetra_CrsMatrix> A=rcp(new Epetra_CrsMatrix(Copy, rowmap, colmap, len, true));
+Teuchos::RCP<Epetra_CrsMatrix> A=Teuchos::rcp(new Epetra_CrsMatrix(Copy, rowmap, colmap, len, true));
 
   // put CSR arrays in Trilinos Jacobian
   for (int i = 0; i<nrows; i++)
