@@ -40,7 +40,7 @@ namespace HYMLS {
       int numRhs)
       : matrix_(K), precond_(P), comm_(Teuchos::rcp(&(K->Comm()),false)), 
         params_(Teuchos::null),
-        massMatrix_(Teuchos::null),
+        massMatrix_(Teuchos::null), nullSpace_(Teuchos::null),
         normInf_(-1.0), useTranspose_(false),
         numEigs_(0),
         label_("HYMLS::Solver")
@@ -50,6 +50,40 @@ namespace HYMLS {
   
   belosRhs_=Teuchos::rcp(new Epetra_MultiVector(matrix_->OperatorRangeMap(),numRhs));
   belosSol_=Teuchos::rcp(new Epetra_MultiVector(matrix_->OperatorDomainMap(),numRhs));
+
+  // try to construct the nullspace for the operator, right now we only implement
+  // this for the Stokes-C case (constant pressure as single vector), otherwise we
+  // assume the matrix is nonsingular (i.e. leave nullSpace==null).
+  string nullSpaceType=params_->sublist("Solver").get("Null Space","None");
+  if (nullSpaceType=="Constant P")
+    {
+    nullSpace_ = Teuchos::rcp(new Epetra_Vector(matrix_->OperatorDomainMap()));
+    int pvar = params_->sublist("Solver").get("Pressure Variable",-1);
+    // TODO: this is all a bit ad-hoc
+    if (pvar==-1)
+      {
+      pvar=2;
+      Tools::Warning("'Pressure Variable' not specified in 'Solver' sublist", 
+        __FILE__, __LINE__);
+      }
+    int dof = params_->sublist("Solver").get("Degrees of Freedom",-1);
+    if (dof==-1)
+      {
+      dof=3;
+      Tools::Warning("'Pressure Variable' not specified in 'Solver' sublist", 
+        __FILE__, __LINE__);
+      }
+    
+    CHECK_ZERO(nullSpace_->PutScalar(0.0))
+    for (int i=dof-1;i<nullSpace_->MyLength();i+=dof)
+      {
+      (*nullSpace_)[0][i]=1.0;
+      }
+    }    
+  else if (nullSpaceType!="None")
+    {
+    Tools::Error("'Null Space'='"+nullSpaceType+"' not implemented",__FILE__,__LINE__);
+    }
 
   belosProblemPtr_=Teuchos::rcp(new belosProblemType_(matrix_,belosSol_,belosRhs_));
 
@@ -175,8 +209,15 @@ void Solver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)
     numEigs_=solverList.get("Deflated Subspace Dimension",numEigs_);
     solverList_.set("Deflated Subspace Dimension",numEigs_);
     //TODO: put a reasonable default value here
-    deflThres_=solverList.get("Deflation Threshold",1.0);
+    deflThres_=solverList.get("Deflation Threshold",0.0);
     solverList_.set("Deflation Threshold",deflThres_);
+
+    // these are temporarily added to the parameter list for developing the
+    // projection method and should be handled differently in the end.
+    solverList_.set("Null Space",solverList.get("Null Space","None"));
+    solverList_.set("Pressure Variable",solverList.get("Pressure Variable",-1));
+    solverList_.set("Degrees of Freedom",solverList.get("Degrees of Freedom",-1));
+
 
     // Belos parameters should be specified in this list:
     solverList_.sublist("Iterative Solver")=solverList.sublist("Iterative Solver");
@@ -189,16 +230,54 @@ void Solver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)
 
 int Solver::SetupDeflation(int maxEigs)
   {
-
+  // by default leave numEigs_ at its present value:
   if (maxEigs!=-2) numEigs_=maxEigs;
   
+  // nothing to be done:
   if (numEigs_==0) return 0;
 
   START_TIMER(label_,"SetupDeflation");
 
-  Teuchos::RCP<Epetra_Operator> op = 
-    Teuchos::rcp(new Epetra_InvOperator(precond_.get()));
+  Teuchos::RCP<Epetra_Operator> op, iop;
+  
+  op=precond_;
+  
+  if (nullSpace_!=Teuchos::null)
+    {
+#ifdef STORE_MATRICES
+    MatrixUtils::Dump(*nullSpace_,"DefaultNullSpace.txt");
+#endif
+#ifdef DEBUGGING
+    Epetra_Vector test_y(nullSpace_->Map());
+    Epetra_Vector test_x(nullSpace_->Map());
+    CHECK_ZERO(test_x.Random());
+    CHECK_ZERO(test_y.PutScalar(0.0));
+    CHECK_ZERO(precond_->ApplyInverse(test_x,test_y));
+    MatrixUtils::Dump(test_y,"PROJ_prec_sol.txt");
+    MatrixUtils::Dump(test_y,"PROJ_rhs.txt");
+#endif
 
+  // we compute eigs of the operator [K e; e' 0] to make the operator nonsingular
+  Teuchos::RCP<BorderedSolver> bprec
+      = Teuchos::rcp_dynamic_cast<BorderedSolver>(precond_);
+    if (bprec!=Teuchos::null)
+      {
+      Tools::out()<<"using preconditioner's bordering option"<<std::endl;
+      CHECK_ZERO(bprec->SetBorder(nullSpace_,nullSpace_));      
+      }
+    else
+      {
+      Tools::out()<<"using LU bordering"<<std::endl;
+      op = Teuchos::rcp(new BorderedLU(precond_,nullSpace_,nullSpace_));
+      }
+#ifdef DEBUGGING
+    CHECK_ZERO(test_y.PutScalar(0.0));
+    CHECK_ZERO(op->ApplyInverse(test_x,test_y));
+    MatrixUtils::Dump(test_y,"PROJ_bordered_prec_sol.txt");
+#endif
+    }    
+
+  iop = Teuchos::rcp(new Epetra_InvOperator(op.get()));
 #ifdef STORE_MATRICES
   if (massMatrix_!=Teuchos::null) 
     {
@@ -226,7 +305,7 @@ int Solver::SetupDeflation(int maxEigs)
     // compute dominant eigenvalues of P^{-1}.
     // mass matrix may still be null, the routine works for both cases.
     precEigs_ = MatrixUtils::Eigs
-            (op, massMatrix_, numEigs_,1.0e-8);
+            (iop, massMatrix_, numEigs_,1.0e-8);
 
 // I think this should never occur:
 if (precEigs_==Teuchos::null)
@@ -259,9 +338,11 @@ if (precEigs_->Espace==Teuchos::null)
   Tools::Error("no eigenvector basis has been returned.",__FILE__,__LINE__);
   }
 
+  Epetra_MultiVector V = *(precEigs_->Espace);
+  
   // now project the original Schur-complement onto the space spanned by these most
   // unstable modes of the preconditioner, e.g. compute V'SV
-  const Epetra_MultiVector& V = *(precEigs_->Espace);
+
   Epetra_MultiVector KV = V;
   CHECK_ZERO(matrix_->Apply(V,KV));
 
@@ -343,8 +424,7 @@ if (precEigs_->Espace==Teuchos::null)
     Epetra_MultiVector V_hat(V.Map(),numDeflated_);
   
     int pos=0;
-  
-  
+    
     for (int j=0;j<n;j++)
       {
       if (keep[j])
@@ -368,6 +448,18 @@ if (precEigs_->Espace==Teuchos::null)
     V_=Teuchos::rcp(new Epetra_MultiVector(V.Map(),numDeflated_));
     CHECK_ZERO(V_->Multiply('N','N',1.0,V_hat,*W_hat,0.0));
     
+#ifdef DEBUGGING
+MatrixUtils::Dump(*(precEigs_->Evecs),"PROJ_evecs.txt");
+MatrixUtils::Dump(*V_,"PROJ_V.txt");
+Epetra_MultiVector test_x(V_->Map(),5);
+Epetra_MultiVector test_y(V_->Map(),5);
+test_x.Random();
+CHECK_ZERO(Aorth_->Apply(test_x,test_y));
+MatrixUtils::Dump(test_x,"PROJ_x.txt");
+MatrixUtils::Dump(test_y,"PROJ_Aorth_x.txt");
+#endif
+    
+
     borderV_=Teuchos::rcp(new Epetra_MultiVector(V_->Map(),numDeflated_));    
     // compute V_orth'KV
     DenseUtils::ApplyOrth(*V_,KV,*borderV_);
@@ -413,6 +505,7 @@ if (precEigs_->Espace==Teuchos::null)
     if (linearSolver=="GMRES")
       {
       belosParamPtr->set("Solver","BlockGmres");
+      belosParamPtr->set("Block Size",numDeflated_);
       }
     else
       {
@@ -424,7 +517,9 @@ if (precEigs_->Espace==Teuchos::null)
 
     // setup the LU decomposition
     LU_=Teuchos::rcp(new BorderedLU(AorthSolver_,borderV_,borderW_,borderC_));
-    
+#ifdef DEBUGGING
+// dump more PROJ_ stuff
+#endif
     }//numDeflated_>0
 
   STOP_TIMER(label_,"SetupDeflation");
@@ -478,7 +573,7 @@ int Solver::ApplyInverse(const Epetra_MultiVector& B,
     else if (startVec=="Zero")
       {
       // set initial vector to 0
-      EPETRA_CHK_ERR(belosSol_->PutScalar(0.0));
+      CHECK_ZERO(belosSol_->PutScalar(0.0));
       }
     else
       {

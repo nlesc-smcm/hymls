@@ -49,8 +49,11 @@ namespace HYMLS
   {
   V_=V; W_=W; C_=C;
   if (V==Teuchos::null) Tools::Error("V is null",__FILE__,__LINE__);
-  if (W==Teuchos::null) Tools::Error("W is null",__FILE__,__LINE__);
-  if (C==Teuchos::null) Tools::Error("C is null",__FILE__,__LINE__);
+  if (W==Teuchos::null) W_=V;
+  if (C==Teuchos::null) 
+    {
+    C_=Teuchos::rcp(new Epetra_SerialDenseMatrix(V_->NumVectors(), V_->NumVectors()));
+    }
   return this->Compute();
   }
   
@@ -131,6 +134,8 @@ int BorderedLU::Compute()
   CHECK_ZERO(DenseUtils::MatMul(*W_,*Q_,*S_));
   CHECK_ZERO(S_->Scale(-1.0));
   *S_ += *C_;
+
+DEBVAR(*S_);
 
   // factor it using LAPACK
   LU_.SetMatrix(*S_);

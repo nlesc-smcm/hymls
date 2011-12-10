@@ -26,6 +26,8 @@
 #include "HYMLS_Solver.H"
 #include "HYMLS_MatrixUtils.H"
 
+#include "Ifpack_Amesos.h"
+
 #include "main_utils.H"
 
 using namespace Teuchos;

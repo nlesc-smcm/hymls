@@ -97,7 +97,8 @@ public:
   Preconditioner(Teuchos::RCP<const Epetra_RowMatrix> K, 
       Teuchos::RCP<Teuchos::ParameterList> params,
       Teuchos::RCP<const OverlappingPartitioner> hid=Teuchos::null,
-      int myLevel=1);
+      int myLevel=1,
+      Teuchos::RCP<Epetra_Vector> testVector=Teuchos::null);
 
   //! destructor
   ~Preconditioner();
@@ -212,8 +213,8 @@ public:
   //! add a border to the preconditioner. So instead of solving
   //! Px=y we then solve Px+Vs=y, W'x+Cs=0.
   int SetBorder(Teuchos::RCP<const Epetra_MultiVector> V,
-                Teuchos::RCP<const Epetra_MultiVector> W,
-                Teuchos::RCP<const Epetra_SerialDenseMatrix> C);
+                Teuchos::RCP<const Epetra_MultiVector> W=Teuchos::null,
+                Teuchos::RCP<const Epetra_SerialDenseMatrix> C=Teuchos::null);
 
   //! if a border has been added, apply [Y T]' = [P V; W' C] [X S]'
   int Apply(const Epetra_MultiVector& X, const Epetra_SerialDenseMatrix& S,
@@ -311,6 +312,10 @@ protected:
 
   //! solution vector for Schur complement
   mutable Teuchos::RCP<Epetra_MultiVector> schurSol_;
+  
+  //! a test vector for constructing good orthogonal transformations
+  //! (all ones on the first level, passed to the approximate SC)
+  Teuchos::RCP<Epetra_Vector> testVector_;
   
   //! preconditioning operator
   Teuchos::RCP<SchurPreconditioner> schurPrec_;

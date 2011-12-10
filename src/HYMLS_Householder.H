@@ -49,6 +49,8 @@ class Householder : public OrthogonalTransform
   //! Apply() functions to apply the transform rather than sparse matrix-matrix
   //! products.
   int Construct(Epetra_CrsMatrix& H, const Epetra_IntSerialDenseVector& inds) const;
+  int Construct(Epetra_CrsMatrix& H, const Epetra_IntSerialDenseVector& inds, 
+        const Epetra_SerialDenseVector& vec) const;
 
   //! apply a sparse matrix representation of a set of transforms from the left
   //! and right to a sparse matrix.

@@ -105,11 +105,11 @@ namespace HYMLS {
     // compute A*vn, an m-vector
     Epetra_SerialDenseVector Avn(m);
     // for some reason the 'const' attribute is missing on this function
-    EPETRA_CHK_ERR(const_cast<Epetra_SerialDenseMatrix&>(Y).Multiply(false,vn,Avn));
+    CHECK_ZERO(const_cast<Epetra_SerialDenseMatrix&>(Y).Multiply(false,vn,Avn));
     
     // compute vm'*A, an n-vector
     Epetra_SerialDenseVector vmTA(n);
-    EPETRA_CHK_ERR(const_cast<Epetra_SerialDenseMatrix&>(Y).Multiply(true,vm,vmTA));
+    CHECK_ZERO(const_cast<Epetra_SerialDenseMatrix&>(Y).Multiply(true,vm,vmTA));
     
     double vTAv = vmTA.Dot(vn);
         
@@ -167,11 +167,11 @@ namespace HYMLS {
     // compute A*vn, an m-vector
     Epetra_SerialDenseVector Avn(m);
     // for some reason the 'const' attribute is missing on this function
-    EPETRA_CHK_ERR(Y.Multiply(false,vn,Avn));
+    CHECK_ZERO(Y.Multiply(false,vn,Avn));
     
     // compute vm'*A, an n-vector
     Epetra_SerialDenseVector vmTA(n);
-    EPETRA_CHK_ERR(Y.Multiply(true,vm,vmTA));
+    CHECK_ZERO(Y.Multiply(true,vm,vmTA));
     
     double vTAv = vmTA.Dot(vn);
         
@@ -247,20 +247,34 @@ namespace HYMLS {
   int Householder::Construct(Epetra_CrsMatrix& H, 
             const Epetra_IntSerialDenseVector& inds) const
     {
+    //TODO: put correct vector in matrix here!!! TROET
     int n=inds.Length();
+    Epetra_SerialDenseVector vec(n);
+    for (int i=0;i<n;i++) vec[i]=1.0;
+    return this->Construct(H,inds,vec);
+    }
+
+  int Householder::Construct(Epetra_CrsMatrix& H, 
+            const Epetra_IntSerialDenseVector& inds,
+            const Epetra_SerialDenseVector& vec) const
+    {
+    // vec is the test vector to be zeroed out by this transform,
+    // construct the according v for the Householder reflection: 
+    Epetra_SerialDenseVector v = vec;
+    int n=vec.Length();
     int row=inds[0];
-    double sqn=sqrt((double)n);
-    double inrm=1.0/sqrt(2*(n+sqn));
-    double *values = new double[n];
-    values[0]=(1+sqn)*inrm; // first vector element, all others are 1
-    for (int i=1;i<n;i++) values[i]=inrm;
+    double nrm=vec.Norm2();
+    v[0]=v[0]+nrm;
+    nrm=v.Norm2();
+    CHECK_ZERO(v.Scale(1.0/nrm));
+          
     if (H.Filled())
       {
-      EPETRA_CHK_ERR(H.ReplaceGlobalValues(row,n,values,const_cast<int*>(&(inds[0]))));
+      CHECK_ZERO(H.ReplaceGlobalValues(row,n,v.A(),const_cast<int*>(&(inds[0]))));
       }
     else
       {
-      EPETRA_CHK_ERR(H.InsertGlobalValues(row,n,values,const_cast<int*>(&(inds[0]))));
+      CHECK_NONNEG(H.InsertGlobalValues(row,n,v.A(),const_cast<int*>(&(inds[0]))));
       }
     return 0;
     }
@@ -308,11 +322,11 @@ namespace HYMLS {
     CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(*AwT,false,T,false,*AwTw));
     CHECK_ZERO(AwTw->FillComplete());
 
-    // C=2Aw'w-A
+    // C=A-2Aw'w
     Cmat_ = Teuchos::rcp(new Epetra_CrsMatrix(*AwTw) );
 
     DEBUG("compute C=A(2wTw-I)...");
-    CHECK_ZERO(EpetraExt::MatrixMatrix::Add(A,false,-1.0,*Cmat_,2.0));
+    CHECK_ZERO(EpetraExt::MatrixMatrix::Add(A,false,1.0,*Cmat_,-2.0));
     CHECK_ZERO(Cmat_->FillComplete());
 
     // wC
@@ -330,8 +344,8 @@ namespace HYMLS {
     CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(*WTmat_,false,*WCmat_,false,*wTwC));
     CHECK_ZERO(wTwC->FillComplete());
 
-    DEBUG("compute TAT=2wTwC-C...");
-    CHECK_ZERO(EpetraExt::MatrixMatrix::Add(*Cmat_,false,-1.0,*wTwC,2.0));
+    DEBUG("compute TAT=C-2wTwC...");
+    CHECK_ZERO(EpetraExt::MatrixMatrix::Add(*Cmat_,false,1.0,*wTwC,-2.0));
 
     DEBUG("done!");
     STOP_TIMER2(label_,"H^TAH (first call)");
@@ -341,6 +355,7 @@ namespace HYMLS {
   //! apply a sparse matrix representation of a set of transforms from the left
   //! and right to a sparse matrix. This variant is to be preferred if the 
   //! sparsity pattern of the transformed matrix TAT is already known.
+  //  As above, we compute the product as A-2Aw'w-2w'w(A-2Aw'w)
   int Householder::Apply
     (Epetra_CrsMatrix& TAT, const Epetra_CrsMatrix& T, const Epetra_CrsMatrix& A) const
     {
@@ -386,8 +401,8 @@ namespace HYMLS {
     CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(TAT,false,*Wmat_,false,*Cmat_));
 
     // C=2Aw'w-A
-    DEBUG("compute C=A(2wTw-I)...");
-    CHECK_ZERO(EpetraExt::MatrixMatrix::Add(A,false,-1.0,*Cmat_,2.0));
+    DEBUG("compute C=A(I-2wTw)...");
+    CHECK_ZERO(EpetraExt::MatrixMatrix::Add(A,false,1.0,*Cmat_,-2.0));
 
     // wC
     DEBUG("compute wC...");
@@ -397,8 +412,8 @@ namespace HYMLS {
     DEBUG("compute wTwC...");
     CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(*WTmat_,false,*WCmat_,false,TAT));
 
-    DEBUG("compute TAT=2wTwC-C...");
-    CHECK_ZERO(EpetraExt::MatrixMatrix::Add(*Cmat_,false,-1.0,TAT,2.0));
+    DEBUG("compute TAT=C-2wTwC...");
+    CHECK_ZERO(EpetraExt::MatrixMatrix::Add(*Cmat_,false,1.0,TAT,-2.0));
     DEBUG("done!");
 
     

@@ -49,9 +49,12 @@ class OrthogonalTransform
   //! for different sets of indices (separator groups) to construct a matrix
   //! for simultaneously applying many transforms. Always use the corresponding
   //! Apply() functions to apply the transform rather than sparse matrix-matrix
-  //! products.
-  virtual int Construct
-    (Epetra_CrsMatrix& H, const Epetra_IntSerialDenseVector& inds) const = 0 ;
+  //! products. If vec is omitted, it is set to all ones. Otherwise it is used 
+  //! as a test vector from which all but one entries should be eliminated.
+  virtual int Construct(Epetra_CrsMatrix& H, const Epetra_IntSerialDenseVector& inds) const = 0;
+  //! cf. previous function
+  virtual int Construct(Epetra_CrsMatrix& H, 
+    const Epetra_IntSerialDenseVector& inds, const Epetra_SerialDenseVector& vec) const = 0;
 
   //! apply a sparse matrix representation of a set of transforms from the left
   //! and right to a sparse matrix.

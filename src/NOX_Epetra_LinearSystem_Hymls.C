@@ -205,6 +205,7 @@ recomputePreconditioner(const NOX::Epetra::Vector& x, Teuchos::ParameterList& p)
     hymls_->SetMassMatrix(massMatrix_);
     }
   hymls_->SetupDeflation();
+  return true;
   }
 
 // ***********************************************************************

@@ -161,6 +161,11 @@ BorderedLU.
 //! standard eigenproblem is solved.
 Teuchos::RCP<const Epetra_RowMatrix> massMatrix_;
 
+//! default null space to be removed from matrix before deflation (the parameter
+//! "Solver"->"Null Space" can be used to construct this, e.g. set it to "Constant P"
+//! for Stokes-C etc.)
+Teuchos::RCP<Epetra_MultiVector> nullSpace_;
+
 //! number of eigenvalues computed initially
 int numEigs_;
 

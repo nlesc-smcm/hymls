@@ -60,11 +60,20 @@ public:
   SchurPreconditioner(Teuchos::RCP<const Epetra_CrsMatrix> S, 
                       Teuchos::RCP<const OverlappingPartitioner> hid,
                       Teuchos::RCP<Teuchos::ParameterList> params,
-                      int level);
+                      int level,
+                      Teuchos::RCP<Epetra_Vector> testVector);
 
   //! destructor
   ~SchurPreconditioner();
+
+  //! apply orthogonal transforms to a vector v
   
+  /*! This class is actually a preconditioner for the system
+      H'SH H'x = H'y, this function computes HV and H'V for some
+      multivector V.
+  */
+  int ApplyOT(bool trans, Epetra_MultiVector& v, double* flops=NULL) const;
+    
   //! write matlab data for visualization
   void Visualize(std::string filename, bool recurse=true) const;
 
@@ -195,6 +204,9 @@ protected:
 
   //! row/range/domain map of Schur complement
   Teuchos::RCP<const Epetra_Map> map_;
+
+  //! test vector to determine entries in orth. trans.
+  Teuchos::RCP<Epetra_Vector> testVector_;
     
   //! orthogonal transformaion for separators
   Teuchos::RCP<OrthogonalTransform> OT;
@@ -336,9 +348,6 @@ private:
   //! Initialize on coarsest level
   int InitializeCoarse();
 
-  //! apply orthogonal transforms to a vector v
-  int ApplyOT(bool trans, Epetra_MultiVector& v, double* flops) const;
-  
   //!                                                                   
   //! compute scaling for a sparse matrix.                              
   //!                                                                   
