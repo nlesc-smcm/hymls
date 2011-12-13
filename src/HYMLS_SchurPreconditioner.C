@@ -349,15 +349,6 @@ namespace HYMLS {
   CHECK_ZERO(reducedSchur_->Import(*matrix_, *vsumImporter_, Insert));
 
   CHECK_ZERO(reducedSchur_->FillComplete(*vsumMap_,*vsumMap_));
-//TODO: scaling important for multilevel method but seems to mess up
-//      2-level method and is not implemented in a nice and general way
-    // compute scaling for reduced Schur
-//    CHECK_ZERO(ComputeScaling(*reducedSchur_,reducedSchurScaLeft_,reducedSchurScaRight_));
-
-//    DEBUG("scale next level");
-//    CHECK_ZERO(reducedSchur_->LeftScale(*reducedSchurScaLeft_));
-//    CHECK_ZERO(reducedSchur_->RightScale(*reducedSchurScaRight_));
-    
 
   //TODO: at this point we would like to throw out numerical zeros, I think.
   //      However, that would mean resetting the pointer and invalidating
@@ -818,7 +809,7 @@ int SchurPreconditioner::InitializeOT()
 #ifdef TESTING
 if (dumpVectors_)
   {
-  MatrixUtils::Dump(*(X(0)),"Precond"+Teuchos::toString(myLevel_)+"_Rhs.txt");
+  MatrixUtils::Dump(*(X(0)),"SchurPreconditioner"+Teuchos::toString(myLevel_)+"_Rhs.txt");
   }
 #endif
 
@@ -892,6 +883,13 @@ if (dumpVectors_)
     
       ApplyOT(true,B,&flopsApplyInverse_);
 
+#ifdef TESTING
+if (dumpVectors_)
+  {
+  MatrixUtils::Dump(*(B(0)),"SchurPreconditioner"+Teuchos::toString(myLevel_)+"_TransformedRhs.txt");
+  }
+#endif
+
       int numBlocks=blockSolver_.size(); // will be 0 on coarsest level
       
       START_TIMER(label_,"solve blocks");
@@ -941,7 +939,7 @@ if (dumpVectors_)
       CHECK_ZERO(reducedSchurSolver_->ApplyInverse(*vsumRhs_,*vsumSol_));
       if (reducedSchurScaRight_!=Teuchos::null)
         {
-        CHECK_ZERO(vsumSol_->Multiply(1.0,*reducedSchurScaLeft_,*vsumSol_,0.0));
+        CHECK_ZERO(vsumSol_->Multiply(1.0,*reducedSchurScaRight_,*vsumSol_,0.0));
         }
       CHECK_ZERO(Y.Export(*vsumSol_,*vsumImporter_,Insert));
       
@@ -952,7 +950,7 @@ if (dumpVectors_)
 #ifdef TESTING
 if (dumpVectors_)
   {
-  MatrixUtils::Dump(*(Y(0)),"Precond"+Teuchos::toString(myLevel_)+"_Sol.txt");
+  MatrixUtils::Dump(*(Y(0)),"SchurPreconditioner"+Teuchos::toString(myLevel_)+"_Sol.txt");
   dumpVectors_=false;
   }
 #endif
@@ -1090,12 +1088,23 @@ int SchurPreconditioner::ApplyOT(bool trans, Epetra_MultiVector& v, double* flop
   {
   START_TIMER2(label_,"ApplyOT");
 
-  if (!subdivideSeparators_)
+//  if ((!subdivideSeparators_))
+  if (false)
     {
+    if (maxLevel_>2)
+      {
+      Tools::Warning("this variant of ApplyOT is not valid for multi-level case",      
+        __FILE__,__LINE__);
+      }
     // implementation 1: apply OT to views of blocks of the vector. This is 
     // potentially very fast, but works only if the separators are contiguous
-    // in the ordering of S (which they are unless you use "Subdivide Separators")
-
+    // in the ordering of S (which they are unless you use "Subdivide Separators").
+    
+    // We currently always use the second implementation because it allows more general
+    // transformations, which is required for the multi-level method (the vector v in the 
+    // Householder transform is always assumed to contain only ones in case of the first
+    // implementation). TODO: if there is a performance gain we can implement this in the
+    // 'view' implementation, too.
 
     // this object has each local separator as a group (without overlap),
     // and remote separators connecting to local subdomains as separators
@@ -1157,7 +1166,6 @@ int SchurPreconditioner::ApplyOT(bool trans, Epetra_MultiVector& v, double* flop
       {
       CHECK_ZERO(OT->Apply(v,*sparseMatrixOT_,tmp));
       }
-      
     if (flops!=NULL)
       {
       //TODO: maak dit algemeen voor alle OTs

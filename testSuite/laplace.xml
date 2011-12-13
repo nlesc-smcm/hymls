@@ -10,7 +10,7 @@
     <!-- for each matrix, solve with several right-hand sides in a row -->
     <Parameter name="Number of solves" type="int" value="1"/>
     <!-- number of right-hand sides per solve -->
-    <Parameter name="Number of rhs" type="int" value="4"/>
+    <Parameter name="Number of rhs" type="int" value="1"/>
     <!-- add random perturbation to the diagonal? -->
     <Parameter name="Diagonal Perturbation" type="double" value="0.0"/>
   
@@ -24,8 +24,8 @@
     <Parameter name="Equations" type="string" value="Laplace"/>
     <Parameter name="Dimension" type="int" value="2"/>
 
-    <Parameter name="nx" type="int" value="32"/>
-    <Parameter name="ny" type="int" value="32"/>
+    <Parameter name="nx" type="int" value="128"/>
+    <Parameter name="ny" type="int" value="128"/>
     <Parameter name="nz" type="int" value="1"/>
     
     <Parameter name="Visualize Solver" type="bool" value="1"/>
@@ -37,12 +37,12 @@
     <Parameter name="Partitioner" type="string" value="Cartesian"/>
     
     <!-- you can either set 'Separator Length' or 'Number of Subdomains' -->
-    <Parameter name="Separator Length" type="int" value="4"/>
+    <Parameter name="Separator Length" type="int" value="2"/>
     
     <!-- number of levels to be created (1: direct solver for Schur complement, -->
     <!-- 2: solve Schur iteratively and reduced Schur directly,                 -->
     <!-- >2: not implemented.                                                   -->
-    <Parameter name="Number of Levels" type="int" value="2"/>
+    <Parameter name="Number of Levels" type="int" value="3"/>
     
     <Parameter name="Scale Schur-Complement" type="bool" value="0"/>
     
@@ -93,8 +93,8 @@
 
     <!-- parameters for the iterative solver (Belos) -->
     <ParameterList name="Iterative Solver">
-      <Parameter name="Maximum Iterations" type="int" value="50"/>
-      <Parameter name="Block Size" type="int" value="4"/>
+      <Parameter name="Maximum Iterations" type="int" value="500"/>
+      <Parameter name="Block Size" type="int" value="1"/>
       <Parameter name="Flexible Gmres" type="bool" value="0"/>
       <Parameter name="Explicit Residual Test" type="bool" value="0"/>
       <Parameter name="Maximum Restarts" type="int" value="5"/>

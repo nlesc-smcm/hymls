@@ -15,7 +15,7 @@
     <Parameter name="Store Matrix" type="bool" value="0"/>
     
     <Parameter name="Read Linear System" type="bool" value="1"/>
-    <Parameter name="Data Directory" type="string" value="data/DrivenCavity/64x64/Re100"/>
+    <Parameter name="Data Directory" type="string" value="data/DrivenCavity/64x64/Re0"/>
     <Parameter name="File Format" type="string" value="MatrixMarket"/>
     <Parameter name="Exact Solution Available" type="bool" value="1"/>
   
@@ -44,14 +44,12 @@
     <!-- number of levels to be created (1: direct solver for Schur complement, -->
     <!-- 2: solve Schur iteratively and reduced Schur directly,                 -->
     <!-- >2: not implemented.                                                   -->
-    <Parameter name="Number of Levels" type="int" value="2"/>
-    
-    <!-- use inner GMRES if more than 2 levels are used -->
-    <Parameter name="Nested Iterations" type="bool" value="1"/>
+    <Parameter name="Number of Levels" type="int" value="3"/>
     
     <Parameter name="Deflated Subspace Dimension" type="int" value="0"/>
+    <Parameter name="Deflation Threshold" type="double" value="0.0"/>
     
-    <Parameter name="Scale Schur-Complement" type="bool" value="1"/>
+    <Parameter name="Scale Schur-Complement" type="bool" value="0"/>
     
     <!-- This is intended for debugging in the first place - build complete -->
     <!-- Schur complement as a sparse matrix instead of just building       -->

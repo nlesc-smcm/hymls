@@ -247,7 +247,6 @@ namespace HYMLS {
   int Householder::Construct(Epetra_CrsMatrix& H, 
             const Epetra_IntSerialDenseVector& inds) const
     {
-    //TODO: put correct vector in matrix here!!! TROET
     int n=inds.Length();
     Epetra_SerialDenseVector vec(n);
     for (int i=0;i<n;i++) vec[i]=1.0;

@@ -642,17 +642,6 @@ STOP_TIMER(label_,"Subdomain factorization");
   timeCompute_ += time_->ElapsedTime();
   numCompute_++;
 
-#ifdef TESTING
-{
-Epetra_Vector test_lhs(*map1_);
-Epetra_Vector test_rhs(*map1_);
-MatrixUtils::Random(test_rhs);
-CHECK_ZERO(this->ApplyInverseA11(test_rhs,test_lhs));
-MatrixUtils::Dump(test_rhs,"Precond"+Teuchos::toString(myLevel_)+"_test_Rhs1.txt");
-MatrixUtils::Dump(test_lhs,"Precond"+Teuchos::toString(myLevel_)+"_test_Sol1.txt");
-}
-#endif
-
   if (params_->sublist("Problem").get("Visualize Solver",false)==true)
     {
     Tools::out() << "MATLAB file for visualizing the solver is written to hid_data.m" << std::endl;
@@ -679,7 +668,7 @@ MatrixUtils::Dump(test_lhs,"Precond"+Teuchos::toString(myLevel_)+"_test_Sol1.txt
 #ifdef DEBUGGING
 if (dumpVectors_)
   {
-  MatrixUtils::Dump(*(B(0)), "Preconditioner"+Teuchos::toString(myLevel_)+"_Rhs.txt");
+  MatrixUtils::Dump(B, "Preconditioner"+Teuchos::toString(myLevel_)+"_Rhs.txt");
   }
 #endif    
     int numvec=X.NumVectors();   // these are used for calculating flops
@@ -792,8 +781,7 @@ if (dumpVectors_)
 #ifdef DEBUGGING
   if (dumpVectors_)
     {
-    MatrixUtils::Dump(*(X(0)), 
-    "Preconditioner"+Teuchos::toString(myLevel_)+"_Sol.txt");
+    MatrixUtils::Dump(X, "Preconditioner"+Teuchos::toString(myLevel_)+"_Sol.txt");
     dumpVectors_=false;
     }
 #endif    
