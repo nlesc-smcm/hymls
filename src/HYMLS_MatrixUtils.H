@@ -12,7 +12,13 @@
 #include "Teuchos_ParameterList.hpp"
 #include "AnasaziTypes.hpp"
 
-#define REINDEX_BY_DEFAULT true
+// this is useful for comparing with MATLAB:
+//#define REINDEX_BY_DEFAULT true
+
+// for comparing internally (e.g. with different number of
+// processors) it is better not to re-index when printing 
+// vectors or matrices:
+#define REINDEX_BY_DEFAULT false
 
 class Epetra_Comm;
 class Epetra_BlockMap;

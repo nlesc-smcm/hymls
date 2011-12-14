@@ -21,6 +21,8 @@
 #include "Epetra_SerialDenseMatrix.h"
 #include "Epetra_SerialDenseVector.h"
 
+#include "Ifpack_SparseContainer.h"
+#include "Ifpack_DenseContainer.h"
 #include "Ifpack_Amesos.h"
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_ParameterList.hpp"
@@ -183,6 +185,9 @@ namespace HYMLS {
 
     solverList_.set("Number of Levels",solverList.get("Number of Levels",2));
     solverList_.set("Nested Iterations",solverList.get("Nested Iterations",false));
+
+    sdSolverType_=solverList.get("Subdomain Solver Type","Sparse");
+    solverList_.set("Subdomain Solver Type",sdSolverType_);
 
     solverList_.sublist("Subdomain Solver")
        = solverList.sublist("Subdomain Solver");
@@ -430,8 +435,21 @@ MatrixUtils::Dump(*A22_, "Solver"+Teuchos::toString(myLevel_)+"_A22.txt");
     {
     int nrows = hid_->NumInteriorElements(sd);
     
-    subdomainSolver_[sd] = 
-        Teuchos::rcp( new ifpackSolverType_(nrows) );
+    if (sdSolverType_=="Dense")
+      {
+      subdomainSolver_[sd] = 
+        Teuchos::rcp( new Ifpack_DenseContainer(nrows) );
+      }
+    else if (sdSolverType_=="Sparse")
+      {
+      subdomainSolver_[sd] = 
+        Teuchos::rcp( new Ifpack_SparseContainer<Ifpack_Amesos>(nrows) );
+      }        
+    else
+      {
+      Tools::Error("invalid 'Subdomain Solver Type' in 'Solver' sublist",
+        __FILE__,__LINE__);
+      }
 
     IFPACK_CHK_ERR(subdomainSolver_[sd]->SetParameters
         (params_->sublist("Solver").sublist("Subdomain Solver")));
@@ -981,19 +999,38 @@ int Preconditioner::ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVe
   int ierr=0;
   int nsd=subdomainSolver_.size();
   Teuchos::Array<bool> prevtrans(nsd); // remember if the solvers were already transposed
+  Teuchos::RCP<const Ifpack_SparseContainer<Ifpack_Amesos> > sparseLU=Teuchos::null;
   for (int sd=0;sd<nsd;sd++)
     {
-    prevtrans[sd]=subdomainSolver_[sd]->Inverse()->UseTranspose();
-    //TODO: this cast is dangerous as we may want to use something else then Ifpack_Amesos 
-    //      one day... (same cast is used a few lines down, too).
-    CHECK_ZERO(Teuchos::rcp_const_cast<Ifpack_Amesos>(subdomainSolver_[sd]->Inverse())->SetUseTranspose(true));
+    sparseLU=Teuchos::rcp_dynamic_cast
+        <const Ifpack_SparseContainer<Ifpack_Amesos> >(subdomainSolver_[sd]);
+    if (sparseLU!=Teuchos::null)
+      {
+      prevtrans[sd]=sparseLU->Inverse()->UseTranspose();
+      CHECK_ZERO(Teuchos::rcp_const_cast<Ifpack_Amesos>(sparseLU->Inverse())->SetUseTranspose(true));
+      }
+    else
+      {
+      Tools::Error("Transpose not implemented for dense subdomain solver!",__FILE__,__LINE__);
+      }
+    sparseLU=Teuchos::null;
     }
 
   ierr = this->ApplyInverseA11(B,X);
 
   for (int sd=0;sd<nsd;sd++)
     {
-    CHECK_ZERO(Teuchos::rcp_const_cast<Ifpack_Amesos>(subdomainSolver_[sd]->Inverse())->SetUseTranspose(prevtrans[sd]));
+    sparseLU=Teuchos::rcp_dynamic_cast
+        <const Ifpack_SparseContainer<Ifpack_Amesos> >(subdomainSolver_[sd]);
+    if (sparseLU!=Teuchos::null)
+      {
+      CHECK_ZERO(Teuchos::rcp_const_cast<Ifpack_Amesos>(sparseLU->Inverse())->SetUseTranspose(prevtrans[sd]));
+      }
+    else
+      {
+      Tools::Error("Transpose not implemented for dense subdomain solver!",__FILE__,__LINE__);
+      }
+    sparseLU=Teuchos::null;
     }
   return ierr;
   }
@@ -1256,8 +1293,8 @@ int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& lis
       }
     // we fix the singularity by inserting a Dirichlet condition for 
     // global pressure node 2 
-//    solverList.set("Fix GID 1",factor*dim);
-//    if (is_complex) solverList.set("Fix GID 2",2*dim+1);
+    solverList.set("Fix GID 1",factor*dim);
+    if (is_complex) solverList.set("Fix GID 2",2*dim+1);
     }
   else
     {

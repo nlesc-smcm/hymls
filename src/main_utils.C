@@ -7,6 +7,7 @@
 #include "Epetra_Map.h"
 #include "Epetra_Vector.h"
 #include "Epetra_CrsMatrix.h"
+#include "Epetra_Import.h"
 
 #include "Teuchos_RCP.hpp"
 
@@ -97,9 +98,20 @@ Teuchos::RCP<Epetra_Vector>  read_vector(string name,string datadir,
 
   if (file_format=="MatrixMarket" || file_format=="MatrixMarket (2)")
     {
+    // the EpetraExt function only works for a linear map in parallel,
+    // so we need to reindex ourselves:
+    Epetra_Map linearMap(map->NumGlobalElements(),
+                         map->NumMyElements(),
+                         map->IndexBase(),
+                         map->Comm());
+
     Epetra_Vector* vptr;
-    CHECK_ZERO(EpetraExt::MatrixMarketFileToVector(filename.c_str(),*map,vptr));
-    v=Teuchos::rcp(vptr,true);
+    CHECK_ZERO(EpetraExt::MatrixMarketFileToVector(filename.c_str(),linearMap,vptr));
+    
+    v=Teuchos::rcp(new Epetra_Vector(*map));
+    Epetra_Import import(*map,linearMap);
+    CHECK_ZERO(v->Import(*vptr,import,Insert));
+    delete vptr;
     }
   else
     {

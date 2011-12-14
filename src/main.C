@@ -152,9 +152,6 @@ int status=0;
                      // (just to conform with the diffusion operator in the NSE,
                      // the solver works anyway, of course).
     }
-#ifdef TESTING  
-  HYMLS::MatrixUtils::Dump(*K, "Matrix.txt");
-#endif  
 
   // create a random exact solution
   Teuchos::RCP<Epetra_MultiVector> x_ex = Teuchos::rcp(new Epetra_MultiVector(*map,numRhs));
@@ -320,15 +317,15 @@ DEBVAR(*b);
   if (store_matrix)
     {
     HYMLS::Tools::Out("store matrix...");
-    HYMLS::MatrixUtils::Dump(*K, "Matrix.txt");
+    HYMLS::MatrixUtils::Dump(*K, "Matrix.txt",false);
     }
     
   if (store_solution)
     {
     HYMLS::Tools::Out("store solution...");
-    HYMLS::MatrixUtils::Dump(*x_ex, "ExactSolution.txt");
-    HYMLS::MatrixUtils::Dump(*x, "Solution.txt");
-    HYMLS::MatrixUtils::Dump(*b, "RHS.txt");
+    HYMLS::MatrixUtils::Dump(*x_ex, "ExactSolution.txt",false);
+    HYMLS::MatrixUtils::Dump(*x, "Solution.txt",false);
+    HYMLS::MatrixUtils::Dump(*b, "RHS.txt",false);
     }
   
     } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr, status);

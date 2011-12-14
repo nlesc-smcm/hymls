@@ -4,8 +4,7 @@
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_Array.hpp"
 #include "Ifpack_Preconditioner.h"
-#include "Ifpack_SparseContainer.h"
-#include "Ifpack_Amesos.h"
+#include "Ifpack_Container.h"
 #include "Epetra_Time.h"
 
 #include "BelosLinearProblem.hpp"
@@ -74,8 +73,6 @@ class Preconditioner : public Ifpack_Preconditioner, public BorderedSolver
   {
   
 public:
-
-  typedef Ifpack_SparseContainer<Ifpack_Amesos> ifpackSolverType_;
 
   //! Our Schur-complement is our friend:
   friend class SchurComplement;
@@ -256,9 +253,12 @@ protected:
 
   //! our own minimally overlapped and reordered partitioning:
   Teuchos::RCP<const OverlappingPartitioner> hid_;
+  
+  //! string to indicate wether we use a dense or sparse solver for the subdomains
+  std::string sdSolverType_;
 
   //! we use Ifpack conainers for solving the subdomain problems
-  Teuchos::Array<Teuchos::RCP<ifpackSolverType_> > subdomainSolver_;
+  Teuchos::Array<Teuchos::RCP<Ifpack_Container> > subdomainSolver_;
   
   //! operator representation of our Schur-complement
   mutable Teuchos::RCP<SchurComplement> Schur_;
@@ -459,7 +459,7 @@ protected:
   const HYMLS::OverlappingPartitioner& Partitioner() const {return *hid_;}
 
   //! get solver for a diagonal block of A11
-  ifpackSolverType_& SolverA11(int sd) const {return *subdomainSolver_[sd];}
+  Ifpack_Container& SolverA11(int sd) const {return *subdomainSolver_[sd];}
   
   //! get a submatrix A12
   const Epetra_CrsMatrix& A12(int sd) const {return *localA12_[sd];}

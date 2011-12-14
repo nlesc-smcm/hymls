@@ -215,8 +215,15 @@ namespace HYMLS {
     const Epetra_CrsMatrix& A12 = mother_->A12(sd);
     const Epetra_CrsMatrix& A21 = mother_->A21(sd);
     const Epetra_CrsMatrix& A22 = mother_->A22();
-    Preconditioner::ifpackSolverType_& A11 = mother_->SolverA11(sd);
-    
+    Ifpack_Container& _A11 = mother_->SolverA11(sd);
+    Ifpack_SparseContainer<Ifpack_Amesos> *sparseA11
+        = dynamic_cast<Ifpack_SparseContainer<Ifpack_Amesos>*>(&_A11);
+    if (sparseA11==NULL)
+      {
+      Tools::Error("use of dense subdomain solvers not implemented, yet!",
+        __FILE__, __LINE__);
+      }
+    Ifpack_SparseContainer<Ifpack_Amesos>& A11 = *sparseA11;
     if (sd<0 || sd>hid.NumMySubdomains())
       {
       Tools::Warning("Subdomain index out of range!",__FILE__,__LINE__);
