@@ -12,6 +12,7 @@ ParameterList Tools::timerList_;
 RCP<FancyOStream> Tools::output_stream = null;
 RCP<FancyOStream> Tools::debug_stream = null;
 int Tools::traceLevel_=0;
+int Tools::timerCounter_=0;
 
 //////////////////////////////////////////////////////////////////
 // Timing functionality                                         //
@@ -30,8 +31,13 @@ void Tools::StartTiming(string fname)
 #else
   out() << tabstring(traceLevel_)<<"@@@@@ ENTER "<<fname<<" @@@@@"<<std::endl;
 #endif  
-#endif    
+#endif
   RCP<Epetra_Time> T=rcp(new Epetra_Time(*comm_));
+  if (timerList_.sublist("timer id").isParameter(fname)==false)
+    {
+    timerCounter_++;
+    timerList_.sublist("timer id").set(fname,timerCounter_);
+    }  
   timerList_.sublist("timers").set(fname,T);
   }
 
@@ -70,16 +76,31 @@ void Tools::StopTiming(string fname,bool print)
 
 void Tools::PrintTiming(std::ostream& os)
   {
+
+  ParameterList& idList=timerList_.sublist("timer id");
+  ParameterList& ncallsList=timerList_.sublist("number of calls");
+  ParameterList& elapsedList=timerList_.sublist("total time");
+
   os << "================================== TIMING RESULTS =================================="<<std::endl;
   os << "     Description                              ";
   os << " # Calls \t Cumulative Time \t Time/call\n";
   os << "=========================================================================================="<<std::endl;
-  
-  ParameterList& ncallsList=timerList_.sublist("number of calls");
-  ParameterList& elapsedList=timerList_.sublist("total time");
+
+// first construct a correctly sorted list according to timer ID
+Teuchos::ParameterList sortedList;
   for (ParameterList::ConstIterator i=ncallsList.begin();i!=ncallsList.end();i++)
     {
     const string& fname = i->first;
+    int id = idList.get(fname,0);
+    std::stringstream label;
+    label << std::setw(6) << std::setfill('0') << id << " " << fname;
+    sortedList.set(label.str(),fname);
+    }
+  
+  for (ParameterList::ConstIterator i=sortedList.begin();i!=sortedList.end();i++)
+    {
+    const string& label = i->first;
+    string fname = sortedList.get(label,"bad label");
     int ncalls = ncallsList.get(fname,0);
     double elapsed = elapsedList.get(fname,0.0);
     os << fname << "\t" <<ncalls<<"\t"<<elapsed<<"\t" 

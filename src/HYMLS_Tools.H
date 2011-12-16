@@ -354,6 +354,9 @@ private:
     //! parameter list for timing individual parts of the code
     static Teuchos::ParameterList timerList_;
     
+    //! keeps track of timer numbers (to get the ordering correct)
+    static int timerCounter_;
+    
     //! communicator for timing
     static Teuchos::RCP<const Epetra_Comm> comm_;
     

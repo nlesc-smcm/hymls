@@ -156,7 +156,7 @@ namespace HYMLS {
 
 void OverlappingPartitioner::UpdateParameters()
   {
-  START_TIMER2(label_,"UpdateParameters");
+  START_TIMER3(label_,"UpdateParameters");
   Teuchos::ParameterList& problParams=params_->sublist("Problem");
   
   dim_=problParams.get("Dimension",2);  
@@ -220,7 +220,7 @@ void OverlappingPartitioner::UpdateParameters()
   
   DEBVAR(*params_);
   
-  STOP_TIMER2(label_,"UpdateParameters");
+  STOP_TIMER3(label_,"UpdateParameters");
   }
 
 void OverlappingPartitioner::CreateGraph()
@@ -932,11 +932,15 @@ DEBVAR(*p_nodeType_);
               }
             else
               {
-              // we would have to modify p_nodeType and then import it 
-              // back to nodeType, but I think for our applications this
-              // should not occur anyway.
-              Tools::Error("this situation is not parallelized correctly",
-                        __FILE__,__LINE__);
+              // we would have to modify p_nodeType and then import it    
+              // back to nodeType. For our applications this occurs e.g.  
+              // in parallel 3D NS simulations where the P-nodes on 'line-
+              // separators' (separating 4 subdomains) are retained and   
+              // therefore velocities on a different partition have to be 
+              // retained in the next Schur-Complement. However, in all   
+              // situations I can think of these will be retained by the  
+              // owning partiiton anyway because of a retained P-node in  
+              // the adjacent cell.
               }
             }
           }

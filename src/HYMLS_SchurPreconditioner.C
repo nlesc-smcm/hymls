@@ -89,6 +89,8 @@ namespace HYMLS {
         {
         //This can cause trouble if a processor partition has no local separators at all,
         //     not quite sure why but for now we should avoid this situation.
+        // TODO: it seems to work for the 32^3 4^3 3-level case, though, can we remove this
+        //       warning?
         Tools::Warning("PID "+Teuchos::toString(comm_->MyPID())+" has only one subdomain "+
         "on level "+Teuchos::toString(myLevel_)+", this case is not well-implemented!",
                 __FILE__,__LINE__);
