@@ -147,10 +147,6 @@ private:
   //! create graph to be used for identifying separators
   void CreateGraph();
 
-  //! if the sparsity pattern of the matrix is used as graph,
-  //! do some preprocessing to make sure the algorithm works.
-  void PreprocessGraph();
-    
   //! construct overlapping maps after partitioning
   void DetectSeparators();
   

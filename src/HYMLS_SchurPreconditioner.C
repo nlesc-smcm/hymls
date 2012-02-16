@@ -104,7 +104,7 @@ namespace HYMLS {
   //TODO: may want to give the user a choice here, currently we just have
   //      Householder.
   OT=Teuchos::rcp(new Householder());
-
+  dumpVectors_=false;
 #ifdef DEBUGGING
   dumpVectors_=true;
 #endif  
@@ -335,7 +335,9 @@ namespace HYMLS {
     ofs2.close();
     begI.close();
     begS.close();
-    
+
+#endif
+#ifdef STORE_MATRICES    
     MatrixUtils::Dump(*matrix_,"SchurPreconditioner"+Teuchos::toString(myLevel_)+".txt");
 #endif
 

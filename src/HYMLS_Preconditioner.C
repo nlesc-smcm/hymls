@@ -347,7 +347,7 @@ namespace HYMLS {
     Tools::Error("Currently requires an Epetra_CrsMatrix!",__FILE__,__LINE__);
     }
 
-#ifdef STORE_MATRICES
+#if defined(STORE_MATRICES) || defined(TESTING)
 MatrixUtils::Dump(*rangeMap_,"originalMap"+Teuchos::toString(myLevel_)+".txt");
 #endif
 
@@ -1274,7 +1274,7 @@ int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& lis
   else if (eqn=="Stokes-C")
     {
     defList.set("Dimension",dim);
-    defList.set("Substitute Graph",false); 
+    defList.set("Substitute Graph",false);
     int factor = is_complex? 2 : 1;
     defList.set("Degrees of Freedom",(dim+1)*factor);
     for (int i=0;i<dim*factor;i++)

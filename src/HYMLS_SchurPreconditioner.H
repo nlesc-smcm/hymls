@@ -323,9 +323,7 @@ protected:
   //! coupling to the same set of pressures.
   bool subdivideSeparators_;
 
-#ifdef TESTING
   mutable bool dumpVectors_;
-#endif  
   
 private:
 
