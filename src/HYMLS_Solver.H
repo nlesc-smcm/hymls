@@ -12,6 +12,7 @@
 #include "Epetra_RowMatrix.h"
 
 #include "HYMLS_MatrixUtils.H"
+#include "HYMLS_PLA.H"
 
 // forward declarations
 class Epetra_MultiVector;
@@ -30,10 +31,12 @@ namespace HYMLS {
 
 class BorderedLU;
 
-/*! iterative solver class, currently a very simple 
-   Epetra wrapper for Belos.
+/*! iterative solver class, basically         
+   an Epetra wrapper for Belos extended with  
+   some bordering and deflation functionality.
 */
-class Solver : public Epetra_Operator
+class Solver : public Epetra_Operator,
+               public PLA
   {
   
 public:
@@ -59,10 +62,9 @@ public:
   //! destructor
   ~Solver();
 
-  //! set solver parameters (the list is the "HYMLS" sublist,
-  //! only the "Solver" sublist is accessed by this class).
-  int SetParameters(Teuchos::ParameterList& params);
-
+  //! set solver parameters (the list is the "HYMLS"->"Solver" sublist)
+  void setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& params);
+  
   //! set matrix for solve
   void SetMatrix(Teuchos::RCP<const Epetra_RowMatrix> A);
 
@@ -127,11 +129,11 @@ protected:
   //! matrix
   Teuchos::RCP<const Epetra_RowMatrix> matrix_;
 
+  //! solver type and start vector type
+  std::string solverType_, startVec_;
+
   //! preconditioner
   Teuchos::RCP<Epetra_Operator> precond_;
-  
-  //! Parameter List
-  Teuchos::RCP<Teuchos::ParameterList> params_;
   
   //! rhs and sol vectors
   Teuchos::RCP<Epetra_MultiVector> belosRhs_,belosSol_;
@@ -209,9 +211,9 @@ Teuchos::RCP<BorderedLU> LU_;
   
   //! label
   std::string label_;
-
-private:
-     
+  
+  private:
+       
   };
 
 

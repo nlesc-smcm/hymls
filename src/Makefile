@@ -17,6 +17,7 @@ OBJ=    HYMLS_Solver.o \
         HYMLS_View_MultiVector.o \
         HYMLS_Householder.o \
         HYMLS_Tools.o \
+        HYMLS_PLA.o \
         NOX_Epetra_LinearSystem_Hymls.o \
         Galeri_Periodic.o \
         main_utils.o \

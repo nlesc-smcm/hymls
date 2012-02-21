@@ -9,6 +9,7 @@
 
 #include "HYMLS_OverlappingPartitioner.H"
 #include "HYMLS_OrthogonalTransform.H"
+#include "HYMLS_PLA.H"
 
 // forward declarations
 class Epetra_Comm;
@@ -50,7 +51,8 @@ namespace HYMLS {
     perform additional reductions but instead computes a scaling and a
     direct solver for the input matrix.
 */
-class SchurPreconditioner : public Ifpack_Preconditioner
+class SchurPreconditioner : public Ifpack_Preconditioner,
+                            public PLA
   {
   
 public:
@@ -83,6 +85,9 @@ public:
 
   //! Sets all parameters for the preconditioner.
   int SetParameters(Teuchos::ParameterList& List);
+  
+  //! from the Teuchos::ParameterListAcceptor base class
+  void setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& list);
 
   //! Computes all it is necessary to initialize the preconditioner.
   int Initialize();
@@ -199,9 +204,6 @@ protected:
   //! domain decomposition object
   Teuchos::RCP<const OverlappingPartitioner> hid_;
   
-  //! internal copy of parameter list
-  Teuchos::RCP<Teuchos::ParameterList> params_;
-
   //! row/range/domain map of Schur complement
   Teuchos::RCP<const Epetra_Map> map_;
 

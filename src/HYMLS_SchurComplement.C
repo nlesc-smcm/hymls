@@ -6,6 +6,7 @@
 #include "Epetra_Comm.h"
 #include "Epetra_Map.h"
 #include "Epetra_MultiVector.h"
+#include "Epetra_Vector.h"
 #include "Epetra_SerialDenseMatrix.h"
 #include "Epetra_RowMatrix.h"
 #include "Epetra_CrsMatrix.h"

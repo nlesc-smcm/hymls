@@ -26,6 +26,7 @@
 #include "Ifpack_Amesos.h"
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_ParameterList.hpp"
+#include "Teuchos_StandardParameterEntryValidators.hpp"
 #include "Teuchos_Utils.hpp"
 
 #include "HYMLS_View_MultiVector.H"
@@ -48,17 +49,18 @@ namespace HYMLS {
         flopsInitialize_(0.0),flopsCompute_(0.0),flopsApplyInverse_(0.0),
         timeInitialize_(0.0),timeCompute_(0.0),timeApplyInverse_(0.0),
         initialized_(false),computed_(false),
-        matrix_(K), comm_(Teuchos::rcp(&(K->Comm()),false)), params_(Teuchos::null),
+        matrix_(K), comm_(Teuchos::rcp(&(K->Comm()),false)),
         hid_(hid),
         rangeMap_(Teuchos::rcp(&(K->RowMatrixRowMap()),false)),
         normInf_(-1.0), useTranspose_(false), 
         myLevel_(myLevel), testVector_(testVector),
-        label_("HYMLS::Preconditioner (level "+Teuchos::toString(myLevel_)+")")
+        label_("HYMLS::Preconditioner (level "+Teuchos::toString(myLevel_)+")"),
+        PLA()
     {
     DEBUG("Preconditioner::Preconditioner(...)");
     serialComm_=Teuchos::rcp(new Epetra_SerialComm());
     time_=Teuchos::rcp(new Epetra_Time(K->Comm()));
-    SetParameters(*params);
+    setParameterList(params);
 #ifdef DEBUGGING
     dumpVectors_=true;
 #endif
@@ -79,47 +81,62 @@ namespace HYMLS {
   int Preconditioner::SetParameters(Teuchos::ParameterList& List)
     {
     DEBUG("Enter Preconditioner::SetParameters()");
-    if (Teuchos::is_null(params_))
-      {
-      params_=Teuchos::rcp(new Teuchos::ParameterList);
-      }
 
-    // this is the place where we check for
-    // valid parameters for the whole
-    // method
-
-    Teuchos::ParameterList& probList_ = params_->sublist("Problem");
+    Teuchos::ParameterList& probList_ = PL().sublist("Problem");
     Teuchos::ParameterList& probList = List.sublist("Problem");
 
     // general settings for all problems
-    int dim=probList.get("Dimension",2);
-    probList_.set("Dimension", dim);
 
-    if (dim>=1) probList_.set("nx", probList.get("nx",16));
-    if (dim>=2) probList_.set("ny", probList.get("ny",16));
-    if (dim>=3) probList_.set("nz", probList.get("nz",16));
+    // these are used for writing the partitioning to matlab files
+    // ("Visualize Solver" parameter)
+    dim_=probList.get("Dimension",-1);
+    nx_=probList.get("nx",-1);
+    ny_=probList.get("ny",-1);
+    if (dim_>2)
+      {
+      nz_=probList.get("nz",-1);
+      }
+    else
+      {
+      nz_=1;
+      }
 
-    if (dim>=1) probList_.set("x-periodic", probList.get("x-periodic",false));
-    if (dim>=2) probList_.set("y-periodic", probList.get("y-periodic",false));
-    if (dim>=3) probList_.set("z-periodic", probList.get("z-periodic",false));
+    probList_.set("Dimension", dim_);
+
+    if (dim_>=1) probList_.set("nx", probList.get("nx",16));
+    if (dim_>=2) probList_.set("ny", probList.get("ny",16));
+    if (dim_>=3) probList_.set("nz", probList.get("nz",16));
+
+    if (dim_>=1) probList_.set("x-periodic", probList.get("x-periodic",false));
+    if (dim_>=2) probList_.set("y-periodic", probList.get("y-periodic",false));
+    if (dim_>=3) probList_.set("z-periodic", probList.get("z-periodic",false));
     
     probList_.set("Visualize Solver", probList.get("Visualize Solver",false));
 
-    Teuchos::ParameterList& solverList_ = params_->sublist("Solver");
-    Teuchos::ParameterList& solverList = List.sublist("Solver");
+    Teuchos::ParameterList& precList_ = PL().sublist("Preconditioner");
+    Teuchos::ParameterList& precList = List.sublist("Preconditioner");
+    
+    //TODO: use validators everywhere
 
-    solverList_.set("Partitioner", solverList.get("Partitioner","Cartesian"));
-
-    solverList_.set("Scale Schur-Complement",solverList.get("Scale Schur-Complement",false));
-    scaleSchur_=solverList_.get("Scale Schur-Complement",false);
+    Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
+        partValidator = Teuchos::rcp(
+                new Teuchos::StringToIntegralParameterEntryValidator<int>(
+                    Teuchos::tuple<std::string>("Cartesian"),"Partitioner"));
+    
+    precList_.set("Partitioner", precList.get("Partitioner","Cartesian"),
+        "Type of partitioner to be used to define the subdomains",
+        partValidator);
+    
+    scaleSchur_=precList.get("Scale Schur-Complement",false);
+    precList_.set("Scale Schur-Complement",scaleSchur_);
 
     int pos=1;
     while (pos>0)
       {
       string label = "Fix GID "+Teuchos::toString(pos);
-      if (solverList.isParameter(label))
+      if (precList.isParameter(label))
         {
-        solverList_.set(label,solverList.get(label,-1));
+        precList_.set(label,precList.get(label,-1));
         pos++;
         }
       else
@@ -133,41 +150,41 @@ namespace HYMLS {
     int base_sepx, base_sepy, base_sepz;
 
     // these two are alternatives:
-    if (solverList.isParameter("Separator Length"))
+    if (precList.isParameter("Separator Length"))
       {
-      sepx=solverList.get("Separator Length",4);
+      sepx=precList.get("Separator Length",4);
       sepy=sepx; 
-      sepz=dim>2? sepx:1;
+      sepz=dim_>2? sepx:1;
       }
-    else if (solverList.isParameter("Separator Length (x)"))
+    else if (precList.isParameter("Separator Length (x)"))
       {
-      sepx=solverList.get("Separator Length (x)",4);
-      sepy=solverList.get("Separator Length (y)",sepx);
-      sepz=solverList.get("Separator Length (z)",dim>2?sepx:1);
+      sepx=precList.get("Separator Length (x)",4);
+      sepy=precList.get("Separator Length (y)",sepx);
+      sepz=precList.get("Separator Length (z)",dim_>2?sepx:1);
       }
     else
       {
       sepx=-1;
-      solverList_.set("Number of Subdomains", solverList.get("Number of Subdomains",16));
+      precList_.set("Number of Subdomains", precList.get("Number of Subdomains",16));
       }
     if (sepx>0)
       {
-      solverList_.set("Separator Length (x)", sepx);
-      solverList_.set("Separator Length (y)", sepy);
-      solverList_.set("Separator Length (z)", sepz);
+      precList_.set("Separator Length (x)", sepx);
+      precList_.set("Separator Length (y)", sepy);
+      precList_.set("Separator Length (z)", sepz);
       }
 
-    if (solverList.isParameter("Base Separator Length"))
+    if (precList.isParameter("Base Separator Length"))
       {
-      base_sepx=solverList.get("Base Separator Length",sepx);
+      base_sepx=precList.get("Base Separator Length",sepx);
       base_sepy=base_sepx;
-      base_sepz=dim>2?base_sepx:1;
+      base_sepz=dim_>2?base_sepx:1;
       }
-    else if (solverList.isParameter("Base Separator Length (x)"))
+    else if (precList.isParameter("Base Separator Length (x)"))
       {
-      base_sepx=solverList.get("Base Separator Length (x)",sepx);
-      base_sepy=solverList.get("Base Separator Length (y)",sepy);
-      base_sepz=solverList.get("Base Separator Length (z)",sepz);
+      base_sepx=precList.get("Base Separator Length (x)",sepx);
+      base_sepy=precList.get("Base Separator Length (y)",sepy);
+      base_sepz=precList.get("Base Separator Length (z)",sepz);
       }
     else
       {
@@ -176,29 +193,38 @@ namespace HYMLS {
       base_sepz=sepz;
       }
     
-    solverList_.set("Base Separator Length (x)", base_sepx);
-    solverList_.set("Base Separator Length (y)", base_sepy);
-    solverList_.set("Base Separator Length (z)", base_sepz);
+    precList_.set("Base Separator Length (x)", base_sepx);
+    precList_.set("Base Separator Length (y)", base_sepy);
+    precList_.set("Base Separator Length (z)", base_sepz);
     
-    solverList_.set("Subdivide Separators",solverList.get("Subdivide Separators",false));
-    solverList_.set("Subdivide based on variable",solverList.get("Subdivide based on variable",-1));
+    precList_.set("Subdivide Separators",precList.get("Subdivide Separators",false));
+    precList_.set("Subdivide based on variable",precList.get("Subdivide based on variable",-1));
 
-    solverList_.set("Number of Levels",solverList.get("Number of Levels",2));
-    solverList_.set("Nested Iterations",solverList.get("Nested Iterations",false));
+    precList_.set("Number of Levels",precList.get("Number of Levels",2));
 
-    sdSolverType_=solverList.get("Subdomain Solver Type","Sparse");
-    solverList_.set("Subdomain Solver Type",sdSolverType_);
+    Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
+        sparseDenseValidator = Teuchos::rcp(
+                new Teuchos::StringToIntegralParameterEntryValidator<int>(
+                        Teuchos::tuple<std::string>( "Sparse","Dense"),"Subdomain Solver Type"));
+    
 
-    solverList_.sublist("Subdomain Solver")
-       = solverList.sublist("Subdomain Solver");
+    sdSolverType_=precList.get("Subdomain Solver Type","Sparse");
+    precList_.set("Subdomain Solver Type",sdSolverType_,
+        "Sparse or dense subdomain solver?", sparseDenseValidator);
+
+    precList_.sublist("Subdomain Solver")
+       = precList.sublist("Subdomain Solver");
 
     // this typically doesn't need parameters, it's just lapack on small dense
     // matrices.
-    solverList_.sublist("Dense Solver")
-       = solverList.sublist("Dense Solver");
+    precList_.sublist("Dense Solver")
+       = precList.sublist("Dense Solver");
 
-    solverList_.sublist("Coarse Solver")
-       = solverList.sublist("Coarse Solver");
+    precList_.sublist("Sparse Solver")
+       = precList.sublist("Sparse Solver");
+
+    precList_.sublist("Coarse Solver")
+       = precList.sublist("Coarse Solver");
 
     // there are two ways of defining the problem to be solved:
     // (a) simply set the "Equations" to something we know
@@ -218,7 +244,7 @@ namespace HYMLS {
       
       eqn=probList.get("Equations",eqn);
       probList_.set("Equations",eqn);
-      this->SetProblemDefinition(eqn,*params_);
+      this->SetProblemDefinition(eqn,PL());
       probList_.remove("Equations");
       }
     else
@@ -243,13 +269,18 @@ namespace HYMLS {
         }
       }
 
-    List.unused(std::cerr);
-    DEBVAR(*params_);
+    dof_=probList.sublist("Problem Definition").get("Degrees of Freedom",1);
 
     DEBUG("Leave Preconditioner::SetParameters()");
     return 0;
-    }
+            }
 
+  //!
+  void Preconditioner::setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& list)
+    {
+    this->SetParameters(*list);
+    }
+            
   // Computes all it is necessary to initialize the preconditioner.
   int Preconditioner::Initialize()
     {
@@ -257,7 +288,7 @@ namespace HYMLS {
     time_->ResetStartTime();
     if (hid_==Teuchos::null)
       {
-      hid_=Teuchos::rcp(new HYMLS::OverlappingPartitioner(matrix_,params_));
+      hid_=Teuchos::rcp(new HYMLS::OverlappingPartitioner(matrix_,getMyNonconstParamList()));
       }
 
 #ifdef TESTING
@@ -452,7 +483,7 @@ MatrixUtils::Dump(*A22_, "Solver"+Teuchos::toString(myLevel_)+"_A22.txt");
       }
 
     IFPACK_CHK_ERR(subdomainSolver_[sd]->SetParameters
-        (params_->sublist("Solver").sublist("Subdomain Solver")));
+        (PL().sublist("Preconditioner").sublist("Subdomain Solver")));
         
     CHECK_ZERO(subdomainSolver_[sd]->Initialize());
 
@@ -505,7 +536,7 @@ Tools::out() << "SIZE OF S: "<< map2_->NumGlobalElements()<<std::endl;
   DEBUG("Construct preconditioner");
 
   schurPrec_=Teuchos::rcp(new SchurPreconditioner(SC,hid_,
-                params_, myLevel_, testVector2));
+                getMyNonconstParamList(), myLevel_, testVector2));
 
   // now we have all the data structures, but the pattern of 
   // the Schur-complement is not available, yet (it will be in 
@@ -649,7 +680,7 @@ STOP_TIMER(label_,"Subdomain factorization");
   if (1)
     {
     DEBUG("initialize preconditioner");
-    schurPrec_->SetParameters(*params_);
+    schurPrec_->SetParameters(PL());
     // we can do this only now where the pattern is available
     CHECK_ZERO(schurPrec_->Initialize());
     }
@@ -660,7 +691,7 @@ STOP_TIMER(label_,"Subdomain factorization");
   timeCompute_ += time_->ElapsedTime();
   numCompute_++;
 
-  if (params_->sublist("Problem").get("Visualize Solver",false)==true)
+  if (PL().sublist("Problem").get("Visualize Solver",false)==true)
     {
     Tools::out() << "MATLAB file for visualizing the solver is written to hid_data.m" << std::endl;
     this->Visualize("hid_data.m");
@@ -1233,7 +1264,7 @@ int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& lis
   {
   Teuchos::ParameterList& probList=list.sublist("Problem");
   Teuchos::ParameterList& defList=list.sublist("Problem").sublist("Problem Definition");
-  Teuchos::ParameterList& solverList=list.sublist("Solver");
+  Teuchos::ParameterList& precList=list.sublist("Preconditioner");
 
   int dim=probList.get("Dimension",2);
   
@@ -1293,8 +1324,8 @@ int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& lis
       }
     // we fix the singularity by inserting a Dirichlet condition for 
     // global pressure node 2 
-    solverList.set("Fix GID 1",factor*dim);
-    if (is_complex) solverList.set("Fix GID 2",2*dim+1);
+    precList.set("Fix GID 1",factor*dim);
+    if (is_complex) precList.set("Fix GID 2",2*dim+1);
     }
   else
     {
@@ -1310,18 +1341,13 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
   if ( (comm_->MyPID()==0) && (myLevel_==1))
     {
     std::ofstream ofs(mfilename.c_str(),std::ios::out);
-    int dim=params_->sublist("Problem").get("Dimension",-1);
-    int dof=params_->sublist("Problem").sublist("Problem Definition").get("Degrees of Freedom",1);
-    int nx=params_->sublist("Problem").get("nx",-1);
-    int ny=params_->sublist("Problem").get("ny",-1);
-    ofs << "dim="<<dim<<";"<<std::endl;
-    ofs << "dof="<<dof<<";"<<std::endl;
-    ofs << "nx="<<nx<<";"<<std::endl;
-    ofs << "ny="<<ny<<";"<<std::endl;
-    if (dim>2)
+    ofs << "dim="<<dim_<<";"<<std::endl;
+    ofs << "dof="<<dof_<<";"<<std::endl;
+    ofs << "nx="<<nx_<<";"<<std::endl;
+    ofs << "ny="<<ny_<<";"<<std::endl;
+    if (dim_>2)
       {
-      int nz=params_->sublist("Problem").get("nz",-1);
-      ofs << "nz="<<nz<<";"<<std::endl;
+      ofs << "nz="<<nz_<<";"<<std::endl;
       }
     ofs.close();    
     }

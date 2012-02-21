@@ -3,6 +3,7 @@
 
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_Array.hpp"
+
 #include "Ifpack_Preconditioner.h"
 #include "Ifpack_Container.h"
 #include "Epetra_Time.h"
@@ -14,6 +15,7 @@
 
 #include "HYMLS_OverlappingPartitioner.H"
 #include "HYMLS_DenseUtils.H"
+#include "HYMLS_PLA.H"
 
 #include "HYMLS_BorderedSolver.H"
 
@@ -69,7 +71,9 @@ namespace HYMLS {
   implemented.
   
 */
-class Preconditioner : public Ifpack_Preconditioner, public BorderedSolver
+class Preconditioner : public Ifpack_Preconditioner, 
+                       public BorderedSolver,
+                       public PLA
   {
   
 public:
@@ -199,9 +203,16 @@ public:
     //! Returns the Epetra_Map object associated with the range of this operator.
     const Epetra_Map & OperatorRangeMap() const {return *rangeMap_;}
   
-
+  //@}
   
+  //!\name Teuchos::ParameterListAcceptor
+  //@{
+  //!
+  void setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& list);
 
+  //!
+  Teuchos::RCP<const Teuchos::ParameterList> getValidParameters();  
+  
   //@}
 
   //!\name HYMLS::BorderedSolver interface
@@ -247,9 +258,6 @@ protected:
   
   //! importer from range to row map
   Teuchos::RCP<Epetra_Import> importer_;
-
-  //! Parameter List
-  Teuchos::RCP<Teuchos::ParameterList> params_;
 
   //! our own minimally overlapped and reordered partitioning:
   Teuchos::RCP<const OverlappingPartitioner> hid_;
@@ -392,6 +400,10 @@ protected:
   mutable double timeApplyInverse_;
   
   //!@}
+  
+  
+  //! geometric info, used for storing the ordering in MATLAB for visualization
+  int dim_,dof_,nx_,ny_,nz_;
 
 #ifdef TESTING
   mutable bool dumpVectors_;

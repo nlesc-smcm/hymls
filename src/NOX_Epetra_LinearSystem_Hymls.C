@@ -321,7 +321,7 @@ applyJacobianInverse(Teuchos::ParameterList &p,
   Teuchos::ParameterList& belosList = hymlsList.sublist("Iterative Solver");
   belosList.set("Convergence Tolerance",tol);
   
-  hymls_->SetParameters(hymlsList);  
+  hymls_->setParameterList(Teuchos::rcp(&hymlsList, false));
   
   Epetra_Vector& sol = result.getEpetraVector();
   const Epetra_Vector& rhs = input.getEpetraVector();

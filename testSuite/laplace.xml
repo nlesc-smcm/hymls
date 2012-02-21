@@ -33,18 +33,6 @@
   </ParameterList><!--}-->
   
   <ParameterList name="Solver">
-
-    <Parameter name="Partitioner" type="string" value="Cartesian"/>
-    
-    <!-- you can either set 'Separator Length' or 'Number of Subdomains' -->
-    <Parameter name="Separator Length" type="int" value="2"/>
-    
-    <!-- number of levels to be created (1: direct solver for Schur complement, -->
-    <!-- 2: solve Schur iteratively and reduced Schur directly,                 -->
-    <!-- >2: not implemented.                                                   -->
-    <Parameter name="Number of Levels" type="int" value="3"/>
-    
-    <Parameter name="Scale Schur-Complement" type="bool" value="0"/>
     
     <!-- "CG", "GMRES", "PCPG" (only GMRES actually supported by our solver right now) -->
     <Parameter name="Krylov Method" type="string" value="GMRES"/>
@@ -59,6 +47,33 @@
     <Parameter name="Deflated Subspace Dimension" type="int" value="0"/>
     
     <Parameter name="Deflation Threshold" type="double" value="0.0"/>
+
+    <!-- parameters for the iterative solver (Belos) -->
+    <ParameterList name="Iterative Solver">
+      <Parameter name="Maximum Iterations" type="int" value="500"/>
+      <Parameter name="Block Size" type="int" value="1"/>
+      <Parameter name="Flexible Gmres" type="bool" value="0"/>
+      <Parameter name="Explicit Residual Test" type="bool" value="0"/>
+      <Parameter name="Maximum Restarts" type="int" value="5"/>
+      <Parameter name="Convergence Tolerance" type="double" value="1.0e-10"/>
+      <Parameter name="Output Frequency" type="int" value="1"/>
+      <Parameter name="Show Maximum Residual Norm Only" type="bool" value="1"/>
+    </ParameterList>
+  </ParameterList><!--}-->
+
+  <ParameterList name="Preconditioner">
+    
+    <Parameter name="Partitioner" type="string" value="Cartesian"/>
+    
+    <!-- you can either set 'Separator Length' or 'Number of Subdomains' -->
+    <Parameter name="Separator Length" type="int" value="2"/>
+    
+    <!-- number of levels to be created (1: direct solver for Schur complement, -->
+    <!-- 2: solve Schur iteratively and reduced Schur directly,                 -->
+    <!-- >2: not implemented.                                                   -->
+    <Parameter name="Number of Levels" type="int" value="2"/>
+    
+    <Parameter name="Scale Schur-Complement" type="bool" value="0"/>
 
     <!-- parameters for the direct solvers (Ifpack_Amesos) -->
 
@@ -87,20 +102,9 @@
         <Parameter name="ICNTL(4)" type="int" value="-1"/>
         <!-- collect statistics (for optimal performance set it to 0!) -->
         <Parameter name="ICNTL(11)" type="int" value="0"/>
-      </ParameterList>
-      
-    </ParameterList>
-
-    <!-- parameters for the iterative solver (Belos) -->
-    <ParameterList name="Iterative Solver">
-      <Parameter name="Maximum Iterations" type="int" value="500"/>
-      <Parameter name="Block Size" type="int" value="1"/>
-      <Parameter name="Flexible Gmres" type="bool" value="0"/>
-      <Parameter name="Explicit Residual Test" type="bool" value="0"/>
-      <Parameter name="Maximum Restarts" type="int" value="5"/>
-      <Parameter name="Convergence Tolerance" type="double" value="1.0e-10"/>
-      <Parameter name="Output Frequency" type="int" value="1"/>
-      <Parameter name="Show Maximum Residual Norm Only" type="bool" value="1"/>
+      </ParameterList>      
     </ParameterList>
   </ParameterList><!--}-->
+  
+  
 </ParameterList><!--}-->

@@ -55,7 +55,8 @@ namespace HYMLS {
         sparseMatrixOT_(Teuchos::null),
         testVector_(testVector),
         matrix_(Teuchos::null),
-        nextLevelHID_(Teuchos::null)
+        nextLevelHID_(Teuchos::null),
+        PLA()
     {
     START_TIMER2(label_,"constructor");
     time_=Teuchos::rcp(new Epetra_Time(*comm_));
@@ -121,23 +122,20 @@ namespace HYMLS {
 
   // Ifpack_Preconditioner interface
   
+  void SchurPreconditioner::setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& list)
+    {
+    this->SetParameters(*list);
+    }
 
   // Sets all parameters for the preconditioner.
   int SchurPreconditioner::SetParameters(Teuchos::ParameterList& List)
     {
-    
-    if (params_==Teuchos::null)
-      {
-      params_ = Teuchos::rcp(new Teuchos::ParameterList(List));
-      }    
-    else if (params_.get()!=&List)
-      {
-      *params_ = List;
-      }
-    
-    maxLevel_=params_->sublist("Solver").get("Number of Levels",myLevel_);
-    subdivideSeparators_=params_->sublist("Solver").get("Subdivide Separators",false);
-    
+    Teuchos::ParameterList& precList = List.sublist("Preconditioner");
+    Teuchos::ParameterList& precList_ = PL().sublist("Preconditioner");
+    maxLevel_=precList.get("Number of Levels",myLevel_);
+    precList_.set("Number of Levels",maxLevel_);
+    subdivideSeparators_=precList.get("Subdivide Separators",false);
+    precList_.set("Subdivide Separators",subdivideSeparators_);
     int pos=1;
     
     fix_gid_.resize(0);
@@ -145,9 +143,10 @@ namespace HYMLS {
     while (pos>0)
       {
       string label="Fix GID "+Teuchos::toString(pos);
-      if (params_->sublist("Solver").isParameter(label))
+      if (precList.isParameter(label))
         {
-        fix_gid_.append(params_->sublist("Solver").get(label,0));
+        fix_gid_.append(precList.get(label,0));
+        precList_.set(label,precList.get(label,0));
         pos++;
         }
       else
@@ -158,6 +157,8 @@ namespace HYMLS {
       
     DEBVAR(fix_gid_);
     
+    PL().sublist("Problem") = List.sublist("Problem");
+
     return 0;
     }
 
@@ -232,7 +233,7 @@ namespace HYMLS {
     //MatrixUtils::Dump(*linearMatrix_,"ScaledS2.txt");    
 #endif
     
-    Teuchos::ParameterList& amesosList=params_->sublist("Solver").sublist("Coarse Solver");
+    Teuchos::ParameterList& amesosList=PL().sublist("Preconditioner").sublist("Coarse Solver");
     if (amesosList.get("amesos: solver type","Amesos_Klu")=="Amesos_Mumps")
       {
       if (amesosList.sublist("mumps").isParameter("ICNTL(7)"))
@@ -242,7 +243,7 @@ namespace HYMLS {
           {
           // construct a feasible ordering for MUMPS
           HYMLS::MatrixUtils::FillReducingOrdering(*reducedSchur_,pivot_order_,
-                params_->sublist("Problem").sublist("Problem Definition"));
+                PL().sublist("Problem").sublist("Problem Definition"));
 
 
 #ifdef TESTING
@@ -434,7 +435,7 @@ int SchurPreconditioner::InitializeBlocks()
       blockSolver_[blk]=Teuchos::rcp(new 
              Ifpack_DenseContainer(numRows));
       CHECK_ZERO(blockSolver_[blk]->SetParameters(
-              params_->sublist("Solver").sublist("Dense Solver")));
+              PL().sublist("Preconditioner").sublist("Dense Solver")));
       CHECK_ZERO(blockSolver_[blk]->Initialize());
 
       for (int j=0; j<numRows; j++)
@@ -455,7 +456,7 @@ int SchurPreconditioner::InitializeSeparatorGroups()
   START_TIMER2(label_,"InitializeSeparatorGroups");
   if (subdivideSeparators_)
     {
-    int dof=params_->sublist("Problem")
+    int dof=PL().sublist("Problem")
                   .sublist("Problem Definition")
                   .get("Degrees of Freedom",-1);
     if (dof==-1)
@@ -463,7 +464,7 @@ int SchurPreconditioner::InitializeSeparatorGroups()
       HYMLS::Tools::Error("'Degrees of Freedom' parameter not set!",
               __FILE__,__LINE__);
       }
-    int pressure=params_->sublist("Solver").get("Subdivide based on variable",-1);
+    int pressure=PL().sublist("Preconditioner").get("Subdivide based on variable",-1);
     if (pressure==-1)
       {
       HYMLS::Tools::Error("'Subdivide based on variable' parameter not set!",
@@ -694,7 +695,7 @@ int SchurPreconditioner::InitializeOT()
 
   DEBVAR("Create solver for reduced Schur");
 
-  nextLevelParams_ = Teuchos::rcp(new Teuchos::ParameterList(*params_));
+  nextLevelParams_ = Teuchos::rcp(new Teuchos::ParameterList(PL()));
 
   Teuchos::RCP<Epetra_Vector> nextTestVector = Teuchos::null;
 

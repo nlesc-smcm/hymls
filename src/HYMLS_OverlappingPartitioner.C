@@ -138,7 +138,7 @@ void OverlappingPartitioner::UpdateParameters()
   
   if (!problParams.isSublist("Problem Definition"))
     {
-    // this sublist is created by class Solver if you set "Equations" to something
+    // this sublist is created by class Preconditioner if you set "Equations" to something
     // it recognizes (like "Laplace" or "Stokes-C"). You can also set it manually.
     Tools::Error("the internal sublist 'Problem Definition' is missing.",
         __FILE__,__LINE__);
@@ -191,7 +191,7 @@ void OverlappingPartitioner::UpdateParameters()
     Tools::Error("You must presently specify nx, ny (and possibly nz) in the input file",__FILE__,__LINE__);
     }  
     
-  partitioningMethod_=params_->sublist("Solver").get("Partitioner","Cartesian");  
+  partitioningMethod_=params_->sublist("Preconditioner").get("Partitioner","Cartesian");  
   
   DEBVAR(*params_);
   
@@ -403,7 +403,7 @@ void OverlappingPartitioner::Partition()
     Tools::Error("Up to now we only support Cartesian partitioning",__FILE__,__LINE__);
     }
     
-  Teuchos::ParameterList& solverParams=params_->sublist("Solver");
+  Teuchos::ParameterList& solverParams=params_->sublist("Preconditioner");
   int npx,npy,npz;
   int sx=-1;
   int sy,sz,base_sx,base_sy,base_sz;
@@ -1270,23 +1270,23 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
   
   *newList = *params_;
 
-  if (newList->sublist("Solver").get("Partitioner","Cartesian")!="Cartesian")
+  if (newList->sublist("Preconditioner").get("Partitioner","Cartesian")!="Cartesian")
     {
     Tools::Error("Can currently only handle cartesian partitioners",__FILE__,__LINE__);
     }
   
-  int dim = newList->sublist("Solver").get("Dimension",2);
+  int dim = newList->sublist("Preconditioner").get("Dimension",2);
   int base_sx,base_sy,base_sz;
   int old_sx,old_sy,old_sz;
-  if (newList->sublist("Solver").isParameter("Base Separator Length (x)"))
+  if (newList->sublist("Preconditioner").isParameter("Base Separator Length (x)"))
     {
-    base_sx = newList->sublist("Solver").get("Base Separator Length (x)",-1);
-    base_sy = newList->sublist("Solver").get("Base Separator Length (y)",base_sx);
-    base_sz = newList->sublist("Solver").get("Base Separator Length (z)",dim>2?base_sx:1);
+    base_sx = newList->sublist("Preconditioner").get("Base Separator Length (x)",-1);
+    base_sy = newList->sublist("Preconditioner").get("Base Separator Length (y)",base_sx);
+    base_sz = newList->sublist("Preconditioner").get("Base Separator Length (z)",dim>2?base_sx:1);
     }
-  else if (newList->sublist("Solver").isParameter("Base Separator Length"))
+  else if (newList->sublist("Preconditioner").isParameter("Base Separator Length"))
     {
-    base_sx = newList->sublist("Solver").get("Base Separator Length",-1);
+    base_sx = newList->sublist("Preconditioner").get("Base Separator Length",-1);
     base_sy = base_sx;
     base_sz=dim>2?base_sx:1;
     }
@@ -1297,15 +1297,15 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
                 __FILE__, __LINE__);
     }
     
-  if (newList->sublist("Solver").isParameter("Separator Length (x)"))
+  if (newList->sublist("Preconditioner").isParameter("Separator Length (x)"))
     {
-    old_sx = newList->sublist("Solver").get("Separator Length (x)",base_sx);
-    old_sy = newList->sublist("Solver").get("Separator Length (y)",base_sy);
-    old_sz = newList->sublist("Solver").get("Separator Length (z)",base_sz);
+    old_sx = newList->sublist("Preconditioner").get("Separator Length (x)",base_sx);
+    old_sy = newList->sublist("Preconditioner").get("Separator Length (y)",base_sy);
+    old_sz = newList->sublist("Preconditioner").get("Separator Length (z)",base_sz);
     }
- else if (newList->sublist("Solver").isParameter("Separator Length"))
+ else if (newList->sublist("Preconditioner").isParameter("Separator Length"))
     {
-    old_sx = newList->sublist("Solver").get("Separator Length",base_sx);
+    old_sx = newList->sublist("Preconditioner").get("Separator Length",base_sx);
     old_sy = old_sx;
     old_sz = dim>2?old_sx:1;
     }
@@ -1320,26 +1320,26 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
   int new_sy = old_sy*base_sy;
   int new_sz = old_sz*base_sz;
   
-  newList->sublist("Solver").set
+  newList->sublist("Preconditioner").set
         ("Separator Length (x)",new_sx);
 
-  newList->sublist("Solver").set
+  newList->sublist("Preconditioner").set
         ("Separator Length (y)",new_sy);
 
-  newList->sublist("Solver").set
+  newList->sublist("Preconditioner").set
         ("Separator Length (z)",new_sz);
 
-  bool nestedIterations = params_->sublist("Solver").get("Nested Iterations",false);
+  bool nestedIterations = params_->sublist("Preconditioner").get("Nested Iterations",false);
   if (nestedIterations==false)
     {
-    newList->sublist("Solver").set
+    newList->sublist("Preconditioner").set
         ("Krylov Method","None");
     }
-//newList->sublist("Solver").set("Left or Right Preconditioning","Left");
-//newList->sublist("Solver").sublist("Iterative Solver").set("Flexible Gmres",false); 
+//newList->sublist("Preconditioner").set("Left or Right Preconditioning","Left");
+//newList->sublist("Preconditioner").sublist("Iterative Solver").set("Flexible Gmres",false); 
 
-//newList->sublist("Solver").set("No Preconditioning",true);
-//  newList->sublist("Solver").sublist("Iterative Solver").set("Convergence Tolerance",1.0e-14);
+//newList->sublist("Preconditioner").set("No Preconditioning",true);
+//  newList->sublist("Preconditioner").sublist("Iterative Solver").set("Convergence Tolerance",1.0e-14);
   
   // the next level typically doesn't really resemble a   
   // structured grid anymore, so we base the partitioning 

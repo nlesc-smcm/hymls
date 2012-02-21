@@ -38,7 +38,7 @@ int main(int argc, char* argv[])
 
 int status=0;
 
-  RCP<Epetra_MpiComm> comm=rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
+  Teuchos::RCP<Epetra_MpiComm> comm=Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
 
   // construct file streams, otherwise the output won't work correctly
   HYMLS::Tools::InitializeIO(comm);
@@ -62,14 +62,15 @@ int status=0;
     }
 
 
-  RCP<Epetra_Map> map;
-  RCP<Epetra_CrsMatrix> K;
-  RCP<Epetra_Vector> u_ex;
-  RCP<Epetra_Vector> f;
+  Teuchos::RCP<Epetra_Map> map;
+  Teuchos::RCP<Epetra_CrsMatrix> K;
+  Teuchos::RCP<Epetra_Vector> u_ex;
+  Teuchos::RCP<Epetra_Vector> f;
 
-  RCP<ParameterList> params = Teuchos::getParametersFromXmlFile(param_file);
+  Teuchos::RCP<Teuchos::ParameterList> params = 
+        Teuchos::getParametersFromXmlFile(param_file);
         
-    ParameterList& driverList = params->sublist("Driver");
+    Teuchos::ParameterList& driverList = params->sublist("Driver");
         
     bool store_solution = driverList.get("Store Solution",true);
     bool store_matrix = driverList.get("Store Matrix",false);
@@ -98,13 +99,13 @@ int status=0;
     params->remove("Driver");
 
         
-    ParameterList& probl_params = params->sublist("Problem");
+    Teuchos::ParameterList& probl_params = params->sublist("Problem");
             
     int dim=probl_params.get("Dimension",2);
     std::string eqn=probl_params.get("Equations","Laplace");
 
 
-  ParameterList galeriList;
+  Teuchos::ParameterList galeriList;
   
   int nx=probl_params.get("nx",32);
   int ny=probl_params.get("ny",nx);
@@ -121,7 +122,7 @@ int status=0;
   if (eqn=="Laplace")
     {
     try {
-      map=rcp(Galeri::CreateMap(mapType, *comm, galeriList));
+      map= Teuchos::rcp(Galeri::CreateMap(mapType, *comm, galeriList));
       } catch (Galeri::Exception G) {G.Print();}
     }
   else if (eqn=="Stokes-C")
@@ -146,7 +147,7 @@ int status=0;
 
     std::string matrixType=eqn+Teuchos::toString(dim)+"D";
     try {
-      K=rcp(Galeri::CreateCrsMatrix(matrixType, map.get(), galeriList));
+      K= Teuchos::rcp(Galeri::CreateCrsMatrix(matrixType, map.get(), galeriList));
       } catch (Galeri::Exception G) {G.Print();}
     K->Scale(-1.0); // we like our matrix negative definite
                      // (just to conform with the diffusion operator in the NSE,
@@ -175,7 +176,7 @@ int status=0;
       }
     }
 
-  ParameterList& solver_params = params->sublist("Solver");
+  Teuchos::ParameterList& solver_params = params->sublist("Solver");
   bool do_deflation = (solver_params.get("Deflated Subspace Dimension",0)>0);
   Teuchos::RCP<Epetra_CrsMatrix> M = Teuchos::null;
   if (do_deflation) // need a mass matrix
@@ -211,13 +212,13 @@ int status=0;
   
   HYMLS::Tools::Out("Create Preconditioner");
 
-  RCP<HYMLS::Preconditioner> precond = rcp(new HYMLS::Preconditioner(K, params));
+  Teuchos::RCP<HYMLS::Preconditioner> precond = Teuchos::rcp(new HYMLS::Preconditioner(K, params));
 
   HYMLS::Tools::Out("Initialize Preconditioner...");
   CHECK_ZERO(precond->Initialize());
 
   HYMLS::Tools::Out("Create Solver");
-  RCP<HYMLS::Solver> solver = rcp(new HYMLS::Solver(K, precond, params,numRhs));
+  Teuchos::RCP<HYMLS::Solver> solver = Teuchos::rcp(new HYMLS::Solver(K, precond, params,numRhs));
 
 for (int f=0;f<numComputes;f++)
   {
