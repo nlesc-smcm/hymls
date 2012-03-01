@@ -16,6 +16,7 @@ namespace HYMLS
   useVorth_(useVorth),
   useTranspose_(false)                      
   {
+  START_TIMER3("ProjectedOperator", "Constructor");
   if (A_->OperatorRangeMap().SameAs(A_->OperatorDomainMap())==false)
     {
     Tools::Error("operator must be 'square'",__FILE__,__LINE__);
@@ -35,7 +36,8 @@ labelT_="";
 
     int ProjectedOperator::Apply(const Epetra_MultiVector& X, Epetra_MultiVector& Y) const
       {
-      if (useTranspose_) Tools::Error("not implemented!",__FILE__,__LINE__);
+      START_TIMER3("ProjectedOperator", "Apply");
+    if (useTranspose_) Tools::Error("not implemented!",__FILE__,__LINE__);
       if (X.NumVectors()!=tmpVector_->NumVectors())
         {
         tmpVector_ = Teuchos::rcp(new Epetra_MultiVector(V_->Map(),X.NumVectors()));
@@ -57,6 +59,7 @@ labelT_="";
 
     int ProjectedOperator::ApplyInverse(const Epetra_MultiVector& X, Epetra_MultiVector& Y) const
       {
+      START_TIMER3("ProjectedOperator", "ApplyInverse");
       if (useTranspose_) Tools::Error("not implemented!",__FILE__,__LINE__);
       Tools::Error("not implemented",__FILE__,__LINE__);
       return -99;

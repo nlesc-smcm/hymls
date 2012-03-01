@@ -1,26 +1,24 @@
 #include "HYMLS_PLA.H"
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_RCP.hpp"
+#include "HYMLS_Tools.H"
 
 namespace HYMLS {  
 
-PLA::PLA()
+PLA::PLA(std::string my_sublist)
   {
-  setMyParamList(Teuchos::rcp(new Teuchos::ParameterList()));
+  START_TIMER3("PLA","Constructor");
+
+  default_sublist_=my_sublist;  
+  validateParameters_=true; // this statement determines wether
+                            // parameter validation is applied 
+                            // anywhere in HYMLS
+  validParams_=Teuchos::null;
   }
 
-Teuchos::RCP<const Teuchos::ParameterList> PLA::getValidParameters()
+PLA::~PLA()
   {
-  Teuchos::RCP<Teuchos::ParameterList> saveParams = getMyNonconstParamList();
-  Teuchos::RCP<Teuchos::ParameterList> validParams = 
-        Teuchos::rcp(new Teuchos::ParameterList());
-  setMyParamList(validParams);
-  setParameterList(validParams);
-  if (saveParams!=Teuchos::null)
-    {
-    setMyParamList(saveParams);
-    setParameterList(saveParams);
-    }
-  return validParams;
+  START_TIMER3("PLA","Destructor");
   }
+
 }

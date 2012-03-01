@@ -23,9 +23,10 @@ namespace HYMLS {
   CartesianPartitioner::CartesianPartitioner
         (Teuchos::RCP<const Epetra_Map> map, int nx, int ny, int nz, int dof, 
         Galeri::PERIO_Flag perio)
-        : BasePartitioner(), baseMap_(map), nx_(nx), ny_(ny),nz_(nz),dof_(dof),perio_(perio)
+        : BasePartitioner(), label_("CartesianPartiitoner"),
+                baseMap_(map), nx_(nx), ny_(ny),nz_(nz),dof_(dof),perio_(perio)
         {
-        
+        START_TIMER3(label_,"Constructor");        
         node_distance_=1; //default, can be adjusted by calling SetNodeDistance()
         
         comm_=Teuchos::rcp(&(baseMap_->Comm()),false);
@@ -59,7 +60,7 @@ namespace HYMLS {
   // destructor
   CartesianPartitioner::~CartesianPartitioner()
     {
-    DEBUG("CartesianPartitioner::~CartesianPartitioner()");
+    START_TIMER3(label_,"Destructor");
     }
 
   int CartesianPartitioner::flow(int gid1, int gid2)
@@ -202,7 +203,7 @@ DEBVAR(dk);
 
   void CartesianPartitioner::Partition(int nparts)
     {
-    DEBUG("Cartesian Partitioner");
+    START_TIMER3(label_,"Partition (1)");
     int npx,npy,npz;
     Tools::SplitBox(nx_,ny_,nz_,nparts,npx,npy,npz);
     this->Partition(npx,npy,npz);
@@ -212,11 +213,11 @@ DEBVAR(dk);
   // into nparts global subdomains.
   void CartesianPartitioner::Partition(int npx_in,int npy_in, int npz_in)
     {
+    START_TIMER3(label_,"Partition (2)");
     npx_=npx_in;
     npy_=npy_in;
     npz_=npz_in;
     
-    DEBUG("Cartesian Partitioner: ");
     DEBVAR(npx_);
     DEBVAR(npy_);
     DEBVAR(npz_);

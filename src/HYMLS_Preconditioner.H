@@ -209,10 +209,13 @@ public:
   //@{
   //!
   void setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& list);
-
-  //!
-  Teuchos::RCP<const Teuchos::ParameterList> getValidParameters();  
   
+  //! get a list of valid parameters for this object
+  Teuchos::RCP<const Teuchos::ParameterList> getValidParameters() const;
+  
+
+  
+
   //@}
 
   //!\name HYMLS::BorderedSolver interface
@@ -499,7 +502,7 @@ protected:
    //! in this function we define a number of standard problems
    //! for which the solver can be set up by simply setting the
    //! "Equations" parameter in the "Problem" list. If it is
-   //! not set, one has to set the "Problem Definition" sublist,
+   //! not set, one has to set the "Partitioner" sublist,
    //! which is a little tricky (see this function for examples)
    int SetProblemDefinition(std::string eqn, Teuchos::ParameterList& list);
 

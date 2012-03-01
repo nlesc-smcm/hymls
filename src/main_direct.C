@@ -53,9 +53,10 @@ int status=0;
   // construct file streams, otherwise the output won't work correctly
   HYMLS::Tools::InitializeIO(comm);
   
-  START_TIMER(std::string("main"),"entire run");
 
   try {
+
+  START_TIMER(std::string("main"),"entire run");
 
   std::string param_file;
 
@@ -300,8 +301,8 @@ if (comm->MyPID()==0)
 
   
     } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr, status);
-
-  STOP_TIMER(std::string("main"),"entire run");  
+  
+  if (!status) Tools::Fatal("Caught an exception",__FILE__,__LINE__);
   HYMLS::Tools::PrintTiming(HYMLS::Tools::out());
 
 comm->Barrier();

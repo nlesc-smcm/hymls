@@ -43,7 +43,7 @@ namespace HYMLS {
         massMatrix_(Teuchos::null), nullSpace_(Teuchos::null),
         normInf_(-1.0), useTranspose_(false),
         numEigs_(0),
-        label_("HYMLS::Solver"), PLA()
+        label_("HYMLS::Solver"), PLA("Solver")
   {
   START_TIMER2(label_,"Constructor");
   setParameterList(params);
@@ -54,11 +54,11 @@ namespace HYMLS {
   // try to construct the nullspace for the operator, right now we only implement
   // this for the Stokes-C case (constant pressure as single vector), otherwise we
   // assume the matrix is nonsingular (i.e. leave nullSpace==null).
-  string nullSpaceType=PL().sublist("Solver").get("Null Space","None");
+  string nullSpaceType=PL().get("Null Space","None");
   if (nullSpaceType=="Constant P")
     {
     nullSpace_ = Teuchos::rcp(new Epetra_Vector(matrix_->OperatorDomainMap()));
-    int pvar = PL().sublist("Solver").get("Pressure Variable",-1);
+    int pvar = PL().get("Pressure Variable",-1);
     // TODO: this is all a bit ad-hoc
     if (pvar==-1)
       {
@@ -66,7 +66,7 @@ namespace HYMLS {
       Tools::Warning("'Pressure Variable' not specified in 'Solver' sublist", 
         __FILE__, __LINE__);
       }
-    int dof = PL().sublist("Solver").get("Degrees of Freedom",-1);
+    int dof = PL().get("Degrees of Freedom",-1);
     if (dof==-1)
       {
       dof=3;
@@ -89,7 +89,7 @@ namespace HYMLS {
 
   this->SetPrecond(precond_);
 
-  Teuchos::ParameterList& belosList = PL().sublist("Solver").sublist("Iterative Solver");
+  Teuchos::ParameterList& belosList = PL().sublist("Iterative Solver");
 
   belosList.set("Output Style",Belos::Brief);
   belosList.set("Verbosity",Belos::Errors+Belos::Warnings
@@ -124,30 +124,30 @@ namespace HYMLS {
   else
     {
     Tools::Error("Currently only 'GMRES' is supported as 'Belos Solver'",__FILE__,__LINE__);
-    }
-  
-  STOP_TIMER2(label_,"Constructor");
+    }  
   }
 
 
   // destructor
   Solver::~Solver()
     {
-    DEBUG("Solver::~Solver()");
+    START_TIMER3(label_,"Destructor");
     }
 
   void Solver::SetMatrix(Teuchos::RCP<const Epetra_RowMatrix> A)
     {
+    START_TIMER3(label_,"SetMatrix");
     matrix_ = A;
     belosProblemPtr_->setOperator(matrix_);
     }
 
 void Solver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)
   {
+  START_TIMER3(label_,"SetPrecond");
   precond_=P;
   if (precond_==Teuchos::null) return;
   belosPrecPtr_=Teuchos::rcp(new belosPrecType_(precond_));
-  string lor = PL().sublist("Solver").get("Left or Right Preconditioning","Right");
+  string lor = PL().get("Left or Right Preconditioning","Right");
   if (lor=="Left")
     {
     belosProblemPtr_->setLeftPrec(belosPrecPtr_);
@@ -159,11 +159,6 @@ void Solver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)
   else if (lor=="None")
     {
     // no preconditioning
-    }
-  else
-    {
-    Tools::Error("Parameter 'Left or Right Preconditioning' has an invalid value",
-              __FILE__, __LINE__);
     }
   }
 
@@ -180,7 +175,6 @@ void Solver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)
       Tools::Error("Mass matrix must have same row map as solver",
                 __FILE__,__LINE__);
       }
-    STOP_TIMER3(label_,"SetMassMatrix");
     }
 
 
@@ -188,24 +182,42 @@ void Solver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)
   // Sets all parameters for the solver
   void Solver::setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& List)
     {
-    DEBUG("Enter Solver::setParameterList()");
+    START_TIMER3(label_,"SetParameterList");
+
+    setMyParamList(List);
+
+    //TODO: use validators everywhere
+
+    solverType_= PL().get("Krylov Method","GMRES");
+    startVec_=PL().get("Initial Vector","Random");
+    PL().get("Left or Right Preconditioning","Right");
+
+    numEigs_=PL().get("Deflated Subspace Dimension",numEigs_);
+    deflThres_=PL().get("Deflation Threshold",0.0);
 
     // this is the place where we check for
-    // valid parameters for the solver
+    // valid parameters for the iterative solver
+    if (validateParameters_)
+      {
+      this->getValidParameters();
+      PL().validateParameters(VPL());
+      }
+    DEBUG(PL());
+    }
+
+  // Sets all parameters for the solver
+  Teuchos::RCP<const Teuchos::ParameterList> Solver::getValidParameters() const
+    {
+    if (validParams_!=Teuchos::null) return validParams_;
+    START_TIMER3(label_,"getValidParameterList");
     
-    Teuchos::RCP<Teuchos::ParameterList> List_ = getMyNonconstParamList();
-
-    Teuchos::ParameterList& solverList_ = List_->sublist("Solver");
-    Teuchos::ParameterList& solverList = List->sublist("Solver");
-
     //TODO: use validators everywhere
 
     Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
         solverValidator = Teuchos::rcp(
                 new Teuchos::StringToIntegralParameterEntryValidator<int>(
                         Teuchos::tuple<std::string>( "GMRES", "CG" ),"Krylov Method"));
-    solverType_= solverList.get("Krylov Method","GMRES");
-    solverList_.set("Krylov Method",solverType_,
+    VPL().set("Krylov Method", "GMRES",
         "Type of Krylov method to be used", solverValidator);
 
     Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
@@ -213,28 +225,32 @@ void Solver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)
                 new Teuchos::StringToIntegralParameterEntryValidator<int>(
                         Teuchos::tuple<std::string>( "Zero", "Random", "Previous" ),"Initial Vector"));                                        
 
-    startVec_=solverList.get("Initial Vector","Random");
-    solverList_.set("Initial Vector",startVec_,
+    VPL().set("Initial Vector","Zero",
         "How to construct the starting vector for the Krylov series", x0Validator);
-        
-    solverList_.set("Left or Right Preconditioning",solverList.get("Left or Right Preconditioning","Right"));
 
-    numEigs_=solverList.get("Deflated Subspace Dimension",numEigs_);
-    solverList_.set("Deflated Subspace Dimension",numEigs_);
-    //TODO: put a reasonable default value here
-    deflThres_=solverList.get("Deflation Threshold",0.0);
-    solverList_.set("Deflation Threshold",deflThres_);
+    Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
+        lorValidator = Teuchos::rcp(
+                new Teuchos::StringToIntegralParameterEntryValidator<int>(
+                Teuchos::tuple<std::string>( "Left", "Right"),"Left or Right Preconditioning"));
+        
+    VPL().set("Left or Right Preconditioning", "Left",
+                            "wether to do left (P\\Ax=P\\b) or right (AP\\(Px)=b) preconditioning",
+                            lorValidator);
+
+    VPL().set("Deflated Subspace Dimension",0,"maximum number of eigenmodes to deflate");
+
+    VPL().set("Deflation Threshold",1.0e-3,"An eigenmode is deflated if the eigenvalue is within [-eps 0]");
 
     // these are temporarily added to the parameter list for developing the
     // projection method and should be handled differently in the end.
-    solverList_.set("Null Space",solverList.get("Null Space","None"));
-    solverList_.set("Pressure Variable",solverList.get("Pressure Variable",-1));
-    solverList_.set("Degrees of Freedom",solverList.get("Degrees of Freedom",-1));
+    VPL().set("Null Space","None","type of null vector, only for development in this list");
+    VPL().set("Pressure Variable","which is the pressure variable, only for development in this list");
+    VPL().set("Degrees of Freedom","dof/cell, only for development in this list");
 
     // Belos parameters should be specified in this list:
-    solverList_.sublist("Iterative Solver")=solverList.sublist("Iterative Solver");
-
-    DEBUG("Leave Solver::setParameterList()");
+    VPL().sublist("Iterative Solver",false,
+        "Parameter list for the Krylov method (passed to Belos)").disableRecursiveValidation();
+    return validParams_;
     }
 
 
@@ -333,7 +349,6 @@ if (precEigs_->numVecs<numEigs_)
 
 if (numEigs_==0) 
   {
-  STOP_TIMER(label_,"SetupDeflation");
   return 1;
   }
 
@@ -506,7 +521,7 @@ MatrixUtils::Dump(test_y,"PROJ_Aorth_x.txt");
     belosProblemPtr_->setOperator(Aorth_);
     belosProblemPtr_->setProblem();
 
-  Teuchos::ParameterList& belosList = PL().sublist("Solver").sublist("Iterative Solver");
+  Teuchos::ParameterList& belosList = PL().sublist("Iterative Solver");
     
     Teuchos::RCP<Teuchos::ParameterList> belosParamPtr = Teuchos::rcp(
         new Teuchos::ParameterList(belosList));
@@ -531,7 +546,6 @@ MatrixUtils::Dump(test_y,"PROJ_Aorth_x.txt");
 #endif
     }//numDeflated_>0
 
-  STOP_TIMER(label_,"SetupDeflation");
   return 0;
   }
 
@@ -590,10 +604,11 @@ int Solver::ApplyInverse(const Epetra_MultiVector& B,
     CHECK_TRUE(belosProblemPtr_->setProblem());
 
     Belos::ReturnType ret;
-    int status;
+    bool status=true;
     try {
     ret=belosSolverPtr_->solve();
     } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr, status);
+    if (!status) Tools::Warning("caught an exception",__FILE__,__LINE__);
 
   int numIters = belosSolverPtr_->getNumIters();
   if (comm_->MyPID()==0)
@@ -649,9 +664,8 @@ if (comm_->MyPID()==0)
       ierr = -1;
       }
     }
-    STOP_TIMER(label_,"ApplyInverse");
-    return ierr;
-    }
+  return ierr;
+  }
 
 
 }//namespace HYMLS

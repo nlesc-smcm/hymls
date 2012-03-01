@@ -65,6 +65,9 @@ public:
   //! set solver parameters (the list is the "HYMLS"->"Solver" sublist)
   void setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& params);
   
+  //! get a list of valid parameters for this object
+  Teuchos::RCP<const Teuchos::ParameterList> getValidParameters() const;
+  
   //! set matrix for solve
   void SetMatrix(Teuchos::RCP<const Epetra_RowMatrix> A);
 
@@ -213,7 +216,7 @@ Teuchos::RCP<BorderedLU> LU_;
   std::string label_;
   
   private:
-       
+  
   };
 
 

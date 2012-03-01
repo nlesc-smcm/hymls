@@ -15,7 +15,7 @@
     <Parameter name="Store Matrix" type="bool" value="0"/>
     
     <Parameter name="Read Linear System" type="bool" value="1"/>
-    <Parameter name="Data Directory" type="string" value="data/DrivenCavity/64x64/Re0"/>
+    <Parameter name="Data Directory" type="string" value="data/DrivenCavity/128x128/Re0"/>
     <Parameter name="File Format" type="string" value="MatrixMarket"/>
     <Parameter name="Exact Solution Available" type="bool" value="1"/>
   
@@ -26,12 +26,10 @@
     <Parameter name="Equations" type="string" value="Stokes-C"/>
     <Parameter name="Dimension" type="int" value="2"/>
 
-    <Parameter name="nx" type="int" value="64"/>
-    <Parameter name="ny" type="int" value="64"/>
+    <Parameter name="nx" type="int" value="128"/>
+    <Parameter name="ny" type="int" value="128"/>
     <Parameter name="nz" type="int" value="1"/>
-    
-    <Parameter name="Visualize Solver" type="bool" value="1"/>
-    
+        
   </ParameterList><!--}-->
 
   <!-- Krylov solver and deflation { -->  
@@ -57,6 +55,8 @@
   <!-- multi-level preconditioner -->
   <ParameterList name="Preconditioner">
 
+    <Parameter name="Visualize Solver" type="bool" value="1"/>
+
     <!-- only "Cartesian" supported up to now -->
     <Parameter name="Partitioner" type="string" value="Cartesian"/>
     
@@ -66,22 +66,17 @@
     <!-- number of levels to be created (1: direct solver for Schur complement, -->
     <!-- 2: solve Schur iteratively and reduced Schur directly,                 -->
     <!-- >2: not implemented.                                                   -->
-    <Parameter name="Number of Levels" type="int" value="3"/>
+    <Parameter name="Number of Levels" type="int" value="4"/>
     
     <Parameter name="Scale Schur-Complement" type="bool" value="0"/>
     
-    <!-- This is intended for debugging in the first place - build complete -->
-    <!-- Schur complement as a sparse matrix instead of just building       -->
-    <!-- blocks for the preconditioner                                      -->
-    <Parameter name="Construct Schur Complement" type="bool" value="1"/>
-
     <!-- parameters for the direct solvers (Ifpack_Amesos) -->
 
     <!-- you can either make direct solver settings in a single list            -->
     <!-- called "Direct Solver" or in separate lists for each level, like this: -->
  
     <!-- settings for subdomain solver -->
-    <ParameterList name="Subdomain Solver">
+    <ParameterList name="Sparse Solver">
       <!-- "Amesos_Klu" is the default here. These systems are always sequential -->
       <Parameter name="amesos: solver type" type="string" value="Amesos_Klu"/>
     </ParameterList>
@@ -90,13 +85,6 @@
     <!-- variant and is passed to the DenseContainer (lapack)      -->
     <ParameterList name="Dense Solver">
       <!-- there are no LAPACK settings here -->
-    </ParameterList>
-
-    <!-- this list is used for the "Local" preconditioner               -->
-    <!-- variant and is passed to the SparseContainer (ifpack)          -->
-    <!-- Currently it is simply an Ifpack_Amesos                        -->
-    <ParameterList name="Sparse Solver">
-      <Parameter name="amesos: solver type" type="string" value="Amesos_Klu"/>
     </ParameterList>
 
     <!-- settings for reduced problem (Vsum) solver -->

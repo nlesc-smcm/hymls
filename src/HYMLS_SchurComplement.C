@@ -30,13 +30,15 @@ namespace HYMLS {
 // Also provides functionality to explicitly construct parts
 // of the SC or the whole thing as sparse or dense matrix.
 
-  SchurComplement::SchurComplement(Teuchos::RCP<const Preconditioner> mother)
+  SchurComplement::SchurComplement(Teuchos::RCP<const Preconditioner> mother, int lev)
        : mother_(mother),
+       label_("SchurComplement (level "+Teuchos::toString(lev)+")"),
          comm_(Teuchos::rcp(&(mother->Comm()),false)),
          useTranspose_(false), normInf_(-1.0),
          sparseMatrixRepresentation_(Teuchos::null),
          flopsApply_(0.0), flopsCompute_(0.0)
     {
+    START_TIMER3(label_,"Constructor");
     isConstructed_=false;
     // we do a finite-element style assembly of the full matrix    
     const Epetra_Map& map = mother_->Map2();
@@ -53,6 +55,7 @@ namespace HYMLS {
   // destructor
   SchurComplement::~SchurComplement()
     {
+    START_TIMER3(label_,"Destructor");
     }
 
 
@@ -61,6 +64,7 @@ namespace HYMLS {
   int SchurComplement::Apply(const Epetra_MultiVector& X,
                   Epetra_MultiVector& Y) const
     {
+    START_TIMER2(label_,"Apply");
     int ierr=0;
     if (IsConstructed())
       {
@@ -105,6 +109,7 @@ namespace HYMLS {
   // construct complete Schur complement as a sparse matrix
   int SchurComplement::Construct()
     {
+    START_TIMER3(label_,"Construct (1)");
     const Epetra_Map& map = mother_->Map2();
     const OverlappingPartitioner& hid = mother_->Partitioner();
     
@@ -115,6 +120,7 @@ namespace HYMLS {
 
   int SchurComplement::Construct(Teuchos::RCP<Epetra_FECrsMatrix> S) const
     {
+    START_TIMER2(label_,"Construct");
     Epetra_IntSerialDenseVector indices;
     Epetra_SerialDenseMatrix Sk;
     
@@ -364,6 +370,7 @@ namespace HYMLS {
 
 Teuchos::RCP<Epetra_Vector> SchurComplement::ConstructLeftScaling(int p_variable)
   {
+  START_TIMER2(label_,"ConstructLeftScaling");
   sca_left_->PutScalar(1.0);
   double *val; 
   int* ind;
@@ -405,6 +412,7 @@ Teuchos::RCP<Epetra_Vector> SchurComplement::ConstructLeftScaling(int p_variable
 
 int SchurComplement::Scale(Teuchos::RCP<Epetra_Vector> sca_left, Teuchos::RCP<Epetra_Vector> sca_right)
   {
+  START_TIMER3(label_,"Scale");
   int ierr=0;
   if (!IsConstructed())    
     {
@@ -423,6 +431,8 @@ int SchurComplement::Scale(Teuchos::RCP<Epetra_Vector> sca_left, Teuchos::RCP<Ep
 
 int SchurComplement::Unscale(Teuchos::RCP<Epetra_Vector> sca_left, Teuchos::RCP<Epetra_Vector> sca_right)
   {
+  START_TIMER3(label_,"Unscale");
+  
   int ierr=0;
   if (!IsConstructed())    
     {

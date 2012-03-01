@@ -88,6 +88,9 @@ public:
   
   //! from the Teuchos::ParameterListAcceptor base class
   void setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& list);
+  
+  //! get a list of valid parameters for this object
+  Teuchos::RCP<const Teuchos::ParameterList> getValidParameters() const;
 
   //! Computes all it is necessary to initialize the preconditioner.
   int Initialize();

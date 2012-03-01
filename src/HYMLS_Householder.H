@@ -13,9 +13,12 @@ class Householder : public OrthogonalTransform
   
   public:
  
-  //! constructor
-  Householder();
-   
+  //! constructor. The level parameter is just to get the object label right.
+  Householder(int lev=0);
+  
+  //!
+  ~Householder();
+
   //! compute X=H*Y
   int Apply(const Epetra_SerialDenseVector& Y, Epetra_SerialDenseVector& X) const;
 

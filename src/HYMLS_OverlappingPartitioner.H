@@ -5,6 +5,7 @@
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_Array.hpp"
 #include "Galeri_Periodic.h"
+#include "HYMLS_PLA.H"
 
 namespace Teuchos 
   {
@@ -26,7 +27,8 @@ namespace HYMLS {
     create a hierarchical ordering by repeatedly calling the 
     Spawn() function.
 */
-class OverlappingPartitioner: public RecursiveOverlappingPartitioner
+class OverlappingPartitioner: public RecursiveOverlappingPartitioner,
+                              public PLA
   {
   
 public:
@@ -75,6 +77,13 @@ public:
   //! file originalGraph<level>.txt: original matrix graph on this level
   void DumpGraph() const;
   
+  //! from the PLA base class
+  void setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& params);
+
+  //! get a list of valid parameters for this object
+  Teuchos::RCP<const Teuchos::ParameterList> getValidParameters() const;
+      
+        
 protected: 
   
   //! matrix
@@ -89,9 +98,6 @@ protected:
   //! 3: vertex (3D only), 4: retained in Schur complement.     
   Teuchos::RCP<Epetra_IntVector> nodeType_, p_nodeType_;
   
-  //! Parameter List
-  Teuchos::RCP<Teuchos::ParameterList> params_;
-
   //! physical dimension (i.e. 2D, 3D)
   int dim_;
   
@@ -111,7 +117,7 @@ protected:
   Galeri::PERIO_Flag perio_;
   
   //! this parameter can be set by the entry "Substitute Graph" 
-  //! in the "Problem"->"Problem Definition" sublist, and it    
+  //! in the "Problem"->"Partitioner" sublist, and it    
   //! defaults to 'true'. If true, the DetectSeparators() and   
   //! GroupSeparators() functions (i.e. the ordering) are based 
   //! on an idealized graph consisting of 9-/27-point Laplacians
@@ -137,9 +143,6 @@ protected:
   Teuchos::Array<bool> retainIsolated_;
     
 private:
-  
-  //! extract parameters from list and verify their values
-  void UpdateParameters();
   
   //! partition - Cartesian
   void Partition();

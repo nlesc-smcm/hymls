@@ -55,11 +55,12 @@ namespace HYMLS {
         normInf_(-1.0), useTranspose_(false), 
         myLevel_(myLevel), testVector_(testVector),
         label_("HYMLS::Preconditioner (level "+Teuchos::toString(myLevel_)+")"),
-        PLA()
+        PLA("Preconditioner")
     {
-    DEBUG("Preconditioner::Preconditioner(...)");
+    START_TIMER2(label_,"Constructor");
     serialComm_=Teuchos::rcp(new Epetra_SerialComm());
     time_=Teuchos::rcp(new Epetra_Time(K->Comm()));
+
     setParameterList(params);
 #ifdef DEBUGGING
     dumpVectors_=true;
@@ -70,7 +71,7 @@ namespace HYMLS {
   // destructor
   Preconditioner::~Preconditioner()
     {
-    DEBUG("Preconditioner::~Preconditioner()");
+    START_TIMER3(label_,"Destructor");
     }
 
 
@@ -80,42 +81,103 @@ namespace HYMLS {
   // Sets all parameters for the preconditioner.
   int Preconditioner::SetParameters(Teuchos::ParameterList& List)
     {
-    DEBUG("Enter Preconditioner::SetParameters()");
-
-    Teuchos::ParameterList& probList_ = PL().sublist("Problem");
-    Teuchos::ParameterList& probList = List.sublist("Problem");
+    START_TIMER3(label_,"SetParameters");
+    
+    Teuchos::RCP<Teuchos::ParameterList> List_ = 
+        getMyNonconstParamList();
+        
+   if (List_==Teuchos::null)
+     {
+     setMyParamList(Teuchos::rcp(&List, false));
+     }
+   else if (List_.get()!=&List);
+     {
+     List_->setParameters(List);
+     }
+    
+    Teuchos::ParameterList& probList_ = 
+        List_->sublist("Problem");
 
     // general settings for all problems
 
     // these are used for writing the partitioning to matlab files
     // ("Visualize Solver" parameter)
-    dim_=probList.get("Dimension",-1);
-    nx_=probList.get("nx",-1);
-    ny_=probList.get("ny",-1);
+    dim_=probList_.get("Dimension",-1);
+    nx_=probList_.get("nx",-1);
+    ny_=probList_.get("ny",-1);
     if (dim_>2)
       {
-      nz_=probList.get("nz",-1);
+      nz_=probList_.get("nz",-1);
       }
     else
       {
       nz_=1;
       }
+        
+    scaleSchur_=PL().get("Scale Schur-Complement",false);
 
-    probList_.set("Dimension", dim_);
+    sdSolverType_=PL().get("Subdomain Solver Type","Sparse");
 
-    if (dim_>=1) probList_.set("nx", probList.get("nx",16));
-    if (dim_>=2) probList_.set("ny", probList.get("ny",16));
-    if (dim_>=3) probList_.set("nz", probList.get("nz",16));
-
-    if (dim_>=1) probList_.set("x-periodic", probList.get("x-periodic",false));
-    if (dim_>=2) probList_.set("y-periodic", probList.get("y-periodic",false));
-    if (dim_>=3) probList_.set("z-periodic", probList.get("z-periodic",false));
+    // the entire "Problem" list used by the overlapping partiitioner
+    // is fairly complex, but we implement a set of default cases like
+    // "Laplace", "Stokes-C" etc to make it easier for the user.
+    string eqn="Undefined Problem";
     
-    probList_.set("Visualize Solver", probList.get("Visualize Solver",false));
+    if (probList_.isParameter("Equations"))
+      {
+      eqn = probList_.get("Equations",eqn);
+      this->SetProblemDefinition(eqn,*List_);
+      // the partitioning classes will not accept this parameter,
+      // to indicate the list has been processed we remove it.
+      probList_.remove("Equations");
+      if (probList_.isParameter("Complex Arithmetic"))
+        {
+        probList_.remove("Complex Arithmetic");
+        }
+      }
 
-    Teuchos::ParameterList& precList_ = PL().sublist("Preconditioner");
-    Teuchos::ParameterList& precList = List.sublist("Preconditioner");
-    
+    dof_=probList_.get("Degrees of Freedom",1);
+
+    return 0;
+    }
+
+  //!
+  void Preconditioner::setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& list)
+    {
+    START_TIMER3(label_,"setParameterList");
+    setMyParamList(list);
+    this->SetParameters(*list);
+    // this is the place where we check for
+    // valid parameters for the preconditioner'
+    // and Schur preconditioner
+    if (validateParameters_)
+      {
+      this->getValidParameters();
+      PL().validateParameters(VPL());
+      }
+    DEBVAR(PL());
+    }
+
+  //
+  Teuchos::RCP<const Teuchos::ParameterList> 
+  Preconditioner::getValidParameters() const
+    {
+    if (validParams_!=Teuchos::null) return validParams_;
+    START_TIMER3(label_,"getValidParameters");
+
+    validParams_=Teuchos::rcp(new Teuchos::ParameterList());
+ 
+
+    VPL("Problem").set("Dimension", 2,"number of spatial dimensions");
+
+    VPL("Problem").set("nx",16,"number of grid points in x-direction");
+    VPL("Problem").set("ny",16,"number of grid points in y-direction");
+    VPL("Problem").set("nz",1,"number of grid points in z-direction");
+
+    VPL("Problem").set("x-periodic", false,"assume periodicity in x-direction");
+    VPL("Problem").set("y-periodic", false,"assume periodicity in y-direction");
+    VPL("Problem").set("z-periodic", false,"assume periodicity in z-direction");
+
     //TODO: use validators everywhere
 
     Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
@@ -123,84 +185,51 @@ namespace HYMLS {
                 new Teuchos::StringToIntegralParameterEntryValidator<int>(
                     Teuchos::tuple<std::string>("Cartesian"),"Partitioner"));
     
-    precList_.set("Partitioner", precList.get("Partitioner","Cartesian"),
+    VPL().set("Partitioner", "Cartesian",
         "Type of partitioner to be used to define the subdomains",
         partValidator);
     
-    scaleSchur_=precList.get("Scale Schur-Complement",false);
-    precList_.set("Scale Schur-Complement",scaleSchur_);
+    VPL().set("Scale Schur-Complement",false,
+        "Apply scaling to the Schur complement before building an approximation."
+        "This is only intended for Navier-Stokes type problems and it is a bit "
+        "ad-hoc right now.");
 
-    int pos=1;
-    while (pos>0)
-      {
-      string label = "Fix GID "+Teuchos::toString(pos);
-      if (precList.isParameter(label))
-        {
-        precList_.set(label,precList.get(label,-1));
-        pos++;
-        }
-      else
-        {
-        pos=-1;
-        }
-      }
+    VPL().set("Fix GID 1",-1,"put a Dirichlet condition for node x in the last Schur "
+                                 "complement. This is useful for e.g. fixing the pressure "
+                                 "level.");
 
-    // for the recursive solver, store the original separator length
-    int sepx, sepy, sepz;
-    int base_sepx, base_sepy, base_sepz;
+    VPL().set("Fix GID 2",-1,"put a Dirichlet condition for node x in the last Schur "
+                                 "complement. This is useful for e.g. fixing the pressure "
+                                 "level.");
 
-    // these two are alternatives:
-    if (precList.isParameter("Separator Length"))
-      {
-      sepx=precList.get("Separator Length",4);
-      sepy=sepx; 
-      sepz=dim_>2? sepx:1;
-      }
-    else if (precList.isParameter("Separator Length (x)"))
-      {
-      sepx=precList.get("Separator Length (x)",4);
-      sepy=precList.get("Separator Length (y)",sepx);
-      sepz=precList.get("Separator Length (z)",dim_>2?sepx:1);
-      }
-    else
-      {
-      sepx=-1;
-      precList_.set("Number of Subdomains", precList.get("Number of Subdomains",16));
-      }
-    if (sepx>0)
-      {
-      precList_.set("Separator Length (x)", sepx);
-      precList_.set("Separator Length (y)", sepy);
-      precList_.set("Separator Length (z)", sepz);
-      }
+    int sepx=4;
+    std::string doc = "defines the subdomain size for cortesian partitioning";
 
-    if (precList.isParameter("Base Separator Length"))
-      {
-      base_sepx=precList.get("Base Separator Length",sepx);
-      base_sepy=base_sepx;
-      base_sepz=dim_>2?base_sepx:1;
-      }
-    else if (precList.isParameter("Base Separator Length (x)"))
-      {
-      base_sepx=precList.get("Base Separator Length (x)",sepx);
-      base_sepy=precList.get("Base Separator Length (y)",sepy);
-      base_sepz=precList.get("Base Separator Length (z)",sepz);
-      }
-    else
-      {
-      base_sepx=sepx;
-      base_sepy=sepy;
-      base_sepz=sepz;
-      }
-    
-    precList_.set("Base Separator Length (x)", base_sepx);
-    precList_.set("Base Separator Length (y)", base_sepy);
-    precList_.set("Base Separator Length (z)", base_sepz);
-    
-    precList_.set("Subdivide Separators",precList.get("Subdivide Separators",false));
-    precList_.set("Subdivide based on variable",precList.get("Subdivide based on variable",-1));
+    VPL().set("Visualize Solver", false, "write matlab files to visualize the partitioning");
 
-    precList_.set("Number of Levels",precList.get("Number of Levels",2));
+    VPL().set("Separator Length", sepx,doc+" (square subdomains)");
+    VPL().set("Separator Length (x)", sepx,doc);
+    VPL().set("Separator Length (y)", sepx,doc);
+    VPL().set("Separator Length (z)", 1,doc);
+
+    std::string doc2 = "this is an internal parameter that should not be set by the user";
+
+    VPL().set("Base Separator Length", sepx, doc2);
+    VPL().set("Base Separator Length (x)", sepx,doc2);
+    VPL().set("Base Separator Length (y)", sepx,doc2);
+    VPL().set("Base Separator Length (z)", 1,doc2);
+
+    VPL().set("Subdivide Separators",false,
+        "this was implemented for the rotated B-grid and is not intended for any other "
+        "problems right now");
+    VPL().set("Subdivide based on variable",-1,
+        "decide to which variables on a separator to apply the OT based on couplings to "
+        " this variable (typically the pressure). Not intended for general use");
+
+    VPL().set("Number of Levels",2,
+        "number of levels - on level k a direct solver is used. k=1 is a direct method"
+        " for the complete problem, k=2 is the standard two-level scheme, k>2 means "
+        "recursive application of the approximation technique");
 
     Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
         sparseDenseValidator = Teuchos::rcp(
@@ -208,79 +237,25 @@ namespace HYMLS {
                         Teuchos::tuple<std::string>( "Sparse","Dense"),"Subdomain Solver Type"));
     
 
-    sdSolverType_=precList.get("Subdomain Solver Type","Sparse");
-    precList_.set("Subdomain Solver Type",sdSolverType_,
+    VPL().set("Subdomain Solver Type","Sparse",
         "Sparse or dense subdomain solver?", sparseDenseValidator);
-
-    precList_.sublist("Subdomain Solver")
-       = precList.sublist("Subdomain Solver");
-
+      
     // this typically doesn't need parameters, it's just lapack on small dense
     // matrices.
-    precList_.sublist("Dense Solver")
-       = precList.sublist("Dense Solver");
+    VPL().sublist("Dense Solver",false,
+    "settings for serial dense solves inside the preconditioner").disableRecursiveValidation();
 
-    precList_.sublist("Sparse Solver")
-       = precList.sublist("Sparse Solver");
+    VPL().sublist("Sparse Solver",false,
+    "settings for serial sparse solvers (passed to Ifpack)").disableRecursiveValidation();
 
-    precList_.sublist("Coarse Solver")
-       = precList.sublist("Coarse Solver");
-
-    // there are two ways of defining the problem to be solved:
-    // (a) simply set the "Equations" to something we know
-    // ("Laplace", "Stokes-C"), or set the "Problem Definition"
-    // sublist manually (for expert use only!)
-    string eqn="Undefined Problem";
+    VPL().sublist("Coarse Solver",false,
+    "settings for serial or parallel solver used on the last level "
+    " (passed to Ifpack_Amesos)").disableRecursiveValidation();      
     
-    if (probList.isParameter("Equations"))
-      {
-      if (probList.isSublist("Problem Definition"))
-        {
-        Tools::Out("you have set both 'Equations' and 'Problem Definition'");
-        Tools::Out("in your parameter list. You should set only one of them.");
-        return -1;
-        }
-      probList_.set("Complex Arithmetic",probList.get("Complex Arithmetic",false));  
-      
-      eqn=probList.get("Equations",eqn);
-      probList_.set("Equations",eqn);
-      this->SetProblemDefinition(eqn,PL());
-      probList_.remove("Equations");
-      }
-    else
-      {
-      // make sure the user has set the "Problem Definition" list
-      if (!probList.isSublist("Problem Definition"))
-        {
-        Tools::Warning("You have not set the 'Equations' parameter or 'Problem Definition' correctly",__FILE__,__LINE__);        
-        }
-      probList_.sublist("Problem Definition")=probList.sublist("Problem Definition");
-      if (probList.isParameter("Complex Arithmetic"))
-        {
-        bool complex = probList.get("Complex Arithmetic",false);
-        if (complex)
-          {
-          // user should manually adjust the sublist instead of expecting us to do it
-          Tools::Warning(std::string("You have set the 'Complex Arithmetic' parameter in combination \n")+
-                       std::string("with the 'Problem Definition' sublist, it will be ignored!"),
-                       __FILE__,__LINE__);
-        
-          }
-        }
-      }
-
-    dof_=probList.sublist("Problem Definition").get("Degrees of Freedom",1);
-
-    DEBUG("Leave Preconditioner::SetParameters()");
-    return 0;
-            }
-
-  //!
-  void Preconditioner::setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& list)
-    {
-    this->SetParameters(*list);
+    return validParams_;    
     }
-            
+
+
   // Computes all it is necessary to initialize the preconditioner.
   int Preconditioner::Initialize()
     {
@@ -288,7 +263,8 @@ namespace HYMLS {
     time_->ResetStartTime();
     if (hid_==Teuchos::null)
       {
-      hid_=Teuchos::rcp(new HYMLS::OverlappingPartitioner(matrix_,getMyNonconstParamList()));
+      hid_=Teuchos::rcp(new 
+         HYMLS::OverlappingPartitioner(matrix_,getMyNonconstParamList(),myLevel_));
       }
 
 #ifdef TESTING
@@ -483,7 +459,7 @@ MatrixUtils::Dump(*A22_, "Solver"+Teuchos::toString(myLevel_)+"_A22.txt");
       }
 
     IFPACK_CHK_ERR(subdomainSolver_[sd]->SetParameters
-        (PL().sublist("Preconditioner").sublist("Subdomain Solver")));
+        (PL().sublist("Sparse Solver")));
         
     CHECK_ZERO(subdomainSolver_[sd]->Initialize());
 
@@ -501,7 +477,7 @@ MatrixUtils::Dump(*A22_, "Solver"+Teuchos::toString(myLevel_)+"_A22.txt");
 
   // construct the Schur-complement operator (no computations, just
   // pass in pointers of the LU's)
-  Schur_=Teuchos::rcp(new SchurComplement(Teuchos::rcp(this,false)));
+  Schur_=Teuchos::rcp(new SchurComplement(Teuchos::rcp(this,false),myLevel_));
   Teuchos::RCP<const Epetra_CrsMatrix> SC = Schur_->Matrix();
   
 #ifdef TESTING
@@ -553,7 +529,6 @@ Tools::out() << "SIZE OF S: "<< map2_->NumGlobalElements()<<std::endl;
   numInitialize_++;
   timeInitialize_+=time_->ElapsedTime();
 
-  STOP_TIMER(label_,"Initialize");
   return 0;
   }
 
@@ -606,7 +581,6 @@ int Preconditioner::InitializeCompute()
     CHECK_ZERO(subdomainSolver_[sd]->Initialize());
     }
 
-  STOP_TIMER(label_,"InitializeCompute");
   return 0;
   }
 
@@ -629,6 +603,7 @@ int Preconditioner::InitializeCompute()
 
 InitializeCompute();
 
+{
 START_TIMER(label_,"Subdomain factorization");
 
   for (int sd=0;sd<hid_->NumMySubdomains();sd++)
@@ -639,12 +614,9 @@ START_TIMER(label_,"Subdomain factorization");
       CHECK_ZERO(subdomainSolver_[sd]->Compute(*reorderedMatrix_));
       }
     }
+}
 
-STOP_TIMER(label_,"Subdomain factorization");
-    
-  START_TIMER(label_,"Construct Schur-Complement");
   CHECK_ZERO(Schur_->Construct());
-  STOP_TIMER(label_,"Construct Schur-Complement");
 
 #ifdef STORE_MATRICES
     MatrixUtils::Dump(*(Schur_->Matrix()),"SchurComplement"+Teuchos::toString(myLevel_)+".txt");
@@ -680,7 +652,7 @@ STOP_TIMER(label_,"Subdomain factorization");
   if (1)
     {
     DEBUG("initialize preconditioner");
-    schurPrec_->SetParameters(PL());
+    schurPrec_->setParameterList(getMyNonconstParamList());
     // we can do this only now where the pattern is available
     CHECK_ZERO(schurPrec_->Initialize());
     }
@@ -691,14 +663,11 @@ STOP_TIMER(label_,"Subdomain factorization");
   timeCompute_ += time_->ElapsedTime();
   numCompute_++;
 
-  if (PL().sublist("Problem").get("Visualize Solver",false)==true)
+  if (PL().get("Visualize Solver",false)==true)
     {
     Tools::out() << "MATLAB file for visualizing the solver is written to hid_data.m" << std::endl;
     this->Visualize("hid_data.m");
     }
-
-  STOP_TIMER(label_,"Compute");
-
 
   return 0;
   }
@@ -835,7 +804,6 @@ if (dumpVectors_)
     }
 #endif    
     timeApplyInverse_+=time_->ElapsedTime();
-    STOP_TIMER(label_,"ApplyInverse");
     return 0;
     }
 
@@ -947,6 +915,7 @@ if (dumpVectors_)
   // Prints basic information on iostream. This function is used by operator<<.
   ostream& Preconditioner::Print(std::ostream& os) const
     {
+    START_TIMER2(label_,"Print");
     os << Label() << std::endl;
     if (IsInitialized())
       {
@@ -979,13 +948,12 @@ if (dumpVectors_)
 // solve a block diagonal system with A11. Vectors are based on rowMap_
 int Preconditioner::ApplyInverseA11(const Epetra_MultiVector& B, Epetra_MultiVector& X) const
   {
-
   if (!IsComputed())
     {
     Tools::Warning("solver not computed!",__FILE__,__LINE__);
     return -1;
     }
-  
+
   START_TIMER(label_,"subdomain solve");
   int lid=0;
 
@@ -1019,14 +987,13 @@ int Preconditioner::ApplyInverseA11(const Epetra_MultiVector& B, Epetra_MultiVec
           }
         }
       }
-
-    STOP_TIMER(label_,"subdomain solve");
     return 0;
     }
 
 // solve a block diagonal system with A11^T. Vectors are based on rowMap_
 int Preconditioner::ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVector& X) const
   {
+  START_TIMER3(label_,"ApplyInverseA11T");
   int ierr=0;
   int nsd=subdomainSolver_.size();
   Teuchos::Array<bool> prevtrans(nsd); // remember if the solvers were already transposed
@@ -1073,6 +1040,7 @@ int Preconditioner::ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVe
                              Epetra_MultiVector& Y,
                              double* flops) const
     {
+  START_TIMER3(label_,"ApplyA12");
 
     if (!IsComputed())
       {
@@ -1102,6 +1070,7 @@ int Preconditioner::ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVe
                              Epetra_MultiVector& Y,
                              double* flops) const
   {
+  START_TIMER3(label_,"ApplyA12T");
     if (!IsComputed())
       {
       Tools::Warning("solver not computed!",__FILE__,__LINE__);
@@ -1119,7 +1088,9 @@ int Preconditioner::ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVe
   int Preconditioner::ApplyA21(const Epetra_MultiVector& X, 
                              Epetra_MultiVector& Y,
                              double* flops) const
-    {    
+    {
+    START_TIMER3(label_,"ApplyA21");    
+    
     if (!IsComputed())
       {
       Tools::Warning("solver not computed!",__FILE__,__LINE__);
@@ -1174,7 +1145,8 @@ int Preconditioner::ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVe
   int Preconditioner::ApplyA21T(const Epetra_MultiVector& X, 
                              Epetra_MultiVector& Y,
                              double* flops) const
-    {    
+    {
+    START_TIMER3(label_,"ApplyA21T");
     if (!IsComputed())
       {
       Tools::Warning("solver not computed!",__FILE__,__LINE__);
@@ -1196,6 +1168,7 @@ int Preconditioner::ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVe
                              Epetra_MultiVector& Y,
                              double *flops) const
     {
+    START_TIMER3(label_,"ApplyA22");
     if (!IsComputed())
       {
       Tools::Warning("solver not computed!",__FILE__,__LINE__);
@@ -1241,6 +1214,7 @@ int Preconditioner::ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVe
                              Epetra_MultiVector& Y,
                              double *flops) const
     {
+    START_TIMER3(label_,"ApplyA22T");
     if (!IsComputed())
       {
       Tools::Warning("solver not computed!",__FILE__,__LINE__);
@@ -1262,18 +1236,16 @@ int Preconditioner::ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVe
 
 int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& list)
   {
+    START_TIMER3(label_,"SetProblemDefinition");
   Teuchos::ParameterList& probList=list.sublist("Problem");
-  Teuchos::ParameterList& defList=list.sublist("Problem").sublist("Problem Definition");
   Teuchos::ParameterList& precList=list.sublist("Preconditioner");
 
-  int dim=probList.get("Dimension",2);
-  
   bool xperio=false;
   bool yperio=false;
   bool zperio=false;
   xperio=probList.get("x-periodic",xperio);
-  if (dim>=1) yperio=probList.get("y-periodic",yperio);
-  if (dim>=2) zperio=probList.get("z-periodic",zperio);
+  if (dim_>=1) yperio=probList.get("y-periodic",yperio);
+  if (dim_>=2) zperio=probList.get("z-periodic",zperio);
   
   Galeri::PERIO_Flag perio=Galeri::NO_PERIO;
   
@@ -1281,51 +1253,52 @@ int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& lis
   if (yperio) perio=(Galeri::PERIO_Flag)(perio|Galeri::Y_PERIO);
   if (zperio) perio=(Galeri::PERIO_Flag)(perio|Galeri::Z_PERIO);
   
-  defList.set("Periodicity",perio);
+  probList.set("Periodicity",perio);
+  probList.remove("x-periodic");
+  probList.remove("y-periodic");
+  probList.remove("z-periodic");
   
   bool is_complex = probList.get("Complex Arithmetic",false);
 
   if (eqn=="Laplace")
     {
-    defList.set("Dimension",dim);
-    defList.set("Substitute Graph",false); 
+    probList.set("Substitute Graph",false); 
     if (!is_complex)
       {
-      defList.set("Degrees of Freedom",1);
-      defList.set("Variable Type (0)","Laplace");
+      probList.set("Degrees of Freedom",1);      
+      probList.sublist("Variable 0").set("Variable Type","Laplace");
       }
     else
       {
-      defList.set("Degrees of Freedom",2);
-      defList.set("Variable Type (0)","Laplace");
-      defList.set("Variable Type (1)","Laplace");
+      probList.set("Degrees of Freedom",2);
+      probList.sublist("Variable 0").set("Variable Type","Laplace");
+      probList.sublist("Variable 1").set("Variable Type","Laplace");
       }
     
     }
   else if (eqn=="Stokes-C")
     {
-    defList.set("Dimension",dim);
-    defList.set("Substitute Graph",false);
+    probList.set("Substitute Graph",false);
     int factor = is_complex? 2 : 1;
-    defList.set("Degrees of Freedom",(dim+1)*factor);
-    for (int i=0;i<dim*factor;i++)
+    probList.set("Degrees of Freedom",(dim_+1)*factor);
+    for (int i=0;i<dim_*factor;i++)
       {
       Teuchos::ParameterList& velList =
-        defList.sublist("Variable "+Teuchos::toString(i));      
+        probList.sublist("Variable "+Teuchos::toString(i));
       velList.set("Variable Type","Laplace");
       }
     // pressure:
     for (int i=0;i<factor;i++)
       {
       Teuchos::ParameterList& presList =
-        defList.sublist("Variable "+Teuchos::toString(dim*factor+i));
+        probList.sublist("Variable "+Teuchos::toString(dim_*factor+i));
       presList.set("Variable Type","Retain 1");
       presList.set("Retain Isolated",true);
       }
     // we fix the singularity by inserting a Dirichlet condition for 
     // global pressure node 2 
-    precList.set("Fix GID 1",factor*dim);
-    if (is_complex) precList.set("Fix GID 2",2*dim+1);
+    precList.set("Fix GID 1",factor*dim_);
+    if (is_complex) precList.set("Fix GID 2",2*dim_+1);
     }
   else
     {
@@ -1338,6 +1311,7 @@ int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& lis
 
 void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
   {
+    START_TIMER2(label_,"Visualize");
   if ( (comm_->MyPID()==0) && (myLevel_==1))
     {
     std::ofstream ofs(mfilename.c_str(),std::ios::out);
@@ -1376,7 +1350,7 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
                Teuchos::RCP<const Epetra_MultiVector> W,
                Teuchos::RCP<const Epetra_SerialDenseMatrix> C)
     {
-    START_TIMER(label_,"SetBorder");
+    START_TIMER2(label_,"SetBorder");
 
     Teuchos::RCP<const Epetra_MultiVector> _V=V;
     Teuchos::RCP<const Epetra_MultiVector> _W=W;
@@ -1493,7 +1467,6 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
     borderedSchurSolver_ = Teuchos::rcp
         (new BorderedLU(schurPrec_,borderSchurV_,borderSchurW_,borderSchurC_));
 
-    STOP_TIMER(label_,"SetBorder");
     return 0;
     }
 
@@ -1511,7 +1484,7 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
         (const Epetra_MultiVector& Y, const Epetra_SerialDenseMatrix& T,
                Epetra_MultiVector& X,       Epetra_SerialDenseMatrix& S) const
   {
-  //TODO: not implemented
+  Tools::Error("not implemented",__FILE__,__LINE__);
   return -99;
   }
 

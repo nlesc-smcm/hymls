@@ -41,7 +41,7 @@ class BasePartitioner
   BasePartitioner(){;}
   
   //! destructor
-  virtual ~BasePartitioner(){DEBUG("BasePartitioner::~BasePartitioner()");}
+  virtual ~BasePartitioner(){}
   
   //! partition an [nx x ny x nz] grid with one DoF per node
   //! into npx*npy*npz global subdomains.

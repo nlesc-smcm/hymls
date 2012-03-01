@@ -164,6 +164,9 @@ class CartesianPartitioner : public BasePartitioner
 
   //! pointers into map
   Teuchos::Array<int> subdomainPointer_;
+  
+  //! object label
+  std::string label_;
     
   };
 

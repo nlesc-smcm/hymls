@@ -36,16 +36,17 @@ int main(int argc, char* argv[])
   {
   MPI_Init(&argc, &argv);
 
-int status=0;
+bool status=true;
 
   Teuchos::RCP<Epetra_MpiComm> comm=Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
 
   // construct file streams, otherwise the output won't work correctly
   HYMLS::Tools::InitializeIO(comm);
   
-  START_TIMER(std::string("main"),"entire run");
 
   try {
+
+  START_TIMER(std::string("main"),"entire run");
 
   std::string param_file;
 
@@ -330,9 +331,8 @@ DEBVAR(*b);
     }
   
     } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr, status);
+  if (!status) HYMLS::Tools::Fatal("Caught an exception",__FILE__,__LINE__);
 
-  STOP_TIMER(std::string("main"),"entire run");  
-  
   HYMLS::Tools::PrintTiming(HYMLS::Tools::out());
 
 comm->Barrier();

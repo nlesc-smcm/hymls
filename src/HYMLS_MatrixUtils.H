@@ -292,7 +292,7 @@ class MatrixUtils
     
     
     //! computes a fill-reducing ordering based on information about the matrix and
-    //! the HYMLS "Problem Definition" sublist. This is only intended for Navier-Stokes
+    //! the HYMLS "Partitioner" sublist. This is only intended for Navier-Stokes
     //! problems right now. The output array is resized if necessary and is the global
     //! ordering gathered on the 'host' (rank 0), so that it is conformal with the MUMPS
     //! input paraeter "PermIn".

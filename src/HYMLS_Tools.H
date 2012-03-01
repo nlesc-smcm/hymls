@@ -1,103 +1,32 @@
 #ifndef HYMLS_TOOLS_H
 #define HYMLS_TOOLS_H
 
-#ifdef DEBUGGING
-#ifndef TESTING
-#define TESTING
-#endif
-#endif
-
 #include <mpi.h>
+#include <stack>
 
 #include "Epetra_Comm.h"
 #include <iostream>
 #include "Teuchos_RCP.hpp"
 #include "EpetraExt_RowMatrixOut.h"
+#include "Epetra_SerialComm.h"
 
 #include "Teuchos_FancyOStream.hpp"
 #include "Teuchos_ParameterList.hpp"
 
 
-#ifdef DEBUGGING
-#define TIMING_LEVEL 10
-#ifndef FUNCTION_TRACING
-#define FUNCTION_TRACING
-#endif
-#define PRINT_TIMING false
-#else
-#define TIMING_LEVEL 2
-#define PRINT_TIMING false
-#endif
-
-#if TIMING_LEVEL>0
-#define START_TIMER(s1,s2) HYMLS::Tools::StartTiming(s1+": "+s2);
-#define STOP_TIMER(s1,s2) HYMLS::Tools::StopTiming(s1+": "+s2,PRINT_TIMING);
-#else
-#define START_TIMER(s1,s2)
-#define STOP_TIMER(s1,s2)
-#endif
-
-#if TIMING_LEVEL>1
-#define START_TIMER2(s1,s2) HYMLS::Tools::StartTiming(s1+": "+s2);
-#define STOP_TIMER2(s1,s2) HYMLS::Tools::StopTiming(s1+": "+s2,PRINT_TIMING);
-#else
-#define START_TIMER2(s1,s2) 
-#define STOP_TIMER2(s1,s2) 
-#endif
-
-#if TIMING_LEVEL>2
-#define START_TIMER3(s1,s2) HYMLS::Tools::StartTiming(s1+": "+s2);
-#define STOP_TIMER3(s1,s2) HYMLS::Tools::StopTiming(s1+": "+s2,PRINT_TIMING);
-#else
-#define START_TIMER3(s1,s2) 
-#define STOP_TIMER3(s1,s2) 
-#endif
-
-#ifdef DEBUGGING
-#ifndef DEBUG
-#define DEBUG(s) if (HYMLS::Tools::InitializedIO()) HYMLS::Tools::deb() << s << std::endl;
-#endif
-#ifndef DEBVAR
-#define DEBVAR(s) if (HYMLS::Tools::InitializedIO()) HYMLS::Tools::deb() << #s << " = "<<s << std::endl;
-#endif
-#else
-#ifndef DEBUG
-#define DEBUG(s) 
-#endif
-#ifndef DEBVAR
-#define DEBVAR(s) 
-#endif
-#endif
-#ifndef CHECK_ZERO
-#define CHECK_ZERO(funcall) {int ierr = funcall;\
-if (ierr) {\
-std::string msg="Trilinos Error "+Teuchos::toString(ierr)+" returned from call "+std::string(#funcall);\
-HYMLS::Tools::Error(msg,__FILE__,__LINE__);}\
-}
-#endif
-
-#ifndef CHECK_TRUE
-#define CHECK_TRUE(funcall) {bool berr = funcall;\
-if (!berr) {std::cerr<<"Trilinos call "<<#funcall<<" returned false"<<std::endl;}}
-#endif
-#ifndef CHECK_NONNEG
-#define CHECK_NONNEG(funcall) {int ierr = funcall;\
-if (ierr<0) {std::cerr<<"Trilinos Error "<<ierr<<" returned from call "<<#funcall<<std::endl;}}
-#endif
-
-//! our own 'modulo' function, which behaves like mod in matlab.
-//! the C++ built-in '%' operator returns -1%n=-1 and is therefore
-//! not very useful for periodic boundaries...
-#ifndef MOD
-#define MOD(x,y) (((double)(y)==0.0)? (double)(x): ((double)(x) - floor((double)(x)/((double)(y)))*((double)(y))))
-#endif
+#include "HYMLS_Macros.H"
+#include "HYMLS_Exception.H"
 
 namespace HYMLS
   {
   
+  //! various static functions to do timing, function tracing,
+  //! error handling etc.
   class Tools
     {
   public:
+  
+   friend class Exception;
   
    static void InitializeIO(Teuchos::RCP<const Epetra_Comm> comm,
                             Teuchos::RCP<Teuchos::FancyOStream> output=Teuchos::null,
@@ -185,22 +114,20 @@ namespace HYMLS
   
     static void Error(std::string msg, const char* file, int line)
       {
-      if (!Teuchos::is_null(output_stream))
-        {
-        output_stream=Teuchos::null;
-        }
-#ifdef DEBUGGING
-      if (!Teuchos::is_null(output_stream))
-        {
-        debug_stream=Teuchos::null;
-        }
-#endif
+      throw HYMLS::Exception(msg,(std::string)file,line);
+      }
+      
+    static void Fatal(std::string msg, const char* file, int line)
+      {
+      std::cerr << printFunctionStack(std::cerr) << std::endl;
       std::cerr << "HYMLS Error: "<<msg<<std::endl;
       std::cerr << "(in "<<file<<", line "<<line<<")"<<std::endl;
-      DEBUG("HYMLS Error: "<<msg);
-      DEBUG("(in "<<file<<", line "<<line<<")");
+      DEBUG(std::flush);
+      out()<<std::flush;
+      output_stream=Teuchos::null;
+      debug_stream=Teuchos::null;
       MPI_Abort(MPI_COMM_WORLD,-1);
-      exit(-1);
+      exit(-1);      
       }
 
     static void Warning(std::string msg, const char* file, int line)
@@ -321,7 +248,9 @@ namespace HYMLS
     {
     if (!InitializedIO())
       {
-      Error("I/O not initialized!",__FILE__,__LINE__);
+      Teuchos::RCP<Epetra_SerialComm> comm = Teuchos::rcp(new Epetra_SerialComm());
+      Teuchos::RCP<std::ostream> tmp_stream = Teuchos::rcp(&std::cout, false);
+      InitializeIO_std(comm,tmp_stream,tmp_stream);
       }
     return output_stream;
     }
@@ -330,7 +259,9 @@ namespace HYMLS
     {
     if (!InitializedIO())
       {
-      Error("I/O not initialized!",__FILE__,__LINE__);
+      Teuchos::RCP<Epetra_SerialComm> comm = Teuchos::rcp(new Epetra_SerialComm());
+      Teuchos::RCP<std::ostream> tmp_stream = Teuchos::rcp(&std::cout, false);
+      InitializeIO_std(comm,tmp_stream,tmp_stream);
       }
     return *output_stream;
     }
@@ -340,7 +271,11 @@ namespace HYMLS
     {
     if (!InitializedIO())
       {
-      Error("I/O not initialized!",__FILE__,__LINE__);
+      debug_stream = Teuchos::rcp(new 
+           Teuchos::FancyOStream(Teuchos::rcp(&std::cerr,false)));
+           
+      debug_stream->setOutputToRootOnly(0);
+      debug_stream->setShowProcRank(true);
       }
     return *debug_stream;
     }
@@ -356,12 +291,16 @@ private:
     
     //! keeps track of timer numbers (to get the ordering correct)
     static int timerCounter_;
+   
     
     //! communicator for timing
     static Teuchos::RCP<const Epetra_Comm> comm_;
     
     //! for function tracing (nice indented output)        
     static int traceLevel_;
+    
+    //! keep track of the function call stack if FUNCTION_TRACING is defined
+    static std::stack<string> functionStack_;
     
     //! get intentation string
     static std::string tabstring(int indent)
@@ -373,8 +312,37 @@ private:
         }
       return ret;
       }
+      
+    // print the function stack if FUNCTION_TRACING is enabled
+    static std::ostream& printFunctionStack(std::ostream& os);
     
     };
+
+//! this object starts a timer when it is constructed and
+//! stops it when it is destroyed.
+class TimerObject
+  {
+  public: 
+  
+  //!
+  TimerObject(string s, bool print)
+    {
+    s_=s;
+    print_=print;
+    Tools::StartTiming(s_);
+    }
+  //!
+  ~TimerObject()
+    {
+    Tools::StopTiming(s_,print_);
+    }
+  private:
+  //!
+  std::string s_;
+  //!
+  bool print_;
+  };
+
   
   }
 

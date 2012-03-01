@@ -41,8 +41,11 @@ class SchurComplement : public Epetra_Operator
   
 public:
 
-  //! constructor
-  SchurComplement(Teuchos::RCP<const Preconditioner> mother);
+  //! constructor. The level parameter is just to get the
+  //! label right, the mother defines A11, A12, A21 and A22
+  //! so that this class represents A22 - A21 A11\A12
+  SchurComplement(Teuchos::RCP<const Preconditioner> mother,
+        int lev=0);
 
   //! destructor
   ~SchurComplement();

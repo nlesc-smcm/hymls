@@ -56,17 +56,17 @@ namespace HYMLS {
         testVector_(testVector),
         matrix_(Teuchos::null),
         nextLevelHID_(Teuchos::null),
-        PLA()
+        PLA("Preconditioner")
     {
-    START_TIMER2(label_,"constructor");
+    START_TIMER3(label_,"Constructor");
     time_=Teuchos::rcp(new Epetra_Time(*comm_));
     
-    SetParameters(*params);
-          
-    DEBVAR(myLevel_);
-    DEBVAR(maxLevel_);
+    setParameterList(params);
           
     int nnzPerRow=SchurMatrix_->MaxNumEntries();
+    
+    DEBVAR(myLevel_);
+    DEBVAR(maxLevel_);
 
     if (myLevel_==maxLevel_)
       {
@@ -104,38 +104,47 @@ namespace HYMLS {
 
   //TODO: may want to give the user a choice here, currently we just have
   //      Householder.
-  OT=Teuchos::rcp(new Householder());
+  OT=Teuchos::rcp(new Householder(myLevel_));
   dumpVectors_=false;
 #ifdef DEBUGGING
   dumpVectors_=true;
 #endif  
     
-  STOP_TIMER2(label_,"constructor");
   }
 
 
   // destructor
   SchurPreconditioner::~SchurPreconditioner()
     {
-    DEBUG("Destroy "+label_);
+    START_TIMER3(label_,"destructor");
     }
 
   // Ifpack_Preconditioner interface
   
   void SchurPreconditioner::setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& list)
     {
+    START_TIMER3(label_,"setParameterList");
+    setMyParamList(list);
     this->SetParameters(*list);
+    // note - this class gets a few parameters from the big "Preconditioner"
+    // list, which has been validated by the Preconditioner class already. So
+    // we don't validate anything here.
+    DEBVAR(PL());
     }
 
   // Sets all parameters for the preconditioner.
   int SchurPreconditioner::SetParameters(Teuchos::ParameterList& List)
     {
-    Teuchos::ParameterList& precList = List.sublist("Preconditioner");
-    Teuchos::ParameterList& precList_ = PL().sublist("Preconditioner");
-    maxLevel_=precList.get("Number of Levels",myLevel_);
-    precList_.set("Number of Levels",maxLevel_);
-    subdivideSeparators_=precList.get("Subdivide Separators",false);
-    precList_.set("Subdivide Separators",subdivideSeparators_);
+    START_TIMER3(label_,"SetParameters");
+    Teuchos::RCP<Teuchos::ParameterList> myPL = getMyNonconstParamList();
+    
+    if (myPL.get()!=&List)
+      {
+      setMyParamList(Teuchos::rcp(&List,false));
+      }
+    
+    maxLevel_=PL().get("Number of Levels",myLevel_);
+    subdivideSeparators_=PL().get("Subdivide Separators",false);
     int pos=1;
     
     fix_gid_.resize(0);
@@ -143,10 +152,9 @@ namespace HYMLS {
     while (pos>0)
       {
       string label="Fix GID "+Teuchos::toString(pos);
-      if (precList.isParameter(label))
+      if (PL().isParameter(label))
         {
-        fix_gid_.append(precList.get(label,0));
-        precList_.set(label,precList.get(label,0));
+        fix_gid_.append(PL().get(label,0));
         pos++;
         }
       else
@@ -157,9 +165,24 @@ namespace HYMLS {
       
     DEBVAR(fix_gid_);
     
-    PL().sublist("Problem") = List.sublist("Problem");
-
     return 0;
+    }
+
+  // Sets all parameters for the preconditioner.
+  Teuchos::RCP<const Teuchos::ParameterList> SchurPreconditioner::getValidParameters() const
+    {
+    if (validParams_!=Teuchos::null) return validParams_;
+    START_TIMER3(label_,"getValidParameters");
+    
+    VPL().set("Number of Levels",2,"If larger than 2, the method is applied recursively.");
+    VPL().set("Subdivide Separators",false,"this has been implemented for the rotated "
+        "B-grid and is not intended for general use right now.");
+    VPL().set("Fix GID 1",-1,"enforce dirichlet condition on the coarsest level "
+    "(for fixing the pressure, mainly)");
+    VPL().set("Fix GID 2",-1,"enforce dirichlet condition on the coarsest level "
+    "(for fixing the pressure, mainly)");
+    
+    return validParams_;
     }
 
   // Computes all it is necessary to initialize the preconditioner.
@@ -167,8 +190,6 @@ namespace HYMLS {
     {
     START_TIMER(label_,"Initialize");
     time_->ResetStartTime();
-    DEBVAR(myLevel_);
-    DEBVAR(maxLevel_);
     
     if (myLevel_==maxLevel_)
       {
@@ -187,7 +208,6 @@ namespace HYMLS {
     numInitialize_++;
 
     timeInitialize_+=time_->ElapsedTime();
-    STOP_TIMER(label_,"Initialize");
     return 0;
     }
 
@@ -196,7 +216,6 @@ namespace HYMLS {
   int SchurPreconditioner::Compute()
     {
     START_TIMER(label_,"Compute");
-    DEBUG("SchurPreconditioner::Compute()");
 
     if (!(IsInitialized()))
       {
@@ -220,20 +239,22 @@ namespace HYMLS {
 
     // compute scaling for reduced Schur
     CHECK_ZERO(ComputeScaling(*reducedSchur_,reducedSchurScaLeft_,reducedSchurScaRight_));
+    
+    DEBVAR(myLevel_);
+    DEBVAR(maxLevel_);
 
     DEBUG("scale matrix");
     CHECK_ZERO(reducedSchur_->LeftScale(*reducedSchurScaLeft_));
     CHECK_ZERO(reducedSchur_->RightScale(*reducedSchurScaRight_));
     
     DEBUG("reindex matrix");
-    //linearMatrix_ = Teuchos::rcp(&((*reindex_)(const_cast<Epetra_CrsMatrix&>(*SchurMatrix_))),false);
     linearMatrix_ = Teuchos::rcp(&((*reindex_)(*reducedSchur_)),false);
 
 #ifdef STORE_MATRICES
     //MatrixUtils::Dump(*linearMatrix_,"ScaledS2.txt");    
 #endif
     
-    Teuchos::ParameterList& amesosList=PL().sublist("Preconditioner").sublist("Coarse Solver");
+    Teuchos::ParameterList& amesosList=PL().sublist("Coarse Solver");
     if (amesosList.get("amesos: solver type","Amesos_Klu")=="Amesos_Mumps")
       {
       if (amesosList.sublist("mumps").isParameter("ICNTL(7)"))
@@ -243,7 +264,7 @@ namespace HYMLS {
           {
           // construct a feasible ordering for MUMPS
           HYMLS::MatrixUtils::FillReducingOrdering(*reducedSchur_,pivot_order_,
-                PL().sublist("Problem").sublist("Problem Definition"));
+                PL().sublist("Problem").sublist("Partitioner"));
 
 
 #ifdef TESTING
@@ -267,12 +288,8 @@ namespace HYMLS {
     CHECK_ZERO(reducedSchurSolver_->SetParameters(amesosList));
   
   
-    int status;
-    
-    try {
     DEBUG("Initialize direct solver");
       CHECK_ZERO(reducedSchurSolver_->Initialize());
-      } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status);
     }
   else
     {
@@ -343,13 +360,13 @@ namespace HYMLS {
 #endif
 
   // compute LU decompositions of blocks...
+  {
   START_TIMER(label_,"factor blocks");
   for (int i=0;i<blockSolver_.size();i++)
     {
     CHECK_ZERO(blockSolver_[i]->Compute(*matrix_));
     }
-  STOP_TIMER(label_,"factor blocks");
-
+  }
   // extract the Vsum part of the preconditioner (reduced Schur)
   CHECK_ZERO(reducedSchur_->Import(*matrix_, *vsumImporter_, Insert));
 
@@ -387,7 +404,6 @@ namespace HYMLS {
   computed_ = true;
   timeCompute_ += time_->ElapsedTime();
   numCompute_++;
-  STOP_TIMER(label_,"Compute");
   return 0;
   }
 
@@ -395,6 +411,7 @@ namespace HYMLS {
 
 int SchurPreconditioner::InitializeBlocks()
   {
+  START_TIMER2(label_,"InitializeBlocks");
   // get an object with only local separators and remote connected separators:
   Teuchos::RCP<const RecursiveOverlappingPartitioner> sepObject
       = hid_->Spawn(RecursiveOverlappingPartitioner::LocalSeparators);
@@ -435,7 +452,7 @@ int SchurPreconditioner::InitializeBlocks()
       blockSolver_[blk]=Teuchos::rcp(new 
              Ifpack_DenseContainer(numRows));
       CHECK_ZERO(blockSolver_[blk]->SetParameters(
-              PL().sublist("Preconditioner").sublist("Dense Solver")));
+              PL().sublist("Dense Solver")));
       CHECK_ZERO(blockSolver_[blk]->Initialize());
 
       for (int j=0; j<numRows; j++)
@@ -457,14 +474,14 @@ int SchurPreconditioner::InitializeSeparatorGroups()
   if (subdivideSeparators_)
     {
     int dof=PL().sublist("Problem")
-                  .sublist("Problem Definition")
+                  .sublist("Partitioner")
                   .get("Degrees of Freedom",-1);
     if (dof==-1)
       {
       HYMLS::Tools::Error("'Degrees of Freedom' parameter not set!",
               __FILE__,__LINE__);
       }
-    int pressure=PL().sublist("Preconditioner").get("Subdivide based on variable",-1);
+    int pressure=PL().get("Subdivide based on variable",-1);
     if (pressure==-1)
       {
       HYMLS::Tools::Error("'Subdivide based on variable' parameter not set!",
@@ -542,7 +559,6 @@ int SchurPreconditioner::InitializeSeparatorGroups()
     ofs2.close();
 #endif      
 
-  STOP_TIMER2(label_,"InitializeSeparatorGroups");
   return 0;
   }
 
@@ -615,13 +631,12 @@ int SchurPreconditioner::InitializeOT()
   MatrixUtils::Dump(*sparseMatrixOT_, 
         "Householder"+Teuchos::toString(myLevel_)+".txt");
 #endif  
-  STOP_TIMER2(label_,"InitializeOT");
   return 0;
   }
     
   int SchurPreconditioner::InitializeNextLevel()
     {
-  START_TIMER2(label_,"InitializeNextLevel");
+    START_TIMER2(label_,"InitializeNextLevel");
 
     Teuchos::RCP<const RecursiveOverlappingPartitioner>
         sepObject = hid_->Spawn(RecursiveOverlappingPartitioner::LocalSeparators);
@@ -738,16 +753,10 @@ int SchurPreconditioner::InitializeOT()
         myLevel_+1, nextTestVector));
     }
 
-  CHECK_ZERO(reducedSchurSolver_->SetParameters(*nextLevelParams_));
-    
   DEBUG("Initialize solver for reduced Schur");
 
-  int status;
-  try {
     CHECK_ZERO(reducedSchurSolver_->Initialize());
-    } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status);
 
-  STOP_TIMER2(label_,"InitializeNextLevel");
   return 0;
   }
 
@@ -761,7 +770,7 @@ int SchurPreconditioner::InitializeOT()
 
   int SchurPreconditioner::TransformAndDrop()
     {
-    START_TIMER(label_,"TransformAndDrop");
+    START_TIMER2(label_,"TransformAndDrop");
 #ifdef DEBUGGING
     MatrixUtils::Dump(*SchurMatrix_,"S"+Teuchos::toString(myLevel_)+".txt");
     MatrixUtils::Dump(*sparseMatrixOT_,"H"+Teuchos::toString(myLevel_)+".txt");
@@ -781,7 +790,6 @@ int SchurPreconditioner::InitializeOT()
       }
 
     CHECK_ZERO(matrix_->FillComplete());
-    STOP_TIMER(label_,"TransformAndDrop");
     return 0;
     }
 
@@ -796,7 +804,8 @@ int SchurPreconditioner::InitializeOT()
   int SchurPreconditioner::Apply(const Epetra_MultiVector& X,
                            Epetra_MultiVector& Y) const
     {
-    return matrix_->Apply(X,Y);
+    Tools::Warning("not implemented",__FILE__,__LINE__);
+    return -99;
     }                           
 
   // Applies the preconditioner to vector X, returns the result in Y.
@@ -896,8 +905,8 @@ if (dumpVectors_)
 #endif
 
       int numBlocks=blockSolver_.size(); // will be 0 on coarsest level
-      
-      START_TIMER(label_,"solve blocks");
+      {
+      START_TIMER2(label_,"solve blocks");
       for (int blk=0;blk<numBlocks;blk++)
         {
         if (X.NumVectors()!=blockSolver_[blk]->NumVectors())
@@ -927,8 +936,7 @@ if (dumpVectors_)
             }
           }
         }
-      STOP_TIMER(label_,"solve blocks");
-
+      }
       // solve reduced Schur-complement problem
       if (X.NumVectors()!=vsumRhs_->NumVectors())
         {
@@ -962,7 +970,6 @@ if (dumpVectors_)
       
     timeApplyInverse_+=time_->ElapsedTime();
 
-    STOP_TIMER(label_,"ApplyInverse");
     return 0;
     }
 
@@ -1177,7 +1184,6 @@ int SchurPreconditioner::ApplyOT(bool trans, Epetra_MultiVector& v, double* flop
       *flops += sparseMatrixOT_->NumGlobalNonzeros() * 4 + v.MyLength();
       }
     }
-  STOP_TIMER2(label_,"ApplyOT");
   return 0;
   }
 
@@ -1247,12 +1253,12 @@ int SchurPreconditioner::ComputeScaling(const Epetra_CrsMatrix& A,
   //MatrixUtils::Dump(*sca_left, "left_scale.txt");
   //MatrixUtils::Dump(*sca_right, "right_scale.txt");
   
-  STOP_TIMER2(label_,"ComputeScaling");
   return 0;
   } 
 
 void SchurPreconditioner::Visualize(std::string mfilename,bool recurse) const
   {
+  START_TIMER3(label_,"Visualize");
   if (myLevel_<maxLevel_)
     {
     std::ofstream ofs(mfilename.c_str(),std::ios::app);

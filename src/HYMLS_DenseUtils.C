@@ -25,7 +25,7 @@ int DenseUtils::Eig(const Epetra_SerialDenseMatrix& A,
                      Epetra_SerialDenseMatrix& right_evecs,
                      Epetra_SerialDenseMatrix& left_evecs)
   {
-  START_TIMER(Label(),"Eig");
+  START_TIMER2(Label(),"Eig");
   
   Epetra_LAPACK lapack;
   
@@ -46,7 +46,6 @@ int DenseUtils::Eig(const Epetra_SerialDenseMatrix& A,
     }
   delete [] work;
     
-  STOP_TIMER(Label(),"Eig");
   return info;
   }                     
 
@@ -58,7 +57,7 @@ int DenseUtils::Eig(const Epetra_SerialDenseMatrix& A,
                      Epetra_SerialDenseMatrix& right_evecs,
                      Epetra_SerialDenseMatrix& left_evecs)
   {
-  START_TIMER(Label(),"Eig");
+  START_TIMER2(Label(),"Eig");
   
   Epetra_LAPACK lapack;
   
@@ -80,13 +79,13 @@ int DenseUtils::Eig(const Epetra_SerialDenseMatrix& A,
 
   delete [] work;
     
-  STOP_TIMER(Label(),"Eig");
   return info;
   }
 
 int DenseUtils::MatMul(const Epetra_MultiVector& V, const Epetra_MultiVector& W,
                        Epetra_SerialDenseMatrix& C)
   {
+  START_TIMER3(Label(),"MatMul");
   if (!(W.Map().SameAs(V.Map())))
     {
     DEBUG("DenseUtils::MatMul(V,W) failed because the maps are not the same");
@@ -115,6 +114,7 @@ int DenseUtils::MatMul(const Epetra_MultiVector& V, const Epetra_MultiVector& W,
 int DenseUtils::ApplyOrth(const Epetra_MultiVector& V, const Epetra_MultiVector& W,
                            Epetra_MultiVector& Z)
   {
+  START_TIMER3(Label(),"AplyOrth");
   int ierr=0;
   if (W.Map().SameAs(V.Map())==false)
     {
@@ -143,6 +143,7 @@ int DenseUtils::ApplyOrth(const Epetra_MultiVector& V, const Epetra_MultiVector&
 //! returns orthogonal basis for the columns of A.
 int DenseUtils::Orthogonalize(Epetra_SerialDenseMatrix& A)
   {
+  START_TIMER2(Label(),"Orthogonalize");
   int n=A.N();
   int m=A.M();
   Epetra_LAPACK lapack;
@@ -172,6 +173,7 @@ int DenseUtils::Orthogonalize(Epetra_SerialDenseMatrix& A)
 //! create a multivector view of a dense matrix
 Teuchos::RCP<Epetra_MultiVector> DenseUtils::CreateView(Epetra_SerialDenseMatrix& A)
   {
+  START_TIMER3(Label(),"CreateView");
   int nrows = A.M();
   int ncols = A.N();
   Epetra_SerialComm comm;
@@ -185,6 +187,7 @@ Teuchos::RCP<Epetra_MultiVector> DenseUtils::CreateView(Epetra_SerialDenseMatrix
 Teuchos::RCP<const Epetra_MultiVector> DenseUtils::CreateView
         (const Epetra_SerialDenseMatrix& A)
   {
+  START_TIMER3(Label(),"CreateView");
   int n = A.N();
   Epetra_SerialComm comm;
   Epetra_LocalMap tinyMap(n,0,comm);
@@ -196,6 +199,7 @@ Teuchos::RCP<const Epetra_MultiVector> DenseUtils::CreateView
 //! create a dense matrix view of a multivector
 Teuchos::RCP<Epetra_SerialDenseMatrix> DenseUtils::CreateView(Epetra_MultiVector& A)
   {
+  START_TIMER3(Label(),"CreateView");
   int n = A.NumVectors();
   if (A.DistributedGlobal())
     {
@@ -212,6 +216,7 @@ Teuchos::RCP<Epetra_SerialDenseMatrix> DenseUtils::CreateView(Epetra_MultiVector
 Teuchos::RCP<const Epetra_SerialDenseMatrix> DenseUtils::CreateView
         (const Epetra_MultiVector& A)
   {
+  START_TIMER3(Label(),"CreateView");
   int n = A.NumVectors();
   if (A.DistributedGlobal())
     {

@@ -15,17 +15,22 @@ namespace HYMLS {
 
  
   // constructor
-  Householder::Householder() : label_("Householder"),
+  Householder::Householder(int lev) : label_("Householder (level "+Teuchos::toString(lev)+")"),
                                Wmat_(Teuchos::null),
                                WTmat_(Teuchos::null),
                                Cmat_(Teuchos::null)
     {
+    START_TIMER3(label_,"Constructor");
     }
+   
+   Householder::~Householder() 
+     {
+     START_TIMER3(label_,"Destructor");
+     }
    
   //! compute X=Q*Y
   int Householder::Apply(const Epetra_SerialDenseVector& Y, Epetra_SerialDenseVector& X) const
     {
-    //START_TIMER("Householder - apply (vector)")
     // X = (2vv'/v'v-I)Y
     // can be written as X = Z - Y, Z= (2/nrmv^2 v'Y)v
     // (we use a vector v which is 1 everywhere except that the first entry is 1+sqrt(n))
@@ -45,14 +50,12 @@ namespace HYMLS {
       {
       X(i)=fac-Y(i);
       }
-    //STOP_TIMER("Householder - apply (vector)")
     return 0;
     }
 
   //! compute X=Q*X in place
   int Householder::Apply(Epetra_SerialDenseVector& X) const
     {
-    //START_TIMER("Householder - apply (vector)")
     // X = (2vv'/v'v-I)Y
     // can be written as X = Z-Y, Z= (2/nrmv^2 v'Y)v
     // (we use a vector v which is 1 everywhere except that the first entry is 1+sqrt(n))
@@ -72,14 +75,12 @@ namespace HYMLS {
       {
       X(i)=fac-X(i);
       }
-    //STOP_TIMER("Householder - apply (vector)")
     return 0;
     }
 
   //! compute X=Q*Y*Q'
   int Householder::Apply(const Epetra_SerialDenseMatrix& Y, Epetra_SerialDenseMatrix& X) const
     {
-    //START_TIMER("Householder - apply (matrix)")
     // let X,Y \in R^{m x n}
     // Q = (1-alpha*vv')=Q', alpha = 2/(v'*v)
     // X = (alpha_m*vmvm'-I) Y (alpha_n*vnvn'-I)
@@ -134,14 +135,12 @@ namespace HYMLS {
     DEBVAR(alpha_m);
     DEBVAR(alpha_n);
     */
-    //STOP_TIMER("Householder - apply (matrix)")
     return 0;
     }
 
   //! compute X=Q*Y*Q' in place
   int Householder::Apply(Epetra_SerialDenseMatrix& Y) const
     {
-    //START_TIMER("Householder - apply (matrix)")
     // let Y \in R^{m x n}
     // Q = (1-alpha*vv')=Q', alpha = 2/(v'*v)
     // Y = (I-alpha_m*vmvm') Y (1-alpha_n*vnvn')
@@ -185,7 +184,6 @@ namespace HYMLS {
         Y(i,j)=Y(i,j) - alpha_n*Avn(i)*vn(j) - alpha_m*vm(i)*vmTA(j)
                       + factor*vm(i)*vn(j);
         }
-    //STOP_TIMER("Householder - apply (matrix)")
     return 0;
     }
     
@@ -347,7 +345,6 @@ namespace HYMLS {
     CHECK_ZERO(EpetraExt::MatrixMatrix::Add(*Cmat_,false,1.0,*wTwC,-2.0));
 
     DEBUG("done!");
-    STOP_TIMER2(label_,"H^TAH (first call)");
     return wTwC;                
     }
 
@@ -416,7 +413,6 @@ namespace HYMLS {
     DEBUG("done!");
 
     
-    STOP_TIMER2(label_,"H^TAH");
     return 0;
     }
 
@@ -432,7 +428,6 @@ namespace HYMLS {
     CHECK_ZERO(T.Multiply(true,tmp,Tv));
     CHECK_ZERO(Tv.Update(-1.0,v,2.0));
     
-    STOP_TIMER2(label_,"H*v");
     return 0;
     }
 

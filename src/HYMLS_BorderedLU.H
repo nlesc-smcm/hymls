@@ -33,7 +33,7 @@ namespace HYMLS
              );
 
   //! destructor
-  ~BorderedLU() {}
+  ~BorderedLU();
 
 //! \name Epetra_Operator interface
 
