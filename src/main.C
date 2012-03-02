@@ -13,6 +13,7 @@
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_XMLParameterListHelpers.hpp"
+#include "Teuchos_ParameterListAcceptorHelpers.hpp"
 #include "Teuchos_StandardCatchMacros.hpp"
 
 #include "main_utils.H"
@@ -72,7 +73,8 @@ bool status=true;
         Teuchos::getParametersFromXmlFile(param_file);
         
     Teuchos::ParameterList& driverList = params->sublist("Driver");
-        
+
+    bool print_final_list = driverList.get("Store Final Parameter List",false);        
     bool store_solution = driverList.get("Store Solution",true);
     bool store_matrix = driverList.get("Store Matrix",false);
     int numComputes=driverList.get("Number of factorizations",1);
@@ -328,6 +330,25 @@ DEBVAR(*b);
     HYMLS::MatrixUtils::Dump(*x_ex, "ExactSolution.txt",false);
     HYMLS::MatrixUtils::Dump(*x, "Solution.txt",false);
     HYMLS::MatrixUtils::Dump(*b, "RHS.txt",false);
+    }
+    
+  if (print_final_list)
+    {
+    if (comm->MyPID()==0)
+      {
+      Teuchos::RCP<const Teuchos::ParameterList> finalList
+        = solver->getParameterList();
+      std::string filename1 = param_file+".final";        
+      HYMLS::Tools::out() << "final parameter list is written to '" << filename1<<"'"<<std::endl;
+      writeParameterListToXmlFile(*finalList,filename1);
+
+      HYMLS::Tools::out() << "parameter documentation is written to file param_doc.txt" << std::endl;
+      std::ofstream ofs("paramDoc.txt");
+      ofs << "valid parameters for HYMLS::Solver "<<std::endl;
+      printValidParameters(*solver,ofs);
+      ofs << "valid parameters for HYMLS::Preconditioner "<<std::endl;
+      printValidParameters(*precond,ofs);
+      }
     }
   
     } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr, status);

@@ -51,7 +51,7 @@ namespace HYMLS {
         map_(Teuchos::rcp(&(S->RowMap()),false)),
         normInf_(-1.0), useTranspose_(false),
         label_("HYMLS::SchurPreconditioner (level "+Teuchos::toString(level)+")"),
-        myLevel_(level),
+        myLevel_(level), variant_("Block Diagonal"),
         sparseMatrixOT_(Teuchos::null),
         testVector_(testVector),
         matrix_(Teuchos::null),
@@ -144,6 +144,7 @@ namespace HYMLS {
       }
     
     maxLevel_=PL().get("Number of Levels",myLevel_);
+    variant_ = PL().get("Preconditioner Variant","Block Diagonal");
     subdivideSeparators_=PL().get("Subdivide Separators",false);
     int pos=1;
     
@@ -171,6 +172,7 @@ namespace HYMLS {
   // Sets all parameters for the preconditioner.
   Teuchos::RCP<const Teuchos::ParameterList> SchurPreconditioner::getValidParameters() const
     {
+    /*
     if (validParams_!=Teuchos::null) return validParams_;
     START_TIMER3(label_,"getValidParameters");
     
@@ -181,7 +183,9 @@ namespace HYMLS {
     "(for fixing the pressure, mainly)");
     VPL().set("Fix GID 2",-1,"enforce dirichlet condition on the coarsest level "
     "(for fixing the pressure, mainly)");
-    
+    */
+    Tools::Warning("The SchurPreconditioner should not be used for validating the parameter list!",__FILE__,__LINE__);
+    VPL().disableRecursiveValidation();
     return validParams_;
     }
 
@@ -200,7 +204,23 @@ namespace HYMLS {
       CHECK_ZERO(InitializeSeparatorGroups());
       CHECK_ZERO(InitializeOT());
       CHECK_ZERO(TransformAndDrop());
-      CHECK_ZERO(InitializeBlocks());
+      if (variant_=="Block Diagonal")
+        {
+        CHECK_ZERO(InitializeBlocks());
+        }
+      else if (variant_=="Domain Decomposition")
+        {
+        CHECK_ZERO(InitializeSingleBlock());
+        }
+      else if (variant_=="Do Nothing")
+        {
+        blockSolver_.resize(0);
+        }
+      else
+        {
+        Tools::Error("Variant '"+variant_+"'not implemented",
+                __FILE__,__LINE__);
+        }
       CHECK_ZERO(InitializeNextLevel())
       }    
 
@@ -462,6 +482,48 @@ int SchurPreconditioner::InitializeBlocks()
         blockSolver_[blk]->ID(j) = LRID;
         }
       blk++;
+      }
+    }
+  return 0;  
+  }
+
+int SchurPreconditioner::InitializeSingleBlock()
+  {
+  START_TIMER2(label_,"InitializeSingleBlock");
+  // get an object with only local separators and remote connected separators:
+  Teuchos::RCP<const RecursiveOverlappingPartitioner> sepObject
+      = hid_->Spawn(RecursiveOverlappingPartitioner::LocalSeparators);
+    
+    // count the number of owned elements and vsums
+    int numMyVsums=0;
+   int numMyElements = 0;
+    for (int i=0;i<sepObject->NumMySubdomains();i++)
+      {
+      numMyElements+=sepObject->NumElements(i);
+      numMyVsums+=sepObject->NumGroups(i);
+      }
+   // we actually need the number of owned non-Vsums:
+   int numRows = numMyElements - numMyVsums;
+  
+  // create a single solver for all the non-Vsums
+  blockSolver_.resize(1);
+  blockSolver_[0]=Teuchos::rcp
+        (new Ifpack_SparseContainer<Ifpack_Amesos>(numRows));
+  CHECK_ZERO(blockSolver_[0]->SetParameters(
+              PL().sublist("Sparse Solver")));
+  CHECK_ZERO(blockSolver_[0]->Initialize());
+  int pos=0;
+  for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
+    {
+    for (int grp=0;grp<sepObject->NumGroups(sep);grp++)
+      {      
+      // skip first element, which is a Vsum
+      for (int j=1; j<sepObject->NumElements(sep,grp); j++)
+        {
+        int gid=sepObject->GID(sep,grp,j);
+        int LRID = map_->LID(gid);
+        blockSolver_[0]->ID(pos++) = LRID;
+        }
       }
     }
   return 0;  
@@ -906,6 +968,7 @@ if (dumpVectors_)
 
       int numBlocks=blockSolver_.size(); // will be 0 on coarsest level
       {
+      Y=B;
       START_TIMER2(label_,"solve blocks");
       for (int blk=0;blk<numBlocks;blk++)
         {
@@ -927,7 +990,7 @@ if (dumpVectors_)
         CHECK_ZERO(blockSolver_[blk]->ApplyInverse());
 
         // copy back into solution vector Y
-        for (int j = 0 ; j < blockSolver_[blk]->NumRows() ; j++)
+        for (int j = 0 ; j < blockSolver_[blk]->NumRows() ; j++)  
           {
           int lid = blockSolver_[blk]->ID(j);
           for (int k = 0 ; k < X.NumVectors() ; k++)

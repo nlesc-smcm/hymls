@@ -190,16 +190,16 @@ namespace HYMLS {
         partValidator);
     
     VPL().set("Scale Schur-Complement",false,
-        "Apply scaling to the Schur complement before building an approximation."
-        "This is only intended for Navier-Stokes type problems and it is a bit "
+        "Apply scaling to the Schur complement before building an approximation.\n"
+        "This is only intended for Navier-Stokes type problems and it is a bit \n"
         "ad-hoc right now.");
 
-    VPL().set("Fix GID 1",-1,"put a Dirichlet condition for node x in the last Schur "
-                                 "complement. This is useful for e.g. fixing the pressure "
+    VPL().set("Fix GID 1",-1,"put a Dirichlet condition for node x in the last Schur \n"
+                                 "complement. This is useful for e.g. fixing the pressure \n"
                                  "level.");
 
-    VPL().set("Fix GID 2",-1,"put a Dirichlet condition for node x in the last Schur "
-                                 "complement. This is useful for e.g. fixing the pressure "
+    VPL().set("Fix GID 2",-1,"put a Dirichlet condition for node x in the last Schur \n"
+                                 "complement. This is useful for e.g. fixing the pressure \n"
                                  "level.");
 
     int sepx=4;
@@ -223,12 +223,12 @@ namespace HYMLS {
         "this was implemented for the rotated B-grid and is not intended for any other "
         "problems right now");
     VPL().set("Subdivide based on variable",-1,
-        "decide to which variables on a separator to apply the OT based on couplings to "
+        "decide to which variables on a separator to apply the OT based on couplings to \n"
         " this variable (typically the pressure). Not intended for general use");
 
     VPL().set("Number of Levels",2,
-        "number of levels - on level k a direct solver is used. k=1 is a direct method"
-        " for the complete problem, k=2 is the standard two-level scheme, k>2 means "
+        "number of levels - on level k a direct solver is used. k=1 is a direct method\n"
+        " for the complete problem, k=2 is the standard two-level scheme, k>2 means \n"
         "recursive application of the approximation technique");
 
     Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
@@ -251,6 +251,19 @@ namespace HYMLS {
     VPL().sublist("Coarse Solver",false,
     "settings for serial or parallel solver used on the last level "
     " (passed to Ifpack_Amesos)").disableRecursiveValidation();      
+
+    Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
+        variantValidator = Teuchos::rcp(
+                new Teuchos::StringToIntegralParameterEntryValidator<int>(
+                    Teuchos::tuple<std::string>
+                    ("Block Diagonal","Domain Decomposition","Do Nothing"),
+                    "Preconditioner Variant"));
+    
+    VPL().set("Preconditioner Variant", "Block Diagonal",
+        "Type of approximation used for the non-Vsums:\n"
+        "'Block Diagonal' - one dense block per separator group (cf. SIMAX paper)\n"
+        "'Domain Decomposition' - one sparse block per processor",
+        variantValidator);
     
     return validParams_;    
     }
@@ -361,6 +374,14 @@ MatrixUtils::Dump(*rangeMap_,"originalMap"+Teuchos::toString(myLevel_)+".txt");
 #if defined(TESTING) || defined(STORE_MATRICES)
 MatrixUtils::Dump(*rowMap_,"reorderedMap"+Teuchos::toString(myLevel_)+".txt");
 #endif
+
+    // this object can be used to create a vector view of the interior nodes:
+    interior_=Teuchos::rcp(new HYMLS::MultiVector_View(*rowMap_,*map1_));
+
+    // create a view of the Schur-part of vectors. Note that EpetraExt's version
+    // doesn't work here because it assumes the submap to be the first part of the original
+    separators_=Teuchos::rcp(new HYMLS::MultiVector_View(*rowMap_,*map2_));
+
 
   DEBUG("Reorder global matrix");
   reorderedMatrix_=Teuchos::rcp(new Epetra_CrsMatrix(Copy,*rowMap_,MaxNumEntriesPerRow));
@@ -696,29 +717,45 @@ if (dumpVectors_)
     // create some vectors based on the map we use internally (first all internal and then 
     // all separator variables):
     Teuchos::RCP<Epetra_MultiVector> x,y,z,b;
-    x = Teuchos::rcp( new Epetra_MultiVector(*rowMap_,X.NumVectors()) );
-    y = Teuchos::rcp( new Epetra_MultiVector(*rowMap_,X.NumVectors()) );
-    z = Teuchos::rcp( new Epetra_MultiVector(*rowMap_,X.NumVectors()) );
-    b = Teuchos::rcp( new Epetra_MultiVector(*rowMap_,X.NumVectors()) );
+    // views of the interior nodes:
+    Teuchos::RCP<Epetra_MultiVector> x1,z1;
+    // views of the vsum nodes:
+    Teuchos::RCP<Epetra_MultiVector> x2,y2,z2,b2;
+    
+    // only reconstruct temporary vectors and views if
+    // first call or number of rhs changed:
+    bool realloc=false; 
+    if (tmpVec_[0]!=Teuchos::null)
+      {
+      realloc = (tmpVec_[0]->NumVectors()!=numvec);
+      }
+    else
+      {
+      realloc = true;
+      }
 
+    if (realloc)
+      {
+      for (int i=0;i<4;i++)
+        {
+        tmpVec_[i] = Teuchos::rcp( new Epetra_MultiVector(*rowMap_,X.NumVectors()) );
+        tmpVec_[4+i] = (*interior_)(tmpVec_[i]);
+        tmpVec_[8+i] = (*separators_)(tmpVec_[i]);
+        }
+      }
+      
+    x = tmpVec_[0];
+    y = tmpVec_[1];
+    z = tmpVec_[2];
+    b = tmpVec_[3];
+    x1= tmpVec_[4];
+    z1= tmpVec_[6];
+    x2= tmpVec_[8];
+    y2= tmpVec_[9];
+    z2= tmpVec_[10];
+    b2= tmpVec_[11];
+    
     CHECK_ZERO(b->Import(B,*importer_,Zero)); // should just be a local reordering
-
-    // create a view of the '1' part of vectors - TODO: we might keep these objects for 
-    // efficiency reasons. The 'interior' view is only required for the bordering process.
-    HYMLS::MultiVector_View interior(*rowMap_,*map1_);
-
-    Teuchos::RCP<Epetra_MultiVector> x1 = interior(x);
-    Teuchos::RCP<Epetra_MultiVector> z1 = interior(z);
-
-    // create a view of the Schur-part of these vectors. Note that EpetraExt's version
-    // doesn't work here because it assumes the submap to be the first part of the original
-    HYMLS::MultiVector_View separators(*rowMap_,*map2_);
-
-    // create appropriate views of the vectors
-    Teuchos::RCP<Epetra_MultiVector> x2=separators(x);
-    Teuchos::RCP<Epetra_MultiVector> y2=separators(y);
-    Teuchos::RCP<Epetra_MultiVector> z2=separators(z);
-    Teuchos::RCP<Epetra_MultiVector> b2=separators(b);
     
     DEBUG("solve subdomains...");
     CHECK_ZERO(ApplyInverseA11(*b, *x));

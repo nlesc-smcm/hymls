@@ -204,6 +204,14 @@ protected:
   //! if myLevel_==maxLevel_ we use a direct solver
   int maxLevel_;
   
+  //! we currently implement two variants of the approximate    
+  //! Schur-Complement: one with a block diagonal approximation 
+  //! of the non-Vsums, and one with a sparse direct solver for 
+  //! the non-Vsums. The latter is more expensive but decreases 
+  //! the number of iterations, so it is more suitable for      
+  //! massively parallel runs.
+  std::string variant_;
+  
   //! domain decomposition object
   Teuchos::RCP<const OverlappingPartitioner> hid_;
   
@@ -343,7 +351,12 @@ private:
   int TransformAndDrop();
 
   //! Initialize dense solvers for diagonal blocks
+  //! ("Block Diagonal" variant)
   int InitializeBlocks();
+
+  //! Initialize single sparse solver for non-Vsums
+  //! ("Domain Decomposition" variant)
+  int InitializeSingleBlock();
 
   //! Initialize reduced Schur solver
   int InitializeNextLevel();
