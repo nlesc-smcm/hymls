@@ -189,10 +189,10 @@ int status=0;
   solver->SetParameters(directList);
 
   HYMLS::Tools::Out("Initialize Solver...");
+  {
   START_TIMER(std::string("main"),"INITIALIZE");
   CHECK_ZERO(solver->Initialize());
-  STOP_TIMER(std::string("main"),"INITIALIZE");
-
+  }
 for (int f=0;f<numComputes;f++)
   {
   /*
@@ -208,10 +208,10 @@ for (int f=0;f<numComputes;f++)
   CHECK_ZERO(K->ReplaceDiagonalValues(diag));
   */
   HYMLS::Tools::Out("Compute Solver ("+Teuchos::toString(f+1)+")");
+  {
   START_TIMER(std::string("main"),"COMPUTE");
   CHECK_ZERO(solver->Compute());
-  STOP_TIMER(std::string("main"),"COMPUTE");
-  
+  }  
  // std::cout << *solver << std::endl;
   
   for (int s=0;s<numSolves;s++)
@@ -223,10 +223,10 @@ for (int f=0;f<numComputes;f++)
       }
 
     HYMLS::Tools::Out("Solve ("+Teuchos::toString(s+1)+")");
+    {
     START_TIMER(std::string("main"),"SOLVE");
     CHECK_ZERO(solver->ApplyInverse(*b,*x));
-    STOP_TIMER(std::string("main"),"SOLVE");
-    
+    }
     // subtract constant from pressure if solving Stokes-C
     if (eqn=="Stokes-C")
       {
@@ -302,7 +302,7 @@ if (comm->MyPID()==0)
   
     } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr, status);
   
-  if (!status) Tools::Fatal("Caught an exception",__FILE__,__LINE__);
+  if (!status) HYMLS::Tools::Fatal("Caught an exception",__FILE__,__LINE__);
   HYMLS::Tools::PrintTiming(HYMLS::Tools::out());
 
 comm->Barrier();

@@ -18,14 +18,13 @@
 #include "Teuchos_ArrayView.hpp"
 #include "Epetra_Util.h"
 
-#include "Ifpack_OverlapGraph.h"
+#include "Ifpack_OverlappingRowMatrix.h"
 
 #include "Galeri_Utils.h"
 
 #include "HYMLS_SepNode.H"
 
 #include <algorithm>
-
 
 #ifdef DEBUGGING
 #include "EpetraExt_MultiVectorOut.h"
@@ -659,7 +658,7 @@ DEBVAR(*p_nodeType_);
 
   }
 
-  //! build initial vector with 0 (interior), 1 (separator) or 2 (retained
+  //! build initial vector with 0 (interior), 1 (separator) or 2 (retained)
   void OverlappingPartitioner::BuildInitialNodeTypeVector(
         const Epetra_CrsGraph& G, Epetra_IntVector& nodeType,
         int& np_schur) const
@@ -1327,8 +1326,8 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
   if (newList->sublist("Preconditioner").isParameter("Separator Length (x)"))
     {
     old_sx = newList->sublist("Preconditioner").get("Separator Length (x)",old_sx);
-    old_sy = newList->sublist("Preconditioner").get("Separator Length (y)",old_sy);
-    old_sz = newList->sublist("Preconditioner").get("Separator Length (z)",old_sz);
+    old_sy = newList->sublist("Preconditioner").get("Separator Length (y)",old_sx);
+    old_sz = newList->sublist("Preconditioner").get("Separator Length (z)",dim_>2?old_sx:1);
     }
  else if (newList->sublist("Preconditioner").isParameter("Separator Length"))
     {
@@ -1436,59 +1435,29 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
     Epetra_CrsGraph G_repart(Copy,partitioner_->Map(),MaxNumEntriesPerRow,false);
     CHECK_ZERO(G_repart.Import(*graph_,importRepart,Insert));
     CHECK_ZERO(G_repart.FillComplete());
-    
-    const Teuchos::RCP<const Epetra_CrsGraph> Gptr = Teuchos::rcp(&G_repart, false);
-    Ifpack_OverlapGraph ifpackGraph(Gptr,3);
 
-    // the ifpack class just includes column entries in the next level overlapped map, so 
-    // if a row has no diagonal then that row is thrown out of the graph.
-    const Epetra_BlockMap& map1=graph_->RowMap();
-    const Epetra_BlockMap& map2=ifpackGraph.OverlapGraph().RowMap();
+    // build a test matrix - we create an overlapping matrix and then extract its graph
+    Teuchos::RCP<Epetra_CrsMatrix> Atest = 
+        Teuchos::rcp(new Epetra_CrsMatrix(Copy,G_repart));
+//TODO - check how to do this with substituted graph. This is a new implementation because
+//       we had seg faults in Trilinos 10.x with using the OverlapGraph directly.
+    if (substituteGraph_) 
+        Tools::Error("graph substitution needs fix", __FILE__,__LINE__);
+    CHECK_ZERO(Atest->Import(*matrix_,importRepart,Insert));
+    CHECK_ZERO(Atest->FillComplete());
 
-    int n1=map1.NumMyElements();
-    int n2=map2.NumMyElements();
+    Ifpack_OverlappingRowMatrix Aov(Atest, dim_);
+    Teuchos::RCP<const Epetra_Map> overlappingMap = 
+        Teuchos::rcp(&(Aov.RowMatrixRowMap()),false);
+    Teuchos::RCP<Epetra_Import> importOverlap =
+      Teuchos::rcp(new Epetra_Import(*overlappingMap, *baseMap_));
 
-  // throw out duplicate GIDs on each proc using STL
-  std::vector<int> inds(n1+n2);
-  
-  for (int i=0;i<map1.NumMyElements();i++)
-    {
-    inds[i]=map1.GID(i);
-    }
-  for (int i=0;i<map2.NumMyElements();i++)
-    {
-    inds[n1+i]=map2.GID(i);
-    }
-    
-  // make sure GIDs are unique on each proc:
-  std::sort(inds.begin(),inds.end());
-  int_i end=std::unique(inds.begin(),inds.end());
-  
-  int NumMyElements = std::distance(inds.begin(),end);
-  
-  int *MyElements = &(inds[0]);
-  
-    // a map that has overlap only between processors, not between subdomains
-    Teuchos::RCP<Epetra_Map> overlappingRowMap;
-  
-   overlappingRowMap = Teuchos::rcp(new Epetra_Map(
-        -1,NumMyElements,MyElements,partitioner_->Map().IndexBase(),*comm_));
-  
-  DEBUG("create importer...");
-
-  Teuchos::RCP<Epetra_Import> importOverlap =
-    Teuchos::rcp(new Epetra_Import(*overlappingRowMap, *baseMap_));
-    
-  // in this graph, all connections to separator nodes have been dropped. We use
-  // it to figure out what subdomains a separator actually separates:
-
-  G = Teuchos::rcp(new Epetra_CrsGraph
-      (Copy,*overlappingRowMap,MaxNumEntriesPerRow,false));
+    G = Teuchos::rcp(new Epetra_CrsGraph
+      (Copy,*overlappingMap,graph_->MaxNumIndices(),false));
 
   CHECK_ZERO(G->Import(*graph_,*importOverlap,Insert));
   CHECK_ZERO(G->FillComplete());
-
-    inds.resize(0);    
+    
     return G;
   }
   
