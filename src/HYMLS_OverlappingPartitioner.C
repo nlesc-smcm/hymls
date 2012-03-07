@@ -1432,13 +1432,18 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
     Epetra_Import importRepart(partitioner_->Map(),*baseMap_);
 
     int MaxNumEntriesPerRow=graph_->MaxNumIndices();
-    Epetra_CrsGraph G_repart(Copy,partitioner_->Map(),MaxNumEntriesPerRow,false);
-    CHECK_ZERO(G_repart.Import(*graph_,importRepart,Insert));
-    CHECK_ZERO(G_repart.FillComplete());
-
+    Teuchos::RCP<Epetra_CrsGraph> G_repart = Teuchos::rcp
+        (new Epetra_CrsGraph(Copy,partitioner_->Map(),MaxNumEntriesPerRow,false));
+    CHECK_ZERO(G_repart->Import(*graph_,importRepart,Insert));
+    CHECK_ZERO(G_repart->FillComplete());
+    
+    if (comm_->NumProc()==1)
+      {
+      return G_repart;
+      }
     // build a test matrix - we create an overlapping matrix and then extract its graph
     Teuchos::RCP<Epetra_CrsMatrix> Atest = 
-        Teuchos::rcp(new Epetra_CrsMatrix(Copy,G_repart));
+        Teuchos::rcp(new Epetra_CrsMatrix(Copy,*G_repart));
 //TODO - check how to do this with substituted graph. This is a new implementation because
 //       we had seg faults in Trilinos 10.x with using the OverlapGraph directly.
     if (substituteGraph_) 
