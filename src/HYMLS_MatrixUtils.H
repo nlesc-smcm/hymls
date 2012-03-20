@@ -22,6 +22,7 @@
 
 class Epetra_Comm;
 class Epetra_BlockMap;
+class Epetra_Operator;
 class Epetra_Map;
 class Epetra_Vector;
 class Epetra_IntVector;

@@ -34,6 +34,9 @@ main: main.C ${LIBNAME}
 main_direct: main_direct.C ${LIBNAME}
 	${CXX} ${CXX_FLAGS} -o main_direct $< ${INCLUDES} -L. -l${LIBNAMEBASE} ${LIBS} 
 
+main_ifpack: main_ifpack.C ${LIBNAME}
+	${CXX} ${CXX_FLAGS} -o main_ifpack $< ${INCLUDES} -L. -l${LIBNAMEBASE} ${LIBS} 
+
 test: test.C ${LIBNAME}
 	${CXX} ${CXX_FLAGS} -o test $< ${INCLUDES} -L. -l${LIBNAMEBASE} ${LIBS} 
 	

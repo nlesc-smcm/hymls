@@ -171,21 +171,31 @@ namespace HYMLS
   static inline int sub2ind(int nx, int ny, int nz, int dof, int i, int j, int k, int var)
     {
 #ifdef TESTING    
+    std::string msg1 = "sub2ind: ";
+    std::string msg3 = " out of range ";
     if ((i<0)||(i>=nx))
       {
-      Tools::Error("sub2ind: i-Index out of range!",__FILE__,__LINE__);
+      std::string msg2 = "i-Index "+Teuchos::toString(i);
+      std::string msg4 = "[0,"+Teuchos::toString(nx)+"]";
+      Tools::Error(msg1+msg2+msg3+msg4,__FILE__,__LINE__);
       }
     if ((j<0)||(j>=ny))
       {
-      Tools::Error("sub2ind: j-Index out of range!",__FILE__,__LINE__);
+      std::string msg2 = "j-Index "+Teuchos::toString(j);
+      std::string msg4 = "[0,"+Teuchos::toString(ny)+"]";
+      Tools::Error(msg1+msg2+msg3+msg4,__FILE__,__LINE__);
       }
     if ((k<0)||(k>=nz))
       {
-      Tools::Error("sub2ind: k-Index out of range!",__FILE__,__LINE__);
+      std::string msg2 = "k-Index "+Teuchos::toString(j);
+      std::string msg4 = "[0,"+Teuchos::toString(nz)+"]";
+      Tools::Error(msg1+msg2+msg3+msg4,__FILE__,__LINE__);
       }
-    if ((k<0)||(var>=dof))
+    if ((var<0)||(var>=dof))
       {
-      Tools::Error("sub2ind: var-Index out of range!",__FILE__,__LINE__);
+      std::string msg2 = "var-Index "+Teuchos::toString(j);
+      std::string msg4 = "[0,"+Teuchos::toString(dof)+"]";
+      Tools::Error(msg1+msg2+msg3+msg4,__FILE__,__LINE__);
       }
 #endif      
     return ((k*ny+j)*nx+i)*dof+var;

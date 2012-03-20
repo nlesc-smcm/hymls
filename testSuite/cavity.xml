@@ -18,6 +18,8 @@
     <Parameter name="Data Directory" type="string" value="data/DrivenCavity/128x128/Re0"/>
     <Parameter name="File Format" type="string" value="MatrixMarket"/>
     <Parameter name="Exact Solution Available" type="bool" value="1"/>
+    
+    <Parameter name="Store Final Parameter List" type="bool" value="1"/>
   
   </ParameterList>
 
@@ -59,14 +61,18 @@
 
     <!-- only "Cartesian" supported up to now -->
     <Parameter name="Partitioner" type="string" value="Cartesian"/>
+      
+    <!-- type of approximation for the non-Vsums -->
+    <!--Parameter name="Preconditioner Variant" type="string" value="Domain Decomposition"/-->
+    <Parameter name="Preconditioner Variant" type="string" value="Block Diagonal"/>
     
     <!-- you can either set 'Separator Length' or 'Number of Subdomains' -->
-    <Parameter name="Separator Length" type="int" value="2"/>
+    <Parameter name="Separator Length" type="int" value="8"/>
     
     <!-- number of levels to be created (1: direct solver for Schur complement, -->
     <!-- 2: solve Schur iteratively and reduced Schur directly,                 -->
     <!-- >2: not implemented.                                                   -->
-    <Parameter name="Number of Levels" type="int" value="4"/>
+    <Parameter name="Number of Levels" type="int" value="2"/>
     
     <Parameter name="Scale Schur-Complement" type="bool" value="0"/>
     
