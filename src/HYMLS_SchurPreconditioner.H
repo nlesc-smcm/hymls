@@ -4,6 +4,7 @@
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_Array.hpp"
 #include "Ifpack_Preconditioner.h"
+#include "Ifpack_Amesos.h"
 #include "Ifpack_SparseContainer.h"
 #include "Epetra_Time.h"
 
@@ -16,7 +17,6 @@ class Epetra_Comm;
 class Epetra_Map;
 class Epetra_RowMatrix;
 class Epetra_FECrsMatrix;
-class Ifpack_Amesos;
 class Epetra_Import;
 class Ifpack_Container;
 

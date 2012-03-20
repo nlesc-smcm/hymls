@@ -92,7 +92,7 @@ Error_You_are_trying_to_start_multiple_timers_in_one_scope \
 int ierr = funcall; } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status)\
 if (!status) {\
 std::string msg="Caught an exception in call "+std::string(#funcall);\
-HYMLS::Tools::Fatal(msg,__FILE__,__LINE__);} \  
+HYMLS::Tools::Fatal(msg,__FILE__,__LINE__);} \
 if (ierr) {\
 std::string msg="error code "+Teuchos::toString(ierr)+" returned from call "+std::string(#funcall);\
 HYMLS::Tools::Error(msg,__FILE__,__LINE__);}\

@@ -152,7 +152,8 @@ reset(Teuchos::ParameterList& p)
   
   belosList.set("Output Stream",out);
 
-  belosList.set("Output Style",(int)Belos::Brief);
+//  belosList.set("Output Style",Belos::Brief);
+  belosList.set("Output Style",1);
 
   // NOX puts its adaptive choice of tolerance into this place:
   double tol = p.get("Tolerance",1.0e-6);

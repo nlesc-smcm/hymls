@@ -26,7 +26,7 @@
 
 #include "BelosBlockGmresSolMgr.hpp"
 #include "BelosBlockCGSolMgr.hpp"
-#include "BelosPCPGSolMgr.hpp"
+//#include "BelosPCPGSolMgr.hpp"
 #include "BelosEpetraOperator.h"
 
 #include "Teuchos_StandardParameterEntryValidators.hpp"
@@ -91,7 +91,7 @@ namespace HYMLS {
 
   Teuchos::ParameterList& belosList = PL().sublist("Iterative Solver");
 
-  belosList.set("Output Style",Belos::Brief);
+//  belosList.set("Output Style",Belos::Brief);
   belosList.set("Verbosity",Belos::Errors+Belos::Warnings
                          +Belos::IterationDetails
                          +Belos::StatusTestDetails
@@ -110,10 +110,12 @@ namespace HYMLS {
     }
   else if (solverType_=="PCG")
     {
-    Tools::Warning("NOT IMPLEMENTED!",__FILE__,__LINE__);
+    Tools::Error("NOT IMPLEMENTED!",__FILE__,__LINE__);
+/*
     belosSolverPtr_ = Teuchos::rcp(new 
         Belos::PCPGSolMgr<ST,MV,OP>
         (belosProblemPtr_,belosListPtr));
+*/
     }
   else if (solverType_=="GMRES")
     {
