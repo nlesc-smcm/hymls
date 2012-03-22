@@ -5,11 +5,12 @@ namespace HYMLS {
 
   Exception::Exception(std::string msg, std::string file, int line) throw()
     {
+    
     msg_=msg;
     file_=file;
     line_=line;
     std::stringstream ss;
-    ss<<Tools::printFunctionStack(ss);
+    Tools::printFunctionStack(ss);
     functionStack_=ss.str();
     }
 
@@ -22,7 +23,7 @@ namespace HYMLS {
     ss << functionStack_ << std::endl;
     ss << std::endl;
 
-    return ss.str().c_str();
+    return ss.str().c_str();    
     }
 
   Exception::~Exception() throw() {}

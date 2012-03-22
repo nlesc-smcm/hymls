@@ -963,7 +963,7 @@ void MatrixUtils::Dump(const Epetra_CrsMatrix& A, const string& filename,bool re
     }
   else
     {
-#if 0
+#if 1
     EpetraExt::RowMatrixToMatrixMarketFile(filename.c_str(),A);
 #elif 0
     Teuchos::RCP<std::ostream> ofs = Teuchos::rcp(new Teuchos::oblackholestream());

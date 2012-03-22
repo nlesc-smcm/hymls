@@ -118,14 +118,16 @@ namespace HYMLS
       }
       
     static void Fatal(std::string msg, const char* file, int line)
-      {
-      std::cerr << printFunctionStack(std::cerr) << std::endl;
-      std::cerr << "HYMLS Error: "<<msg<<std::endl;
+      {      
+      printFunctionStack(std::cerr);
+      std::cerr << std::endl;
+      std::cerr << "Fatal Error: "<<msg<<std::endl;
       std::cerr << "(in "<<file<<", line "<<line<<")"<<std::endl;
       DEBUG(std::flush);
       out()<<std::flush;
       output_stream=Teuchos::null;
       debug_stream=Teuchos::null;
+      
       MPI_Abort(MPI_COMM_WORLD,-1);
       exit(-1);      
       }

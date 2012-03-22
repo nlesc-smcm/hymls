@@ -92,6 +92,7 @@ namespace HYMLS {
   Teuchos::ParameterList& belosList = PL().sublist("Iterative Solver");
 
 //  belosList.set("Output Style",Belos::Brief);
+  belosList.set("Output Style",1);
   belosList.set("Verbosity",Belos::Errors+Belos::Warnings
                          +Belos::IterationDetails
                          +Belos::StatusTestDetails
