@@ -8,7 +8,7 @@
 #include "Epetra_Map.h"
 #include "HYMLS_BasePartitioner.H"
 
-#include "Galeri_Periodic.h"
+#include "GaleriExt_Periodic.h"
 
 class Epetra_Comm;
 class Epetra_Import;
@@ -29,7 +29,7 @@ class CartesianPartitioner : public BasePartitioner
   
   //! constructor
   CartesianPartitioner(Teuchos::RCP<const Epetra_Map> map, int nx, int ny, 
-        int nz=1, int dof=1, Galeri::PERIO_Flag perio=Galeri::NO_PERIO);
+        int nz=1, int dof=1, GaleriExt::PERIO_Flag perio=GaleriExt::NO_PERIO);
   
   //! destructor
   ~CartesianPartitioner();
@@ -152,7 +152,7 @@ class CartesianPartitioner : public BasePartitioner
   int dof_;
   
   //! type of periodicity in the problem
-  Galeri::PERIO_Flag perio_;
+  GaleriExt::PERIO_Flag perio_;
   
   //! stencil width, currently set to 1.
   static const int stencil_width_=1;

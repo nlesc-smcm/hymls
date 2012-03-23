@@ -33,7 +33,7 @@
 
 #include "Teuchos_StandardCatchMacros.hpp"
 
-#include "Galeri_Periodic.h"
+#include "GaleriExt_Periodic.h"
 
 
 typedef Teuchos::Array<int>::iterator int_i;
@@ -1284,11 +1284,11 @@ int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& lis
   if (dim_>=1) yperio=probList.get("y-periodic",yperio);
   if (dim_>=2) zperio=probList.get("z-periodic",zperio);
   
-  Galeri::PERIO_Flag perio=Galeri::NO_PERIO;
+  GaleriExt::PERIO_Flag perio=GaleriExt::NO_PERIO;
   
-  if (xperio) perio=(Galeri::PERIO_Flag)(perio|Galeri::X_PERIO);
-  if (yperio) perio=(Galeri::PERIO_Flag)(perio|Galeri::Y_PERIO);
-  if (zperio) perio=(Galeri::PERIO_Flag)(perio|Galeri::Z_PERIO);
+  if (xperio) perio=(GaleriExt::PERIO_Flag)(perio|GaleriExt::X_PERIO);
+  if (yperio) perio=(GaleriExt::PERIO_Flag)(perio|GaleriExt::Y_PERIO);
+  if (zperio) perio=(GaleriExt::PERIO_Flag)(perio|GaleriExt::Z_PERIO);
   
   probList.set("Periodicity",perio);
   probList.remove("x-periodic");

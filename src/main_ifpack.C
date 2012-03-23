@@ -21,8 +21,6 @@
 #include "Galeri_Maps.h"
 #include "Galeri_CrsMatrices.h"
 
-#include "GaleriExt_Cross2DN.h"
-
 /*
 #include "EpetraExt_HDF5.h"
 #include "EpetraExt_Exception.h"
@@ -33,6 +31,7 @@
 #include "HYMLS_Solver.H"
 #include "HYMLS_MatrixUtils.H"
 
+#include "Ifpack.h"
 
 
 int main(int argc, char* argv[])
@@ -124,7 +123,7 @@ bool status=true;
 
   HYMLS::Tools::Out("Create map");
   int dof=1;
-  if (eqn=="Laplace" || eqn=="Laplace Neumann")
+  if (eqn=="Laplace")
     {
     try {
       map= Teuchos::rcp(Galeri::CreateMap(mapType, *comm, galeriList));
@@ -150,31 +149,15 @@ bool status=true;
     {
     HYMLS::Tools::Out("Create matrix");
 
-    if (eqn=="Laplace Neumann")
-      {
-      if (dim==2)
-        {
-        K = Teuchos::rcp(GaleriExt::Matrices::Cross2DN(map.get(),
-                nx, ny, 4, -1, -1, -1, -1), true);
-        }
-      else
-        {
-        HYMLS::Tools::Error("not implemented!",__FILE__,__LINE__);
-        }
-      probl_params.set("Equations","Laplace");
-      }
-    else
-      {
-      std::string matrixType=eqn+Teuchos::toString(dim)+"D";
-      try {
-        K= Teuchos::rcp(Galeri::CreateCrsMatrix(matrixType, map.get(), galeriList));
-        } catch (Galeri::Exception G) {G.Print();}
-      K->Scale(-1.0); // we like our matrix negative definite
-                       // (just to conform with the diffusion operator in the NSE,
-                       // the solver works anyway, of course).
-      }
+    std::string matrixType=eqn+Teuchos::toString(dim)+"D";
+    try {
+      K= Teuchos::rcp(Galeri::CreateCrsMatrix(matrixType, map.get(), galeriList));
+      } catch (Galeri::Exception G) {G.Print();}
+    K->Scale(-1.0); // we like our matrix negative definite
+                     // (just to conform with the diffusion operator in the NSE,
+                     // the solver works anyway, of course).
     }
-  
+
   // create a random exact solution
   Teuchos::RCP<Epetra_MultiVector> x_ex = Teuchos::rcp(new Epetra_MultiVector(*map,numRhs));
 
@@ -233,7 +216,11 @@ bool status=true;
   
   HYMLS::Tools::Out("Create Preconditioner");
 
-  Teuchos::RCP<HYMLS::Preconditioner> precond = Teuchos::rcp(new HYMLS::Preconditioner(K, params));
+  Ifpack factory;
+  std::string ifp_type = "ILU";
+  int overlap = 3;
+  Teuchos::RCP<Ifpack_Preconditioner> precond = 
+        Teuchos::rcp(factory.Create(ifp_type,K.get(),overlap));
 
   HYMLS::Tools::Out("Initialize Preconditioner...");
   CHECK_ZERO(precond->Initialize());
@@ -363,9 +350,9 @@ DEBVAR(*b);
       HYMLS::Tools::out() << "parameter documentation is written to file param_doc.txt" << std::endl;
       std::ofstream ofs("paramDoc.txt");
       ofs << "valid parameters for HYMLS::Solver "<<std::endl;
-      printValidParameters(*solver,ofs);
+      //printValidParameters(*solver,ofs);
       ofs << "valid parameters for HYMLS::Preconditioner "<<std::endl;
-      printValidParameters(*precond,ofs);
+      //printValidParameters(*precond,ofs);
       }
     }
   

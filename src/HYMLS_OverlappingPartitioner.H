@@ -4,7 +4,7 @@
 #include "HYMLS_RecursiveOverlappingPartitioner.H"
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_Array.hpp"
-#include "Galeri_Periodic.h"
+#include "GaleriExt_Periodic.h"
 #include "HYMLS_PLA.H"
 
 namespace Teuchos 
@@ -114,7 +114,7 @@ protected:
   //! number of variables per grid-cell
   int dof_;
   
-  Galeri::PERIO_Flag perio_;
+  GaleriExt::PERIO_Flag perio_;
   
   //! this parameter can be set by the entry "Substitute Graph" 
   //! in the "Problem"->"Partitioner" sublist, and it    

@@ -32,9 +32,9 @@
 #endif
 
 #include "Galeri_Maps.h"
-#include "Galeri_Periodic.h"
+#include "GaleriExt_Periodic.h"
 #include "Galeri_Star2D.h"
-#include "Galeri_Star3D.h"
+#include "GaleriExt_Star3D.h"
 
 #include "EpetraExt_Reindex_CrsMatrix.h"
 
@@ -139,11 +139,11 @@ void OverlappingPartitioner::setParameterList
  
   dof_=PL().get("Degrees of Freedom",1);
   
-  perio_=PL().get("Periodicity",Galeri::NO_PERIO);
+  perio_=PL().get("Periodicity",GaleriExt::NO_PERIO);
   
   substituteGraph_ = PL().get("Substitute Graph",true);
   
-  if (substituteGraph_ && dim_==2 && perio_!=Galeri::NO_PERIO)
+  if (substituteGraph_ && dim_==2 && perio_!=GaleriExt::NO_PERIO)
     {
     // not implemented
     HYMLS::Tools::Error("Cannot handle periodic BC in 2D with 'Substitute Graph'",
@@ -194,7 +194,7 @@ Teuchos::RCP<const Teuchos::ParameterList> OverlappingPartitioner::getValidParam
   VPL().set("Dimension",2,"physical dimension of the problem");   
   VPL().set("Degrees of Freedom",1,"number of unknowns per node");
   
-  VPL().set("Periodicity",Galeri::NO_PERIO,"does the problem have periodic BC?"
+  VPL().set("Periodicity",GaleriExt::NO_PERIO,"does the problem have periodic BC?"
         " (flag constructed by Preconditioner object)");
   
   VPL().set("Substitute Graph",false,"use idealized graph for partitioning."
@@ -311,9 +311,9 @@ void OverlappingPartitioner::CreateGraph()
      }     
    else if (dim_==3)
      {
-     scalarLaplace=Teuchos::rcp(Galeri::Matrices::Star3D(scalarMap.get(),nx_,ny_,nz_,
+     scalarLaplace=Teuchos::rcp(GaleriExt::Matrices::Star3D(scalarMap.get(),nx_,ny_,nz_,
                                        1.0,1.0,0.0,0.0,perio_));
-//     scalarLaplace=Teuchos::rcp(Galeri::Matrices::Star3D(scalarMap.get(),nx_,ny_,nz_,
+//     scalarLaplace=Teuchos::rcp(GaleriExt::Matrices::Star3D(scalarMap.get(),nx_,ny_,nz_,
 //                                       1.0,1.0,1.0,1.0,perio_));
      }
    } catch (Galeri::Exception G) {G.Print();}  

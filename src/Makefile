@@ -20,7 +20,7 @@ OBJ=    HYMLS_Solver.o \
         HYMLS_PLA.o \
         HYMLS_Exception.o \
         NOX_Epetra_LinearSystem_Hymls.o \
-        Galeri_Periodic.o \
+        GaleriExt_Periodic.o \
         main_utils.o \
 
 LIBNAMEBASE=hymls_${PLAT}

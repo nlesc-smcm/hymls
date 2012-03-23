@@ -22,7 +22,7 @@ namespace HYMLS {
   // constructor 
   CartesianPartitioner::CartesianPartitioner
         (Teuchos::RCP<const Epetra_Map> map, int nx, int ny, int nz, int dof, 
-        Galeri::PERIO_Flag perio)
+        GaleriExt::PERIO_Flag perio)
         : BasePartitioner(), label_("CartesianPartiitoner"),
                 baseMap_(map), nx_(nx), ny_(ny),nz_(nz),dof_(dof),perio_(perio)
         {
@@ -92,9 +92,9 @@ namespace HYMLS {
     
     int di,dj,dk;
 
-    di=calc_distance(nx_,i1,i2,(perio_&Galeri::X_PERIO));
-    dj=calc_distance(ny_,j1,j2,(perio_&Galeri::Y_PERIO));
-    dk=calc_distance(nz_,k1,k2,(perio_&Galeri::Z_PERIO));
+    di=calc_distance(nx_,i1,i2,(perio_&GaleriExt::X_PERIO));
+    dj=calc_distance(ny_,j1,j2,(perio_&GaleriExt::Y_PERIO));
+    dk=calc_distance(nz_,k1,k2,(perio_&GaleriExt::Z_PERIO));
 #ifdef FLOW_DEBUGGING
 DEBVAR(di);
 DEBVAR(dj);
@@ -113,7 +113,7 @@ DEBVAR(dk);
     // return a nonzero value.
 
     // for non-periodic problems it is fairly simple:
-    if (perio_==Galeri::NO_PERIO)
+    if (perio_==GaleriExt::NO_PERIO)
       {
       FLOW_DEBUG("# return "<<sd1-sd2);
       return sd1-sd2;
@@ -129,9 +129,9 @@ DEBVAR(dk);
     Tools::ind2sub(npx_,npy_,npz_,1,sd1,I1,J1,K1,dum);
     Tools::ind2sub(npx_,npy_,npz_,1,sd2,I2,J2,K2,dum);
 
-    dI=calc_distance(npx_,I1,I2,(perio_&Galeri::X_PERIO));
-    dJ=calc_distance(npy_,J1,J2,(perio_&Galeri::Y_PERIO));
-    dK=calc_distance(npz_,K1,K2,(perio_&Galeri::Z_PERIO));
+    dI=calc_distance(npx_,I1,I2,(perio_&GaleriExt::X_PERIO));
+    dJ=calc_distance(npy_,J1,J2,(perio_&GaleriExt::Y_PERIO));
+    dK=calc_distance(npz_,K1,K2,(perio_&GaleriExt::Z_PERIO));
 
     if (abs(dK)> 0)
       {
