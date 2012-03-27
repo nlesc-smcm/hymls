@@ -50,10 +50,7 @@ namespace HYMLS {
         DEBVAR(nz_);
         DEBVAR(dof_);
         
-        npx_=-1;// indicates that Partition() hasn't been called
-        
-        // initially we put one subdomain in every partition
-        int nparts=comm_->NumProc();
+        npx_=-1;// indicates that Partition() hasn't been called        
         }
         
         

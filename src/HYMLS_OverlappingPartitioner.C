@@ -512,7 +512,6 @@ void OverlappingPartitioner::Partition()
     Tools::Error("Incompatible map passed to partitioner",__FILE__,__LINE__);
     }
 
-
 #ifdef DEBUGGING
 DEBUG("Partition numbers:");
 for (int i=0;i<baseMap_->NumMyElements();i++)
@@ -521,6 +520,14 @@ for (int i=0;i<baseMap_->NumMyElements();i++)
   DEBUG(gid << " " << (*partitioner_)(gid));
   }
 #endif  
+#ifdef TESTING
+  Epetra_Import test(*baseMap_,partitioner_->Map());
+  if (test.NumSend()!=0 || test.NumRecv()!=0)
+    {
+    Tools::Warning("your matrix is being repartitioned. This feature is buggy\n"
+                   " and may infringe the performance of the solver.",__FILE__,__LINE__);
+    }
+#endif
   return;
   }
   

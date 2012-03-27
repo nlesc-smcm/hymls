@@ -256,12 +256,13 @@ namespace HYMLS {
         variantValidator = Teuchos::rcp(
                 new Teuchos::StringToIntegralParameterEntryValidator<int>(
                     Teuchos::tuple<std::string>
-                    ("Block Diagonal","Domain Decomposition","Do Nothing"),
+                    ("Block Diagonal","Lower Triangular","Domain Decomposition","Do Nothing"),
                     "Preconditioner Variant"));
     
     VPL().set("Preconditioner Variant", "Block Diagonal",
         "Type of approximation used for the non-Vsums:\n"
         "'Block Diagonal' - one dense block per separator group (cf. SIMAX paper)\n"
+        "'Block Lower Triangular' - not implemented yet\n"
         "'Domain Decomposition' - one sparse block per processor",
         variantValidator);
     

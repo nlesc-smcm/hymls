@@ -204,7 +204,8 @@ namespace HYMLS {
       CHECK_ZERO(InitializeSeparatorGroups());
       CHECK_ZERO(InitializeOT());
       CHECK_ZERO(TransformAndDrop());
-      if (variant_=="Block Diagonal")
+      if (variant_=="Block Diagonal"||
+          variant_=="Lower Triangular")
         {
         CHECK_ZERO(InitializeBlocks());
         }
@@ -966,40 +967,17 @@ if (dumpVectors_)
   }
 #endif
 
-      int numBlocks=blockSolver_.size(); // will be 0 on coarsest level
-      {
+      
       Y=B;
-      START_TIMER2(label_,"solve blocks");
-      for (int blk=0;blk<numBlocks;blk++)
+      if (variant_=="Block Diagonal")
         {
-        if (X.NumVectors()!=blockSolver_[blk]->NumVectors())
-          {
-          blockSolver_[blk]->SetNumVectors(X.NumVectors());
-          }
-        for (int j = 0 ; j < blockSolver_[blk]->NumRows() ; j++)
-          {
-          int lid = blockSolver_[blk]->ID(j);
-          for (int k = 0 ; k < X.NumVectors() ; k++)
-            {
-            blockSolver_[blk]->RHS(j,k) = B[k][lid];
-            }
-          }
-        // apply the inverse of each block. NOTE: flops occurred
-        // in ApplyInverse() of each block are summed up in method
-        // ApplyInverseFlops().
-        CHECK_ZERO(blockSolver_[blk]->ApplyInverse());
-
-        // copy back into solution vector Y
-        for (int j = 0 ; j < blockSolver_[blk]->NumRows() ; j++)  
-          {
-          int lid = blockSolver_[blk]->ID(j);
-          for (int k = 0 ; k < X.NumVectors() ; k++)
-            {
-            Y[k][lid] = blockSolver_[blk]->LHS(j,k);
-            }
-          }
+        CHECK_ZERO(this->ApplyBlockDiagonal(B,Y));
         }
-      }
+      else if (variant_=="Lower Triangular")
+        {
+        CHECK_ZERO(this->ApplyBlockLowerTriangular(B,Y));
+        }
+        
       // solve reduced Schur-complement problem
       if (X.NumVectors()!=vsumRhs_->NumVectors())
         {
@@ -1007,7 +985,7 @@ if (dumpVectors_)
         vsumSol_ = Teuchos::rcp(new Epetra_MultiVector(*vsumMap_,X.NumVectors()));
         }
 
-      CHECK_ZERO(vsumRhs_->Import(B,*vsumImporter_,Insert));
+      CHECK_ZERO(vsumRhs_->Import(Y,*vsumImporter_,Insert));
       if (reducedSchurScaLeft_!=Teuchos::null)
         {
         CHECK_ZERO(vsumRhs_->Multiply(1.0,*reducedSchurScaLeft_,*vsumRhs_,0.0));
@@ -1318,6 +1296,126 @@ int SchurPreconditioner::ComputeScaling(const Epetra_CrsMatrix& A,
   
   return 0;
   } 
+
+int SchurPreconditioner::ApplyBlockDiagonal
+        (const Epetra_MultiVector& B, Epetra_MultiVector& Y) const
+  {
+  START_TIMER2(label_,"Block Diagonal Solve");
+  int numBlocks=blockSolver_.size(); // will be 0 on coarsest level
+  for (int blk=0;blk<numBlocks;blk++)
+    {
+    if (Y.NumVectors()!=blockSolver_[blk]->NumVectors())
+      {
+      blockSolver_[blk]->SetNumVectors(Y.NumVectors());
+      }
+    for (int j = 0 ; j < blockSolver_[blk]->NumRows() ; j++)
+      {
+      int lid = blockSolver_[blk]->ID(j);
+      for (int k = 0 ; k < Y.NumVectors() ; k++)
+        {
+        blockSolver_[blk]->RHS(j,k) = B[k][lid];
+        }
+      }
+    // apply the inverse of each block. NOTE: flops occurred
+    // in ApplyInverse() of each block are summed up in method
+    // ApplyInverseFlops().
+    CHECK_ZERO(blockSolver_[blk]->ApplyInverse());
+
+    // copy back into solution vector Y
+    for (int j = 0 ; j < blockSolver_[blk]->NumRows() ; j++)  
+      {
+      int lid = blockSolver_[blk]->ID(j);
+      for (int k = 0 ; k < Y.NumVectors() ; k++)
+        {
+        Y[k][lid] = blockSolver_[blk]->LHS(j,k);
+        }
+      }
+    }   
+  return 0;
+  }
+
+// approximate Y=S\B in non-Vsum points using Block lower triangular
+// factor. The V-sum part of Y will contain the updated RHS for the 
+// reduced solve.
+int SchurPreconditioner::ApplyBlockLowerTriangular
+        (const Epetra_MultiVector& B, Epetra_MultiVector& Y) const
+  {
+  START_TIMER2(label_,"Block Lower Triangular Solve");
+  int *indices;
+  double* values;
+  int len;
+  int numBlocks=blockSolver_.size(); // will be 0 on coarsest level
+
+  // zero out Y so that we can use a matrix vector product for the
+  // lower triangular blocks without checking column indices
+  CHECK_ZERO(Y.PutScalar(0.0));
+  
+  // for each block row ...
+  for (int blk=0;blk<numBlocks;blk++)
+    {    
+    if (Y.NumVectors()!=blockSolver_[blk]->NumVectors())
+      {
+      blockSolver_[blk]->SetNumVectors(Y.NumVectors());
+      }
+    for (int i = 0 ; i < blockSolver_[blk]->NumRows() ; i++)
+      {
+      int lid = blockSolver_[blk]->ID(i);
+      for (int k = 0 ; k < Y.NumVectors() ; k++)
+        {
+        blockSolver_[blk]->RHS(i,k) = B[k][lid];
+        }
+      // do a matrix vector product with the transformed S. Since
+      // all Y entries are zeroed out from the start, this gives
+      // RHS=B-L*Y, where L is the strict (block-)lower triangular 
+      // part of the matrix.
+      CHECK_ZERO(matrix_->ExtractMyRowView(lid,len,values,indices));
+      for (int j=0;j<len;j++)
+        {
+        for (int k=0;k<Y.NumVectors();k++)
+          {
+          blockSolver_[blk]->RHS(i,k) -= values[j]*Y[k][indices[j]];
+          }
+        }
+      }
+    
+    //TODO: flop count
+    
+    // apply the inverse of each block. NOTE: flops occurred
+    // in ApplyInverse() of each block are summed up in method
+    // ApplyInverseFlops().
+    CHECK_ZERO(blockSolver_[blk]->ApplyInverse());
+
+    // copy back into solution vector Y
+    for (int i = 0 ; i < blockSolver_[blk]->NumRows() ; i++)  
+      {
+      int lid = blockSolver_[blk]->ID(i);
+      for (int k = 0 ; k < Y.NumVectors() ; k++)         
+        {
+        Y[k][lid] = blockSolver_[blk]->LHS(i,k);
+        }
+      }
+    }
+  // update the RHS for the V-sum solve
+  for (int i=0;i<vsumMap_->NumMyElements();i++)
+    {
+    int lid = Y.Map().LID(vsumMap_->GID(i));
+    for (int k=0;k<Y.NumVectors();k++)
+      {
+      Y[k][lid] = B[k][lid];
+      }
+    /*
+    CHECK_ZERO(matrix_->ExtractMyRowView(lid,len,values,indices));
+    for (int j=0;j<len;j++)
+      {
+      for (int k=0;k<Y.NumVectors();k++)
+        {
+        Y[k][lid] -= values[j]*Y[k][indices[j]];
+        }
+      }
+    */
+    }
+  return 0;
+  }
 
 void SchurPreconditioner::Visualize(std::string mfilename,bool recurse) const
   {

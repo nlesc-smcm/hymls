@@ -363,6 +363,13 @@ private:
 
   //! Initialize on coarsest level
   int InitializeCoarse();
+  
+  //! apply block diagonal of non-Vsums inverse to vector
+  //! (this is called if variant_=="Block Diagonal")
+  int ApplyBlockDiagonal(const Epetra_MultiVector& B, Epetra_MultiVector& X) const;
+
+  //! TODO - description
+  int ApplyBlockLowerTriangular(const Epetra_MultiVector& B, Epetra_MultiVector& X) const;
 
   //!                                                                   
   //! compute scaling for a sparse matrix.                              

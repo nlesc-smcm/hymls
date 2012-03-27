@@ -86,7 +86,7 @@ Cross2DN(const Epetra_Map* Map, const int nx, const int ny,
     }
     else
     {
-    diag -= b;
+    diag += b;
     }
     if (right != -1) 
     {
@@ -96,7 +96,7 @@ Cross2DN(const Epetra_Map* Map, const int nx, const int ny,
     }
     else
     {
-    diag -= c;
+    diag += c;
     }
     if (lower != -1) 
     {
@@ -106,7 +106,7 @@ Cross2DN(const Epetra_Map* Map, const int nx, const int ny,
     }
     else
     {
-    diag -= d;
+    diag += d;
     }
     if (upper != -1) 
     {
@@ -116,7 +116,7 @@ Cross2DN(const Epetra_Map* Map, const int nx, const int ny,
     }
     else
     {
-    diag -= e;
+    diag += e;
     }
     // put the off-diagonal entries
     Matrix->InsertGlobalValues(MyGlobalElements[i], NumEntries, 

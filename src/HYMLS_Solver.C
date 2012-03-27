@@ -55,7 +55,12 @@ namespace HYMLS {
   // this for the Stokes-C case (constant pressure as single vector), otherwise we
   // assume the matrix is nonsingular (i.e. leave nullSpace==null).
   string nullSpaceType=PL().get("Null Space","None");
-  if (nullSpaceType=="Constant P")
+  if (nullSpaceType=="Constant")
+    {
+    nullSpace_ = Teuchos::rcp(new Epetra_Vector(matrix_->OperatorDomainMap()));
+    CHECK_ZERO(nullSpace_->PutScalar(1.0));
+    }
+  else if (nullSpaceType=="Constant P")
     {
     nullSpace_ = Teuchos::rcp(new Epetra_Vector(matrix_->OperatorDomainMap()));
     int pvar = PL().get("Pressure Variable",-1);
