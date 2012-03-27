@@ -634,6 +634,22 @@ START_TIMER(label_,"Subdomain factorization");
       {
       // compute subdomain factorization
       CHECK_ZERO(subdomainSolver_[sd]->Compute(*reorderedMatrix_));
+#ifdef STORE_SUBDOMAIN_MATRICES
+      Teuchos::RCP<Ifpack_SparseContainer<Ifpack_Amesos> > container =
+        Teuchos::rcp_dynamic_cast<Ifpack_SparseContainer<Ifpack_Amesos> >(subdomainSolver_[sd]); 
+     if (container!=Teuchos::null)
+       {
+       Tools::Warning("STORE_SUBDOMAIN_MATRICES is defined, this produces lots of output"
+                       " and make sthe code VERY slow",__FILE__,__LINE__);
+       const Epetra_RowMatrix& Asd = container->Inverse()->Matrix();
+       std::string filename = "SubdomainMatrix_P"+Teuchos::toString(comm_->MyPID())+
+                                             "_L"+Teuchos::toString(myLevel_)+
+                                             "_SD"+Teuchos::toString(sd)+".txt"; 
+       std::ofstream ofs(filename.c_str());
+       MatrixUtils::PrintRowMatrix(Asd,ofs);
+       ofs.close();
+       }
+#endif      
       }
     }
 }

@@ -11,11 +11,19 @@
 
 // the timing macro's are also used for function tracing, so enable them all:
 #ifdef DEBUGGING
+#ifndef TIMING_LEVEL
 #define TIMING_LEVEL 10
+#endif
+#ifndef PRINT_TIMING
 #define PRINT_TIMING false
+#endif
 #else
+#ifndef TIMING_LEVEL
 #define TIMING_LEVEL 2
+#endif
+#ifndef PRINT_TIMING
 #define PRINT_TIMING false
+#endif
 #endif
 
 #ifdef TESTING

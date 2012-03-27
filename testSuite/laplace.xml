@@ -65,7 +65,7 @@
 
     <Parameter name="Visualize Solver" type="bool" value="0"/>
         
-    <Parameter name="Preconditioner Variant" type="string" value="Lower Triangular"/>
+    <Parameter name="Preconditioner Variant" type="string" value="Block Diagonal"/>
         
     <!-- you can either set 'Separator Length' or 'Number of Subdomains' -->
     <Parameter name="Separator Length" type="int" value="4"/>

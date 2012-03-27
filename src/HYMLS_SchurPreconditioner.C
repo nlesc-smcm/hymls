@@ -968,7 +968,6 @@ if (dumpVectors_)
 #endif
 
       
-      Y=B;
       if (variant_=="Block Diagonal")
         {
         CHECK_ZERO(this->ApplyBlockDiagonal(B,Y));
@@ -977,6 +976,12 @@ if (dumpVectors_)
         {
         CHECK_ZERO(this->ApplyBlockLowerTriangular(B,Y));
         }
+      else if (variant_=="Upper Triangular")
+        {
+        CHECK_ZERO(this->ApplyBlockUpperTriangular(B,Y));
+        }
+
+      CHECK_ZERO(this->UpdateVsumRhs(B,Y));
         
       // solve reduced Schur-complement problem
       if (X.NumVectors()!=vsumRhs_->NumVectors())
@@ -1335,23 +1340,45 @@ int SchurPreconditioner::ApplyBlockDiagonal
   }
 
 // approximate Y=S\B in non-Vsum points using Block lower triangular
-// factor. The V-sum part of Y will contain the updated RHS for the 
-// reduced solve.
+// factor. The V-sum part of Y is not touched.
 int SchurPreconditioner::ApplyBlockLowerTriangular
         (const Epetra_MultiVector& B, Epetra_MultiVector& Y) const
   {
   START_TIMER2(label_,"Block Lower Triangular Solve");
+  int numBlocks=blockSolver_.size(); // will be 0 on coarsest level
+    
+  int ierr = this->BlockTriangularSolve(B,Y,0,numBlocks,+1);
+  return ierr;
+  }
+
+// approximate Y=S\B in non-Vsum points using Block upper triangular
+// factor. The V-sum part of Y is not touched.
+int SchurPreconditioner::ApplyBlockUpperTriangular
+        (const Epetra_MultiVector& B, Epetra_MultiVector& Y) const
+  {
+  START_TIMER2(label_,"Block Lower Triangular Solve");
+  int numBlocks=blockSolver_.size(); // will be 0 on coarsest level
+    
+  int ierr = this->BlockTriangularSolve(B,Y,numBlocks-1,-1,-1);
+  return ierr;
+  }
+
+// upper or lower triangular solve for non-Vsums
+int SchurPreconditioner::BlockTriangularSolve
+        (const Epetra_MultiVector& B, Epetra_MultiVector& Y,
+        int start, int end, int incr) const
+  {
+  START_TIMER3(label_,"General Triangular Solve");
   int *indices;
   double* values;
   int len;
-  int numBlocks=blockSolver_.size(); // will be 0 on coarsest level
 
   // zero out Y so that we can use a matrix vector product for the
   // lower triangular blocks without checking column indices
   CHECK_ZERO(Y.PutScalar(0.0));
   
   // for each block row ...
-  for (int blk=0;blk<numBlocks;blk++)
+  for (int blk=start;blk!=end;blk+=incr)
     {    
     if (Y.NumVectors()!=blockSolver_[blk]->NumVectors())
       {
@@ -1395,6 +1422,14 @@ int SchurPreconditioner::ApplyBlockLowerTriangular
         }
       }
     }
+  return 0;
+  }
+
+// update rhs for the next solve (currently does nothing)
+int SchurPreconditioner::UpdateVsumRhs(const Epetra_MultiVector& B, Epetra_MultiVector& Y) const
+  {
+  START_TIMER3(label_,"Update Vsum RHS");
+
   // update the RHS for the V-sum solve
   for (int i=0;i<vsumMap_->NumMyElements();i++)
     {

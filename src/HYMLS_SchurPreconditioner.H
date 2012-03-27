@@ -368,8 +368,18 @@ private:
   //! (this is called if variant_=="Block Diagonal")
   int ApplyBlockDiagonal(const Epetra_MultiVector& B, Epetra_MultiVector& X) const;
 
-  //! TODO - description
+  //! block triangular solve with non-Vsum blocks (does not touch Vsum-part of X)
   int ApplyBlockLowerTriangular(const Epetra_MultiVector& B, Epetra_MultiVector& X) const;
+
+  //! block triangular solve with non-Vsum blocks (does not touch Vsum-part of X)
+  int ApplyBlockUpperTriangular(const Epetra_MultiVector& B, Epetra_MultiVector& X) const;
+
+  //! general block triangular solve with non-Vsum blocks (does not touch Vsum-part of X)
+  int BlockTriangularSolve(const Epetra_MultiVector& B, Epetra_MultiVector& X,
+        int start, int end, int incr) const;
+
+  //! update Vsum part of the vector before solving reduced SC problem
+  int UpdateVsumRhs(const Epetra_MultiVector& B, Epetra_MultiVector& X) const;
 
   //!                                                                   
   //! compute scaling for a sparse matrix.                              
