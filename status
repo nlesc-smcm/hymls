@@ -1,0 +1,14 @@
+Status HYMLS
+
+29 March 2012
+It runs on Huygens, Millipede, in general on gnu systems.
+
+Faster direct solver is underway
+
+To be done
+Acceleration of convergence as in MATLAB using a better appromation of the Schur Complement
+on Stokes almost a factor 2 was gained.
+Incorporation of border, as in MATLAB version. Needed for eigenvalue computation
+
+ 
+
