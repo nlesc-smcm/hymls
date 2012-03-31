@@ -6,6 +6,7 @@
 #include "HYMLS_DenseUtils.H"
 #include "HYMLS_OverlappingPartitioner.H"
 
+#include "HYMLS_SparseDirectSolver.H"
 #include "HYMLS_SchurComplement.H"
 #include "HYMLS_SchurPreconditioner.H"
 #include "HYMLS_BorderedLU.H"
@@ -39,6 +40,8 @@
 typedef Teuchos::Array<int>::iterator int_i;
 
 namespace HYMLS {
+
+  typedef Ifpack_SparseContainer<SparseDirectSolver> SparseContainer;
 
   // constructor
   Preconditioner::Preconditioner(Teuchos::RCP<const Epetra_RowMatrix> K, 
@@ -472,7 +475,7 @@ MatrixUtils::Dump(*A22_, "Solver"+Teuchos::toString(myLevel_)+"_A22.txt");
     else if (sdSolverType_=="Sparse")
       {
       subdomainSolver_[sd] = 
-        Teuchos::rcp( new Ifpack_SparseContainer<Ifpack_Amesos>(nrows) );
+        Teuchos::rcp( new SparseContainer(nrows) );
       }        
     else
       {

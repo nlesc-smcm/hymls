@@ -86,6 +86,7 @@ namespace HYMLS {
         Tools::Error("not on coarsest level and no HID available!",
                 __FILE__,__LINE__);
         }
+      /*
       if (hid_->NumMySubdomains()==1)
         {
         //This can cause trouble if a processor partition has no local separators at all,
@@ -96,10 +97,7 @@ namespace HYMLS {
         "on level "+Teuchos::toString(myLevel_)+", this case is not well-implemented!",
                 __FILE__,__LINE__);
         }
-/*        
-      std::cout << "PRECONDITIONER LEVEL "<<myLevel_<<std::endl;
-      std::cout << *hid_ << std::endl;
-*/      
+      */
       }
 
   //TODO: may want to give the user a choice here, currently we just have
@@ -108,8 +106,9 @@ namespace HYMLS {
   dumpVectors_=false;
 #ifdef DEBUGGING
   dumpVectors_=true;
-#endif  
-    
+#endif
+  isEmpty_ = (SchurMatrix_->NumGlobalRows()==0);
+  return;
   }
 
 
@@ -192,6 +191,11 @@ namespace HYMLS {
   // Computes all it is necessary to initialize the preconditioner.
   int SchurPreconditioner::Initialize()
     {
+    if (isEmpty_) 
+      {
+      initialized_=true;
+      return 0;
+      }
     START_TIMER(label_,"Initialize");
     time_->ResetStartTime();
     
@@ -236,6 +240,11 @@ namespace HYMLS {
   // Computes all it is necessary to apply the preconditioner.
   int SchurPreconditioner::Compute()
     {
+    if (isEmpty_) 
+      {
+      computed_=true;
+      return 0;      
+      }
     START_TIMER(label_,"Compute");
 
     if (!(IsInitialized()))
@@ -264,6 +273,8 @@ namespace HYMLS {
     DEBVAR(myLevel_);
     DEBVAR(maxLevel_);
 
+//TODO: instead of Ifpack_Amesos, use our own HYMLS_Amesos interface
+
     DEBUG("scale matrix");
     CHECK_ZERO(reducedSchur_->LeftScale(*reducedSchurScaLeft_));
     CHECK_ZERO(reducedSchur_->RightScale(*reducedSchurScaRight_));
@@ -274,37 +285,8 @@ namespace HYMLS {
 #ifdef STORE_MATRICES
     //MatrixUtils::Dump(*linearMatrix_,"ScaledS2.txt");    
 #endif
-    
-    Teuchos::ParameterList& amesosList=PL().sublist("Coarse Solver");
-    if (amesosList.get("amesos: solver type","Amesos_Klu")=="Amesos_Mumps")
-      {
-      if (amesosList.sublist("mumps").isParameter("ICNTL(7)"))
-        {
-        int ordering=amesosList.sublist("mumps").get("ICNTL(7)",7);
-        if (ordering==1)
-          {
-          // construct a feasible ordering for MUMPS
-          HYMLS::MatrixUtils::FillReducingOrdering(*reducedSchur_,pivot_order_,
-                PL().sublist("Problem").sublist("Partitioner"));
 
-
-#ifdef TESTING
-        if (comm_->MyPID()==0)
-          {
-          std::ofstream ofs("ordering2.txt");
-          for (int i=0;i<pivot_order_.size();i++)
-            {
-            ofs << pivot_order_[i]<<std::endl;
-            }
-          ofs.close();
-          }
-#endif
-
-          amesosList.sublist("mumps").set("PermIn",&(pivot_order_[0]));
-          }
-        }
-      }
-                
+    Teuchos::ParameterList& amesosList=PL().sublist("Coarse Solver");                    
     reducedSchurSolver_= Teuchos::rcp(new Ifpack_Amesos(linearMatrix_.get()));
     CHECK_ZERO(reducedSchurSolver_->SetParameters(amesosList));
   
@@ -875,6 +857,7 @@ int SchurPreconditioner::InitializeOT()
   int SchurPreconditioner::ApplyInverse(const Epetra_MultiVector& X,
                            Epetra_MultiVector& Y) const
     {
+    if (isEmpty_) return 0;
     START_TIMER(label_,"ApplyInverse");
     numApplyInverse_++;
     time_->ResetStartTime();

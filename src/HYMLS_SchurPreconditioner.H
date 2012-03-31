@@ -289,6 +289,10 @@ protected:
   
   //! timer
   mutable Teuchos::RCP<Epetra_Time> time_;
+ 
+ 
+  //! true if the Schur complement has 0 global rows
+  bool isEmpty_;
   
   //! has Initialize() been called?
   bool initialized_;

@@ -35,7 +35,6 @@
 #include "EpetraExt_RowMatrixOut.h"
 #include "EpetraExt_VectorOut.h"
 #include "EpetraExt_BlockMapOut.h"
-//#include "EpetraExt_SubCopy_CrsMatrix.h"
 
 #include "Isorropia_EpetraOrderer.hpp"
 
@@ -1143,25 +1142,9 @@ void MatrixUtils::PrintRowMatrix(const Epetra_RowMatrix& A, std::ostream& os)
   double *values = new double[maxlen];
   int grid,gcid;
   
-  os << "Number of Rows: " << nrows;
-  
-  if (nrows!=nrows_g) os << " [g"<<nrows_g<<"]";
-    
-  os << std::endl;
-
-  os << "Number of Columns: " << ncols;
-
-  if (ncols!=ncols_g) os << " [g"<<ncols_g<<"]";
-
-  os << std::endl;
-
-  os << "Number of Nonzero Entries: " << nnz;
-
-  if (nnz!=nnz_g) os << " [g"<<nnz_g<<"]";
-
-  
-  os << std::endl;
-  
+  os << "% nloc nglob nnz_loc nnz_glob\n";
+  os << nrows <<" "<<nrows_g<<" "<<nnz<<" "<<nnz_g<<std::endl;
+  os << std::scientific << std::setw(16) << std::setprecision(16);  
   for (int i=0;i<nrows;i++)
     {
     grid = A.RowMatrixRowMap().GID(i);
@@ -1169,14 +1152,7 @@ void MatrixUtils::PrintRowMatrix(const Epetra_RowMatrix& A, std::ostream& os)
     for (int j=0;j<len;j++)
       {
       gcid = A.RowMatrixColMap().GID(indices[j]);
-//      os << A.Comm().MyPID() << "\t";
-      os << i;
-      if (grid!=i) os << " [g"<< grid <<"]";
-      os << "\t";
-      os << indices[j];
-      if (gcid!=indices[j]) os << " [g"<< gcid <<"]";
-      os << "\t";
-      os << values[j] << std::endl;
+      os << grid << "\t"<< gcid << "\t" << values[j] << std::endl;
       }
     }
   delete [] indices;
@@ -1665,278 +1641,331 @@ int MatrixUtils::PutDirichlet(Epetra_CrsMatrix& A, int gid)
 
 
 int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
-                                             Teuchos::Array<int>& global_ordering,
-                                             Teuchos::ParameterList& probDescription)
+                                             Teuchos::Array<int>& rowperm,
+                                             Teuchos::Array<int>& colperm)
   {
-  int dim=probDescription.get("Dimension",-1);
-  int dof=probDescription.get("Degrees of Freedom",-1);
-  string presType="none";
-  int pres=dim;
-  if (dof>1)
-    {    
-    presType=probDescription.get
-        ("Variable Type ("+Teuchos::toString(pres)+")","undefined");
-    }
-  if (dim==-1 || dof==-1 || presType=="undefined")
-    {
-    Tools::Error("'Partitioner' list incorrect",__FILE__,__LINE__);
-    }
+  START_TIMER2(Label(),"Fill Reducing Ordering");
+  
+  bool parallel = (Matrix.Comm().NumProc()>1);
+  DEBVAR(parallel);
+    
+  int N = Matrix.NumMyRows();
+  int n=0; // number of V-nodes
+  int m=0; // number of P-nodes
+
   Teuchos::RCP<Epetra_CrsMatrix> tmpMatrix;
-  Teuchos::RCP<const Epetra_CrsGraph> graph;
+  
   Teuchos::RCP<Epetra_Map> map1, map2;
-  Teuchos::RCP<Epetra_Map> colmap1, colmap2;
+     
+  int* col;
+  double* val;
+  int len;
+
+  int* elts1 = new int[N];
+  int* elts2 = new int[N];
   
-  if (presType!="Retain 1")
-    {
-    Tools::Error("only intended for a special class of saddle-point problems",
-        __FILE__,__LINE__);
-    }
-
-  // we assume that the matrix A 
-  std::cout<<"Reordering based on graph of A+BB'"<<std::endl;
-
-  // create the graph of A+BB', where B is the Div operator
-    
-  // 1) create row/colmaps of A and B
-    
-  // a) row maps
-  int numel1=0;
-  int numel2=0;
   for (int i=0;i<Matrix.NumMyRows();i++)
     {
-    if (MOD(Matrix.GRID(i),dof)==pres)
+    int row = Matrix.GRID(i);
+    CHECK_ZERO(Matrix.ExtractMyRowView(i,len,val,col));
+    int j;
+    bool no_diag=true;
+    for (j=0;j<len;j++)
       {
-      numel2++;
+      if (Matrix.GCID(col[j])==row) break;
+      }
+    if (j<len) no_diag=(val[j]==0.0);
+    if (no_diag) 
+      {
+      elts2[m++] = row;
       }
     else
       {
-      numel1++;
+      elts1[n++] = row;
       }
     }
-  int *myElements1=new int[numel1];
-  int *myElements2=new int[numel2];
+  
+  bool indefinite = (m>0);
+  DEBVAR(indefinite);
+  
+  bool fmatrix = false;
+  
+  Teuchos::RCP<Epetra_CrsMatrix> Bmat=Teuchos::null;
+  
+  if (!indefinite)
+    {
+    tmpMatrix = Teuchos::rcp(const_cast<Epetra_CrsMatrix*>(&Matrix),false);
+    }
+  else  
+    {
+    // 1) create maps of A and B
+    int base=Matrix.RowMap().IndexBase();
+    const Epetra_Comm& comm=Matrix.Comm();
     
-  int pos1=0;
-  int pos2=0;
+    map1=Teuchos::rcp(new Epetra_Map(-1,n,elts1, base,comm));
+    map2=Teuchos::rcp(new Epetra_Map(-1,m,elts2, base,comm));
+
+    Teuchos::RCP<Epetra_Map> colmap1 = map1;
+    Teuchos::RCP<Epetra_Map> colmap2 = map2;
+    // in parallel we would need actual column maps
+    if (parallel) Tools::Error("not implemented!",__FILE__,__LINE__);
+
+    // c) create a copy of the matrices A, B (=grad) and B' (=div)
+    Epetra_CrsMatrix A(Copy,*map1,*colmap1,Matrix.MaxNumEntries());
+    // we need B outside this if statement later on to add the P-nodes
+    Bmat = Teuchos::rcp(new Epetra_CrsMatrix(Copy,*map1,*colmap2,Matrix.MaxNumEntries()));
+    Epetra_CrsMatrix& B = *Bmat;
+    Epetra_CrsMatrix Bt(Copy,*map2,*colmap1,Matrix.MaxNumEntries());
+
+    Epetra_Import import1(Matrix.RowMap(),*map1);
+    Epetra_Import import2(Matrix.RowMap(),*map2);
+  
+    CHECK_ZERO(A.Export(Matrix,import1,Insert));
+    CHECK_ZERO(B.Export(Matrix,import1,Insert));
+    CHECK_ZERO(Bt.Export(Matrix,import2,Insert));
+
+    CHECK_ZERO(A.FillComplete(*map1,*map1));
+    CHECK_ZERO(B.FillComplete(*map2,*map1));
+    CHECK_ZERO(Bt.FillComplete(*map1,*map2));
+
+    CHECK_ZERO(A.PutScalar(1.0));
+    CHECK_ZERO(B.PutScalar(1.0));
+    CHECK_ZERO(Bt.PutScalar(1.0));
+
+    fmatrix = (B.MaxNumEntries()==2);
+    DEBVAR(fmatrix);
     
+    // create the graph of A+BB'
+    tmpMatrix= Teuchos::rcp(new Epetra_CrsMatrix(Copy,*map1,A.MaxNumEntries()));
+    CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(Bt,false,B,false,*tmpMatrix,false));
+    CHECK_ZERO(EpetraExt::MatrixMatrix::Add(A, false, 1.0, *tmpMatrix, 1.0));
+    CHECK_ZERO(tmpMatrix->FillComplete());
+    } // indefinite matrix -> tmpMat = A+BB'
+
+    delete [] elts1;
+    delete [] elts2;
+
+    if (indefinite==true && ((fmatrix==false) || (parallel==true)))
+      {
+      Tools::Error("this subroutine is intended for serial F-matrices \n"
+      " or matrices with nonzero diagonal right now",__FILE__,__LINE__);
+      }
+
+#ifdef DEBUGGING
+  std::ofstream deb;
+  deb.open("fill_reducing_ordering.m");
+
+  deb << "N="<<N<<"; n="<<n<<"; m="<<m<<";\n";
+  {
+  int len;
+  int *inds;
+  double* values;
+  deb<<std::setw(16)<<std::setprecision(16)<<std::scientific;
+  deb << "tmp=[...\n";
   for (int i=0;i<Matrix.NumMyRows();i++)
     {
-    if (MOD(Matrix.GRID(i),dof)==pres)
+    CHECK_ZERO(Matrix.ExtractMyRowView(i,len,values,inds));
+    for (int j=0;j<len;j++)
       {
-      myElements2[pos2++]=Matrix.GRID(i);
-      }
-    else
-      {
-      myElements1[pos1++]=Matrix.GRID(i);
+      deb << Matrix.GRID(i)+1 << " " << Matrix.GCID(inds[j])+1 << " " << values[j] << std::endl;
       }
     }
+  deb<<"];"<<std::endl;
+  deb<<"K=sparse(tmp(:,1),tmp(:,2),tmp(:,3));\n";
+  }
+deb << std::endl;
+if (map1!=Teuchos::null)
+  {
+  deb << "map1=[";
+  for (int i=0;i<map1->NumMyElements();i++) deb<<map1->GID(i)+1<<" ";
+  deb << "];\n";
+  }
+if (map2!=Teuchos::null)
+  {
+  deb << "map2=[";
+  for (int i=0;i<map2->NumMyElements();i++) deb<<map2->GID(i)+1<<" ";
+  deb << "];\n";
+  }
+#endif
 
-  int base=Matrix.RowMap().IndexBase();
-  const Epetra_Comm& comm=Matrix.Comm();
-    
-  map1=Teuchos::rcp(new Epetra_Map(-1,numel1,myElements1, base,comm));
-  map2=Teuchos::rcp(new Epetra_Map(-1,numel2,myElements2, base,comm));
-    
-  delete [] myElements1;
-  delete [] myElements2;
+  DEBUG("zoltan ordering step");
 
-  // b) create column maps
-  const Epetra_Map& colmap = Matrix.ColMap();
-
-  numel1=0;
-  numel2=0;
-  for (int i=0; i<colmap.NumMyElements();i++)
-    {
-    if (MOD(colmap.GID(i),dof)==pres)
-      {
-      numel2++;
-      }
-    else
-      {
-      numel1++;
-      }
-    }
-  myElements1=new int[numel1];
-  myElements2=new int[numel2];
-  
-  pos1=0;
-  pos2=0;
-
-  for (int i=0; i<colmap.NumMyElements();i++)
-    {
-    if (MOD(colmap.GID(i),dof)==pres)
-      {
-      myElements2[pos2++]=colmap.GID(i);
-      }
-    else
-      {
-      myElements1[pos1++]=colmap.GID(i);
-      }
-    }
-    
-  colmap1=Teuchos::rcp(new Epetra_Map(-1,numel1,myElements1, base,comm));
-  colmap2=Teuchos::rcp(new Epetra_Map(-1,numel2,myElements2, base,comm));
-    
-  delete [] myElements1;
-  delete [] myElements2;
-
-  // c) create a copy of the matrices A, B (=Div), and B' (=Grad)
-    
-  Epetra_CrsMatrix A(Copy,*map1,*colmap1,Matrix.MaxNumEntries());
-  Epetra_CrsMatrix B(Copy,*map2,*colmap1,Matrix.MaxNumEntries());
-  Epetra_CrsMatrix Bt(Copy,*map1,*colmap2,Matrix.MaxNumEntries());
-
-  Epetra_Import import1(Matrix.RowMap(),*map1);
-  Epetra_Import import2(Matrix.RowMap(),*map2);
-  
-  CHECK_ZERO(A.Export(Matrix,import1,Insert));
-  CHECK_ZERO(B.Export(Matrix,import2,Insert));
-  CHECK_ZERO(Bt.Export(Matrix,import1,Insert));
-  
-  CHECK_ZERO(A.FillComplete(*map1,*map1));
-  CHECK_ZERO(B.FillComplete(*map1,*map2));
-  CHECK_ZERO(Bt.FillComplete(*map2,*map1));
-
-MatrixUtils::Dump(*map1,"map1.txt");
-MatrixUtils::Dump(*map2,"map2.txt");
-MatrixUtils::Dump(A,"A.txt");
-MatrixUtils::Dump(B,"B.txt");
-MatrixUtils::Dump(Bt,"Bt.txt");
-  
-  tmpMatrix=Teuchos::rcp(new Epetra_CrsMatrix(Copy,*map1,A.MaxNumEntries()));
-  CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(Bt,false,B,false,*tmpMatrix,false));
-  CHECK_ZERO(EpetraExt::MatrixMatrix::Add(A, false, 1.0, *tmpMatrix, 1.0));
-  CHECK_ZERO(tmpMatrix->FillComplete());
-  tmpMatrix=DropByValue(tmpMatrix,1e-12,Relative);
-
-//MatrixUtils::Dump(*tmpMatrix,"tmpMatrix.txt");
-std::cout << "call Isorropia to reorder"<<std::endl;
+  // compute fill-reducing ordering of A+BB' using Isorropia->Zoltan->Metis 
+  // (complicated somehow, but right now that's the only method directly available for 
+  // Epetra graphs)
   Teuchos::ParameterList params;
-  //Teuchos::ParameterList zList=params.sublist("Zoltan");
+  Teuchos::ParameterList& zList=params.sublist("Zoltan");
   // set Zoltan/ParMETIS   parameters
   //zList.set(...);
   
-  // reindex the matrix
+  // reindex the matrix to have a linear map
   Teuchos::RCP<Epetra_Map> linearMap = Teuchos::rcp(new 
         Epetra_Map(tmpMatrix->NumGlobalRows(),
                    tmpMatrix->NumMyRows(),
                    0, tmpMatrix->Comm()) );
-
+ 
   Teuchos::RCP<EpetraExt::CrsMatrix_Reindex> reindex = Teuchos::rcp(new 
         EpetraExt::CrsMatrix_Reindex(*linearMap));
-
+ 
   Teuchos::RCP<Epetra_CrsMatrix> linearMatrix = 
         Teuchos::rcp(&((*reindex)(*tmpMatrix)),false);
 
-//  graph = Teuchos::rcp(&(tmpMatrix->Graph()), false);
-  graph = Teuchos::rcp(&(linearMatrix->Graph()), false);
+  //  graph = Teuchos::rcp(&(tmpMatrix->Graph()), false);
+  Teuchos::RCP<const Epetra_CrsGraph> graph = Teuchos::rcp(&(linearMatrix->Graph()), false);
 
   //TODO: this causes an exception!!!
   Isorropia::Epetra::Orderer reorder(graph,params);
 
   // now we have an ordering for A+BB', add in the pressures at the
   // right positions
-  const int* velocity_ordering;
-  int len;
-  CHECK_ZERO(reorder.extractPermutationView(len,velocity_ordering));
-  if (len!=map1->NumMyElements())
+  const int* q0;
+  int *q = new int[n];
+  int len_q;
+  CHECK_ZERO(reorder.extractPermutationView(len_q,q0));
+  if (len_q!=n) Tools::Error("inconsistency discovered",__FILE__,__LINE__);
+
+  // CAUTION - the ordering q0 is the inverse of the one we're used to from MATLAB,
+  //           so Anew(q0,q0) = Aold instead of Anew = Aold(q,q)! We invert the ordering
+  //           before returning it to the caller.
+  if (parallel) Tools::Error("not implemented",__FILE__,__LINE__);
+  for (int i=0;i<len_q;i++) q[q0[i]] = i;
+
+  if (!indefinite)
     {
-    Tools::Error("in- and output array size inconsistent?",
-      __FILE__,__LINE__);
+    rowperm.resize(N);
+    colperm.resize(N);
+    for (int i=0;i<N;i++)
+      {
+      rowperm[i]=q[i];
+      colperm[i]=q[i];
+      }
+    }
+  else
+    {
+    Teuchos::Array<int> symperm(N);
+    Teuchos::Array<int> perm(N);
+    rowperm.resize(N);
+    colperm.resize(N);
+
+    // implementation taken from Fred's matlab variant addindefnodes3.m
+    Teuchos::Array<Teuchos::Array<int> > Gr(n);
+
+    for (int i=0;i<n;i++)
+      {
+      Gr[i].resize(2);
+      for (int j=0;j<2;j++) Gr[i][j] = m+1;
+      }
+
+    // test vector to see if there is a coupling to a p-node
+    Teuchos::Array<double> cont(n);
+
+    //cont = sum(B);
+    //Gr(Ip(i),1 or 2) = Jp(i);
+    for (int i = 0;i<n;i++)
+      {
+      cont[i] = 0.0;
+      CHECK_ZERO(Bmat->ExtractMyRowView(i,len,val,col));
+      for (int j=0;j<len;j++)
+        {
+        cont[i] +=1.0;
+        if (Gr[i][0] == m+1)
+          {
+          Gr[i][0] = col[j];
+          }
+        else
+          {
+          Gr[i][1] = col[j];
+          }
+        }
+      }
+    //pressure id's
+    Teuchos::Array<int> pid(m+1);
+    for (int i=0;i<m+1;i++) pid[i] = i;
+
+    //row perm to get all diagonal entries nonzero
+    for (int i=0;i<N;i++) perm[i] = i;
+
+    int j = 0;
+    int gr1,gr2;
+    for (int i=0;i<n;i++)
+      {
+      int qi = q[i];
+      symperm[j] = qi;
+      gr1 = Gr[qi][0]; // first pressure node
+      gr2 = Gr[qi][1]; // second pressure node
+      while (pid[gr1]!=gr1) gr1 = pid[gr1];
+      while (pid[gr2]!=gr2) gr2 = pid[gr2];
+      if (gr1 != gr2)
+        {
+        if (gr1 == m+1)
+          {
+          pid[gr2] = pid[gr1];
+          symperm[j+1] = map2->GID(gr2);
+          }
+        else if (gr2 == m+1)
+          {
+          pid[gr1] = pid[gr2];
+          symperm[j+1] = map2->GID(gr1);           
+          }
+        else if (cont[gr2] > cont[gr1])
+          {
+          pid[gr1] = pid[gr2];
+          symperm[j+1] = map2->GID(gr1);
+          cont[gr2] = cont[gr1] + cont[gr2] - 2;
+          }
+        else
+          {
+          pid[gr2] = pid[gr1];
+          symperm[j+1] = map2->GID(gr2);
+          cont[gr1] = cont[gr1] + cont[gr2] - 2;
+          }
+        perm[j] = j+1; perm[j+1] = j;
+        j = j+2;
+        }
+      else
+        {
+        j = j+1;
+        }
+      }
+
+    //test = ones(1,m+n); test(p) = 0; p(j:n+m) = find(test);
+    Teuchos::Array<int> test(N);
+    for (int i=0;i<N;i++) test[i]=1;
+    for (int i=0;i<j;i++) test[symperm[i]]=0;
+    int k=0;
+    for (int i=0; i<N; i++)
+      { 
+      if (!test[i])
+        { 
+        symperm[j+k]=Matrix.GRID(i);
+        k++;
+        }
+      }
+
+    for (int i=0;i<N;i++)
+      {
+      colperm[i]=symperm[i];
+      rowperm[i]=symperm[perm[i]];
+      }
     }
 
-
-  // if ordering[i]=j, MUMPS will use the variable with LID i as j'th pivot.
-
-  // go through the Div-matrix, and add each pressure in the ordering
-  // just before the first velocity it couples to. That way we should
-  // force the direct solver to form a 2x2 pivot with the first connected
-  // velocity when encountering the pressure (which has a zero on the diagonal)
-
-
-  // gather the Div matrix
-  Teuchos::RCP<Epetra_CrsMatrix> Grad = Gather(Bt,0);
-
-  // collect the current ordering
-  Epetra_IntVector ivec1(A.RowMap());
-  for (int i=0;i<ivec1.MyLength();i++)
-    {
-    ivec1[i]=velocity_ordering[i];
-    }
-  Teuchos::RCP<Epetra_IntVector> ord1 =
-      MatrixUtils::Gather(ivec1,0);
-
-#ifdef TESTING
-MatrixUtils::Dump(*linearMatrix,"InputMatrixReorderer.txt");
-MatrixUtils::Dump(*ord1, "ordering1.txt");
+#ifdef DEBUGGING
+  deb << "% initial ordering of v-nodes\n";
+  deb << "q0=[";
+  for (int i=0;i<n;i++) deb<<q[i]+1<<" ";
+  deb << "];\n\n";
+  deb << "% row permutation\n";
+  deb << "p=[";
+  for (int i=0;i<N;i++) deb << rowperm[i]+1<<" ";
+  deb<<"];\n";  
+  deb << "% column permutation\n";
+  deb << "q=[";
+  for (int i=0;i<N;i++) deb << colperm[i]+1<<" ";
+  deb<<"];\n";
+  deb.close();
 #endif
-
-  if (Matrix.Comm().MyPID()==0)
-    {
-    Teuchos::Array<bool> in_ordering(Matrix.NumGlobalRows());
-
-    Teuchos::Array<Teuchos::Array<int> > iord(Grad->NumMyRows());
-    
-    for (int i=0;i<Matrix.NumGlobalRows();i++)
-      {
-      in_ordering[i]=false;
-      }
-
-    for (int i=0;i<Grad->NumMyRows();i++)
-      {
-      in_ordering[Grad->GRID(i)]=true;
-      }
-    
-    for (int i=0;i<Grad->NumMyRows();i++)
-      {
-      iord[i].resize(3);
-      }
-
-    for (int i=0;i<Grad->NumMyRows();i++)
-      {
-      int grid = Grad->GRID(i);
-      int idx=(*ord1)[i];
-      iord[idx][0]=grid;
-      
-      iord[idx][1]=-1;
-      iord[idx][2]=-1;
-
-
-      int *indices;
-      double* values;
-      int len2;
-      CHECK_ZERO(Grad->ExtractMyRowView(grid,len2,values,indices));
-      int pos=0;
-      for (int j=0;j<len2;j++)
-        {
-        int gcid = Grad->GCID(j);
-        if (!(in_ordering[gcid]))
-          {
-          iord[idx][pos++]=gcid;
-          if (pos>=2) break; //safety
-          }
-        }
-      }
-    // construct the inverse ordering
-    Teuchos::Array<int> iord_glob(Matrix.NumGlobalRows());
-    int pos=0;
-    for (int i=0;i<iord.size();i++)
-      {
-      for (int j=0;j<iord[i].size();j++)
-        {
-        if (iord[i][j]>=0)
-          {
-          iord_glob[pos++]=iord[i][j];
-          }
-        }
-      }
-    global_ordering.resize(Matrix.NumGlobalRows());
-    for (int i=0;i<Matrix.NumGlobalRows();i++)
-      {
-      global_ordering[iord_glob[i]]=i;
-      }
-    }
-  return 0;  
+  delete [] q;
+  return 0;
   }
 
     Teuchos::RCP<Epetra_Map> 

@@ -15,6 +15,7 @@ OBJ=    HYMLS_Solver.o \
         HYMLS_ProjectedOperator.o \
         HYMLS_BorderedLU.o \
         HYMLS_View_MultiVector.o \
+        HYMLS_SparseDirectSolver.o \
         HYMLS_Householder.o \
         HYMLS_Tools.o \
         HYMLS_PLA.o \

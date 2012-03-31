@@ -521,11 +521,17 @@ for (int i=0;i<baseMap_->NumMyElements();i++)
   }
 #endif  
 #ifdef TESTING
-  Epetra_Import test(*baseMap_,partitioner_->Map());
-  if (test.NumSend()!=0 || test.NumRecv()!=0)
+  int rank = comm_->MyPID();
+  if (partitioner_==Teuchos::null) Tools::Error("partitioner zero???",__FILE__,__LINE__);
+  DEBVAR(partitioner_->Partitioned());
+  DEBVAR(partitioner_->Map());
+  Epetra_Import test_importer(*baseMap_,partitioner_->Map());
+  if ((test_importer.NumSend()!=0) || (test_importer.NumRecv()!=0))
     {
     Tools::Warning("your matrix is being repartitioned. This feature is buggy\n"
-                   " and may infringe the performance of the solver.",__FILE__,__LINE__);
+                   " and may infringe the performance of the solver.\n"
+                   " Warning issued by rank "+Teuchos::toString(rank),__FILE__,__LINE__);
+    DEBVAR(test_importer);
     }
 #endif
   return;

@@ -292,14 +292,22 @@ class MatrixUtils
     static int PutDirichlet(Epetra_CrsMatrix& A, int gid);
     
     
-    //! computes a fill-reducing ordering based on information about the matrix and
-    //! the HYMLS "Partitioner" sublist. This is only intended for Navier-Stokes
-    //! problems right now. The output array is resized if necessary and is the global
-    //! ordering gathered on the 'host' (rank 0), so that it is conformal with the MUMPS
-    //! input paraeter "PermIn".
-    static int FillReducingOrdering(const Epetra_CrsMatrix& A,
-                                Teuchos::Array<int>& ordering,
-                                Teuchos::ParameterList& probDescription);
+    //!                                                                         
+    //! computes a fill-reducing ordering for a sparse matrix K.                
+    //!                                                                         
+    //! - For general sparse matrices with non-zero diagonal, metis is used to  
+    //!   create the permutation (via Isorropia and Zoltan), and                
+    //!   row_perm=col_perm.                                                    
+    //! - for serial F-matrices, an orderinbased on the pattern of A+BB' is     
+    //!   computed and the P-nodes are inserted according to Fred and Arie's    
+    //!   algorithm. The matrix K(row_perm,col_perm) will have no zero diagonal 
+    //!   entries.                                                              
+    //! - otherwise currently a warning is issued and an identity is returned   
+    //!   as ordering (TODO: we need the F-mat ordering also for the reduced SC)
+    //!                                                                         
+    static int FillReducingOrdering(const Epetra_CrsMatrix& K,
+                                Teuchos::Array<int>& row_perm,
+                                Teuchos::Array<int>& col_perm);
 
     //! creates a map of the form (i0:i1,j0:j1,k0:k1),
     //! column-major access (i is fastest).           
