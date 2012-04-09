@@ -260,7 +260,8 @@ namespace HYMLS {
   if (myLevel_==maxLevel_)
     {
     // drop numerical zeros:
-    reducedSchur_ = MatrixUtils::DropByValue(SchurMatrix_, 1.0e-8, MatrixUtils::Absolute);
+    reducedSchur_ = MatrixUtils::DropByValue(SchurMatrix_, 
+        HYMLS_SMALL_ENTRY, MatrixUtils::Absolute);
 
     for (int i=0;i<fix_gid_.length();i++)
       {
@@ -370,15 +371,24 @@ namespace HYMLS {
     CHECK_ZERO(blockSolver_[i]->Compute(*matrix_));
     }
   }
+  
   // extract the Vsum part of the preconditioner (reduced Schur)
   CHECK_ZERO(reducedSchur_->Import(*matrix_, *vsumImporter_, Insert));
 
+  //TODO: compute actual Schur complement rather than just using the part K22
+  // ...
+
   CHECK_ZERO(reducedSchur_->FillComplete(*vsumMap_,*vsumMap_));
 
-  //TODO: at this point we would like to throw out numerical zeros, I think.
-  //      However, that would mean resetting the pointer and invalidating
-  //      the reducedSchurSolver. Possibly it is not necessary, though.
-//  reducedSchur_ = MatrixUtils::DropByValue(reducedSchur_, 1.0e-14,MatrixUtils::Absolute);
+  //  DropByValue before going to the next level. Careful about
+  //  the pointer, though, which is shared with the next level 
+  //  solver...
+  Teuchos::RCP<Epetra_CrsMatrix> tmp = MatrixUtils::DropByValue(reducedSchur_,
+        HYMLS_SMALL_ENTRY, MatrixUtils::Absolute);
+  *reducedSchur_ = *tmp; 
+  tmp=Teuchos::null;
+
+
   
 #ifdef STORE_MATRICES
     MatrixUtils::Dump(*reducedSchur_,"ReducedSchur"+Teuchos::toString(myLevel_)+".txt");
@@ -740,10 +750,13 @@ int SchurPreconditioner::InitializeOT()
       // import sparsity pattern for S2
       // extract the Vsum part of the preconditioner (reduced Schur)
       CHECK_ZERO(reducedSchur_->Import(*matrix_, *vsumImporter_, Insert));
+      
+      //TODO: actual Schur Complement
+      
       CHECK_ZERO(reducedSchur_->FillComplete(*vsumMap_,*vsumMap_));
 
       // drop numerical zeros so that the domain decomposition works
-      reducedSchur_=MatrixUtils::DropByValue(reducedSchur_,1.0e-14,MatrixUtils::Absolute);
+      reducedSchur_=MatrixUtils::DropByValue(reducedSchur_,HYMLS_SMALL_ENTRY,MatrixUtils::Absolute);
       
       // I think this is required to make the matrix Ifpack-proof:
       reducedSchur_ = MatrixUtils::RemoveColMap(reducedSchur_);

@@ -9,6 +9,10 @@
 #endif
 #endif
 
+#ifndef HYMLS_SMALL_ENTRY
+#define HYMLS_SMALL_ENTRY 1.0e-14
+#endif
+
 // the timing macro's are also used for function tracing, so enable them all:
 #ifdef DEBUGGING
 #ifndef TIMING_LEVEL

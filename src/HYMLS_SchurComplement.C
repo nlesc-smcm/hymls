@@ -3,6 +3,7 @@
 #include "HYMLS_SchurComplement.H"
 #include "HYMLS_OverlappingPartitioner.H"
 #include "HYMLS_SparseDirectSolver.H"
+#include "HYMLS_MatrixUtils.H"
 
 #include "Epetra_Comm.h"
 #include "Epetra_Map.h"
@@ -69,8 +70,8 @@ namespace HYMLS {
     int ierr=0;
     if (IsConstructed())
       {
-      CHECK_ZERO(sparseMatrixRepresentation_->Apply(X,Y));
-      flopsApply_+=2*sparseMatrixRepresentation_->NumGlobalNonzeros();
+      CHECK_ZERO(Scrs_->Apply(X,Y));
+      flopsApply_+=2*Scrs_->NumGlobalNonzeros();
       }
     else
       {
@@ -116,6 +117,8 @@ namespace HYMLS {
     
     isConstructed_=true;
     CHECK_ZERO(this->Construct(sparseMatrixRepresentation_));
+    Scrs_ = MatrixUtils::DropByValue(sparseMatrixRepresentation_,
+        0.01*HYMLS_SMALL_ENTRY, MatrixUtils::Absolute);
     return 0;
     }
 

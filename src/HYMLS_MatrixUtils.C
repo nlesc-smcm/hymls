@@ -1533,7 +1533,8 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
     new_len=0;
     for (int j=0;j<len;j++)
       {
-      if ( (std::abs(values[j]) > thres)||(A->GCID(indices[j])==A->GRID(i)) )
+//      if ( (std::abs(values[j]) > thres)||(A->GCID(indices[j])==A->GRID(i)) )
+      if ( (std::abs(values[j]) > thres) )
         {
         new_values[new_len]=values[j];
         new_indices[new_len]=A->GCID(indices[j]);
@@ -1758,8 +1759,12 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
 
     if (indefinite==true && ((fmatrix==false) || (parallel==true)))
       {
+      Dump(Matrix,"BadMatrix.txt");
+      std::cerr << "parallel="<<parallel<<", indefinite="<<indefinite<<", fmatrix="<<fmatrix<<std::endl;
       Tools::Error("this subroutine is intended for serial F-matrices \n"
-      " or matrices with nonzero diagonal right now",__FILE__,__LINE__);
+      " or matrices with nonzero diagonal right now.\n"
+      " the invalid matrix is written to BadMatrix.txt",
+      __FILE__,__LINE__);
       }
 
 #ifdef DEBUGGING
