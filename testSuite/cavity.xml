@@ -45,7 +45,7 @@
 
     <!-- parameters for the iterative solver (Belos) -->
     <ParameterList name="Iterative Solver">
-      <Parameter name="Maximum Iterations" type="int" value="500"/>
+      <Parameter name="Maximum Iterations" type="int" value="100"/>
       <Parameter name="Maximum Restarts" type="int" value="1"/>
       <Parameter name="Convergence Tolerance" type="double" value="1.0e-6"/>
       <Parameter name="Flexible Gmres" type="bool" value="0"/>
@@ -84,7 +84,7 @@
     <!-- settings for subdomain solver -->
     <ParameterList name="Sparse Solver">
       <!-- "Amesos_Klu" is the default here. These systems are always sequential -->
-      <Parameter name="amesos: solver type" type="string" value="Amesos_Klu"/>
+      <Parameter name="amesos: solver type" type="string" value="Amesos_Umfpack"/>
     </ParameterList>
     
     <!-- this list is used for the "Block Diagonal" preconditioner -->

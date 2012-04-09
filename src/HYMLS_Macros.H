@@ -82,10 +82,10 @@ Error_You_are_trying_to_start_multiple_timers_in_one_scope \
 
 #ifdef DEBUGGING
 #ifndef DEBUG
-#define DEBUG(s) if (HYMLS::Tools::InitializedIO()) HYMLS::Tools::deb() << s << std::endl;
+#define DEBUG(s) if (HYMLS::Tools::InitializedIO()) HYMLS::Tools::deb() << s << std::endl << std::flush;
 #endif
 #ifndef DEBVAR
-#define DEBVAR(s) if (HYMLS::Tools::InitializedIO()) HYMLS::Tools::deb() << #s << " = "<<s << std::endl;
+#define DEBVAR(s) if (HYMLS::Tools::InitializedIO()) HYMLS::Tools::deb() << #s << " = "<<s << std::endl << std::flush;
 #endif
 #else
 #ifndef DEBUG
@@ -95,9 +95,10 @@ Error_You_are_trying_to_start_multiple_timers_in_one_scope \
 #define DEBVAR(s) 
 #endif
 #endif
+
 #ifndef CHECK_ZERO
 #define CHECK_ZERO(funcall) {int ierr=0; bool status=true; try{\
-int ierr = funcall; } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status)\
+ierr = funcall; } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status)\
 if (!status) {\
 std::string msg="Caught an exception in call "+std::string(#funcall);\
 HYMLS::Tools::Fatal(msg,__FILE__,__LINE__);} \

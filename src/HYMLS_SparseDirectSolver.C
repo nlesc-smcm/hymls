@@ -1,9 +1,10 @@
 #include "HYMLS_SparseDirectSolver.H"
 
-#ifdef HAVE_AMESOS_UMFPACK
+#ifndef NO_UMFPACK
 
 #include "Ifpack_Condest.h"
 #include "Epetra_MultiVector.h"
+#include "Epetra_Vector.h"
 #include "Epetra_Map.h"
 #include "Epetra_Comm.h"
 #include "Epetra_CrsMatrix.h"
@@ -14,16 +15,39 @@
 #include "HYMLS_Tools.H"
 #include "HYMLS_MatrixUtils.H"
 
+#include "Teuchos_StrUtils.hpp"
+#include <cstdarg>
+
+
 extern "C" {
 #include "umfpack.h"
+
+static std::ostream* output_stream;
+
+int my_printf(const char* fmt, ...)
+  {
+  std::string fmt_string(fmt);
+  
+  char formatted_string[fmt_string.length()+10000];
+  va_list argptr;
+  va_start(argptr,fmt);
+  vsprintf(formatted_string,fmt,argptr);
+  va_end(argptr);
+     
+  *output_stream << formatted_string;
+  return 0;
+  
+  }
+
 }
+
 
 namespace HYMLS {
 
 //==============================================================================
 SparseDirectSolver::SparseDirectSolver(Epetra_RowMatrix* Matrix_in) :
   Matrix_(Teuchos::rcp( Matrix_in, false )),
-  label_("HYMLS Umfpack"),
+  label_("HYMLS::SparseDirectSolver"),
   IsEmpty_(false),
   IsInitialized_(false),
   IsComputed_(false),
@@ -40,12 +64,34 @@ SparseDirectSolver::SparseDirectSolver(Epetra_RowMatrix* Matrix_in) :
   serialMatrix_(Teuchos::null),
   serialImport_(Teuchos::null)
 {
+START_TIMER3(label_,"Constructor");
+
+output_stream = &Tools::out();
+amd_printf = &my_printf;
+
 MyPID_=Matrix_->Comm().MyPID();
 umf_Info_.resize(UMFPACK_INFO);
 umf_Control_.resize(UMFPACK_CONTROL);
 umfpack_di_defaults( &umf_Control_[0] ) ; 
+
+  //TODO - this is dangerous in general so we should have a flag like
+  //       'TrustMe'
+
+  umf_Control_[UMFPACK_ORDERING] = UMFPACK_ORDERING_NONE;
+  umf_Control_[UMFPACK_FIXQ] = 1;
+  umf_Control_[UMFPACK_SYM_PIVOT_TOLERANCE] = 1.0e-12;
+  umf_Control_[UMFPACK_PIVOT_TOLERANCE] = 1.0e-12;
+  umf_Control_[UMFPACK_SCALE] = UMFPACK_SCALE_NONE;
+
+#ifdef DEBUGGING
+//umf_Control_[UMFPACK_PRL]=5;
+#endif
 umf_Symbolic_=NULL;
 umf_Numeric_=NULL;
+scaLeft_=Teuchos::rcp(new Epetra_Vector(Matrix_->RowMatrixRowMap()));
+scaRight_=Teuchos::rcp(new Epetra_Vector(Matrix_->RowMatrixRowMap()));
+CHECK_ZERO(scaLeft_->PutScalar(1.0));
+CHECK_ZERO(scaRight_->PutScalar(1.0));
 }
 
 //==============================================================================
@@ -70,6 +116,7 @@ Tools::Error("not implemented!",__FILE__,__LINE__);
 
 SparseDirectSolver::~SparseDirectSolver()
   {
+START_TIMER3(label_,"Destructor");
   if (umf_Symbolic_) umfpack_di_free_symbolic (&umf_Symbolic_) ;
   if (umf_Numeric_) umfpack_di_free_numeric (&umf_Numeric_) ;
   }
@@ -77,7 +124,7 @@ SparseDirectSolver::~SparseDirectSolver()
 //==============================================================================
 int SparseDirectSolver::SetParameters(Teuchos::ParameterList& List_in)
 {
-
+START_TIMER3(label_,"SetParameters");
   List_ = List_in;
   std::string choice = List_in.get("amesos: solver type", label_);
   if (choice!="Amesos_Umfpack")
@@ -154,14 +201,23 @@ START_TIMER2(label_,"Compute");
     {
     Tools::Error("null matrix",__FILE__,__LINE__);
     }
-  if (serialMatrix_.get()!=Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(Matrix_).get())
+  if (serialMatrix_.get()!=Matrix_.get())
     {
     if (serialImport_==Teuchos::null)
       {
       Tools::Error("importer is null",__FILE__,__LINE__);
       }
-    CHECK_ZERO(serialMatrix_->Import(*Matrix_,*serialImport_,Insert));
+    Teuchos::RCP<Epetra_CrsMatrix> serialCrsMatrix =
+        Teuchos::rcp_const_cast<Epetra_CrsMatrix>(
+        Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(serialMatrix_));
+if (Teuchos::is_null(serialCrsMatrix)) 
+  {
+  Tools::Error("dynamic cast failed - need a CrsMatrix",__FILE__,__LINE__);
+  }
+CHECK_ZERO(serialCrsMatrix->Import(*Matrix_,*serialImport_,Insert));
     }
+  CHECK_ZERO(ComputeScaling());
+  CHECK_ZERO(this->ConvertToUmfpackCRS());
   CHECK_ZERO(this->UmfpackNumeric());
 
   IsComputed_ = true;
@@ -202,7 +258,6 @@ ApplyInverse(const Epetra_MultiVector& X, Epetra_MultiVector& Y) const
         {return -2;}
   
   Time_->ResetStartTime();
-
   // AztecOO gives X and Y pointing to the same memory location,
   // need to create an auxiliary vector, Xcopy
   Teuchos::RCP<const Epetra_MultiVector> Xcopy;
@@ -212,6 +267,34 @@ ApplyInverse(const Epetra_MultiVector& X, Epetra_MultiVector& Y) const
     Xcopy = Teuchos::rcp( &X, false );
 
   CHECK_ZERO(this->UmfpackSolve(*Xcopy,Y));
+  
+#ifdef TESTING
+Epetra_MultiVector R(X);
+CHECK_ZERO(Matrix_->Multiply(false,Y,R));
+CHECK_ZERO(R.Update(-1.0,X,1.0));
+double *rnorm2 = new double[X.NumVectors()];
+double *bnorm2 = new double[X.NumVectors()];
+CHECK_ZERO(R.Norm2(rnorm2));
+CHECK_ZERO(X.Norm2(bnorm2));
+double rcond = abs(umf_Info_[UMFPACK_RCOND]);
+bool bad_res=false;
+for (int i=0;i<X.NumVectors();i++)
+  {
+  if (rnorm2[i]/bnorm2[i] > 1.0e-12/rcond)
+    {
+    bad_res=true;
+    Tools::Warning("bad residual found: "+Teuchos::toString(rnorm2[i]),
+        __FILE__,__LINE__);
+    }
+  }
+if (bad_res)
+  {
+  this->DumpSolverStatus("umfBadRes",false,Teuchos::rcp(&Y,false),Xcopy);
+  }
+
+delete [] rnorm2;
+delete [] bnorm2;
+#endif  
 
   ++NumApplyInverse_;
   ApplyInverseTime_ += Time_->ElapsedTime();
@@ -318,9 +401,45 @@ int SparseDirectSolver::ConvertToSerial()
   {
   if (Matrix_->Comm().NumProc()==1)
     {
-    serialMatrix_=Teuchos::rcp_dynamic_cast<Epetra_CrsMatrix>(Teuchos::rcp_const_cast<Epetra_RowMatrix>(Matrix_));
-    // not implemented unless CRS:
-    if (serialMatrix_==Teuchos::null) Tools::Error("need a CrsMatrix here",__FILE__,__LINE__);
+    serialMatrix_=Matrix_;
+    }
+  else
+    {
+    Tools::Error("not implemented",__FILE__,__LINE__);
+    scaLeft_=Teuchos::rcp(new Epetra_Vector(serialMatrix_->RowMatrixRowMap()));
+    scaRight_=Teuchos::rcp(new Epetra_Vector(serialMatrix_->RowMatrixRowMap()));
+    CHECK_ZERO(scaLeft_->PutScalar(1.0));
+    CHECK_ZERO(scaRight_->PutScalar(1.0));
+    }
+  return 0;
+  }
+
+int SparseDirectSolver::ComputeScaling()
+  {
+  if (serialMatrix_!=Teuchos::null)
+    {
+    // find max abs diagonal value
+    CHECK_ZERO(serialMatrix_->ExtractDiagonalCopy(*scaRight_));
+    CHECK_ZERO(scaRight_->Abs(*scaRight_));
+    double dmax;
+    CHECK_ZERO(scaRight_->MaxValue(&dmax));
+    // this scaling is intended for F-matrices - scale the grad and div
+    // parts by a constant to make their entries the same size as the maximum
+    // diagonal entry in A.
+    for (int i=0;i<scaRight_->MyLength();i++)
+      {
+      if ((*scaRight_)[i]==0.0)
+        {
+        (*scaLeft_)[i] = dmax;
+        (*scaRight_)[i] = dmax;
+        }
+      else
+        {
+//        (*scaLeft_)[i]=1.0/sqrt((*scaRight_)[i]);
+        (*scaLeft_)[i]=1.0;
+        (*scaRight_)[i]=(*scaLeft_)[i];
+        }
+      }      
     }
   else
     {
@@ -335,16 +454,32 @@ int SparseDirectSolver::FillReducingOrdering()
   if (IsEmpty_||(MyPID_ != 0)) return 0;
   if (serialMatrix_==Teuchos::null) return -1;
   int N = serialMatrix_->NumMyRows();
+
   row_perm_.resize(N);
   col_perm_.resize(N);
-  CHECK_ZERO(HYMLS::MatrixUtils::FillReducingOrdering(*serialMatrix_,row_perm_,col_perm_));
-  //
+
   for (int i=0;i<N;i++)
     {
     row_perm_[i]=i;
     col_perm_[i]=i;
     }
-  //
+  Teuchos::RCP<const Epetra_CrsMatrix> serialCrsMatrix
+        = Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(serialMatrix_);
+  if (Teuchos::is_null(serialCrsMatrix))
+    {
+    Tools::Error("need a CrsMatrix here",__FILE__,__LINE__);        
+    }
+  CHECK_ZERO(HYMLS::MatrixUtils::FillReducingOrdering(*serialCrsMatrix,row_perm_,col_perm_));
+
+  // uncomment to disable reordering
+  /* 
+ k for (int i=0;i<N;i++)
+  for (int i=0;i<N;i++)
+    {
+    row_perm_[i]=i;
+    col_perm_[i]=i;
+    }
+  */
   return 0;
   }
 
@@ -363,7 +498,7 @@ START_TIMER2(label_,"ConvertToUmfpackCRS");
   // we do the reordering step here already
 
   if (MyPID_ == 0)
-  {
+    {
     int N = serialMatrix_->NumMyRows();
     int nnz= serialMatrix_->NumMyNonzeros();
     Ap_.resize(N+1);
@@ -384,16 +519,17 @@ for (int i=0;i<N;i++) invperm[col_perm_[i]]=i;
                                len, &Aval_[Ai_index], &Ai_[Ai_index]));
       for (int j=0;j<len;j++) 
         {
+        Aval_[Ai_index+j] *= (*scaLeft_)[MyRow] * (*scaRight_)[Ai_[Ai_index+j]]; 
         Ai_[Ai_index+j] = invperm[Ai_[Ai_index+j]];
         }
       Ai_index += len;
-    }
-
+      // sort row entries by column index
+      MatrixUtils::SortMatrixRow(&Ai_[Ai_index-len],&Aval_[Ai_index-len],len);
+      }    
     Ap_[N] = Ai_index; 
-  }
-  
+    }  
   return 0;
-}
+  }
 
 int SparseDirectSolver::UmfpackSymbolic() 
 {
@@ -401,16 +537,27 @@ if (MyPID_!=0) return 0;
 START_TIMER2(label_,"UmfpackSymbolic");  
   
   int N = serialMatrix_->NumGlobalRows();
-  double *Control = &umf_Control_[0];
-  double *Info = &umf_Info_[0];
   
   if (umf_Symbolic_) 
     umfpack_di_free_symbolic (&umf_Symbolic_) ;
 
-  umf_Control_[UMFPACK_ORDERING] = UMFPACK_ORDERING_NONE;
-  CHECK_ZERO(umfpack_di_symbolic (N, N, &Ap_[0], 
+  int status = umfpack_di_symbolic (N, N, &Ap_[0], 
                              &Ai_[0], &Aval_[0], 
-                             &umf_Symbolic_, Control, Info) );
+                             &umf_Symbolic_, &umf_Control_[0], &umf_Info_[0]);
+  if (status)
+    {
+#ifdef TESTING
+    if (N<=256)
+      {
+      std::cout << "umfpack matrix: "<<std::endl;
+      umfpack_di_report_matrix(N,N,
+        &Ap_[0],&Ai_[0],&Aval_[0],0,&umf_Control_[0]);
+      }
+#endif
+    umfpack_di_report_info(&umf_Control_[0], &umf_Info_[0]);
+    umfpack_di_report_status(&umf_Control_[0], status);
+    HYMLS::Tools::Error("UMFPACK Symbolic Error",__FILE__,__LINE__);
+    }
 
   return 0;
 }
@@ -421,86 +568,38 @@ START_TIMER2(label_,"UmfpackNumeric");
 if (MyPID_!=0) return 0;
 
     if (umf_Numeric_) umfpack_di_free_numeric (&umf_Numeric_) ;
-  //TODO - this is dangerous in general so we should have a flag like
-  //       'TrustMe'
-  umf_Control_[UMFPACK_SYM_PIVOT_TOLERANCE] = 0.0;
-  umf_Control_[UMFPACK_PIVOT_TOLERANCE] = 0.0;
-  CHECK_ZERO(umfpack_di_numeric (&Ap_[0], 
-                                     &Ai_[0], 
-                                     &Aval_[0], 
-                                     umf_Symbolic_, 
-                                     &umf_Numeric_, 
-                                     &umf_Control_[0], 
-                                     &umf_Info_[0]) );
-    double rcond = umf_Info_[UMFPACK_RCOND];
+
+  int status=umfpack_di_numeric (&Ap_[0], &Ai_[0], &Aval_[0], 
+                      umf_Symbolic_, &umf_Numeric_, 
+                     &umf_Control_[0], &umf_Info_[0]);
+if (status)
+  {
+  umfpack_di_report_info(&umf_Control_[0], &umf_Info_[0]);
+  umfpack_di_report_status(&umf_Control_[0], status);
+  HYMLS::Tools::Error("UMFPACK Numeric Error",__FILE__,__LINE__);
+  }
+ double rcond = umf_Info_[UMFPACK_RCOND];
 #ifdef TESTING
     if (rcond>0.0)
       {
-      if (rcond<1.0e-14) Tools::Warning("nearly singular matrix encountered!\n"
+      DEBVAR(rcond);
+      if (rcond<1.0e-14)
+        { 
+        Tools::Warning("singular matrix encountered!\n"
                                       "(RCOND="+Teuchos::toString(rcond)+")",
                                       __FILE__,__LINE__);
-      else if (rcond<1.0e-6) Tools::Warning("ill-conditioned matrix encountered!\n"
+        this->DumpSolverStatus("umfSingular",false);
+        }
+      else if (rcond<1.0e-8) 
+        {
+        Tools::Warning("ill-conditioned matrix encountered!\n"
                                       "(RCOND="+Teuchos::toString(rcond)+")",
                                       __FILE__,__LINE__);
+        this->DumpSolverStatus("umfIllCond",false);
+        }
+
       }
 #endif
-
-#ifdef DEBUGGING
-      int N = serialMatrix_->NumMyRows();
-      double* Control=&umf_Control_[0]; //NULL;
-      double* Info=&umf_Info_[0]; //NULL;
-      double *x_buf = new double[N];
-      double *b_buf = new double[N];
-      for (int i=0;i<N;i++) b_buf[i] = row_perm_[i]+1.0;
-      for (int i=0;i<N;i++) x_buf[i] = -42.0;
-      CHECK_ZERO(umfpack_di_solve (UMFPACK_At, &Ap_[0], 
-                                     &Ai_[0], &Aval_[0], 
-                                     x_buf, b_buf, 
-                                     umf_Numeric_,
-                                     Control,Info)); 
-                                     //const_cast<double*>(&umf_Control_[0]), 
-                                     //const_cast<double*>(&umf_Info_[0]));
-
-MatrixUtils::Dump(*serialMatrix_,"testUmf_A.txt");
-std::ofstream ofs("testUmf_Apq.m");
-ofs << std::setprecision(16) << std::setw(16) << std::scientific;
-ofs << "p=[";
-for (int i=0;i<row_perm_.size();i++)
-  {
-  ofs << row_perm_[i]+1 << " ";
-  }
-ofs << "];\n";
-ofs << "q=[";
-for (int i=0;i<row_perm_.size();i++)
-  { 
-  ofs << col_perm_[i]+1 << " "; 
-  } 
-ofs << "];\n"; 
-ofs << "tmp=[...\n";
-for (int i=0;i<serialMatrix_->NumMyRows();i++)
-  {
-  for (int j=Ap_[i];j<Ap_[i+1];j++)
-    {
-    ofs << i+1 << " " << Ai_[j]+1 << " " << Aval_[j] << std::endl;
-    }
-  }
-ofs<<"];"<<std::endl;
-ofs<<"Apq=sparse(tmp(:,1),tmp(:,2),tmp(:,3));\n";
-ofs.close();
-MatrixUtils::Dump(*serialMatrix_,"testUmf_A.txt"); 
-ofs.open("testUmf_vectors.m");
-ofs << "bp=[";
-for (int ii=0;ii<N;ii++) ofs << b_buf[ii] << " ";
-ofs << "];\n\nxq=[";
-for (int ii=0;ii<N;ii++) ofs << x_buf[ii] << " ";
-ofs << "];";
-ofs.close();
-
-delete [] x_buf;
-delete [] b_buf;
-
-#endif
-
   return 0;
 }
 
@@ -513,12 +612,8 @@ START_TIMER2(label_,"UmfpackSolve");
 if (Matrix_.get()!=serialMatrix_.get()) return -99; // not implemented
 
 Teuchos::RCP<Epetra_MultiVector> serialX = Teuchos::rcp(&X,false);
-Teuchos::RCP<Epetra_MultiVector> serialB = 
-        Teuchos::rcp(const_cast<Epetra_MultiVector*>(&B),false);
+Teuchos::RCP<const Epetra_MultiVector> serialB = Teuchos::rcp(&B,false);
 
-  double *xvalues ;
-  double *bvalues ;
-  int xlda,blda;
   int N = serialX->MyLength();  
   double *x_buf = new double[N];
   double *b_buf = new double[N];
@@ -532,24 +627,122 @@ Teuchos::RCP<Epetra_MultiVector> serialB =
     {    
     for ( int j =0 ; j < NumVectors; j++ ) 
       {
-      double* Control=NULL;
-      double* Info=NULL;
-      for (int i=0;i<N;i++) b_buf[i] = (*serialB)[j][row_perm_[i]];
+      for (int i=0;i<N;i++)
+        {
+        b_buf[i] = (*serialB)[j][row_perm_[i]] * (*scaLeft_)[row_perm_[i]];
+        }
       status = umfpack_di_solve (UmfpackRequest, &Ap_[0], 
                                      &Ai_[0], &Aval_[0], 
                                      x_buf, b_buf, 
                                      const_cast<void*>(umf_Numeric_),
-                                     Control,Info); 
-                                     //const_cast<double*>(&umf_Control_[0]), 
-                                     //const_cast<double*>(&umf_Info_[0]));
-      for (int i=0;i<N;i++) (*serialX)[j][i] = x_buf[col_perm_[i]];
+                                     const_cast<double*>(&umf_Control_[0]),
+                                     const_cast<double*>(&umf_Info_[0]));
+      // we now have x(col_perm) in x_buf
+      for (int i=0;i<N;i++) 
+        {
+        (*serialX)[j][col_perm_[i]] = x_buf[i] * (*scaRight_)[col_perm_[i]];
+        }
       }
     }
-  delete [] x_buf;
-  delete [] b_buf;
+
+delete [] x_buf;
+delete [] b_buf;
 
   if (serialX.get()!=&X) return -99; //not implemented
   return 0;
   }
+
+void SparseDirectSolver::DumpSolverStatus(std::string filePrefix,
+        bool overwrite,
+        Teuchos::RCP<const Epetra_MultiVector> X, 
+        Teuchos::RCP<const Epetra_MultiVector> B) const
+{
+if (overwrite==false)
+  {
+  std::ifstream ifs((filePrefix+".m").c_str());
+  if (ifs) return;
+  }
+
+Tools::out() << label_ << ": writing status info to " << filePrefix << "* files"<<std::endl;
+
+int N = Ap_.size()-1;
+
+std::ofstream umf_fs((filePrefix+"_umfpack.txt").c_str());
+
+output_stream = &umf_fs;
+
+int old_prl = umf_Control_[UMFPACK_PRL];
+const_cast<double&>(umf_Control_[UMFPACK_PRL])=5;
+
+umfpack_di_report_info(&umf_Control_[0],&umf_Info_[0]);
+umfpack_di_report_matrix(N,N,&Ap_[0],&Ai_[0],&Aval_[0],0,&umf_Control_[0]);
+
+const_cast<double&>(umf_Control_[UMFPACK_PRL])=old_prl;
+
+output_stream = &Tools::out();
+umf_fs.close();
+
+Teuchos::RCP<const Epetra_CrsMatrix> serialCrsMatrix = 
+        Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(serialMatrix_);
+if (serialCrsMatrix!=Teuchos::null)
+  {
+  MatrixUtils::Dump(*serialCrsMatrix,filePrefix+"_A.txt");
+  }
+std::ofstream ofs((filePrefix+".m").c_str());
+ofs << std::setprecision(16) << std::setw(16) << std::scientific;
+ofs << "p=[";
+for (int i=0;i<row_perm_.size();i++)
+  {
+  ofs << row_perm_[i]+1 << " ";
+  }
+ofs << "];\n";
+ofs << "q=[";
+for (int i=0;i<col_perm_.size();i++)
+  { 
+  ofs << col_perm_[i]+1 << " "; 
+  } 
+ofs << "];\n"; 
+ofs << "tmp=[...\n";
+for (int i=0;i<serialMatrix_->NumMyRows();i++)
+  {
+  for (int j=Ap_[i];j<Ap_[i+1];j++)
+    {
+    ofs << i+1 << " " << Ai_[j]+1 << " " << Aval_[j] << std::endl;
+    }
+  }
+ofs<<"];"<<std::endl;
+ofs<<"Apq=sparse(tmp(:,1),tmp(:,2),tmp(:,3));\n\n";
+
+ofs << "S_left = spdiags([...\n";
+for (int i=0;i<scaLeft_->MyLength();i++) 
+  {
+  ofs << (*scaLeft_)[i]<<std::endl;
+  }
+ofs << "],0,"<<N<<","<<N<<");\n\n";
+ofs << "S_right = spdiags([...\n";
+for (int i=0;i<scaRight_->MyLength();i++) 
+  {
+  ofs << (*scaRight_)[i]<<std::endl;
+  }
+ofs << "],0,"<<N<<","<<N<<");\n\n";
+
+/*
+ofs << "bp=[";
+for (int ii=0;ii<N;ii++) ofs << b_buf[ii] << " ";
+ofs << "]';\n\nxq=[";
+for (int ii=0;ii<N;ii++) ofs << x_buf[ii] << " ";
+ofs << "]';";
+*/
+ofs.close();
+
+if (X!=Teuchos::null)
+  {
+  MatrixUtils::Dump(*X, filePrefix+"_X.txt");
+  }
+if (B!=Teuchos::null)
+  {
+  MatrixUtils::Dump(*B, filePrefix+"_B.txt");
+  }
+}
 }//namespace HYMLS
 #endif

@@ -638,8 +638,8 @@ START_TIMER(label_,"Subdomain factorization");
       // compute subdomain factorization
       CHECK_ZERO(subdomainSolver_[sd]->Compute(*reorderedMatrix_));
 #ifdef STORE_SUBDOMAIN_MATRICES
-      Teuchos::RCP<Ifpack_SparseContainer<Ifpack_Amesos> > container =
-        Teuchos::rcp_dynamic_cast<Ifpack_SparseContainer<Ifpack_Amesos> >(subdomainSolver_[sd]); 
+      Teuchos::RCP<Ifpack_SparseContainer<SparseDirectSolver> > container =
+        Teuchos::rcp_dynamic_cast<Ifpack_SparseContainer<SparseDirectSolver> >(subdomainSolver_[sd]); 
      if (container!=Teuchos::null)
        {
        Tools::Warning("STORE_SUBDOMAIN_MATRICES is defined, this produces lots of output"
@@ -1014,6 +1014,14 @@ int Preconditioner::ApplyInverseA11(const Epetra_MultiVector& B, Epetra_MultiVec
   START_TIMER(label_,"subdomain solve");
   int lid=0;
 
+  // assume that all block solvers have the same number of vectors...
+  if (subdomainSolver_[0]->NumVectors()!=X.NumVectors())
+    {
+    for (int sd = 0 ; sd < subdomainSolver_.size() ; sd++)
+      {
+      CHECK_ZERO(subdomainSolver_[sd]->SetNumVectors(X.NumVectors()));
+      }
+    }
     // step 1: solve subdomain problems for temporary vector y
     for (int sd = 0 ; sd < subdomainSolver_.size() ; sd++)
       {
@@ -1054,15 +1062,15 @@ int Preconditioner::ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVe
   int ierr=0;
   int nsd=subdomainSolver_.size();
   Teuchos::Array<bool> prevtrans(nsd); // remember if the solvers were already transposed
-  Teuchos::RCP<const Ifpack_SparseContainer<Ifpack_Amesos> > sparseLU=Teuchos::null;
+  Teuchos::RCP<const Ifpack_SparseContainer<SparseDirectSolver> > sparseLU=Teuchos::null;
   for (int sd=0;sd<nsd;sd++)
     {
     sparseLU=Teuchos::rcp_dynamic_cast
-        <const Ifpack_SparseContainer<Ifpack_Amesos> >(subdomainSolver_[sd]);
+        <const Ifpack_SparseContainer<SparseDirectSolver> >(subdomainSolver_[sd]);
     if (sparseLU!=Teuchos::null)
       {
       prevtrans[sd]=sparseLU->Inverse()->UseTranspose();
-      CHECK_ZERO(Teuchos::rcp_const_cast<Ifpack_Amesos>(sparseLU->Inverse())->SetUseTranspose(true));
+      CHECK_ZERO(Teuchos::rcp_const_cast<SparseDirectSolver>(sparseLU->Inverse())->SetUseTranspose(true));
       }
     else
       {
@@ -1076,10 +1084,10 @@ int Preconditioner::ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVe
   for (int sd=0;sd<nsd;sd++)
     {
     sparseLU=Teuchos::rcp_dynamic_cast
-        <const Ifpack_SparseContainer<Ifpack_Amesos> >(subdomainSolver_[sd]);
+        <const Ifpack_SparseContainer<SparseDirectSolver> >(subdomainSolver_[sd]);
     if (sparseLU!=Teuchos::null)
       {
-      CHECK_ZERO(Teuchos::rcp_const_cast<Ifpack_Amesos>(sparseLU->Inverse())->SetUseTranspose(prevtrans[sd]));
+      CHECK_ZERO(Teuchos::rcp_const_cast<SparseDirectSolver>(sparseLU->Inverse())->SetUseTranspose(prevtrans[sd]));
       }
     else
       {
@@ -1335,6 +1343,23 @@ int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& lis
     }
   else if (eqn=="Stokes-C")
     {
+    // rare case - only one subdomain. Do not retain a pressure point because there won't be 
+    // aSchur-Complement
+    bool no_SC = false;
+    int sx,sy,sz;
+    if (precList.isParameter("Separator Length (x)"))
+      {
+      sx=precList.get("Separator Length (x)",-1);
+      sy=precList.get("Separator Length (y)",sx);
+      sz= dim_<3? 1: precList.get("Separator Length (z)",sx);
+      }
+    else
+      {
+      sx=precList.get("Separator Length",-1);
+      sy=sx;
+      sz=dim_<3? 1: sx;
+      }
+    if (nx_==sx && ny_==sy && nz_==sz) no_SC = true;
     probList.set("Substitute Graph",false);
     int factor = is_complex? 2 : 1;
     probList.set("Degrees of Freedom",(dim_+1)*factor);
@@ -1349,8 +1374,15 @@ int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& lis
       {
       Teuchos::ParameterList& presList =
         probList.sublist("Variable "+Teuchos::toString(dim_*factor+i));
-      presList.set("Variable Type","Retain 1");
-      presList.set("Retain Isolated",true);
+      if (no_SC==false)
+        {
+        presList.set("Variable Type","Retain 1");
+        presList.set("Retain Isolated",true);
+        }
+      else
+        {
+        presList.set("Variable Type","Uncoupled");
+        }
       }
     // we fix the singularity by inserting a Dirichlet condition for 
     // global pressure node 2 

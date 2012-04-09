@@ -7,6 +7,11 @@
 #ifndef MATRIX_UTILS_H
 #define MATRIX_UTILS_H
 
+#ifdef DEBUGGING
+#ifndef HAVE_TEUCHOS_ARRAY_BOUNDSCHECK
+#define HAVE_TEUCHOS_ARRAY_BOUNDSCHECK
+#endif
+#endif
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_Array.hpp"
 #include "Teuchos_ParameterList.hpp"
@@ -319,6 +324,10 @@ class MatrixUtils
                              int I0, int I1, int J0, int J1, int K0, int K1,
                              const Epetra_Comm& comm);
     
+
+    //! sort an integer and a double array consistently so the integer array
+    //! is in ascending order
+    static int SortMatrixRow(int* inds, double* vals, int len);
 
   private:
   

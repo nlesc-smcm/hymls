@@ -364,6 +364,8 @@ namespace HYMLS {
         Sk(i,j) = Aloc[j][lrid];
         }
       }
+
+    A11.SetNumVectors(1);
     
     DEBUG("Block constructed successfully!");
     if (count_flops!=NULL) *count_flops+=flops;

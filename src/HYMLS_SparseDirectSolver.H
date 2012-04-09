@@ -2,8 +2,13 @@
 #define HYMLS_SPARSE_DIRECT_SOLVER_H
 
 #include "Amesos_config.h"
-
 #ifndef HAVE_AMESOS_UMFPACK
+#define NO_UMFPACK 1
+#endif
+
+//#define NO_UMFPACK 1
+
+#ifdef NO_UMFPACK
 #include "Ifpack_Amesos.h"
 namespace HYMLS {
 typedef Ifpack_Amesos SparseDirectSolver;
@@ -19,6 +24,7 @@ class Epetra_Time;
 class Epetra_Comm;
 class Epetra_CrsMatrix;
 class Epetra_MultiVector;
+class Epetra_Vector;
 class Epetra_RowMatrix;
 class Epetra_Import;
 
@@ -364,7 +370,10 @@ private:
   int MyPID_;
 
   //! serial matrix
-  Teuchos::RCP<Epetra_CrsMatrix> serialMatrix_;
+  Teuchos::RCP<const Epetra_RowMatrix> serialMatrix_;
+  
+  //! diagonal scaling
+  Teuchos::RCP<Epetra_Vector> scaLeft_,scaRight_;
   
   //! import to serial
   Teuchos::RCP<Epetra_Import> serialImport_;
@@ -396,6 +405,9 @@ private:
   //! compute fill-reducing ordering before creating Umfpack matrix
   int FillReducingOrdering();
   
+  //! compute scaling for the matrix
+  int ComputeScaling();
+  
     /*
     ConvertToUmfpackCRS - Convert matirx to form expected by Umfpack: Ai, Ap, Aval
     Preconditions:
@@ -417,6 +429,15 @@ private:
 
   /*! perform solve using Umfpack */
   int UmfpackSolve(const Epetra_MultiVector& B, Epetra_MultiVector& X) const;
+
+  //! for debugging - writes a number of .txt and .m files to look at the reordered
+  //! matrix and optionally the rhs and solution of a system
+  //! if overwrite==true, the function only dumps files if <filePrefix>.m doesn't
+  //! exist yet.
+  void DumpSolverStatus(std::string filePrefix,
+                  bool overwrite=true,
+                  Teuchos::RCP<const Epetra_MultiVector> X=Teuchos::null, 
+                  Teuchos::RCP<const Epetra_MultiVector> B=Teuchos::null) const;
 
 };
 }//namespace HYMLS

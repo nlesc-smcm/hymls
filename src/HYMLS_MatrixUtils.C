@@ -1644,8 +1644,13 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
                                              Teuchos::Array<int>& rowperm,
                                              Teuchos::Array<int>& colperm)
   {
-  START_TIMER2(Label(),"Fill Reducing Ordering");
+  START_TIMER2(Label(),"FillReducing Ordering");
   
+  DEBVAR(&rowperm);
+  DEBVAR(&colperm);
+  DEBVAR(rowperm.size());
+  DEBVAR(colperm.size());
+
   bool parallel = (Matrix.Comm().NumProc()>1);
   DEBVAR(parallel);
     
@@ -1684,6 +1689,10 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
       elts1[n++] = row;
       }
     }
+
+  DEBVAR(N);
+  DEBVAR(n);
+  DEBVAR(m);
   
   bool indefinite = (m>0);
   DEBVAR(indefinite);
@@ -1691,6 +1700,7 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
   bool fmatrix = false;
   
   Teuchos::RCP<Epetra_CrsMatrix> Bmat=Teuchos::null;
+  Teuchos::RCP<Epetra_CrsMatrix> BTmat=Teuchos::null;
   
   if (!indefinite)
     {
@@ -1714,8 +1724,9 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
     Epetra_CrsMatrix A(Copy,*map1,*colmap1,Matrix.MaxNumEntries());
     // we need B outside this if statement later on to add the P-nodes
     Bmat = Teuchos::rcp(new Epetra_CrsMatrix(Copy,*map1,*colmap2,Matrix.MaxNumEntries()));
+    BTmat= Teuchos::rcp(new Epetra_CrsMatrix(Copy,*map2,*colmap1,Matrix.MaxNumEntries()));
     Epetra_CrsMatrix& B = *Bmat;
-    Epetra_CrsMatrix Bt(Copy,*map2,*colmap1,Matrix.MaxNumEntries());
+    Epetra_CrsMatrix& Bt = *BTmat;
 
     Epetra_Import import1(Matrix.RowMap(),*map1);
     Epetra_Import import2(Matrix.RowMap(),*map2);
@@ -1737,7 +1748,7 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
     
     // create the graph of A+BB'
     tmpMatrix= Teuchos::rcp(new Epetra_CrsMatrix(Copy,*map1,A.MaxNumEntries()));
-    CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(Bt,false,B,false,*tmpMatrix,false));
+    CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(B,false,Bt,false,*tmpMatrix,false));
     CHECK_ZERO(EpetraExt::MatrixMatrix::Add(A, false, 1.0, *tmpMatrix, 1.0));
     CHECK_ZERO(tmpMatrix->FillComplete());
     } // indefinite matrix -> tmpMat = A+BB'
@@ -1786,6 +1797,26 @@ if (map2!=Teuchos::null)
   for (int i=0;i<map2->NumMyElements();i++) deb<<map2->GID(i)+1<<" ";
   deb << "];\n";
   }
+if (tmpMatrix.get()!=&Matrix)
+  {
+  int len;
+  int *inds;  
+  double* values;
+  deb << "tmp=[...\n";
+  for (int i=0;i<tmpMatrix->NumMyRows();i++)
+    {
+    CHECK_ZERO(tmpMatrix->ExtractMyRowView(i,len,values,inds));
+    for (int j=0;j<len;j++)
+      {
+      deb << tmpMatrix->GRID(i)+1 << " " << tmpMatrix->GCID(inds[j])+1 << " " << values[j] 
+      << 
+      std::endl;
+      }
+    }
+  deb<<"];"<<std::endl;
+  deb<<"Atilde=sparse(tmp(:,1),tmp(:,2),tmp(:,3));\n";
+  }
+deb << std::flush;
 #endif
 
   DEBUG("zoltan ordering step");
@@ -1795,9 +1826,11 @@ if (map2!=Teuchos::null)
   // Epetra graphs)
   Teuchos::ParameterList params;
   Teuchos::ParameterList& zList=params.sublist("Zoltan");
-  // set Zoltan/ParMETIS   parameters
+  // set Zoltan/ParMETIS   parameters. I haven't figured out
+  // what you can actually set here, it would be nice to use
+  // AMD from the start for our tiny serial matrices
   //zList.set(...);
-  
+
   // reindex the matrix to have a linear map
   Teuchos::RCP<Epetra_Map> linearMap = Teuchos::rcp(new 
         Epetra_Map(tmpMatrix->NumGlobalRows(),
@@ -1819,7 +1852,6 @@ if (map2!=Teuchos::null)
   // now we have an ordering for A+BB', add in the pressures at the
   // right positions
   const int* q0;
-  int *q = new int[n];
   int len_q;
   CHECK_ZERO(reorder.extractPermutationView(len_q,q0));
   if (len_q!=n) Tools::Error("inconsistency discovered",__FILE__,__LINE__);
@@ -1828,12 +1860,25 @@ if (map2!=Teuchos::null)
   //           so Anew(q0,q0) = Aold instead of Anew = Aold(q,q)! We invert the ordering
   //           before returning it to the caller.
   if (parallel) Tools::Error("not implemented",__FILE__,__LINE__);
-  for (int i=0;i<len_q;i++) q[q0[i]] = i;
 
-  if (!indefinite)
+  int *q = new int[n];
+  for (int i=0;i<len_q;i++) q[q0[i]] = i;
+  // for testing - disable fill-reducing ordering of V-nodes
+  //for (int i=0;i<n;i++) q[i] = i;
+  
+  DEBVAR(colperm.size());
+  DEBVAR(rowperm.size());
+
+  if (rowperm.size()!=N)
     {
     rowperm.resize(N);
+    }
+  if (colperm.size()!=N)
+    {
     colperm.resize(N);
+    }
+  if (!indefinite)
+    {
     for (int i=0;i<N;i++)
       {
       rowperm[i]=q[i];
@@ -1842,10 +1887,9 @@ if (map2!=Teuchos::null)
     }
   else
     {
+    DEBUG("adjust ordering to include P-nodes");
     Teuchos::Array<int> symperm(N);
     Teuchos::Array<int> perm(N);
-    rowperm.resize(N);
-    colperm.resize(N);
 
     // implementation taken from Fred's matlab variant addindefnodes3.m
     Teuchos::Array<Teuchos::Array<int> > Gr(n);
@@ -1853,22 +1897,28 @@ if (map2!=Teuchos::null)
     for (int i=0;i<n;i++)
       {
       Gr[i].resize(2);
-      for (int j=0;j<2;j++) Gr[i][j] = m+1;
+      for (int j=0;j<2;j++) Gr[i][j] = m;
       }
 
     // test vector to see if there is a coupling to a p-node
-    Teuchos::Array<double> cont(n);
+    Teuchos::Array<int> cont(m);
+    
 
-    //cont = sum(B);
+    //cont = sum(spones(B)); We assume B(=Grad)==B'(==Div) so we
+    // sum over the rows of Bt rather tnan the cols of B. Further-
+    // more we assume that there are no zeros in B so we simply
+    // count the row lengths of B'.
+    for (int i=0;i<m;i++)
+      {
+      cont[i] = BTmat->NumMyEntries(i);
+      }
     //Gr(Ip(i),1 or 2) = Jp(i);
     for (int i = 0;i<n;i++)
       {
-      cont[i] = 0.0;
       CHECK_ZERO(Bmat->ExtractMyRowView(i,len,val,col));
       for (int j=0;j<len;j++)
         {
-        cont[i] +=1.0;
-        if (Gr[i][0] == m+1)
+        if (Gr[i][0] == m)
           {
           Gr[i][0] = col[j];
           }
@@ -1885,70 +1935,107 @@ if (map2!=Teuchos::null)
     //row perm to get all diagonal entries nonzero
     for (int i=0;i<N;i++) perm[i] = i;
 
-    int j = 0;
+#ifdef DEBUGGING
+deb << "N="<<N<<std::endl;
+deb << "n="<<n<<std::endl;
+deb << "m="<<m<<std::endl;
+deb << "Gr=[..."<<std::endl;
+for (int i=0;i<n;i++)
+  deb << Gr[i][0]<<" "<<Gr[i][1]<<";\n";
+deb << "];\n\n";
+deb << std::flush;
+#endif
+    int jj = 0;
     int gr1,gr2;
+    bool status=true;
+    try {
+
+
+    // for all V-nodes
     for (int i=0;i<n;i++)
       {
+      // where is the original position in the system?
       int qi = q[i];
-      symperm[j] = qi;
+      // put the V-node in the ordering first
+      symperm[jj] = map1->GID(qi);
+      // to which P-nodes does this V-node couple?
       gr1 = Gr[qi][0]; // first pressure node
       gr2 = Gr[qi][1]; // second pressure node
-      while (pid[gr1]!=gr1) gr1 = pid[gr1];
-      while (pid[gr2]!=gr2) gr2 = pid[gr2];
+//      DEBUG(i<<": "<<qi << "["<<gr1<<" "<<gr2<<"]");
+      // go through all the P-nodes that 'have been eliminated'
+      // (e.g. put in the ordering) and find the first not yet 
+      // eliminated
+      while (pid[gr1]!=gr1){gr1 = pid[gr1];}
+      while (pid[gr2]!=gr2) {gr2 = pid[gr2];}
       if (gr1 != gr2)
         {
-        if (gr1 == m+1)
+        if (gr1 == m) // formally eliminate V-node coupled to gr2
           {
           pid[gr2] = pid[gr1];
-          symperm[j+1] = map2->GID(gr2);
+          symperm[jj+1] = map2->GID(gr2);
           }
-        else if (gr2 == m+1)
+        else if (gr2 == m) // formally eliminate V-node coupled to gr1
           {
           pid[gr1] = pid[gr2];
-          symperm[j+1] = map2->GID(gr1);           
+          symperm[jj+1] = map2->GID(gr1);           
           }
         else if (cont[gr2] > cont[gr1])
           {
           pid[gr1] = pid[gr2];
-          symperm[j+1] = map2->GID(gr1);
+          symperm[jj+1] = map2->GID(gr1);
           cont[gr2] = cont[gr1] + cont[gr2] - 2;
           }
         else
           {
           pid[gr2] = pid[gr1];
-          symperm[j+1] = map2->GID(gr2);
+          symperm[jj+1] = map2->GID(gr2);
           cont[gr1] = cont[gr1] + cont[gr2] - 2;
           }
-        perm[j] = j+1; perm[j+1] = j;
-        j = j+2;
+        // interchange the V- and P- rows to get a pivot
+        // Of the form b 0 rather than a b              
+        //             a b             b 0.             
+        perm[jj] = jj+1; perm[jj+1] = jj;
+        jj = jj+2;
         }
-      else
+      else // V-node has no P-couplings (anymore)
         {
-        j = j+1;
+        jj = jj+1;
         }
       }
+    } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status);
+    if (!status) Tools::Fatal("caught exception while computing fill-reducing ordering",
+                __FILE__,__LINE__);
 
+
+#ifdef DEBUGGING
+DEBUG("temporary symperm:");
+for (int i=0;i<jj;i++) Tools::deb() << symperm[i]<< " ";
+#endif
     //test = ones(1,m+n); test(p) = 0; p(j:n+m) = find(test);
     Teuchos::Array<int> test(N);
     for (int i=0;i<N;i++) test[i]=1;
-    for (int i=0;i<j;i++) test[symperm[i]]=0;
-    int k=0;
+    for (int i=0;i<jj;i++) test[symperm[i]]=0;
+    int kk=0;
     for (int i=0; i<N; i++)
       { 
-      if (!test[i])
+      if (test[i])
         { 
-        symperm[j+k]=Matrix.GRID(i);
-        k++;
+        symperm[jj+kk]=Matrix.GRID(i);
+        kk++;
         }
       }
 
-    for (int i=0;i<N;i++)
-      {
-      colperm[i]=symperm[i];
-      rowperm[i]=symperm[perm[i]];
-      }
-    }
+#ifdef DEBUGGING
+  DEBUG("final symperm:");
+  for (int i=0;i<N;i++) Tools::deb() << symperm[i]<< " ";
+#endif
 
+  for (int i=0;i<N;i++)
+    {
+    colperm[i]=symperm[i];
+    rowperm[i]=symperm[perm[i]];
+    }
+  }
 #ifdef DEBUGGING
   deb << "% initial ordering of v-nodes\n";
   deb << "q0=[";
@@ -1964,7 +2051,9 @@ if (map2!=Teuchos::null)
   deb<<"];\n";
   deb.close();
 #endif
+
   delete [] q;
+
   return 0;
   }
 
@@ -2005,6 +2094,29 @@ if (map2!=Teuchos::null)
       return result;
       }
   
+  // this piece of code is borrowed from Epetra_CrsMatrix.cpp
+  int MatrixUtils::SortMatrixRow(int* indices, double* values, int len)
+    {
+    int n = len;
+    int m = n/2;
+    while(m > 0) {
+      int max = n - m;
+      for(int j = 0; j < max; j++) {
+        for(int k = j; k >= 0; k-=m) {
+          if(indices[k+m] >= indices[k])
+            break;
+          double dtemp = values[k+m];
+          values[k+m] = values[k];
+          values[k] = dtemp;
+          int itemp = indices[k+m];
+          indices[k+m] = indices[k];
+          indices[k] = itemp;
+        }
+      }
+      m = m/2;
+    }
+  return 0;
+  }
 
 }
 
