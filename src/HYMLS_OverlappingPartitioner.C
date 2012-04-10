@@ -498,12 +498,12 @@ void OverlappingPartitioner::Partition()
         
   if (cartPart!=Teuchos::null) 
     {
-    cartPart->Partition(npx,npy,npz);
+    cartPart->Partition(npx,npy,npz, false);
     cartPart->SetNodeDistance((double)(sx/base_sx));
     }
   else
     {
-    partitioner_->Partition(npx*npy*npz);
+    partitioner_->Partition(npx*npy*npz, false);
     }
 
   // sanity check

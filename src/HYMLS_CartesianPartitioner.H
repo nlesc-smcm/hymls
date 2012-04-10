@@ -36,12 +36,17 @@ class CartesianPartitioner : public BasePartitioner
   
   //! partition an [nx x ny x nz] grid with (possibly) several DoF per node
   //! into nparts global subdomains.
-  void Partition(int nparts);
+  void Partition(int nparts, bool repart=true);
   
 
   //! partition an [nx x ny x nz] grid with one DoF per node
-  //! into npx*npy*npz global subdomains.
-  void Partition(int npx, int npy, int npz);
+  //! into npx*npy*npz global subdomains. If repart=true,   
+  //! the map may need repartitioning to match the cartesian
+  //! layout of the new partitioned map. Otherwise it is    
+  //! assumed that the map already has a global cartesian   
+  //! processor partitioning (as generated i.e. by the      
+  //! MatrixUtils::CreateMap functions).
+  void Partition(int npx, int npy, int npz, bool repart=true);
   
   //! get number of local partitions
   int NumLocalParts(){return numLocalSubdomains_;}
@@ -67,11 +72,12 @@ class CartesianPartitioner : public BasePartitioner
   //! get non-overlapping subdomain id 
   inline int operator()(int i, int j, int k) const
     {
+#ifdef TESTING    
     if (!Partitioned())
       {
       Tools::Error("Partition() not yet called!",__FILE__,__LINE__);
       }
-      
+#endif      
     int ii=(int)floor((double)(i/sx_));
     int jj=(int)floor((double)(j/sy_));
     int kk=(int)floor((double)(k/sz_));
@@ -151,6 +157,9 @@ class CartesianPartitioner : public BasePartitioner
   //! number of variables per node
   int dof_;
   
+  //! maps global to local subdomain ID
+  Teuchos::RCP<Epetra_Map> sdMap_;
+  
   //! type of periodicity in the problem
   GaleriExt::PERIO_Flag perio_;
   
@@ -167,6 +176,32 @@ class CartesianPartitioner : public BasePartitioner
   
   //! object label
   std::string label_;
+
+private:
+
+  //! get local subdomain id 
+  inline int LSID(int i, int j, int k) const
+    {
+#ifdef TESTING
+    if (sdMap_==Teuchos::null)
+      {
+      Tools::Error("not partitioned yet!",__FILE__,__LINE__);
+      }
+#endif      
+    return sdMap_->LID((*this)(i,j,k));
+    }
+
+  //! get local subdomain id 
+  inline int LSID(int gid) const
+    {
+#ifdef TESTING
+    if (sdMap_==Teuchos::null)
+      {
+      Tools::Error("not partitioned yet!",__FILE__,__LINE__);
+      }
+#endif      
+    return sdMap_->LID((*this)(gid));
+    }
     
   };
 

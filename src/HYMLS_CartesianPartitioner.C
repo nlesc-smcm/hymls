@@ -3,6 +3,7 @@
 #include "Teuchos_Utils.hpp"
 #include "Epetra_Comm.h"
 #include "Epetra_Map.h"
+#include "HYMLS_MatrixUtils.H"
 
 using Teuchos::toString;
 
@@ -198,17 +199,18 @@ DEBVAR(dk);
     return ceil((double)di/node_distance_);
     }
 
-  void CartesianPartitioner::Partition(int nparts)
+  void CartesianPartitioner::Partition(int nparts, bool repart)
     {
     START_TIMER3(label_,"Partition (1)");
     int npx,npy,npz;
     Tools::SplitBox(nx_,ny_,nz_,nparts,npx,npy,npz);
-    this->Partition(npx,npy,npz);
+    this->Partition(npx,npy,npz,repart);
     }
   
   // partition an [nx x ny x nz] grid with one DoF per node
   // into nparts global subdomains.
-  void CartesianPartitioner::Partition(int npx_in,int npy_in, int npz_in)
+  void CartesianPartitioner::Partition
+        (int npx_in,int npy_in, int npz_in, bool repart)
     {
     START_TIMER3(label_,"Partition (2)");
     npx_=npx_in;
@@ -258,12 +260,24 @@ DEBVAR(dk);
     int koff=rankK*npz_/nprocz*sz_;
    
     numLocalSubdomains_=(npx_/nprocx)*(npy_/nprocy)*(npz_/nprocz);
-   
-    // create redistributed map:
     
-    // count number of local elements
+    sdMap_=MatrixUtils::CreateMap(npx_,npy_,npz_,1,0,*comm_);
+   
+    int *NumElementsInSubdomain = new int[NumLocalParts()];
+    for (int sd=0;sd<numLocalSubdomains_;sd++) NumElementsInSubdomain[sd]=0;
+
+    subdomainPointer_.resize(NumLocalParts()+1);
+
+    int *MyGlobalElements;
     int NumMyElements=0;
 
+    // create redistributed map:
+
+// first case: user doesn't guarantee a cartesian processor partitioning,
+// this is the original implementation which turned out to be extremely  
+// slow so whenever possible it should be avoided...
+if (repart==true) {
+    // count number of local elements
     for (int kk=0;kk<npz_/nprocz;kk++)
       for (int jj=0;jj<npy_/nprocy;jj++)
         for (int ii=0;ii<npx_/nprocx;ii++)
@@ -292,8 +306,7 @@ DEBVAR(dk);
                 }
           }
     
-    int *MyGlobalElements = new int[NumMyElements];
-    int *NumElementsInSubdomain = new int[NumLocalParts()];
+    MyGlobalElements = new int[NumMyElements];
     
     int pos=0;
     int sd=0;
@@ -302,7 +315,6 @@ DEBVAR(dk);
       for (int jj=0;jj<npy_/nprocy;jj++)
         for (int ii=0;ii<npx_/nprocx;ii++)
           {
-          NumElementsInSubdomain[sd]=0;
           for (int k=0;k<sz_;k++)
             for (int j=0;j<sy_;j++)
               for (int i=0;i<sx_;i++)
@@ -325,17 +337,49 @@ DEBVAR(dk);
               }
           sd++;
           }
-      
-    cartesianMap_=Teuchos::rcp(new Epetra_Map(-1,NumMyElements,MyGlobalElements,0,*comm_));
-    delete [] MyGlobalElements;
-    
-    subdomainPointer_.resize(NumLocalParts()+1);
+
     subdomainPointer_[0]=0;
     for (int i=0;i<NumLocalParts();i++)
       {
       subdomainPointer_[i+1]=subdomainPointer_[i]+NumElementsInSubdomain[i];
       }
-    
+
+} else { // repart==false => we have a cartesian processor partitioning and no nodes have to 
+         // be moved between partitions
+  for (int lid=0;lid<baseMap_->NumMyElements();lid++)
+    {
+    int gid = baseMap_->GID(lid);
+    int lsd=LSID(gid);
+#ifdef TESTING
+    if (lsd<0)
+      {
+      Tools::Error("repartitioning not allowed by caller but seems to be necessary",
+        __FILE__,__LINE__);
+      }
+#endif    
+    NumElementsInSubdomain[lsd]++;
+    }
+  subdomainPointer_[0]=0;
+  for (int i=0;i<NumLocalParts();i++)
+    {
+    subdomainPointer_[i+1]=subdomainPointer_[i]+NumElementsInSubdomain[i];
+    }
+  NumMyElements = subdomainPointer_[NumLocalParts()];
+  MyGlobalElements = new int[NumMyElements];
+  for (int i=0;i<NumLocalParts();i++) NumElementsInSubdomain[i]=0;
+
+  for (int lid=0;lid<baseMap_->NumMyElements();lid++)
+    {
+    int gid = baseMap_->GID(lid);
+    int lsd=LSID(gid);
+    MyGlobalElements[subdomainPointer_[lsd] + NumElementsInSubdomain[lsd]] = gid;
+    NumElementsInSubdomain[lsd]++;
+    }
+}// no repart
+
+    cartesianMap_=Teuchos::rcp(new Epetra_Map(-1,NumMyElements,MyGlobalElements,0,*comm_));
+    delete [] MyGlobalElements;
+        
     delete [] NumElementsInSubdomain;
     
     Tools::Out("Number of Partitions: "+toString(nprocx)+"x"+toString(nprocy)+"x"+toString(nprocz));
