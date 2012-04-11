@@ -251,6 +251,12 @@ DEBVAR(dk);
                 __FILE__,__LINE__);
       }
     
+    if (npx_*npy_*npz_ < comm_->NumProc())
+      {
+      Tools::Error("more subdomains than processor partitions, case not implemented",
+        __FILE__,__LINE__);
+      }
+    
     int rank=comm_->MyPID();
     int rankI,rankJ,rankK;
     Tools::ind2sub(nprocx,nprocy,nprocz,rank,rankI,rankJ,rankK);
@@ -276,7 +282,7 @@ DEBVAR(dk);
 // first case: user doesn't guarantee a cartesian processor partitioning,
 // this is the original implementation which turned out to be extremely  
 // slow so whenever possible it should be avoided...
-if (repart==true) {
+if (repart==true||true) { //TROET 
     // count number of local elements
     for (int kk=0;kk<npz_/nprocz;kk++)
       for (int jj=0;jj<npy_/nprocy;jj++)

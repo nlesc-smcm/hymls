@@ -288,6 +288,7 @@ namespace HYMLS {
 #endif
 
     Teuchos::ParameterList& amesosList=PL().sublist("Coarse Solver");                    
+
     reducedSchurSolver_= Teuchos::rcp(new Ifpack_Amesos(linearMatrix_.get()));
     CHECK_ZERO(reducedSchurSolver_->SetParameters(amesosList));
   
@@ -528,8 +529,7 @@ int SchurPreconditioner::InitializeSeparatorGroups()
   START_TIMER2(label_,"InitializeSeparatorGroups");
   if (subdivideSeparators_)
     {
-    int dof=PL().sublist("Problem")
-                  .sublist("Partitioner")
+    int dof=PL("Problem").sublist("Partitioner")
                   .get("Degrees of Freedom",-1);
     if (dof==-1)
       {
@@ -768,7 +768,7 @@ int SchurPreconditioner::InitializeOT()
 
   DEBVAR("Create solver for reduced Schur");
 
-  nextLevelParams_ = Teuchos::rcp(new Teuchos::ParameterList(PL()));
+  nextLevelParams_ = Teuchos::rcp(new Teuchos::ParameterList(*getMyParamList()));
 
   Teuchos::RCP<Epetra_Vector> nextTestVector = Teuchos::null;
 
@@ -1011,7 +1011,6 @@ if (dumpVectors_)
 #endif
       
     timeApplyInverse_+=time_->ElapsedTime();
-
     return 0;
     }
 

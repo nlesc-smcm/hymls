@@ -118,7 +118,7 @@ return CreateMap(offX,offX+nXloc-1,
                            int dof,
                            const Epetra_Comm& comm)
       {
-  START_TIMER(Label(),"CreateMap (2)");
+  START_TIMER3(Label(),"CreateMap (2)");
       Teuchos::RCP<Epetra_Map> result = Teuchos::null;
       
       DEBUG("MatrixUtils::CreateMap ");
@@ -1531,10 +1531,13 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
       }
     
     new_len=0;
-    for (int j=0;j<len;j++)
+    for (int j=0;j<len;j++)      
       {
-//      if ( (std::abs(values[j]) > thres)||(A->GCID(indices[j])==A->GRID(i)) )
-      if ( (std::abs(values[j]) > thres) )
+// TODO - I think some Amesos solvers may need zeros on the diagonal?
+//      on the other hand we want to remove the zero diagonal entry for the 
+//      subdomain solver using Umfpack and our own FillReducingOrdering...
+//      if ( (std::abs(values[j]) > thres) )
+      if ( (std::abs(values[j]) > thres)||(A->GCID(indices[j])==A->GRID(i)) )
         {
         new_values[new_len]=values[j];
         new_indices[new_len]=A->GCID(indices[j]);
@@ -1574,6 +1577,12 @@ int MatrixUtils::PutDirichlet(Epetra_CrsMatrix& A, int gid)
   int lid, pid;
   
   CHECK_ZERO(A.RowMap().RemoteIDList(1,&gid,&pid,&lid));
+
+  if (lid<0)
+    {
+    Dump(A,"BadMatrix.txt");
+    Tools::Error("fix GID: "+Teuchos::toString(gid)+" not in matrix row map",__FILE__,__LINE__);
+    }
 
   // find out how long that row is (how many nonzeros)
   int len;

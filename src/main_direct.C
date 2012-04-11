@@ -46,7 +46,7 @@ int main(int argc, char* argv[])
   {
   MPI_Init(&argc, &argv);
 
-int status=0;
+bool status=true;
 
   RCP<Epetra_MpiComm> comm=rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
 
@@ -185,7 +185,8 @@ int status=0;
 
   //RCP<HYMLS::Solver> solver = rcp(new HYMLS::Solver(K, params));
   RCP<Ifpack_Amesos> solver = rcp(new Ifpack_Amesos(K.get()));
-  Teuchos::ParameterList& directList = params->sublist("Solver").sublist("Coarse Solver");
+  Teuchos::ParameterList& directList = 
+        params->sublist("Preconditioner").sublist("Coarse Solver");
   solver->SetParameters(directList);
 
   HYMLS::Tools::Out("Initialize Solver...");

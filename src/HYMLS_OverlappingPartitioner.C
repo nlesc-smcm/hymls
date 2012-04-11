@@ -71,8 +71,8 @@ namespace HYMLS {
                                         Teuchos::rcp(new Teuchos::Array< Teuchos::Array<int> >()),
                                         "OverlappingPartitioner", level),
         PLA("Problem"), matrix_(K)
-    {    
-    START_TIMER(label_,"Constructor");
+    {
+    START_TIMER2(label_,"Constructor");
 
     setParameterList(params);
     

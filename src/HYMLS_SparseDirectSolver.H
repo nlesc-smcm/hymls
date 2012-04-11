@@ -6,7 +6,7 @@
 #define NO_UMFPACK 1
 #endif
 
-//#define NO_UMFPACK 1
+#define NO_UMFPACK 1
 
 #ifdef NO_UMFPACK
 #include "Ifpack_Amesos.h"

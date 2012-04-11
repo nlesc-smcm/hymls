@@ -17,10 +17,9 @@ namespace HYMLS {
   const char* Exception::what() const throw ()
     {
     std::stringstream ss;
-    ss << "Error: "<<msg_<<std::endl;
-    ss << "(in "<<file_<<", line "<<line_<<")"<<std::endl;
-    ss << std::endl;
-    ss << functionStack_ << std::endl;
+    ss << "Error: "<<msg_<<"\n";
+    ss << "(in "<<file_<<", line "<<line_<<")\n\n";
+    ss << functionStack_ << "\n";
     ss << std::endl;
 
     return ss.str().c_str();    
