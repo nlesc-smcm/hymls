@@ -124,11 +124,13 @@ bool status=true;
 
   HYMLS::Tools::Out("Create map");
   int dof=1;
+
   if (eqn=="Laplace" || eqn=="Laplace Neumann")
     {
-    try {
-      map= Teuchos::rcp(Galeri::CreateMap(mapType, *comm, galeriList));
-      } catch (Galeri::Exception G) {G.Print();}
+    map=HYMLS::MatrixUtils::CreateMap(nx,ny,nz,1,0,*comm);
+//    try {
+//      map= Teuchos::rcp(Galeri::CreateMap(mapType, *comm, galeriList));
+//      } catch (Galeri::Exception G) {G.Print();}
     }
   else if (eqn=="Stokes-C")
     {
