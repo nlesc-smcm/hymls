@@ -282,7 +282,7 @@ DEBVAR(dk);
 // first case: user doesn't guarantee a cartesian processor partitioning,
 // this is the original implementation which turned out to be extremely  
 // slow so whenever possible it should be avoided...
-if (repart==true||true) { //TROET 
+if (repart==true) {
     // count number of local elements
     for (int kk=0;kk<npz_/nprocz;kk++)
       for (int jj=0;jj<npy_/nprocy;jj++)
@@ -380,6 +380,12 @@ if (repart==true||true) { //TROET
     int lsd=LSID(gid);
     MyGlobalElements[subdomainPointer_[lsd] + NumElementsInSubdomain[lsd]] = gid;
     NumElementsInSubdomain[lsd]++;
+    }
+  // sort nodes per subdomain
+  for (int i=0;i<NumLocalParts();i++)
+    {
+    std::sort(MyGlobalElements + subdomainPointer_[i],
+              MyGlobalElements + subdomainPointer_[i+1]);
     }
 }// no repart
 
