@@ -1654,7 +1654,7 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
                                              Teuchos::Array<int>& rowperm,
                                              Teuchos::Array<int>& colperm)
   {
-  START_TIMER2(Label(),"FillReducing Ordering");
+  START_TIMER2(Label(),"FillReducingOrdering");
   
   DEBVAR(&rowperm);
   DEBVAR(&colperm);

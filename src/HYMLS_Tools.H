@@ -255,6 +255,15 @@ namespace HYMLS
   
   //! print timing results
   static void PrintTiming(std::ostream& os);
+  
+  //! report memory usage to a global list. If the same  
+  //! label is passed in again, the entry is overwritten 
+  //! (it is assumed that the memory has been freed in   
+  //! the mean time). 
+  static void ReportMemUsage(std::string label, double bytes);
+  
+  //! report memory usage
+  static void PrintMemUsage(std::ostream& os);
     
   static Teuchos::RCP<Teuchos::FancyOStream> getOutputStream()
     {
@@ -304,6 +313,8 @@ private:
     //! keeps track of timer numbers (to get the ordering correct)
     static int timerCounter_;
    
+    //! parameter list to keep track of memory usage
+    static Teuchos::ParameterList memList_;
     
     //! communicator for timing
     static Teuchos::RCP<const Epetra_Comm> comm_;

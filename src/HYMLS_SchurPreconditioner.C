@@ -400,6 +400,7 @@ namespace HYMLS {
   // compute solver for reduced Schur
   DEBUG("compute coarse solver");
   int ierr=reducedSchurSolver_->Compute();
+
   if (ierr!=0)
     {
 #ifdef STORE_MATRICES
@@ -455,6 +456,7 @@ int SchurPreconditioner::InitializeBlocks()
         
   // create an array of solvers for all the diagonal blocks
   blockSolver_.resize(numBlocks);
+  double nnz=0.0;
   int blk=0;
   for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
     {
@@ -462,7 +464,8 @@ int SchurPreconditioner::InitializeBlocks()
       {
       // in the spawned sepObject, each local separator is a group of a subdomain.
       // -1 because we remove one Vsum node from each block
-      int numRows=sepObject->NumElements(sep,grp)-1; 
+      int numRows=sepObject->NumElements(sep,grp)-1;
+      nnz+=numRows*numRows; 
       blockSolver_[blk]=Teuchos::rcp(new 
              Ifpack_DenseContainer(numRows));
       CHECK_ZERO(blockSolver_[blk]->SetParameters(
@@ -478,6 +481,7 @@ int SchurPreconditioner::InitializeBlocks()
       blk++;
       }
     }
+  REPORT_SUM_MEM(label_,"dense diagonal blocks",nnz,comm_);
   return 0;  
   }
 
@@ -520,6 +524,7 @@ int SchurPreconditioner::InitializeSingleBlock()
         }
       }
     }
+  REPORT_SUM_MEM(label_,"single diagonal block (not counted)",0.0,comm_);
   return 0;  
   }
 
@@ -676,7 +681,7 @@ int SchurPreconditioner::InitializeOT()
             return ierr;
             }
           }
-        }      
+        }    
       }
     
     CHECK_ZERO(sparseMatrixOT_->FillComplete())

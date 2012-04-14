@@ -375,6 +375,7 @@ DEBVAR(*b);
   if (!status) HYMLS::Tools::Fatal("Caught an exception",__FILE__,__LINE__);
 
   HYMLS::Tools::PrintTiming(HYMLS::Tools::out());
+  HYMLS::Tools::PrintMemUsage(HYMLS::Tools::out());
 
 comm->Barrier();
   HYMLS::Tools::Out("leaving main program");  

@@ -61,6 +61,7 @@ namespace HYMLS {
         PLA("Preconditioner")
     {
     START_TIMER2(label_,"Constructor");
+    REPORT_MEM(label_,"Matrix",K->NumGlobalNonzeros());
     serialComm_=Teuchos::rcp(new Epetra_SerialComm());
     time_=Teuchos::rcp(new Epetra_Time(K->Comm()));
 
@@ -629,14 +630,22 @@ int Preconditioner::InitializeCompute()
 InitializeCompute();
 
 {
-START_TIMER(label_,"Subdomain factorization");
-
+START_TIMER(label_,"subdomain factorization");
+double nnz=0; // count number of stored nonzeros in factors
   for (int sd=0;sd<hid_->NumMySubdomains();sd++)
     {
     if (subdomainSolver_[sd]->NumRows()>0)
       {
       // compute subdomain factorization
       CHECK_ZERO(subdomainSolver_[sd]->Compute(*reorderedMatrix_));
+#ifndef NO_MEMORY_TRACING
+#ifndef NO_UMFPACK 
+      Teuchos::RCP<Ifpack_SparseContainer<SparseDirectSolver> > container =
+        Teuchos::rcp_dynamic_cast<Ifpack_SparseContainer<SparseDirectSolver> >(subdomainSolver_[sd]); 
+      nnz+=container->Inverse()->NumGlobalNonzerosA();      
+      nnz+=container->Inverse()->NumGlobalNonzerosLU();      
+#endif      
+#endif
 #ifdef STORE_SUBDOMAIN_MATRICES
       Teuchos::RCP<Ifpack_SparseContainer<SparseDirectSolver> > container =
         Teuchos::rcp_dynamic_cast<Ifpack_SparseContainer<SparseDirectSolver> >(subdomainSolver_[sd]); 
@@ -655,6 +664,7 @@ START_TIMER(label_,"Subdomain factorization");
 #endif      
       }
     }
+REPORT_SUM_MEM(label_,"subdomain solvers",nnz,comm_);
 }
 
   CHECK_ZERO(Schur_->Construct());

@@ -216,7 +216,7 @@ DEBVAR(dk);
     npx_=npx_in;
     npy_=npy_in;
     npz_=npz_in;
-    
+        
     DEBVAR(npx_);
     DEBVAR(npy_);
     DEBVAR(npz_);
@@ -224,17 +224,23 @@ DEBVAR(dk);
     sx_=nx_/npx_;
     sy_=ny_/npy_;
     sz_=nz_/npz_;
+
+    std::string s1=toString(nx_)+"x"+toString(ny_)+"x"+toString(nz_);
+    std::string s2=toString(npx_)+"x"+toString(npy_)+"x"+toString(npz_);
     
     if ((nx_!=npx_*sx_)||(ny_!=npy_*sy_)||(nz_!=npz_*sz_))
       {
-      Tools::Error("We currently need nx to be a multiple of npx etc.",
-                __FILE__,__LINE__);
+      std::string msg = "You are trying to partition an "+s1+" domain into "+s2+" parts.\n"
+                        "We currently need nx to be a multiple of npx etc.";
+      Tools::Error(msg,__FILE__,__LINE__);
       }
 
+    std::string s3=toString(sx_)+"x"+toString(sy_)+"x"+toString(sz_);
+
     Tools::Out("Partition domain: ");
-    Tools::Out("Grid size: "+toString(nx_)+"x"+toString(ny_)+"x"+toString(nz_));
-    Tools::Out("Number of Subdomains: "+toString(npx_)+"x"+toString(npy_)+"x"+toString(npz_));
-    Tools::Out("Subdomain size: "+toString(sx_)+"x"+toString(sy_)+"x"+toString(sz_));
+    Tools::Out("Grid size: "+s1);
+    Tools::Out("Number of Subdomains: "+s2);
+    Tools::Out("Subdomain size: "+s3);
     
     // redistribute map so that variables in a subdomain belong to one processor:
     int nprocs=comm_->NumProc();
@@ -242,13 +248,16 @@ DEBVAR(dk);
      int nprocx,nprocy,nprocz; // these are for the phyisical partitioning
     Tools::SplitBox(npx_,npy_,npz_,nprocs,nprocx,nprocy,nprocz);
 
+    std::string s4=toString(nprocx)+"x"+toString(nprocy)+"x"+toString(nprocz);
+
     if (
         ((int)(nx_/nprocx)*nprocx!=nx_)||
         ((int)(ny_/nprocy)*nprocy!=ny_)||
         ((int)(nz_/nprocz)*nprocz!=nz_) )
       {
-      Tools::Error("We currently need nx to be a multiple of nprocx etc.",
-                __FILE__,__LINE__);
+      std::string msg="You are trying to partition an "+s1+" domain on "+s4+" procs.\n"
+        "We currently need nx to be a multiple of nprocx etc.";
+      HYMLS::Tools::Error(msg,__FILE__,__LINE__);
       }
     
     if (npx_*npy_*npz_ < comm_->NumProc())

@@ -84,6 +84,24 @@ Error_You_are_trying_to_start_multiple_timers_in_one_scope \
 #define START_TIMER3(s1,s2) 
 #endif
 
+#ifndef REPORT_SUM_MEM
+#define REPORT_SUM_MEM(label,description,doubles,comm) \
+{ \
+double ldbl=(double)(doubles); \
+double gdbl=ldbl; \
+(comm)->SumAll(&ldbl,&gdbl,1); \
+HYMLS::Tools::ReportMemUsage((std::string)(label)+": "+(std::string)(description), gdbl*8); \
+}
+#endif
+
+#ifndef REPORT_MEM
+#define REPORT_MEM(label,description,doubles) \
+{ \
+double gdbl=(double)(doubles); \
+HYMLS::Tools::ReportMemUsage((std::string)(label)+": "+(std::string)(description), gdbl*8); \
+}
+#endif
+
 #ifdef DEBUGGING
 #ifndef DEBUG
 #define DEBUG(s) if (HYMLS::Tools::InitializedIO()) HYMLS::Tools::deb() << s << std::endl << std::flush;

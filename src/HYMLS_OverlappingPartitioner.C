@@ -959,6 +959,22 @@ DEBVAR(*p_nodeType_);
   std::set<int> separatorL2;
   std::set<int> separatorL3;
   
+  // TODO-BUG: here somewhere. The present implementation seems to
+  //       work for both Laplace and Stokes-C, but for Laplace some remote  
+  //       nodes are included that should not. For instance, a 8x8 Laplace  
+  //       problem on 4 procs with sx=4 gives these separators for proc 3   
+  //       (SD4, upper left):                                               
+  //                            59              
+  //                            51              
+  //                            43              
+  //                            35              
+  //                         26 27 28 29 30 31  
+  //                            19              
+  //                                            
+  // This does not infringe the numerics of the solver, but if there is only 
+  // one sd on a proc it causes trouble. For Navier-Stokes there is no prob- 
+  // lem, I think.                                                           
+  
   separatorL1.insert(separator.begin(),separator.end());
   separatorL1.insert(retained.begin(),retained.end());
   // consider the 3D case. We get the following situations (slice in x-y plane)

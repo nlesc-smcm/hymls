@@ -11,6 +11,7 @@ namespace HYMLS {
 
 RCP<const Epetra_Comm> Tools::comm_=null;
 ParameterList Tools::timerList_;
+ParameterList Tools::memList_;
 RCP<FancyOStream> Tools::output_stream = null;
 RCP<FancyOStream> Tools::debug_stream = null;
 int Tools::traceLevel_=0;
@@ -112,6 +113,41 @@ Teuchos::ParameterList sortedList;
        << ((ncalls>0)? elapsed/(double)ncalls : 0.0) <<std::endl;
     }
   os << "=========================================================================================="<<std::endl;
+  }
+
+void Tools::ReportMemUsage(std::string label, double bytes)
+  {
+  memList_.set(label,bytes);
+  }
+  
+void Tools::PrintMemUsage(std::ostream& os)
+  {
+  os << "=================================== MEMORY USAGE ==================================="<<std::endl;
+  double total = 0.0;
+  double value;
+  std::string unit, label;
+  for (ParameterList::ConstIterator i=memList_.begin();i!=memList_.end();i++)
+    {
+    label = i->first;
+    unit = "B";
+    value=memList_.get(label,0.0);
+    total += value;
+    if (value > 1.0e3) {value*=1.0e-3; unit="kB";}
+    if (value > 1.0e3) {value*=1.0e-3; unit="MB";}
+    if (value > 1.0e3) {value*=1.0e-3; unit="GB";}
+    if (value > 1.0e3) {value*=1.0e-3; unit="TB";}
+    os << label << "\t" <<value<<"\t"<<unit<<"\n"; 
+    }
+  os << "===================================================================================="<<std::endl;  
+  value = total; unit="B";
+  label = "TOTAL";
+    if (value > 1.0e3) {value*=1.0e-3; unit="kB";}
+    if (value > 1.0e3) {value*=1.0e-3; unit="MB";}
+    if (value > 1.0e3) {value*=1.0e-3; unit="GB";}
+    if (value > 1.0e3) {value*=1.0e-3; unit="TB";}
+    os << label << "\t" <<value<<"\t"<<unit<<"\n"; 
+  os << "===================================================================================="<<std::endl;  
+  return;
   }
 
 std::ostream& Tools::printFunctionStack(std::ostream& os)

@@ -744,5 +744,22 @@ if (B!=Teuchos::null)
   MatrixUtils::Dump(*B, filePrefix+"_B.txt");
   }
 }
+
+  // return number of nonzeros in original matrix
+  double SparseDirectSolver::NumGlobalNonzerosA() const 
+        {
+        return Matrix_->NumGlobalNonzeros();
+        }
+
+  //! return number of nonzeros in factorization
+  double SparseDirectSolver::NumGlobalNonzerosLU() const
+        {
+        double value = umf_Info_[UMFPACK_LNZ] +
+                       umf_Info_[UMFPACK_UNZ];
+        // we have counted the diagonal twice, not sure if ones are
+        // stored in Umfpack but we don't care.
+        return value;
+        }                                                               
+
 }//namespace HYMLS
 #endif

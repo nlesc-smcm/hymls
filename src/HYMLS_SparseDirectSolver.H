@@ -6,7 +6,7 @@
 #define NO_UMFPACK 1
 #endif
 
-#define NO_UMFPACK 1
+//#define NO_UMFPACK 1
 
 #ifdef NO_UMFPACK
 #include "Ifpack_Amesos.h"
@@ -22,10 +22,10 @@ typedef Ifpack_Amesos SparseDirectSolver;
 class Epetra_Map;
 class Epetra_Time;
 class Epetra_Comm;
-class Epetra_CrsMatrix;
 class Epetra_MultiVector;
 class Epetra_Vector;
 class Epetra_RowMatrix;
+class Epetra_CrsMatrix;
 class Epetra_Import;
 
 namespace HYMLS {
@@ -245,6 +245,12 @@ public:
   virtual std::ostream& Print(std::ostream& os) const;
 
   //@}
+  
+  //! return number of nonzeros in original matrix
+  double NumGlobalNonzerosA() const;
+
+  //! return number of nonzeros in factorization
+  double NumGlobalNonzerosLU() const; 
 
 protected:
   
