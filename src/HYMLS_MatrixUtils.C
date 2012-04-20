@@ -64,39 +64,42 @@ namespace HYMLS
   int pid=comm.MyPID();
 
   int npX,npY,npZ;
-  int pidX,pidY,pidZ;
-  int offX,offY,offZ;
-  int nXloc,nYloc,nZloc;
+  int pidX=-1,pidY=-1,pidZ=-1;
+  int offX=-1,offY=-1,offZ=-1;
+  int nXloc=0,nYloc=0,nZloc=0;
+  
+  bool active = (pid<nx*ny*nz);
 
   HYMLS::Tools::SplitBox(nx,ny,nz,np,npX,npY,npZ);
 
+  if (active)
+    {
     HYMLS::Tools::ind2sub(npX,npY,npZ,pid,pidX,pidY,pidZ);
 
+    // dimension of subdomain
 
-  // dimension of subdomain
+    nXloc = (int)(nx/npX);
+    nYloc = (int)(ny/npY);
+    nZloc = (int)(nz/npZ);
 
-  nXloc = (int)(nx/npX);
-  nYloc = (int)(ny/npY);
-  nZloc = (int)(nz/npZ);
+    // offsets for local->global index conversion
+    offX = pidX*(int)(nx/npX);
+    offY = pidY*(int)(ny/npY);
+    offZ = pidZ*(int)(nz/npZ);
+    
+    // distribute remaining points among first few cpu's
+    int remX=nx%npX;
+    int remY=ny%npY;
+    int remZ=nz%npZ;
 
-  // offsets for local->global index conversion
-  offX = pidX*(int)(nx/npX);
-  offY = pidY*(int)(ny/npY);
-  offZ = pidZ*(int)(nz/npZ);
+    if (pidX<remX) nXloc++;
+    if (pidY<remY) nYloc++;
+    if (pidZ<remZ) nZloc++;
 
-  // distribute remaining points among first few cpu's
-  int remX=nx%npX;
-  int remY=ny%npY;
-  int remZ=nz%npZ;
-
-  if (pidX<remX) nXloc++;
-  if (pidY<remY) nYloc++;
-  if (pidZ<remZ) nZloc++;
-
-  for (int i=0;i<std::min(remX,pidX);i++) offX++;
-  for (int i=0;i<std::min(remY,pidY);i++) offY++;
-  for (int i=0;i<std::min(remZ,pidZ);i++) offZ++;
-
+    for (int i=0;i<std::min(remX,pidX);i++) offX++;
+    for (int i=0;i<std::min(remY,pidY);i++) offY++;
+    for (int i=0;i<std::min(remZ,pidZ);i++) offZ++;
+    }//active?
   if (indexbase!=0)
     {
     // this could easily be implemented but I didn't need it up to now.
@@ -126,9 +129,9 @@ return CreateMap(offX,offX+nXloc-1,
       DEBUG("["<<j0<<".."<<j1<<"]");
       DEBUG("["<<k0<<".."<<k1<<"]");
       
-      int n = i1-i0+1; int N=I1-I0+1;
-      int m = j1-j0+1; int M=J1-J0+1;
-      int l = k1-k0+1; int L=K1-K0+1;
+      int n = std::max(i1-i0+1,0); int N=I1-I0+1;
+      int m = std::max(j1-j0+1,0); int M=J1-J0+1;
+      int l = std::max(k1-k0+1,0); int L=K1-K0+1;
       
       DEBVAR(N);
       DEBVAR(M);
@@ -2131,6 +2134,56 @@ for (int i=0;i<jj;i++) Tools::deb() << symperm[i]<< " ";
     }
   return 0;
   }
+
+// extract a local part of a matrix. This can not easily be done by Import
+// objects because they tend to do collective communication. A_loc should 
+// be !DistributedGlobal() and A should be IndicesAreLocal() (Filled()?). 
+int MatrixUtils::ExtractLocalBlock(const Epetra_RowMatrix& A, Epetra_CrsMatrix& A_loc)
+  {
+  START_TIMER3(Label(),"ExtractLocalBlock");
+
+//  if (A.IndicesAreLocal()==false) Tools::Error("A must be Filled()",__FILE__,__LINE__);
+  if (A_loc.DistributedGlobal()==true) Tools::Error("A_loc must be serial",__FILE__,__LINE__);
+  int ierr=0;
+  int maxLen = A.MaxNumEntries();
+  int *inds = new int[maxLen];
+  double *vals= new double[maxLen];
+  int len;
+  for (int i=0;i<A_loc.NumMyRows();i++)
+    {
+    int iA = A.RowMatrixRowMap().LID(A_loc.GRID(i));
+//    DEBUG("")
+//    DEBUG("row "<<i<<" "<<iA<<" "<<A_loc.GRID(i));
+    if (iA<0) return -1;
+    CHECK_ZERO(A.ExtractMyRowCopy(iA,maxLen,len,vals,inds));
+//    DEBVAR(len);
+    int new_len=0;
+    for (int j=0;j<len;j++)
+      {
+      int gcid=A.RowMatrixColMap().GID(inds[j]);
+      int lcid=A_loc.LCID(gcid);
+  //    DEBUG("\t"<<lcid <<" " << gcid);
+      if (lcid>=0)
+        {
+        inds[new_len]=lcid;
+        vals[new_len]=vals[j];
+        new_len++;
+        }
+      }
+  //  DEBVAR(new_len);
+    if (A_loc.Filled())
+      {
+      CHECK_NONNEG(A_loc.ReplaceMyValues(i,new_len,vals,inds));
+      }
+    else
+      {
+      CHECK_ZERO(A_loc.InsertMyValues(i,new_len,vals,inds));
+      }
+    }
+  return ierr;
+  }
+    
+
 
 }
 

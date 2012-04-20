@@ -147,6 +147,9 @@ class CartesianPartitioner : public BasePartitioner
   
   //! number of subdomains
   int npx_,npy_,npz_;
+  
+  //! processor distribution
+  int nprocx_,nprocy_,nprocz_;
 
   //! number of subdomains on this proc
   int numLocalSubdomains_;
@@ -159,6 +162,9 @@ class CartesianPartitioner : public BasePartitioner
   
   //! maps global to local subdomain ID
   Teuchos::RCP<Epetra_Map> sdMap_;
+ 
+  //! indicates wether the processor is active (owns any nodes/subdomains)
+  bool active_;
   
   //! type of periodicity in the problem
   GaleriExt::PERIO_Flag perio_;
@@ -201,6 +207,52 @@ private:
       }
 #endif      
     return sdMap_->LID((*this)(gid));
+    }
+
+  //! get processor on which a grid point is located
+  inline int PID(int i, int j, int k) const
+    {
+    // in which subdomain is the cell?
+    int sdx = (int)floor((double)(i)/(double)sx_);
+    int sdy = (int)floor((double)(j)/(double)sy_);
+    int sdz = (int)floor((double)(k)/(double)sz_);
+    
+    //how many subdomains are there per process?
+    int npx = (int)(npx_/nprocx_);
+    int npy = (int)(npy_/nprocy_);
+    int npz = (int)(npz_/nprocz_);
+
+#ifdef TESTING    
+    if ( (npx*nprocx_!=npx_) ||
+         (npy*nprocy_!=npy_) ||
+         (npz*nprocz_!=npz_) )
+         {
+         Tools::Error("case of irregular partitioning not implemented",
+                __FILE__,__LINE__);
+         }
+#endif
+    // so, where is the cell (on which process)?
+    int pidx, pidy, pidz;
+    pidx = (int)(sdx/npx);
+    pidy = (int)(sdy/npy);
+    pidz = (int)(sdz/npz);
+
+    int pid=Tools::sub2ind(nprocx_,nprocy_,nprocz_,1,pidx,pidy,pidz,0);
+/*
+    DEBUG("ijk: "<<i<<" "<<j<<" "<<k);
+    DEBUG("np_loc: "<<npx<<" "<<npy<<" "<<npz);
+    DEBUG("sd: "<<sdx<<" "<<sdy<<" "<<sdz);
+    DEBUG("PID: "<<pidx<<" "<<pidy<<" "<<pidz<<" ("<<pid<<")");
+*/
+    return pid;
+    }
+
+  //! get processor on which a GID is located
+  inline int PID(int gid) const
+    {
+    int i,j,k,var;
+    Tools::ind2sub(nx_,ny_,nz_,dof_,gid,i,j,k,var);
+    return PID(i,j,k);
     }
     
   };

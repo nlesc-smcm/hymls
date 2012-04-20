@@ -84,23 +84,24 @@ Error_You_are_trying_to_start_multiple_timers_in_one_scope \
 #define START_TIMER3(s1,s2) 
 #endif
 
-#ifndef REPORT_SUM_MEM
-#define REPORT_SUM_MEM(label,description,doubles,comm) \
+#ifndef NO_MEMORY_TRACING
+#define REPORT_SUM_MEM(label,description,doubles,ints,comm) \
 { \
-double ldbl=(double)(doubles); \
-double gdbl=ldbl; \
-(comm)->SumAll(&ldbl,&gdbl,1); \
-HYMLS::Tools::ReportMemUsage((std::string)(label)+": "+(std::string)(description), gdbl*8); \
+double lval=(double)((doubles)*sizeof(double)+(ints)*sizeof(int)); \
+double gval=lval; \
+(comm)->SumAll(&lval,&gval,1); \
+HYMLS::Tools::ReportMemUsage((std::string)(label)+": "+(std::string)(description), gval); \
 }
+#define REPORT_MEM(label,description,doubles,ints) \
+{ \
+double gval=(double)((doubles)*sizeof(double)+(ints)*sizeof(int)); \
+HYMLS::Tools::ReportMemUsage((std::string)(label)+": "+(std::string)(description), gval); \
+}
+#else
+#define REPORT_SUM_MEM(label,description,doubles,ints,comm)
+#define REPORT_MEM(label,description,doubles,ints)
 #endif
 
-#ifndef REPORT_MEM
-#define REPORT_MEM(label,description,doubles) \
-{ \
-double gdbl=(double)(doubles); \
-HYMLS::Tools::ReportMemUsage((std::string)(label)+": "+(std::string)(description), gdbl*8); \
-}
-#endif
 
 #ifdef DEBUGGING
 #ifndef DEBUG

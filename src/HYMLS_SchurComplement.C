@@ -46,7 +46,7 @@ namespace HYMLS {
     const Epetra_Map& map = mother_->Map2();
     const RecursiveOverlappingPartitioner& hid = mother_->Partitioner();
     sparseMatrixRepresentation_ = Teuchos::rcp(new 
-      Epetra_FECrsMatrix(Copy,map,hid.NumSeparatorElements(0)));
+      Epetra_FECrsMatrix(Copy,map,mother_->Matrix().MaxNumEntries()));
     Scrs_=sparseMatrixRepresentation_;
     sca_left_=Teuchos::rcp(new Epetra_Vector(map));
     sca_right_=Teuchos::rcp(new Epetra_Vector(map));
@@ -75,6 +75,10 @@ namespace HYMLS {
       }
     else
       {
+      // we now have overlap in the rowMap of the Preconditioner class
+      // and I can't oversee if this would still work.
+      Tools::Error("distributed SC currently disabled",__FILE__,__LINE__);
+#if 0
       // The Schur-complement is given by A22-A21*A11\A12      
       CHECK_ZERO(mother_->ApplyA22(X,Y, &flopsApply_));
       
@@ -92,7 +96,7 @@ namespace HYMLS {
       // 3) compute Y = Y-Y2
       CHECK_ZERO(Y.Update(-1.0,Y2,1.0));
       flopsApply_+=Y.GlobalLength()*Y.NumVectors();
-
+#endif
       }
     return ierr;
     }
@@ -118,8 +122,10 @@ namespace HYMLS {
     isConstructed_=true;
     CHECK_ZERO(this->Construct(sparseMatrixRepresentation_));
     Scrs_ = MatrixUtils::DropByValue(sparseMatrixRepresentation_,
-        0.01*HYMLS_SMALL_ENTRY, MatrixUtils::Absolute);
-    REPORT_MEM(label_,"SchurComplement",Scrs_->NumGlobalNonzeros());
+        HYMLS_SMALL_ENTRY, MatrixUtils::Relative);
+    REPORT_MEM(label_,"SchurComplement",Scrs_->NumGlobalNonzeros(),
+                                        Scrs_->NumGlobalNonzeros()+
+                                        Scrs_->NumGlobalRows());
     return 0;
     }
 

@@ -89,6 +89,11 @@ class BasePartitioner
   //! to a subdomain have contiguous local indexing)
   virtual const Epetra_Map& Map() const = 0;
   
+  //! get the (re-)partitioned map (here elements belonging
+  //! to a subdomain have contiguous local indexing)
+  virtual Teuchos::RCP<const Epetra_Map> GetMap() const 
+    {return Teuchos::rcp(&Map(),false);}
+  
   //! get number of elements in local subdomain <part>
   virtual int NumElements(int part) const = 0;
   

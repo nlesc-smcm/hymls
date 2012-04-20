@@ -23,6 +23,7 @@ extern "C" {
 #include "umfpack.h"
 
 static std::ostream* output_stream;
+static int firstTime=true;
 
 int my_printf(const char* fmt, ...)
   {
@@ -62,7 +63,8 @@ SparseDirectSolver::SparseDirectSolver(Epetra_RowMatrix* Matrix_in) :
   ApplyInverseFlops_(0),
   Condest_(-1.0),
   serialMatrix_(Teuchos::null),
-  serialImport_(Teuchos::null)
+  serialImport_(Teuchos::null),
+  ownOrdering_(false), ownScaling_(false)
 {
 START_TIMER3(label_,"Constructor");
 
@@ -74,15 +76,6 @@ umf_Info_.resize(UMFPACK_INFO);
 umf_Control_.resize(UMFPACK_CONTROL);
 umfpack_di_defaults( &umf_Control_[0] ) ; 
 
-  //TODO - this is dangerous in general so we should have a flag like
-  //       'TrustMe'
-
-  umf_Control_[UMFPACK_ORDERING] = UMFPACK_ORDERING_NONE;
-  umf_Control_[UMFPACK_FIXQ] = 1;
-  umf_Control_[UMFPACK_SYM_PIVOT_TOLERANCE] = 1.0e-12;
-  umf_Control_[UMFPACK_PIVOT_TOLERANCE] = 1.0e-12;
-  umf_Control_[UMFPACK_SCALE] = UMFPACK_SCALE_NONE;
-
 #ifdef DEBUGGING
 //umf_Control_[UMFPACK_PRL]=5;
 #endif
@@ -92,6 +85,19 @@ scaLeft_=Teuchos::rcp(new Epetra_Vector(Matrix_->RowMatrixRowMap()));
 scaRight_=Teuchos::rcp(new Epetra_Vector(Matrix_->RowMatrixRowMap()));
 CHECK_ZERO(scaLeft_->PutScalar(1.0));
 CHECK_ZERO(scaRight_->PutScalar(1.0));
+
+// assume that we just have a serial solver built in here
+int N = Matrix_->NumGlobalRows();
+
+row_perm_.resize(N);
+col_perm_.resize(N);
+
+for (int i=0;i<N;i++)
+  {
+  row_perm_[i]=i;
+  col_perm_[i]=i;
+  }
+
 }
 
 //==============================================================================
@@ -127,12 +133,28 @@ int SparseDirectSolver::SetParameters(Teuchos::ParameterList& List_in)
 START_TIMER3(label_,"SetParameters");
   List_ = List_in;
   std::string choice = List_in.get("amesos: solver type", label_);
-  if (choice!="Amesos_Umfpack")
+  if (choice!="Amesos_Umfpack" && firstTime)
     {
+    firstTime=false;
     Tools::Warning("your choice of 'amesos: solver type' is ignored\n"
                    "The HYMLS direct solver always uses Umfpack right now\n",
                    __FILE__,__LINE__);
     }
+ownOrdering_=List_.get("Custom Ordering",false);    
+ownScaling_=List_.get("Custom Scaling",false);    
+
+if (ownOrdering_)
+  {
+  umf_Control_[UMFPACK_ORDERING] = UMFPACK_ORDERING_NONE;
+  umf_Control_[UMFPACK_FIXQ] = 1;
+  umf_Control_[UMFPACK_SYM_PIVOT_TOLERANCE] = 100*HYMLS_SMALL_ENTRY;
+  umf_Control_[UMFPACK_PIVOT_TOLERANCE] = 100*HYMLS_SMALL_ENTRY;
+  }            
+if (ownScaling_)
+  {
+  umf_Control_[UMFPACK_SCALE] = UMFPACK_SCALE_NONE;
+  }
+
 return(0);
 }
 
@@ -167,11 +189,12 @@ START_TIMER2(label_,"Initialize");
   if (Time_ == Teuchos::null)
     Time_ = Teuchos::rcp( new Epetra_Time(Comm()) );
 
-  if (UseTranspose_) Tools::Error("not implemented",__FILE__,__LINE__);
-
   // create umfpack
   CHECK_ZERO(this->ConvertToSerial());
-  CHECK_ZERO(this->FillReducingOrdering());
+  if (ownOrdering_)
+    {
+    CHECK_ZERO(this->FillReducingOrdering());
+    }
   CHECK_ZERO(this->ConvertToUmfpackCRS());
   CHECK_ZERO(this->UmfpackSymbolic());
 
@@ -210,13 +233,16 @@ START_TIMER2(label_,"Compute");
     Teuchos::RCP<Epetra_CrsMatrix> serialCrsMatrix =
         Teuchos::rcp_const_cast<Epetra_CrsMatrix>(
         Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(serialMatrix_));
-if (Teuchos::is_null(serialCrsMatrix)) 
-  {
-  Tools::Error("dynamic cast failed - need a CrsMatrix",__FILE__,__LINE__);
-  }
-CHECK_ZERO(serialCrsMatrix->Import(*Matrix_,*serialImport_,Insert));
+    if (Teuchos::is_null(serialCrsMatrix)) 
+      {
+      Tools::Error("dynamic cast failed - need a CrsMatrix",__FILE__,__LINE__);
+      }
+    CHECK_ZERO(serialCrsMatrix->Import(*Matrix_,*serialImport_,Insert));
     }
-  CHECK_ZERO(ComputeScaling());
+  if (ownScaling_)
+    {
+    CHECK_ZERO(ComputeScaling());
+    }
   CHECK_ZERO(this->ConvertToUmfpackCRS());
   CHECK_ZERO(this->UmfpackNumeric());
 
@@ -455,14 +481,6 @@ int SparseDirectSolver::FillReducingOrdering()
   if (serialMatrix_==Teuchos::null) return -1;
   int N = serialMatrix_->NumMyRows();
 
-  row_perm_.resize(N);
-  col_perm_.resize(N);
-
-  for (int i=0;i<N;i++)
-    {
-    row_perm_[i]=i;
-    col_perm_[i]=i;
-    }
   Teuchos::RCP<const Epetra_CrsMatrix> serialCrsMatrix
         = Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(serialMatrix_);
   if (Teuchos::is_null(serialCrsMatrix))
@@ -471,15 +489,6 @@ int SparseDirectSolver::FillReducingOrdering()
     }
   CHECK_ZERO(HYMLS::MatrixUtils::FillReducingOrdering(*serialCrsMatrix,row_perm_,col_perm_));
 
-  // uncomment to disable reordering
-  /* 
- k for (int i=0;i<N;i++)
-  for (int i=0;i<N;i++)
-    {
-    row_perm_[i]=i;
-    col_perm_[i]=i;
-    }
-  */
   return 0;
   }
 

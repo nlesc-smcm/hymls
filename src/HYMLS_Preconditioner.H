@@ -313,9 +313,6 @@ protected:
   //! have nothing to do with each other.
   Teuchos::Array<Teuchos::RCP<const Epetra_Map> > localMap2_;
 
-  //! importers for blocks
-  Teuchos::Array<Teuchos::RCP<Epetra_Import> > localImport1_, localImport2_;
-
   //! importers for global parts
   Teuchos::RCP<Epetra_Import> import1_, import2_;
 

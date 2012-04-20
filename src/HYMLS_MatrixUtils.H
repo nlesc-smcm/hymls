@@ -63,6 +63,10 @@ class MatrixUtils
         linear problems with one or more dof/node. This is similar to the Galeri map
         Cartesian3D, except that we allow several dof/node.
         For 2D problems simply set nz=1.
+        
+        This function can also be used if the number of grid cells nx*ny*nz
+        is less than the number of processes, in which case any proc with PID
+        >= nx*ny*nz gets 0 elements in the map.
     */    
     static Teuchos::RCP<Epetra_Map> CreateMap(int nx, int ny, int nz, 
                              int dof, int indexbase,
@@ -328,6 +332,12 @@ class MatrixUtils
     //! sort an integer and a double array consistently so the integer array
     //! is in ascending order
     static int SortMatrixRow(int* inds, double* vals, int len);
+
+    //! extract a local part of a matrix. This can not easily be done by Import
+    //! objects because they tend to do collective communication. A_loc should 
+    //! be !DistributedGlobal(), and A should be Filled (if it is Crs).        
+    //! We do not call FillComplete in this function.
+    static int ExtractLocalBlock(const Epetra_RowMatrix& A, Epetra_CrsMatrix& A_loc);
 
   private:
   

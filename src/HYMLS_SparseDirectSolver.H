@@ -33,6 +33,11 @@ namespace HYMLS {
 //! this is Amesos_Umfpack merged into Ifpack_Amesos,
 //! with Umfpack options set properly and reordering using
 //! HYMLS::MatrixUtils::FillReducingOrdering()
+//!
+//! This class accepts the following parameters:
+//! "Custom Ordering" (bool)
+//! "Custom Scaling" (bool)
+//! "OutputLevel" (int)
 class SparseDirectSolver : public Ifpack_Preconditioner {
       
 public:
@@ -383,6 +388,12 @@ private:
   
   //! import to serial
   Teuchos::RCP<Epetra_Import> serialImport_;
+  
+  //! use Umfpack or our own ordering
+  bool ownOrdering_;
+
+  //! use Umfpack or our own scaling
+  bool ownScaling_;
 
   //! \name Umfpack interface, reordering etc
   //@{

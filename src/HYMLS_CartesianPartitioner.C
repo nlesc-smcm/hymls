@@ -5,6 +5,12 @@
 #include "Epetra_Map.h"
 #include "HYMLS_MatrixUtils.H"
 
+#ifdef HAVE_MPI
+#include "Epetra_MpiComm.h"
+#include "Epetra_MpiDistributor.h"
+#endif
+
+
 using Teuchos::toString;
 
 #ifdef DEBUG
@@ -24,34 +30,33 @@ namespace HYMLS {
   CartesianPartitioner::CartesianPartitioner
         (Teuchos::RCP<const Epetra_Map> map, int nx, int ny, int nz, int dof, 
         GaleriExt::PERIO_Flag perio)
-        : BasePartitioner(), label_("CartesianPartiitoner"),
+        : BasePartitioner(), label_("CartesianPartitioner"),
                 baseMap_(map), nx_(nx), ny_(ny),nz_(nz),dof_(dof),perio_(perio)
         {
         START_TIMER3(label_,"Constructor");        
-        node_distance_=1; //default, can be adjusted by calling SetNodeDistance()
+        node_distance_=1; //default, can be adjusted by calling SetNodeDistance()    
+        active_=true; // by default, everyone is assumed to own a part of the domain.
+                      // if in Partition() it turns out that there are more processor
+                      // partitions than subdomains, active_ is set to false for some
+                      // ranks, which will get an empty part of the reordered map    
+                      // (cartesianMap_).
         
         comm_=Teuchos::rcp(&(baseMap_->Comm()),false);
         cartesianMap_=Teuchos::null;
+        numLocalSubdomains_=0;
         
         if (baseMap_->IndexBase()!=0)
           {
-          Tools::Error("Not sure, but I _think_ your map should be 0-based",__FILE__,__LINE__);
+          Tools::Warning("Not sure, but I _think_ your map should be 0-based",
+                __FILE__, __LINE__);
           }
-/*! this test will fail if the partitioner is used for a coarser level where i.e.
-    most of the pressures have been eliminated, so that a lot more velocities are
-    left than pressures.
-    
-        if (baseMap_->NumGlobalElements()!=nx*ny*nz*dof_)
-          {
-          Tools::Error("Base map incompatible with grid-size!",__FILE__,__LINE__);
-          }
-*/          
+
         DEBVAR(nx_);
         DEBVAR(ny_);
         DEBVAR(nz_);
         DEBVAR(dof_);
         
-        npx_=-1;// indicates that Partition() hasn't been called        
+        npx_=-1;// indicates that Partition() hasn't been called
         }
         
         
@@ -62,7 +67,7 @@ namespace HYMLS {
     }
 
   int CartesianPartitioner::flow(int gid1, int gid2)
-    {    
+    {
     int sd1 = (*this)(gid1);
     int sd2 = (*this)(gid2);
     int type1 = this->VariableType(gid1);
@@ -242,133 +247,200 @@ DEBVAR(dk);
     Tools::Out("Number of Subdomains: "+s2);
     Tools::Out("Subdomain size: "+s3);
     
-    // redistribute map so that variables in a subdomain belong to one processor:
-    int nprocs=comm_->NumProc();
- 
-     int nprocx,nprocy,nprocz; // these are for the phyisical partitioning
-    Tools::SplitBox(npx_,npy_,npz_,nprocs,nprocx,nprocy,nprocz);
+    // case where there are more processor partitions than subdomains (experimental)
+    if (comm_->MyPID()>=npx_*npy_*npz_)
+      {
+      active_ = false;
+      }
+     
 
-    std::string s4=toString(nprocx)+"x"+toString(nprocy)+"x"+toString(nprocz);
+    // create an MPI comm with only the active procs    
+    int color = active_? 1: 0; 
+    int nprocs;
+
+    CHECK_ZERO(comm_->SumAll(&color,&nprocs,1));
+/*    
+    Teuchos::RCP<Epetra_Comm> restrictedComm = comm_;
+    if (nproc!=comm_->NumProc())
+      {
+#ifdef HAVE_MPI
+      Teuchos::RCP<Epetra_MpiComm> mpiComm =
+        Teuchos::rcp_dynamic_cast<Epetra_MpiComm>(comm_);
+      if (mpiComm==Teuchos::null) Tools::Error("not am MpiComm?",__FILE__,__LINE__);
+      MPI_Comm comm_all = mpiComm->Comm();
+      MPI_Comm comm_part;
+      int key = comm_->MyPID();
+      CHECK_ZERO(MPI_Comm_split(comm_all,color,key,&comm_part));
+      restrictedComm = Teuchos::rcp(new Epetra_MpiComm(comm_part));
+#else
+      Error("parallel but no MPI... not implemeted.",__FILE__,__LINE__);
+#endif
+      }
+*/
+    // if some processors have no subdomains, we need to 
+    // repartition the map even if it is a cartesian partitioned
+    // map already:
+    if (nprocs<comm_->NumProc()) repart=true; 
+ 
+    Tools::SplitBox(npx_,npy_,npz_,nprocs,nprocx_,nprocy_,nprocz_);
+
+    std::string s4=toString(nprocx_)+"x"+toString(nprocy_)+"x"+toString(nprocz_);
 
     if (
-        ((int)(nx_/nprocx)*nprocx!=nx_)||
-        ((int)(ny_/nprocy)*nprocy!=ny_)||
-        ((int)(nz_/nprocz)*nprocz!=nz_) )
+        ((int)(nx_/nprocx_)*nprocx_!=nx_)||
+        ((int)(ny_/nprocy_)*nprocy_!=ny_)||
+        ((int)(nz_/nprocz_)*nprocz_!=nz_) )
       {
       std::string msg="You are trying to partition an "+s1+" domain on "+s4+" procs.\n"
         "We currently need nx to be a multiple of nprocx etc.";
       HYMLS::Tools::Error(msg,__FILE__,__LINE__);
       }
-    
-    if (npx_*npy_*npz_ < comm_->NumProc())
-      {
-      Tools::Error("more subdomains than processor partitions, case not implemented",
-        __FILE__,__LINE__);
-      }
-    
+        
     int rank=comm_->MyPID();
-    int rankI,rankJ,rankK;
-    Tools::ind2sub(nprocx,nprocy,nprocz,rank,rankI,rankJ,rankK);
-    
-    int ioff=rankI*npx_/nprocx*sx_;
-    int joff=rankJ*npy_/nprocy*sy_;
-    int koff=rankK*npz_/nprocz*sz_;
+    int rankI=-1,rankJ=-1,rankK=-1;
+    int ioff=-1,joff=-1,koff=-1;
+
+    if (active_)
+      {
+      Tools::ind2sub(nprocx_,nprocy_,nprocz_,rank,rankI,rankJ,rankK);
+
+      ioff=rankI*npx_/nprocx_*sx_;
+      joff=rankJ*npy_/nprocy_*sy_;
+      koff=rankK*npz_/nprocz_*sz_;
    
-    numLocalSubdomains_=(npx_/nprocx)*(npy_/nprocy)*(npz_/nprocz);
+      numLocalSubdomains_=(npx_/nprocx_)*(npy_/nprocy_)*(npz_/nprocz_);
+      }
+    else
+      {
+      numLocalSubdomains_=0;
+      }
+      
+    DEBVAR(npx_);
+    DEBVAR(npy_);
+    DEBVAR(npz_);
+    DEBVAR(active_);
+    DEBVAR(rank);
+    DEBVAR(rankI);
+    DEBVAR(rankJ);
+    DEBVAR(rankK);        
     
     sdMap_=MatrixUtils::CreateMap(npx_,npy_,npz_,1,0,*comm_);
-   
-    int *NumElementsInSubdomain = new int[NumLocalParts()];
-    for (int sd=0;sd<numLocalSubdomains_;sd++) NumElementsInSubdomain[sd]=0;
-
-    subdomainPointer_.resize(NumLocalParts()+1);
-
-    int *MyGlobalElements;
-    int NumMyElements=0;
-
-    // create redistributed map:
-
-// first case: user doesn't guarantee a cartesian processor partitioning,
-// this is the original implementation which turned out to be extremely  
-// slow so whenever possible it should be avoided...
-if (repart==true) {
-    // count number of local elements
-    for (int kk=0;kk<npz_/nprocz;kk++)
-      for (int jj=0;jj<npy_/nprocy;jj++)
-        for (int ii=0;ii<npx_/nprocx;ii++)
-          {
-          for (int k=0;k<sz_;k++)
-            for (int j=0;j<sy_;j++)
-              for (int i=0;i<sx_;i++)
-                {
-                for (int v=0;v<dof_;v++)
-                  {
-                  int gid=Tools::sub2ind(nx_,ny_,nz_,dof_,
-                       ioff+ii*sx_+i,
-                       joff+jj*sy_+j,
-                       koff+kk*sz_+k,
-                       v);
-                  // the gid is in principle on this partition,
-                  // but we also have to check if it was in the
-                  // original map:
-                  int pid,lid;
-                  baseMap_->RemoteIDList(1,&gid,&pid,&lid);
-                  if (pid!=-1)
-                    {
-                    NumMyElements++;
-                    }
-                  }
-                }
-          }
     
-    MyGlobalElements = new int[NumMyElements];
-    
-    int pos=0;
-    int sd=0;
-    
-    for (int kk=0;kk<npz_/nprocz;kk++)
-      for (int jj=0;jj<npy_/nprocy;jj++)
-        for (int ii=0;ii<npx_/nprocx;ii++)
-          {
-          for (int k=0;k<sz_;k++)
-            for (int j=0;j<sy_;j++)
-              for (int i=0;i<sx_;i++)
-                {
-                for (int v=0;v<dof_;v++)
-                  {
-                  int gid = Tools::sub2ind(nx_,ny_,nz_,dof_,
-                       ioff+ii*sx_+i,
-                       joff+jj*sy_+j,
-                       koff+kk*sz_+k,
-                       v);
-                  int pid,lid;
-                  baseMap_->RemoteIDList(1,&gid,&pid,&lid);
-                  if (pid!=-1)
-                    {
-                    MyGlobalElements[pos++] =gid;
-                    NumElementsInSubdomain[sd]++;
-                    }
-                }
-              }
-          sd++;
-          }
+// create redistributed map:
+Teuchos::RCP<Epetra_Map> repartitionedMap = 
+        Teuchos::rcp_const_cast<Epetra_Map>(baseMap_);
 
-    subdomainPointer_[0]=0;
-    for (int i=0;i<NumLocalParts();i++)
-      {
-      subdomainPointer_[i+1]=subdomainPointer_[i]+NumElementsInSubdomain[i];
-      }
-
-} else { // repart==false => we have a cartesian processor partitioning and no nodes have to 
-         // be moved between partitions
-  for (int lid=0;lid<baseMap_->NumMyElements();lid++)
+if (repart==true)
+  {
+  START_TIMER3(label_,"repartition map");
+#ifdef HAVE_MPI
+  Teuchos::RCP<const Epetra_MpiComm> mpiComm =
+        Teuchos::rcp_dynamic_cast<const Epetra_MpiComm>(comm_);
+  if (mpiComm==Teuchos::null) Tools::Error("need an MpiComm here",__FILE__,__LINE__);
+  Teuchos::RCP<Epetra_MpiDistributor> Distor =
+        Teuchos::rcp(new Epetra_MpiDistributor(*mpiComm));
+  // check how many of the owned GIDs in the map need to be
+  // moved to someone else:
+  int numSends = 0;
+  for (int i=0;i<baseMap_->NumMyElements();i++)
     {
-    int gid = baseMap_->GID(lid);
+    int gid = baseMap_->GID(i);
+    if (LSID(gid)<0) numSends++;
+    }
+
+  int numLocal = baseMap_->NumMyElements() - numSends;
+  
+  DEBVAR(numSends);
+  DEBVAR(numLocal);
+
+  //determine which GIDs we have to move, and where they will go
+  int *sendGIDs = new int[numSends];
+  int *sendPIDs = new int[numSends];
+
+  int pos=0;
+
+  for (int i=0;i<baseMap_->NumMyElements();i++)
+    {
+#ifdef TESTING
+if (pos>numSends) Tools::Error("sanity check failed",__FILE__,__LINE__);
+#endif    
+    int gid = baseMap_->GID(i);
+    int pid = this->PID(gid); // global partition ID
+    if (pid!=comm_->MyPID())
+      {
+      sendGIDs[pos] = gid;
+      sendPIDs[pos++] = pid;
+      }
+    }
+    
+  int numRecvs;
+  CHECK_ZERO(Distor->CreateFromSends(numSends, sendPIDs, true, numRecvs));
+
+  DEBVAR(numRecvs);
+  
+  char* sbuf = reinterpret_cast<char*>(sendGIDs);
+  int numRecvChars=numRecvs*sizeof(int);
+  char* rbuf = new char[numRecvChars];
+  
+  CHECK_ZERO(Distor->Do( sbuf,
+          sizeof(int),
+          numRecvChars,
+          rbuf));
+
+  int *recvGIDs = reinterpret_cast<int*>(rbuf);
+
+#ifdef TESTING
+  if (numRecvs*sizeof(int)!=numRecvChars)
+    {
+    Tools::Error("sanity check failed",__FILE__,__LINE__);
+    }   
+#endif  
+
+  int NumMyElements = numLocal + numRecvs;
+  DEBVAR(NumMyElements);
+  int *MyGlobalElements = new int[NumMyElements];
+  pos=0;
+  for (int i=0;i<baseMap_->NumMyElements();i++)
+    {
+    int gid = baseMap_->GID(i);
+    if (this->LSID(gid)>=0) MyGlobalElements[pos++]=gid;
+    }
+  for (int i=0;i<numRecvs;i++) MyGlobalElements[pos+i]=recvGIDs[i];
+        
+  std::sort(MyGlobalElements, MyGlobalElements+NumMyElements);
+
+  repartitionedMap = Teuchos::rcp(new Epetra_Map
+        (-1,NumMyElements,MyGlobalElements, baseMap_->IndexBase(), *comm_));
+
+  DEBVAR(*repartitionedMap);
+
+DEBUG(std::flush);
+
+  delete [] sendPIDs;
+  delete [] sendGIDs;
+  delete [] rbuf;
+  delete [] MyGlobalElements;  
+
+#endif
+  }
+
+
+  // note: NumLocalParts() is simply numLocalSubdomains_.
+  int *NumElementsInSubdomain = new int[NumLocalParts()];
+  for (int sd=0;sd<NumLocalParts();sd++) NumElementsInSubdomain[sd]=0;
+
+  subdomainPointer_.resize(NumLocalParts()+1);
+
+  // now we have a cartesian processor partitioning and no nodes have to 
+  // be moved between partitions. Some partitions may be empty, though.
+  for (int lid=0;lid<repartitionedMap->NumMyElements();lid++)
+    {
+    int gid = repartitionedMap->GID(lid);
     int lsd=LSID(gid);
 #ifdef TESTING
     if (lsd<0)
       {
-      Tools::Error("repartitioning not allowed by caller but seems to be necessary",
+      Tools::Error("repartitioning seems to be necessary/have failed.",
         __FILE__,__LINE__);
       }
 #endif    
@@ -379,13 +451,20 @@ if (repart==true) {
     {
     subdomainPointer_[i+1]=subdomainPointer_[i]+NumElementsInSubdomain[i];
     }
-  NumMyElements = subdomainPointer_[NumLocalParts()];
-  MyGlobalElements = new int[NumMyElements];
+
+  int NumMyElements=repartitionedMap->NumMyElements();
+#ifdef TESTING
+  if (subdomainPointer_[NumLocalParts()]!=NumMyElements)
+    {
+    Tools::Error("repartitioning - sanity check failed",__FILE__,__LINE__);
+    }
+#endif  
+  int *MyGlobalElements = new int[NumMyElements];
   for (int i=0;i<NumLocalParts();i++) NumElementsInSubdomain[i]=0;
 
-  for (int lid=0;lid<baseMap_->NumMyElements();lid++)
+  for (int lid=0;lid<repartitionedMap->NumMyElements();lid++)
     {
-    int gid = baseMap_->GID(lid);
+    int gid = repartitionedMap->GID(lid);
     int lsd=LSID(gid);
     MyGlobalElements[subdomainPointer_[lsd] + NumElementsInSubdomain[lsd]] = gid;
     NumElementsInSubdomain[lsd]++;
@@ -396,17 +475,22 @@ if (repart==true) {
     std::sort(MyGlobalElements + subdomainPointer_[i],
               MyGlobalElements + subdomainPointer_[i+1]);
     }
-}// no repart
 
-    cartesianMap_=Teuchos::rcp(new Epetra_Map(-1,NumMyElements,MyGlobalElements,0,*comm_));
-    delete [] MyGlobalElements;
-        
-    delete [] NumElementsInSubdomain;
+DEBVAR(NumMyElements);
+
+cartesianMap_=Teuchos::rcp(new Epetra_Map(-1,NumMyElements,MyGlobalElements,0,*comm_));
+DEBVAR(*cartesianMap_);
     
-    Tools::Out("Number of Partitions: "+toString(nprocx)+"x"+toString(nprocy)+"x"+toString(nprocz));
-    Tools::Out("Partition: ["+toString(rankI)+" "+toString(rankJ)+" "+toString(rankK)+"]");
-    Tools::Out("Number of Local Subdomains: "+toString(NumLocalParts()));
-        
+    if (active_)
+      {
+      Tools::Out("Number of Partitions: "+s4);
+      Tools::Out("Partition: ["+toString(rankI)+" "+toString(rankJ)+" "+toString(rankK)+"]");
+      Tools::Out("Number of Local Subdomains: "+toString(NumLocalParts()));
+
+      delete [] MyGlobalElements;
+      delete [] NumElementsInSubdomain;    
+      }
+    return;    
     }
 
 

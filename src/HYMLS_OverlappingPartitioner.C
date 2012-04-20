@@ -75,6 +75,8 @@ namespace HYMLS {
     START_TIMER2(label_,"Constructor");
 
     setParameterList(params);
+
+    Partition();
     
     // try to construct or guess the connectivity of a related scalar problem
     // ('Geometry Matrix')
@@ -97,8 +99,6 @@ namespace HYMLS {
       graph_=Teuchos::rcp(&(myCrsMatrix->Graph()),false);
       }
 
-    Partition();
-
     // construct a graph with overlap between partitions (for finding/grouping    
     // separators in parallel).
     parallelGraph_=CreateParallelGraph();
@@ -109,15 +109,12 @@ namespace HYMLS {
     //      creating a global copy (or view) once and then just  
     //      looking up the entries (to make it faster).
 
-
 #ifdef DEBUGGING
   this->DumpGraph();
 #endif
-    
     DetectSeparators();
-    
+
     GroupSeparators();
-            
     }
     
   OverlappingPartitioner::~OverlappingPartitioner()
@@ -273,8 +270,6 @@ void OverlappingPartitioner::CreateGraph()
 
   Epetra_SerialComm serialComm;
   
-  DEBVAR(*baseMap_);
-
   // create a dof-1 map
   if (dof_==1) 
     {
@@ -512,6 +507,15 @@ void OverlappingPartitioner::Partition()
     Tools::Error("Incompatible map passed to partitioner",__FILE__,__LINE__);
     }
 
+  // we replace the map passed in by the user by the one generated
+  // by the partitioner. This has two purposes:                   
+  // - the partitioner may decide to repartition the domain, for  
+  //   instance if there are more processor partitions than sub-  
+  //   domains                                                    
+  // - the data layout becomes more favorable because the nodes   
+  //   of a subdomain are contiguous in the partitioner's map.    
+  baseMap_ = partitioner_->GetMap();
+
 #ifdef DEBUGGING
 DEBUG("Partition numbers:");
 for (int i=0;i<baseMap_->NumMyElements();i++)
@@ -520,20 +524,6 @@ for (int i=0;i<baseMap_->NumMyElements();i++)
   DEBUG(gid << " " << (*partitioner_)(gid));
   }
 #endif  
-#ifdef TESTING
-  int rank = comm_->MyPID();
-  if (partitioner_==Teuchos::null) Tools::Error("partitioner zero???",__FILE__,__LINE__);
-  DEBVAR(partitioner_->Partitioned());
-  DEBVAR(partitioner_->Map());
-  Epetra_Import test_importer(*baseMap_,partitioner_->Map());
-  if ((test_importer.NumSend()!=0) || (test_importer.NumRecv()!=0))
-    {
-    Tools::Warning("your matrix is being repartitioned. This feature is buggy\n"
-                   " and may infringe the performance of the solver.\n"
-                   " Warning issued by rank "+Teuchos::toString(rank),__FILE__,__LINE__);
-    DEBVAR(test_importer);
-    }
-#endif
   return;
   }
   
@@ -611,7 +601,7 @@ DEBVAR(*p_nodeType_);
     {
     Tools::Out("Number of retained pressures: "+Teuchos::toString(global_np_schur));
     }
-  
+
   // put them into lists and form GroupPointer
 
   // all nodes - for building the map
@@ -622,12 +612,14 @@ DEBVAR(*p_nodeType_);
   // separator nodes
   Teuchos::Array<int> separator_nodes;
   // nodes to be retained in the Schur complement (typically pressures)
-  Teuchos::Array<int> retained_nodes;
+  Teuchos::Array<int> retained_nodes;  
 
   groupPointer_->resize(partitioner_->NumLocalParts());
   int last;
-  (*groupPointer_)[0].append(0);
-
+  if (partitioner_->NumLocalParts()>0) 
+    {
+    (*groupPointer_)[0].append(0);
+    }
   for (int sd=0;sd<partitioner_->NumLocalParts();sd++)
     {
     if (sd>0)
@@ -663,8 +655,10 @@ DEBVAR(*p_nodeType_);
               std::back_inserter(my_nodes));
     
     }
+
+
   int NumMyElements = my_nodes.length();
-  int *MyElements = &(my_nodes[0]);
+  int *MyElements = NumMyElements? &(my_nodes[0]): NULL;
   
   overlappingMap_=Teuchos::rcp(new  Epetra_Map
         (-1,NumMyElements, MyElements,partitioner_->Map().IndexBase(),*comm_));
@@ -1106,10 +1100,10 @@ void OverlappingPartitioner::GroupSeparators()
   int* cols = new int[MaxNumElements];
   int len;
 
-    Teuchos::Array<SepNode> sepNodes;
+  Teuchos::Array<SepNode> sepNodes;
     
-    int NumMyElements = overlappingMap_->NumMyElements();
-    int *MyElements=new int[NumMyElements];
+  int NumMyElements = overlappingMap_->NumMyElements();
+  int *MyElements=new int[NumMyElements];
 
   for (int sd=0;sd<partitioner_->NumLocalParts();sd++)
     {
@@ -1319,7 +1313,6 @@ void OverlappingPartitioner::GroupSeparators()
         0, NULL, 0, NULL);
       }
     }
-  
 
   // rebuild the map with the new ordering:  
   overlappingMap_=Teuchos::rcp(new  Epetra_Map
@@ -1458,7 +1451,7 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
 
     Teuchos::RCP<Epetra_CrsGraph> G=Teuchos::null;
 
-    Epetra_Import importRepart(partitioner_->Map(),*baseMap_);
+    Epetra_Import importRepart(partitioner_->Map(),graph_->RowMap());
 
     int MaxNumEntriesPerRow=graph_->MaxNumIndices();
     Teuchos::RCP<Epetra_CrsGraph> G_repart = Teuchos::rcp
@@ -1484,7 +1477,7 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
     Teuchos::RCP<const Epetra_Map> overlappingMap = 
         Teuchos::rcp(&(Aov.RowMatrixRowMap()),false);
     Teuchos::RCP<Epetra_Import> importOverlap =
-      Teuchos::rcp(new Epetra_Import(*overlappingMap, *baseMap_));
+      Teuchos::rcp(new Epetra_Import(*overlappingMap, graph_->RowMap()));
 
     G = Teuchos::rcp(new Epetra_CrsGraph
       (Copy,*overlappingMap,graph_->MaxNumIndices(),false));

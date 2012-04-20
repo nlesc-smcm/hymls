@@ -208,6 +208,7 @@ namespace HYMLS {
       CHECK_ZERO(InitializeSeparatorGroups());
       CHECK_ZERO(InitializeOT());
       CHECK_ZERO(TransformAndDrop());
+
       if (variant_=="Block Diagonal"||
           variant_=="Lower Triangular")
         {
@@ -481,7 +482,7 @@ int SchurPreconditioner::InitializeBlocks()
       blk++;
       }
     }
-  REPORT_SUM_MEM(label_,"dense diagonal blocks",nnz,comm_);
+  REPORT_SUM_MEM(label_,"dense diagonal blocks",nnz,0,comm_);
   return 0;  
   }
 
@@ -524,7 +525,7 @@ int SchurPreconditioner::InitializeSingleBlock()
         }
       }
     }
-  REPORT_SUM_MEM(label_,"single diagonal block (not counted)",0.0,comm_);
+  REPORT_SUM_MEM(label_,"single diagonal block (not counted)",0.0,0,comm_);
   return 0;  
   }
 
@@ -644,10 +645,13 @@ int SchurPreconditioner::InitializeOT()
 
     Epetra_IntSerialDenseVector inds;
     Epetra_SerialDenseVector vec;
+    
+    int nnzPerRow = sepObject->NumMySubdomains()>0? sepObject->NumInteriorElements(0) : 
+    0;
 
     sparseMatrixOT_ = Teuchos::rcp(new
-        Epetra_CrsMatrix(Copy,*map_,sepObject->NumInteriorElements(0)));
-  
+        Epetra_CrsMatrix(Copy,*map_,nnzPerRow));
+
     // loop over all separators connected to a local subdomain
     for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
       {
@@ -723,17 +727,7 @@ int SchurPreconditioner::InitializeOT()
         MyVsumElements[pos++] = sepObject->GID(sep,grp,0);
         }
       }
-      
-      // sort entries. The reduced Schur-complement is a diagonal block
-      // of the matrix, and the row- and column map should be consistent
-      // so we can use things like Amesos_Klu to solve it.
-      // TODO: what are the implications of reordering it here, in particular
-      //       if we want to apply the method recursively?
-      //
-      Teuchos::ArrayView<int> array(MyVsumElements,numBlocks);
-      //TODO: I think we don't need this...
-      //std::sort(array.begin(),array.end());
-  
+        
       vsumMap_=Teuchos::rcp(new Epetra_Map(-1,numBlocks,MyVsumElements,
                                 map_->IndexBase(), map_->Comm()));
 
@@ -746,6 +740,7 @@ int SchurPreconditioner::InitializeOT()
       // the vsums are still distributed and we must
       // form a correct col map
       vsumColMap_ = MatrixUtils::AllGather(*vsumMap_);
+      REPORT_MEM(label_,"gathered vsumColMap",0,vsumColMap_->NumGlobalElements());
 
       reducedSchur_=Teuchos::rcp(new 
             Epetra_CrsMatrix(Copy,*vsumMap_,*vsumColMap_,numBlocks));
@@ -853,6 +848,9 @@ int SchurPreconditioner::InitializeOT()
       }
 
     CHECK_ZERO(matrix_->FillComplete());
+    REPORT_MEM(label_,"Transformed SC",matrix_->NumGlobalNonzeros(),
+                                       matrix_->NumGlobalNonzeros()+
+                                       matrix_->NumGlobalRows());
     return 0;
     }
 
