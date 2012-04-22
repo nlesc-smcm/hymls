@@ -1,3 +1,4 @@
+#define RESTRICT_ON_COARSE_LEVEL
 
 #include "HYMLS_SchurPreconditioner.H"
 
@@ -30,6 +31,8 @@
 
 #include "EpetraExt_Reindex_CrsMatrix.h" 
 #include "EpetraExt_Reindex_MultiVector.h" 
+#include "EpetraExt_RestrictedCrsMatrixWrapper.h"
+#include "EpetraExt_RestrictedMultiVectorWrapper.h"
 #include "EpetraExt_MatrixMatrix.h"
 
 namespace HYMLS {
@@ -56,6 +59,8 @@ namespace HYMLS {
         testVector_(testVector),
         matrix_(Teuchos::null),
         nextLevelHID_(Teuchos::null),
+        linearRhs_(Teuchos::null), linearSol_(Teuchos::null),
+        amActive_(true),
         PLA("Preconditioner")
     {
     START_TIMER3(label_,"Constructor");
@@ -76,8 +81,9 @@ namespace HYMLS {
                                                   map_->NumMyElements(),
                                                   0, map_->Comm()) );
 
-      reindex_ = Teuchos::rcp(new EpetraExt::CrsMatrix_Reindex(*linearMap_));
-      reindexMV_ = Teuchos::rcp(new EpetraExt::MultiVector_Reindex(*linearMap_));
+      reindexA_ = Teuchos::rcp(new EpetraExt::CrsMatrix_Reindex(*linearMap_));
+      reindexX_ = Teuchos::rcp(new EpetraExt::MultiVector_Reindex(*linearMap_));
+      reindexB_ = Teuchos::rcp(new EpetraExt::MultiVector_Reindex(*linearMap_));      
       }
     else
       {
@@ -86,18 +92,6 @@ namespace HYMLS {
         Tools::Error("not on coarsest level and no HID available!",
                 __FILE__,__LINE__);
         }
-      /*
-      if (hid_->NumMySubdomains()==1)
-        {
-        //This can cause trouble if a processor partition has no local separators at all,
-        //     not quite sure why but for now we should avoid this situation.
-        // TODO: it seems to work for the 32^3 4^3 3-level case, though, can we remove this
-        //       warning?
-        Tools::Warning("PID "+Teuchos::toString(comm_->MyPID())+" has only one subdomain "+
-        "on level "+Teuchos::toString(myLevel_)+", this case is not well-implemented!",
-                __FILE__,__LINE__);
-        }
-      */
       }
 
   //TODO: may want to give the user a choice here, currently we just have
@@ -272,30 +266,42 @@ namespace HYMLS {
     // compute scaling for reduced Schur
     CHECK_ZERO(ComputeScaling(*reducedSchur_,reducedSchurScaLeft_,reducedSchurScaRight_));
     
-    DEBVAR(myLevel_);
-    DEBVAR(maxLevel_);
-
-//TODO: instead of Ifpack_Amesos, use our own HYMLS_Amesos interface
-
+    //TODO: instead of Ifpack_Amesos, use our own HYMLS_SparseDirectSolver interface
+    //      we don't do that up to now because the class only interfaces a serial   
+    //      solver (Umfpack). 
     DEBUG("scale matrix");
     CHECK_ZERO(reducedSchur_->LeftScale(*reducedSchurScaLeft_));
     CHECK_ZERO(reducedSchur_->RightScale(*reducedSchurScaRight_));
     
     DEBUG("reindex matrix");
-    linearMatrix_ = Teuchos::rcp(&((*reindex_)(*reducedSchur_)),false);
+    linearMatrix_ = Teuchos::rcp(&((*reindexA_)(*reducedSchur_)),false);
 
-#ifdef STORE_MATRICES
-    //MatrixUtils::Dump(*linearMatrix_,"ScaledS2.txt");    
+#ifdef RESTRICT_ON_COARSE_LEVEL
+    // restrict the matrix to the active processors
+    if (restrictA_==Teuchos::null)
+      {
+      restrictA_ = Teuchos::rcp(new EpetraExt::RestrictedCrsMatrixWrapper());
+      CHECK_ZERO(restrictA_->restrict_comm(linearMatrix_));      
+      amActive_=restrictA_->RestrictedProcIsActive();
+      restrictX_ = Teuchos::rcp(new EpetraExt::RestrictedMultiVectorWrapper());
+      restrictB_ = Teuchos::rcp(new EpetraExt::RestrictedMultiVectorWrapper());
+      restrictX_->SetMPISubComm(restrictA_->GetMPISubComm());
+      restrictB_->SetMPISubComm(restrictA_->GetMPISubComm());
+      }
+    restrictedMatrix_=restrictA_->RestrictedMatrix();
+#else
+    restrictedMatrix_=linearMatrix_;
+    amActive_=true;
 #endif
-
     Teuchos::ParameterList& amesosList=PL().sublist("Coarse Solver");                    
 
-    reducedSchurSolver_= Teuchos::rcp(new Ifpack_Amesos(linearMatrix_.get()));
-    CHECK_ZERO(reducedSchurSolver_->SetParameters(amesosList));
-  
-  
-    DEBUG("Initialize direct solver");
+    if (amActive_)
+      {
+      reducedSchurSolver_= Teuchos::rcp(new Ifpack_Amesos(restrictedMatrix_.get()));
+      CHECK_ZERO(reducedSchurSolver_->SetParameters(amesosList));
+      DEBUG("Initialize direct solver");
       CHECK_ZERO(reducedSchurSolver_->Initialize());
+      }  
     }
   else
     {
@@ -370,6 +376,7 @@ namespace HYMLS {
   START_TIMER(label_,"factor blocks");
   for (int i=0;i<blockSolver_.size();i++)
     {
+    if (blockSolver_[i]->NumRows()==0) continue;
     CHECK_ZERO(blockSolver_[i]->Compute(*matrix_));
     }
   }
@@ -397,24 +404,27 @@ namespace HYMLS {
 #endif  
 
     }
-
-  // compute solver for reduced Schur
-  DEBUG("compute coarse solver");
-  int ierr=reducedSchurSolver_->Compute();
-
-  if (ierr!=0)
+  
+  if (amActive_)
     {
-#ifdef STORE_MATRICES
-    Teuchos::RCP<const Epetra_CrsMatrix> dumpMatrix
-        = reducedSchur_;
-    if (myLevel_==maxLevel_)
+    // compute solver for reduced Schur
+    DEBUG("compute coarse solver");
+    int ierr=reducedSchurSolver_->Compute();
+
+    if (ierr!=0)
       {
-//      dumpMatrix = linearMatrix_;
-      }
-      MatrixUtils::Dump(*dumpMatrix,"BadMatrix"+Teuchos::toString(myLevel_)+".txt");
+#ifdef STORE_MATRICES
+      Teuchos::RCP<const Epetra_CrsMatrix> dumpMatrix
+        = reducedSchur_;
+      if (myLevel_==maxLevel_)
+        {
+//        dumpMatrix = linearMatrix_;
+        }
+        MatrixUtils::Dump(*dumpMatrix,"BadMatrix"+Teuchos::toString(myLevel_)+".txt");
 #endif      
-    Tools::Error("factorization returned value "+Teuchos::toString(ierr)+
-        " on level "+Teuchos::toString(myLevel_),__FILE__,__LINE__);
+      Tools::Error("factorization returned value "+Teuchos::toString(ierr)+
+          " on level "+Teuchos::toString(myLevel_),__FILE__,__LINE__);
+      }
     }
 
   computed_ = true;
@@ -465,14 +475,16 @@ int SchurPreconditioner::InitializeBlocks()
       {
       // in the spawned sepObject, each local separator is a group of a subdomain.
       // -1 because we remove one Vsum node from each block
-      int numRows=sepObject->NumElements(sep,grp)-1;
+      int numRows=std::max(sepObject->NumElements(sep,grp)-1,0);
       nnz+=numRows*numRows; 
       blockSolver_[blk]=Teuchos::rcp(new 
              Ifpack_DenseContainer(numRows));
       CHECK_ZERO(blockSolver_[blk]->SetParameters(
               PL().sublist("Dense Solver")));
-      CHECK_ZERO(blockSolver_[blk]->Initialize());
-
+      if (numRows>0)
+        {
+        CHECK_ZERO(blockSolver_[blk]->Initialize());
+        }
       for (int j=0; j<numRows; j++)
         {
         int gid=sepObject->GID(sep,grp,j+1); // skip first element, which is a Vsum
@@ -712,11 +724,13 @@ int SchurPreconditioner::InitializeOT()
       }
     
     DEBVAR(numBlocks);            
-    
+
     // create a map for the reduced Schur-complement. Note that this is a distributed
     // matrix, in contrast to the other diagonal blocks, so we can't use an Ifpack 
     // container.
     int *MyVsumElements = new int[numBlocks]; // one Vsum per block
+
+
     int pos=0;
     for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
       {
@@ -724,7 +738,10 @@ int SchurPreconditioner::InitializeOT()
       for (int grp = 0 ; grp < sepObject->NumGroups(sep) ; grp++)
         {
         DEBVAR(sepObject->GID(sep,grp,0));
-        MyVsumElements[pos++] = sepObject->GID(sep,grp,0);
+        if (sepObject->NumElements(sep,grp)>0)
+          {
+          MyVsumElements[pos++] = sepObject->GID(sep,grp,0);
+          }
         }
       }
         
@@ -814,7 +831,6 @@ int SchurPreconditioner::InitializeOT()
   DEBUG("Initialize solver for reduced Schur");
 
     CHECK_ZERO(reducedSchurSolver_->Initialize());
-
   return 0;
   }
 
@@ -900,31 +916,20 @@ if (dumpVectors_)
         }
 #endif      
 
-// there was a bug that when reusing a solver for many solves,
-// the memory would fill up (on Hopf, at least). This is solved
-// by not using the MV reindex object, although this is of course
-// a hotfix. (EpetraExt's transform classes are kind of unsafe, I
-// believe now that you can use each object only for a single
-// transform operation)
-#define MEMLEAK_BUG
-
-#ifndef MEMLEAK_BUG
-      Epetra_MultiVector Xcopy(X.Map(),X.NumVectors());
-      // left-scale the rhs
-      CHECK_ZERO(Xcopy.Multiply(1.0,*reducedSchurScaLeft_,X,0.0));
-      Epetra_MultiVector& linearRhs = (*reindexMV_)(Xcopy);
-      Epetra_MultiVector& linearSol = (*reindexMV_)(Y);
-#else
-      Epetra_MultiVector linearRhs(*linearMap_,X.NumVectors());
+      bool realloc_vectors = (linearRhs_==Teuchos::null);
+      if (!realloc_vectors) realloc_vectors = (linearRhs_->NumVectors()!=X.NumVectors());
+      if (realloc_vectors)
+        {
+        linearRhs_=Teuchos::rcp(new Epetra_MultiVector(*linearMap_,X.NumVectors()));
+        linearSol_=Teuchos::rcp(new Epetra_MultiVector(*linearMap_,X.NumVectors()));
+        }
       for (int j=0;j<X.NumVectors();j++)
         {
         for (int i=0;i<X.MyLength();i++)
           {
-          linearRhs[j][i]=X[j][i] * (*reducedSchurScaLeft_)[i];
+          (*linearRhs_)[j][i]=X[j][i] * (*reducedSchurScaLeft_)[i];
           }
         }
-      Epetra_MultiVector linearSol(*linearMap_,X.NumVectors());
-#endif           
 
       for (int i=0;i<fix_gid_.length();i++)
         {
@@ -933,24 +938,34 @@ if (dumpVectors_)
           {
           for (int k=0;k<X.NumVectors();k++)
             {
-            linearRhs[k][lid]=0.0;
+            (*linearRhs_)[k][lid]=0.0;
             }
           }
         }
-
-      CHECK_ZERO(reducedSchurSolver_->ApplyInverse(linearRhs,linearSol));
-      // unscale the solution
-#ifndef MEMLEAK_BUG
-      CHECK_ZERO(Y.Multiply(1.0,*reducedSchurScaRight_,Y,0.0));
+      if (realloc_vectors)
+        {
+#ifdef RESTRICT_ON_COARSE_LEVEL
+        CHECK_ZERO(restrictB_->restrict_comm(linearRhs_));
+        CHECK_ZERO(restrictX_->restrict_comm(linearSol_));
+        restrictedRhs_ = restrictB_->RestrictedMultiVector();
+        restrictedSol_ = restrictX_->RestrictedMultiVector();
 #else
+        restrictedRhs_=linearRhs_;
+        restrictedSol_=linearSol_;
+#endif        
+        }
+      if (amActive_)
+        {
+        CHECK_ZERO(reducedSchurSolver_->ApplyInverse(*restrictedRhs_,*restrictedSol_));
+        }
+      // unscale the solution
       for (int j=0;j<X.NumVectors();j++)
         {
         for (int i=0;i<X.MyLength();i++)
           {
-          Y[j][i]=linearSol[j][i] * (*reducedSchurScaRight_)[i];
+          Y[j][i]=(*linearSol_)[j][i] * (*reducedSchurScaRight_)[i];
           }
         }
-#endif      
       }
     else
       {
@@ -1307,6 +1322,7 @@ int SchurPreconditioner::ApplyBlockDiagonal
   int numBlocks=blockSolver_.size(); // will be 0 on coarsest level
   for (int blk=0;blk<numBlocks;blk++)
     {
+    if (blockSolver_[blk]->NumRows()==0) continue;
     if (Y.NumVectors()!=blockSolver_[blk]->NumVectors())
       {
       blockSolver_[blk]->SetNumVectors(Y.NumVectors());
@@ -1377,7 +1393,8 @@ int SchurPreconditioner::BlockTriangularSolve
   
   // for each block row ...
   for (int blk=start;blk!=end;blk+=incr)
-    {    
+    {
+    if (blockSolver_[blk]->NumRows()==0) continue;
     if (Y.NumVectors()!=blockSolver_[blk]->NumVectors())
       {
       blockSolver_[blk]->SetNumVectors(Y.NumVectors());

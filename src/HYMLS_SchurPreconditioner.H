@@ -24,6 +24,8 @@ namespace EpetraExt
   {
   class MultiVector_Reindex;
   class CrsMatrix_Reindex;
+  class RestrictedCrsMatrixWrapper;
+  class RestrictedMultiVectorWrapper;
   }
 /*
 namespace HYMLS 
@@ -204,6 +206,9 @@ protected:
   //! if myLevel_==maxLevel_ we use a direct solver
   int maxLevel_;
   
+  //! if the processor has no rows in the present SC, this is false.
+  bool amActive_;
+  
   //! we currently implement two variants of the approximate    
   //! Schur-Complement: one with a block diagonal approximation 
   //! of the non-Vsums, and one with a sparse direct solver for 
@@ -249,10 +254,20 @@ protected:
 
   //! this is to reindex the reduced SC, which is
   //! important when using a direct solver (I think)
-  Teuchos::RCP<EpetraExt::CrsMatrix_Reindex> reindex_;
+  Teuchos::RCP<EpetraExt::CrsMatrix_Reindex> reindexA_;
     
   //! reindex corresponding vectors
-  Teuchos::RCP<EpetraExt::MultiVector_Reindex> reindexMV_;
+  Teuchos::RCP<EpetraExt::MultiVector_Reindex> reindexX_, reindexB_;
+
+  //! this is to restrict the reduced Schur problem on the
+  //! coarsest level to only the active procs so that     
+  //! independently of the Amesos solver, the number of   
+  //! procs participating in the factorization is determi-
+  //! ned by our own algorithm, e.g. max(np,nsd).
+  Teuchos::RCP<EpetraExt::RestrictedCrsMatrixWrapper> restrictA_;
+    
+  //! restrict corresponding vectors
+  Teuchos::RCP<EpetraExt::RestrictedMultiVectorWrapper> restrictX_, restrictB_;
   
   //! partitioner for the next level
   Teuchos::RCP<const OverlappingPartitioner> nextLevelHID_;
@@ -269,6 +284,12 @@ protected:
 
   // View of SC2 with linear map
   Teuchos::RCP<Epetra_CrsMatrix> linearMatrix_;
+
+  // View of SC2 with linear map and no empty partitions (restricted Comm)
+  Teuchos::RCP<Epetra_CrsMatrix> restrictedMatrix_;
+
+  //! Views and copies of vectors used in ApplyInverse(), mutable temporary data
+  mutable Teuchos::RCP<Epetra_MultiVector> linearRhs_, linearSol_, restrictedRhs_, restrictedSol_;
   
   //! solver for the reduced Schur complement. Note that Ifpack_Preconditioner 
   //! is implemented by both Amesos (direct solver) and our HYMLS::Solver,     

@@ -537,11 +537,11 @@ MatrixUtils::Dump(*A22_, "Precond"+Teuchos::toString(myLevel_)+"_A22.txt");
   Schur_=Teuchos::rcp(new SchurComplement(Teuchos::rcp(this,false),myLevel_));
   Teuchos::RCP<const Epetra_CrsMatrix> SC = Schur_->Matrix();
 
-#ifdef TESTING
+Tools::out() << "=============================="<<std::endl;
 Tools::out() << "LEVEL "<< myLevel_<<std::endl;
 Tools::out() << "SIZE OF A: "<< matrix_->NumGlobalRows()<<std::endl;
 Tools::out() << "SIZE OF S: "<< map2_->NumGlobalElements()<<std::endl;
-#endif  
+Tools::out() << "=============================="<<std::endl;
 
   // we use a constant vector to generate the orthogonal transformation 
   // for each separator group on the first level, and then keep track   

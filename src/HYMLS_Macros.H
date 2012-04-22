@@ -105,10 +105,10 @@ HYMLS::Tools::ReportMemUsage((std::string)(label)+": "+(std::string)(description
 
 #ifdef DEBUGGING
 #ifndef DEBUG
-#define DEBUG(s) if (HYMLS::Tools::InitializedIO()) HYMLS::Tools::deb() << s << std::endl << std::flush;
+#define DEBUG(s) HYMLS::Tools::deb() << s << std::endl << std::flush;
 #endif
 #ifndef DEBVAR
-#define DEBVAR(s) if (HYMLS::Tools::InitializedIO()) HYMLS::Tools::deb() << #s << " = "<<s << std::endl << std::flush;
+#define DEBVAR(s) HYMLS::Tools::deb() << #s << " = "<<s << std::endl << std::flush;
 #endif
 #else
 #ifndef DEBUG

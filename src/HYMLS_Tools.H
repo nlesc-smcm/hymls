@@ -295,7 +295,7 @@ namespace HYMLS
       debug_stream = Teuchos::rcp(new 
            Teuchos::FancyOStream(Teuchos::rcp(&std::cerr,false)));
            
-      debug_stream->setOutputToRootOnly(0);
+      debug_stream->setOutputToRootOnly(-1);
       debug_stream->setShowProcRank(true);
       }
     return *debug_stream;

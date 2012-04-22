@@ -27,7 +27,7 @@
 #include "EpetraExt_HDF5.h"
 #include "EpetraExt_Exception.h"
 */
-
+#include "HYMLS_HyperCube.H"
 #include "HYMLS_Tools.H"
 #include "HYMLS_Preconditioner.H"
 #include "HYMLS_Solver.H"
@@ -41,8 +41,12 @@ int main(int argc, char* argv[])
 
 bool status=true;
 
-  Teuchos::RCP<Epetra_MpiComm> comm=Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
+//  Teuchos::RCP<Epetra_MpiComm> comm=Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
 
+  HYMLS::HyperCube Topology;
+  Teuchos::RCP<const Epetra_MpiComm> comm = Teuchos::rcp
+        (&Topology.Comm(), false);
+    
   // construct file streams, otherwise the output won't work correctly
   HYMLS::Tools::InitializeIO(comm);
   

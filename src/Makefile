@@ -10,6 +10,7 @@ OBJ=    HYMLS_Solver.o \
         HYMLS_RecursiveOverlappingPartitioner.o \
         HYMLS_CartesianPartitioner.o \
         HYMLS_SepNode.o \
+        HYMLS_HyperCube.o \
         HYMLS_MatrixUtils.o \
         HYMLS_DenseUtils.o \
         HYMLS_ProjectedOperator.o \
