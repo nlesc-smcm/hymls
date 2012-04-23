@@ -60,7 +60,7 @@ namespace HYMLS
       {
   START_TIMER3(Label(),"CreateMap (1)");
   // create a parallel map. We first figure out where in the domain we are                                                                                                               
-  int np = comm.NumProc();
+  int np = std::min(comm.NumProc(),nx*ny*nz);
   int pid=comm.MyPID();
 
   int npX,npY,npZ;
@@ -68,7 +68,7 @@ namespace HYMLS
   int offX=-1,offY=-1,offZ=-1;
   int nXloc=0,nYloc=0,nZloc=0;
   
-  bool active = (pid<nx*ny*nz);
+  bool active = (pid<np);
 
   HYMLS::Tools::SplitBox(nx,ny,nz,np,npX,npY,npZ);
 
@@ -77,7 +77,6 @@ namespace HYMLS
     HYMLS::Tools::ind2sub(npX,npY,npZ,pid,pidX,pidY,pidZ);
 
     // dimension of subdomain
-
     nXloc = (int)(nx/npX);
     nYloc = (int)(ny/npY);
     nZloc = (int)(nz/npZ);

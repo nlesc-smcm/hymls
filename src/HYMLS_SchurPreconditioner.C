@@ -376,7 +376,6 @@ namespace HYMLS {
   START_TIMER(label_,"factor blocks");
   for (int i=0;i<blockSolver_.size();i++)
     {
-    if (blockSolver_[i]->NumRows()==0) continue;
     CHECK_ZERO(blockSolver_[i]->Compute(*matrix_));
     }
   }
@@ -481,10 +480,9 @@ int SchurPreconditioner::InitializeBlocks()
              Ifpack_DenseContainer(numRows));
       CHECK_ZERO(blockSolver_[blk]->SetParameters(
               PL().sublist("Dense Solver")));
-      if (numRows>0)
-        {
-        CHECK_ZERO(blockSolver_[blk]->Initialize());
-        }
+
+      CHECK_ZERO(blockSolver_[blk]->Initialize());
+
       for (int j=0; j<numRows; j++)
         {
         int gid=sepObject->GID(sep,grp,j+1); // skip first element, which is a Vsum
@@ -729,15 +727,12 @@ int SchurPreconditioner::InitializeOT()
     // matrix, in contrast to the other diagonal blocks, so we can't use an Ifpack 
     // container.
     int *MyVsumElements = new int[numBlocks]; // one Vsum per block
-
-
     int pos=0;
     for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
       {
       DEBVAR(sep)
       for (int grp = 0 ; grp < sepObject->NumGroups(sep) ; grp++)
         {
-        DEBVAR(sepObject->GID(sep,grp,0));
         if (sepObject->NumElements(sep,grp)>0)
           {
           MyVsumElements[pos++] = sepObject->GID(sep,grp,0);
@@ -782,6 +777,7 @@ int SchurPreconditioner::InitializeOT()
 #ifdef TESTING
   this->Visualize("hid_data_deb.m",false);
 #endif
+
 
   DEBVAR("Create solver for reduced Schur");
 
@@ -1322,7 +1318,6 @@ int SchurPreconditioner::ApplyBlockDiagonal
   int numBlocks=blockSolver_.size(); // will be 0 on coarsest level
   for (int blk=0;blk<numBlocks;blk++)
     {
-    if (blockSolver_[blk]->NumRows()==0) continue;
     if (Y.NumVectors()!=blockSolver_[blk]->NumVectors())
       {
       blockSolver_[blk]->SetNumVectors(Y.NumVectors());
@@ -1394,7 +1389,6 @@ int SchurPreconditioner::BlockTriangularSolve
   // for each block row ...
   for (int blk=start;blk!=end;blk+=incr)
     {
-    if (blockSolver_[blk]->NumRows()==0) continue;
     if (Y.NumVectors()!=blockSolver_[blk]->NumVectors())
       {
       blockSolver_[blk]->SetNumVectors(Y.NumVectors());

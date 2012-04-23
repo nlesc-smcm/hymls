@@ -75,7 +75,7 @@ public:
   //! write the graph used by this class to a text file
   
   //! file originalGraph<level>.txt: original matrix graph on this level
-  void DumpGraph() const;
+  int DumpGraph() const;
   
   //! from the PLA base class
   void setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& params);
@@ -145,16 +145,16 @@ protected:
 private:
   
   //! partition - Cartesian
-  void Partition();
+  int Partition();
 
   //! create graph to be used for identifying separators
-  void CreateGraph();
+  int CreateGraph();
 
   //! construct overlapping maps after partitioning
-  void DetectSeparators();
+  int DetectSeparators();
   
   //! reorder and group separators
-  void GroupSeparators();
+  int GroupSeparators();
   
   //! build parallel graph after detecting separators
   Teuchos::RCP<Epetra_CrsGraph> CreateParallelGraph();
@@ -163,26 +163,26 @@ private:
   //!@{
   
   //! build initial vector with 0 (interior), 1 (separator) or 2 (retained
-  void BuildInitialNodeTypeVector(const Epetra_CrsGraph& parallelGraph, 
+  int BuildInitialNodeTypeVector(const Epetra_CrsGraph& parallelGraph, 
                                         Epetra_IntVector& nodeTypes,
                                         int& num_retained) const;
   
   //! detect isolated interior nodes and mark them 'retain' (3)
-  void DetectIsolated(const Epetra_CrsGraph& parallelGraph, 
+  int DetectIsolated(const Epetra_CrsGraph& parallelGraph, 
                       const Epetra_IntVector& p_nodeTypes,
                             Epetra_IntVector& nodeTypes,
                             int& num_retaineed) const;
   
   //! form list with interior, separator and retained nodes for subdomain
   // sd. Links separators to subdomains.
-  void BuildNodeLists(int sd, const Epetra_CrsGraph& parallelGraph, 
+  int BuildNodeLists(int sd, const Epetra_CrsGraph& parallelGraph, 
                               const Epetra_IntVector& nodeTypes,
                               const Epetra_IntVector& p_nodeTypes,
                               Teuchos::Array<int>& interiorNodes,
                               Teuchos::Array<int>& separatorNodes,
                               Teuchos::Array<int>& retainedNodes) const;
   
-  void FindMissingSepNodes(int my_sd, 
+  int FindMissingSepNodes(int my_sd, 
                            const Epetra_CrsGraph& parallelGraph,
                            const Epetra_IntVector& p_nodeTypes,
                            const std::set<int>& input_array,

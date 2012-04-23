@@ -36,7 +36,7 @@ class CartesianPartitioner : public BasePartitioner
   
   //! partition an [nx x ny x nz] grid with (possibly) several DoF per node
   //! into nparts global subdomains.
-  void Partition(int nparts, bool repart=true);
+  int Partition(int nparts, bool repart=true);
   
 
   //! partition an [nx x ny x nz] grid with one DoF per node
@@ -46,7 +46,7 @@ class CartesianPartitioner : public BasePartitioner
   //! assumed that the map already has a global cartesian   
   //! processor partitioning (as generated i.e. by the      
   //! MatrixUtils::CreateMap functions).
-  void Partition(int npx, int npy, int npz, bool repart=true);
+  int Partition(int npx, int npy, int npz, bool repart=true);
   
   //! get number of local partitions
   int NumLocalParts(){return numLocalSubdomains_;}

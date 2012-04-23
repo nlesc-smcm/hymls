@@ -204,17 +204,17 @@ DEBVAR(dk);
     return ceil((double)di/node_distance_);
     }
 
-  void CartesianPartitioner::Partition(int nparts, bool repart)
+  int CartesianPartitioner::Partition(int nparts, bool repart)
     {
     START_TIMER3(label_,"Partition (1)");
     int npx,npy,npz;
     Tools::SplitBox(nx_,ny_,nz_,nparts,npx,npy,npz);
-    this->Partition(npx,npy,npz,repart);
+    return this->Partition(npx,npy,npz,repart);
     }
   
   // partition an [nx x ny x nz] grid with one DoF per node
   // into nparts global subdomains.
-  void CartesianPartitioner::Partition
+  int CartesianPartitioner::Partition
         (int npx_in,int npy_in, int npz_in, bool repart)
     {
     START_TIMER3(label_,"Partition (2)");
@@ -254,29 +254,11 @@ DEBVAR(dk);
       }
      
 
-    // create an MPI comm with only the active procs    
     int color = active_? 1: 0; 
     int nprocs;
 
     CHECK_ZERO(comm_->SumAll(&color,&nprocs,1));
-/*    
-    Teuchos::RCP<Epetra_Comm> restrictedComm = comm_;
-    if (nproc!=comm_->NumProc())
-      {
-#ifdef HAVE_MPI
-      Teuchos::RCP<Epetra_MpiComm> mpiComm =
-        Teuchos::rcp_dynamic_cast<Epetra_MpiComm>(comm_);
-      if (mpiComm==Teuchos::null) Tools::Error("not am MpiComm?",__FILE__,__LINE__);
-      MPI_Comm comm_all = mpiComm->Comm();
-      MPI_Comm comm_part;
-      int key = comm_->MyPID();
-      CHECK_ZERO(MPI_Comm_split(comm_all,color,key,&comm_part));
-      restrictedComm = Teuchos::rcp(new Epetra_MpiComm(comm_part));
-#else
-      Error("parallel but no MPI... not implemeted.",__FILE__,__LINE__);
-#endif
-      }
-*/
+
     // if some processors have no subdomains, we need to 
     // repartition the map even if it is a cartesian partitioned
     // map already:
@@ -284,7 +266,8 @@ DEBVAR(dk);
  
     Tools::SplitBox(npx_,npy_,npz_,nprocs,nprocx_,nprocy_,nprocz_);
 
-    std::string s4=toString(nprocx_)+"x"+toString(nprocy_)+"x"+toString(nprocz_);
+    std::string s4 =
+    Teuchos::toString(nprocx_)+"x"+Teuchos::toString(nprocy_)+"x"+Teuchos::toString(nprocz_);
 
     if (
         ((int)(nx_/nprocx_)*nprocx_!=nx_)||
@@ -323,9 +306,9 @@ DEBVAR(dk);
     DEBVAR(rankI);
     DEBVAR(rankJ);
     DEBVAR(rankK);        
-    
+
     sdMap_=MatrixUtils::CreateMap(npx_,npy_,npz_,1,0,*comm_);
-    
+    DEBVAR(*sdMap_);
 // create redistributed map:
 Teuchos::RCP<Epetra_Map> repartitionedMap = 
         Teuchos::rcp_const_cast<Epetra_Map>(baseMap_);
@@ -424,7 +407,6 @@ DEBUG(std::flush);
 #endif
   }
 
-
   // note: NumLocalParts() is simply numLocalSubdomains_.
   int *NumElementsInSubdomain = new int[NumLocalParts()];
   for (int sd=0;sd<NumLocalParts();sd++) NumElementsInSubdomain[sd]=0;
@@ -437,6 +419,7 @@ DEBUG(std::flush);
     {
     int gid = repartitionedMap->GID(lid);
     int lsd=LSID(gid);
+    
 #ifdef TESTING
     if (lsd<0)
       {
@@ -446,6 +429,7 @@ DEBUG(std::flush);
 #endif    
     NumElementsInSubdomain[lsd]++;
     }
+
   subdomainPointer_[0]=0;
   for (int i=0;i<NumLocalParts();i++)
     {
@@ -490,7 +474,7 @@ DEBVAR(*cartesianMap_);
       delete [] MyGlobalElements;
       delete [] NumElementsInSubdomain;    
       }
-    return;    
+    return 0;    
     }
 
 

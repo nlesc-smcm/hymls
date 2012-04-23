@@ -76,7 +76,7 @@ namespace HYMLS {
 
     setParameterList(params);
 
-    Partition();
+    CHECK_ZERO(this->Partition());
     
     // try to construct or guess the connectivity of a related scalar problem
     // ('Geometry Matrix')
@@ -112,9 +112,9 @@ namespace HYMLS {
 #ifdef DEBUGGING
   this->DumpGraph();
 #endif
-    DetectSeparators();
+    CHECK_ZERO(this->DetectSeparators());
 
-    GroupSeparators();
+    CHECK_ZERO(this->GroupSeparators());
     }
     
   OverlappingPartitioner::~OverlappingPartitioner()
@@ -234,7 +234,7 @@ Teuchos::RCP<const Teuchos::ParameterList> OverlappingPartitioner::getValidParam
   return validParams_;
   }
   
-void OverlappingPartitioner::CreateGraph()
+int OverlappingPartitioner::CreateGraph()
   {
   START_TIMER2(label_,"CreateGraph");
   
@@ -420,11 +420,11 @@ void OverlappingPartitioner::CreateGraph()
 
   // copy the graph
   graph_=Teuchos::rcp(new Epetra_CrsGraph(crsMatrix->Graph()));
-    
+  return 0;    
   }
 
 
-void OverlappingPartitioner::Partition()
+int OverlappingPartitioner::Partition()
   {
   START_TIMER2(label_,"Partition");
   if (partitioningMethod_=="Cartesian")
@@ -490,17 +490,16 @@ void OverlappingPartitioner::Partition()
   
   Teuchos::RCP<CartesianPartitioner> cartPart
         = Teuchos::rcp_dynamic_cast<CartesianPartitioner>(partitioner_);
-        
+
   if (cartPart!=Teuchos::null) 
     {
-    cartPart->Partition(npx,npy,npz, false);
+    CHECK_ZERO(cartPart->Partition(npx,npy,npz, false));
     cartPart->SetNodeDistance((double)(sx/base_sx));
     }
   else
     {
-    partitioner_->Partition(npx*npy*npz, false);
+    CHECK_ZERO(partitioner_->Partition(npx*npy*npz, false));
     }
-
   // sanity check
   if (dof_!=partitioner_->DofPerNode())
     {
@@ -524,10 +523,10 @@ for (int i=0;i<baseMap_->NumMyElements();i++)
   DEBUG(gid << " " << (*partitioner_)(gid));
   }
 #endif  
-  return;
+  return 0;
   }
   
-void OverlappingPartitioner::DetectSeparators()
+int OverlappingPartitioner::DetectSeparators()
   {
   START_TIMER2(label_,"DetectSeparators");
   //! first we import our original matrix into the ordering defined by the partitioner.
@@ -546,7 +545,7 @@ void OverlappingPartitioner::DetectSeparators()
   nodeType_=Teuchos::rcp(new Epetra_IntVector(partitioner_->Map()));
   nodeType_->PutValue(-1);
 
-  this->BuildInitialNodeTypeVector(*parallelGraph_,*nodeType_,np_schur);
+  CHECK_ZERO(this->BuildInitialNodeTypeVector(*parallelGraph_,*nodeType_,np_schur));
 
   // now every subdomain has marked those nodes it owns and 
   // that should become interior, separator or retained nodes.
@@ -581,13 +580,13 @@ DEBVAR(*p_nodeType_);
   //           |   |                                                          
   //           |   |                                                          
   //                                                                          
-  this->DetectIsolated(*parallelGraph_,*p_nodeType_, *nodeType_,np_schur);
+  CHECK_ZERO(this->DetectIsolated(*parallelGraph_,*p_nodeType_, *nodeType_,np_schur));
 
   // import again to "spread the word"
   CHECK_ZERO(p_nodeType_->Import(*nodeType_,import,Insert));
 
   //... then do it again: this is required to get a 3 in the corners in 3D
-  this->DetectIsolated(*parallelGraph_,*p_nodeType_, *nodeType_,np_schur);
+  CHECK_ZERO(this->DetectIsolated(*parallelGraph_,*p_nodeType_, *nodeType_,np_schur));
 
   // import again to "spread the word"
   CHECK_ZERO(p_nodeType_->Import(*nodeType_,import,Insert));
@@ -631,8 +630,8 @@ DEBVAR(*p_nodeType_);
     interior_nodes.resize(0);
     separator_nodes.resize(0);
     retained_nodes.resize(0);
-    this->BuildNodeLists(sd,*parallelGraph_, *nodeType_, *p_nodeType_,
-                interior_nodes, separator_nodes, retained_nodes);
+    CHECK_ZERO(this->BuildNodeLists(sd,*parallelGraph_, *nodeType_, *p_nodeType_,
+                interior_nodes, separator_nodes, retained_nodes));
 
     DEBVAR(sd);
     DEBVAR(interior_nodes);
@@ -662,11 +661,12 @@ DEBVAR(*p_nodeType_);
   
   overlappingMap_=Teuchos::rcp(new  Epetra_Map
         (-1,NumMyElements, MyElements,partitioner_->Map().IndexBase(),*comm_));
-
+  
+  return 0;
   }
 
   //! build initial vector with 0 (interior), 1 (separator) or 2 (retained)
-  void OverlappingPartitioner::BuildInitialNodeTypeVector(
+  int OverlappingPartitioner::BuildInitialNodeTypeVector(
         const Epetra_CrsGraph& G, Epetra_IntVector& nodeType,
         int& np_schur) const
   {
@@ -772,10 +772,11 @@ DEBVAR(*p_nodeType_);
       }//i
     }//sd
   delete [] cols;
+  return 0;
   }
 
   //! detect isolated interior nodes and mark them 'retain' (3)
-  void OverlappingPartitioner::DetectIsolated(
+  int OverlappingPartitioner::DetectIsolated(
                       const Epetra_CrsGraph& G, 
                       const Epetra_IntVector& p_nodeType,
                             Epetra_IntVector& nodeType,
@@ -863,11 +864,12 @@ DEBVAR(*p_nodeType_);
     }//sd
     
   delete [] cols;
+  return 0;  
   }
 
   //! form list with interior, separator and retained nodes for subdomain
   // sd. Links separators to subdomains.
-  void OverlappingPartitioner::BuildNodeLists(int sd, 
+  int OverlappingPartitioner::BuildNodeLists(int sd, 
                               const Epetra_CrsGraph& G, 
                               const Epetra_IntVector& nodeType,
                               const Epetra_IntVector& p_nodeType,
@@ -989,13 +991,13 @@ DEBVAR(*p_nodeType_);
   // to 'FindMissingSepNodes' finds all the C nodes by looking for   
   // shared edges between 'A or B' nodes which are not in the same   
   // subdomain. This is sufficient to get the ordering right in 2D.  
-  this->FindMissingSepNodes(sd_i,G,p_nodeType,separatorL1,separatorL2);
+  CHECK_ZERO(this->FindMissingSepNodes(sd_i,G,p_nodeType,separatorL1,separatorL2));
   
   // The D-node in the corner of the 3D subdomain has an edge to an A-
   // and two C-nodes on subdomain 1 (from the perspective of SD2).
   // For all other subdomains it has an edge to two C-nodes on 
   // different subdomains.
-  this->FindMissingSepNodes(sd_i,G,p_nodeType,separatorL2,separatorL3);
+  CHECK_ZERO(this->FindMissingSepNodes(sd_i,G,p_nodeType,separatorL2,separatorL3));
   separator.resize(0);
   std::copy(separatorL1.begin(),separatorL1.end(),std::back_inserter(separator));
   std::copy(separatorL2.begin(),separatorL2.end(),std::back_inserter(separator));
@@ -1021,9 +1023,10 @@ DEBVAR(*p_nodeType_);
   
  
   delete [] cols;  
+  return 0;
   }
 
-void OverlappingPartitioner::FindMissingSepNodes
+int OverlappingPartitioner::FindMissingSepNodes
         (int my_sd, const Epetra_CrsGraph& G, const Epetra_IntVector& p_nodeType,
          const std::set<int>& in, std::set<int>& out) const
 
@@ -1073,10 +1076,11 @@ void OverlappingPartitioner::FindMissingSepNodes
     }//i
   delete [] colsI;
   delete [] colsJ;
+  return 0;
   }
 
 
-void OverlappingPartitioner::GroupSeparators()
+int OverlappingPartitioner::GroupSeparators()
   {
   START_TIMER2(label_,"GroupSeparators");
   if (Teuchos::is_null(graph_))
@@ -1322,7 +1326,7 @@ void OverlappingPartitioner::GroupSeparators()
 
   delete [] cols;
   delete [] MyElements;
-
+return 0;
   }
 
 
@@ -1489,7 +1493,7 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
   }
   
 
-void OverlappingPartitioner::DumpGraph() const
+int OverlappingPartitioner::DumpGraph() const
   {
   START_TIMER2(label_,"DumpGraph");
   std::string filename="matrixGraph"+Teuchos::toString(myLevel_)+".txt";
@@ -1498,7 +1502,7 @@ void OverlappingPartitioner::DumpGraph() const
        Teuchos::rcp(new Epetra_CrsMatrix(Copy,*graph_));
   graph->PutScalar(1.0);
   MatrixUtils::Dump(*graph,filename);
-  return;
+  return 0;
   }
 
 

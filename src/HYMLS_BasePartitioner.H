@@ -48,7 +48,7 @@ class BasePartitioner
   //! the partitioner is allowed to change the global       
   //! distribution of the nodes, otherwise it may only      
   //! partition the owned nodes on each processor.          
-  virtual void Partition(int nparts, bool repart) = 0;
+  virtual int Partition(int nparts, bool repart) = 0;
   
   //! get number of local partitions
   virtual int NumLocalParts() = 0;
