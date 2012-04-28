@@ -354,16 +354,6 @@ namespace HYMLS {
 
     CHECK_ZERO(A21.Multiply(false,B,Aloc));
     
-    //TODO: I think this operation is not permitted, however,
-    //      up to now it works fine (probably because it only
-    //      involves local permutations.
-    Epetra_Import import(mother_->Map2(), mother_->Map2(sd));
-    
-    CHECK_ZERO(A.Import(Aloc,import,Insert));
-    
-    //DEBVAR(A);
-    //DEBVAR(Aloc);
-    
     flops +=2*B.NumVectors()*A21.NumGlobalNonzeros();
 
     // re-index and put into final block

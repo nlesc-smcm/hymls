@@ -447,9 +447,6 @@ try {
     DEBUG("construct col-maps, importers and submatrices. Import");
     colMap1_ = MatrixUtils::CreateColMap(*reorderedMatrix_,*map1_,*map1_);
     colMap2_ = MatrixUtils::CreateColMap(*reorderedMatrix_,*map2_,*map2_);
-    REPORT_SUM_MEM(label_,"global col maps",0,
-        colMap1_->NumMyElements()+colMap2_->NumMyElements(),
-        comm_);
 
     import1_ = Teuchos::rcp(new Epetra_Import(*map1_,*rowMap_));
     import2_ = Teuchos::rcp(new Epetra_Import(*map2_,*rowMap_));
@@ -510,12 +507,9 @@ try {
       REPORT_SUM_MEM(label_,"copies of matrix parts",0,nzCopy,comm_);
 
 #ifdef STORE_MATRICES
-DEBVAR(*A12_);
-DEBVAR(*A21_);
-DEBVAR(*A22_);
-MatrixUtils::Dump(*A12_, "Precond"+Teuchos::toString(myLevel_)+"_A12.txt",false);
-MatrixUtils::Dump(*A21_, "Precond"+Teuchos::toString(myLevel_)+"_A21.txt",false);
-MatrixUtils::Dump(*A22_, "Precond"+Teuchos::toString(myLevel_)+"_A22.txt",false);
+MatrixUtils::Dump(*A12_, "Precond"+Teuchos::toString(myLevel_)+"_A12.txt");
+MatrixUtils::Dump(*A21_, "Precond"+Teuchos::toString(myLevel_)+"_A21.txt");
+MatrixUtils::Dump(*A22_, "Precond"+Teuchos::toString(myLevel_)+"_A22.txt");
 #endif
       
   DEBUG("initialize subdomain solvers...");
@@ -654,7 +648,10 @@ int Preconditioner::InitializeCompute()
   CHECK_ZERO(A12_->Import(*reorderedMatrix_,*import1_,Insert));
   CHECK_ZERO(A21_->Import(*reorderedMatrix_,*import2_,Insert));
   CHECK_ZERO(A22_->Import(*reorderedMatrix_,*import2_,Insert));
-/* TODO - we could probably throw out localA22 alltogether because its usage is so awkward
+  
+// TODO - localA22 is not used right now, either get the SC assembly
+// to work with localA22 rather than A22, or throw it out alltogether
+#if 0
   // scale the local A22 blocks by the number of subdomains the separators
   // belong to (inverse), so that we have A22 = sum(localA22). This is useful
   // when constructing Schur-complements.
@@ -700,9 +697,9 @@ int Preconditioner::InitializeCompute()
       for (int j=0;j<len;j++) values[j]*=scale;
       }
     }
-  */
+#endif
   
-  // (2) re-initialize the subdomain solvers. I don't know why this is 
+  // (2) re-initiailze the subdomain solvers. I don't know why this is 
   //     required, maybe some Ifpack glitch? If we don't do this before
   //     Compute(), the solver doesn't work.
   DEBUG("initialize subdomain solvers...");
