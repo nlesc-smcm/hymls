@@ -77,6 +77,9 @@ class OrthogonalTransform
   virtual int ApplyInverse
     (Epetra_MultiVector& vT, const Epetra_CrsMatrix& T, const Epetra_MultiVector& v) const = 0;
 
+  //! this can be used to indicate that no memory is stored inside the class and thus
+  //! you always have to call the variant of Apply which returns a sparse matrix
+  virtual bool SaveMemory() const {return false;}
   
   };
 

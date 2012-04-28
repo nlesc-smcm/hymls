@@ -897,7 +897,7 @@ int SchurPreconditioner::InitializeOT()
     // to implement and also slower than this.
     // We do not actually drop anything here, that happens automatically
     // by the reducedSchur import and the block solvers.
-    if (matrix_==Teuchos::null)
+    if (matrix_==Teuchos::null || OT->SaveMemory())
       {
       matrix_=OT->Apply(*sparseMatrixOT_, *SchurMatrix_);
       }
@@ -937,8 +937,6 @@ int SchurPreconditioner::InitializeOT()
       matrix_=matrix;
       }
 
-    if (matrix->Filled()) matrix->PutScalar(0.0);
-    
     Epetra_IntSerialDenseVector indices;
     Epetra_IntSerialDenseVector sep;
     Epetra_SerialDenseMatrix Sk;
@@ -1000,7 +998,11 @@ int SchurPreconditioner::InitializeOT()
       {
       CHECK_ZERO(matrix->PutScalar(0.0));
       }
-    
+
+    // put T*A22*T into matrix_, dropping anything that doesn't fit in
+    // the predefined pattern.
+    CHECK_NONNEG(OT->Apply(*matrix,*sparseMatrixOT_,SchurComplement_->A22()));
+
     // now for each subdomain construct the SC part A21*A11\A12 for the      
     // surrounding separators, apply orthogonal transforms to each separator 
     // group and sum them into the pattern defined above, dropping everything
@@ -1045,22 +1047,9 @@ int SchurPreconditioner::InitializeOT()
 #ifdef STORE_MATRICES
 MatrixUtils::Dump(*matrix_,"TransDropSC"+Teuchos::toString(myLevel_)+"_part2.txt");    
 #endif
-    // now compute T*A22*T
-    if (transformedA22_==Teuchos::null)
-      {
-      transformedA22_=OT->Apply(*sparseMatrixOT_,SchurComplement_->A22());
-      }
-    else
-      {
-      CHECK_ZERO(OT->Apply(*transformedA22_,*sparseMatrixOT_,SchurComplement_->A22()));
-      }
-    CHECK_ZERO(EpetraExt::MatrixMatrix::Add(*transformedA22_,false,1.0,*matrix_,-1.0));
 #ifdef STORE_MATRICES
-MatrixUtils::Dump(*transformedA22_,"TransDropSC"+Teuchos::toString(myLevel_)+"_part1.txt");    
-    MatrixUtils::Dump(*matrix_,"TransDropSC_level_"+Teuchos::toString(myLevel_)+".txt");
+    MatrixUtils::Dump(*matrix_,"SchurPreconditioner"+Teuchos::toString(myLevel_)+".txt");
 #endif
-    REPORT_SUM_MEM(label_,"transformed A22",transformedA22_->NumMyNonzeros(),
-                                            transformedA22_->NumMyNonzeros(),comm_);
     REPORT_SUM_MEM(label_,"Transformed SC",matrix_->NumMyNonzeros(),
                                            matrix_->NumMyNonzeros(),comm_);
     return 0;

@@ -284,7 +284,7 @@ namespace HYMLS {
   Teuchos::RCP<Epetra_CrsMatrix> Householder::Apply
         (const Epetra_CrsMatrix& T, const Epetra_CrsMatrix& A) const
     {
-    START_TIMER2(label_,"H^TAH (first call)");
+    START_TIMER2(label_,"H^TAH (1)");
         
     
     if (A.Filled()==false || T.Filled()==false)
@@ -306,7 +306,7 @@ namespace HYMLS {
     Transp_=Teuchos::rcp(new Epetra_RowMatrixTransposer(const_cast<Epetra_CrsMatrix*>(&T)));
     Epetra_CrsMatrix* tmp;
     Transp_->CreateTranspose(false,tmp,const_cast<Epetra_Map*>(&(T.RowMap())));
-    WTmat_=Teuchos::rcp(tmp,false);
+    WTmat_=Teuchos::rcp(tmp,true);
     CHECK_ZERO(WTmat_->FillComplete());
         
     CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(A,false,*WTmat_,false,*AwT));
@@ -320,8 +320,13 @@ namespace HYMLS {
     CHECK_ZERO(AwTw->FillComplete());
 
     // C=A-2Aw'w
-    Cmat_ = Teuchos::rcp(new Epetra_CrsMatrix(*AwTw) );
-
+    Cmat_ = AwTw ;
+    if (SaveMemory()) 
+      {
+      AwT=Teuchos::null;
+      AwTw=Teuchos::null;
+      }
+    
     DEBUG("compute C=A(2wTw-I)...");
     CHECK_ZERO(EpetraExt::MatrixMatrix::Add(A,false,1.0,*Cmat_,-2.0));
     CHECK_ZERO(Cmat_->FillComplete());
@@ -341,9 +346,29 @@ namespace HYMLS {
     CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(*WTmat_,false,*WCmat_,false,*wTwC));
     CHECK_ZERO(wTwC->FillComplete());
 
+    if (SaveMemory())
+      {
+      WTmat_=Teuchos::null;
+      WCmat_=Teuchos::null;
+      }
+
     DEBUG("compute TAT=C-2wTwC...");
     CHECK_ZERO(EpetraExt::MatrixMatrix::Add(*Cmat_,false,1.0,*wTwC,-2.0));
 
+    if (SaveMemory())
+      {
+      Cmat_=Teuchos::null;
+      }
+
+    
+  if (!SaveMemory())
+    {    
+    double my_nnz = Wmat_->NumMyNonzeros() + 
+                    Cmat_->NumMyNonzeros() +
+                    WCmat_->NumMyNonzeros() +
+                    WTmat_->NumMyNonzeros();
+    REPORT_SUM_MEM(label_,"intermediate results",my_nnz,my_nnz,&wTwC->Comm());
+    }
     DEBUG("done!");
     return wTwC;                
     }
@@ -355,9 +380,13 @@ namespace HYMLS {
   int Householder::Apply
     (Epetra_CrsMatrix& TAT, const Epetra_CrsMatrix& T, const Epetra_CrsMatrix& A) const
     {
-    START_TIMER2(label_,"H^TAH");
+    START_TIMER2(label_,"H^TAH (2)");
 
-
+    if (SaveMemory())
+      {
+      return -1; // this variant cannot be called if SaveMemory() is true
+                 // because intermediate results are discared.
+      }
 
     Cmat_->PutScalar(0.0);
     WCmat_->PutScalar(0.0);

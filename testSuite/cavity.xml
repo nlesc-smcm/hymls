@@ -67,12 +67,12 @@
     <Parameter name="Preconditioner Variant" type="string" value="Block Diagonal"/>
     
     <!-- you can either set 'Separator Length' or 'Number of Subdomains' -->
-    <Parameter name="Separator Length" type="int" value="8"/>
+    <Parameter name="Separator Length" type="int" value="4"/>
     
     <!-- number of levels to be created (1: direct solver for Schur complement, -->
     <!-- 2: solve Schur iteratively and reduced Schur directly,                 -->
     <!-- >2: not implemented.                                                   -->
-    <Parameter name="Number of Levels" type="int" value="2"/>
+    <Parameter name="Number of Levels" type="int" value="4"/>
     
     <Parameter name="Scale Schur-Complement" type="bool" value="0"/>
     
@@ -85,6 +85,9 @@
     <ParameterList name="Sparse Solver">
       <!-- "Amesos_Klu" is the default here. These systems are always sequential -->
       <Parameter name="amesos: solver type" type="string" value="Amesos_Umfpack"/>
+      <Parameter name="Own Ordering" type="bool" value="0"/>
+      <Parameter name="Own Scaling" type="bool" value="0"/>
+      <Parameter name="OutputLevel" type="int" value="0"/>
     </ParameterList>
     
     <!-- this list is used for the "Block Diagonal" preconditioner -->
@@ -98,13 +101,17 @@
       <!-- "Amesos_Klu" is the default here. This system is distributed, and  -->
       <!-- it may be worthwile using Amesos_Mumps, for instance.              -->
       <Parameter name="amesos: solver type" type="string" value="Amesos_Klu"/>
+      <Parameter name="PrintStatus" type="bool" value="1"/>
+      <Parameter name="PrintTiming" type="bool" value="1"/>
+      <Parameter name="MaxProcs" type="int" value="16"/>
+      <Parameter name="OutputLevel" type="int" value="5"/>
       <ParameterList name="mumps">
         <!-- output stream: stdout=6, none=-1 -->
-        <Parameter name="ICNTL(1)" type="int" value="-1"/>
+        <Parameter name="ICNTL(1)" type="int" value="6"/>
         <!-- error stream: stdout=6, none=-1 -->
-        <Parameter name="ICNTL(2)" type="int" value="-1"/>
+        <Parameter name="ICNTL(2)" type="int" value="6"/>
         <!-- global info stream: stdout=6, none=-1 -->
-        <Parameter name="ICNTL(3)" type="int" value="-1"/>
+        <Parameter name="ICNTL(3)" type="int" value="6"/>
         <!-- verbosity (-1..3) -->
         <Parameter name="ICNTL(4)" type="int" value="-1"/>
         <!-- ordering option (3: SCOTCH, 7: automatic choice -->

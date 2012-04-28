@@ -22,11 +22,11 @@
   <ParameterList name="Problem"><!--{-->
 
     <Parameter name="Equations" type="string" value="Laplace"/>
-    <Parameter name="Dimension" type="int" value="2"/>
+    <Parameter name="Dimension" type="int" value="3"/>
 
-    <Parameter name="nx" type="int" value="16"/>
-    <Parameter name="ny" type="int" value="16"/>
-    <Parameter name="nz" type="int" value="16"/>
+    <Parameter name="nx" type="int" value="64"/>
+    <Parameter name="ny" type="int" value="64"/>
+    <Parameter name="nz" type="int" value="64"/>
     
   </ParameterList><!--}-->
   
@@ -73,7 +73,7 @@
     <!-- number of levels to be created (1: direct solver for Schur complement, -->
     <!-- 2: solve Schur iteratively and reduced Schur directly,                 -->
     <!-- >2: not implemented.                                                   -->
-    <Parameter name="Number of Levels" type="int" value="2"/>
+    <Parameter name="Number of Levels" type="int" value="3"/>
     
     <Parameter name="Scale Schur-Complement" type="bool" value="0"/>
 
@@ -85,23 +85,30 @@
     <!-- settings for subdomain solver -->
     <ParameterList name="Sparse Solver">
       <!-- "Amesos_Klu" is the default here. These systems are always sequential -->
-      <Parameter name="amesos: solver type" type="string" value="Amesos_Klu"/>
+      <Parameter name="amesos: solver type" type="string" value="Amesos_Umfpack"/>
     </ParameterList>
 
     <!-- settings for reduced problem (Vsum) solver -->
     <ParameterList name="Coarse Solver">
       <!-- "Amesos_Klu" is the default here. This system is distributed, and  -->
       <!-- it may be worthwile using Amesos_Mumps, for instance.              -->
-      <Parameter name="amesos: solver type" type="string" value="Amesos_Mumps"/>
+      <Parameter name="amesos: solver type" type="string" value="Amesos_Superludist"/>
+      <!--Parameter name="MaxProcs" type="int" value="4"/-->
+      <Parameter name="OutputLevel" type="int" value="5"/>
+      <Parameter name="PrintTiming" type="bool" value="1"/>
+      <Parameter name="PrintStatus" type="bool" value="1"/>
+      <ParameterList name="Superludist">
+        <Parameter name="PrintNonzeros" type="bool" value="1"/>
+      </ParameterList>
       <ParameterList name="mumps">
         <!-- output stream: stdout=6, none=-1 -->
-        <Parameter name="ICNTL(1)" type="int" value="-1"/>
+        <Parameter name="ICNTL(1)" type="int" value="6"/>
         <!-- error stream: stdout=6, none=-1 -->
-        <Parameter name="ICNTL(2)" type="int" value="-1"/>
+        <Parameter name="ICNTL(2)" type="int" value="6"/>
         <!-- global info stream: stdout=6, none=-1 -->
-        <Parameter name="ICNTL(3)" type="int" value="-1"/>
+        <Parameter name="ICNTL(3)" type="int" value="6"/>
         <!-- verbosity (-1..3) -->
-        <Parameter name="ICNTL(4)" type="int" value="-1"/>
+        <Parameter name="ICNTL(4)" type="int" value="3"/>
         <!-- collect statistics (for optimal performance set it to 0!) -->
         <Parameter name="ICNTL(11)" type="int" value="0"/>
       </ParameterList>      

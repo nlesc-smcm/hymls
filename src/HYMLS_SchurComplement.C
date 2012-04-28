@@ -71,7 +71,9 @@ namespace HYMLS {
     if (IsConstructed())
       {
       CHECK_ZERO(Scrs_->Apply(X,Y));
+#ifdef FLOPS_COUNT
       flopsApply_+=2*Scrs_->NumGlobalNonzeros();
+#endif
       }
     else
       {
@@ -95,7 +97,9 @@ namespace HYMLS {
       
       // 3) compute Y = Y-Y2
       CHECK_ZERO(Y.Update(-1.0,Y2,1.0));
+#ifdef FLOPS_COUNT
       flopsApply_+=Y.GlobalLength()*Y.NumVectors();
+#endif
 #endif
       }
     return ierr;
@@ -229,7 +233,9 @@ namespace HYMLS {
                                         const Epetra_IntSerialDenseVector& inds,
                                         double* count_flops) const
     {
+#ifdef FLOPS_COUNT
     double flops=0;
+#endif    
     const OverlappingPartitioner& hid=mother_->Partitioner();
     const Epetra_CrsMatrix& A12 = mother_->A12(sd);
     const Epetra_CrsMatrix& A21 = mother_->A21(sd);
@@ -325,12 +331,16 @@ namespace HYMLS {
       }
     
     DEBUG("Apply A11 inverse...");
+#ifdef FLOPS_COUNT    
     double flopsOld=A11.ApplyInverseFlops();
+#endif
     IFPACK_CHK_ERR(A11.ApplyInverse());
+#ifdef FLOPS_COUNT
     double flopsNew=A11.ApplyInverseFlops();
     //TODO: these flops are counted twice: in Solver->ApplyInverse() they shouldn't 
     //      contribute!
     flops+=flopsNew-flopsOld;
+#endif
     
     // get the solution, B=A11\A12, as a MultiVector in the domain map of operator A21
 
@@ -342,20 +352,12 @@ namespace HYMLS {
     // for each separator element) and a column for each separator node connected to this 
     // subdomain. Some separators may not be on this CPU: those need to be imported 
     // manually later on.
-    
-    Epetra_MultiVector A(mother_->Map2(),B.NumVectors());
-/*
-    DEBUG("Apply A=A21*B");
-    DEBVAR(A21);
-    DEBVAR(B);
-*/    
-    // import separator information we need from other procs
+
     Epetra_MultiVector Aloc(mother_->Map2(sd),B.NumVectors());
-
     CHECK_ZERO(A21.Multiply(false,B,Aloc));
-    
+#ifdef FLOPS_COUNT    
     flops +=2*B.NumVectors()*A21.NumGlobalNonzeros();
-
+#endif
     // re-index and put into final block
     
     DEBUG("Copy into Sk matrix");
@@ -371,7 +373,9 @@ namespace HYMLS {
     A11.SetNumVectors(1);
     
     DEBUG("Block constructed successfully!");
+#ifdef FLOPS_COUNT
     if (count_flops!=NULL) *count_flops+=flops;
+#endif
     return 0;
     }
 

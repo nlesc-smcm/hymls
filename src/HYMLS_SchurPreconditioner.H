@@ -212,12 +212,7 @@ protected:
   
   //! original SC object, may be null if a matrix is passed in.
   Teuchos::RCP<const SchurComplement> SchurComplement_;
-  
-  //! transformed matrix part T'*A22*T. This is explicitly constructed
-  //! if a SchurComplement object is passed in rather than a CrsMatrix,
-  //! to facilitate constructing T'*(A22-A21*A11\A12)*T
-  Teuchos::RCP<Epetra_CrsMatrix> transformedA22_;
-  
+    
   //! my level ID
   int myLevel_;
   

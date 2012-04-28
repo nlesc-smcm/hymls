@@ -71,6 +71,8 @@ class Householder : public OrthogonalTransform
   //! apply a sparse matrix representation of a set of transforms from the left
   //! to a vector. 
   int ApplyInverse(Epetra_MultiVector& Tv, const Epetra_CrsMatrix& T, const Epetra_MultiVector& v) const;
+  
+  bool SaveMemory() const {return save_mem_;}
 
 protected:
 
@@ -82,6 +84,14 @@ protected:
   mutable Teuchos::RCP<Epetra_RowMatrixTransposer> Transp_;
   mutable Teuchos::RCP<const Epetra_CrsMatrix> Wmat_;
   mutable Teuchos::RCP<Epetra_CrsMatrix> WTmat_,Cmat_, WCmat_;
+
+private:
+
+  // if false, intermediate results are stored in the class that make
+  // subsequent computations of T*A*T a bit faster. Since this costs a
+  // lot of memory, we disable this feature until it becomes more of a
+  // performance problem.
+  static const bool save_mem_ = true;
   
   };
 
