@@ -26,6 +26,8 @@ namespace Teuchos
 
 namespace HYMLS {
 
+class SchurPreconditioner;
+
 
 //class SchurPreconditioner;
 
@@ -40,6 +42,8 @@ class SchurComplement : public Epetra_Operator
   {
   
 public:
+
+  friend class SchurPreconditioner;
 
   //! constructor. The level parameter is just to get the
   //! label right, the mother defines A11, A12, A21 and A22

@@ -1,4 +1,5 @@
 //#define BLOCK_IMPLEMENTATION 1
+#define ASSEMBLE_SCHUR_FIRST 1
 #include "HYMLS_Preconditioner.H"
 
 #include "HYMLS_Tools.H"
@@ -18,6 +19,7 @@
 #include "Epetra_Map.h"
 #include "Epetra_RowMatrix.h"
 #include "Epetra_Import.h"
+#include "Epetra_Export.h"
 #include "Epetra_InvOperator.h"
 #include "Epetra_SerialDenseMatrix.h"
 #include "Epetra_SerialDenseVector.h"
@@ -61,7 +63,7 @@ namespace HYMLS {
         PLA("Preconditioner")
     {
     START_TIMER2(label_,"Constructor");
-    REPORT_MEM(label_,"Matrix",K->NumGlobalNonzeros(),K->NumGlobalNonzeros()+K->NumGlobalRows());
+    REPORT_SUM_MEM(label_,"Matrix",K->NumMyNonzeros(),K->NumMyNonzeros()+K->NumMyRows(),comm_);
     serialComm_=Teuchos::rcp(new Epetra_SerialComm());
 //    serialComm_=Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_SELF));
     time_=Teuchos::rcp(new Epetra_Time(K->Comm()));
@@ -131,6 +133,14 @@ namespace HYMLS {
     if (probList_.isParameter("Equations"))
       {
       eqn = probList_.get("Equations",eqn);
+#ifdef MATLAB_COMPATIBILITY_MODE
+      if (eqn!="Stokes-C" || dim_!=2)
+        {
+        Tools::Error("MATLAB_COMPATIBILITY_MODE is defined. The preconditioner\n"+
+                     std::string("only works for 2D Stokes-C problems in that case."),
+                     __FILE__,__LINE__);
+        }
+#endif      
       this->SetProblemDefinition(eqn,*List_);
       // the partitioning classes will not accept this parameter,
       // to indicate the list has been processed we remove it.
@@ -435,16 +445,18 @@ try {
     //      a memory bottleneck. I think we can use our separator info
     //      to avoid this quite easily.
     DEBUG("construct col-maps, importers and submatrices. Import");
-    colMap1_ = MatrixUtils::AllGather(*map1_);
-    colMap2_ = MatrixUtils::AllGather(*map2_);
-    REPORT_MEM(label_,"global col maps",0,colMap1_->NumGlobalElements()+
-                                          colMap2_->NumGlobalElements());
+    colMap1_ = MatrixUtils::CreateColMap(*reorderedMatrix_,*map1_,*map1_);
+    colMap2_ = MatrixUtils::CreateColMap(*reorderedMatrix_,*map2_,*map2_);
+    REPORT_SUM_MEM(label_,"global col maps",0,
+        colMap1_->NumMyElements()+colMap2_->NumMyElements(),
+        comm_);
 
     import1_ = Teuchos::rcp(new Epetra_Import(*map1_,*rowMap_));
     import2_ = Teuchos::rcp(new Epetra_Import(*map2_,*rowMap_));
 
     // extract matrix parts per subdomain. This should
     // all be local copy operations.
+    double nzCopy=0;
     for (int sd=0;sd<hid_->NumMySubdomains();sd++)
       {
       localA12_[sd] = Teuchos::rcp(new
@@ -463,6 +475,10 @@ try {
       CHECK_ZERO(localA12_[sd]->FillComplete(*localMap2_[sd],*localMap1_[sd]));
       CHECK_ZERO(localA21_[sd]->FillComplete(*localMap1_[sd],*localMap2_[sd]));
       CHECK_ZERO(localA22_[sd]->FillComplete(*localMap2_[sd],*localMap2_[sd]));
+      
+      nzCopy += (double)(localA12_[sd]->NumMyNonzeros());
+      nzCopy += (double)(localA21_[sd]->NumMyNonzeros());
+      nzCopy += (double)(localA22_[sd]->NumMyNonzeros());
       }
  
 
@@ -486,11 +502,20 @@ try {
       CHECK_ZERO(A12_->FillComplete(*map2_,*map1_));
       CHECK_ZERO(A21_->FillComplete(*map1_,*map2_));
       CHECK_ZERO(A22_->FillComplete(*map2_,*map2_));
+      
+      nzCopy+=(double)(A12_->NumMyNonzeros());
+      nzCopy+=(double)(A21_->NumMyNonzeros());
+      nzCopy+=(double)(A22_->NumMyNonzeros());
+
+      REPORT_SUM_MEM(label_,"copies of matrix parts",0,nzCopy,comm_);
 
 #ifdef STORE_MATRICES
-MatrixUtils::Dump(*A12_, "Precond"+Teuchos::toString(myLevel_)+"_A12.txt");
-MatrixUtils::Dump(*A21_, "Precond"+Teuchos::toString(myLevel_)+"_A21.txt");
-MatrixUtils::Dump(*A22_, "Precond"+Teuchos::toString(myLevel_)+"_A22.txt");
+DEBVAR(*A12_);
+DEBVAR(*A21_);
+DEBVAR(*A22_);
+MatrixUtils::Dump(*A12_, "Precond"+Teuchos::toString(myLevel_)+"_A12.txt",false);
+MatrixUtils::Dump(*A21_, "Precond"+Teuchos::toString(myLevel_)+"_A21.txt",false);
+MatrixUtils::Dump(*A22_, "Precond"+Teuchos::toString(myLevel_)+"_A22.txt",false);
 #endif
       
   DEBUG("initialize subdomain solvers...");
@@ -527,9 +552,8 @@ MatrixUtils::Dump(*A22_, "Precond"+Teuchos::toString(myLevel_)+"_A22.txt");
       {
       int LRID = rowMap_->LID(hid_->GID(sd,0,j));
       subdomainSolver_[sd]->ID(j) = LRID;
-      }                            
+      }
     }
-
   DEBUG("Create Schur-complement");  
 
   // construct the Schur-complement operator (no computations, just
@@ -567,10 +591,13 @@ Tools::out() << "=============================="<<std::endl;
   CHECK_ZERO(testVector2->Import(tmpVec,*import2_,Insert));
 
   DEBUG("Construct preconditioner");
-
+#ifdef ASSEMBLE_SCHUR_FIRST
   schurPrec_=Teuchos::rcp(new SchurPreconditioner(SC,hid_,
                 getMyNonconstParamList(), myLevel_, testVector2));
-
+#else
+  schurPrec_=Teuchos::rcp(new SchurPreconditioner(Schur_,hid_,
+                getMyNonconstParamList(), myLevel_, testVector2));
+#endif
   // now we have all the data structures, but the pattern of 
   // the Schur-complement is not available, yet (it will be in 
   // Compute()). So we cannot initialize the Schur preconditioner
@@ -627,8 +654,55 @@ int Preconditioner::InitializeCompute()
   CHECK_ZERO(A12_->Import(*reorderedMatrix_,*import1_,Insert));
   CHECK_ZERO(A21_->Import(*reorderedMatrix_,*import2_,Insert));
   CHECK_ZERO(A22_->Import(*reorderedMatrix_,*import2_,Insert));
+/* TODO - we could probably throw out localA22 alltogether because its usage is so awkward
+  // scale the local A22 blocks by the number of subdomains the separators
+  // belong to (inverse), so that we have A22 = sum(localA22). This is useful
+  // when constructing Schur-complements.
+  Epetra_Vector vCount(*rowMap_);
+  vCount.PutScalar(0.0);
+  for (int sd=0;sd<hid_->NumMySubdomains();sd++)
+    {
+    for (int i=0;i<localMap2_[sd]->NumMyElements();i++)
+      {
+      int gid = localMap2_[sd]->GID(i);
+      int lid = rowMap_->LID(gid);
+#ifdef TESTING
+      if (lid<0) Tools::Error("incompatible local and global maps",__FILE__,__LINE__);
+#endif
+      vCount[lid]+=1.0;
+      }
+    }
 
-  // (2) re-initiailze the subdomain solvers. I don't know why this is 
+  // get the global weights for the row scaling of localA22
+  Epetra_Vector weights(*map2_);
+  Epetra_Export exporter(*rowMap_,*map2_);
+  CHECK_ZERO(weights.Export(vCount,exporter,Add));
+  CHECK_ZERO(vCount.Import(weights,exporter,Insert));
+  
+  // scale the rows of the localA22 blocks such that sum(localA22) = A22
+  int *indices;
+  double *values;
+  int len;
+  for (int sd=0;sd<hid_->NumMySubdomains();sd++)
+    {
+    for (int i=0;i<localA22_[sd]->NumMyRows();i++)
+      {
+      int gid=localA22_[sd]->GRID(i);
+      int lid=rowMap_->LID(gid);
+#ifdef TESTING
+      // these are cryptic error messages which should never occur, if they do it
+      // is time for the user to contact the developer...
+      if (lid<0) Tools::Error("map mismatch",__FILE__,__LINE__);
+      if (vCount[lid]==0) Tools::Error("bad scaling factor",__FILE__,__LINE__);
+#endif      
+      double scale = 1.0/vCount[lid];
+      CHECK_ZERO(localA22_[sd]->ExtractMyRowView(i,len,values,indices));
+      for (int j=0;j<len;j++) values[j]*=scale;
+      }
+    }
+  */
+  
+  // (2) re-initialize the subdomain solvers. I don't know why this is 
   //     required, maybe some Ifpack glitch? If we don't do this before
   //     Compute(), the solver doesn't work.
   DEBUG("initialize subdomain solvers...");
@@ -651,7 +725,7 @@ int Preconditioner::InitializeCompute()
     if (!IsInitialized())
       {
       // the user should normally call Initialize before Compute
-      Tools::Warning("HYMLS::Solver not initialized. I'll do it for you.",
+      Tools::Warning("HYMLS::Preconditioner not initialized. I'll do it for you.",
         __FILE__,__LINE__);
       this->Initialize();
       }
@@ -700,11 +774,15 @@ double nrow=0;
 REPORT_SUM_MEM(label_,"subdomain solvers",nnz,nnz+nrow,comm_);
 }
 
+// we assemble and transform the SC on the fly now,
+// putting only the values in that are actually used
+#ifdef ASSEMBLE_SCHUR_FIRST
   CHECK_ZERO(Schur_->Construct());
-
 #ifdef STORE_MATRICES
     MatrixUtils::Dump(*(Schur_->Matrix()),"SchurComplement"+Teuchos::toString(myLevel_)+".txt");
 #endif
+#endif
+
 
   if (scaleSchur_)
     {

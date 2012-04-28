@@ -62,20 +62,17 @@ HyperCube::HyperCube()
   // how many local rank 0, rank 1 etc are there on all these nodes?
   Teuchos::Array<int> my_proc_counts(maxProcPerNode_);
   Teuchos::Array<int> proc_counts(maxProcPerNode_);
-  for (int i=0;i<maxProcPerNode_;i++)
-    {
-    my_proc_counts[i]=0;
-    proc_counts[i]=0;
-    }
+  Teuchos::Array<int> scan_proc(maxProcPerNode_);
+  
+  int remainder=0;
+
   my_proc_counts[rankOnNode_]=1;
   CHECK_ZERO(commWorld_->SumAll(&my_proc_counts[0],&proc_counts[0],maxProcPerNode_));  
-
-  numProcOnNode_ = proc_counts[nodeNumber_];
-  DEBVAR(numProcOnNode_);
-  
+  CHECK_ZERO(commWorld_->ScanSum(&my_proc_counts[0],&scan_proc[0],maxProcPerNode_));  
+    
   int newRank=0;
-  for (int i=0;i<nodeNumber_;i++) newRank+=proc_counts[i];
-  newRank+=rankOnNode_;
+  for (int i=0;i<rankOnNode_;i++) newRank+=proc_counts[i];
+  newRank+=scan_proc[rankOnNode_];
   DEBVAR(newRank);
 
   // create a new reordered comm with all ranks still in it.
@@ -85,14 +82,16 @@ HyperCube::HyperCube()
   MPI_Comm_split(commWorld_->Comm(),color,newRank,&NewComm);
   
   reorderedComm_=Teuchos::rcp(new Epetra_MpiComm(NewComm));
-
-  if (commWorld_->MyPID()!=reorderedComm_->MyPID())
+  
+  for (int i=0;i<reorderedComm_->NumProc();i++)
     {
-    std::stringstream ss;
-    ss << "PID "<<commWorld_->MyPID()<<" (on node "<<nodeNumber_<<
-    ") remapped to PID "<<reorderedComm_->MyPID()<<"\n";
-    
-    std::cout << ss.str() << std::endl << std::flush;
+    if (reorderedComm_->MyPID()==i)
+      {
+      std::stringstream ss;
+      ss << "PID "<<commWorld_->MyPID()<<" (on node "<<nodeNumber_<<") => PID "<<reorderedComm_->MyPID()<<"\n";   
+      std::cout << ss.str() << std::endl << std::flush;
+      }
+    reorderedComm_->Barrier();
     }
   return;    
   }

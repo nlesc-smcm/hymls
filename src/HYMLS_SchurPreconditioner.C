@@ -10,6 +10,7 @@
 #include "HYMLS_Preconditioner.H" 
 #include "HYMLS_Householder.H" 
 #include "HYMLS_SepNode.H"
+#include "HYMLS_RestrictedOT.H"
 
 #include "Epetra_Comm.h" 
 #include "Epetra_Map.h" 
@@ -38,22 +39,23 @@
 namespace HYMLS {
 
 
-  // constructor
+  // private constructor
   SchurPreconditioner::SchurPreconditioner(
-                Teuchos::RCP<const Epetra_CrsMatrix> S, 
+                Teuchos::RCP<const Epetra_Operator> SC, 
                 Teuchos::RCP<const OverlappingPartitioner> hid, 
                 Teuchos::RCP<Teuchos::ParameterList> params,
                 int level,
                 Teuchos::RCP<Epetra_Vector> testVector)
-      : SchurMatrix_(S), hid_(hid),
+      : hid_(hid), comm_(Teuchos::rcp(&(SC->Comm()),false)),
+        map_(Teuchos::rcp(&(SC->OperatorDomainMap()),false)),
+        SchurMatrix_(Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(SC)),
+        SchurComplement_(Teuchos::rcp_dynamic_cast<const HYMLS::SchurComplement>(SC)),
         numInitialize_(0),numCompute_(0),numApplyInverse_(0),
         flopsInitialize_(0.0),flopsCompute_(0.0),flopsApplyInverse_(0.0),
         timeInitialize_(0.0),timeCompute_(0.0),timeApplyInverse_(0.0),
         initialized_(false),computed_(false),
-        comm_(Teuchos::rcp(&(S->Comm()),false)),
-        map_(Teuchos::rcp(&(S->RowMap()),false)),
         normInf_(-1.0), useTranspose_(false),
-        label_("HYMLS::SchurPreconditioner (level "+Teuchos::toString(level)+")"),
+        label_("SchurPreconditioner (level "+Teuchos::toString(level)+")"),
         myLevel_(level), variant_("Block Diagonal"),
         sparseMatrixOT_(Teuchos::null),
         testVector_(testVector),
@@ -63,18 +65,27 @@ namespace HYMLS {
         amActive_(true),
         PLA("Preconditioner")
     {
-    START_TIMER3(label_,"Constructor");
+    START_TIMER3(label_,"Constructor (1)");
     time_=Teuchos::rcp(new Epetra_Time(*comm_));
+    
+    if (SchurMatrix_==Teuchos::null && SchurComplement_==Teuchos::null)
+      {
+      HYMLS::Tools::Error("need either a CrsMatrix or a SchurComplement operator",
+        __FILE__,__LINE__);
+      }
     
     setParameterList(params);
           
-    int nnzPerRow=SchurMatrix_->MaxNumEntries();
-    
     DEBVAR(myLevel_);
     DEBVAR(maxLevel_);
 
     if (myLevel_==maxLevel_)
       {
+      if (SchurMatrix_==Teuchos::null)
+        {
+        Tools::Error("we need an assembled SC on the coarsest level",
+                        __FILE__,__LINE__);
+        }
       // reindex the reduced system, this seems to be a good idea when
       // solving it using Ifpack_Amesos
       linearMap_ = Teuchos::rcp(new Epetra_Map(map_->NumGlobalElements(),
@@ -94,6 +105,8 @@ namespace HYMLS {
         }
       }
 
+  isEmpty_ = (map_->NumGlobalElements()==0);
+
   //TODO: may want to give the user a choice here, currently we just have
   //      Householder.
   OT=Teuchos::rcp(new Householder(myLevel_));
@@ -101,11 +114,9 @@ namespace HYMLS {
 #ifdef DEBUGGING
   dumpVectors_=true;
 #endif
-  isEmpty_ = (SchurMatrix_->NumGlobalRows()==0);
   return;
   }
-
-
+  
   // destructor
   SchurPreconditioner::~SchurPreconditioner()
     {
@@ -201,7 +212,18 @@ namespace HYMLS {
       {
       CHECK_ZERO(InitializeSeparatorGroups());
       CHECK_ZERO(InitializeOT());
-      CHECK_ZERO(TransformAndDrop());
+      if (SchurMatrix_!=Teuchos::null)
+        {
+        CHECK_ZERO(TransformAndDrop());
+        }
+      else if (SchurComplement_!=Teuchos::null)
+        {
+        CHECK_ZERO(AssembleTransformAndDrop());
+        }
+      else
+        {
+        Tools::Error("SchurComplement not accessible",__FILE__,__LINE__);
+        }
 
       if (variant_=="Block Diagonal"||
           variant_=="Lower Triangular")
@@ -289,6 +311,19 @@ namespace HYMLS {
       restrictB_->SetMPISubComm(restrictA_->GetMPISubComm());
       }
     restrictedMatrix_=restrictA_->RestrictedMatrix();
+    int reducedNumProc = -1;
+      if (restrictA_->RestrictedProcIsActive())
+        {
+        reducedNumProc=restrictA_->RestrictedComm().NumProc();
+        }
+
+    // if we do not set this, Amesos may try to think of its own strategy
+    // to reduce the number of procs, which in my experience leads to MPI
+    // errors in MPI_Comm_free (as of Trilinos 10.0)
+    if (PL().sublist("Coarse Solver").isParameter("MaxProcs")==false)
+      {
+      PL().sublist("Coarse Solver").set("MaxProcs",reducedNumProc);
+      }
 #else
     restrictedMatrix_=linearMatrix_;
     amActive_=true;
@@ -305,7 +340,18 @@ namespace HYMLS {
     }
   else
     {
-    CHECK_ZERO(TransformAndDrop());
+    if (SchurMatrix_!=Teuchos::null)
+      {
+      CHECK_ZERO(TransformAndDrop());
+      }
+    else if (SchurComplement_!=Teuchos::null)
+      {
+      CHECK_ZERO(AssembleTransformAndDrop());
+      }
+    else
+      {
+      Tools::Error("Schur Complement not accessible",__FILE__,__LINE__);
+      }
 
 #if defined(TESTING)||defined(STORE_MATRICES)
     // dump a reordering for the Schur-complement (for checking in MATLAB)
@@ -324,7 +370,7 @@ namespace HYMLS {
     
     if (linear_indices)
       {
-      int myLength = SchurMatrix_->NumMyRows();
+      int myLength = map_->NumMyElements();
       newMap=Teuchos::rcp(new Epetra_Map(-1,myLength,0,*comm_));
       }
       
@@ -545,6 +591,11 @@ int SchurPreconditioner::InitializeSeparatorGroups()
   START_TIMER2(label_,"InitializeSeparatorGroups");
   if (subdivideSeparators_)
     {
+    if (SchurMatrix_==Teuchos::null)
+      {
+      Tools::Error("for splitting separators we need an assembled\n"
+                   "Schur-Complement",__FILE__,__LINE__);
+      }
     int dof=PL("Problem").sublist("Partitioner")
                   .get("Degrees of Freedom",-1);
     if (dof==-1)
@@ -751,8 +802,7 @@ int SchurPreconditioner::InitializeOT()
 
       // the vsums are still distributed and we must
       // form a correct col map
-      vsumColMap_ = MatrixUtils::AllGather(*vsumMap_);
-      REPORT_MEM(label_,"gathered vsumColMap",0,vsumColMap_->NumGlobalElements());
+      vsumColMap_ = MatrixUtils::CreateColMap(*matrix_,*vsumMap_,*vsumMap_);
 
       reducedSchur_=Teuchos::rcp(new 
             Epetra_CrsMatrix(Copy,*vsumMap_,*vsumColMap_,numBlocks));
@@ -841,10 +891,7 @@ int SchurPreconditioner::InitializeOT()
   int SchurPreconditioner::TransformAndDrop()
     {
     START_TIMER2(label_,"TransformAndDrop");
-#ifdef DEBUGGING
-    MatrixUtils::Dump(*SchurMatrix_,"S"+Teuchos::toString(myLevel_)+".txt");
-    MatrixUtils::Dump(*sparseMatrixOT_,"H"+Teuchos::toString(myLevel_)+".txt");
-#endif 
+
     // currently we simply compute T'*S*T using a sparse matmul.
     // I tried more fancy block-variants, but they were quite tedious
     // to implement and also slower than this.
@@ -860,9 +907,162 @@ int SchurPreconditioner::InitializeOT()
       }
 
     CHECK_ZERO(matrix_->FillComplete());
-    REPORT_MEM(label_,"Transformed SC",matrix_->NumGlobalNonzeros(),
-                                       matrix_->NumGlobalNonzeros()+
-                                       matrix_->NumGlobalRows());
+    REPORT_SUM_MEM(label_,"Transformed SC",matrix_->NumMyNonzeros(),
+                                       matrix_->NumMyNonzeros()+matrix_->NumMyRows(),
+                                       comm_);
+    return 0;
+    }
+
+
+  // alternative implementation without previously assembling the SC
+  // (saves some memory)
+  int SchurPreconditioner::AssembleTransformAndDrop()
+    {
+    START_TIMER2(label_,"AssembleTransformAndDrop");
+
+    if (SchurComplement_==Teuchos::null) Tools::Error("SC not available in unassembled form", __FILE__,__LINE__);
+
+    Teuchos::RCP<Epetra_FECrsMatrix> matrix = 
+        Teuchos::rcp_dynamic_cast<Epetra_FECrsMatrix>(matrix_);
+        
+    if (matrix==Teuchos::null)
+      {
+      int nzest = 0;
+      if (hid_->NumMySubdomains()>0)
+        {
+        nzest = hid_->NumElements(0);
+        if (hid_->NumGroups(0)>0) nzest -= hid_->NumElements(0,0);
+        }
+      matrix = Teuchos::rcp(new Epetra_FECrsMatrix(Copy,*map_,nzest));
+      matrix_=matrix;
+      }
+
+    if (matrix->Filled()) matrix->PutScalar(0.0);
+    
+    Epetra_IntSerialDenseVector indices;
+    Epetra_IntSerialDenseVector sep;
+    Epetra_SerialDenseMatrix Sk;
+        
+    // part remaining after dropping
+    Epetra_SerialDenseMatrix Spart;
+    Epetra_IntSerialDenseVector indsPart;
+
+    if (!matrix->Filled())
+      {
+      // start out by just putting the structure together.
+      // I do this because the SumInto function will fail 
+      // unless the values have been put in already. On the
+      // other hand, the Insert function will overwrite stuff
+      // we put in previously.
+      //
+      // NOTE: this is where the 'dropping' occurs, so if we
+      //       want to implement different schemes we have  
+      //       to adjust this loop in the first place.      
+      for (int sd=0;sd<hid_->NumMySubdomains();sd++)
+        {
+        // put in the Vsum-Vsum couplings
+        int numVsums = hid_->NumGroups(sd);
+        indsPart.Resize(numVsums);
+        if (numVsums>Spart.N()) Spart.Reshape(2*numVsums,2*numVsums);
+        numVsums=0;
+        for (int grp=1;grp<hid_->NumGroups(sd);grp++)
+          {
+          if (hid_->NumElements(sd,grp)>0)
+            {
+            indsPart[numVsums++]=hid_->GID(sd,grp,0);
+            }
+          }
+        indsPart.Resize(numVsums);
+        DEBVAR(sd);
+        DEBVAR(indsPart);
+        CHECK_NONNEG(matrix->InsertGlobalValues(indsPart.Length(),
+                indsPart.Values(), Spart.A()));
+        // now the non-Vsums
+        for (int grp=1;grp<hid_->NumGroups(sd);grp++)
+          {
+          int len = hid_->NumElements(sd,grp)-1;
+          indsPart.Resize(len);
+          if (Spart.N()<len) Spart.Reshape(2*len,2*len);
+          for (int j=0;j<len;j++)
+            {
+            indsPart[j]=hid_->GID(sd,grp,1+j);
+            }//j
+          DEBVAR(indsPart);
+          CHECK_NONNEG(matrix->InsertGlobalValues(indsPart.Length(),
+                        indsPart.Values(),Spart.A()));
+          }
+        }
+      // assemble with all zeros
+      DEBVAR("assemble pattern of transformed SC");
+      CHECK_ZERO(matrix->GlobalAssemble());
+      }
+    else
+      {
+      CHECK_ZERO(matrix->PutScalar(0.0));
+      }
+    
+    // now for each subdomain construct the SC part A21*A11\A12 for the      
+    // surrounding separators, apply orthogonal transforms to each separator 
+    // group and sum them into the pattern defined above, dropping everything
+    // that is not defined in the matrix pattern.
+     
+    // loop over all subdomains
+    for (int sd=0;sd<hid_->NumMySubdomains();sd++)
+      {
+      // construct the local contribution of the SC
+      // (for all separators around the subdomain) 
+      
+      // - get the global indices of the separators
+      CHECK_ZERO(SchurComplement_->Construct(sd, indices));
+      // construct the local A21*A11\A12
+      CHECK_ZERO(SchurComplement_->Construct(sd, Sk, indices));
+      // loop over all separators of the subdomain sd
+      for (int grp=1;grp<hid_->NumGroups(sd);grp++)
+        {
+        // apply orthogonal transform from left and right to the separator
+        int len = hid_->NumElements(sd,grp);
+        sep.Resize(len);
+        for (int j=0;j<len;j++)
+          {
+          int gid=hid_->GID(sd,grp,j);
+          for (int k=0;k<indices.Length();k++)
+            {
+            if (indices[k]==gid)
+              {
+              sep[j]=k;
+              break;
+              }
+            }//k
+          }//j
+        RestrictedOT::Apply(Sk,sep,*OT);
+        }//grp
+      CHECK_NONNEG(matrix->SumIntoGlobalValues(indices,Sk));
+      }//sd
+
+    DEBUG("assemble transformed/dropped SC");
+    CHECK_ZERO(matrix->GlobalAssemble());
+    CHECK_ZERO(matrix_->FillComplete());
+#ifdef STORE_MATRICES
+MatrixUtils::Dump(*matrix_,"TransDropSC"+Teuchos::toString(myLevel_)+"_part2.txt");    
+#endif
+    // now compute T*A22*T
+    if (transformedA22_==Teuchos::null)
+      {
+      transformedA22_=OT->Apply(*sparseMatrixOT_,SchurComplement_->A22());
+      }
+    else
+      {
+      CHECK_ZERO(OT->Apply(*transformedA22_,*sparseMatrixOT_,SchurComplement_->A22()));
+      }
+    CHECK_ZERO(EpetraExt::MatrixMatrix::Add(*transformedA22_,false,1.0,*matrix_,-1.0));
+#ifdef STORE_MATRICES
+MatrixUtils::Dump(*transformedA22_,"TransDropSC"+Teuchos::toString(myLevel_)+"_part1.txt");    
+    MatrixUtils::Dump(*matrix_,"TransDropSC_level_"+Teuchos::toString(myLevel_)+".txt");
+#endif
+    REPORT_SUM_MEM(label_,"transformed A22",transformedA22_->NumMyNonzeros(),
+                                            transformedA22_->NumMyNonzeros(),comm_);
+    REPORT_SUM_MEM(label_,"Transformed SC",matrix_->NumMyNonzeros(),
+                                           matrix_->NumMyNonzeros(),comm_);
     return 0;
     }
 
@@ -1033,6 +1233,8 @@ if (dumpVectors_)
   // explicitly constructed!
   const Epetra_RowMatrix& SchurPreconditioner::Matrix() const 
         {
+        if (SchurMatrix_==Teuchos::null) Tools::Error("SchurPreconditioner has no matrix",
+                __FILE__,__LINE__);
         return *SchurMatrix_;
         }
 

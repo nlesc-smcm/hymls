@@ -285,13 +285,20 @@ protected:
   //! The range and domain of these operators are the rowMap_.
   Teuchos::RCP<Epetra_CrsMatrix> A12_, A21_, A22_;
 
-  //! A12-parts of matrix in separate blocks.
+  //! A12-parts of matrix in separate blocks. The row maps of 
+  //! these operators are disjunct, so (A12*x2)_i = A12_i x2
   Teuchos::Array<Teuchos::RCP<Epetra_CrsMatrix> > localA12_;
 
-  //! A12-part of matrix in separate blocks
+  //! A21-part of matrix in separate blocks. The column maps
+  //! of these operators are disjunct, so 
+  // A21*x1 = sum_i(A21_i x1), computed on an overlapping row
+  // map so values shared by several procs are reproduced on 
+  // all partitions owning the separator node.
   Teuchos::Array<Teuchos::RCP<Epetra_CrsMatrix> > localA21_;
 
-  //! A22-part of matrix in separate blocks
+  //! A22-part of matrix in separate blocks. The rows are scaled
+  //! by 1/nsd, where nsd is the number of subdomains sharing the
+  //! separator node, so A22*x2 = sum_i(A22_i x2)
   Teuchos::Array<Teuchos::RCP<Epetra_CrsMatrix> > localA22_;
   
   //! map with _all_ interior elements

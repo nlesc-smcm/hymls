@@ -41,9 +41,11 @@ namespace Teuchos
 
 namespace HYMLS {
 
-//! Our basic preconditioner class
+class SchurComplement;
 
-/*! this class is initially created by a HYMLS::Solver object.
+//! Approximation of the Schur-Complement 
+
+/*! this class is initially created by a HYMLS::Preconditioner object.
     It will perform the reduction to a next-level Schur-complement
     by means of orthogonal transformations and dropping. To solve 
     the reduced Schur-complement, either another HYMLS::Solver is 
@@ -59,9 +61,16 @@ class SchurPreconditioner : public Ifpack_Preconditioner,
   
 public:
 
-  //! S can be the original Schur-complement operator (typically level 1)
-  //! or a sparse matrix (Epetra_CrsMatrix)
-  SchurPreconditioner(Teuchos::RCP<const Epetra_CrsMatrix> S, 
+  //! The SC operator passed into this class can either be an   
+  //! Epetra_CrsMatrix constructed by calling the               
+  //! SchurComplement->Construct function, or the SchurComple-  
+  //! ment object itself.. hid may be null on the coarsest      
+  //! level. The testVector reflects scaling of the entries in  
+  //! the B-part (for Stokes-C), typically it is something like 
+  //! 1/dx or simply ones for scaled matrices, and is taken     
+  //!from level to level by applying the orthogonal transforms  
+  //! to it and extracting the Vsums.                           
+  SchurPreconditioner(Teuchos::RCP<const Epetra_Operator> SC, 
                       Teuchos::RCP<const OverlappingPartitioner> hid,
                       Teuchos::RCP<Teuchos::ParameterList> params,
                       int level,
@@ -197,8 +206,17 @@ protected:
   //! communicator
   Teuchos::RCP<const Epetra_Comm> comm_;
   
-  //! sparse matrix representation of the SC operator we want to precondition
+  //! sparse matrix representation of the SC operator we want to precondition.
+  //! May be null if a SchurComplement object is passed in.
   Teuchos::RCP<const Epetra_CrsMatrix> SchurMatrix_;
+  
+  //! original SC object, may be null if a matrix is passed in.
+  Teuchos::RCP<const SchurComplement> SchurComplement_;
+  
+  //! transformed matrix part T'*A22*T. This is explicitly constructed
+  //! if a SchurComplement object is passed in rather than a CrsMatrix,
+  //! to facilitate constructing T'*(A22-A21*A11\A12)*T
+  Teuchos::RCP<Epetra_CrsMatrix> transformedA22_;
   
   //! my level ID
   int myLevel_;
@@ -374,6 +392,13 @@ private:
   //! apply orthogonal transform to sparse matrix,
   //! giving the matrix drop(T'*S*T) in matrix_.
   int TransformAndDrop();
+
+  //! Assemble the Schur complement of the Preconditioner
+  //! object creating this SchurPreconditioner, 
+  //! apply orthogonal transformations and dropping on the
+  //! fly. This variant is called if the SchurComplement is
+  //! not yet assembled ('Constructed()').
+  int AssembleTransformAndDrop();
 
   //! Initialize dense solvers for diagonal blocks
   //! ("Block Diagonal" variant)

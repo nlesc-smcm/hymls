@@ -59,7 +59,7 @@ class OrthogonalTransform
   //! apply a sparse matrix representation of a set of transforms from the left
   //! and right to a sparse matrix.
   virtual Teuchos::RCP<Epetra_CrsMatrix> Apply
-    (const Epetra_CrsMatrix& T, const Epetra_CrsMatrix A) const = 0 ;
+    (const Epetra_CrsMatrix& T, const Epetra_CrsMatrix& A) const = 0 ;
 
   //! apply a sparse matrix representation of a set of transforms from the left
   //! and right to a sparse matrix. This variant is to be preferred if the 

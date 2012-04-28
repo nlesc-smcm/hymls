@@ -306,6 +306,47 @@ MyGlobalElements,
     return new_map;
     }
 
+  // create an optimal column map for extracting A(rowMap,colMap), given a distributed
+  // column map which has entries owned by other procs that we need for the column map.
+  Teuchos::RCP<Epetra_Map> MatrixUtils::CreateColMap(const Epetra_CrsMatrix& A, 
+                    const Epetra_Map& newRows, const Epetra_Map& newCols)
+  {
+  START_TIMER3(Label(),"CreateColMap");
+
+    if (!A.HaveColMap()) Tools::Error("Matrix has no column map!",__FILE__,__LINE__);
+        
+  const Epetra_Map& old_map = A.ColMap();
+  
+  // build a test vector based on the old colmap and fill it with 0s
+  Epetra_IntVector test1(old_map);
+  test1.PutValue(0);
+  
+  // build a test vector based on the new columns and fill it with ones
+  Epetra_IntVector test2(newCols);
+  test2.PutValue(1);
+  
+  // import/add to see which of the previously owned cols we still need
+  Epetra_Import import(old_map,newCols);
+  
+  CHECK_ZERO(test1.Import(test2,import,Add));
+  int numel = 0;
+  for (int i=0;i<test1.MyLength();i++) if (test1[i]) numel++;
+  
+  int *my_gids = new int[numel];
+  int pos=0;
+  for (int i=0;i<test1.MyLength();i++)
+    {
+    if (test1[i]) 
+      {
+      my_gids[pos++]=old_map.GID(i);  
+      }
+    }
+  Teuchos::RCP<Epetra_Map> new_map = 
+        Teuchos::rcp(new Epetra_Map(-1,numel,my_gids,old_map.IndexBase(),old_map.Comm()));
+  delete [] my_gids;
+  return new_map;
+  } 
+
 
   // create "Gather" map from "Solve" map
   Teuchos::RCP<Epetra_BlockMap> MatrixUtils::Gather(const Epetra_BlockMap& map, int root)

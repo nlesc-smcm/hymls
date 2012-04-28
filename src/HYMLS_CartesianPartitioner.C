@@ -14,7 +14,7 @@
 using Teuchos::toString;
 
 #ifdef DEBUG
-//#define FLOW_DEBUGGING
+#define FLOW_DEBUGGING
 #endif
 
 #ifdef FLOW_DEBUGGING

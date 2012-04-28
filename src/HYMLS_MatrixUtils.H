@@ -7,11 +7,6 @@
 #ifndef MATRIX_UTILS_H
 #define MATRIX_UTILS_H
 
-#ifdef DEBUGGING
-#ifndef HAVE_TEUCHOS_ARRAY_BOUNDSCHECK
-#define HAVE_TEUCHOS_ARRAY_BOUNDSCHECK
-#endif
-#endif
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_Array.hpp"
 #include "Teuchos_ParameterList.hpp"
@@ -23,8 +18,11 @@
 // for comparing internally (e.g. with different number of
 // processors) it is better not to re-index when printing 
 // vectors or matrices:
+#ifdef MATLAB_COMPATIBILITY_MODE
+#define REINDEX_BY_DEFAULT true
+#else
 #define REINDEX_BY_DEFAULT false
-
+#endif
 class Epetra_Comm;
 class Epetra_BlockMap;
 class Epetra_Operator;
@@ -110,6 +108,11 @@ class MatrixUtils
     //! extracts those nodes from a column map that are actually present in a
     //! Matrix' Graph
     static Teuchos::RCP<Epetra_Map> CompressColMap(const Epetra_CrsMatrix& A);
+    
+    //! create an optimal column map for extracting A(rowMap,colMap), given a distributed
+    //! column map which has entries owned by other procs that we need for the column map.
+    static Teuchos::RCP<Epetra_Map> CreateColMap(const Epetra_CrsMatrix& A, 
+        const Epetra_Map& newRows, const Epetra_Map& newColumns);
 
     //! a general function for gathering sparse matrices. It is fairly slow
     //! as it rebuilds the required "GatherMap" every time.

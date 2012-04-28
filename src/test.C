@@ -3,6 +3,11 @@
 
 #include "Epetra_MpiComm.h"
 #include "Epetra_Map.h"
+
+#include "Epetra_Import.h"
+#include "Epetra_Export.h"
+
+#include "Epetra_Vector.h"
 #include "Epetra_CrsMatrix.h"
 
 #include "Teuchos_RCP.hpp"
@@ -12,56 +17,58 @@
 #include "Galeri_CrsMatrices.h"
 #include "Galeri_Maps.h"
 
+#include "HYMLS_Tools.H"
+
 int main(int argc, char** argv)
   {
   MPI_Init(&argc,&argv);
   Epetra_MpiComm comm(MPI_COMM_WORLD);
 
-  char* procname;
-  int procname_len=0;
-  MPI_Get_processor_name(procname,&procname_len);
-  std::string proc(procname);
-  for (int i=0; i<proc.length();i++)
+  int nx=8;
+  int np = comm.NumProc();
+  int pid= comm.MyPID();
+  int base=0;
+  Epetra_Map map(nx,nx/np,base,comm);
+  
+  int i0=pid*nx/np;
+  int i1=(pid+1)*nx/np;
+  
+  // create overlap
+  if (i0>0) i0--;
+  if (i1<nx) i1++;
+  
+  int len = i1-i0;
+  int *my_gids = new int[len];
+  for (int i=0;i<len;i++) my_gids[i]=i0+i;  
+  Epetra_Map map2(-1,len,my_gids,base,comm);
+  
+  Epetra_Export import(map2,map);
+  
+  Epetra_Vector v1(map);
+  Epetra_Vector v2a(map2);
+  Epetra_Vector v2b(map2);
+  
+  v2a.PutScalar(1.0);
+  v2b.PutScalar(0.0);
+  CHECK_ZERO(v1.Export(v2a,import,Add));
+  CHECK_ZERO(v2b.Import(v1,import,Insert));
+  
+  for (int i=0;i<np;i++)
     {
-    if (proc[i]<'0' || proc[i]>'9') proc[i]='0';
-    }
-
-  int rank = comm.MyPID();
-    
-  std::cout << rank << ": '"<<proc<<"' => "<<Teuchos::StrUtils::atoi(proc)<<std::endl<<std::flush;  
-
-  // create a subcommunicator
-  int color=MPI_UNDEFINED;
-  if (rank%2==0) color=1;
-  MPI_Comm MPI_SubComm_;
-  MPI_Comm_split(comm.Comm(),color,rank,&MPI_SubComm_);
-
-  bool active = (MPI_SubComm_!=MPI_COMM_NULL);
-  
-  Teuchos::RCP<Epetra_MpiComm> subComm = Teuchos::null;
-  if (active) subComm = Teuchos::rcp(new Epetra_MpiComm(MPI_SubComm_));
-  
-  int n=64;
-  Epetra_Map map(n,1,comm);
-  Teuchos::RCP<Epetra_Map> restrictedMap = Teuchos::null;
-  
-  if (active)
-    {
-    restrictedMap = Teuchos::rcp(new Epetra_Map(n,1,*subComm));
+    if (i==pid)
+      {
+      std::cout << "PID "<<pid<<": ";
+      for (int j=0;j<v2b.MyLength();j++) 
+          std::cout << v2b[j] <<" ";
+      std::cout << std::endl;
+      }
+    comm.Barrier();
+    comm.Barrier();
+    comm.Barrier();
+    comm.Barrier();
+    comm.Barrier();
     }
   
-  Epetra_Vector vec(map);
-  for (int i=0;i<vec.MyLength();i++) vec[i] = (double)map.GID(i);
-  
-  Teuchos::RCP<Epetra_Import> import=Teuchos::null;
-  Teuchos::RCP<Epetra_Vector> restrictedVector;
-  
-  if (active) 
-    {
-    import=Teuchos::rcp(new Epetra_Import(*map,*restrictedMap));
-    restrictedVec = Teuchos::rcp(new Epetra_Vector(*restrictedMap));
-    }
-
-
+  delete [] my_gids;
   MPI_Finalize();
   }

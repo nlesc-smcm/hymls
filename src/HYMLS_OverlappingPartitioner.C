@@ -1046,13 +1046,14 @@ int OverlappingPartitioner::FindMissingSepNodes
       {
       int sd_j = (*partitioner_)(*j);
       int type_j = p_nodeType[p_map.LID(*j)];
-//      if (sd_i!=sd_j)
-      if (true)
+//      if (sd_i!=sd_j)      
+      //if (true)
+      if (*i!=*j)
         {
         // a level 1 node can include level 2 nodes, but not level 0
         // or 1 (and the same holds on each level).
         int min_type = std::min(type_i,type_j);
-        DEBUG("\t check "<<*i<<" and "<<*j);
+//        DEBUG("\t check "<<*i<<" and "<<*j);
         CHECK_ZERO(G.ExtractGlobalRowCopy(*i,MaxNumEntriesPerRow,lenI,colsI));
         CHECK_ZERO(G.ExtractGlobalRowCopy(*j,MaxNumEntriesPerRow,lenJ,colsJ));
         for (int ii=0;ii<lenI;ii++)
@@ -1131,7 +1132,8 @@ int OverlappingPartitioner::GroupSeparators()
       int myLevel = (*p_nodeType_)[p_map.LID(row)];
 
       //DEBUG("Process node "<<i<<", GID "<<row);
-      connectedSubs.resize(0);      
+      connectedSubs.resize(1);
+      connectedSubs[0]=(*partitioner_)(row);
       //CHECK_ZERO(parallelGraph_->ExtractGlobalRowCopy(row,MaxNumElements,len,cols));
       int ierr=parallelGraph_->ExtractGlobalRowCopy(row,MaxNumElements,len,cols);
       if (ierr!=0)
@@ -1139,10 +1141,12 @@ int OverlappingPartitioner::GroupSeparators()
         Tools::Error("extracting global row "+Teuchos::toString(row)+
                 " failed on rank "+Teuchos::toString(comm_->MyPID()),__FILE__,__LINE__);
         }
-      DEBVAR(row);
-      DEBVAR(myLevel);
+//      DEBVAR(row);
+//      DEBVAR(myLevel);
       for (int j=0;j<len;j++)
         {
+//        DEBVAR(cols[j]);
+//        DEBVAR((*p_nodeType_)[p_map.LID(cols[j])]);
         // We only consider edges to lower-level nodes here,
         // e.g. from face separators to interior, from 
         // from edges to faces and from vertices to edges.
@@ -1160,8 +1164,12 @@ int OverlappingPartitioner::GroupSeparators()
           // | SD1 | SD2 |        (here separators s1 and s2 both connect 
           // s1    s2    s1       to subdomains SD1 and SD2)              
           //                                                              
-          int sign = flow? flow:1;
-          connectedSubs.append(sign*(*partitioner_)(cols[j]));
+          if (flow)
+            {
+            int sign = flow/abs(flow);
+            connectedSubs.append(sign*(*partitioner_)(cols[j]));
+            }
+//          DEBVAR(connectedSubs);
           }
         }
       if (connectedSubs.length()==0)

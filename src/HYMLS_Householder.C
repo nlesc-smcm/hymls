@@ -282,7 +282,7 @@ namespace HYMLS {
   // we have to apply (2w'w-I)A(2w'w-I)=A-2w'wA-2Aw'w+4w'wAw'w
   //                                   =A-2Aw'w-2w'w(A-2Aw'w)
   Teuchos::RCP<Epetra_CrsMatrix> Householder::Apply
-        (const Epetra_CrsMatrix& T, const Epetra_CrsMatrix A) const
+        (const Epetra_CrsMatrix& T, const Epetra_CrsMatrix& A) const
     {
     START_TIMER2(label_,"H^TAH (first call)");
         
