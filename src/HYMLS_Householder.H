@@ -19,26 +19,29 @@ class Householder : public OrthogonalTransform
   //!
   ~Householder();
 
-  //! compute X=H*Y
-  int Apply(const Epetra_SerialDenseVector& Y, Epetra_SerialDenseVector& X) const;
-
   //! compute X=H*X in place
-  int Apply(Epetra_SerialDenseVector& X) const;
-
-  //! compute X=H*Y*H'
-  int Apply(const Epetra_SerialDenseMatrix& Y, Epetra_SerialDenseMatrix& X) const;
-
-  //! compute X=H*Y*H' in place
   int Apply(Epetra_SerialDenseMatrix& X) const;
 
-  //! compute X=H'*Y
-  int ApplyInverse(const Epetra_SerialDenseVector& Y, Epetra_SerialDenseVector& X) const;
+  //! compute X=X*H' in place
+  int ApplyR(Epetra_SerialDenseMatrix& X) const;
+
+  //! compute X=H*Y*H' in place
+  int ApplyLR(Epetra_SerialDenseMatrix& X) const;
 
   //! compute X=H'*X in place
-  int ApplyInverse(Epetra_SerialDenseVector& X) const;
+  int ApplyInverse(Epetra_SerialDenseMatrix& X) const;
 
-  //! compute X=H'*Y*H
-  int ApplyInverse(const Epetra_SerialDenseMatrix& Y, Epetra_SerialDenseMatrix& X) const;
+  //! compute X=H*X in place, with H=I-2v'v
+  int Apply(Epetra_SerialDenseMatrix& X,
+       const Epetra_SerialDenseVector& v) const;
+
+  //! compute X=X*H' in place, with H=I-2v'v
+  int ApplyR(Epetra_SerialDenseMatrix& X,
+       const Epetra_SerialDenseVector& v) const;
+
+  //! compute X=H'*X in place, with H=I-2v'v
+  int ApplyInverse(Epetra_SerialDenseMatrix& X,
+             const Epetra_SerialDenseVector& v) const;
 
   //! explicitly form the OT as a dense matrix. The dimension is given by
   //! the size of the output matrix.

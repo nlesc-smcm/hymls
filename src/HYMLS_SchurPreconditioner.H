@@ -237,7 +237,7 @@ protected:
   Teuchos::RCP<const Epetra_Map> map_;
 
   //! test vector to determine entries in orth. trans.
-  Teuchos::RCP<Epetra_Vector> testVector_;
+  Teuchos::RCP<Epetra_Vector> testVector_,localTestVector_;
     
   //! orthogonal transformaion for separators
   Teuchos::RCP<OrthogonalTransform> OT;
@@ -392,8 +392,11 @@ private:
   //! object creating this SchurPreconditioner, 
   //! apply orthogonal transformations and dropping on the
   //! fly. This variant is called if the SchurComplement is
-  //! not yet assembled ('Constructed()').
-  int AssembleTransformAndDrop();
+  //! not yet assembled ('Constructed()'). 
+  //!
+  //! if paternOnly==true, a matrix with the right pattern
+  //! but only 0 entries is created.
+  int AssembleTransformAndDrop(bool patternOnly=false);
 
   //! Initialize dense solvers for diagonal blocks
   //! ("Block Diagonal" variant)

@@ -20,126 +20,67 @@ namespace HYMLS {
                                WTmat_(Teuchos::null),
                                Cmat_(Teuchos::null)
     {
-    START_TIMER3(label_,"Constructor");
     }
    
    Householder::~Householder() 
      {
-     START_TIMER3(label_,"Destructor");
      }
    
-  //! compute X=Q*Y
-  int Householder::Apply(const Epetra_SerialDenseVector& Y, Epetra_SerialDenseVector& X) const
-    {
-    // X = (2vv'/v'v-I)Y
-    // can be written as X = Z - Y, Z= (2/nrmv^2 v'Y)v
-    // (we use a vector v which is 1 everywhere except that the first entry is 1+sqrt(n))
-    int n=Y.Length();
-    double sqn=sqrt((double)n);
-    double v1=1+sqn; // first vector element, all others are 1
-    double fac1 = 1.0/(n+sqn); // 2/v'v
-    // v'x
-    double fac2 = sqn*Y(0);
-    for (int i=0;i<n;i++) 
-      {
-      fac2+= Y(i);
-      }
-    double fac=fac1*fac2;
-    X(0)=v1*fac-Y(0);
-    for (int i=1;i<n;i++) 
-      {
-      X(i)=fac-Y(i);
-      }
-    return 0;
-    }
-
   //! compute X=Q*X in place
-  int Householder::Apply(Epetra_SerialDenseVector& X) const
+  int Householder::Apply(Epetra_SerialDenseMatrix& X) const
     {
     // X = (2vv'/v'v-I)Y
     // can be written as X = Z-Y, Z= (2/nrmv^2 v'Y)v
     // (we use a vector v which is 1 everywhere except that the first entry is 1+sqrt(n))
-    int n=X.Length();
+    int n=X.M();
     double sqn=sqrt((double)n);
     double v1=1+sqn; // first vector element, all others are 1
     double fac1 = 1.0/(n+sqn); // 2/v'v
-    // v'x
-    double fac2 = sqn*X(0);
-    for (int i=0;i<n;i++) 
+    for (int k=0;k<X.N();k++)
       {
-      fac2+= X(i);
-      }
-    double fac=fac1*fac2;
-    X(0)=v1*fac-X(0);
-    for (int i=1;i<n;i++) 
-      {
-      X(i)=fac-X(i);
+      // v'x
+      double fac2 = sqn*X[k][0];
+      for (int i=0;i<n;i++) 
+        {
+        fac2+= X[k][i];
+        }
+      double fac=fac1*fac2;
+      X[k][0]=v1*fac-X[k][0];
+      for (int i=1;i<n;i++) 
+        {
+        X[k][i]=fac-X[k][i];
+        }
       }
     return 0;
     }
 
-  //! compute X=Q*Y*Q'
-  int Householder::Apply(const Epetra_SerialDenseMatrix& Y, Epetra_SerialDenseMatrix& X) const
+  //! compute X=X*Q' in place
+  int Householder::ApplyR(Epetra_SerialDenseMatrix& X) const
     {
-    // let X,Y \in R^{m x n}
-    // Q = (1-alpha*vv')=Q', alpha = 2/(v'*v)
-    // X = (alpha_m*vmvm'-I) Y (alpha_n*vnvn'-I)
-    //   = alpha_m*vmvm' Y alpha_n*vnvn' - alpha_m*vmvm' Y - Y alpha_nvnvn' + Y
-    int n=Y.N();
-    int m=Y.M();
+    int n=X.N();
     double sqn=sqrt((double)n);
-    double sqm=sqrt((double)m);
-    double alpha_n = 1.0/(n+sqn); // 2/v'v
-    double alpha_m = 1.0/(m+sqm); // 2/v'v
-
-    // our implementation is very unoptimized right now, we 
-    // simply use matrix-vector products and do not make use
-    // of the special structure of the vectors or the operations
-    Epetra_SerialDenseVector vm(m);
-    Epetra_SerialDenseVector vn(n);
-    
-    vn(0)=1.0+sqn;
-    for (int i=1;i<n;i++) vn(i)=1.0;
-    vm(0)=1.0+sqm;
-    for (int i=1;i<m;i++) vm(i)=1.0;
-    
-    // compute A*vn, an m-vector
-    Epetra_SerialDenseVector Avn(m);
-    // for some reason the 'const' attribute is missing on this function
-    CHECK_ZERO(const_cast<Epetra_SerialDenseMatrix&>(Y).Multiply(false,vn,Avn));
-    
-    // compute vm'*A, an n-vector
-    Epetra_SerialDenseVector vmTA(n);
-    CHECK_ZERO(const_cast<Epetra_SerialDenseMatrix&>(Y).Multiply(true,vm,vmTA));
-    
-    double vTAv = vmTA.Dot(vn);
-        
-    // perform rank 1 updates
-    // (TODO: optimize this by avoiding all the multiplies with 1)
-    double factor = alpha_m*alpha_n*vTAv;
-    for (int j=0;j<n;j++)
-      for (int i=0;i<m;i++)
+    double v1=1+sqn; // first vector element, all others are 1
+    double fac1 = 1.0/(n+sqn); // 2/v'v
+    for (int k=0;k<X.M();k++)
+      {
+      // v'x
+      double fac2 = sqn*X[0][k];
+      for (int i=0;i<n;i++) 
         {
-        // X = Y - alpha_n Avnvn' - alpha_m vmvm'A + factor*vn*vm'
-        X(i,j)=Y(i,j) - alpha_n*Avn(i)*vn(j) - alpha_m*vm(i)*vmTA(j)
-                      + factor*vm(i)*vn(j);
+        fac2+= X[i][k];
         }
-    /*
-    DEBVAR(m);
-    DEBVAR(n);
-    DEBVAR(X);
-    DEBVAR(Y);
-    DEBVAR(Avn);
-    DEBVAR(vmTA);
-    DEBVAR(vTAv);
-    DEBVAR(alpha_m);
-    DEBVAR(alpha_n);
-    */
+      double fac=fac1*fac2;
+      X[0][k]=v1*fac-X[0][k];
+      for (int i=1;i<n;i++) 
+        {
+        X[i][k]=fac-X[i][k];
+        }
+      }
     return 0;
     }
 
   //! compute X=Q*Y*Q' in place
-  int Householder::Apply(Epetra_SerialDenseMatrix& Y) const
+  int Householder::ApplyLR(Epetra_SerialDenseMatrix& Y) const
     {
     // let Y \in R^{m x n}
     // Q = (1-alpha*vv')=Q', alpha = 2/(v'*v)
@@ -188,22 +129,85 @@ namespace HYMLS {
     }
     
 
-  //! compute X=Q''Y
-  int Householder::ApplyInverse(const Epetra_SerialDenseVector& Y, Epetra_SerialDenseVector& X) const
-    {
-    return Apply(Y,X);
-    }
-
-  //! compute X=Q''X in place
-  int Householder::ApplyInverse(Epetra_SerialDenseVector& X) const
+  int Householder::ApplyInverse(Epetra_SerialDenseMatrix& X) const
     {
     return Apply(X);
     }
-
-  //! compute X=Q'*Y*Q
-  int Householder::ApplyInverse(const Epetra_SerialDenseMatrix& Y, Epetra_SerialDenseMatrix& X) const
+    
+  //! compute X=Q*X in place
+  int Householder::Apply(Epetra_SerialDenseMatrix& X,
+                   const Epetra_SerialDenseVector& v) const
     {
-    return Apply(Y,X);
+    // X = (2vv'/v'v-I)Y
+    // can be written as X = Z-Y, Z= (2/nrmv^2 v'Y)v
+    int n=X.M();
+#ifdef TESTING
+    if (v.Length()!=n)
+      {
+      return -1;
+      }
+#endif
+    double nrmv=v.Norm2();
+    double v1=v(0)+nrmv; // first vector element, all others are those in v
+    // this is 2/(v'v) with the adjusted v
+    double fac1 = 1.0/(nrmv*v1);
+    for (int k=0;k<X.N();k++)
+      {
+      // v'x
+      double fac2 = nrmv*X[k][0];
+      for (int i=0;i<n;i++)
+        {
+        fac2+= X[k][i]*v(i);
+        }
+      double fac=fac1*fac2;
+      X[k][0]=v1*fac-X[k][0];
+      for (int i=1;i<n;i++)
+        {
+        X[k][i]=v(i)*fac-X[k][i];
+        }
+      }
+    return 0;
+    }
+
+  //! compute X=X*Q' in place
+  int Householder::ApplyR(Epetra_SerialDenseMatrix& X,
+                    const Epetra_SerialDenseVector& v) const
+    {
+    // X = (2vv'/v'v-I)Y
+    // can be written as X = Z-X, Z= (2/nrmv^2 v'Y)v
+    int n=X.N();
+#ifdef TESTING
+    if (v.Length()!=n)
+      {
+      return -1;
+      }
+#endif
+    // to zero out all but the first entry in v, use v
+    double nrmv=v.Norm2();
+    double v1=v(0)+nrmv; // first vector element, all others are those in v
+    double fac1 = 1.0/(nrmv*v1); // 2/v'v
+    for (int k=0;k<X.M();k++)
+      {
+      // v'x
+      double fac2 = nrmv*X[0][k];
+      for (int i=0;i<n;i++)
+        {
+        fac2+= X[i][k]*v(i);
+        }
+      double fac=fac1*fac2;
+      X[0][k]=v1*fac-X[0][k];
+      for (int i=1;i<n;i++) 
+        {
+        X[i][k]=fac*v(i)-X[i][k];
+        }
+      }    
+    return 0;
+    }
+
+  int Householder::ApplyInverse(Epetra_SerialDenseMatrix& X,
+                           const Epetra_SerialDenseVector& v) const
+    {
+    return Apply(X,v);
     }
 
   //! explicitly form the OT as a dense matrix. The dimension is given by
@@ -295,32 +299,44 @@ namespace HYMLS {
     
     Wmat_=Teuchos::rcp(&T,false);  
     
+#ifdef DEBUGGING
+    MatrixUtils::Dump(A, "HOUSE_A.txt");
+    MatrixUtils::Dump(*Wmat_, "HOUSE_W.txt");
+#endif
+
     // Aw'
-    Teuchos::RCP<Epetra_CrsMatrix> AwT = Teuchos::rcp(new 
+    Teuchos::RCP<Epetra_CrsMatrix> AwT = Teuchos::rcp(new
         Epetra_CrsMatrix(Copy,A.RowMap(),A.MaxNumEntries()) );
 
     DEBUG("compute A*wT...");
-    // this call doesn't give the correct result in parallel, why not??
-    //    CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(A,false,T,true,*AwT));
 
+//#define MATMUL_BUG 1
+
+    // this call doesn't give the correct result in parallel, why not??
+#ifndef MATMUL_BUG
+        CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(A,false,T,true,*AwT,true));
+#else
     Transp_=Teuchos::rcp(new Epetra_RowMatrixTransposer(const_cast<Epetra_CrsMatrix*>(&T)));
     Epetra_CrsMatrix* tmp;
     Transp_->CreateTranspose(false,tmp,const_cast<Epetra_Map*>(&(T.RowMap())));
     WTmat_=Teuchos::rcp(tmp,true);
     CHECK_ZERO(WTmat_->FillComplete());
-        
-    CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(A,false,*WTmat_,false,*AwT));
-
+    CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(A,false,*WTmat_,false,*AwT,true));
+#endif
     // Aw'w
     Teuchos::RCP<Epetra_CrsMatrix> AwTw = Teuchos::rcp(new 
         Epetra_CrsMatrix(Copy,A.RowMap(),AwT->MaxNumEntries()) );
 
     DEBUG("compute A*wT*w...");
-    CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(*AwT,false,T,false,*AwTw));
-    CHECK_ZERO(AwTw->FillComplete());
+    CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(*AwT,false,T,false,*AwTw,false));
+
+#ifdef DEBUGGING
+    MatrixUtils::Dump(*AwT,"HOUSE_AwT.txt");
+    MatrixUtils::Dump(*AwTw,"HOUSE_AwTw.txt");
+#endif
 
     // C=A-2Aw'w
-    Cmat_ = AwTw ;
+    Cmat_ = AwTw;
     if (SaveMemory()) 
       {
       AwT=Teuchos::null;
@@ -328,32 +344,45 @@ namespace HYMLS {
       }
     
     DEBUG("compute C=A(2wTw-I)...");
-    CHECK_ZERO(EpetraExt::MatrixMatrix::Add(A,false,1.0,*Cmat_,-2.0));
+    CHECK_ZERO(EpetraExt::MatrixMatrix::Add(A,false,-1.0,*Cmat_,2.0));
     CHECK_ZERO(Cmat_->FillComplete());
+
+#ifdef DEBUGGING
+    MatrixUtils::Dump(*Cmat_,"HOUSE_C.txt");
+#endif
 
     // wC
     WCmat_ = Teuchos::rcp(new Epetra_CrsMatrix(Copy,A.RowMap(),Cmat_->MaxNumEntries()) );
 
     DEBUG("compute wC...");
-    CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(T,false,*Cmat_,false,*WCmat_));
-    CHECK_ZERO(WCmat_->FillComplete());
+    CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(T,false,*Cmat_,false,*WCmat_,true));
 
     // wTwC
     Teuchos::RCP<Epetra_CrsMatrix> wTwC = Teuchos::rcp(new 
         Epetra_CrsMatrix(Copy,A.RowMap(),WCmat_->MaxNumEntries()) );
 
     DEBUG("compute wTwC...");
-    CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(*WTmat_,false,*WCmat_,false,*wTwC));
-    CHECK_ZERO(wTwC->FillComplete());
-
+#ifndef MATMUL_BUG
+    CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(*Wmat_,true,*WCmat_,false,*wTwC,false));
+#else
+    CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(*WTmat_,false,*WCmat_,false,*wTwC,false));
+#endif
+#ifdef DEBUGGING
+    MatrixUtils::Dump(*WCmat_,"HOUSE_wC.txt");
+    MatrixUtils::Dump(*wTwC,"HOUSE_wTwC.txt");
+#endif
     if (SaveMemory())
       {
       WTmat_=Teuchos::null;
       WCmat_=Teuchos::null;
       }
 
-    DEBUG("compute TAT=C-2wTwC...");
-    CHECK_ZERO(EpetraExt::MatrixMatrix::Add(*Cmat_,false,1.0,*wTwC,-2.0));
+    DEBUG("compute TAT=2wTwC-C...");
+    CHECK_ZERO(EpetraExt::MatrixMatrix::Add(*Cmat_,false,-1.0,*wTwC,2.0));
+
+#ifdef DEBUGGING
+    MatrixUtils::Dump(*wTwC,"HOUSE_HAH.txt");
+#endif
 
     if (SaveMemory())
       {

@@ -102,6 +102,9 @@ namespace HYMLS {
     // construct a graph with overlap between partitions (for finding/grouping    
     // separators in parallel).
     parallelGraph_=CreateParallelGraph();
+    
+    int nzgraph = parallelGraph_->NumMyNonzeros();
+    REPORT_SUM_MEM(label_,"graph with overlap",0,nzgraph,comm_);
         
     //TODO: the algorithm works a lot on the graph of the matrix,
     //      and we do a lot of ExtractGlobalRowCopy() operations,
@@ -420,6 +423,10 @@ int OverlappingPartitioner::CreateGraph()
 
   // copy the graph
   graph_=Teuchos::rcp(new Epetra_CrsGraph(crsMatrix->Graph()));
+
+    int nzgraph = graph_->NumMyNonzeros();
+    REPORT_SUM_MEM(label_,"aux graph",0,nzgraph,comm_);
+
   return 0;    
   }
 
@@ -661,6 +668,10 @@ DEBVAR(*p_nodeType_);
   
   overlappingMap_=Teuchos::rcp(new  Epetra_Map
         (-1,NumMyElements, MyElements,partitioner_->Map().IndexBase(),*comm_));
+  
+  REPORT_SUM_MEM(label_,"map with overlap",0,overlappingMap_->NumMyElements(),comm_);
+  REPORT_SUM_MEM(label_,"int vectors",0,nodeType_->MyLength()
+        +p_nodeType_->MyLength(),comm_);
   
   return 0;
   }

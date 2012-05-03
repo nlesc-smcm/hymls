@@ -63,7 +63,7 @@ namespace HYMLS {
         PLA("Preconditioner")
     {
     START_TIMER2(label_,"Constructor");
-    REPORT_SUM_MEM(label_,"Matrix",K->NumMyNonzeros(),K->NumMyNonzeros()+K->NumMyRows(),comm_);
+    REPORT_SUM_MEM(label_,"Matrix",K->NumMyNonzeros(),K->NumMyNonzeros(),comm_);
     serialComm_=Teuchos::rcp(new Epetra_SerialComm());
 //    serialComm_=Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_SELF));
     time_=Teuchos::rcp(new Epetra_Time(K->Comm()));
@@ -504,7 +504,7 @@ try {
       nzCopy+=(double)(A21_->NumMyNonzeros());
       nzCopy+=(double)(A22_->NumMyNonzeros());
 
-      REPORT_SUM_MEM(label_,"copies of matrix parts",0,nzCopy,comm_);
+      REPORT_SUM_MEM(label_,"copies of matrix parts",nzCopy,nzCopy,comm_);
 
 #ifdef STORE_MATRICES
 MatrixUtils::Dump(*A12_, "Precond"+Teuchos::toString(myLevel_)+"_A12.txt");
@@ -768,7 +768,7 @@ double nrow=0;
 #endif      
       }
     }
-REPORT_SUM_MEM(label_,"subdomain solvers",nnz,nnz+nrow,comm_);
+REPORT_SUM_MEM(label_,"subdomain solvers",nnz,nnz,comm_);
 }
 
 // we assemble and transform the SC on the fly now,

@@ -18,27 +18,33 @@ class OrthogonalTransform
   
   public:
   
-  //! compute X=Q*Y
-  virtual int Apply(const Epetra_SerialDenseVector& Y, Epetra_SerialDenseVector& X) const = 0;
-
   //! compute X=Q*X in place
-  virtual int Apply(Epetra_SerialDenseVector& X) const = 0;
-
-  //! compute X=Q*Y*Q'
-  virtual int Apply(const Epetra_SerialDenseMatrix& Y, Epetra_SerialDenseMatrix& X) const = 0;
-
-  //! compute X=Q*Y*Q' in place
   virtual int Apply(Epetra_SerialDenseMatrix& X) const = 0;
 
-  //! compute X=Q'Y
-  virtual int ApplyInverse(const Epetra_SerialDenseVector& Y, Epetra_SerialDenseVector& X) const = 0;
+  //! compute X=X*Q' in place
+  virtual int ApplyR(Epetra_SerialDenseMatrix& X) const = 0;
+
+  //! compute X=Q*Y*Q' in place
+  virtual int ApplyLR(Epetra_SerialDenseMatrix& X) const = 0;
 
   //! compute X=Q'X in place
-  virtual int ApplyInverse(Epetra_SerialDenseVector& X) const = 0;
+  virtual int ApplyInverse(Epetra_SerialDenseMatrix& X) const = 0;
 
-  //! compute X=Q'*Y*Q
-  virtual int ApplyInverse(const Epetra_SerialDenseMatrix& Y, Epetra_SerialDenseMatrix& X) const = 0;
-  
+  //! compute X=Q*X in place 
+  //! with a vector passed in to define the transformation
+  virtual int Apply(Epetra_SerialDenseMatrix& X,
+              const Epetra_SerialDenseVector& v) const = 0;
+
+  //! compute X=X*Q' in place
+  //! with a vector passed in to define the transformation
+  virtual int ApplyR(Epetra_SerialDenseMatrix& X, 
+               const Epetra_SerialDenseVector& v) const = 0;
+
+  //! compute X=Q'X in place
+  //! with a vector passed in to define the transformation
+  virtual int ApplyInverse(Epetra_SerialDenseMatrix& X,
+                     const Epetra_SerialDenseVector& v) const = 0;
+
   //! explicitly form the OT as a dense matrix. The dimension is given by
   //! the size of the output matrix.
   virtual int Construct(Epetra_SerialDenseMatrix& M) const = 0;

@@ -218,7 +218,7 @@ namespace HYMLS {
         }
       else if (SchurComplement_!=Teuchos::null)
         {
-        CHECK_ZERO(AssembleTransformAndDrop());
+        CHECK_ZERO(AssembleTransformAndDrop(false));
         }
       else
         {
@@ -276,10 +276,15 @@ namespace HYMLS {
 
   if (myLevel_==maxLevel_)
     {
-    // drop numerical zeros:
+    // drop numerical zeros. We need to copy the matrix anyway because
+    // we may want to put in some artificial Dirichlet conditions and 
+    // scale the matrix.
+#ifdef TESTING
+      Tools::Out("drop on coarsest level");
+#endif      
     reducedSchur_ = MatrixUtils::DropByValue(SchurMatrix_, 
         HYMLS_SMALL_ENTRY, MatrixUtils::Absolute);
-
+    
     for (int i=0;i<fix_gid_.length();i++)
       {
       CHECK_ZERO(MatrixUtils::PutDirichlet(*reducedSchur_,fix_gid_[i]));
@@ -437,11 +442,19 @@ namespace HYMLS {
   //  DropByValue before going to the next level. Careful about
   //  the pointer, though, which is shared with the next level 
   //  solver...
+  
+  // this step may be necessary if the subdomain solver requires numerical
+  // zeros to be removed physically from the saddlepoint problem on the next
+  // level, for now we disable it to save some time end space.
+/*
+#ifdef TESTING
+  Tools::Out("drop before going to next level");
+#endif
   Teuchos::RCP<Epetra_CrsMatrix> tmp = MatrixUtils::DropByValue(reducedSchur_,
         HYMLS_SMALL_ENTRY, MatrixUtils::Absolute);
   *reducedSchur_ = *tmp; 
   tmp=Teuchos::null;
-
+*/
 
   
 #ifdef STORE_MATRICES
@@ -818,6 +831,9 @@ int SchurPreconditioner::InitializeOT()
       CHECK_ZERO(reducedSchur_->FillComplete(*vsumMap_,*vsumMap_));
 
       // drop numerical zeros so that the domain decomposition works
+#ifdef TESTING
+      Tools::Out("drop because of next DD");
+#endif      
       reducedSchur_=MatrixUtils::DropByValue(reducedSchur_,HYMLS_SMALL_ENTRY,MatrixUtils::Absolute);
       
       // I think this is required to make the matrix Ifpack-proof:
@@ -839,7 +855,11 @@ int SchurPreconditioner::InitializeOT()
     {
     if (nextLevelHID_==Teuchos::null)
       {
+      bool stat=true;
+      try {
       nextLevelHID_ = hid_->SpawnNextLevel(reducedSchur_,nextLevelParams_);
+      } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,stat);
+      if (!stat) Tools::Fatal("Failed to create next level ordering",__FILE__,__LINE__);
       }
     
     Epetra_Vector transformedTestVector(*map_);
@@ -908,7 +928,7 @@ int SchurPreconditioner::InitializeOT()
 
     CHECK_ZERO(matrix_->FillComplete());
     REPORT_SUM_MEM(label_,"Transformed SC",matrix_->NumMyNonzeros(),
-                                       matrix_->NumMyNonzeros()+matrix_->NumMyRows(),
+                                       matrix_->NumMyNonzeros(),
                                        comm_);
     return 0;
     }
@@ -916,9 +936,9 @@ int SchurPreconditioner::InitializeOT()
 
   // alternative implementation without previously assembling the SC
   // (saves some memory)
-  int SchurPreconditioner::AssembleTransformAndDrop()
+  int SchurPreconditioner::AssembleTransformAndDrop(bool patternOnly)
     {
-    START_TIMER2(label_,"AssembleTransformAndDrop");
+    string timerLabel="AssembleTransformAndDrop";
 
     if (SchurComplement_==Teuchos::null) Tools::Error("SC not available in unassembled form", __FILE__,__LINE__);
 
@@ -927,6 +947,8 @@ int SchurPreconditioner::InitializeOT()
         
     if (matrix==Teuchos::null)
       {
+      timerLabel=timerLabel+" (first call)";
+    START_TIMER2(label_,timerLabel);
       int nzest = 0;
       if (hid_->NumMySubdomains()>0)
         {
@@ -936,9 +958,13 @@ int SchurPreconditioner::InitializeOT()
       matrix = Teuchos::rcp(new Epetra_FECrsMatrix(Copy,*map_,nzest));
       matrix_=matrix;
       }
-
+    else
+      {
+      START_TIMER2(label_,timerLabel);
+      }
     Epetra_IntSerialDenseVector indices;
     Epetra_IntSerialDenseVector sep;
+    Epetra_SerialDenseVector v;
     Epetra_SerialDenseMatrix Sk;
         
     // part remaining after dropping
@@ -993,15 +1019,71 @@ int SchurPreconditioner::InitializeOT()
       // assemble with all zeros
       DEBVAR("assemble pattern of transformed SC");
       CHECK_ZERO(matrix->GlobalAssemble());
+      CHECK_ZERO(matrix_->FillComplete());
       }
     else
       {
       CHECK_ZERO(matrix->PutScalar(0.0));
       }
 
+if (patternOnly)
+  {
+  // put in ones to avoid dropping the values out again
+  CHECK_ZERO(matrix->PutScalar(1.0));
+  return 0;
+  }
+
     // put T*A22*T into matrix_, dropping anything that doesn't fit in
     // the predefined pattern.
-    CHECK_NONNEG(OT->Apply(*matrix,*sparseMatrixOT_,SchurComplement_->A22()));
+    Teuchos::RCP<Epetra_CrsMatrix> transformedA22 =
+    OT->Apply(*sparseMatrixOT_,SchurComplement_->A22());
+    
+
+#ifdef DEBUGGING
+  MatrixUtils::Dump(*matrix_,"SchurPreconditioner"+Teuchos::toString(myLevel_)+"Pattern.txt");
+  MatrixUtils::Dump(*transformedA22,"TransformedA22.txt");
+#endif
+
+    if (transformedA22->RowMap().SameAs(matrix->RowMap())==false)
+      {
+      HYMLS::Tools::Error("mismatched maps",__FILE__,__LINE__);
+      }
+
+    int len;
+    int maxlen=transformedA22->MaxNumEntries();    
+    int* cols=new int[maxlen];
+    double* values=new double[maxlen];
+    
+    for (int i=0;i<matrix_->NumMyRows();i++)
+      {
+      //global row id
+      int grid = transformedA22->GRID(i);
+      CHECK_ZERO(transformedA22->ExtractGlobalRowCopy(grid,maxlen,len,values,cols));
+      // put entries that are already defined in matrix, others are dropped.
+      // We need to use SumInto here because the result in transformedA22 may
+      // have column entries defined multiple times and they have to be summed
+      // together properly (not sure why this is the case, actually).
+      CHECK_NONNEG(matrix_->SumIntoGlobalValues(grid,len,values,cols));
+      }
+    // free temporary storage
+    delete [] values;
+    delete [] cols;
+    transformedA22=Teuchos::null;
+#ifdef DEBUGGING
+  MatrixUtils::Dump(*matrix_,"TransDroppedA22.txt");
+#endif
+
+    // Get an object with all separators connected to local subdomains
+    Teuchos::RCP<const RecursiveOverlappingPartitioner> sepObject
+        = hid_->Spawn(RecursiveOverlappingPartitioner::Separators);
+        
+    // import our test vector into the map of this object (to get the off-processor
+    // separators connected to local subdomains). The separators are unique in this object, 
+    // so the Map() and OverlappingMap() are the same.
+    const Epetra_Map& sepMap = sepObject->OverlappingMap();
+    Epetra_Import import(sepMap,*map_);
+    Epetra_Vector localTestVector(sepMap);
+    CHECK_ZERO(localTestVector.Import(*testVector_,import,Insert));
 
     // now for each subdomain construct the SC part A21*A11\A12 for the      
     // surrounding separators, apply orthogonal transforms to each separator 
@@ -1018,25 +1100,32 @@ int SchurPreconditioner::InitializeOT()
       CHECK_ZERO(SchurComplement_->Construct(sd, indices));
       // construct the local A21*A11\A12
       CHECK_ZERO(SchurComplement_->Construct(sd, Sk, indices));
+      CHECK_ZERO(Sk.Scale(-1.0));
+      int pos=0;
       // loop over all separators of the subdomain sd
       for (int grp=1;grp<hid_->NumGroups(sd);grp++)
         {
         // apply orthogonal transform from left and right to the separator
         int len = hid_->NumElements(sd,grp);
         sep.Resize(len);
+        v.Resize(len);
         for (int j=0;j<len;j++)
           {
           int gid=hid_->GID(sd,grp,j);
-          for (int k=0;k<indices.Length();k++)
+          // note here we convert a gid in indices to a lid in Sk
+          // using knowledge on how SchurComplement->Construct() 
+          // works. This is fast but not quite clean from a con- 
+          // ceptual point of view.
+          sep[j]=pos++;
+#ifdef TESTING
+          if (indices[sep[j]]!=hid_->GID(sd,grp,j))
             {
-            if (indices[k]==gid)
-              {
-              sep[j]=k;
-              break;
-              }
-            }//k
+            Tools::Error("ordering not consistemt between classes",__FILE__,__LINE__);
+            }
+#endif          
+          v[j]=localTestVector[sepMap.LID(gid)];
           }//j
-        RestrictedOT::Apply(Sk,sep,*OT);
+        RestrictedOT::Apply(Sk,sep,*OT,v);
         }//grp
       CHECK_NONNEG(matrix->SumIntoGlobalValues(indices,Sk));
       }//sd
@@ -1044,9 +1133,6 @@ int SchurPreconditioner::InitializeOT()
     DEBUG("assemble transformed/dropped SC");
     CHECK_ZERO(matrix->GlobalAssemble());
     CHECK_ZERO(matrix_->FillComplete());
-#ifdef STORE_MATRICES
-MatrixUtils::Dump(*matrix_,"TransDropSC"+Teuchos::toString(myLevel_)+"_part2.txt");    
-#endif
 #ifdef STORE_MATRICES
     MatrixUtils::Dump(*matrix_,"SchurPreconditioner"+Teuchos::toString(myLevel_)+".txt");
 #endif
