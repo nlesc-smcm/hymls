@@ -72,7 +72,7 @@ namespace HYMLS {
                                         "OverlappingPartitioner", level),
         PLA("Problem"), matrix_(K)
     {
-    START_TIMER2(label_,"Constructor");
+    START_TIMER3(label_,"Constructor");
 
     setParameterList(params);
 

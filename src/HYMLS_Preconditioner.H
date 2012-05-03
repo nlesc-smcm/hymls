@@ -296,11 +296,6 @@ protected:
   // all partitions owning the separator node.
   Teuchos::Array<Teuchos::RCP<Epetra_CrsMatrix> > localA21_;
 
-  //! A22-part of matrix in separate blocks. The rows are scaled
-  //! by 1/nsd, where nsd is the number of subdomains sharing the
-  //! separator node, so A22*x2 = sum_i(A22_i x2)
-  Teuchos::Array<Teuchos::RCP<Epetra_CrsMatrix> > localA22_;
-  
   //! map with _all_ interior elements
   Teuchos::RCP<const Epetra_Map> map1_;
 
@@ -495,9 +490,6 @@ protected:
 
   //! get a submatrix A21
   const Epetra_CrsMatrix& A21(int sd) const {return *localA21_[sd];}
-
-  //! get a submatrix A22
-  const Epetra_CrsMatrix& A22(int sd) const {return *localA22_[sd];}
 
   //! get entire matrix A21
   const Epetra_CrsMatrix& A21() const {return *A21_;}

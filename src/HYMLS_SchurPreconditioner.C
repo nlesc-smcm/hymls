@@ -193,38 +193,21 @@ namespace HYMLS {
     return validParams_;
     }
 
-  // Computes all it is necessary to initialize the preconditioner.
+  // force Compute() to re-initialize by deleting stuff
   int SchurPreconditioner::Initialize()
     {
-    if (isEmpty_) 
-      {
-      initialized_=true;
-      return 0;
-      }
-    START_TIMER(label_,"Initialize");
+    START_TIMER2(label_,"Initialize");
     time_->ResetStartTime();
-    
-    if (myLevel_==maxLevel_)
-      {
-      CHECK_ZERO(InitializeCoarse());
-      }
-    else
+
+    // force next Compute/InitializeCompute to rebuild everything
+    sparseMatrixOT_=Teuchos::null;
+    matrix_=Teuchos::null;
+    vsumMap_=Teuchos::null;
+    reducedSchurSolver_=Teuchos::null;
+    if (myLevel_!=maxLevel_)
       {
       CHECK_ZERO(InitializeSeparatorGroups());
       CHECK_ZERO(InitializeOT());
-      if (SchurMatrix_!=Teuchos::null)
-        {
-        CHECK_ZERO(TransformAndDrop());
-        }
-      else if (SchurComplement_!=Teuchos::null)
-        {
-        CHECK_ZERO(AssembleTransformAndDrop(false));
-        }
-      else
-        {
-        Tools::Error("SchurComplement not accessible",__FILE__,__LINE__);
-        }
-
       if (variant_=="Block Diagonal"||
           variant_=="Lower Triangular")
         {
@@ -243,13 +226,64 @@ namespace HYMLS {
         Tools::Error("Variant '"+variant_+"'not implemented",
                 __FILE__,__LINE__);
         }
-      CHECK_ZERO(InitializeNextLevel())
-      }    
-
-    initialized_=true;
+      }
     numInitialize_++;
 
     timeInitialize_+=time_->ElapsedTime();
+    return 0;
+    }
+
+
+  int SchurPreconditioner::InitializeCompute()
+    {
+    if (isEmpty_)
+      {
+      return 0;
+      }
+    
+    START_TIMER(label_,"InitializeCompute");
+
+    if (myLevel_!=maxLevel_)
+      {
+      if (variant_=="Block Diagonal"||
+          variant_=="Lower Triangular")
+        {
+        CHECK_ZERO(InitializeBlocks());
+        }
+      else if (variant_=="Domain Decomposition")
+        {
+        CHECK_ZERO(InitializeSingleBlock());
+        }
+      else if (variant_=="Do Nothing")
+        {
+        blockSolver_.resize(0);
+        }
+      else
+        {
+        Tools::Error("Variant '"+variant_+"'not implemented",
+                __FILE__,__LINE__);
+        }
+      }
+
+    
+    if (myLevel_!=maxLevel_)
+      {
+      if (SchurMatrix_!=Teuchos::null)
+        {
+        CHECK_ZERO(TransformAndDrop());
+        }
+      else if (SchurComplement_!=Teuchos::null)
+        {
+        CHECK_ZERO(AssembleTransformAndDrop());
+        }
+      else
+        {
+        Tools::Error("SchurComplement not accessible",__FILE__,__LINE__);
+        }
+
+      CHECK_ZERO(InitializeNextLevel())
+      }    
+
     return 0;
     }
 
@@ -263,14 +297,7 @@ namespace HYMLS {
       return 0;      
       }
     START_TIMER(label_,"Compute");
-
-    if (!(IsInitialized()))
-      {
-      // the user should normally call Initialize before Compute
-      Tools::Error("HYMLS::SchurPreconditioner not initialized. I'll do it for you.",
-        __FILE__,__LINE__);
-      CHECK_ZERO(this->Initialize());
-      }
+    CHECK_ZERO(this->InitializeCompute());
 
   time_->ResetStartTime();
 
@@ -345,20 +372,7 @@ namespace HYMLS {
     }
   else
     {
-    if (SchurMatrix_!=Teuchos::null)
-      {
-      CHECK_ZERO(TransformAndDrop());
-      }
-    else if (SchurComplement_!=Teuchos::null)
-      {
-      CHECK_ZERO(AssembleTransformAndDrop());
-      }
-    else
-      {
-      Tools::Error("Schur Complement not accessible",__FILE__,__LINE__);
-      }
-
-#if defined(TESTING)||defined(STORE_MATRICES)
+#if defined(STORE_MATRICES)
     // dump a reordering for the Schur-complement (for checking in MATLAB)
     Teuchos::RCP<const RecursiveOverlappingPartitioner>
         sepObject = hid_->Spawn(RecursiveOverlappingPartitioner::LocalSeparators);
@@ -417,8 +431,6 @@ namespace HYMLS {
     begI.close();
     begS.close();
 
-#endif
-#ifdef STORE_MATRICES    
     MatrixUtils::Dump(*matrix_,"SchurPreconditioner"+Teuchos::toString(myLevel_)+".txt");
 #endif
 
@@ -779,30 +791,32 @@ int SchurPreconditioner::InitializeOT()
     Teuchos::RCP<const RecursiveOverlappingPartitioner>
         sepObject = hid_->Spawn(RecursiveOverlappingPartitioner::LocalSeparators);
     
-    int numBlocks = 0;
-    for (int i=0;i<sepObject->NumMySubdomains();i++)
+    if (vsumMap_==Teuchos::null)
       {
-      numBlocks+=sepObject->NumGroups(i);
-      }
-    
-    DEBVAR(numBlocks);            
-
-    // create a map for the reduced Schur-complement. Note that this is a distributed
-    // matrix, in contrast to the other diagonal blocks, so we can't use an Ifpack 
-    // container.
-    int *MyVsumElements = new int[numBlocks]; // one Vsum per block
-    int pos=0;
-    for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
-      {
-      DEBVAR(sep)
-      for (int grp = 0 ; grp < sepObject->NumGroups(sep) ; grp++)
+      int numBlocks = 0;
+      for (int i=0;i<sepObject->NumMySubdomains();i++)
         {
-        if (sepObject->NumElements(sep,grp)>0)
+        numBlocks+=sepObject->NumGroups(i);
+        }
+    
+      DEBVAR(numBlocks);            
+
+      // create a map for the reduced Schur-complement. Note that this is a distributed
+      // matrix, in contrast to the other diagonal blocks, so we can't use an Ifpack 
+      // container.
+      int *MyVsumElements = new int[numBlocks]; // one Vsum per block
+      int pos=0;
+      for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
+        {
+        DEBVAR(sep)
+        for (int grp = 0 ; grp < sepObject->NumGroups(sep) ; grp++)
           {
-          MyVsumElements[pos++] = sepObject->GID(sep,grp,0);
+          if (sepObject->NumElements(sep,grp)>0)
+            {
+            MyVsumElements[pos++] = sepObject->GID(sep,grp,0);
+            }
           }
         }
-      }
         
       vsumMap_=Teuchos::rcp(new Epetra_Map(-1,numBlocks,MyVsumElements,
                                 map_->IndexBase(), map_->Comm()));
@@ -821,13 +835,14 @@ int SchurPreconditioner::InitializeOT()
             Epetra_CrsMatrix(Copy,*vsumMap_,*vsumColMap_,numBlocks));
             
       vsumImporter_=Teuchos::rcp(new Epetra_Import(*vsumMap_,*map_));
-
+      }
+      
+    if (reducedSchur_->Filled()) reducedSchur_->PutScalar(0.0);
       // import sparsity pattern for S2
       // extract the Vsum part of the preconditioner (reduced Schur)
       CHECK_ZERO(reducedSchur_->Import(*matrix_, *vsumImporter_, Insert));
       
-      //TODO: actual Schur Complement
-      
+      //TODO: actual Schur Complement      
       CHECK_ZERO(reducedSchur_->FillComplete(*vsumMap_,*vsumMap_));
 
       // drop numerical zeros so that the domain decomposition works
@@ -900,14 +915,6 @@ int SchurPreconditioner::InitializeOT()
   return 0;
   }
 
-  int SchurPreconditioner::InitializeCoarse()
-    {
-    // we can't initialize the direct solver for the sparse matrix right now.
-    // We have to reindex it first, and the values (or pattern) may not be there, yet.
-    // so we build the solver and call just Initialize() before Compute()
-    return 0;
-    }
-
   int SchurPreconditioner::TransformAndDrop()
     {
     START_TIMER2(label_,"TransformAndDrop");
@@ -936,7 +943,7 @@ int SchurPreconditioner::InitializeOT()
 
   // alternative implementation without previously assembling the SC
   // (saves some memory)
-  int SchurPreconditioner::AssembleTransformAndDrop(bool patternOnly)
+  int SchurPreconditioner::AssembleTransformAndDrop()
     {
     string timerLabel="AssembleTransformAndDrop";
 
@@ -1025,13 +1032,6 @@ int SchurPreconditioner::InitializeOT()
       {
       CHECK_ZERO(matrix->PutScalar(0.0));
       }
-
-if (patternOnly)
-  {
-  // put in ones to avoid dropping the values out again
-  CHECK_ZERO(matrix->PutScalar(1.0));
-  return 0;
-  }
 
     // put T*A22*T into matrix_, dropping anything that doesn't fit in
     // the predefined pattern.

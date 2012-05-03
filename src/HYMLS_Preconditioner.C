@@ -1,5 +1,5 @@
 //#define BLOCK_IMPLEMENTATION 1
-#define ASSEMBLE_SCHUR_FIRST 1
+
 #include "HYMLS_Preconditioner.H"
 
 #include "HYMLS_Tools.H"
@@ -62,7 +62,7 @@ namespace HYMLS {
         label_("HYMLS::Preconditioner (level "+Teuchos::toString(myLevel_)+")"),
         PLA("Preconditioner")
     {
-    START_TIMER2(label_,"Constructor");
+    START_TIMER3(label_,"Constructor");
     REPORT_SUM_MEM(label_,"Matrix",K->NumMyNonzeros(),K->NumMyNonzeros(),comm_);
     serialComm_=Teuchos::rcp(new Epetra_SerialComm());
 //    serialComm_=Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_SELF));
@@ -312,7 +312,6 @@ namespace HYMLS {
 
     localA12_.resize(num_sd);
     localA21_.resize(num_sd);
-    localA22_.resize(num_sd);
 
     subdomainSolver_.resize(num_sd);
 
@@ -462,20 +461,14 @@ try {
       localA21_[sd] = Teuchos::rcp(new
           Epetra_CrsMatrix(Copy,*localMap2_[sd],*localMap1_[sd],MaxNumEntriesPerRow));
 
-      localA22_[sd] = Teuchos::rcp(new
-          Epetra_CrsMatrix(Copy,*localMap2_[sd],*localMap2_[sd],MaxNumEntriesPerRow));
-          
       CHECK_ZERO(MatrixUtils::ExtractLocalBlock(*reorderedMatrix_,*localA12_[sd]));
       CHECK_ZERO(MatrixUtils::ExtractLocalBlock(*reorderedMatrix_,*localA21_[sd]));
-      CHECK_ZERO(MatrixUtils::ExtractLocalBlock(*reorderedMatrix_,*localA22_[sd]));
 
       CHECK_ZERO(localA12_[sd]->FillComplete(*localMap2_[sd],*localMap1_[sd]));
       CHECK_ZERO(localA21_[sd]->FillComplete(*localMap1_[sd],*localMap2_[sd]));
-      CHECK_ZERO(localA22_[sd]->FillComplete(*localMap2_[sd],*localMap2_[sd]));
       
       nzCopy += (double)(localA12_[sd]->NumMyNonzeros());
       nzCopy += (double)(localA21_[sd]->NumMyNonzeros());
-      nzCopy += (double)(localA22_[sd]->NumMyNonzeros());
       }
  
 
@@ -585,13 +578,10 @@ Tools::out() << "=============================="<<std::endl;
   CHECK_ZERO(testVector2->Import(tmpVec,*import2_,Insert));
 
   DEBUG("Construct preconditioner");
-#ifdef ASSEMBLE_SCHUR_FIRST
-  schurPrec_=Teuchos::rcp(new SchurPreconditioner(SC,hid_,
-                getMyNonconstParamList(), myLevel_, testVector2));
-#else
   schurPrec_=Teuchos::rcp(new SchurPreconditioner(Schur_,hid_,
                 getMyNonconstParamList(), myLevel_, testVector2));
-#endif
+  CHECK_ZERO(schurPrec_->Initialize());
+
   // now we have all the data structures, but the pattern of 
   // the Schur-complement is not available, yet (it will be in 
   // Compute()). So we cannot initialize the Schur preconditioner
@@ -634,11 +624,9 @@ int Preconditioner::InitializeCompute()
     {
     CHECK_ZERO(localA12_[sd]->PutScalar(0.0));
     CHECK_ZERO(localA21_[sd]->PutScalar(0.0));
-    CHECK_ZERO(localA22_[sd]->PutScalar(0.0));
     
     CHECK_ZERO(MatrixUtils::ExtractLocalBlock(*reorderedMatrix_,*localA12_[sd]));
     CHECK_ZERO(MatrixUtils::ExtractLocalBlock(*reorderedMatrix_,*localA21_[sd]));
-    CHECK_ZERO(MatrixUtils::ExtractLocalBlock(*reorderedMatrix_,*localA22_[sd]));
     }
     
     CHECK_ZERO(A12_->PutScalar(0.0));
@@ -648,59 +636,9 @@ int Preconditioner::InitializeCompute()
   CHECK_ZERO(A12_->Import(*reorderedMatrix_,*import1_,Insert));
   CHECK_ZERO(A21_->Import(*reorderedMatrix_,*import2_,Insert));
   CHECK_ZERO(A22_->Import(*reorderedMatrix_,*import2_,Insert));
-  
-// TODO - localA22 is not used right now, either get the SC assembly
-// to work with localA22 rather than A22, or throw it out alltogether
-#if 0
-  // scale the local A22 blocks by the number of subdomains the separators
-  // belong to (inverse), so that we have A22 = sum(localA22). This is useful
-  // when constructing Schur-complements.
-  Epetra_Vector vCount(*rowMap_);
-  vCount.PutScalar(0.0);
-  for (int sd=0;sd<hid_->NumMySubdomains();sd++)
-    {
-    for (int i=0;i<localMap2_[sd]->NumMyElements();i++)
-      {
-      int gid = localMap2_[sd]->GID(i);
-      int lid = rowMap_->LID(gid);
-#ifdef TESTING
-      if (lid<0) Tools::Error("incompatible local and global maps",__FILE__,__LINE__);
-#endif
-      vCount[lid]+=1.0;
-      }
-    }
-
-  // get the global weights for the row scaling of localA22
-  Epetra_Vector weights(*map2_);
-  Epetra_Export exporter(*rowMap_,*map2_);
-  CHECK_ZERO(weights.Export(vCount,exporter,Add));
-  CHECK_ZERO(vCount.Import(weights,exporter,Insert));
-  
-  // scale the rows of the localA22 blocks such that sum(localA22) = A22
-  int *indices;
-  double *values;
-  int len;
-  for (int sd=0;sd<hid_->NumMySubdomains();sd++)
-    {
-    for (int i=0;i<localA22_[sd]->NumMyRows();i++)
-      {
-      int gid=localA22_[sd]->GRID(i);
-      int lid=rowMap_->LID(gid);
-#ifdef TESTING
-      // these are cryptic error messages which should never occur, if they do it
-      // is time for the user to contact the developer...
-      if (lid<0) Tools::Error("map mismatch",__FILE__,__LINE__);
-      if (vCount[lid]==0) Tools::Error("bad scaling factor",__FILE__,__LINE__);
-#endif      
-      double scale = 1.0/vCount[lid];
-      CHECK_ZERO(localA22_[sd]->ExtractMyRowView(i,len,values,indices));
-      for (int j=0;j<len;j++) values[j]*=scale;
-      }
-    }
-#endif
-  
+    
   // (2) re-initiailze the subdomain solvers. I don't know why this is 
-  //     required, maybe some Ifpack glitch? If we don't do this before
+  //     required, but if we don't do this before
   //     Compute(), the solver doesn't work.
   DEBUG("initialize subdomain solvers...");
 
@@ -771,15 +709,6 @@ double nrow=0;
 REPORT_SUM_MEM(label_,"subdomain solvers",nnz,nnz,comm_);
 }
 
-// we assemble and transform the SC on the fly now,
-// putting only the values in that are actually used
-#ifdef ASSEMBLE_SCHUR_FIRST
-  CHECK_ZERO(Schur_->Construct());
-#ifdef STORE_MATRICES
-    MatrixUtils::Dump(*(Schur_->Matrix()),"SchurComplement"+Teuchos::toString(myLevel_)+".txt");
-#endif
-#endif
-
 
   if (scaleSchur_)
     {
@@ -805,15 +734,6 @@ REPORT_SUM_MEM(label_,"subdomain solvers",nnz,nnz,comm_);
 #endif    
     
     CHECK_ZERO(Schur_->Scale(schurScaLeft_,schurScaRight_));
-    }
-
-//  if (schurPrec_->IsInitialized()==false)
-  if (1)
-    {
-    DEBUG("initialize preconditioner");
-    schurPrec_->setParameterList(getMyNonconstParamList());
-    // we can do this only now where the pattern is available
-    CHECK_ZERO(schurPrec_->Initialize());
     }
 
   CHECK_ZERO(schurPrec_->Compute());
@@ -1397,31 +1317,10 @@ int Preconditioner::ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVe
       return -2;
       }
 
-#ifdef BLOCK_IMPLEMENTATION_this_is_disabled
-//note: a block-implementation is not so straight-forward because
-//      the overlap between the blocks leads to multiple addition of some
-//      values. We don't have that problem for A12 and A21 because the '1'-map
-//      at least doesn't overlap. This code fragment doesn't work!!!
-    Epetra_MultiVector tmp(*map2_, Y.NumVectors());
-    
-    CHECK_ZERO(separators(Y).PutScalar(0.0))
-
-    for (int sd=0;sd<hid_->NumMySubdomains();sd++)
-      {
-      // Here Trilinos assumes A22 is mostly empty and consequently
-      // zeros out the vector in each step. That's why we need a temporary
-      // vector (TODO: this is a hotfix, really, we should rethink the
-      // implementation)
-      CHECK_ZERO(localA22_[sd]->Apply(*separators(X),tmp));
-      CHECK_ZERO(separators(Y)->Update(1.0,tmp,1.0));
-      if (flops) *flops+=2*localA22_[sd]->NumGlobalNonzeros();
-      }
-#else
     HYMLS::MultiVector_View separators(X.Map(),*map2_);
 
     CHECK_ZERO(A22_->Apply(*separators(X),*separators(Y)));
     if (flops) *flops+=2*A22_->NumGlobalNonzeros();
-#endif
     return 0;
     }
 

@@ -104,12 +104,17 @@ public:
   Teuchos::RCP<const Teuchos::ParameterList> getValidParameters() const;
 
   //! Computes all it is necessary to initialize the preconditioner.
+  //! this function does not initialize anything, in fact, it de-ini
+  //! tializes the preconditioner. Compute() does the whole initia- 
+  //! lization, skipping setup of objects that already exist.
   int Initialize();
 
   //! Returns true if the  preconditioner has been successfully initialized, false otherwise.
   bool IsInitialized() const;
 
-  //! Computes all it is necessary to apply the preconditioner.
+  //! Computes all that is necessary to apply the preconditioner. The first Compute() call
+  //! after construction or Initialize() is more expensive than subsequent calls because  
+  //! it does some more setup.
   int Compute();
 
   //! same as Compute() if build_schur==false. Otherwise the Schur-complement is 
@@ -378,6 +383,12 @@ protected:
   
 private:
 
+  //! this function does the initialization things that have to be done
+  //! before each Compute(), like rebuilding some solvers because the  
+  //! matrix pointers have changed. We internally take care not to do  
+  //! too much extra work by keeping some data structures if they exist
+  int InitializeCompute();
+
   //! initialize grouping of separators for OT and factorization
   int InitializeSeparatorGroups();
 
@@ -396,7 +407,7 @@ private:
   //!
   //! if paternOnly==true, a matrix with the right pattern
   //! but only 0 entries is created.
-  int AssembleTransformAndDrop(bool patternOnly=false);
+  int AssembleTransformAndDrop();
 
   //! Initialize dense solvers for diagonal blocks
   //! ("Block Diagonal" variant)
@@ -409,9 +420,6 @@ private:
   //! Initialize reduced Schur solver
   int InitializeNextLevel();
 
-  //! Initialize on coarsest level
-  int InitializeCoarse();
-  
   //! apply block diagonal of non-Vsums inverse to vector
   //! (this is called if variant_=="Block Diagonal")
   int ApplyBlockDiagonal(const Epetra_MultiVector& B, Epetra_MultiVector& X) const;

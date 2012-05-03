@@ -212,9 +212,6 @@ protected:
   //! to allow the preconditioner access to parts of the unassembled Schur complement:
   const Epetra_CrsMatrix& A22() const {return mother_->A22();}
 
-  //! to allow the preconditioner access to parts of the unassembled Schur complement:
-  const Epetra_CrsMatrix& A22(int sd) const {return mother_->A22(sd);}
-  
   //! get the OverlappingPartitioner object
   const OverlappingPartitioner& Partitioner() const {return mother_->Partitioner();}
   

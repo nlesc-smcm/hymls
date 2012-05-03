@@ -45,7 +45,7 @@ namespace HYMLS {
         numEigs_(0),
         label_("HYMLS::Solver"), PLA("Solver")
   {
-  START_TIMER2(label_,"Constructor");
+  START_TIMER3(label_,"Constructor");
   setParameterList(params);
   
   belosRhs_=Teuchos::rcp(new Epetra_MultiVector(matrix_->OperatorRangeMap(),numRhs));
