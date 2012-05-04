@@ -22,11 +22,11 @@
   <ParameterList name="Problem"><!--{-->
 
     <Parameter name="Equations" type="string" value="Laplace"/>
-    <Parameter name="Dimension" type="int" value="3"/>
+    <Parameter name="Dimension" type="int" value="2"/>
 
-    <Parameter name="nx" type="int" value="64"/>
-    <Parameter name="ny" type="int" value="64"/>
-    <Parameter name="nz" type="int" value="64"/>
+    <Parameter name="nx" type="int" value="16"/>
+    <Parameter name="ny" type="int" value="16"/>
+    <Parameter name="nz" type="int" value="1"/>
     
   </ParameterList><!--}-->
   
@@ -73,7 +73,7 @@
     <!-- number of levels to be created (1: direct solver for Schur complement, -->
     <!-- 2: solve Schur iteratively and reduced Schur directly,                 -->
     <!-- >2: not implemented.                                                   -->
-    <Parameter name="Number of Levels" type="int" value="3"/>
+    <Parameter name="Number of Levels" type="int" value="2"/>
     
     <Parameter name="Scale Schur-Complement" type="bool" value="0"/>
 

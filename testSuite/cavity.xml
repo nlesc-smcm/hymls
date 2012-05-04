@@ -57,7 +57,7 @@
   <!-- multi-level preconditioner -->
   <ParameterList name="Preconditioner">
 
-    <Parameter name="Visualize Solver" type="bool" value="1"/>
+    <Parameter name="Visualize Solver" type="bool" value="0"/>
 
     <!-- only "Cartesian" supported up to now -->
     <Parameter name="Partitioner" type="string" value="Cartesian"/>

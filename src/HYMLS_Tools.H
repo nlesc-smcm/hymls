@@ -120,6 +120,7 @@ namespace HYMLS
     static void Fatal(std::string msg, const char* file, int line)
       {      
       printFunctionStack(std::cerr);
+      PrintMemUsage(std::cerr);
       std::cerr << std::endl;
       std::cerr << "Fatal Error: "<<msg<<std::endl;
       std::cerr << "(in "<<file<<", line "<<line<<")"<<std::endl;

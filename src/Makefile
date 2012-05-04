@@ -1,3 +1,4 @@
+include ${SHARED_DIR}/fredwubs/make.inc/Makefile.${PLAT}
 include Makefile.inc
 
 LIBS=${MY_LIBRARIES} ${TRILINOS_LIBRARIES} ${TPL_LIBRARIES} ${EXTRA_LD_FLAGS}
