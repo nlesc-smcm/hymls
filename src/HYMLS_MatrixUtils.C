@@ -1688,7 +1688,8 @@ int MatrixUtils::PutDirichlet(Epetra_CrsMatrix& A, int gid)
       }
     }
   
-    
+  delete [] indices;
+  delete [] values;  
   return 0;
   }
 
@@ -2220,6 +2221,8 @@ int MatrixUtils::ExtractLocalBlock(const Epetra_RowMatrix& A, Epetra_CrsMatrix& 
       CHECK_ZERO(A_loc.InsertMyValues(i,new_len,vals,inds));
       }
     }
+  delete [] inds;
+  delete [] vals;
   return ierr;
   }
     

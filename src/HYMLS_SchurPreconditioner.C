@@ -1,4 +1,4 @@
-#define RESTRICT_ON_COARSE_LEVEL
+#define RESTRICT_ON_COARSE_LEVEL 1
 
 #include "HYMLS_SchurPreconditioner.H"
 
@@ -820,7 +820,8 @@ int SchurPreconditioner::InitializeOT()
         
       vsumMap_=Teuchos::rcp(new Epetra_Map(-1,numBlocks,MyVsumElements,
                                 map_->IndexBase(), map_->Comm()));
-
+      
+      delete [] MyVsumElements;
       DEBUG(label_);
       DEBVAR(*vsumMap_);
 
@@ -832,7 +833,7 @@ int SchurPreconditioner::InitializeOT()
       vsumColMap_ = MatrixUtils::CreateColMap(*matrix_,*vsumMap_,*vsumMap_);
 
       reducedSchur_=Teuchos::rcp(new 
-            Epetra_CrsMatrix(Copy,*vsumMap_,*vsumColMap_,numBlocks));
+            Epetra_CrsMatrix(Copy,*vsumMap_,*vsumColMap_,matrix_->MaxNumEntries()));
             
       vsumImporter_=Teuchos::rcp(new Epetra_Import(*vsumMap_,*map_));
       }
