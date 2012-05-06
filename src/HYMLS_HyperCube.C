@@ -88,7 +88,7 @@ HyperCube::HyperCube()
     if (reorderedComm_->MyPID()==i)
       {
       std::stringstream ss;
-      ss << "PID "<<commWorld_->MyPID()<<" (on node "<<nodeNumber_<<") => PID "<<reorderedComm_->MyPID()<<"\n";   
+      ss << "PID "<<commWorld_->MyPID()<<" (on node "<<nodeNumber_<<") => PID "<<reorderedComm_->MyPID();
       std::cout << ss.str() << std::endl << std::flush;
       }
     reorderedComm_->Barrier();

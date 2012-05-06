@@ -13,8 +13,8 @@
 
 using Teuchos::toString;
 
-#ifdef DEBUG
-#define FLOW_DEBUGGING
+#ifdef DEBUGGING
+//#define FLOW_DEBUGGING
 #endif
 
 #ifdef FLOW_DEBUGGING

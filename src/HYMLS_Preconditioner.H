@@ -237,6 +237,19 @@ public:
                          Epetra_MultiVector& X,       Epetra_SerialDenseMatrix& S) const;
   //@}
 
+  //! reset matrix pointer. This should only be used if you are positive that the 
+  //! ordering can be reused for this matrix, otherwise the Preconditioner has to 
+  //! be destroyed and rebuilt (the ordering can be reused if the pattern of the  
+  //! matrix is essentially unchanged since the last Initialize() call). After    
+  //! setting the matrix by this function you have to call Initialize() again, but
+  //! it will skip rebuilding the ordering.
+  void SetMatrix(Teuchos::RCP<const Epetra_CrsMatrix> matrix)
+    {
+    matrix_=matrix;
+    initialized_=false;
+    }
+  
+
 protected: 
 
   //! level of this solver (1: finest)

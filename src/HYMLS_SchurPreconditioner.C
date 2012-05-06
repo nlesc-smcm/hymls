@@ -120,7 +120,7 @@ namespace HYMLS {
   // destructor
   SchurPreconditioner::~SchurPreconditioner()
     {
-    START_TIMER3(label_,"destructor");
+    START_TIMER3(label_,"Destructor");
     }
 
   // Ifpack_Preconditioner interface
@@ -839,22 +839,23 @@ int SchurPreconditioner::InitializeOT()
       }
       
     if (reducedSchur_->Filled()) reducedSchur_->PutScalar(0.0);
-      // import sparsity pattern for S2
-      // extract the Vsum part of the preconditioner (reduced Schur)
-      CHECK_ZERO(reducedSchur_->Import(*matrix_, *vsumImporter_, Insert));
       
-      //TODO: actual Schur Complement      
-      CHECK_ZERO(reducedSchur_->FillComplete(*vsumMap_,*vsumMap_));
+    // import sparsity pattern for S2
+    // extract the Vsum part of the preconditioner (reduced Schur)
+    CHECK_ZERO(reducedSchur_->Import(*matrix_, *vsumImporter_, Insert));
+      
+    //TODO: actual Schur Complement      
+    CHECK_ZERO(reducedSchur_->FillComplete(*vsumMap_,*vsumMap_));
 
-      // drop numerical zeros so that the domain decomposition works
+    // drop numerical zeros so that the domain decomposition works
 #ifdef TESTING
-      Tools::Out("drop because of next DD");
+    Tools::Out("drop because of next DD");
 #endif      
-      reducedSchur_=MatrixUtils::DropByValue(reducedSchur_,HYMLS_SMALL_ENTRY,MatrixUtils::Absolute);
+    reducedSchur_=MatrixUtils::DropByValue(reducedSchur_,HYMLS_SMALL_ENTRY,MatrixUtils::Absolute);
       
-      // I think this is required to make the matrix Ifpack-proof:
-      reducedSchur_ = MatrixUtils::RemoveColMap(reducedSchur_);
-      CHECK_ZERO(reducedSchur_->FillComplete(*vsumMap_,*vsumMap_));
+    // I think this is required to make the matrix Ifpack-proof:
+    reducedSchur_ = MatrixUtils::RemoveColMap(reducedSchur_);
+    CHECK_ZERO(reducedSchur_->FillComplete(*vsumMap_,*vsumMap_));
   
 #ifdef TESTING
   this->Visualize("hid_data_deb.m",false);
@@ -866,7 +867,7 @@ int SchurPreconditioner::InitializeOT()
   nextLevelParams_ = Teuchos::rcp(new Teuchos::ParameterList(*getMyParamList()));
 
   Teuchos::RCP<Epetra_Vector> nextTestVector = Teuchos::null;
-
+  
   if (myLevel_+1!=maxLevel_)
     {
     if (nextLevelHID_==Teuchos::null)
@@ -877,26 +878,33 @@ int SchurPreconditioner::InitializeOT()
       } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,stat);
       if (!stat) Tools::Fatal("Failed to create next level ordering",__FILE__,__LINE__);
       }
-    
-    Epetra_Vector transformedTestVector(*map_);
+    if (reducedSchurSolver_==Teuchos::null)
+      {
+      Epetra_Vector transformedTestVector(*map_);
 
-    CHECK_ZERO(OT->Apply(transformedTestVector, *sparseMatrixOT_, *testVector_))
+      CHECK_ZERO(OT->Apply(transformedTestVector, *sparseMatrixOT_, *testVector_))
     
-    nextTestVector = Teuchos::rcp(new Epetra_Vector(*vsumMap_));
+      nextTestVector = Teuchos::rcp(new Epetra_Vector(*vsumMap_));
 
       CHECK_ZERO(nextTestVector->Import(transformedTestVector, *vsumImporter_, Insert));    
 
-  // create another level of HYMLS::SchurPreconditioner, it will figure out
-  // itself that it is a direct solver on the coarsest level. In that case 
-  // it doesn't need an OverlappingPartitioner or a test vector.
+      // create another level of HYMLS::Preconditioner, 
   
-  //TODO: move the direct solver thing to the Preconditioner class and rename
-  //      the SchurPreconditioner SchurApproximation. Then this call can be put
-  //      outside the if statement because we will always create a Preconditioner
-  //      object for the reduced problem.
-  reducedSchurSolver_= Teuchos::rcp(new
-        Preconditioner(reducedSchur_,nextLevelParams_,nextLevelHID_,
-        myLevel_+1, nextTestVector));
+      //TODO: move the direct solver thing to the Preconditioner class and rename
+      //      the SchurPreconditioner SchurApproximation. Then this call can be put
+      //      outside the if statement because we will always create a Preconditioner
+      //      object for the reduced problem.
+      reducedSchurSolver_= Teuchos::rcp(new
+          Preconditioner(reducedSchur_,nextLevelParams_,nextLevelHID_,
+          myLevel_+1, nextTestVector));
+      }
+    else
+      {
+      Teuchos::RCP<Preconditioner> prec=Teuchos::rcp_dynamic_cast<Preconditioner>
+        (reducedSchurSolver_);
+      if (prec==Teuchos::null) Tools::Error("dynamic cast failed",__FILE__,__LINE__);
+      prec->SetMatrix(reducedSchur_);
+      }
     }
   else
     {
@@ -904,15 +912,14 @@ int SchurPreconditioner::InitializeOT()
     for (int i=0;i<fix_gid_.length();i++)
       {
       CHECK_ZERO(MatrixUtils::PutDirichlet(*reducedSchur_,fix_gid_[i]));
-      }    
-  reducedSchurSolver_= Teuchos::rcp(new
+      }
+    reducedSchurSolver_= Teuchos::rcp(new
         SchurPreconditioner(reducedSchur_,nextLevelHID_,nextLevelParams_,
         myLevel_+1, nextTestVector));
     }
-
+    
   DEBUG("Initialize solver for reduced Schur");
-
-    CHECK_ZERO(reducedSchurSolver_->Initialize());
+  CHECK_ZERO(reducedSchurSolver_->Initialize());
   return 0;
   }
 
@@ -952,11 +959,16 @@ int SchurPreconditioner::InitializeOT()
 
     Teuchos::RCP<Epetra_FECrsMatrix> matrix = 
         Teuchos::rcp_dynamic_cast<Epetra_FECrsMatrix>(matrix_);
-        
+
     if (matrix==Teuchos::null)
       {
       timerLabel=timerLabel+" (first call)";
+      }
+
     START_TIMER2(label_,timerLabel);
+        
+    if (matrix==Teuchos::null)
+      {
       int nzest = 0;
       if (hid_->NumMySubdomains()>0)
         {
@@ -966,10 +978,7 @@ int SchurPreconditioner::InitializeOT()
       matrix = Teuchos::rcp(new Epetra_FECrsMatrix(Copy,*map_,nzest));
       matrix_=matrix;
       }
-    else
-      {
-      START_TIMER2(label_,timerLabel);
-      }
+    
     Epetra_IntSerialDenseVector indices;
     Epetra_IntSerialDenseVector sep;
     Epetra_SerialDenseVector v;

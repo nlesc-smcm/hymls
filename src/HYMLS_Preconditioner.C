@@ -543,11 +543,13 @@ MatrixUtils::Dump(*A22_, "Precond"+Teuchos::toString(myLevel_)+"_A22.txt");
     }
   DEBUG("Create Schur-complement");  
 
-  // construct the Schur-complement operator (no computations, just
-  // pass in pointers of the LU's)
-  Schur_=Teuchos::rcp(new SchurComplement(Teuchos::rcp(this,false),myLevel_));
-  Teuchos::RCP<const Epetra_CrsMatrix> SC = Schur_->Matrix();
-
+  if (Schur_==Teuchos::null)
+    {
+    // construct the Schur-complement operator (no computations, just
+    // pass in pointers of the LU's)
+    Schur_=Teuchos::rcp(new SchurComplement(Teuchos::rcp(this,false),myLevel_));
+    Teuchos::RCP<const Epetra_CrsMatrix> SC = Schur_->Matrix();
+    }
 Tools::out() << "=============================="<<std::endl;
 Tools::out() << "LEVEL "<< myLevel_<<std::endl;
 Tools::out() << "SIZE OF A: "<< matrix_->NumGlobalRows()<<std::endl;
@@ -577,9 +579,13 @@ Tools::out() << "=============================="<<std::endl;
   CHECK_ZERO(tmpVec.Import(*testVector_,*importer_,Insert));
   CHECK_ZERO(testVector2->Import(tmpVec,*import2_,Insert));
 
-  DEBUG("Construct preconditioner");
-  schurPrec_=Teuchos::rcp(new SchurPreconditioner(Schur_,hid_,
+  if (schurPrec_==Teuchos::null)
+    {
+    DEBUG("Construct schur-preconditioner");
+    schurPrec_=Teuchos::rcp(new SchurPreconditioner(Schur_,hid_,
                 getMyNonconstParamList(), myLevel_, testVector2));
+    }
+
   CHECK_ZERO(schurPrec_->Initialize());
 
   // now we have all the data structures, but the pattern of 
@@ -610,7 +616,7 @@ int Preconditioner::InitializeCompute()
   //     This certainly has to be done before any Compute()
 
     Teuchos::RCP<const Epetra_CrsMatrix> Acrs = 
-        Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_);
+       Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_);
 
     CHECK_ZERO(reorderedMatrix_->PutScalar(0.0));
     CHECK_ZERO(reorderedMatrix_->Import(*Acrs,*importer_,Insert));
