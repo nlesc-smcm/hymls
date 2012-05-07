@@ -106,12 +106,6 @@ namespace HYMLS {
     int nzgraph = parallelGraph_->NumMyNonzeros();
     REPORT_SUM_MEM(label_,"graph with overlap",0,nzgraph,comm_);
         
-    //TODO: the algorithm works a lot on the graph of the matrix,
-    //      and we do a lot of ExtractGlobalRowCopy() operations,
-    //      which copy the data all the time. We might consider  
-    //      creating a global copy (or view) once and then just  
-    //      looking up the entries (to make it faster).
-
 #ifdef DEBUGGING
   this->DumpGraph();
 #endif
@@ -683,9 +677,8 @@ DEBVAR(*p_nodeType_);
   {
   START_TIMER3(label_,"BuildInitialNodeTypeVector");
 
-  int MaxNumEntriesPerRow=G.MaxNumIndices();
 
-  int *cols = new int[MaxNumEntriesPerRow];
+  int *cols;
   int len;
 
   Teuchos::Array<int> retain(dof_);
@@ -742,7 +735,7 @@ DEBVAR(*p_nodeType_);
         }
       else
         {
-        CHECK_ZERO(G.ExtractGlobalRowCopy(row,MaxNumEntriesPerRow,len,cols));
+        CHECK_ZERO(G.ExtractMyRowView(G.LRID(row),len,cols));
 
         // if a node connects to a subdomain with higher ID,            
         // it is marked as a separator node. To make this work          
@@ -773,8 +766,9 @@ DEBVAR(*p_nodeType_);
         // gid2 couple across the inner or the outer boundary.  
         for (int j=0;j<len;j++)
           {
+          int cj=G.GCID(cols[j]);
           //int colsub=(*partitioner_)(cols[j]);
-          if (partitioner_->flow(row,cols[j])<0)
+          if (partitioner_->flow(row,cj)<0)
             {
             nodeType[i]=1;
             }
@@ -782,7 +776,6 @@ DEBVAR(*p_nodeType_);
         }// not retained
       }//i
     }//sd
-  delete [] cols;
   return 0;
   }
 
@@ -797,7 +790,7 @@ DEBVAR(*p_nodeType_);
   
   int MaxNumEntriesPerRow = G.MaxNumIndices();
   
-  int *cols = new int[MaxNumEntriesPerRow];
+  int *cols;
   int len;
  
   const Epetra_BlockMap& map = nodeType.Map();
@@ -807,30 +800,35 @@ DEBVAR(*p_nodeType_);
     {
     Tools::Error("nodeType vector based on wrong map!",__FILE__,__LINE__);
     }
+  if (!p_map.SameAs(G.RowMap()))
+    {
+    Tools::Error("p_nodeType vector based on wrong map!",__FILE__,__LINE__);
+    }
 #endif  
   for (int sd=0;sd<partitioner_->NumLocalParts();sd++)
     {
     for (int i=partitioner_->First(sd); i<partitioner_->First(sd+1);i++)
       {
       int row=map.GID(i);
-      CHECK_ZERO(G.ExtractGlobalRowCopy(row,MaxNumEntriesPerRow,len,cols));
+      int lrow = G.LRID(row);
+      CHECK_ZERO(G.ExtractMyRowView(lrow,len,cols));
       int my_type = nodeType[i];
       int var_i = partitioner_->VariableType(row);
       int min_neighbor = 99;
       for (int j=0;j<len;j++)
         {
 #ifdef TESTING
-        if (p_map.LID(cols[j])==-1)
+        if (p_map.LID(G.GCID(cols[j]))==-1)
           {
           std::string msg="parallel map used does not contain all necessary nodes, node "
-          +Teuchos::toString(cols[j])+" not found on processor "
+          +Teuchos::toString(G.GCID(cols[j]))+" not found on processor "
           +Teuchos::toString(comm_->MyPID());
           Tools::Error(msg,__FILE__,__LINE__);
           }
 #endif
-        if (cols[j]!=row)
+        if (G.GCID(cols[j])!=row)
           {
-          min_neighbor=std::min(min_neighbor,p_nodeType[p_map.LID(cols[j])]);
+          min_neighbor=std::min(min_neighbor,p_nodeType[cols[j]]);
           }
         }//j
       if (my_type==0) 
@@ -847,9 +845,9 @@ DEBVAR(*p_nodeType_);
           // tions to velocities.            
           for (int j=0;j<len;j++)
             {
-            if (map.MyGID(cols[j]))
+            if (map.MyGID(p_map.GID(cols[j])))
               {
-              nodeType[map.LID(cols[j])]=4;
+              nodeType[map.LID(p_map.GID(cols[j]))]=4;
               }
             else
               {
@@ -874,7 +872,6 @@ DEBVAR(*p_nodeType_);
       }//i
     }//sd
     
-  delete [] cols;
   return 0;  
   }
 
@@ -1041,53 +1038,51 @@ int OverlappingPartitioner::FindMissingSepNodes
         (int my_sd, const Epetra_CrsGraph& G, const Epetra_IntVector& p_nodeType,
          const std::set<int>& in, std::set<int>& out) const
 
-  {  
+  {
   START_TIMER3(label_,"FindMissingSepNodes");
-  int MaxNumEntriesPerRow = G.MaxNumIndices();
   const Epetra_BlockMap& p_map=p_nodeType.Map();
-  int *colsI = new int[MaxNumEntriesPerRow];
-  int *colsJ = new int[MaxNumEntriesPerRow];
+  int *colsI;
+  int *colsJ;
   int lenI,lenJ;
+
   for (std::set<int>::const_iterator i=in.begin(); i!=in.end();i++)
     {
+    int lid_i=p_map.LID(*i);
     DEBVAR(*i);
     int sd_i = (*partitioner_)(*i);
-    int type_i = p_nodeType[p_map.LID(*i)];
+    int type_i = p_nodeType[lid_i];
     for (std::set<int>::const_iterator j=i; j!=in.end();j++)
       {
-      int sd_j = (*partitioner_)(*j);
-      int type_j = p_nodeType[p_map.LID(*j)];
-//      if (sd_i!=sd_j)      
-      //if (true)
       if (*i!=*j)
         {
+        int lid_j=p_map.LID(*j);
+        int sd_j = (*partitioner_)(*j);
+        int type_j = p_nodeType[lid_j];
         // a level 1 node can include level 2 nodes, but not level 0
         // or 1 (and the same holds on each level).
         int min_type = std::min(type_i,type_j);
-//        DEBUG("\t check "<<*i<<" and "<<*j);
-        CHECK_ZERO(G.ExtractGlobalRowCopy(*i,MaxNumEntriesPerRow,lenI,colsI));
-        CHECK_ZERO(G.ExtractGlobalRowCopy(*j,MaxNumEntriesPerRow,lenJ,colsJ));
+        DEBUG("\t check "<<*i<<" and "<<*j);
+        CHECK_ZERO(G.ExtractMyRowView(lid_i,lenI,colsI));
+        CHECK_ZERO(G.ExtractMyRowView(lid_j,lenJ,colsJ));
         for (int ii=0;ii<lenI;ii++)
           {
-          int sd_ii = (*partitioner_)(colsI[ii]);
-          int type_ii = p_nodeType[p_map.LID(colsI[ii])];
+          int sd_ii = (*partitioner_)(G.GCID(colsI[ii]));
+          int type_ii = p_nodeType[p_map.LID(G.GCID(colsI[ii]))];
           if ((sd_ii!=my_sd)&&(type_ii>min_type))
             {
             for (int jj=0;jj<lenJ;jj++)
               {
-              if (colsI[ii]==colsJ[jj])
+              if (G.GCID(colsI[ii])==G.GCID(colsJ[jj]))
                 {
-                DEBUG("\t\t missed node "<<colsJ[jj]<<" inserted");
-                out.insert(colsJ[jj]);
-                }
+                DEBUG("\t\t missed node "<<G.GCID(colsJ[jj])<<" inserted");
+                out.insert(G.GCID(colsJ[jj]));
+                }// match
               }//jj
-            }
+            }//if sd_ii != sd_jj
           }//ii
-        }
+        }//if i!=j
       }//j
     }//i
-  delete [] colsI;
-  delete [] colsJ;
   return 0;
   }
 
