@@ -24,8 +24,8 @@
     <Parameter name="Equations" type="string" value="Laplace"/>
     <Parameter name="Dimension" type="int" value="2"/>
 
-    <Parameter name="nx" type="int" value="16"/>
-    <Parameter name="ny" type="int" value="16"/>
+    <Parameter name="nx" type="int" value="64"/>
+    <Parameter name="ny" type="int" value="64"/>
     <Parameter name="nz" type="int" value="1"/>
     
   </ParameterList><!--}-->
@@ -84,8 +84,10 @@
  
     <!-- settings for subdomain solver -->
     <ParameterList name="Sparse Solver">
-      <!-- "Amesos_Klu" is the default here. These systems are always sequential -->
-      <Parameter name="amesos: solver type" type="string" value="Amesos_Umfpack"/>
+      <!-- "Klu" is the default here. These systems are always sequential -->
+      <Parameter name="amesos: solver type" type="string" value="KLU"/>
+      <Parameter name="Custom Ordering" type="bool" value="0"/>
+      <Parameter name="Custom Scaling" type="bool" value="0"/>
     </ParameterList>
 
     <!-- settings for reduced problem (Vsum) solver -->

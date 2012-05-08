@@ -2,13 +2,13 @@
 #define HYMLS_SPARSE_DIRECT_SOLVER_H
 
 #include "Amesos_config.h"
-#ifndef HAVE_AMESOS_UMFPACK
-#define NO_UMFPACK 1
-#endif
 
-//#define NO_UMFPACK 1
+// use Amesos interfaces - no custom ordering or scaling,
+// just Amesos options are accepted (in fact this whole  
+// class turns into a 'typedef')
+//#define USE_AMESOS 1
 
-#ifdef NO_UMFPACK
+#ifdef USE_AMESOS
 #include "Ifpack_Amesos.h"
 namespace HYMLS {
 typedef Ifpack_Amesos SparseDirectSolver;
@@ -28,22 +28,37 @@ class Epetra_RowMatrix;
 class Epetra_CrsMatrix;
 class Epetra_Import;
 
+class KluWrapper;
+
 namespace HYMLS {
 
-//! this is Amesos_Umfpack merged into Ifpack_Amesos,
-//! with Umfpack options set properly and reordering using
-//! HYMLS::MatrixUtils::FillReducingOrdering()
+//! this is our own interface to some serial sparse direct
+//! solvers. Using our own interface gives us access to more
+//! settings of the methods and allows us to use own ordering
+//! and scaling more easily and consistently.
 //!
 //! This class accepts the following parameters:
-//! "Custom Ordering" (bool)
-//! "Custom Scaling" (bool)
-//! "OutputLevel" (int)
-class SparseDirectSolver : public Ifpack_Preconditioner {
+//! "amesos: solver type" can be "KLU" (default) or "UMFPACK"
+//!             (if HAVE_SUITESPARSE is defined). "Cholmod" is
+//!             intended to be added in the future. For consistency
+//!             with Amesos, you can also set Amesos_Klu etc, and  
+//!             the option is case insensitive.
+//! "Custom Ordering" (bool) if false, we leave it to the method to
+//!             decide. Otherwise we use the ordering function from
+//!             MatrixUtils and set the pivot tol to something tiny
+//! "Custom Scaling" (bool) If true we construct our own row and col
+//!             scaling, otherwise we leave it to the method.
+//! "OutputLevel" (int) controls the verbosity of the method.
+//!
+class SparseDirectSolver : public Ifpack_Preconditioner 
+{
       
 public:
 
-  //@{ \name Constructors/Destructors.
+  typedef enum {KLU,UMFPACK,CHOLMOD} SolverType;
 
+  //! \name Constructors/Destructors.
+  //!@{
   //! Constructor.
   SparseDirectSolver(Epetra_RowMatrix* Matrix);
 
@@ -53,7 +68,6 @@ public:
   //! Operator=.
   SparseDirectSolver& operator=(const SparseDirectSolver& rhs);
 
-  //@{ \name Destructor.
   //! Destructor
   virtual ~SparseDirectSolver();
 
@@ -341,6 +355,9 @@ private:
 
   //! Contains a copy of the input parameter list.
   Teuchos::ParameterList List_;
+  
+  //! indicates which solver package is being used
+  SolverType method_;
 
   //! Contains the label of \c this object.
   string label_;
@@ -385,6 +402,9 @@ private:
   
   //! diagonal scaling
   Teuchos::RCP<Epetra_Vector> scaLeft_,scaRight_;
+
+  //! temporary vectors
+  mutable Teuchos::RCP<Epetra_MultiVector> buf_x_,buf_b_;
   
   //! import to serial
   Teuchos::RCP<Epetra_Import> serialImport_;
@@ -395,17 +415,21 @@ private:
   //! use Umfpack or our own scaling
   bool ownScaling_;
 
-  //! \name Umfpack interface, reordering etc
+  //! \name SuiteSparse interface, reordering etc
   //@{
 
     //! Umfpack internal opaque object
     void *umf_Symbolic_;
-    //! Umfpack internal opaque object
+    //! Umfpack) internal opaque object
     void *umf_Numeric_;
     //! options for Umfpack
     Teuchos::Array<double> umf_Control_;
     //! Umfpack output
     Teuchos::Array<double> umf_Info_;
+    
+    //! KLU objects wrapped up so we don't need to include the header
+    KluWrapper *klu_;
+    
     //! row and column permutations
     Teuchos::Array<int> row_perm_, col_perm_;
     //!  Ap, Ai, Aval form the compressed row storage used by Umfpack
@@ -414,7 +438,7 @@ private:
     Teuchos::Array<double> Aval_;
     //@}
 
-private:
+private:  
 
   //! gather matrix on rank 0 if necessary (creates serialMatrix_ and serialImport_)
   int ConvertToSerial();
@@ -426,15 +450,17 @@ private:
   int ComputeScaling();
   
     /*
-    ConvertToUmfpackCRS - Convert matirx to form expected by Umfpack: Ai, Ap, Aval
+    ConvertToCRS - Convert matirx to form expected by Umfpack
+    and KLU: Ai, Ap, Aval
     Preconditions:
-      CreateSerialMatrix() should have been called
+      ConvertToSerial() should have been called
       FillReducingOrdering() (optional)
+      ComputeScaling (optional)
     Postconditions:
       Ai, Ap, and Aval are resized and populated with a compresses row storage 
       version of the input matrix A.
   */
-  int ConvertToUmfpackCRS();
+  int ConvertToCRS();
 
   /*! symbolic factorization using Umfpack
   */      
@@ -446,6 +472,17 @@ private:
 
   /*! perform solve using Umfpack */
   int UmfpackSolve(const Epetra_MultiVector& B, Epetra_MultiVector& X) const;
+
+  /*! symbolic factorization using KLU
+  */      
+  int KluSymbolic();
+
+  /*! numeric factorization using KLU
+  */
+  int KluNumeric();
+
+  /*! perform solve using KLU */
+  int KluSolve(const Epetra_MultiVector& B, Epetra_MultiVector& X) const;
 
   //! for debugging - writes a number of .txt and .m files to look at the reordered
   //! matrix and optionally the rhs and solution of a system
@@ -459,6 +496,6 @@ private:
 };
 }//namespace HYMLS
 
-#endif // HAVE_AMESOS_UMFPACK
+#endif // USE_AMESOS is not defined - own interface to SuiteSparse or KLU
 
 #endif // HYMLS_SPARSE_DIRECT_SOLVER_H_H

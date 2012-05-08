@@ -1696,15 +1696,11 @@ int MatrixUtils::PutDirichlet(Epetra_CrsMatrix& A, int gid)
 
 int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
                                              Teuchos::Array<int>& rowperm,
-                                             Teuchos::Array<int>& colperm)
+                                             Teuchos::Array<int>& colperm,
+                                             bool dummy)
   {
   START_TIMER2(Label(),"FillReducingOrdering");
   
-  DEBVAR(&rowperm);
-  DEBVAR(&colperm);
-  DEBVAR(rowperm.size());
-  DEBVAR(colperm.size());
-
   bool parallel = (Matrix.Comm().NumProc()>1);
   DEBVAR(parallel);
     
@@ -1733,7 +1729,7 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
       {
       if (Matrix.GCID(col[j])==row) break;
       }
-    if (j<len) no_diag=(val[j]==0.0);
+    if (j<len) no_diag=(abs(val[j])<HYMLS_SMALL_ENTRY);
     if (no_diag) 
       {
       elts2[m++] = row;
@@ -1877,6 +1873,10 @@ if (tmpMatrix.get()!=&Matrix)
 deb << std::flush;
 #endif
 
+  int *q = new int[n];
+
+  if (!dummy) {
+
   DEBUG("zoltan ordering step");
 
   // compute fill-reducing ordering of A+BB' using Isorropia->Zoltan->Metis 
@@ -1919,14 +1919,14 @@ deb << std::flush;
   //           before returning it to the caller.
   if (parallel) Tools::Error("not implemented",__FILE__,__LINE__);
 
-  int *q = new int[n];
   for (int i=0;i<len_q;i++) q[q0[i]] = i;
+  }
+else
+  {
   // for testing - disable fill-reducing ordering of V-nodes
-  //for (int i=0;i<n;i++) q[i] = i;
+  for (int i=0;i<n;i++) q[i] = i;
+  }//dummy==true
   
-  DEBVAR(colperm.size());
-  DEBVAR(rowperm.size());
-
   if (rowperm.size()!=N)
     {
     rowperm.resize(N);

@@ -1,6 +1,6 @@
 #include "HYMLS_SparseDirectSolver.H"
 
-#ifndef NO_UMFPACK
+#ifndef USE_AMESOS
 
 #include "Ifpack_Condest.h"
 #include "Epetra_MultiVector.h"
@@ -20,7 +20,22 @@
 
 
 extern "C" {
+#ifdef HAVE_SUITESPARSE
 #include "umfpack.h"
+#include "klu.h"
+#else
+#include "amesos_klu_decl.h"
+#include "amesos_klu_decl.h"
+#endif
+
+class KluWrapper
+  {
+  public:
+  
+  klu_symbolic *Symbolic_;
+  klu_numeric *Numeric_;
+  klu_common *Common_;
+  };
 
 static std::ostream* output_stream;
 static int firstTime=true;
@@ -42,13 +57,18 @@ int my_printf(const char* fmt, ...)
 
 }
 
+#ifdef HAVE_SUITESPARSE      
+#define DO_KLU(function) klu_ ## function
+#else
+#define DO_KLU(function) amesos_klu_ ## function
+#endif
 
 namespace HYMLS {
 
 //==============================================================================
 SparseDirectSolver::SparseDirectSolver(Epetra_RowMatrix* Matrix_in) :
   Matrix_(Teuchos::rcp( Matrix_in, false )),
-  label_("HYMLS::SparseDirectSolver"),
+  label_("SparseDirectSolver"),
   IsEmpty_(false),
   IsInitialized_(false),
   IsComputed_(false),
@@ -64,23 +84,21 @@ SparseDirectSolver::SparseDirectSolver(Epetra_RowMatrix* Matrix_in) :
   Condest_(-1.0),
   serialMatrix_(Teuchos::null),
   serialImport_(Teuchos::null),
-  ownOrdering_(false), ownScaling_(false)
+  ownOrdering_(false), ownScaling_(false),
+  method_(KLU)
 {
 START_TIMER3(label_,"Constructor");
 
 output_stream = &Tools::out();
+#ifdef HAVE_SUITESPARSE
 amd_printf = &my_printf;
-
-MyPID_=Matrix_->Comm().MyPID();
-umf_Info_.resize(UMFPACK_INFO);
-umf_Control_.resize(UMFPACK_CONTROL);
-umfpack_di_defaults( &umf_Control_[0] ) ; 
-
-#ifdef DEBUGGING
-//umf_Control_[UMFPACK_PRL]=5;
 #endif
+MyPID_=Matrix_->Comm().MyPID();
+
+klu_=new KluWrapper();
 umf_Symbolic_=NULL;
 umf_Numeric_=NULL;
+klu_->Common_=NULL;
 scaLeft_=Teuchos::rcp(new Epetra_Vector(Matrix_->RowMatrixRowMap()));
 scaRight_=Teuchos::rcp(new Epetra_Vector(Matrix_->RowMatrixRowMap()));
 CHECK_ZERO(scaLeft_->PutScalar(1.0));
@@ -122,9 +140,43 @@ Tools::Error("not implemented!",__FILE__,__LINE__);
 
 SparseDirectSolver::~SparseDirectSolver()
   {
-START_TIMER3(label_,"Destructor");
-  if (umf_Symbolic_) umfpack_di_free_symbolic (&umf_Symbolic_) ;
-  if (umf_Numeric_) umfpack_di_free_numeric (&umf_Numeric_) ;
+  START_TIMER3(label_,"Destructor");
+
+  if (method_==KLU)
+    {
+    if (klu_->Symbolic_)
+      {
+      DO_KLU(free_symbolic)(&klu_->Symbolic_,klu_->Common_);
+      }
+    if (klu_->Numeric_) 
+      {
+      DO_KLU(free_numeric)(&klu_->Numeric_,klu_->Common_);
+      }
+    if (klu_->Common_)
+      {
+      delete klu_->Common_;
+      }
+    }
+#ifdef HAVE_SUITESPARSE    
+  else if (method_==UMFPACK)
+    {
+    if (umf_Symbolic_) 
+      {
+      umfpack_di_free_symbolic (&umf_Symbolic_) ;
+      }
+    if (umf_Numeric_)
+      {
+      umfpack_di_free_numeric (&umf_Numeric_) ;
+      }
+    umf_Info_.resize(0);
+    umf_Control_.resize(0);
+    }
+#endif
+  else
+    {
+    Tools::Warning("destructor not implemented",__FILE__,__LINE__);
+    }
+  delete klu_;
   }
 
 //==============================================================================
@@ -132,27 +184,87 @@ int SparseDirectSolver::SetParameters(Teuchos::ParameterList& List_in)
 {
 START_TIMER3(label_,"SetParameters");
   List_ = List_in;
-  std::string choice = List_in.get("amesos: solver type", label_);
-  if (choice!="Amesos_Umfpack" && firstTime)
+  std::string choice = List_.get("amesos: solver type", label_);
+  choice = Teuchos::StrUtils::allCaps(choice);
+  method_=KLU; // default - always available.
+  std::string label2="KLU";
+#ifdef HAVE_SUITESPARSE
+  if (choice=="UMFPACK"||choice=="AMESOS_UMFPACK")
     {
-    firstTime=false;
-    Tools::Warning("your choice of 'amesos: solver type' is ignored\n"
-                   "The HYMLS direct solver always uses Umfpack right now\n",
-                   __FILE__,__LINE__);
+    method_=UMFPACK;
+    label2="Umfpack";
     }
-ownOrdering_=List_.get("Custom Ordering",false);    
-ownScaling_=List_.get("Custom Scaling",false);    
+  else
+#endif    
+  if ((choice!="AMESOS_KLU" && choice!="KLU"))
+    {
+    if (firstTime)
+      {
+      firstTime=false;
+      Tools::Warning("Invalid choice of 'amesos: solver type'. KLU is used as Sparse Solver",__FILE__,__LINE__);
+      }
+    }
+
+label_=label_+" ("+label2+")";
+
+int prl = List_.get("OutputLevel",0);
+
+if (method_==KLU)
+  {
+  klu_->Common_ = new klu_common();
+  DO_KLU(defaults)(klu_->Common_);
+  }
+#ifdef HAVE_SUITESPARSE
+else if (method_==UMFPACK)
+  {
+  umf_Info_.resize(UMFPACK_INFO);
+  umf_Control_.resize(UMFPACK_CONTROL);
+  umfpack_di_defaults( &umf_Control_[0] ) ; 
+  umf_Control_[UMFPACK_PRL]=prl;
+  }
+#endif
+
+ownOrdering_=List_.get("Custom Ordering",false);
+ownScaling_=List_.get("Custom Scaling",false);
 
 if (ownOrdering_)
   {
-  umf_Control_[UMFPACK_ORDERING] = UMFPACK_ORDERING_NONE;
-  umf_Control_[UMFPACK_FIXQ] = 1;
-  umf_Control_[UMFPACK_SYM_PIVOT_TOLERANCE] = 100*HYMLS_SMALL_ENTRY;
-  umf_Control_[UMFPACK_PIVOT_TOLERANCE] = 100*HYMLS_SMALL_ENTRY;
-  }            
+  // cf. (REMARK *) below
+  if (method_==KLU)
+    {
+    /* parameters */
+    klu_->Common_->tol = 100*HYMLS_SMALL_ENTRY; /* pivot tolerance for diagonal */
+    klu_->Common_->btf = 0;        /* use BTF pre-ordering, or not */
+    klu_->Common_->ordering = 2;      // 0: AMD, 1: COLAMD, 2: user-provided P and Q,
+                               // 3: user-provided function 
+    klu_->Common_->halt_if_singular = 0 ;   /* quick halt if matrix is singular */
+    }
+#ifdef HAVE_SUITESPARSE
+  else if (method_==UMFPACK)
+    {
+    umf_Control_[UMFPACK_ORDERING] = UMFPACK_ORDERING_NONE;
+    umf_Control_[UMFPACK_FIXQ] = 1;
+    umf_Control_[UMFPACK_SYM_PIVOT_TOLERANCE] = 100*HYMLS_SMALL_ENTRY;
+    umf_Control_[UMFPACK_PIVOT_TOLERANCE] = 100*HYMLS_SMALL_ENTRY;
+    }
+#endif
+  }
+
 if (ownScaling_)
   {
-  umf_Control_[UMFPACK_SCALE] = UMFPACK_SCALE_NONE;
+  if (method_==KLU)
+    {
+    klu_->Common_->scale = 0 ;    // scale: -1: none, and do not check for errors
+                                // in the input matrix in KLU_refactor.
+                                // 0: none, but check for errors,
+                                // 1: sum, 2: max 
+    }
+#ifdef HAVE_SUITESPARSE
+  else if (method_==UMFPACK)
+    {
+    umf_Control_[UMFPACK_SCALE] = UMFPACK_SCALE_NONE;
+    }
+#endif
   }
 
 return(0);
@@ -195,9 +307,22 @@ START_TIMER2(label_,"Initialize");
     {
     CHECK_ZERO(this->FillReducingOrdering());
     }
-  CHECK_ZERO(this->ConvertToUmfpackCRS());
-  CHECK_ZERO(this->UmfpackSymbolic());
-
+  CHECK_ZERO(this->ConvertToCRS());
+#ifdef HAVE_SUITESPARSE  
+  if (method_==UMFPACK)
+    {
+    CHECK_ZERO(this->UmfpackSymbolic());
+    }
+  else
+#endif
+  if (method_==KLU)  
+    {
+    CHECK_ZERO(this->KluSymbolic());
+    }
+  else
+    {
+    return -99; // not implemented
+    }
   IsInitialized_ = true;
   ++NumInitialize_;
   InitializeTime_ += Time_->ElapsedTime();
@@ -243,8 +368,22 @@ START_TIMER2(label_,"Compute");
     {
     CHECK_ZERO(ComputeScaling());
     }
-  CHECK_ZERO(this->ConvertToUmfpackCRS());
-  CHECK_ZERO(this->UmfpackNumeric());
+  CHECK_ZERO(this->ConvertToCRS());
+#ifdef HAVE_SUITESPARSE
+  if (method_==UMFPACK)
+    {
+    CHECK_ZERO(this->UmfpackNumeric());
+    }
+  else
+#endif
+  if (method_==KLU)
+    {
+    CHECK_ZERO(this->KluNumeric());
+    }
+  else
+    {
+    return -99; // not implemented
+    }
 
   IsComputed_ = true;
   ++NumCompute_;
@@ -264,7 +403,7 @@ int SparseDirectSolver::
 Apply(const Epetra_MultiVector& X, Epetra_MultiVector& Y) const
 {
   // check for maps? check UseTranspose_?
-  return(-99);
+  return(-99); // not implemented
   CHECK_ZERO(Matrix_->Apply(X,Y));
 }
 
@@ -288,11 +427,29 @@ ApplyInverse(const Epetra_MultiVector& X, Epetra_MultiVector& Y) const
   // need to create an auxiliary vector, Xcopy
   Teuchos::RCP<const Epetra_MultiVector> Xcopy;
   if (X.Pointers()[0] == Y.Pointers()[0])
+    {
     Xcopy = Teuchos::rcp( new Epetra_MultiVector(X) );
+    }
   else
+    {
     Xcopy = Teuchos::rcp( &X, false );
+    }
 
-  CHECK_ZERO(this->UmfpackSolve(*Xcopy,Y));
+#ifdef HAVE_SUITESPARSE
+  if (method_==UMFPACK)
+    {
+    CHECK_ZERO(this->UmfpackSolve(*Xcopy,Y));
+    }
+  else
+#endif
+   if (method_==KLU)
+    {
+    CHECK_ZERO(this->KluSolve(*Xcopy,Y));
+    }
+  else 
+    {
+    return -99; // not implemented
+    }
   
 #ifdef TESTING
 Epetra_MultiVector R(X);
@@ -302,7 +459,9 @@ double *rnorm2 = new double[X.NumVectors()];
 double *bnorm2 = new double[X.NumVectors()];
 CHECK_ZERO(R.Norm2(rnorm2));
 CHECK_ZERO(X.Norm2(bnorm2));
-double rcond = abs(umf_Info_[UMFPACK_RCOND]);
+
+double rcond = Condest();
+
 bool bad_res=false;
 for (int i=0;i<X.NumVectors();i++)
   {
@@ -454,15 +613,15 @@ int SparseDirectSolver::ComputeScaling()
     // diagonal entry in A.
     for (int i=0;i<scaRight_->MyLength();i++)
       {
-      if ((*scaRight_)[i]==0.0)
+      if ((*scaRight_)[i]<=HYMLS_SMALL_ENTRY)
         {
         (*scaLeft_)[i] = dmax;
         (*scaRight_)[i] = dmax;
         }
       else
         {
-//        (*scaLeft_)[i]=1.0/sqrt((*scaRight_)[i]);
-        (*scaLeft_)[i]=1.0;
+//        (*scaLeft_)[i]=1.0;
+        (*scaLeft_)[i]=1.0/sqrt((*scaRight_)[i]);
         (*scaRight_)[i]=(*scaLeft_)[i];
         }
       }      
@@ -493,9 +652,9 @@ int SparseDirectSolver::FillReducingOrdering()
   }
 
 //=============================================================================
-int SparseDirectSolver::ConvertToUmfpackCRS()
+int SparseDirectSolver::ConvertToCRS()
 {
-START_TIMER2(label_,"ConvertToUmfpackCRS");
+START_TIMER2(label_,"ConvertToCRS");
   // Convert matrix to the form that Umfpack expects (Ap, Ai, Aval),
   // only on processor 0. The matrix has already been assembled in
   // serialMatrix_; if only one processor is used, then serialMatrix_
@@ -540,6 +699,137 @@ for (int i=0;i<N;i++) invperm[col_perm_[i]]=i;
   return 0;
   }
 
+//////////////////////////////////////////////////////////////////////
+// KLU INTERFACE                                                    //
+//////////////////////////////////////////////////////////////////////
+
+int SparseDirectSolver::KluSymbolic()
+{
+if (MyPID_!=0) return 0;
+START_TIMER2(label_,"KluSymbolic");  
+  
+  int N = serialMatrix_->NumGlobalRows();
+  
+  if (klu_->Symbolic_) 
+    DO_KLU(free_symbolic)(&klu_->Symbolic_,klu_->Common_);
+if (ownOrdering_)
+  {
+  klu_->Symbolic_=DO_KLU(analyze_given)(N, &Ap_[0], &Ai_[0], NULL, NULL, klu_->Common_);
+  }
+else
+  {
+  klu_->Symbolic_=DO_KLU(analyze)(N, &Ap_[0], &Ai_[0], klu_->Common_);
+  }
+  int status = klu_->Common_->status;
+
+  if (status || (klu_->Symbolic_==NULL))
+    {
+    HYMLS::Tools::Error("KLU Symbolic Error "+Teuchos::toString(status),__FILE__,__LINE__);
+    }
+
+  return status;
+}
+
+//=============================================================================
+
+int SparseDirectSolver::KluNumeric()
+{
+START_TIMER2(label_,"KluNumeric");
+if (MyPID_!=0) return 0;
+
+    if (klu_->Numeric_) DO_KLU(free_numeric)(&klu_->Numeric_,klu_->Common_);
+
+  klu_->Numeric_=DO_KLU(factor)(&Ap_[0], &Ai_[0], &Aval_[0], 
+                      klu_->Symbolic_, klu_->Common_); 
+
+  int status = klu_->Common_->status;
+  
+if (status ||(klu_->Numeric_==NULL))
+  {
+  HYMLS::Tools::Error("KLU Numeric Error "+Teuchos::toString(status),__FILE__,__LINE__);
+  }
+DO_KLU(rcond)(klu_->Symbolic_,klu_->Numeric_,klu_->Common_);
+Condest_ = klu_->Common_->rcond;
+return status;
+}
+
+//=============================================================================
+
+int SparseDirectSolver::KluSolve(const Epetra_MultiVector& B, Epetra_MultiVector& X) const
+  {
+  START_TIMER2(label_,"KluSolve");
+
+  if (Matrix_.get()!=serialMatrix_.get()) return -99; // not implemented
+
+  int N = Matrix_->NumMyRows();
+  int NumVectors = X.NumVectors();
+
+  Teuchos::RCP<Epetra_MultiVector> serialX = Teuchos::rcp(&X,false);
+  Teuchos::RCP<const Epetra_MultiVector> serialB = Teuchos::rcp(&B,false);
+  bool realloc = false;
+  if (buf_x_==Teuchos::null)
+    {
+    realloc=true;
+    }
+  else if (buf_x_->NumVectors()!=NumVectors)
+    {
+    realloc=true;
+    }
+
+  if (realloc)
+    {
+    buf_x_ = Teuchos::rcp(new Epetra_MultiVector(serialX->Map(),NumVectors));
+    }
+
+  int ldx;
+  double *xval;
+  CHECK_ZERO(buf_x_->ExtractView(&xval,&ldx ));
+
+  int status=0;
+  if ( MyPID_ == 0 )
+    {
+    for ( int j =0 ; j < NumVectors; j++ ) 
+      {
+      for (int i=0;i<N;i++)
+        {
+        (*buf_x_)[j][i] = (*serialB)[j][row_perm_[i]] * (*scaLeft_)[row_perm_[i]];
+        }
+      }
+    if (UseTranspose()==false)
+      {
+      DO_KLU(tsolve)(klu_->Symbolic_, klu_->Numeric_, ldx, NumVectors, xval,klu_->Common_);
+      }
+    else
+      {
+      DO_KLU(solve)(klu_->Symbolic_, klu_->Numeric_, ldx, NumVectors, xval,klu_->Common_);
+      }
+
+    // we now have x(col_perm) in x_buf
+    for (int j=0;j<NumVectors;j++)
+      {
+      for (int i=0;i<N;i++) 
+        {
+        (*serialX)[j][col_perm_[i]] = (*buf_x_)[j][i] * (*scaRight_)[col_perm_[i]];
+        }
+      }
+    status = klu_->Common_->status;
+    }
+
+
+  if (serialX.get()!=&X) return -99; //not implemented
+  return status;
+  }
+
+//////////////////////////////////////////////////////////////////////
+// END KLU INTERFACE                                                //
+//////////////////////////////////////////////////////////////////////
+
+#ifdef HAVE_SUITESPARSE
+
+//////////////////////////////////////////////////////////////////////
+// UMFPACK INTERFACE                                                //
+//////////////////////////////////////////////////////////////////////
+
 int SparseDirectSolver::UmfpackSymbolic() 
 {
 if (MyPID_!=0) return 0;
@@ -570,7 +860,9 @@ START_TIMER2(label_,"UmfpackSymbolic");
 
   return 0;
 }
+
 //=============================================================================
+
 int SparseDirectSolver::UmfpackNumeric() 
 {
 START_TIMER2(label_,"UmfpackNumeric");
@@ -587,7 +879,8 @@ if (status)
   umfpack_di_report_status(&umf_Control_[0], status);
   HYMLS::Tools::Error("UMFPACK Numeric Error",__FILE__,__LINE__);
   }
- double rcond = umf_Info_[UMFPACK_RCOND];
+ Condest_=umf_Info_[UMFPACK_RCOND];
+ double rcond = Condest_;
 #ifdef TESTING
     if (rcond>0.0)
       {
@@ -612,10 +905,10 @@ if (status)
   return 0;
 }
 
-///////////////////////////////////////
+//=============================================================================
 
 int SparseDirectSolver::UmfpackSolve(const Epetra_MultiVector& B, Epetra_MultiVector& X) const
-{ 
+{
 START_TIMER2(label_,"UmfpackSolve");
 
 if (Matrix_.get()!=serialMatrix_.get()) return -99; // not implemented
@@ -624,8 +917,22 @@ Teuchos::RCP<Epetra_MultiVector> serialX = Teuchos::rcp(&X,false);
 Teuchos::RCP<const Epetra_MultiVector> serialB = Teuchos::rcp(&B,false);
 
   int N = serialX->MyLength();  
-  double *x_buf = new double[N];
-  double *b_buf = new double[N];
+  
+  if (buf_x_==Teuchos::null)
+    {
+    buf_x_ = Teuchos::rcp(new Epetra_Vector(serialX->Map()));
+    }
+
+  if (buf_b_==Teuchos::null)
+    {
+    buf_b_ = Teuchos::rcp(new Epetra_Vector(serialX->Map()));
+    }
+
+  double *x_buf;
+  double *b_buf;
+    
+  Teuchos::rcp_dynamic_cast<Epetra_Vector>(buf_x_)->ExtractView(&x_buf);
+  Teuchos::rcp_dynamic_cast<Epetra_Vector>(buf_b_)->ExtractView(&b_buf);
   
   int NumVectors = X.NumVectors();
 
@@ -654,12 +961,15 @@ Teuchos::RCP<const Epetra_MultiVector> serialB = Teuchos::rcp(&B,false);
       }
     }
 
-delete [] x_buf;
-delete [] b_buf;
-
   if (serialX.get()!=&X) return -99; //not implemented
   return 0;
   }
+
+//////////////////////////////////////////////////////////////////////
+// END UMFPACK INTERFACE                                            //
+//////////////////////////////////////////////////////////////////////
+
+#endif // HAVE_SUITESPARSE
 
 void SparseDirectSolver::DumpSolverStatus(std::string filePrefix,
         bool overwrite,
@@ -676,21 +986,25 @@ Tools::out() << label_ << ": writing status info to " << filePrefix << "* files"
 
 int N = Ap_.size()-1;
 
-std::ofstream umf_fs((filePrefix+"_umfpack.txt").c_str());
+#ifdef HAVE_SUITESPARSE
+if (method_==UMFPACK)
+  {
+  std::ofstream umf_fs((filePrefix+"_umfpack.txt").c_str());
 
-output_stream = &umf_fs;
+  output_stream = &umf_fs;
 
-int old_prl = umf_Control_[UMFPACK_PRL];
-const_cast<double&>(umf_Control_[UMFPACK_PRL])=5;
+  int old_prl = umf_Control_[UMFPACK_PRL];
+  const_cast<double&>(umf_Control_[UMFPACK_PRL])=5;
 
-umfpack_di_report_info(&umf_Control_[0],&umf_Info_[0]);
-umfpack_di_report_matrix(N,N,&Ap_[0],&Ai_[0],&Aval_[0],0,&umf_Control_[0]);
+  umfpack_di_report_info(&umf_Control_[0],&umf_Info_[0]);
+  umfpack_di_report_matrix(N,N,&Ap_[0],&Ai_[0],&Aval_[0],0,&umf_Control_[0]);
 
-const_cast<double&>(umf_Control_[UMFPACK_PRL])=old_prl;
+  const_cast<double&>(umf_Control_[UMFPACK_PRL])=old_prl;
 
-output_stream = &Tools::out();
-umf_fs.close();
-
+  output_stream = &Tools::out();
+  umf_fs.close();
+  }
+#endif
 Teuchos::RCP<const Epetra_CrsMatrix> serialCrsMatrix = 
         Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(serialMatrix_);
 if (serialCrsMatrix!=Teuchos::null)
@@ -763,12 +1077,27 @@ if (B!=Teuchos::null)
   //! return number of nonzeros in factorization
   double SparseDirectSolver::NumGlobalNonzerosLU() const
         {
-        double value = umf_Info_[UMFPACK_LNZ] +
+        double value=0.0;
+#ifdef HAVE_SUITESPARSE
+        if (method_==UMFPACK)
+          {
+          value = umf_Info_[UMFPACK_LNZ] +
                        umf_Info_[UMFPACK_UNZ];
-        // we have counted the diagonal twice, not sure if ones are
-        // stored in Umfpack but we don't care.
+          // we have counted the diagonal twice, not sure if ones are
+          // stored in Umfpack but we don't care.
+          } else
+#endif
+        if (method_==KLU)
+          {
+          // this is not correct of course, but in HYMLS::Preconditioner
+          // we count one double and one int per nonzero entry and thus 
+          // it becomes correct again...
+          value = (double)(klu_->Common_->memusage)/(double)(sizeof(double)+sizeof(int));
+          }
         return value;
         }                                                               
 
 }//namespace HYMLS
-#endif
+
+
+#endif // use Amesos instead of our own interface

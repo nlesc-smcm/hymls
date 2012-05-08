@@ -317,9 +317,14 @@ class MatrixUtils
     //! - otherwise currently a warning is issued and an identity is returned   
     //!   as ordering (TODO: we need the F-mat ordering also for the reduced SC)
     //!                                                                         
+    //! if dummy is true, no actual fill-reducing ordering is computed. In case 
+    //! of an F-matrix, the p-nodes are inserted correctly into the natural or- 
+    //! dering. dummy defaults to false.                                        
+    //!                                                                         
     static int FillReducingOrdering(const Epetra_CrsMatrix& K,
                                 Teuchos::Array<int>& row_perm,
-                                Teuchos::Array<int>& col_perm);
+                                Teuchos::Array<int>& col_perm,
+                                bool dummy=false);
 
     //! creates a map of the form (i0:i1,j0:j1,k0:k1),
     //! column-major access (i is fastest).           

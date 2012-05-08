@@ -529,7 +529,7 @@ MatrixUtils::Dump(*A22_, "Precond"+Teuchos::toString(myLevel_)+"_A22.txt");
 
     IFPACK_CHK_ERR(subdomainSolver_[sd]->SetParameters
         (PL().sublist("Sparse Solver")));
-        
+    
     CHECK_ZERO(subdomainSolver_[sd]->Initialize());
 
     // flops in Initialize() will be computed on-the-fly in method InitializeFlops().
@@ -643,9 +643,8 @@ int Preconditioner::InitializeCompute()
   CHECK_ZERO(A21_->Import(*reorderedMatrix_,*import2_,Insert));
   CHECK_ZERO(A22_->Import(*reorderedMatrix_,*import2_,Insert));
     
-  // (2) re-initiailze the subdomain solvers. I don't know why this is 
-  //     required, but if we don't do this before
-  //     Compute(), the solver doesn't work.
+  // (2) re-initiailze the subdomain solvers. This seems to be
+  //     required for the solver to work.
   DEBUG("initialize subdomain solvers...");
 
   for (int sd=0;sd<hid_->NumMySubdomains();sd++)
@@ -686,7 +685,7 @@ double nrow=0;
       // compute subdomain factorization
       CHECK_ZERO(subdomainSolver_[sd]->Compute(*reorderedMatrix_));
 #ifndef NO_MEMORY_TRACING
-#ifndef NO_UMFPACK
+#ifndef USE_AMESOS
       Teuchos::RCP<Ifpack_SparseContainer<SparseDirectSolver> > container =
         Teuchos::rcp_dynamic_cast<Ifpack_SparseContainer<SparseDirectSolver> >(subdomainSolver_[sd]); 
       nnz+=container->Inverse()->NumGlobalNonzerosA();      
@@ -695,13 +694,13 @@ double nrow=0;
 #endif      
 #endif
 #ifdef STORE_SUBDOMAIN_MATRICES
-      Teuchos::RCP<Ifpack_SparseContainer<SparseDirectSolver> > container =
+      Teuchos::RCP<Ifpack_SparseContainer<SparseDirectSolver> > cont =
         Teuchos::rcp_dynamic_cast<Ifpack_SparseContainer<SparseDirectSolver> >(subdomainSolver_[sd]); 
-     if (container!=Teuchos::null)
+     if (cont!=Teuchos::null)
        {
        Tools::Warning("STORE_SUBDOMAIN_MATRICES is defined, this produces lots of output"
                        " and make sthe code VERY slow",__FILE__,__LINE__);
-       const Epetra_RowMatrix& Asd = container->Inverse()->Matrix();
+       const Epetra_RowMatrix& Asd = cont->Inverse()->Matrix();
        std::string filename = "SubdomainMatrix_P"+Teuchos::toString(comm_->MyPID())+
                                              "_L"+Teuchos::toString(myLevel_)+
                                              "_SD"+Teuchos::toString(sd)+".txt"; 
