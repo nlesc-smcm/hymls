@@ -229,23 +229,25 @@ ownScaling_=List_.get("Custom Scaling",false);
 
 if (ownOrdering_)
   {
+//  double pivtol=100*HYMLS_SMALL_ENTRY;
+  double pivtol=0.0;
   // cf. (REMARK *) below
   if (method_==KLU)
     {
     /* parameters */
-    klu_->Common_->tol = 100*HYMLS_SMALL_ENTRY; /* pivot tolerance for diagonal */
-    klu_->Common_->btf = 0;        /* use BTF pre-ordering, or not */
+    klu_->Common_->tol = pivtol; /* pivot tolerance for diagonal */
+    klu_->Common_->btf = 1;        /* use BTF pre-ordering, or not */
     klu_->Common_->ordering = 2;      // 0: AMD, 1: COLAMD, 2: user-provided P and Q,
-                               // 3: user-provided function 
-    klu_->Common_->halt_if_singular = 0 ;   /* quick halt if matrix is singular */
+                                      // 3: user-provided function 
+    klu_->Common_->halt_if_singular = 0;   /* quick halt if matrix is singular */
     }
 #ifdef HAVE_SUITESPARSE
   else if (method_==UMFPACK)
     {
     umf_Control_[UMFPACK_ORDERING] = UMFPACK_ORDERING_NONE;
     umf_Control_[UMFPACK_FIXQ] = 1;
-    umf_Control_[UMFPACK_SYM_PIVOT_TOLERANCE] = 100*HYMLS_SMALL_ENTRY;
-    umf_Control_[UMFPACK_PIVOT_TOLERANCE] = 100*HYMLS_SMALL_ENTRY;
+    umf_Control_[UMFPACK_SYM_PIVOT_TOLERANCE] = pivtol;
+    umf_Control_[UMFPACK_PIVOT_TOLERANCE] = pivtol;
     }
 #endif
   }

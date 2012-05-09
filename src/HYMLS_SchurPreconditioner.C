@@ -107,8 +107,6 @@ namespace HYMLS {
 
   isEmpty_ = (map_->NumGlobalElements()==0);
 
-  //TODO: may want to give the user a choice here, currently we just have
-  //      Householder.
   OT=Teuchos::rcp(new Householder(myLevel_));
   dumpVectors_=false;
 #ifdef DEBUGGING
@@ -320,9 +318,6 @@ namespace HYMLS {
     // compute scaling for reduced Schur
     CHECK_ZERO(ComputeScaling(*reducedSchur_,reducedSchurScaLeft_,reducedSchurScaRight_));
     
-    //TODO: instead of Ifpack_Amesos, use our own HYMLS_SparseDirectSolver interface
-    //      we don't do that up to now because the class only interfaces a serial   
-    //      solver (Umfpack). 
     DEBUG("scale matrix");
     CHECK_ZERO(reducedSchur_->LeftScale(*reducedSchurScaLeft_));
     CHECK_ZERO(reducedSchur_->RightScale(*reducedSchurScaRight_));
