@@ -30,6 +30,7 @@ class Epetra_Map;
 class Epetra_Vector;
 class Epetra_IntVector;
 class Epetra_MultiVector;
+class Epetra_CrsGraph;
 class Epetra_CrsMatrix;
 class Epetra_RowMatrix;
 class Epetra_Import;
@@ -325,6 +326,10 @@ class MatrixUtils
                                 Teuchos::Array<int>& row_perm,
                                 Teuchos::Array<int>& col_perm,
                                 bool dummy=false);
+
+    //! computes the AMD ordering of a serial input matrix using AMD from SuiteSparse.
+    static int AMD(const Epetra_CrsGraph& A,
+                        Teuchos::Array<int>& perm);
 
     //! creates a map of the form (i0:i1,j0:j1,k0:k1),
     //! column-major access (i is fastest).           

@@ -42,6 +42,10 @@
 #include "AnasaziBasicEigenproblem.hpp"
 #include "AnasaziEpetraAdapter.hpp"
 
+#include "amesos_amd.h"
+
+#include "Zoltan_config.h"
+
 // ASCII output formatting
 
 // unfortunately Epetra sets the width to 20 so we can't really change that here.
@@ -1862,9 +1866,7 @@ if (tmpMatrix.get()!=&Matrix)
     CHECK_ZERO(tmpMatrix->ExtractMyRowView(i,len,values,inds));
     for (int j=0;j<len;j++)
       {
-      deb << tmpMatrix->GRID(i)+1 << " " << tmpMatrix->GCID(inds[j])+1 << " " << values[j] 
-      << 
-      std::endl;
+      deb << tmpMatrix->GRID(i)+1 << " " << tmpMatrix->GCID(inds[j])+1 << " " << values[j] << std::endl;
       }
     }
   deb<<"];"<<std::endl;
@@ -1873,10 +1875,14 @@ if (tmpMatrix.get()!=&Matrix)
 deb << std::flush;
 #endif
 
-  int *q = new int[n];
+  Teuchos::Array<int> q(n);
 
   if (!dummy) {
-
+#ifndef HAVE_METIS
+  // use AMD
+  CHECK_ZERO(AMD(tmpMatrix->Graph(),q));
+#else
+  // use Zoltan (also works in parallel but requires (Par)METIS
   DEBUG("zoltan ordering step");
 
   // compute fill-reducing ordering of A+BB' using Isorropia->Zoltan->Metis 
@@ -1884,11 +1890,7 @@ deb << std::flush;
   // Epetra graphs)
   Teuchos::ParameterList params;
   Teuchos::ParameterList& zList=params.sublist("Zoltan");
-  // set Zoltan/ParMETIS   parameters. I haven't figured out
-  // what you can actually set here, it would be nice to use
-  // AMD from the start for our tiny serial matrices
-  //zList.set(...);
-
+  zList.set("ORDER_METHOD","METIS");
   // reindex the matrix to have a linear map
   Teuchos::RCP<Epetra_Map> linearMap = Teuchos::rcp(new 
         Epetra_Map(tmpMatrix->NumGlobalRows(),
@@ -1920,6 +1922,7 @@ deb << std::flush;
   if (parallel) Tools::Error("not implemented",__FILE__,__LINE__);
 
   for (int i=0;i<len_q;i++) q[q0[i]] = i;
+#endif
   }
 else
   {
@@ -2110,9 +2113,53 @@ for (int i=0;i<jj;i++) Tools::deb() << symperm[i]<< " ";
   deb.close();
 #endif
 
-  delete [] q;
-
   return 0;
+  }
+
+int MatrixUtils::AMD(const Epetra_CrsGraph& A, Teuchos::Array<int>& p)
+  {
+  START_TIMER2(Label(),"AMD");
+  
+  int n = A.NumMyRows();
+  if (p.size()<n)
+    {
+    p.resize(n);
+    }
+  for (int i=0;i<n;i++) p[i]=i;
+  
+  if (n==0) return 0;
+  
+  if (A.Comm().NumProc()>1)
+    {
+    Tools::Warning("AMD not available for parallel matrices",__FILE__,__LINE__);
+    return -2;
+    }
+  if (A.StorageOptimized()==false)
+    {
+    Tools::Warning("graph must be StorageOptimized() for AMD interface",__FILE__,__LINE__);
+    return -3;
+    }
+  int len;
+  int* Ap = new int[n+1];
+  int* Ai;
+  CHECK_ZERO(A.ExtractMyRowView(0, len, Ai ));
+  Ap[0] = 0;
+  int *tmp;
+  for ( int i = 0; i <n; i++ ) 
+    {
+    CHECK_ZERO(A.ExtractMyRowView( i, len, tmp ));
+    Ap[i+1] = Ap[i] + len ;
+    }
+
+double control[AMD_CONTROL];
+double info[AMD_INFO];
+  
+  /* returns AMD_OK, AMD_OK_BUT_JUMBLED,
+           AMD_INVALID, or AMD_OUT_OF_MEMORY */
+  int ierr =amesos_amd_order(n, Ap, Ai, &p[0], control, info);
+  // TODO: check for errors
+  delete [] Ap;
+  return ierr; 
   }
 
     Teuchos::RCP<Epetra_Map> 
