@@ -330,7 +330,9 @@ namespace HYMLS {
     if (restrictA_==Teuchos::null)
       {
       restrictA_ = Teuchos::rcp(new EpetraExt::RestrictedCrsMatrixWrapper());
-      CHECK_ZERO(restrictA_->restrict_comm(linearMatrix_));      
+      //CHECK_ZERO(restrictA_->restrict_comm(linearMatrix_));      
+      // TODO - bug in Trilinos 10.10, uninitialized return. CHECK_ZERO when fixed.
+      restrictA_->restrict_comm(linearMatrix_);
       amActive_=restrictA_->RestrictedProcIsActive();
       restrictX_ = Teuchos::rcp(new EpetraExt::RestrictedMultiVectorWrapper());
       restrictB_ = Teuchos::rcp(new EpetraExt::RestrictedMultiVectorWrapper());
@@ -1221,8 +1223,11 @@ if (dumpVectors_)
       if (realloc_vectors)
         {
 #ifdef RESTRICT_ON_COARSE_LEVEL
-        CHECK_ZERO(restrictB_->restrict_comm(linearRhs_));
-        CHECK_ZERO(restrictX_->restrict_comm(linearSol_));
+        // TODO - CHECK_ZERO at next Trilinos release
+//        CHECK_ZERO(restrictB_->restrict_comm(linearRhs_));
+//        CHECK_ZERO(restrictX_->restrict_comm(linearSol_));
+        restrictB_->restrict_comm(linearRhs_);
+        restrictX_->restrict_comm(linearSol_);
         restrictedRhs_ = restrictB_->RestrictedMultiVector();
         restrictedSol_ = restrictX_->RestrictedMultiVector();
 #else
