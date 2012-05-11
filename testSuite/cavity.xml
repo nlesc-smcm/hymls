@@ -100,10 +100,9 @@
     <ParameterList name="Coarse Solver">
       <!-- "Amesos_Klu" is the default here. This system is distributed, and  -->
       <!-- it may be worthwile using Amesos_Mumps, for instance.              -->
-      <Parameter name="amesos: solver type" type="string" value="Amesos_Klu"/>
+      <Parameter name="amesos: solver type" type="string" value="Amesos_Superludist"/>
       <Parameter name="PrintStatus" type="bool" value="1"/>
       <Parameter name="PrintTiming" type="bool" value="1"/>
-      <Parameter name="MaxProcs" type="int" value="16"/>
       <Parameter name="OutputLevel" type="int" value="5"/>
       <ParameterList name="mumps">
         <!-- output stream: stdout=6, none=-1 -->

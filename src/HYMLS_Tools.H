@@ -3,6 +3,7 @@
 
 #include <mpi.h>
 #include <stack>
+#include <cstdio>
 
 #include "Epetra_Comm.h"
 #include <iostream>
@@ -27,6 +28,9 @@ namespace HYMLS
   public:
   
    friend class Exception;
+   
+   //! returns the SVN revision number of the hymls directory
+   static int Revision();
   
    static void InitializeIO(Teuchos::RCP<const Epetra_Comm> comm,
                             Teuchos::RCP<Teuchos::FancyOStream> output=Teuchos::null,
@@ -58,13 +62,20 @@ namespace HYMLS
        debug_stream=debug;
        }
 #endif
+
+     //redirect std::cout
+     if (output_stream->getOStream().get()!=&std::cout)
+       {
+       std::cout.rdbuf(out().rdbuf());
+       }
+
      Out("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
      Out("@@ START OF HYMLS OUTPUT                    @@");
      Out("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
 
      DEBUG("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
      DEBUG("@@ START OF HYMLS DEBUGGING OUTPUT          @@");
-     DEBUG("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+     DEBUG("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");     
      }
 
    static void InitializeIO_std(Teuchos::RCP<const Epetra_Comm> comm,

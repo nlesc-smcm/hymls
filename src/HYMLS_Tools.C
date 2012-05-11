@@ -7,6 +7,26 @@
 
 using namespace Teuchos;
 
+//overwrite printf to make e.g. SuperLU_DIST write to our streams
+extern "C" {
+int printf (const char *fmt, ...)
+  {
+  std::string fmt_string(fmt);
+  
+  char formatted_string[fmt_string.length()+10000];
+
+    va_list args;
+ 
+    va_start(args,fmt);
+ 
+    int stat = vsprintf(formatted_string, fmt, args);
+ 
+    va_end(args);
+    HYMLS::Tools::out() << formatted_string;
+    return stat;
+  }
+}//extern "C"
+
 namespace HYMLS {
 
 RCP<const Epetra_Comm> Tools::comm_=null;
@@ -21,6 +41,11 @@ std::stack<std::string> Tools::functionStack_;
 //////////////////////////////////////////////////////////////////
 // Timing functionality                                         //
 //////////////////////////////////////////////////////////////////
+
+int Tools::Revision()
+  {
+  return HYMLS_REVISION;
+  }
 
 void Tools::StartTiming(string fname)
   {

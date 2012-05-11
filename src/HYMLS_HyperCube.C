@@ -82,7 +82,8 @@ HyperCube::HyperCube()
   MPI_Comm_split(commWorld_->Comm(),color,newRank,&NewComm);
   
   reorderedComm_=Teuchos::rcp(new Epetra_MpiComm(NewComm));
-  
+
+#ifdef TESTING  
   for (int i=0;i<reorderedComm_->NumProc();i++)
     {
     if (reorderedComm_->MyPID()==i)
@@ -93,6 +94,7 @@ HyperCube::HyperCube()
       }
     reorderedComm_->Barrier();
     }
+#endif
   return;    
   }
   

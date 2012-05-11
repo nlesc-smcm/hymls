@@ -50,6 +50,8 @@ bool status=true;
   // construct file streams, otherwise the output won't work correctly
   HYMLS::Tools::InitializeIO(comm);
   
+  HYMLS::Tools::out() << "this is HYMLS, rev "<<HYMLS::Tools::Revision()<<std::endl;
+  
 
   try {
 

@@ -1,6 +1,9 @@
 include ${SHARED_DIR}/fredwubs/make.inc/Makefile.${PLAT}
 include Makefile.inc
 
+rev=$(shell head -n 4 .svn/entries |tail -n 1)
+CXX_FLAGS+=-DHYMLS_REVISION=${rev}
+
 LIBS=${MY_LIBRARIES} ${TRILINOS_LIBRARIES} ${TPL_LIBRARIES} ${EXTRA_LD_FLAGS}
 
 OBJ=    HYMLS_Solver.o \
@@ -41,12 +44,12 @@ main_ifpack: main_ifpack.C ${LIBNAME}
 	${CXX} ${CXX_FLAGS} -o main_ifpack $< ${INCLUDES} -L. -l${LIBNAMEBASE} ${LIBS} 
 
 test: test.C ${LIBNAME}
-	${CXX} ${CXX_FLAGS} -o test $< ${INCLUDES} -L. -l${LIBNAMEBASE} ${LIBS} 
-	
-
+	${CXX} ${CXX_FLAGS} -o test $< ${INCLUDES} -L. -l${LIBNAMEBASE} ${LIBS} 		
 	
 ${LIBNAME}: ${OBJ}
 	ar vrcs ${LIBNAME} ${OBJ}
+
+HYMLS_Tools.o: .svn/entries
 
 %.o: %.C %.H
 	${CXX} ${CXX_FLAGS} -c $< ${INCLUDES} 

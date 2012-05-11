@@ -1890,7 +1890,7 @@ deb << std::flush;
   // Epetra graphs)
   Teuchos::ParameterList params;
   Teuchos::ParameterList& zList=params.sublist("Zoltan");
-  zList.set("ORDER_METHOD","METIS");
+  zList.set("ORDER_METHOD","ParMETIS");
   // reindex the matrix to have a linear map
   Teuchos::RCP<Epetra_Map> linearMap = Teuchos::rcp(new 
         Epetra_Map(tmpMatrix->NumGlobalRows(),
