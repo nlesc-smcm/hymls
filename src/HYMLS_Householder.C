@@ -309,9 +309,9 @@ namespace HYMLS {
         Epetra_CrsMatrix(Copy,A.RowMap(),A.MaxNumEntries()) );
 
     DEBUG("compute A*wT...");
-
-//#define MATMUL_BUG 1
-
+#if (TRILINOS_MAJOR_MINOR_VERSION<101000)
+#define MATMUL_BUG 1
+#endif
     // this call doesn't give the correct result in parallel, why not??
 #ifndef MATMUL_BUG
         CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(A,false,T,true,*AwT,true));

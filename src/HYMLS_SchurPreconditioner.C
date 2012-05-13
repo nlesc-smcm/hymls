@@ -1,4 +1,4 @@
-#define RESTRICT_ON_COARSE_LEVEL 1
+//#define RESTRICT_ON_COARSE_LEVEL
 
 #include "HYMLS_SchurPreconditioner.H"
 
@@ -1047,8 +1047,9 @@ int SchurPreconditioner::InitializeOT()
     
 
 #ifdef DEBUGGING
-  MatrixUtils::Dump(*matrix_,"SchurPreconditioner"+Teuchos::toString(myLevel_)+"Pattern.txt");
-  MatrixUtils::Dump(*transformedA22,"TransformedA22.txt");
+  std::string s1 = "SchurPrecond"+Teuchos::toString(myLevel_)+"_";
+  MatrixUtils::Dump(*matrix_,s1+"Pattern.txt");
+  MatrixUtils::Dump(*transformedA22,s1+"TransformedA22.txt");
 #endif
 
     if (transformedA22->RowMap().SameAs(matrix->RowMap())==false)
@@ -1077,7 +1078,7 @@ int SchurPreconditioner::InitializeOT()
     delete [] cols;
     transformedA22=Teuchos::null;
 #ifdef DEBUGGING
-  MatrixUtils::Dump(*matrix_,"TransDroppedA22.txt");
+  MatrixUtils::Dump(*matrix_,s1+"_TransDroppedA22.txt");
 #endif
 
     // Get an object with all separators connected to local subdomains
@@ -1167,6 +1168,7 @@ int SchurPreconditioner::InitializeOT()
   int SchurPreconditioner::ApplyInverse(const Epetra_MultiVector& X,
                            Epetra_MultiVector& Y) const
     {
+//if (myLevel_==maxLevel_){Y=X; return 0;} //TROET
     if (isEmpty_) return 0;
     START_TIMER(label_,"ApplyInverse");
     numApplyInverse_++;
