@@ -123,6 +123,9 @@ public:
   //! capabilities. If maxEigs==-2, the value "Deflated Subspace Dimension"
   //! from the "Solver" sublist is used.
   int SetupDeflation(int maxEigs=-2);
+  
+  //! get number of iterations performed in last ApplyInverse() call
+  inline int getNumIter() const {return numIter_;}
 
 protected: 
 
@@ -214,6 +217,9 @@ Teuchos::RCP<BorderedLU> LU_;
   
   //! label
   std::string label_;
+  
+  //! number of iterations performed in last ApplyInverse() call
+  mutable int numIter_;
   
   private:
   

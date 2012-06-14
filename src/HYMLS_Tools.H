@@ -44,7 +44,7 @@ namespace HYMLS
            Teuchos::FancyOStream(Teuchos::rcp(&std::cout,false)));
            
        output_stream->setOutputToRootOnly(0);
-       output_stream->setShowProcRank(true);
+       output_stream->setShowProcRank(false);
        }
      else
        {
@@ -68,7 +68,7 @@ namespace HYMLS
        {
        std::cout.rdbuf(out().rdbuf());
        }
-
+/*
      Out("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
      Out("@@ START OF HYMLS OUTPUT                    @@");
      Out("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
@@ -76,6 +76,7 @@ namespace HYMLS
      DEBUG("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
      DEBUG("@@ START OF HYMLS DEBUGGING OUTPUT          @@");
      DEBUG("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");     
+*/
      }
 
    static void InitializeIO_std(Teuchos::RCP<const Epetra_Comm> comm,

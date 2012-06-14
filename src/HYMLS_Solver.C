@@ -20,7 +20,6 @@
 #include "Epetra_SerialDenseVector.h"
 #include "Epetra_InvOperator.h"
 
-#include "Teuchos_RCP.hpp"
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_Utils.hpp"
 
@@ -42,7 +41,7 @@ namespace HYMLS {
       : matrix_(K), precond_(P), comm_(Teuchos::rcp(&(K->Comm()),false)), 
         massMatrix_(Teuchos::null), nullSpace_(Teuchos::null),
         normInf_(-1.0), useTranspose_(false),
-        numEigs_(0),
+        numEigs_(0), numIter_(0),
         label_("HYMLS::Solver"), PLA("Solver")
   {
   START_TIMER3(label_,"Constructor");
@@ -618,11 +617,11 @@ int Solver::ApplyInverse(const Epetra_MultiVector& B,
     } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr, status);
     if (!status) Tools::Warning("caught an exception",__FILE__,__LINE__);
 
-  int numIters = belosSolverPtr_->getNumIters();
+  numIter_ = belosSolverPtr_->getNumIters();
   if (comm_->MyPID()==0)
      {
      Tools::Out("++++++++++++++++++++++++++++++++++++++++++++++++");
-     Tools::Out("+ Number of iterations: "+Teuchos::toString(numIters));
+     Tools::Out("+ Number of iterations: "+Teuchos::toString(numIter_));
      Tools::Out("++++++++++++++++++++++++++++++++++++++++++++++++");
      Tools::Out("");
      }

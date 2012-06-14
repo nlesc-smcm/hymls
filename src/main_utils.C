@@ -15,7 +15,14 @@
 #include "EpetraExt_VectorIn.h"
 
 #include "HYMLS_Tools.H"
+#include "HYMLS_MatrixUtils.H"
 
+#include "GaleriExt_Cross2DN.h"
+#include "Galeri_CrsMatrices.h"
+
+namespace HYMLS {
+
+namespace MainUtils {
 
 Teuchos::RCP<Epetra_CrsMatrix> read_matrix(string datadir,string file_format, Teuchos::RCP<Epetra_Map> map)
   {
@@ -168,3 +175,93 @@ void ReadTestCase(std::string problem, int nx, int sx,
   
   }
 #endif
+
+                
+Teuchos::RCP<Epetra_Map> create_map(const Epetra_Comm& comm,
+                                    Teuchos::ParameterList& probl_params)
+  {
+
+  int dim = probl_params.get("Dimension",2);
+  int nx=probl_params.get("nx",32);
+  int ny=probl_params.get("ny",nx);
+  int nz=probl_params.get("nz",(dim>2)?nx:1);
+  
+  std::string eqn = probl_params.get("Equations","Laplace");
+
+  Teuchos::RCP<Epetra_Map> map=Teuchos::null;
+
+
+  Teuchos::ParameterList galeriList;
+  galeriList.set("nx",nx);
+  galeriList.set("ny",ny);
+  galeriList.set("nz",nz);
+    
+  std::string mapType="Cartesian"+Teuchos::toString(dim)+"D";
+
+  HYMLS::Tools::Out("Create map");
+  int dof=1;
+
+  if (eqn=="Laplace" || eqn=="Laplace Neumann")
+    {
+    map=HYMLS::MatrixUtils::CreateMap(nx,ny,nz,1,0,comm);
+//    try {
+//      map= Teuchos::rcp(Galeri::CreateMap(mapType, *comm, galeriList));
+//      } catch (Galeri::Exception G) {G.Print();}
+    }
+  else if (eqn=="Stokes-C")
+    {
+    dof=dim+1;
+    map=HYMLS::MatrixUtils::CreateMap(nx,ny,nz,dof,0,comm);
+    }
+  else
+    {
+    HYMLS::Tools::Error("cannot determine problem type from 'Equation' parameter "+eqn,
+        __FILE__, __LINE__);
+    }
+  return map;
+  }
+
+Teuchos::RCP<Epetra_CrsMatrix> create_matrix(const Epetra_Map& map,
+                                Teuchos::ParameterList& probl_params)
+  {
+  Teuchos::RCP<Epetra_CrsMatrix> matrix = Teuchos::null;
+  std::string eqn = probl_params.get("Equations","Laplace");
+  int dim = probl_params.get("Dimension",2);
+  int nx=probl_params.get("nx",32);
+  int ny=probl_params.get("ny",nx);
+  int nz=probl_params.get("nz",(dim>2)?nx:1);
+
+  Teuchos::ParameterList galeriList;
+  galeriList.set("nx",nx);
+  galeriList.set("ny",ny);
+  galeriList.set("nz",nz);
+
+    if (eqn=="Laplace Neumann")
+      {
+      if (dim==2)
+        {
+        matrix = Teuchos::rcp(GaleriExt::Matrices::Cross2DN(&map,
+                nx, ny, 4, -1, -1, -1, -1), true);
+        }
+      else
+        {
+        HYMLS::Tools::Error("not implemented!",__FILE__,__LINE__);
+        }
+      probl_params.set("Equations","Laplace");
+      }
+    else
+      {
+      std::string matrixType=eqn+Teuchos::toString(dim)+"D";
+      try {
+        matrix= Teuchos::rcp(Galeri::CreateCrsMatrix(matrixType, &map, galeriList));
+        } catch (Galeri::Exception G) {G.Print();}
+      matrix->Scale(-1.0); // we like our matrix negative definite
+                       // (just to conform with the diffusion operator in the NSE,
+                       // the solver works anyway, of course).
+      }
+  return matrix;
+  }
+
+}//MainUtils
+
+}//HYMLS
