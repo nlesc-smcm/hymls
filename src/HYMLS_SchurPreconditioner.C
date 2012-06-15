@@ -309,7 +309,7 @@ namespace HYMLS {
 #endif      
     reducedSchur_ = MatrixUtils::DropByValue(SchurMatrix_, 
         HYMLS_SMALL_ENTRY, MatrixUtils::Absolute);
-    
+
     for (int i=0;i<fix_gid_.length();i++)
       {
       CHECK_ZERO(MatrixUtils::PutDirichlet(*reducedSchur_,fix_gid_[i]));
@@ -358,7 +358,7 @@ namespace HYMLS {
     amActive_=true;
 #endif
     Teuchos::ParameterList& amesosList=PL().sublist("Coarse Solver");                    
-
+std::cout << Teuchos::toString(comm_->MyPID())+": amActive="+Teuchos::toString(amActive_)+"\n";
     if (amActive_)
       {
       reducedSchurSolver_= Teuchos::rcp(new Ifpack_Amesos(restrictedMatrix_.get()));
@@ -530,7 +530,7 @@ int SchurPreconditioner::InitializeBlocks()
           }
         }
       }
-#endif          
+#endif
         
   // create an array of solvers for all the diagonal blocks
   blockSolver_.resize(numBlocks);
@@ -793,7 +793,10 @@ int SchurPreconditioner::InitializeOT()
       int numBlocks = 0;
       for (int i=0;i<sepObject->NumMySubdomains();i++)
         {
-        numBlocks+=sepObject->NumGroups(i);
+        for (int j=0;j<sepObject->NumGroups(i);j++)
+          {
+          if (sepObject->NumElements(i,j)>0) numBlocks++;
+          }
         }
     
       DEBVAR(numBlocks);            
