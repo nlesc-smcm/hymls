@@ -2265,7 +2265,7 @@ int MatrixUtils::ExtractLocalBlock(const Epetra_RowMatrix& A, Epetra_CrsMatrix& 
       }
     else
       {
-      CHECK_ZERO(A_loc.InsertMyValues(i,new_len,vals,inds));
+      CHECK_NONNEG(A_loc.InsertMyValues(i,new_len,vals,inds));
       }
     }
   delete [] inds;

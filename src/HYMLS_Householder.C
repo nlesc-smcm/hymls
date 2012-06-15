@@ -312,8 +312,8 @@ namespace HYMLS {
 #if (TRILINOS_MAJOR_MINOR_VERSION<101000)
 #define MATMUL_BUG 1
 #endif
-    // this call doesn't give the correct result in parallel, why not??
 #ifndef MATMUL_BUG
+        // buggy in older Trilinos versions in parallel
         CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(A,false,T,true,*AwT,true));
 #else
     Transp_=Teuchos::rcp(new Epetra_RowMatrixTransposer(const_cast<Epetra_CrsMatrix*>(&T)));

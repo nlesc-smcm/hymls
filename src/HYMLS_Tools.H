@@ -13,6 +13,7 @@
 
 #include "Teuchos_FancyOStream.hpp"
 #include "Teuchos_ParameterList.hpp"
+#include "Teuchos_stacktrace.hpp"
 
 
 #include "HYMLS_Macros.H"
@@ -36,6 +37,9 @@ namespace HYMLS
                             Teuchos::RCP<Teuchos::FancyOStream> output=Teuchos::null,
                             Teuchos::RCP<Teuchos::FancyOStream> debug=Teuchos::null)
      {
+#ifdef HAVE_TEUCHOS_STACKTRACE
+Teuchos::print_stack_on_segfault();
+#endif     
      traceLevel_=0;
      comm_=comm;
      if (output==Teuchos::null)
@@ -66,7 +70,12 @@ namespace HYMLS
      //redirect std::cout
      if (output_stream->getOStream().get()!=&std::cout)
        {
+       rdbuf_bak = std::cout.rdbuf();
        std::cout.rdbuf(out().rdbuf());
+       }
+     else if (rdbuf_bak!=NULL && rdbuf_bak!=std::cout.rdbuf())
+       {
+       std::cout.rdbuf(rdbuf_bak);
        }
 /*
      Out("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
@@ -319,6 +328,8 @@ private:
     static Teuchos::RCP<Teuchos::FancyOStream> output_stream;
 
     static Teuchos::RCP<Teuchos::FancyOStream> debug_stream;
+    
+    static std::streambuf* rdbuf_bak;
 
     //! parameter list for timing individual parts of the code
     static Teuchos::ParameterList timerList_;

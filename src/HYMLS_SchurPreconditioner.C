@@ -1,4 +1,4 @@
-//#define RESTRICT_ON_COARSE_LEVEL
+#define RESTRICT_ON_COARSE_LEVEL
 
 #include "HYMLS_SchurPreconditioner.H"
 
@@ -1168,7 +1168,6 @@ int SchurPreconditioner::InitializeOT()
   int SchurPreconditioner::ApplyInverse(const Epetra_MultiVector& X,
                            Epetra_MultiVector& Y) const
     {
-//if (myLevel_==maxLevel_){Y=X; return 0;} //TROET
     if (isEmpty_) return 0;
     START_TIMER(label_,"ApplyInverse");
     numApplyInverse_++;
@@ -1609,7 +1608,7 @@ int SchurPreconditioner::ApplyBlockDiagonal
     {
     if (Y.NumVectors()!=blockSolver_[blk]->NumVectors())
       {
-      blockSolver_[blk]->SetNumVectors(Y.NumVectors());
+      CHECK_ZERO(blockSolver_[blk]->SetNumVectors(Y.NumVectors()));
       }
     for (int j = 0 ; j < blockSolver_[blk]->NumRows() ; j++)
       {

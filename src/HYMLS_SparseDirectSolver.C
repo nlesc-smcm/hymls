@@ -184,7 +184,7 @@ int SparseDirectSolver::SetParameters(Teuchos::ParameterList& List_in)
 {
 START_TIMER3(label_,"SetParameters");
   List_ = List_in;
-  std::string choice = List_.get("amesos: solver type", label_);
+  std::string choice = List_.get("amesos: solver type", "KLU");
   choice = Teuchos::StrUtils::allCaps(choice);
   method_=KLU; // default - always available.
   std::string label2="KLU";

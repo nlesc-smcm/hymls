@@ -37,6 +37,7 @@ RCP<FancyOStream> Tools::debug_stream = null;
 int Tools::traceLevel_=0;
 int Tools::timerCounter_=0;
 std::stack<std::string> Tools::functionStack_;
+std::streambuf* Tools::rdbuf_bak = std::cout.rdbuf();
 
 //////////////////////////////////////////////////////////////////
 // Timing functionality                                         //
@@ -188,6 +189,9 @@ std::ostream& Tools::printFunctionStack(std::ostream& os)
       if (functionStack_.size()==0) break;
       }
     }
+#elif defined(HAVE_TEUCHOS_STACKTRACE)
+    os << "FUNCTION STACK:"<<std::endl;
+    os << Teuchos::get_stacktrace()<<std::endl;
 #else
   os << "no function stack available, to get one, compile HYMLS with -DFUNCTION_TRACING or -DTESTING"<<std::endl;
 #endif

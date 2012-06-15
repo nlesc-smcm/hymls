@@ -440,6 +440,10 @@ try {
     CHECK_ZERO(reorderedMatrix_->FillComplete());
     } catch (...) {HYMLS::Tools::Error("caught exception in FillComplete()",__FILE__,__LINE__);}
     
+  REPORT_SUM_MEM(label_,"reordered matrix",reorderedMatrix_->NumMyNonzeros(),
+                                           reorderedMatrix_->NumMyNonzeros(),
+                                           comm_);
+    
     //URGENT: here we collect all global indices on all procs, which is 
     //      a memory bottleneck. I think we can use our separator info
     //      to avoid this quite easily.
@@ -1444,6 +1448,64 @@ int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& lis
     // global pressure node 2 
     precList.set("Fix GID 1",factor*dim_);
     if (is_complex) precList.set("Fix GID 2",2*dim_+1);
+    }
+  else if (eqn=="Stokes-B")
+    {
+    
+/* 
+   we assume the following 'augmented B-grid',
+   where the @ are dummy p-nodes, * are p-nodes
+   and > are v-nodes. To transform this into an
+   F-matrix, one has to apply a Givvens rotation
+   to the velocity field (giving an F-grid). 
+   This currently has to be done manually outside
+   the solver/preconditioner.
+
+    >---->---->---->>---->---->---->
+  @ | *  |  * |  * ||  * |  * | *  |
+    >---->---->---->>---->---->---->
+  @ | *  |  * |  * ||  * |  * | *  |
+    >---->---->---->>---->---->---->
+  @ |  * |  * | *  || *  |  * | *  |
+    >====>====>====>>====>====>====>
+  @ | *  |  * |  * ||  * |  * | *  |
+    >---->---->---->>---->---->---->
+  @ |  * |  * |  * || *  | *  |  * |
+    >---->---->---->>---->---->---->
+  @ |  * |  * | *  ||  * | *  |  * |
+    >---->---->---->>---->---->---->
+  @    @    @    @    @    @     @
+*/    
+    // case of one subdomain per partition not implemented for B-grid
+    bool no_SC=false;
+    probList.set("Substitute Graph",false);
+    if (is_complex) Tools::Error("complex Stokes-B not implemented",__FILE__,__LINE__);
+    probList.set("Degrees of Freedom",(dim_+1));
+    for (int i=0;i<dim_;i++)
+      {
+      Teuchos::ParameterList& velList =
+        probList.sublist("Variable "+Teuchos::toString(i));
+      velList.set("Variable Type","Laplace");
+    
+      // pressure:
+      Teuchos::ParameterList& presList =
+        probList.sublist("Variable "+Teuchos::toString(dim_+i));
+      if (no_SC==false)
+        {
+        presList.set("Variable Type","Retain 2");
+        presList.set("Retain Isolated",true);
+        }
+      else
+        {
+        presList.set("Variable Type","Uncoupled");
+        }
+      }
+    // we fix the singularity by inserting a Dirichlet condition for 
+    // global pressure in cells 0 and 1, since we retain two pressures
+    // per subdomain both will be retained until the coarsest grid.
+    // We use +nx*dof here to skip the dummy P-nodes (@).
+    precList.set("Fix GID 1",dim_+nx_*dof_);
+    precList.set("Fix GID 2",2*dim_+nx_*dof_);
     }
   else
     {

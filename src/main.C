@@ -189,7 +189,9 @@ bool status=true;
   Teuchos::RCP<HYMLS::Preconditioner> precond = Teuchos::rcp(new HYMLS::Preconditioner(K, params));
 
   HYMLS::Tools::Out("Initialize Preconditioner...");
+  HYMLS::Tools::StartTiming("main: Initialize Preconditioner");
   CHECK_ZERO(precond->Initialize());
+  HYMLS::Tools::StopTiming("main: Initialize Preconditioner",true);
 
   HYMLS::Tools::Out("Create Solver");
   Teuchos::RCP<HYMLS::Solver> solver = Teuchos::rcp(new HYMLS::Solver(K, precond, params,numRhs));
@@ -210,7 +212,11 @@ for (int f=0;f<numComputes;f++)
     CHECK_ZERO(K->ReplaceDiagonalValues(diag));
     }
   HYMLS::Tools::Out("Compute Solver ("+Teuchos::toString(f+1)+")");
+
+  HYMLS::Tools::StartTiming("main: Compute Preconditioner");
   CHECK_ZERO(precond->Compute());
+  HYMLS::Tools::StopTiming("main: Compute Preconditioner",true);
+
   if (do_deflation)
     {
     solver->SetMassMatrix(M);
@@ -233,7 +239,9 @@ for (int f=0;f<numComputes;f++)
       }
 
     HYMLS::Tools::Out("Solve ("+Teuchos::toString(s+1)+")");
+  HYMLS::Tools::StartTiming("main: Solve");
     CHECK_ZERO(solver->ApplyInverse(*b,*x));
+  HYMLS::Tools::StopTiming("main: Solve",true);
 
     // subtract constant from pressure if solving Stokes-C
     if (eqn=="Stokes-C")
