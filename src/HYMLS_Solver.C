@@ -287,7 +287,7 @@ int Solver::SetupDeflation(int maxEigs)
     CHECK_ZERO(test_y.PutScalar(0.0));
     CHECK_ZERO(precond_->ApplyInverse(test_x,test_y));
     MatrixUtils::Dump(test_y,"PROJ_prec_sol.txt");
-    MatrixUtils::Dump(test_y,"PROJ_rhs.txt");
+    MatrixUtils::Dump(test_x,"PROJ_rhs.txt");
 #endif
 
   // we compute eigs of the operator [K e; e' 0] to make the operator nonsingular
@@ -307,6 +307,7 @@ int Solver::SetupDeflation(int maxEigs)
     CHECK_ZERO(test_y.PutScalar(0.0));
     CHECK_ZERO(op->ApplyInverse(test_x,test_y));
     MatrixUtils::Dump(test_y,"PROJ_bordered_prec_sol.txt");
+    HYMLS::Tools::Fatal("TROET",__FILE__,__LINE__);
 #endif
     }    
 

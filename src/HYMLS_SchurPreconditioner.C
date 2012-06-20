@@ -36,6 +36,8 @@
 #include "EpetraExt_RestrictedMultiVectorWrapper.h"
 #include "EpetraExt_MatrixMatrix.h"
 
+#include "HYMLS_AugmentedMatrix.H"
+
 namespace HYMLS {
 
 
@@ -81,11 +83,6 @@ namespace HYMLS {
 
     if (myLevel_==maxLevel_)
       {
-      if (SchurMatrix_==Teuchos::null)
-        {
-        Tools::Error("we need an assembled SC on the coarsest level",
-                        __FILE__,__LINE__);
-        }
       // reindex the reduced system, this seems to be a good idea when
       // solving it using Ifpack_Amesos
       linearMap_ = Teuchos::rcp(new Epetra_Map(map_->NumGlobalElements(),
@@ -241,7 +238,27 @@ namespace HYMLS {
     
     START_TIMER(label_,"InitializeCompute");
 
-    if (myLevel_!=maxLevel_)
+    if (myLevel_==maxLevel_)
+      {
+      // this should happen only if HYMLS is used as a direct method
+      // ("Number of Levels" is 1) because then the Preconditioner  
+      // class will construct a SchurPreconditioner on the coarsest 
+      // level, otherwise a SchurPreconditioner constructs it with  
+      // a sparse matrix directly.
+      if (SchurComplement_==Teuchos::null && SchurMatrix_==Teuchos::null)
+        {
+        HYMLS::Tools::Error("no matrix and no SC object available on coarsest level",
+              __FILE__,__LINE__);
+        }
+      if (SchurComplement_!=Teuchos::null)
+        {
+        Teuchos::RCP<Epetra_FECrsMatrix> mat
+                = Teuchos::rcp(new Epetra_FECrsMatrix(Copy,*map_,32));
+        SchurComplement_->Construct(mat);
+        SchurMatrix_ = mat;
+        }
+      }
+    else
       {
       if (variant_=="Block Diagonal"||
           variant_=="Lower Triangular")
@@ -261,11 +278,7 @@ namespace HYMLS {
         Tools::Error("Variant '"+variant_+"'not implemented",
                 __FILE__,__LINE__);
         }
-      }
 
-    
-    if (myLevel_!=maxLevel_)
-      {
       if (SchurMatrix_!=Teuchos::null)
         {
         CHECK_ZERO(TransformAndDrop());
@@ -358,7 +371,6 @@ namespace HYMLS {
     amActive_=true;
 #endif
     Teuchos::ParameterList& amesosList=PL().sublist("Coarse Solver");                    
-std::cout << Teuchos::toString(comm_->MyPID())+": amActive="+Teuchos::toString(amActive_)+"\n";
     if (amActive_)
       {
       reducedSchurSolver_= Teuchos::rcp(new Ifpack_Amesos(restrictedMatrix_.get()));
@@ -844,7 +856,7 @@ int SchurPreconditioner::InitializeOT()
     // extract the Vsum part of the preconditioner (reduced Schur)
     CHECK_ZERO(reducedSchur_->Import(*matrix_, *vsumImporter_, Insert));
       
-    //TODO: actual Schur Complement      
+    //TODO: actual Schur Complement
     CHECK_ZERO(reducedSchur_->FillComplete(*vsumMap_,*vsumMap_));
 
     // drop numerical zeros so that the domain decomposition works
@@ -1173,6 +1185,18 @@ int SchurPreconditioner::InitializeOT()
     {
     if (isEmpty_) return 0;
     START_TIMER(label_,"ApplyInverse");
+
+    if (borderV_!=Teuchos::null)
+      {
+      // this is the expected behavior for standard ApplyInverse() of
+      // a BorderedSolver in HYMLS: solve with rhs 0 for border.
+      int m = borderV_->NumVectors();
+      int n = X.NumVectors();
+      Epetra_SerialDenseMatrix C(m,n);
+      Epetra_SerialDenseMatrix D(m,n);
+      return ApplyInverse(X,C,Y,D);
+      }
+    
     numApplyInverse_++;
     time_->ResetStartTime();
     if (!IsComputed())
@@ -1461,7 +1485,7 @@ int SchurPreconditioner::ApplyOT(bool trans, Epetra_MultiVector& v, double* flop
     // We currently always use the second implementation because it allows more general
     // transformations, which is required for the multi-level method (the vector v in the 
     // Householder transform is always assumed to contain only ones in case of the first
-    // implementation). TODO: if there is a performance gain we can implement this in the
+    // implementation). If there is a performance gain we can implement this in the
     // 'view' implementation, too.
 
     // this object has each local separator as a group (without overlap),
@@ -1526,7 +1550,7 @@ int SchurPreconditioner::ApplyOT(bool trans, Epetra_MultiVector& v, double* flop
       }
     if (flops!=NULL)
       {
-      //TODO: maak dit algemeen voor alle OTs
+      //TODO: make this general for all OTs
       *flops += sparseMatrixOT_->NumGlobalNonzeros() * 4 + v.MyLength();
       }
     }
@@ -1751,6 +1775,292 @@ int SchurPreconditioner::UpdateVsumRhs(const Epetra_MultiVector& B, Epetra_Multi
     }
   return 0;
   }
+
+////////////////////////////////////////////////////
+// implementation of the BorderedSolver interface //
+////////////////////////////////////////////////////
+
+    // set the operators V, W and C to solve systems with
+    // | M11 M12 V1 |
+    // | M21 M22 V2 |
+    // | W1  W2   C |. We already have M11 and M22 facored, but
+    // we need to add a border to M22 and factor it again on the
+    // coarsest level. On intermediate levelswe just need to compute
+    // the border for M22 and pass it to the next level. M12 and M21
+    // are currently assumed to be zero (block diagonal preconditioner)
+    //                                          
+    int SchurPreconditioner::SetBorder(Teuchos::RCP<const Epetra_MultiVector> V,
+                          Teuchos::RCP<const Epetra_MultiVector> W,
+                          Teuchos::RCP<const Epetra_SerialDenseMatrix> C)
+  {
+  START_TIMER(label_,"SetBorder");
+  int ierr=0;
+  borderV_=Teuchos::rcp(new Epetra_MultiVector(*V));
+  if (W!=Teuchos::null)
+    {
+    borderW_=Teuchos::rcp(new Epetra_MultiVector(*W));
+    }
+  else
+    {
+    borderW_=Teuchos::rcp(new Epetra_MultiVector(*V));    
+    }
+  borderC_=Teuchos::rcp(new Epetra_SerialDenseMatrix(*C));
+  if (myLevel_==maxLevel_)
+    {
+    // we need to create views of the vectors here because the
+    // map is different for the solver (linear restricted map)
+    Teuchos::RCP<const Epetra_MultiVector> Vprime =
+        Teuchos::rcp(new Epetra_MultiVector(View,restrictedRhs_->Map(),
+                borderV_->Values(),borderV_->Stride(),borderV_->NumVectors()));
+    Teuchos::RCP<const Epetra_MultiVector> Wprime =
+        Teuchos::rcp(new Epetra_MultiVector(View,restrictedRhs_->Map(),
+                borderW_->Values(),borderW_->Stride(),borderW_->NumVectors()));
+    // create AugmentedMatrix, refactor reducedSchurSolver_
+    augmentedMatrix_ = Teuchos::rcp
+        (new HYMLS::AugmentedMatrix(restrictedMatrix_,Vprime,Wprime,borderC_));
+
+    Teuchos::ParameterList& amesosList=PL().sublist("Coarse Solver");                    
+    if (amActive_)
+      {
+      reducedSchurSolver_= Teuchos::rcp(new Ifpack_Amesos(augmentedMatrix_.get()));
+      CHECK_ZERO(reducedSchurSolver_->SetParameters(amesosList));
+      DEBUG("re-initialize direct solver for augmented system");
+      CHECK_ZERO(reducedSchurSolver_->Initialize());
+      DEBUG("re-compute direct solver for augmented system");
+      CHECK_ZERO(reducedSchurSolver_->Compute());
+      }  
+    }
+  else
+    {
+    // transform V and W
+    CHECK_ZERO(this->ApplyOT(false,*borderV_));
+    CHECK_ZERO(this->ApplyOT(true,*borderW_));
+    // form V_2 and W_2 by import operations (V_1 and W_1 are views of V_ and W_)
+    borderV2_=Teuchos::rcp(new Epetra_MultiVector(*vsumMap_,borderV_->NumVectors()));
+    borderW2_=Teuchos::rcp(new Epetra_MultiVector(*vsumMap_,borderW_->NumVectors()));
+    CHECK_ZERO(borderV2_->Import(*borderV_,*vsumImporter_,Insert));
+    CHECK_ZERO(borderW2_->Import(*borderW_,*vsumImporter_,Insert));
+    // set border in next level problem
+    Teuchos::RCP<HYMLS::BorderedSolver> borderedNextLevel =
+        Teuchos::rcp_dynamic_cast<HYMLS::BorderedSolver>(reducedSchurSolver_);
+    if (Teuchos::is_null(borderedNextLevel))
+      {
+      HYMLS::Tools::Error("next level solver can't handle border!",__FILE__,__LINE__);
+      }
+    borderedNextLevel->SetBorder(borderV2_,borderW2_,borderC_);
+    }
+  return ierr;
+  }
+
+    // compute [Y T]' = [K V;W' C]*[X S]'
+    int SchurPreconditioner::Apply(const Epetra_MultiVector& X, const Epetra_SerialDenseMatrix& S,
+                    Epetra_MultiVector& Y,       Epetra_SerialDenseMatrix& T) const
+  {
+  return -99; // not implemented
+  }                    
+
+    // compute [X S]' = [K V;W' C]\[Y T]'
+    int SchurPreconditioner::ApplyInverse(const Epetra_MultiVector& Y, 
+                const Epetra_SerialDenseMatrix& T,
+                            Epetra_MultiVector& X,       
+                      Epetra_SerialDenseMatrix& S) const
+  {
+  START_TIMER2(label_,"ApplyInverse (bordered)");
+
+    // so the procedure to solve the system is  
+    //                                          
+    // |M22 V2| x2   = f2                       
+    // |W2  C |  v   = g - W1'M11\f1            
+    //                                          
+    // x1 = M11\(f1 -V1 v)                      
+    //                                          
+    // where [f1' f2'] are the Householder-transformed RHS of the original problem
+    // and g is the rhs contribution for the border.
+    // This is like standard ApplyInverse(), only there we do the coarse solve
+    // last.
+    if (isEmpty_) return 0;
+
+    numApplyInverse_++;
+    time_->ResetStartTime();
+    if (!IsComputed())
+      {
+      return -1;
+      }
+      
+    if (borderV_==Teuchos::null)
+      {
+      Tools::Warning("border not set!",__FILE__,__LINE__);
+      return this->ApplyInverse(Y,X);
+      }
+
+    CHECK_ZERO(X.PutScalar(0.0));
+
+    if (myLevel_==maxLevel_)
+      {
+      // on the coarsest level we have put the border explicitly into an
+      // AugmentedMatrix so we need to form the complete RHS
+      bool realloc_vectors = (linearRhs_==Teuchos::null);
+      if (!realloc_vectors) realloc_vectors = (linearRhs_->NumVectors()!=X.NumVectors());
+      if (!realloc_vectors) realloc_vectors = 
+      (linearRhs_->Map().SameAs(augmentedMatrix_->Map())==false);
+      if (realloc_vectors)
+        {
+        linearRhs_=Teuchos::rcp(new 
+        Epetra_MultiVector(augmentedMatrix_->Map(),Y.NumVectors()));
+        linearSol_=Teuchos::rcp(new 
+        Epetra_MultiVector(augmentedMatrix_->Map(),Y.NumVectors()));
+        }
+      for (int j=0;j<X.NumVectors();j++)
+        {
+        for (int i=0;i<X.MyLength();i++)
+          {
+          (*linearRhs_)[j][i]=Y[j][i] * (*reducedSchurScaLeft_)[i];
+          }
+        for (int i=X.MyLength();i<=linearRhs_->MyLength();i++)
+          {
+          int k = i-X.MyLength();
+          (*linearRhs_)[j][i]=T[j][k];
+          }
+        }
+/* in augmented systems we do not fix any GIDs, I guess...
+      for (int i=0;i<fix_gid_.length();i++)
+        {
+        int lid = X.Map().LID(fix_gid_[i]);
+        if (lid>0)
+          {
+          for (int k=0;k<X.NumVectors();k++)
+            {
+            (*linearRhs_)[k][lid]=0.0;
+            }
+          }
+        }
+*/        
+      if (realloc_vectors)
+        {
+#ifdef RESTRICT_ON_COARSE_LEVEL
+        // TODO - CHECK_ZERO at next Trilinos release
+//        CHECK_ZERO(restrictB_->restrict_comm(linearRhs_));
+//        CHECK_ZERO(restrictX_->restrict_comm(linearSol_));
+        restrictB_->restrict_comm(linearRhs_);
+        restrictX_->restrict_comm(linearSol_);
+        restrictedRhs_ = restrictB_->RestrictedMultiVector();
+        restrictedSol_ = restrictX_->RestrictedMultiVector();
+#else
+        restrictedRhs_=linearRhs_;
+        restrictedSol_=linearSol_;
+#endif        
+        }
+      if (amActive_)
+        {
+        CHECK_ZERO(reducedSchurSolver_->ApplyInverse(*restrictedRhs_,*restrictedSol_));
+        }
+      // unscale the solution and split into X and S
+      for (int j=0;j<X.NumVectors();j++)
+        {
+        for (int i=0;i<X.MyLength();i++)
+          {
+          X[j][i]=(*linearSol_)[j][i] * (*reducedSchurScaRight_)[i];
+          }
+        for (int i=X.MyLength();i<=linearRhs_->MyLength();i++)
+          {
+          int k = i-X.MyLength();
+          S[j][k]=(*linearSol_)[j][i];
+          }
+        }
+      }
+    else
+      {
+      // (1) Transform right-hand side, B=OT'*Y
+      Epetra_MultiVector B(Y);
+    
+      ApplyOT(true,B,&flopsApplyInverse_);
+
+      // compute x1 = M11\f1
+      if (variant_=="Block Diagonal")
+        {
+        CHECK_ZERO(this->ApplyBlockDiagonal(B,X));
+        }
+      else
+        {
+        Tools::Error("not implemented",__FILE__,__LINE__);
+        // did not look at this
+        }
+
+
+      // solve reduced Schur-complement problem.
+      // We do not have to form the augmented vectors here as
+      // we use the BorderedSolver interface's ApplyInverse()
+      // function recursively.
+      if (X.NumVectors()!=vsumRhs_->NumVectors())
+        {
+        vsumRhs_ = Teuchos::rcp(new
+          Epetra_MultiVector(*vsumMap_,X.NumVectors()));
+        vsumSol_ = Teuchos::rcp(new
+          Epetra_MultiVector(*vsumMap_,X.NumVectors()));
+        }
+
+      CHECK_ZERO(vsumRhs_->Import(Y,*vsumImporter_,Insert));
+      Epetra_SerialDenseMatrix Tcopy(T);
+      // compute W1'(M11\F1). note zeros in X2
+      for (int j=0;j<T.N();j++)
+        {
+        for (int i=0;i<T.M();i++)
+          {
+          double WdotX;
+          CHECK_ZERO((*borderW_)(i)->Dot(*(X(j)),&WdotX));
+          // | T - W1'M11\f1
+          Tcopy[j][i]-= WdotX;
+          }
+        }
+
+      if (reducedSchurScaLeft_!=Teuchos::null)
+        {
+        CHECK_ZERO(vsumRhs_->Multiply(1.0,*reducedSchurScaLeft_,*vsumRhs_,0.0));
+        }
+      Teuchos::RCP<const HYMLS::BorderedSolver> borderedNextLevel =
+        Teuchos::rcp_dynamic_cast<const HYMLS::BorderedSolver>(reducedSchurSolver_);
+      if (Teuchos::is_null(borderedNextLevel))
+        {
+        Tools::Error("cannot handle next level bordered system!",__FILE__,__LINE__);
+        }
+      CHECK_ZERO(borderedNextLevel->ApplyInverse(*vsumRhs_,Tcopy,*vsumSol_,S));
+      if (reducedSchurScaRight_!=Teuchos::null)
+        {
+        CHECK_ZERO(vsumSol_->Multiply(1.0,*reducedSchurScaRight_,*vsumSol_,0.0));
+        }
+      
+      // copy into X
+      for (int j=0;j<X.NumVectors();j++)
+        for (int i=0;i<vsumSol_->MyLength();i++)
+          {
+          int gid = vsumMap_->GID(i);
+          int lid = X.Map().LID(gid);
+#ifdef TESTING
+              // something's fishy, should just be a copy operation.
+              if (lid<0) Tools::Error("inconsistent maps",__FILE__,__LINE__);
+#endif          
+          X[j][lid] = (*vsumSol_)[j][i];
+          }
+      
+      // transform back
+      ApplyOT(false,X,&flopsApplyInverse_);
+      }
+
+#ifdef TESTING
+if (dumpVectors_)
+  {
+  MatrixUtils::Dump(*(Y(0)),"SchurPreconditioner"+Teuchos::toString(myLevel_)+"_Sol.txt");
+  dumpVectors_=false;
+  }
+#endif
+      
+    timeApplyInverse_+=time_->ElapsedTime();
+
+  return 0;
+  }
+
+
+////////////////////////////////////////////////////
 
 void SchurPreconditioner::Visualize(std::string mfilename,bool recurse) const
   {

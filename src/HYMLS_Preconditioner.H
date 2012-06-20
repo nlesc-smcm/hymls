@@ -374,9 +374,6 @@ protected:
   //! lower right block of bordered Schur system
   Teuchos::RCP<Epetra_SerialDenseMatrix> borderSchurC_;
   
-  //! bordered solver for the Schur-complement
-  Teuchos::RCP<BorderedLU> borderedSchurSolver_;
-  
   //@}
   
   //! use transposed operator?

@@ -10,6 +10,7 @@
 
 #include "HYMLS_OverlappingPartitioner.H"
 #include "HYMLS_OrthogonalTransform.H"
+#include "HYMLS_BorderedSolver.H"
 #include "HYMLS_PLA.H"
 
 // forward declarations
@@ -56,6 +57,7 @@ class SchurComplement;
     direct solver for the input matrix.
 */
 class SchurPreconditioner : public Ifpack_Preconditioner,
+                            public BorderedSolver,
                             public PLA
   {
   
@@ -204,6 +206,24 @@ public:
 
   
 
+  //@}
+
+  //! \name HYMLS BorderedSolver interface
+  //@{
+  
+  //!
+  int SetBorder(Teuchos::RCP<const Epetra_MultiVector> V,
+                Teuchos::RCP<const Epetra_MultiVector> W,
+                Teuchos::RCP<const Epetra_SerialDenseMatrix> C=Teuchos::null);
+  
+  //!
+  int Apply(const Epetra_MultiVector & B, const Epetra_SerialDenseMatrix & C, 
+                  Epetra_MultiVector& X, Epetra_SerialDenseMatrix & Y) const;
+
+  //!
+  int ApplyInverse(const Epetra_MultiVector & B, const Epetra_SerialDenseMatrix & C, 
+                  Epetra_MultiVector& X, Epetra_SerialDenseMatrix & Y) const;
+  
   //@}
 
 protected: 
@@ -380,6 +400,16 @@ protected:
   bool subdivideSeparators_;
 
   mutable bool dumpVectors_;
+  
+  //! \name data structures for bordering
+  
+  //! border split up and transformed by Householder
+  Teuchos::RCP<Epetra_MultiVector> borderV_,borderV2_,borderW_,borderW2_;
+  //! lower diagonal block of bordered system
+  Teuchos::RCP<Epetra_SerialDenseMatrix> borderC_;
+  
+  //! augmented matrix for V-sums, [M22 V2; W2 C]
+  Teuchos::RCP<Epetra_RowMatrix> augmentedMatrix_;
   
 private:
 

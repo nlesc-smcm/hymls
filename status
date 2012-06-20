@@ -10,5 +10,8 @@ Acceleration of convergence as in MATLAB using a better appromation of the Schur
 on Stokes almost a factor 2 was gained.
 Incorporation of border, as in MATLAB version. Needed for eigenvalue computation
 
- 
+bugs
+
+unit test stokes3.xml (1-level/direct) fails if "Number of factorizations" 
+or "Number of refinements" is increased
 

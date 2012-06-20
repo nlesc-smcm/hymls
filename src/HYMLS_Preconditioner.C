@@ -120,7 +120,7 @@ namespace HYMLS {
       {
       nz_=1;
       }
-        
+
     scaleSchur_=PL().get("Scale Schur-Complement",false);
 
     sdSolverType_=PL().get("Subdomain Solver Type","Sparse");
@@ -552,7 +552,6 @@ MatrixUtils::Dump(*A22_, "Precond"+Teuchos::toString(myLevel_)+"_A22.txt");
     // construct the Schur-complement operator (no computations, just
     // pass in pointers of the LU's)
     Schur_=Teuchos::rcp(new SchurComplement(Teuchos::rcp(this,false),myLevel_));
-    Teuchos::RCP<const Epetra_CrsMatrix> SC = Schur_->Matrix();
     }
 Tools::out() << "=============================="<<std::endl;
 Tools::out() << "LEVEL "<< myLevel_<<std::endl;
@@ -587,17 +586,11 @@ Tools::out() << "=============================="<<std::endl;
     {
     DEBUG("Construct schur-preconditioner");
     schurPrec_=Teuchos::rcp(new SchurPreconditioner(Schur_,hid_,
-                getMyNonconstParamList(), myLevel_, testVector2));
+              getMyNonconstParamList(), myLevel_, testVector2));
     }
-
+  
   CHECK_ZERO(schurPrec_->Initialize());
 
-  // now we have all the data structures, but the pattern of 
-  // the Schur-complement is not available, yet (it will be in 
-  // Compute()). So we cannot initialize the Schur preconditioner
-  // here (Ifpack_Preconditioner::Initialize() requires the pattern
-  // to be there).
-  
   // create Belos' view of the Schur-complement problem
   schurRhs_=Teuchos::rcp(new Epetra_Vector(*map2_));
   schurSol_=Teuchos::rcp(new Epetra_Vector(*map2_));
@@ -717,7 +710,6 @@ double nrow=0;
     }
 REPORT_SUM_MEM(label_,"subdomain solvers",nnz,nnz,comm_);
 }
-
 
   if (scaleSchur_)
     {
@@ -865,16 +857,15 @@ if (dumpVectors_)
     }
   if (borderV_!=Teuchos::null)
     {
-    //TODO: for recursive application we should probably 
-    //      use the next level HYMLS::Preconditioner as the
-    //      bordered Solver instead of a borderedLU.
-    if (borderedSchurSolver_==Teuchos::null)
+    Teuchos::RCP<HYMLS::BorderedSolver> borderedSchurSolver
+        = Teuchos::rcp_dynamic_cast<HYMLS::BorderedSolver>(schurPrec_);
+    if (borderedSchurSolver==Teuchos::null)
       {
       Tools::Error("cannot handle bordered Schur system!",__FILE__,__LINE__);
       }
     else
       {
-      CHECK_ZERO(borderedSchurSolver_->ApplyInverse(*schurRhs_,q,*schurSol_,s));  
+      CHECK_ZERO(borderedSchurSolver->ApplyInverse(*schurRhs_,q,*schurSol_,s));  
       }
     }
   else
@@ -1577,12 +1568,15 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
       Tools::Error("SetBorder: V can't be null",__FILE__,__LINE__);
       }
     int m = _V->NumVectors();
+    DEBVAR(m);
     if (_W==Teuchos::null)
       {
+      DEBUG("Using W=V");
       _W=_V;
       }
     if (_C==Teuchos::null)
       {
+      DEBUG("Using C=0");
       _C=Teuchos::rcp(new Epetra_SerialDenseMatrix(m,m));
       }
     
@@ -1664,16 +1658,13 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
       {
       Tools::Error("not implemented!",__FILE__,__LINE__);
       }
-    /*
-    I don't think this is necessary/correct, the ApplyInverse() function of the
-    preconditioner takes care of the OT.
-    // TODO: no flops counted - can pass in a counter here if we like.
-    CHECK_ZERO(schurPrec_->ApplyOT(true,*borderSchurV_));
-    CHECK_ZERO(schurPrec_->ApplyOT(true,*borderSchurW_));
-    */      
-    borderedSchurSolver_ = Teuchos::rcp
-        (new BorderedLU(schurPrec_,borderSchurV_,borderSchurW_,borderSchurC_));
-
+    Teuchos::RCP<HYMLS::BorderedSolver> borderedSchurSolver = 
+    Teuchos::rcp_dynamic_cast<HYMLS::BorderedSolver>(schurPrec_);
+    if (Teuchos::is_null(borderedSchurSolver))
+      {
+      Tools::Error("cannot handle bordered Schur problem",__FILE__,__LINE__);
+      }
+    CHECK_ZERO(borderedSchurSolver->SetBorder(borderSchurV_,borderSchurW_,borderSchurC_));
     return 0;
     }
 

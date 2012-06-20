@@ -323,7 +323,8 @@ START_TIMER2(label_,"Initialize");
     }
   else
     {
-    return -99; // not implemented
+    // not implemented
+    return -99; 
     }
   IsInitialized_ = true;
   ++NumInitialize_;
@@ -397,7 +398,7 @@ START_TIMER2(label_,"Compute");
 int SparseDirectSolver::SetUseTranspose(bool UseTranspose_in)
 {
 UseTranspose_ = UseTranspose_in;
-return(99);// I have not checked wether this really works
+return(0);
 }
 
 //==============================================================================

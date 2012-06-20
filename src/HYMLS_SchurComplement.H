@@ -164,7 +164,7 @@ protected:
   //! it `on the fly'. It is more efficient to construct it as a sparse matrix,
   //! and the preconditioner computes all the necessary blocks anyway, so we
   //! practically get it for free.
-  mutable Teuchos::RCP<Epetra_FECrsMatrix> sparseMatrixRepresentation_;
+  Teuchos::RCP<Epetra_FECrsMatrix> sparseMatrixRepresentation_;
  
   Teuchos::RCP<const Epetra_CrsMatrix> Scrs_;
  

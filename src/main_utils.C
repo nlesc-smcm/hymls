@@ -255,9 +255,12 @@ Teuchos::RCP<Epetra_CrsMatrix> create_matrix(const Epetra_Map& map,
       try {
         matrix= Teuchos::rcp(Galeri::CreateCrsMatrix(matrixType, &map, galeriList));
         } catch (Galeri::Exception G) {G.Print();}
+      }
+    if (probl_params.get("Equations","Laplace")=="Laplace")
+      {
       matrix->Scale(-1.0); // we like our matrix negative definite
-                       // (just to conform with the diffusion operator in the NSE,
-                       // the solver works anyway, of course).
+             // (just to conform with the diffusion operator in the NSE,
+             // the solver works anyway, of course).
       }
   return matrix;
   }
