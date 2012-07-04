@@ -50,7 +50,7 @@ bool status=true;
 
   try {
 
-  START_TIMER(std::string("main"),"entire run");
+  START_TIMER("main","entire run");
 
   std::string param_file;
 
@@ -85,6 +85,11 @@ bool status=true;
     int numRhs   =driverList.get("Number of rhs",1);
     double perturbation = driverList.get("Diagonal Perturbation",0.0);
     
+    std::string galeriLabel=driverList.get("Galeri Label","");
+    Teuchos::ParameterList galeriList = driverList.sublist("Galeri");
+ 
+    // copy here rather than reference because the driver list will be removed 
+    // alltogether...   
     bool read_problem=driverList.get("Read Linear System",false);
     string datadir,file_format;
     bool have_exact_sol;
@@ -114,8 +119,7 @@ bool status=true;
     
     std::string eqn=probl_params.get("Equations","Laplace");
 
-    map = HYMLS::MainUtils::create_map(*comm,probl_params);
-  
+    map = HYMLS::MainUtils::create_map(*comm,probl_params); 
 
   if (read_problem)
     {
@@ -125,7 +129,8 @@ bool status=true;
     {
     HYMLS::Tools::Out("Create matrix");
 
-    K=HYMLS::MainUtils::create_matrix(*map,probl_params);
+    K=HYMLS::MainUtils::create_matrix(*map,probl_params,
+        galeriLabel, galeriList);
     }
   // create a random exact solution
   Teuchos::RCP<Epetra_MultiVector> x_ex = Teuchos::rcp(new Epetra_MultiVector(*map,numRhs));

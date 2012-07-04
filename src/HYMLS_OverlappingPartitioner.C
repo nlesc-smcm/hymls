@@ -542,7 +542,8 @@ int OverlappingPartitioner::DetectSeparators()
     Tools::Error("parallelGraph not yet constructed!",__FILE__,__LINE__);
     }
   
-  int np_schur=0;
+  int np_schur=0;// number of pressures on SC
+  
   nodeType_=Teuchos::rcp(new Epetra_IntVector(partitioner_->Map()));
   nodeType_->PutValue(-1);
 
@@ -583,17 +584,29 @@ DEBVAR(*p_nodeType_);
   //                                                                          
   CHECK_ZERO(this->DetectIsolated(*parallelGraph_,*p_nodeType_, *nodeType_,np_schur));
 
-  // import again to "spread the word"
+  // import to "spread the word"
   CHECK_ZERO(p_nodeType_->Import(*nodeType_,import,Insert));
 
   //... then do it again: this is required to get a 3 in the corners in 3D
   CHECK_ZERO(this->DetectIsolated(*parallelGraph_,*p_nodeType_, *nodeType_,np_schur));
 
-  // import again to "spread the word"
+  // import again
   CHECK_ZERO(p_nodeType_->Import(*nodeType_,import,Insert));
 
   DEBVAR(*p_nodeType_);
-
+  
+  // we now have the following node types
+  // 0: interior
+  // 1: edge (2D) or face (3D) separator node
+  // 2: corner (2D) or edge (3D) separator node
+  // 3: 3D corner 
+  // 4: retained V-nodes. In 2D these are full conservation cells.
+  //    In 3D they can be clustered to form full conservation tubes, 
+  //    cf. ClusterSingletons.
+  // 5: only in 3D Stokes. Any retained P-node,
+  //    or a V-node in an actual full conservation
+  //    cell (subdomain corner).
+  
   int global_np_schur;
   comm_->SumAll(&np_schur,&global_np_schur,1);
 
@@ -615,6 +628,7 @@ DEBVAR(*p_nodeType_);
   Teuchos::Array<int> retained_nodes;  
 
   groupPointer_->resize(partitioner_->NumLocalParts());
+
   int last;
   if (partitioner_->NumLocalParts()>0) 
     {
@@ -638,6 +652,15 @@ DEBVAR(*p_nodeType_);
     DEBVAR(interior_nodes);
     DEBVAR(separator_nodes);
     DEBVAR(retained_nodes);
+    
+    // now try to group some of the retained nodes to form independent subdomains
+    // and separators, this is an important step in 3D Navier-Stokes, where so-  
+    // called 'full conservation tubes' occur on line separators where four faces
+    // of a subdomain meet.
+    CHECK_ZERO(this->ClusterSingletons(sd, *parallelGraph_, *p_nodeType_,
+                interior_nodes, separator_nodes, retained_nodes, np_schur));
+    
+    // form group pointer and ordered list of all nodes
     last=(*groupPointer_)[sd].size()-1;
     (*groupPointer_)[sd].append((*groupPointer_)[sd][last]+interior_nodes.size());
 
@@ -654,6 +677,15 @@ DEBVAR(*p_nodeType_);
     std::copy(retained_nodes.begin(),retained_nodes.end(),
               std::back_inserter(my_nodes));
     
+    }
+
+  int old_global_np_schur=global_np_schur;
+  global_np_schur=0;
+  comm_->SumAll(&np_schur,&global_np_schur,1);
+
+  if (comm_->MyPID()==0 && global_np_schur!=old_global_np_schur)
+    {
+    Tools::Out("Final number of P-nodes in SC: "+Teuchos::toString(global_np_schur));
     }
 
 
@@ -891,6 +923,11 @@ DEBVAR(*p_nodeType_);
   
   int *cols = new int[MaxNumEntriesPerRow];
   int len;
+  
+  if (sd>partitioner_->NumLocalParts())
+    {
+    Tools::Error("not implemeneted",__FILE__,__LINE__);
+    }
 
   int sd_i = partitioner_->GPID(sd);
   DEBVAR(sd);
@@ -1031,6 +1068,108 @@ DEBVAR(*p_nodeType_);
   
  
   delete [] cols;  
+  return 0;
+  }
+
+// this function checks wether some of the nodes marked as 'retained'  
+// can be grouped together and either be eliminated (as 'interior') or 
+// treated as a single separator group ('separator'). We do this for   
+// for the special case of 3D Navier-Stokes here, for general problems 
+// it is not clear to me which nodes would be retained or could be re- 
+// grouped, although a purely algebraic criterion probably exists.     
+int OverlappingPartitioner::ClusterSingletons(int sd,
+                const Epetra_CrsGraph& G,
+                const Epetra_IntVector& p_nodeType,
+                Teuchos::Array<int>& interior,
+                Teuchos::Array<int>& separator,
+                Teuchos::Array<int>& retained,
+                int& np_schur) const
+  {
+  return 0; // currently disabled in SVN, will be put in
+            // once tested and functional
+  if (dof_!=4) return 0;
+
+  START_TIMER2(label_,"ClusterSingletons");
+
+  // we currently have the following node types
+  // 0: interior
+  // 1: edge (2D) or face (3D) separator node
+  // 2: corner (2D) or edge (3D) separator node
+  // 3: 3D corner 
+  // 4: retained V-nodes. In 2D these are full conservation cells.
+  //    In 3D they can be clustered to form full conservation tubes
+  // 5: only in 3D Stokes. Any retained P-node,
+  //    or a V-node in an actual full conservation
+  //    cell (subdomain corner).
+
+  int len;
+  int *indices;
+
+  for (int_i i=retained.begin(); i!=retained.end(); i++)
+    {
+    int lid_i = G.LRID(*i);
+    int var_i = partitioner_->VariableType(*i);
+    int nt_i = p_nodeType[lid_i];
+    
+    bool make_interior=false;
+    bool make_separator=false;
+    
+    if (var_i==3 && nt_i==5) // P-node on separator
+      {
+      bool isFCC=true;
+      // check if this pressure is in a corner, e.g. in a 
+      // full conservation cell (FCC). This is the case if
+      // all connected V-nodes have a 5 in the node type vector.
+      CHECK_ZERO(G.ExtractMyRowView(lid_i,len,indices));
+      for (int j=0;j<len;j++)
+        {
+        int gcid = G.GCID(indices[j]);
+        int lid_j = p_nodeType.Map().LID(gcid);
+        if (p_nodeType[lid_j]!=5) isFCC=false;
+        }
+            
+      if (isFCC==false) 
+        {
+        make_interior=true;
+        }
+      }// P-node?
+    else if (var_i < 3 && nt_i==4) // V-node, not in FCC
+      {
+      // check if the V-node connects to two retained P-nodes,
+      // in that case it can be eliminated in a 'full conservation
+      // tube' if it is not in the corner cell.
+      bool isFCT=true;
+      CHECK_ZERO(G.ExtractMyRowView(lid_i,len,indices));
+      for (int j=0;j<len;j++)
+        {
+        int gcid = G.GCID(indices[j]);
+        int var_j = partitioner_->VariableType(gcid);
+        if (var_j==3)
+          {
+          int lid_j = p_nodeType.Map().LID(gcid);
+          if (p_nodeType[lid_j]!=5) isFCT=false;
+          }
+        }            
+      if (isFCT==true) 
+        {
+        make_interior=true;
+        }
+      else
+        {
+        make_separator=true;
+        }      
+      }
+    if (make_interior)
+      {
+      interior.append(*i);
+      i = retained.erase(i);
+      }
+    else if (make_separator)
+      {
+      separator.append(*i);
+      i = retained.erase(i);
+      }
+    }// i
   return 0;
   }
 

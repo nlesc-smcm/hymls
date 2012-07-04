@@ -29,7 +29,8 @@ Teuchos::RCP<Epetra_Map> create_map(const Epetra_Comm& comm,
                                 Teuchos::ParameterList& probl_params);
 
 Teuchos::RCP<Epetra_CrsMatrix> create_matrix(const Epetra_Map& map,
-                                Teuchos::ParameterList& probl_params);
+                                Teuchos::ParameterList& probl_params,
+                                std::string galeriLabel, Teuchos::ParameterList& galeriList);
 
 }
 }

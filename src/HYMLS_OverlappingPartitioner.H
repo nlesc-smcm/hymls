@@ -172,6 +172,15 @@ private:
                       const Epetra_IntVector& p_nodeTypes,
                             Epetra_IntVector& nodeTypes,
                             int& num_retaineed) const;
+
+  //! look again at the isolated nodes found by DetectIsolated and try to
+  //! find subdomains and separators (sets of unknowns that can be elimina-
+  //! ted or reduced by our transformation strategy)
+  int ReintegrateIsolated(const Epetra_CrsGraph& parallelGraph, 
+                      const Epetra_IntVector& p_nodeTypes,
+                            Epetra_IntVector& nodeTypes,
+                            int& num_retaineed,
+                            int& numNewSubdomains) const;
   
   //! form list with interior, separator and retained nodes for subdomain
   // sd. Links separators to subdomains.
@@ -182,6 +191,23 @@ private:
                               Teuchos::Array<int>& separatorNodes,
                               Teuchos::Array<int>& retainedNodes) const;
   
+  //! it may be possible to combine some of the 'retained' nodes
+  //! and either eliminate them as interior or treat them as    
+  //! regular separators. This reduces the size of the SC. It    
+  //! occurs in 3D Navier-Stokes in so-called 'full conservation 
+  //! tubes' on the edges of the subdomains. np_schur is updated 
+  //! if necessary.
+  int ClusterSingletons(   int sd,
+                           const Epetra_CrsGraph& parallelGraph,
+                           const Epetra_IntVector& p_nodeType,
+                           Teuchos::Array<int>& interior,
+                           Teuchos::Array<int>& separator,
+                           Teuchos::Array<int>& retained,
+                           int& np_schur) const;
+
+  //! this is a helper function to associate separators with subdomains 
+  //! correctly, in particular to find separator nodes in corners which 
+  //! are not directly connected to any interior nodes of the subdomain.
   int FindMissingSepNodes(int my_sd, 
                            const Epetra_CrsGraph& parallelGraph,
                            const Epetra_IntVector& p_nodeTypes,
