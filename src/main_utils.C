@@ -222,7 +222,10 @@ Teuchos::RCP<Epetra_Map> create_map(const Epetra_Comm& comm,
   }
 
 Teuchos::RCP<Epetra_CrsMatrix> create_matrix(const Epetra_Map& map,
-                                Teuchos::ParameterList& probl_params)
+                                Teuchos::ParameterList& probl_params,
+                                std::string galeriLabel,
+                                Teuchos::ParameterList& galeriList
+                                )
   {
   Teuchos::RCP<Epetra_CrsMatrix> matrix = Teuchos::null;
   std::string eqn = probl_params.get("Equations","Laplace");
@@ -231,7 +234,6 @@ Teuchos::RCP<Epetra_CrsMatrix> create_matrix(const Epetra_Map& map,
   int ny=probl_params.get("ny",nx);
   int nz=probl_params.get("nz",(dim>2)?nx:1);
 
-  Teuchos::ParameterList galeriList;
   galeriList.set("nx",nx);
   galeriList.set("ny",ny);
   galeriList.set("nz",nz);
@@ -251,7 +253,11 @@ Teuchos::RCP<Epetra_CrsMatrix> create_matrix(const Epetra_Map& map,
       }
     else
       {
-      std::string matrixType=eqn+Teuchos::toString(dim)+"D";
+      std::string matrixType=galeriLabel;
+      if (galeriLabel=="")
+        {
+        matrixType=eqn+Teuchos::toString(dim)+"D";
+        }
       try {
         matrix= Teuchos::rcp(Galeri::CreateCrsMatrix(matrixType, &map, galeriList));
         } catch (Galeri::Exception G) {G.Print();}
