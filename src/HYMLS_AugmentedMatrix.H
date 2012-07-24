@@ -67,8 +67,9 @@ class AugmentedMatrix: public Epetra_RowMatrix
   */
     int NumMyRowEntries(int MyRow, int & NumEntries) const
       {
+      NumEntries=-1;
       if (MyRow>=NumMyRows()) return -1;
-      if (MyRow>A_->NumMyRows())
+      if (MyRow>=A_->NumMyRows())
         {
         NumEntries=A_->NumGlobalRows();
         if (C_!=Teuchos::null) NumEntries+=NumBorderVectors();

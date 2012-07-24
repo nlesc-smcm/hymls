@@ -5,7 +5,10 @@ namespace HYMLS {
 
   Exception::Exception(std::string msg, std::string file, int line) throw()
     {
-    
+    DEBUG("THROWING HYMLS EXCEPTION!");
+    DEBVAR(msg);
+    DEBVAR(file);
+    DEBVAR(line);
     msg_=msg;
     file_=file;
     line_=line;

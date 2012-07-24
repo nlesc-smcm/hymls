@@ -64,7 +64,7 @@ namespace HYMLS {
         matrix_(Teuchos::null),
         nextLevelHID_(Teuchos::null),
         linearRhs_(Teuchos::null), linearSol_(Teuchos::null),
-        amActive_(true),
+        amActive_(true), haveBorder_(false),
         PLA("Preconditioner")
     {
     START_TIMER3(label_,"Constructor (1)");
@@ -223,7 +223,7 @@ namespace HYMLS {
         }
       }
     numInitialize_++;
-
+    initialized_=true;
     timeInitialize_+=time_->ElapsedTime();
     return 0;
     }
@@ -323,10 +323,13 @@ namespace HYMLS {
     reducedSchur_ = MatrixUtils::DropByValue(SchurMatrix_, 
         HYMLS_SMALL_ENTRY, MatrixUtils::Absolute);
 
+  if (!HaveBorder())
+    {
     for (int i=0;i<fix_gid_.length();i++)
       {
       CHECK_ZERO(MatrixUtils::PutDirichlet(*reducedSchur_,fix_gid_[i]));
       }
+    }      
 
     // compute scaling for reduced Schur
     CHECK_ZERO(ComputeScaling(*reducedSchur_,reducedSchurScaLeft_,reducedSchurScaRight_));
@@ -334,9 +337,12 @@ namespace HYMLS {
     DEBUG("scale matrix");
     CHECK_ZERO(reducedSchur_->LeftScale(*reducedSchurScaLeft_));
     CHECK_ZERO(reducedSchur_->RightScale(*reducedSchurScaRight_));
-    
+
     DEBUG("reindex matrix");
     linearMatrix_ = Teuchos::rcp(&((*reindexA_)(*reducedSchur_)),false);
+
+    // passed to direct solver - depends on what exactly we do
+    Teuchos::RCP<Epetra_RowMatrix> S2 = Teuchos::null;
 
 #ifdef RESTRICT_ON_COARSE_LEVEL
     // restrict the matrix to the active processors
@@ -366,14 +372,58 @@ namespace HYMLS {
       {
       PL().sublist("Coarse Solver").set("MaxProcs",reducedNumProc);
       }
+    S2=restrictedMatrix_;
 #else
-    restrictedMatrix_=linearMatrix_;
+    S2=linearMatrix_;
     amActive_=true;
 #endif
+
+////////////////////////////////////////////////////////////////////////////
+// this next section is just for the bordered case                        //
+////////////////////////////////////////////////////////////////////////////
+  if (HaveBorder())
+    {
+    if (borderV_==Teuchos::null || borderW_==Teuchos::null || borderC_==Teuchos::null)
+      {
+      Tools::Error("border not set correctly",__FILE__,__LINE__);
+      }
+#ifndef RESTRICT_ON_COARSE_LEVEL
+    // we use the variant with restricting the number of ranks in comm usually
+    Tools::Error("not implemented",__FILE__,__LINE__);
+#endif
+
+DEBVAR(*borderV_);
+DEBVAR(*borderW_);
+DEBVAR(*borderC_);
+
+    // we need to create views of the vectors here because the
+    // map is different for the solver (linear restricted map)
+    Teuchos::RCP<const Epetra_MultiVector> Vprime =
+        Teuchos::rcp(new Epetra_MultiVector(View,restrictedMatrix_->RowMap(),
+                borderV_->Values(),borderV_->Stride(),borderV_->NumVectors()));
+    Teuchos::RCP<const Epetra_MultiVector> Wprime =
+        Teuchos::rcp(new Epetra_MultiVector(View,restrictedMatrix_->RowMap(),
+                borderW_->Values(),borderW_->Stride(),borderW_->NumVectors()));
+
+    // create AugmentedMatrix, refactor reducedSchurSolver_
+    augmentedMatrix_ = Teuchos::rcp
+        (new HYMLS::AugmentedMatrix(restrictedMatrix_,Vprime,Wprime,borderC_));
+    S2=augmentedMatrix_;
+    }
+    
+////////////////////////////////////////////////////////////////////////////
+// end bordered case section                                              //
+////////////////////////////////////////////////////////////////////////////
+
     Teuchos::ParameterList& amesosList=PL().sublist("Coarse Solver");                    
     if (amActive_)
       {
-      reducedSchurSolver_= Teuchos::rcp(new Ifpack_Amesos(restrictedMatrix_.get()));
+      if (S2==Teuchos::null)
+        {
+        Tools::Error("failed to select matrix for next level",__FILE__,__LINE__);
+        }
+
+      reducedSchurSolver_= Teuchos::rcp(new Ifpack_Amesos(S2.get()));
       CHECK_ZERO(reducedSchurSolver_->SetParameters(amesosList));
       DEBUG("Initialize direct solver");
       CHECK_ZERO(reducedSchurSolver_->Initialize());
@@ -1186,7 +1236,7 @@ int SchurPreconditioner::InitializeOT()
     if (isEmpty_) return 0;
     START_TIMER(label_,"ApplyInverse");
 
-    if (borderV_!=Teuchos::null)
+    if (HaveBorder())
       {
       // this is the expected behavior for standard ApplyInverse() of
       // a BorderedSolver in HYMLS: solve with rhs 0 for border.
@@ -1795,6 +1845,12 @@ int SchurPreconditioner::UpdateVsumRhs(const Epetra_MultiVector& B, Epetra_Multi
   {
   START_TIMER(label_,"SetBorder");
   int ierr=0;
+  if (V==Teuchos::null) 
+    {
+    //unset
+    haveBorder_=false;
+    return 0;
+    }
   borderV_=Teuchos::rcp(new Epetra_MultiVector(*V));
   if (W!=Teuchos::null)
     {
@@ -1804,33 +1860,22 @@ int SchurPreconditioner::UpdateVsumRhs(const Epetra_MultiVector& B, Epetra_Multi
     {
     borderW_=Teuchos::rcp(new Epetra_MultiVector(*V));    
     }
-  borderC_=Teuchos::rcp(new Epetra_SerialDenseMatrix(*C));
-  if (myLevel_==maxLevel_)
+  if (C!=Teuchos::null)
     {
-    // we need to create views of the vectors here because the
-    // map is different for the solver (linear restricted map)
-    Teuchos::RCP<const Epetra_MultiVector> Vprime =
-        Teuchos::rcp(new Epetra_MultiVector(View,restrictedRhs_->Map(),
-                borderV_->Values(),borderV_->Stride(),borderV_->NumVectors()));
-    Teuchos::RCP<const Epetra_MultiVector> Wprime =
-        Teuchos::rcp(new Epetra_MultiVector(View,restrictedRhs_->Map(),
-                borderW_->Values(),borderW_->Stride(),borderW_->NumVectors()));
-    // create AugmentedMatrix, refactor reducedSchurSolver_
-    augmentedMatrix_ = Teuchos::rcp
-        (new HYMLS::AugmentedMatrix(restrictedMatrix_,Vprime,Wprime,borderC_));
-
-    Teuchos::ParameterList& amesosList=PL().sublist("Coarse Solver");                    
-    if (amActive_)
-      {
-      reducedSchurSolver_= Teuchos::rcp(new Ifpack_Amesos(augmentedMatrix_.get()));
-      CHECK_ZERO(reducedSchurSolver_->SetParameters(amesosList));
-      DEBUG("re-initialize direct solver for augmented system");
-      CHECK_ZERO(reducedSchurSolver_->Initialize());
-      DEBUG("re-compute direct solver for augmented system");
-      CHECK_ZERO(reducedSchurSolver_->Compute());
-      }  
+    borderC_=Teuchos::rcp(new Epetra_SerialDenseMatrix(*C));
     }
   else
+    {
+    int n=V->NumVectors();
+    borderC_=Teuchos::rcp(new Epetra_SerialDenseMatrix(n,n));
+    }
+    
+  if (!IsInitialized())
+    {
+    Tools::Error("SchurPreconditioner not yet initialized",__FILE__,__LINE__);
+    }
+
+  if (myLevel_!=maxLevel_)
     {
     // transform V and W
     CHECK_ZERO(this->ApplyOT(false,*borderV_));
@@ -1847,8 +1892,10 @@ int SchurPreconditioner::UpdateVsumRhs(const Epetra_MultiVector& B, Epetra_Multi
       {
       HYMLS::Tools::Error("next level solver can't handle border!",__FILE__,__LINE__);
       }
+    DEBUG("call SetBorder in next level precond");
     borderedNextLevel->SetBorder(borderV2_,borderW2_,borderC_);
     }
+  haveBorder_=true;
   return ierr;
   }
 
@@ -1860,9 +1907,9 @@ int SchurPreconditioner::UpdateVsumRhs(const Epetra_MultiVector& B, Epetra_Multi
   }                    
 
     // compute [X S]' = [K V;W' C]\[Y T]'
-    int SchurPreconditioner::ApplyInverse(const Epetra_MultiVector& Y, 
+    int SchurPreconditioner::ApplyInverse(const Epetra_MultiVector& X, 
                 const Epetra_SerialDenseMatrix& T,
-                            Epetra_MultiVector& X,       
+                            Epetra_MultiVector& Y,
                       Epetra_SerialDenseMatrix& S) const
   {
   START_TIMER2(label_,"ApplyInverse (bordered)");
@@ -1887,13 +1934,20 @@ int SchurPreconditioner::UpdateVsumRhs(const Epetra_MultiVector& B, Epetra_Multi
       return -1;
       }
       
-    if (borderV_==Teuchos::null)
+    if (!HaveBorder())
       {
       Tools::Warning("border not set!",__FILE__,__LINE__);
-      return this->ApplyInverse(Y,X);
+      return this->ApplyInverse(X,Y);
       }
 
-    CHECK_ZERO(X.PutScalar(0.0));
+#ifdef TESTING
+if (dumpVectors_)
+  {
+  MatrixUtils::Dump(*(X(0)),"SchurPreconditioner"+Teuchos::toString(myLevel_)+"_Rhs.txt");
+  }
+#endif
+
+    CHECK_ZERO(Y.PutScalar(0.0));
 
     if (myLevel_==maxLevel_)
       {
@@ -1914,7 +1968,7 @@ int SchurPreconditioner::UpdateVsumRhs(const Epetra_MultiVector& B, Epetra_Multi
         {
         for (int i=0;i<X.MyLength();i++)
           {
-          (*linearRhs_)[j][i]=Y[j][i] * (*reducedSchurScaLeft_)[i];
+          (*linearRhs_)[j][i]=X[j][i] * (*reducedSchurScaLeft_)[i];
           }
         for (int i=X.MyLength();i<=linearRhs_->MyLength();i++)
           {
@@ -1959,7 +2013,7 @@ int SchurPreconditioner::UpdateVsumRhs(const Epetra_MultiVector& B, Epetra_Multi
         {
         for (int i=0;i<X.MyLength();i++)
           {
-          X[j][i]=(*linearSol_)[j][i] * (*reducedSchurScaRight_)[i];
+          Y[j][i]=(*linearSol_)[j][i] * (*reducedSchurScaRight_)[i];
           }
         for (int i=X.MyLength();i<=linearRhs_->MyLength();i++)
           {
@@ -1967,18 +2021,22 @@ int SchurPreconditioner::UpdateVsumRhs(const Epetra_MultiVector& B, Epetra_Multi
           S[j][k]=(*linearSol_)[j][i];
           }
         }
+#ifdef DEBUGGING
+HYMLS::MatrixUtils::Dump(*linearRhs_,"CoarseLevelRhs.txt");
+HYMLS::MatrixUtils::Dump(*linearSol_,"CoarseLevelSol.txt");
+#endif      
       }
     else
       {
-      // (1) Transform right-hand side, B=OT'*Y
-      Epetra_MultiVector B(Y);
-    
+      // (1) Transform right-hand side, B=OT'*X
+      Epetra_MultiVector B(X);
+
       ApplyOT(true,B,&flopsApplyInverse_);
 
       // compute x1 = M11\f1
       if (variant_=="Block Diagonal")
         {
-        CHECK_ZERO(this->ApplyBlockDiagonal(B,X));
+        CHECK_ZERO(this->ApplyBlockDiagonal(B,Y));
         }
       else
         {
@@ -1999,7 +2057,7 @@ int SchurPreconditioner::UpdateVsumRhs(const Epetra_MultiVector& B, Epetra_Multi
           Epetra_MultiVector(*vsumMap_,X.NumVectors()));
         }
 
-      CHECK_ZERO(vsumRhs_->Import(Y,*vsumImporter_,Insert));
+      CHECK_ZERO(vsumRhs_->Import(B,*vsumImporter_,Insert));
       Epetra_SerialDenseMatrix Tcopy(T);
       // compute W1'(M11\F1). note zeros in X2
       for (int j=0;j<T.N();j++)
@@ -2007,7 +2065,7 @@ int SchurPreconditioner::UpdateVsumRhs(const Epetra_MultiVector& B, Epetra_Multi
         for (int i=0;i<T.M();i++)
           {
           double WdotX;
-          CHECK_ZERO((*borderW_)(i)->Dot(*(X(j)),&WdotX));
+          CHECK_ZERO((*borderW_)(i)->Dot(*(Y(j)),&WdotX));
           // | T - W1'M11\f1
           Tcopy[j][i]-= WdotX;
           }
@@ -2030,20 +2088,20 @@ int SchurPreconditioner::UpdateVsumRhs(const Epetra_MultiVector& B, Epetra_Multi
         }
       
       // copy into X
-      for (int j=0;j<X.NumVectors();j++)
+      for (int j=0;j<Y.NumVectors();j++)
         for (int i=0;i<vsumSol_->MyLength();i++)
           {
           int gid = vsumMap_->GID(i);
-          int lid = X.Map().LID(gid);
+          int lid = Y.Map().LID(gid);
 #ifdef TESTING
               // something's fishy, should just be a copy operation.
               if (lid<0) Tools::Error("inconsistent maps",__FILE__,__LINE__);
 #endif          
-          X[j][lid] = (*vsumSol_)[j][i];
+          Y[j][lid] = (*vsumSol_)[j][i];
           }
       
       // transform back
-      ApplyOT(false,X,&flopsApplyInverse_);
+      ApplyOT(false,Y,&flopsApplyInverse_);
       }
 
 #ifdef TESTING

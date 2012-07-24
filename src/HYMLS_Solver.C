@@ -307,9 +307,8 @@ int Solver::SetupDeflation(int maxEigs)
     CHECK_ZERO(test_y.PutScalar(0.0));
     CHECK_ZERO(op->ApplyInverse(test_x,test_y));
     MatrixUtils::Dump(test_y,"PROJ_bordered_prec_sol.txt");
-    HYMLS::Tools::Fatal("TROET",__FILE__,__LINE__);
 #endif
-    }    
+    }
 
   iop = Teuchos::rcp(new Epetra_InvOperator(op.get()));
 #ifdef STORE_MATRICES

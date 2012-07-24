@@ -24,7 +24,7 @@ namespace HYMLS {
   {
   label_="AugmentedMatrix";
   useTranspose_=false;
-  
+  START_TIMER2(label_,"Constructor");  
   if (!A->Filled())
     {
     // this is really just so we have a column map already and don't have to woory
@@ -52,7 +52,7 @@ namespace HYMLS {
     {
     C_=Teuchos::rcp(new Epetra_SerialDenseMatrix(numBorderVectors_,numBorderVectors_));
     }
-  if (C->N()!=C->M() || C->N()!=numBorderVectors_)
+  if (C_->N()!=C_->M() || C_->N()!=numBorderVectors_)
     {
     HYMLS::Tools::Error("shape of C does not mach that of V and W",__FILE__,__LINE__);
     }
@@ -109,6 +109,11 @@ namespace HYMLS {
   rangeMap_ = rowMap_;
   domainMap_ = rowMap_;
   import_=Teuchos::rcp(new Epetra_Import(*colMap_,*domainMap_));
+  
+  DEBVAR(NumGlobalRows());
+  DEBVAR(NumMyRows());
+  DEBVAR(NumBorderVectors());
+  DEBVAR(NumMyDenseRows());
   }
      
     // Returns a copy of the specified local row in user-provided arrays.
@@ -129,12 +134,16 @@ namespace HYMLS {
     int AugmentedMatrix::ExtractMyRowCopy(int MyRow, int Length, int & NumEntries, 
         double *Values, int * Indices) const
   {
+  DEBUG("AUG::ExtractMyRowCopy: "<<MyRow);
   int ierr=NumMyRowEntries(MyRow, NumEntries);
+  DEBVAR(NumEntries);
+  DEBVAR(Length);
   if (ierr) return ierr;
   if (NumEntries>Length) {return -2;}
     int lenA=0;
   if (MyRow<A_->NumMyRows())
     {
+    DEBUG("   belongs to A V");
     ierr = A_->ExtractMyRowCopy(MyRow,Length,lenA,Values,Indices);
     if (ierr) {return ierr;}
     for (int k=0;k<NumBorderVectors();k++)
@@ -145,6 +154,7 @@ namespace HYMLS {
     }
   else
     {
+    DEBUG("   belongs to W C");
     int k=MyRow-A_->NumMyRows();
     if (Length!=Wloc_->MyLength() + NumBorderVectors())
       {
@@ -161,6 +171,12 @@ namespace HYMLS {
       Indices[Wloc_->MyLength()+i]=Wloc_->Map().MaxAllGID()+i+1;
       }
     }
+#ifdef DEBUGGING
+for (int i=0;i<NumEntries;i++)
+  {
+  Tools::deb() << Map().GID(MyRow) << " " << colMap_->GID(Indices[i]) << " " << Values[i] << std::endl;
+  }
+#endif  
   return 0;
   }        
 
@@ -194,6 +210,7 @@ namespace HYMLS {
     int AugmentedMatrix::Multiply(bool TransA, const Epetra_MultiVector& X, 
         Epetra_MultiVector& Y) const
   {
+  START_TIMER3(label_,"Multiply");  
   return -99; // not implemented
   }        
 
@@ -217,6 +234,7 @@ namespace HYMLS {
         const Epetra_MultiVector& X, 
               Epetra_MultiVector& Y) const
   {
+  START_TIMER2(label_,"Solve");  
   return -99; // not implemented
   }              
 
@@ -334,7 +352,8 @@ does not support transpose.
   */
     int AugmentedMatrix::Apply(const Epetra_MultiVector& X, Epetra_MultiVector& Y) const
       {
-      return -99; // not implemented
+      START_TIMER3(label_,"Apply");
+      return this->Multiply(useTranspose_,X,Y);
       }
 
     // Returns the result of a Epetra_Operator inverse applied to an Epetra_MultiVector X in Y.
@@ -351,6 +370,7 @@ does not support transpose.
   */
     int AugmentedMatrix::ApplyInverse(const Epetra_MultiVector& X, Epetra_MultiVector& Y) const
       {
+      START_TIMER3(label_,"ApplyInverse");
       return -99; // not implemented
       }
 

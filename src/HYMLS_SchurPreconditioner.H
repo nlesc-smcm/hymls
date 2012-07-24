@@ -217,6 +217,9 @@ public:
                 Teuchos::RCP<const Epetra_SerialDenseMatrix> C=Teuchos::null);
   
   //!
+  bool HaveBorder() const {return haveBorder_;}
+  
+  //!
   int Apply(const Epetra_MultiVector & B, const Epetra_SerialDenseMatrix & C, 
                   Epetra_MultiVector& X, Epetra_SerialDenseMatrix & Y) const;
 
@@ -339,6 +342,9 @@ protected:
   
   //! use transposed operator?
   bool useTranspose_;
+  
+  //! true if SetBorder() has been called with non-null args
+  bool haveBorder_;
   
   //! infinity norm
   double normInf_;

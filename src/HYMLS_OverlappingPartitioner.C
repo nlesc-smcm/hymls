@@ -171,6 +171,9 @@ void OverlappingPartitioner::setParameterList
     }  
     
   partitioningMethod_=PL("Preconditioner").get("Partitioner","Cartesian");  
+  
+  // this is special for Navier-Stokes in 3D
+  formFCTs_ = PL().get("Cluster Retained Nodes",false);
 
     if (validateParameters_)
       {
@@ -219,6 +222,11 @@ Teuchos::RCP<const Teuchos::ParameterList> OverlappingPartitioner::getValidParam
   VPL().set("nx",16,"number of nodes in x-direction");
   VPL().set("ny",16,"number of nodes in y-direction");
   VPL().set("nz",1,"number of nodes in z-direction");
+  
+  VPL().set("Cluster Retained Nodes",false,
+        "(only relevant for 3D Navier-Stokes), form full conservation tubes at subdomain\n" 
+        " edges to reduce the size of the Schur Complement and the number of retained P-nodes");
+  
   Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
         partValidator = Teuchos::rcp(
                 new Teuchos::StringToIntegralParameterEntryValidator<int>(
@@ -587,6 +595,8 @@ DEBVAR(*p_nodeType_);
   // import to "spread the word"
   CHECK_ZERO(p_nodeType_->Import(*nodeType_,import,Insert));
 
+  DEBVAR(*p_nodeType_);
+
   //... then do it again: this is required to get a 3 in the corners in 3D
   CHECK_ZERO(this->DetectIsolated(*parallelGraph_,*p_nodeType_, *nodeType_,np_schur));
 
@@ -648,17 +658,21 @@ DEBVAR(*p_nodeType_);
     CHECK_ZERO(this->BuildNodeLists(sd,*parallelGraph_, *nodeType_, *p_nodeType_,
                 interior_nodes, separator_nodes, retained_nodes));
 
+    // now try to group some of the retained nodes to form independent subdomains
+    // and separators, this is an important step in 3D Navier-Stokes, where so-  
+    // called 'full conservation tubes' occur on line separators where four faces
+    // of a subdomain meet.
+    if (formFCTs_)
+      {
+      CHECK_ZERO(this->ClusterSingletons(sd, *parallelGraph_, *p_nodeType_,
+                interior_nodes, separator_nodes, retained_nodes, np_schur));
+      }
+
     DEBVAR(sd);
     DEBVAR(interior_nodes);
     DEBVAR(separator_nodes);
     DEBVAR(retained_nodes);
     
-    // now try to group some of the retained nodes to form independent subdomains
-    // and separators, this is an important step in 3D Navier-Stokes, where so-  
-    // called 'full conservation tubes' occur on line separators where four faces
-    // of a subdomain meet.
-    CHECK_ZERO(this->ClusterSingletons(sd, *parallelGraph_, *p_nodeType_,
-                interior_nodes, separator_nodes, retained_nodes, np_schur));
     
     // form group pointer and ordered list of all nodes
     last=(*groupPointer_)[sd].size()-1;
@@ -1085,8 +1099,6 @@ int OverlappingPartitioner::ClusterSingletons(int sd,
                 Teuchos::Array<int>& retained,
                 int& np_schur) const
   {
-  return 0; // currently disabled in SVN, will be put in
-            // once tested and functional
   if (dof_!=4) return 0;
 
   START_TIMER2(label_,"ClusterSingletons");
@@ -1105,7 +1117,17 @@ int OverlappingPartitioner::ClusterSingletons(int sd,
   int len;
   int *indices;
 
-  for (int_i i=retained.begin(); i!=retained.end(); i++)
+  int_i i=retained.begin();
+
+  // we first move any new separator nodes
+  // to their 'separator' array and any new   
+  // interior nodes to a temp. array, then we 
+  // identify the new subdomains as connected 
+  // subgraphs and shift one P-node per new   
+  // subdomain back to 'retained'.
+  Teuchos::Array<int> new_interior;
+  
+  while (i!=retained.end())
     {
     int lid_i = G.LRID(*i);
     int var_i = partitioner_->VariableType(*i);
@@ -1113,21 +1135,26 @@ int OverlappingPartitioner::ClusterSingletons(int sd,
     
     bool make_interior=false;
     bool make_separator=false;
-    
+
     if (var_i==3 && nt_i==5) // P-node on separator
       {
       bool isFCC=true;
       // check if this pressure is in a corner, e.g. in a 
       // full conservation cell (FCC). This is the case if
       // all connected V-nodes have a 5 in the node type vector.
+      //
       CHECK_ZERO(G.ExtractMyRowView(lid_i,len,indices));
       for (int j=0;j<len;j++)
         {
         int gcid = G.GCID(indices[j]);
         int lid_j = p_nodeType.Map().LID(gcid);
-        if (p_nodeType[lid_j]!=5) isFCC=false;
+        if (p_nodeType[lid_j]!=5)
+          {
+          isFCC=false;
+          break;
+          }
         }
-            
+
       if (isFCC==false) 
         {
         make_interior=true;
@@ -1149,8 +1176,8 @@ int OverlappingPartitioner::ClusterSingletons(int sd,
           int lid_j = p_nodeType.Map().LID(gcid);
           if (p_nodeType[lid_j]!=5) isFCT=false;
           }
-        }            
-      if (isFCT==true) 
+        }
+      if (isFCT==true)
         {
         make_interior=true;
         }
@@ -1159,9 +1186,14 @@ int OverlappingPartitioner::ClusterSingletons(int sd,
         make_separator=true;
         }      
       }
+      
+    DEBVAR(*i);
+    DEBVAR(make_interior);
+    DEBVAR(make_separator);
+        
     if (make_interior)
       {
-      interior.append(*i);
+      new_interior.append(*i);
       i = retained.erase(i);
       }
     else if (make_separator)
@@ -1169,7 +1201,92 @@ int OverlappingPartitioner::ClusterSingletons(int sd,
       separator.append(*i);
       i = retained.erase(i);
       }
+    else
+      {
+      i++;
+      }
     }// i
+
+  // now shift one P-node per FCT back to
+  // 'retained' to fix the pressure level
+  Teuchos::Array<int> fct_id(new_interior.size());
+  for (int ii=0;ii<fct_id.size();ii++) fct_id[ii]=-1;
+
+  std::map<int,int> idx;
+  for (int ii=0;ii<new_interior.size();ii++) 
+    {
+    idx[new_interior[ii]] = ii;
+    }
+  
+  int cur_id=0;
+  
+  for (int ii=0;ii<new_interior.size();ii++)
+    {
+    if (fct_id[ii]==-1) fct_id[ii]=cur_id++;
+    int gid_i = new_interior[ii];
+    int lid_i = G.LRID(gid_i);
+    CHECK_ZERO(G.ExtractMyRowView(lid_i,len,indices));
+    for (int j=0;j<len;j++)
+      {
+      int gid_j=G.GCID(indices[j]);
+      std::map<int,int>::iterator f = idx.find(gid_j);
+      if (f!=idx.end())
+        {
+        int jj=f->second;
+        fct_id[jj]=fct_id[ii];
+        }
+      }
+    }
+  
+  bool retained_P[cur_id];
+  for (int ii=0;ii<cur_id;ii++) retained_P[ii]=false;
+
+#ifdef DEBUGGING
+HYMLS::Tools::deb() << "\nnew_int = ";
+for (i=new_interior.begin();i!=new_interior.end();i++) Tools::deb() << *i <<" ";
+HYMLS::Tools::deb() << "\nfct_id  = ";
+for (i=fct_id.begin();i!=fct_id.end();i++) Tools::deb() << *i <<" ";
+HYMLS::Tools::deb() << "\nidx  = ";
+for (std::map<int,int>::iterator j=idx.begin();j!=idx.end();j++) Tools::deb() << "("<<j->first << ","<<j->second<<") "; 
+HYMLS::Tools::deb() << std::endl;
+#endif
+
+  int ii=0;
+  i = new_interior.begin();
+  while (i!=new_interior.end())
+    {
+    int id = fct_id[ii];
+    /*
+    DEBVAR(*i);
+    DEBVAR(id);
+    DEBVAR(retained_P[id]);
+    DEBVAR(partitioner_->VariableType(*i));
+    */
+    if (retained_P[id]==false && partitioner_->VariableType(*i)==3)
+      {
+      retained_P[id]=true;
+      retained.append(*i);
+      i=new_interior.erase(i);
+      }
+    else
+      {
+      i++;
+      }
+    ii++;
+    }
+ 
+  // finally move any owned nodes from the temporary to 
+  // the final interior list
+  for (i=new_interior.begin(); i!=new_interior.end(); i++)
+    {
+    if (partitioner_->GPID(sd)==(*partitioner_)(*i))
+      {
+      if (partitioner_->VariableType(*i)==3) np_schur--;
+      interior.append(*i);
+      }
+    }
+
+  DEBVAR(retained);
   return 0;
   }
 

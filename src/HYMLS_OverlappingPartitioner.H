@@ -113,7 +113,8 @@ protected:
 
   //! number of variables per grid-cell
   int dof_;
-  
+ 
+  //! indicates if in a certain direction there are periodic BC
   GaleriExt::PERIO_Flag perio_;
   
   //! this parameter can be set by the entry "Substitute Graph" 
@@ -141,7 +142,11 @@ protected:
   //! surrounding velocities belong to separators (full     
   //! conservation cell)                                    
   Teuchos::Array<bool> retainIsolated_;
-    
+  
+  //! if true, we try to form full-conservation tubes from
+  //! the retained nodes (3D Navier-Stokes only)
+  bool formFCTs_;
+  
 private:
   
   //! partition - Cartesian

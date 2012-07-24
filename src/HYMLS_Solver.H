@@ -126,6 +126,9 @@ public:
   
   //! get number of iterations performed in last ApplyInverse() call
   inline int getNumIter() const {return numIter_;}
+  
+  //! get the null space (or approximate null space) of the operator
+  Teuchos::RCP<Epetra_MultiVector> getNullSpace() {return nullSpace_;}
 
 protected: 
 

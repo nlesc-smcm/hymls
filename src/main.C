@@ -201,6 +201,19 @@ bool status=true;
   HYMLS::Tools::Out("Create Solver");
   Teuchos::RCP<HYMLS::Solver> solver = Teuchos::rcp(new HYMLS::Solver(K, precond, params,numRhs));
 
+  // get the null space (if any), as specified in the xml-file
+  Teuchos::RCP<Epetra_MultiVector> Nul = solver->getNullSpace();
+
+  if (Nul!=Teuchos::null)
+    {
+    HYMLS::Tools::StartTiming("main: add border to preconditioner");
+    CHECK_ZERO(precond->SetBorder(Nul,Nul));
+    HYMLS::Tools::StopTiming("main: add border to preconditioner");
+    }
+  
+
+
+  
 for (int f=0;f<numComputes;f++)
   {
   if (perturbation!=0)
@@ -240,6 +253,15 @@ for (int f=0;f<numComputes;f++)
 #else
       CHECK_ZERO(HYMLS::MatrixUtils::Random(*x_ex));
 #endif
+      if (Nul!=Teuchos::null)
+        {
+        double alpha;
+        double vnrm2;
+        CHECK_ZERO(x_ex->Dot(*Nul,&alpha));
+        CHECK_ZERO(Nul->Norm2(&vnrm2));
+        alpha/=(vnrm2*vnrm2);
+        CHECK_ZERO(x_ex->Update(-alpha,*Nul,1.0));
+        }
       CHECK_ZERO(K->Multiply(false,*x_ex,*b));
       }
 

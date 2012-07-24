@@ -228,6 +228,9 @@ public:
                 Teuchos::RCP<const Epetra_MultiVector> W=Teuchos::null,
                 Teuchos::RCP<const Epetra_SerialDenseMatrix> C=Teuchos::null);
 
+  //! returns true if a border has been added
+  bool HaveBorder() const {return haveBorder_;}
+
   //! if a border has been added, apply [Y T]' = [P V; W' C] [X S]'
   int Apply(const Epetra_MultiVector& X, const Epetra_SerialDenseMatrix& S,
                   Epetra_MultiVector& Y,       Epetra_SerialDenseMatrix& T) const;
@@ -393,6 +396,9 @@ protected:
 
   //! has Compute() been called?
   bool computed_;
+  
+  //! true if SetBorder() has been called with non-null args
+  bool haveBorder_;
   
   //! how often has Initialize() been called?
   int numInitialize_;
