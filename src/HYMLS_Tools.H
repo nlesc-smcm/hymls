@@ -274,6 +274,22 @@ Teuchos::print_stack_on_segfault();
 
   //! stop timing specific part of the code
   static void StopTiming(string label,bool print=false);
+
+#ifdef DEBUGGING
+  //! set breakpoint (does nothing if DEBUGGING is not defined)
+  //! function is the name of something that is being timed, e.g.
+  //! Solver: ApplyInverse", file and line are __FILE__ and __LINE__
+  //! where the bp is set, and msg is a message to be printed. When
+  //! the specified function is entered, the program is aborted and
+  //! the given info is printed.
+  static void SetCheckPoint(std::string function, std::string msg,
+        std::string file, int line);
+
+  //! returns true if the breakpoint exists (and fills the args),
+  //! false otherwise.
+  static bool GetCheckPoint(std::string function, std::string& msg,
+        std::string& file, int& line);
+#endif
   
   //! print timing results
   static void PrintTiming(std::ostream& os);
@@ -333,10 +349,13 @@ private:
 
     //! parameter list for timing individual parts of the code
     static Teuchos::ParameterList timerList_;
-    
+
     //! keeps track of timer numbers (to get the ordering correct)
     static int timerCounter_;
-   
+
+    //! parameter list for setting breakpoints
+    static Teuchos::ParameterList breakpointList_;
+       
     //! parameter list to keep track of memory usage
     static Teuchos::ParameterList memList_;
     

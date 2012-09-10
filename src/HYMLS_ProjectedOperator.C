@@ -14,7 +14,8 @@ namespace HYMLS
                       bool useVorth) :
   A_(A), V_(V),
   useVorth_(useVorth),
-  useTranspose_(false)                      
+  leftPrecond_(Teuchos::null),
+  useTranspose_(false)
   {
   START_TIMER3("ProjectedOperator", "Constructor");
   if (A_->OperatorRangeMap().SameAs(A_->OperatorDomainMap())==false)
@@ -37,7 +38,9 @@ labelT_="";
     int ProjectedOperator::Apply(const Epetra_MultiVector& X, Epetra_MultiVector& Y) const
       {
       START_TIMER3("ProjectedOperator", "Apply");
-    if (useTranspose_) Tools::Error("not implemented!",__FILE__,__LINE__);
+      
+      if (useTranspose_) Tools::Error("not implemented!",__FILE__,__LINE__);
+      
       if (X.NumVectors()!=tmpVector_->NumVectors())
         {
         tmpVector_ = Teuchos::rcp(new Epetra_MultiVector(V_->Map(),X.NumVectors()));
@@ -53,6 +56,11 @@ labelT_="";
       else
         {
         Tools::Error("not implemented!",__FILE__,__LINE__);
+        }
+      if (leftPrecond_!=Teuchos::null)
+        {
+        *tmpVector_=Y;
+        CHECK_ZERO(leftPrecond_->ApplyInverse(*tmpVector_,Y));
         }
       return 0;
       }

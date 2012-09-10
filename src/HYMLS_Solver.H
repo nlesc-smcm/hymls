@@ -177,6 +177,10 @@ Teuchos::RCP<const Epetra_RowMatrix> massMatrix_;
 //! for Stokes-C etc.)
 Teuchos::RCP<Epetra_MultiVector> nullSpace_;
 
+//! true if there is a border (e.g. a nullspace or some eigenmodes to be
+//! deflated).
+bool doBordering_;
+
 //! number of eigenvalues computed initially
 int numEigs_;
 

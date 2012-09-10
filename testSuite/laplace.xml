@@ -24,8 +24,8 @@
     <Parameter name="Equations" type="string" value="Laplace"/>
     <Parameter name="Dimension" type="int" value="2"/>
 
-    <Parameter name="nx" type="int" value="16"/>
-    <Parameter name="ny" type="int" value="16"/>
+    <Parameter name="nx" type="int" value="32"/>
+    <Parameter name="ny" type="int" value="32"/>
     <Parameter name="nz" type="int" value="1"/>
     
   </ParameterList><!--}-->
@@ -63,12 +63,12 @@
     
     <Parameter name="Partitioner" type="string" value="Cartesian"/>
 
-    <Parameter name="Visualize Solver" type="bool" value="0"/>
+    <Parameter name="Visualize Solver" type="bool" value="1"/>
         
     <Parameter name="Preconditioner Variant" type="string" value="Block Diagonal"/>
         
     <!-- you can either set 'Separator Length' or 'Number of Subdomains' -->
-    <Parameter name="Separator Length" type="int" value="8"/>
+    <Parameter name="Separator Length" type="int" value="4"/>
     
     <!-- number of levels to be created (1: direct solver for Schur complement, -->
     <!-- 2: solve Schur iteratively and reduced Schur directly,                 -->

@@ -72,6 +72,16 @@ Error_You_are_trying_to_start_multiple_timers_in_one_scope \
 #define START_TIMER(s1,s2)
 #endif
 
+#ifdef DEBUGGING
+#define SET_CHECKPOINT(s1,s2,s3,s4,s5) \
+HYMLS::Tools::SetCheckPoint(((std::string)s1) + ": "+((std::string)s2),s3,s4,s5);
+#define BREAK_ON_CHECKPOINT(s1,s2) {std::string msg; std::string file; int line; \
+if (HYMLS::Tools::GetCheckPoint(s1+": "+s2,msg,file,line)){ \
+HYMLS::Tools::Fatal("aborting at check point '"+msg+"'",file.c_str(),line);}}
+#else
+#define SET_CHECKPOINT(s1,s2,s3,s4,s5)
+#define BREAK_ON_CHECKPOINT(s1,s2)
+#endif
 #if TIMING_LEVEL>1
 #define START_TIMER2(s1,s2) START_TIMER(s1,s2)
 #else

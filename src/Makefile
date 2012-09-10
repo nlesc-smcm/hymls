@@ -19,6 +19,7 @@ OBJ=    HYMLS_Solver.o \
         HYMLS_DenseUtils.o \
         HYMLS_ProjectedOperator.o \
         HYMLS_BorderedLU.o \
+        HYMLS_BelosEpetraOperator.o \
         HYMLS_View_MultiVector.o \
         HYMLS_SparseDirectSolver.o \
         HYMLS_Householder.o \

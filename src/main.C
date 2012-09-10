@@ -86,7 +86,8 @@ bool status=true;
     double perturbation = driverList.get("Diagonal Perturbation",0.0);
     
     std::string galeriLabel=driverList.get("Galeri Label","");
-    Teuchos::ParameterList galeriList = driverList.sublist("Galeri");
+    Teuchos::ParameterList galeriList;
+    if (driverList.isSublist("Galeri")) galeriList = driverList.sublist("Galeri");
  
     // copy here rather than reference because the driver list will be removed 
     // alltogether...   
@@ -156,6 +157,10 @@ bool status=true;
 
   Teuchos::ParameterList& solver_params = params->sublist("Solver");
   bool do_deflation = (solver_params.get("Deflated Subspace Dimension",0)>0);
+  if (solver_params.get("Null Space","None")!="None")
+    {
+    do_deflation=true;
+    }
   Teuchos::RCP<Epetra_CrsMatrix> M = Teuchos::null;
   if (do_deflation) // need a mass matrix
     {
@@ -203,16 +208,6 @@ bool status=true;
 
   // get the null space (if any), as specified in the xml-file
   Teuchos::RCP<Epetra_MultiVector> Nul = solver->getNullSpace();
-
-  if (Nul!=Teuchos::null)
-    {
-    HYMLS::Tools::StartTiming("main: add border to preconditioner");
-    CHECK_ZERO(precond->SetBorder(Nul,Nul));
-    HYMLS::Tools::StopTiming("main: add border to preconditioner");
-    }
-  
-
-
   
 for (int f=0;f<numComputes;f++)
   {
@@ -229,18 +224,21 @@ for (int f=0;f<numComputes;f++)
       }
     CHECK_ZERO(K->ReplaceDiagonalValues(diag));
     }
-  HYMLS::Tools::Out("Compute Solver ("+Teuchos::toString(f+1)+")");
+  HYMLS::Tools::Out("Compute Preconditioner ("+Teuchos::toString(f+1)+")");
 
-  HYMLS::Tools::StartTiming("main: Compute Preconditioner");
-  CHECK_ZERO(precond->Compute());
-  HYMLS::Tools::StopTiming("main: Compute Preconditioner",true);
+  if (precond!=Teuchos::null) 
+    {
+    HYMLS::Tools::StartTiming("main: Compute Preconditioner");
+    CHECK_ZERO(precond->Compute());
+    HYMLS::Tools::StopTiming("main: Compute Preconditioner",true);
+    }
 
   if (do_deflation)
     {
     solver->SetMassMatrix(M);
     CHECK_ZERO(solver->SetupDeflation());
     }
-    
+
  // std::cout << *solver << std::endl;
   
   for (int s=0;s<numSolves;s++)
@@ -303,7 +301,10 @@ DEBVAR(*b);
   
     CHECK_ZERO(err->Update(1.0,*x,-1.0,*x_ex,0.0));
   
-    double errNorm[numRhs],resNorm[numRhs],rhsNorm[numRhs];
+    double *errNorm,*resNorm,*rhsNorm;
+    resNorm=new double[numRhs];
+    errNorm=new double[numRhs];
+    rhsNorm=new double[numRhs];
   
     err->Norm2(errNorm);
     res->Norm2(resNorm);
@@ -320,6 +321,9 @@ DEBVAR(*b);
       {
       HYMLS::Tools::out()<<std::setw(8)<<std::setprecision(8)<<std::scientific<<Teuchos::toString(errNorm[k]/rhsNorm[k])<<"  ";
       }
+    delete [] resNorm;
+    delete [] rhsNorm;
+    delete [] errNorm;
     HYMLS::Tools::out() << std::endl;
     }
   }

@@ -225,8 +225,14 @@ class AugmentedMatrix: public Epetra_RowMatrix
     */
     int NumGlobalNonzeros() const 
       {
-      int val=A_->NumGlobalNonzeros();
-      val+=2*NumBorderVectors()*A_->NumGlobalRows();
+      return (int)NumGlobalNonzeros64();
+      }
+      
+    //!
+    long long int NumGlobalNonzeros64() const 
+      {
+      long long int val=A_->NumGlobalNonzeros64();
+      val+=2*NumBorderVectors()*A_->NumGlobalRows64();
       val+=NumBorderVectors()*NumBorderVectors();
       return val;
       }
@@ -234,19 +240,36 @@ class AugmentedMatrix: public Epetra_RowMatrix
     //! Returns the number of global matrix rows.
     int NumGlobalRows() const
       {
-      return A_->NumGlobalRows() + NumBorderVectors();
+      return (int)NumGlobalRows64();
+      }
+      
+    long long int NumGlobalRows64() const
+      {
+      return A_->NumGlobalRows64() + NumBorderVectors();
       }
 
     //! Returns the number of global matrix columns.
     int NumGlobalCols() const
       {
-      return A_->NumGlobalCols() + NumBorderVectors();
+      return (int)NumGlobalCols64();
+      }
+    
+    //!
+    long long int NumGlobalCols64() const
+      {
+      return A_->NumGlobalCols64() + NumBorderVectors();
       }
 
     //! Returns the number of global nonzero diagonal entries, based on global row/column index comparisons.
     int NumGlobalDiagonals() const
       {
-      return A_->NumGlobalDiagonals() + NumBorderVectors();      
+      return (int)NumGlobalDiagonals64();
+      }
+      
+    //!
+    long long int NumGlobalDiagonals64() const
+      {
+      return A_->NumGlobalDiagonals64() + NumBorderVectors();      
       }
     
     //! Returns the number of nonzero entries in the calling processor's portion of the matrix.

@@ -15,7 +15,7 @@
     <Parameter name="Store Matrix" type="bool" value="0"/>
     
     <Parameter name="Read Linear System" type="bool" value="1"/>
-    <Parameter name="Data Directory" type="string" value="data/DrivenCavity/128x128/Re0"/>
+    <Parameter name="Data Directory" type="string" value="data/DrivenCavity/64x64/Re0"/>
     <Parameter name="File Format" type="string" value="MatrixMarket"/>
     <Parameter name="Exact Solution Available" type="bool" value="1"/>
     
@@ -28,8 +28,8 @@
     <Parameter name="Equations" type="string" value="Stokes-C"/>
     <Parameter name="Dimension" type="int" value="2"/>
 
-    <Parameter name="nx" type="int" value="128"/>
-    <Parameter name="ny" type="int" value="128"/>
+    <Parameter name="nx" type="int" value="64"/>
+    <Parameter name="ny" type="int" value="64"/>
     <Parameter name="nz" type="int" value="1"/>
         
   </ParameterList><!--}-->
@@ -72,7 +72,7 @@
     <!-- number of levels to be created (1: direct solver for Schur complement, -->
     <!-- 2: solve Schur iteratively and reduced Schur directly,                 -->
     <!-- >2: not implemented.                                                   -->
-    <Parameter name="Number of Levels" type="int" value="4"/>
+    <Parameter name="Number of Levels" type="int" value="2"/>
     
     <Parameter name="Scale Schur-Complement" type="bool" value="0"/>
     

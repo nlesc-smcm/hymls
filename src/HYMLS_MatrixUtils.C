@@ -358,16 +358,17 @@ MyGlobalElements,
     START_TIMER3(Label(),"Gather (1)");
     int ElementSize = map.ElementSize();
 #ifdef TESTING
-    if (ElementSize>1)
+    if (ElementSize!=1)
       {
+      DEBVAR(ElementSize);
       Tools::Warning("this is possibly not implemented correctly!",
         __FILE__, __LINE__);
+      ElementSize=1;
       }
 #endif
     int NumMyElements = map.NumMyElements();
     int NumGlobalElements = map.NumGlobalElements();
     const Epetra_Comm& Comm = map.Comm();
-    
     int *MyGlobalElements = new int[NumMyElements];
     int *AllGlobalElements = NULL;
 
@@ -427,6 +428,7 @@ else
   Teuchos::RCP<Epetra_BlockMap> gmap = Teuchos::rcp(new Epetra_BlockMap
         (NumGlobalElements, NumMyElements, AllGlobalElements, 
         ElementSize, map.IndexBase(), Comm) );
+
     
     if (Comm.MyPID()==root)
       {      
@@ -664,16 +666,11 @@ else
     START_TIMER3(Label(),"Gather (3)");
       const Epetra_BlockMap& map_dist = vec.Map();
       Teuchos::RCP<Epetra_BlockMap> map = Gather(map_dist,root);
-      
       Teuchos::RCP<Epetra_MultiVector> gvec = 
         Teuchos::rcp(new Epetra_MultiVector(*map,vec.NumVectors()));
-      
       Teuchos::RCP<Epetra_Import> import = Teuchos::rcp(new Epetra_Import(*map,map_dist) );
-      
       CHECK_ZERO(gvec->Import(vec,*import,Insert));
-      
       gvec->SetLabel(vec.Label());
-      
       return gvec;      
       }
 
@@ -1325,6 +1322,9 @@ Teuchos::RCP<MatrixUtils::Eigensolution> MatrixUtils::Eigs(
 #ifdef TESTING
   verbose=true;
 #endif
+#ifdef DEBUGGING
+  debug=true;
+#endif
 
   std::string which("LR");
 
@@ -1353,9 +1353,6 @@ Teuchos::RCP<MatrixUtils::Eigensolution> MatrixUtils::Eigs(
   //
   Teuchos::ParameterList MyPL;
   MyPL.set( "Verbosity", verbosity );
-  //TODO: in the Trilinos version on Huygens, one can't 
-  //      set the output stream, is that fixed in the   
-  //      more recent versions?
   MyPL.set( "Output Stream",Tools::out().getOStream());
   
 
@@ -1369,16 +1366,19 @@ Teuchos::RCP<MatrixUtils::Eigensolution> MatrixUtils::Eigs(
 
   // Create an Epetra_MultiVector for an initial vector to start the solver.
   // Note:  This needs to have the same number of columns as the blocksize.
+  DEBUG("create random starting vector for Anasazi");
   Teuchos::RCP<Epetra_MultiVector> ivec =
     Teuchos::rcp( new Epetra_MultiVector(A->OperatorRangeMap(), blockSize) );
   MatrixUtils::Random(*ivec);
-  
+
   Epetra_MultiVector tmp = *ivec;
   if (!Teuchos::is_null(B))
     {
+    DEBUG("multiply it by the mass-matrix...");
     CHECK_ZERO(B->Apply(tmp,*ivec));
     }
   // Create the eigenproblem.
+  DEBUG("create eigen-problem");
   Teuchos::RCP<Anasazi::BasicEigenproblem<ST, MV, OP> > MyProblem;
 
   if (Teuchos::is_null(B))
@@ -1394,9 +1394,11 @@ Teuchos::RCP<MatrixUtils::Eigensolution> MatrixUtils::Eigs(
   MyProblem->setHermitian(false);
 
   // Set the number of eigenvalues requested
+  DEBVAR(howMany);
   MyProblem->setNEV( howMany );
 
   // Inform the eigenproblem that you are finishing passing it information
+  DEBUG("call setProblem");
   boolret = MyProblem->setProblem();
   if (boolret != true)
     {
@@ -1405,10 +1407,12 @@ Teuchos::RCP<MatrixUtils::Eigensolution> MatrixUtils::Eigs(
     }
 
   // Initialize the Block Arnoldi solver
+  DEBUG("create BKS eigensolver");
   Anasazi::BlockKrylovSchurSolMgr<ST, MV, OP> MySolverMgr(MyProblem, MyPL);
 
   // Solve the problem to the specified tolerances or length
   Anasazi::ReturnType returnCode;
+  DEBUG("solve eigenproblem");
   returnCode = MySolverMgr.solve();
   if (returnCode != Anasazi::Converged)
     {
@@ -1416,6 +1420,7 @@ Teuchos::RCP<MatrixUtils::Eigensolution> MatrixUtils::Eigs(
         __FILE__,__LINE__);
     }
 
+  DEBUG("post-process returned solution");
   // Get the Ritz values from the eigensolver
   std::vector<Anasazi::Value<double> > ritzValues = MySolverMgr.getRitzValues();
 
@@ -1537,7 +1542,8 @@ int MatrixUtils::Random(Epetra_MultiVector& v, int seed)
     gVec->SetSeed(seed);
     }
   gVec->Random();
-  v = *Scatter(*gVec,v.Map());
+  Teuchos::RCP<Epetra_MultiVector> lVec = Scatter(*gVec,v.Map());
+  v=*lVec;
   return 0;
   }
 

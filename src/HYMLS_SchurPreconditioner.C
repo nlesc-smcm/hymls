@@ -1869,13 +1869,41 @@ int SchurPreconditioner::UpdateVsumRhs(const Epetra_MultiVector& B, Epetra_Multi
     int n=V->NumVectors();
     borderC_=Teuchos::rcp(new Epetra_SerialDenseMatrix(n,n));
     }
-    
+
   if (!IsInitialized())
     {
     Tools::Error("SchurPreconditioner not yet initialized",__FILE__,__LINE__);
     }
 
-  if (myLevel_!=maxLevel_)
+  if (myLevel_==maxLevel_)
+    {
+    // we need to create views of the vectors here because the
+    // map is different for the solver (linear restricted map)
+    Teuchos::RCP<const Epetra_MultiVector> Vprime = 
+        Teuchos::rcp(new Epetra_MultiVector(View,restrictedMatrix_->RowMap(),
+                borderV_->Values(),borderV_->Stride(),borderV_->NumVectors()));
+    Teuchos::RCP<const Epetra_MultiVector> Wprime =
+        Teuchos::rcp(new Epetra_MultiVector(View,restrictedMatrix_->RowMap(),
+                borderW_->Values(),borderW_->Stride(),borderW_->NumVectors()));
+
+    // create AugmentedMatrix, refactor reducedSchurSolver_
+    augmentedMatrix_ = Teuchos::rcp
+        (new HYMLS::AugmentedMatrix(restrictedMatrix_,Vprime,Wprime,borderC_));
+    Teuchos::ParameterList& amesosList=PL().sublist("Coarse Solver");                    
+#ifdef STORE_MATRICES
+    EpetraExt::RowMatrixToMatrixMarketFile("FinalBorderedSchur.mtx",*augmentedMatrix_);
+#endif
+    if (amActive_)
+      {
+      reducedSchurSolver_= Teuchos::rcp(new Ifpack_Amesos(augmentedMatrix_.get()));
+      CHECK_ZERO(reducedSchurSolver_->SetParameters(amesosList));
+      DEBUG("re-initialize direct solver for augmented system");
+      CHECK_ZERO(reducedSchurSolver_->Initialize());
+      DEBUG("re-compute direct solver for augmented system");
+      CHECK_ZERO(reducedSchurSolver_->Compute());
+      }
+    }
+  else
     {
     // transform V and W
     CHECK_ZERO(this->ApplyOT(false,*borderV_));
@@ -1959,6 +1987,7 @@ if (dumpVectors_)
       (linearRhs_->Map().SameAs(augmentedMatrix_->Map())==false);
       if (realloc_vectors)
         {
+        DEBUG("(re-)allocate tmp vectors");
         linearRhs_=Teuchos::rcp(new 
         Epetra_MultiVector(augmentedMatrix_->Map(),Y.NumVectors()));
         linearSol_=Teuchos::rcp(new 
@@ -1970,7 +1999,7 @@ if (dumpVectors_)
           {
           (*linearRhs_)[j][i]=X[j][i] * (*reducedSchurScaLeft_)[i];
           }
-        for (int i=X.MyLength();i<=linearRhs_->MyLength();i++)
+        for (int i=X.MyLength();i<linearRhs_->MyLength();i++)
           {
           int k = i-X.MyLength();
           (*linearRhs_)[j][i]=T[j][k];
@@ -1988,7 +2017,7 @@ if (dumpVectors_)
             }
           }
         }
-*/        
+*/
       if (realloc_vectors)
         {
 #ifdef RESTRICT_ON_COARSE_LEVEL
@@ -2006,6 +2035,7 @@ if (dumpVectors_)
         }
       if (amActive_)
         {
+        DEBUG("coarse level solve");
         CHECK_ZERO(reducedSchurSolver_->ApplyInverse(*restrictedRhs_,*restrictedSol_));
         }
       // unscale the solution and split into X and S
@@ -2015,7 +2045,7 @@ if (dumpVectors_)
           {
           Y[j][i]=(*linearSol_)[j][i] * (*reducedSchurScaRight_)[i];
           }
-        for (int i=X.MyLength();i<=linearRhs_->MyLength();i++)
+        for (int i=X.MyLength();i<linearRhs_->MyLength();i++)
           {
           int k = i-X.MyLength();
           S[j][k]=(*linearSol_)[j][i];

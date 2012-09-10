@@ -31,6 +31,7 @@ namespace HYMLS {
 
 RCP<const Epetra_Comm> Tools::comm_=null;
 ParameterList Tools::timerList_;
+ParameterList Tools::breakpointList_;
 ParameterList Tools::memList_;
 RCP<FancyOStream> Tools::output_stream = null;
 RCP<FancyOStream> Tools::debug_stream = null;
@@ -52,10 +53,20 @@ void Tools::StartTiming(string fname)
   {
 #ifdef FUNCTION_TRACING
   traceLevel_++;
+  functionStack_.push(fname);
 #ifdef DEBUGGING
   deb() << "@@@@@ "<<tabstring(traceLevel_)<<"ENTER "<<fname<<" @@@@@"<<std::endl;
+  std::string msg;
+  std::string file;
+  int line;
+  if (GetCheckPoint(fname,msg,file,line))
+    {
+    Tools::out()<<"reached breakpoint: '"+msg+"' in "+fname<<std::endl;
+    Tools::out()<<"(set in "<<file<<", line "<<line<<")\n";
+    Tools::deb()<<"reached breakpoint: '"+msg+"' in "+fname<<std::endl;
+    Tools::deb()<<"(set in "<<file<<", line "<<line<<")\n";
+    }
 #endif
-  functionStack_.push(fname);
 #endif
   if (InitializedIO())
     {
@@ -198,5 +209,26 @@ std::ostream& Tools::printFunctionStack(std::ostream& os)
   return os;
   }
 
+#ifdef DEBUGGING
+void Tools::SetCheckPoint(std::string fname, std::string msg,
+        std::string file, int line)
+        {
+        breakpointList_.sublist(fname).set("msg",msg);
+        breakpointList_.sublist(fname).set("file",file);
+        breakpointList_.sublist(fname).set("line",line);
+        }
+
+bool Tools::GetCheckPoint(std::string fname, std::string& msg,
+        std::string& file, int& line)
+        {
+        if (breakpointList_.isSublist(fname))
+          {
+          msg=breakpointList_.sublist(fname).get("msg",msg);
+          file=breakpointList_.sublist(fname).get("file",file);
+          line=breakpointList_.sublist(fname).get("line",line);
+          return true;
+          }
+        return false;
+        }
+#endif
 }
-  

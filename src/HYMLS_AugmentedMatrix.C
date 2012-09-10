@@ -23,8 +23,8 @@ namespace HYMLS {
                    Teuchos::RCP<const Epetra_SerialDenseMatrix> C)
   {
   label_="AugmentedMatrix";
+  START_TIMER2(label_,"Constructor");
   useTranspose_=false;
-  START_TIMER2(label_,"Constructor");  
   if (!A->Filled())
     {
     // this is really just so we have a column map already and don't have to woory
@@ -40,6 +40,9 @@ namespace HYMLS {
   if ((V->Map().SameAs(A->RowMatrixRowMap())==false) ||
       (W->Map().SameAs(A->RowMatrixRowMap())==false))
     {
+    DEBVAR(A->RowMatrixRowMap());
+    DEBVAR(V->Map());
+    DEBVAR(W->Map());
     HYMLS::Tools::Error("V and W in AugmentedMatrix must have same map as A",
         __FILE__,__LINE__);
     }
@@ -77,6 +80,11 @@ namespace HYMLS {
     HYMLS::Tools::Error("AugmentedMatrix: A cannot have different "
                         " row-, range and domain maps right now.",__FILE__,__LINE__);
     }
+    
+  DEBVAR(A_->NumMyRows());
+  DEBVAR(V_->NumVectors());
+  DEBVAR(NumMyRows());
+  
   int* id = new int[NumMyRows()];
   for (int i=0;i<A_->NumMyRows();i++)
     {
@@ -87,10 +95,10 @@ namespace HYMLS {
     {
     id[i]=k++;
     }
+  DEBUG("Construct row map");
   rowMap_ = Teuchos::rcp(new 
         Epetra_Map(-1,NumMyRows(),id,rowMapA.IndexBase(), *comm_));
   delete [] id;
-  
   int numMyColEntries = colMapA.NumMyElements() + numBorderVectors_;
   id = new int[numMyColEntries];
   for (int i=0;i<colMapA.NumMyElements();i++)
@@ -109,11 +117,6 @@ namespace HYMLS {
   rangeMap_ = rowMap_;
   domainMap_ = rowMap_;
   import_=Teuchos::rcp(new Epetra_Import(*colMap_,*domainMap_));
-  
-  DEBVAR(NumGlobalRows());
-  DEBVAR(NumMyRows());
-  DEBVAR(NumBorderVectors());
-  DEBVAR(NumMyDenseRows());
   }
      
     // Returns a copy of the specified local row in user-provided arrays.
@@ -134,18 +137,30 @@ namespace HYMLS {
     int AugmentedMatrix::ExtractMyRowCopy(int MyRow, int Length, int & NumEntries, 
         double *Values, int * Indices) const
   {
-  DEBUG("AUG::ExtractMyRowCopy: "<<MyRow);
   int ierr=NumMyRowEntries(MyRow, NumEntries);
-  DEBVAR(NumEntries);
-  DEBVAR(Length);
-  if (ierr) return ierr;
-  if (NumEntries>Length) {return -2;}
-    int lenA=0;
+  if (ierr) 
+    {
+    Tools::Warning("Error "+Teuchos::toString(ierr)+" returned from call NumMyRowEntries",
+        __FILE__,__LINE__);
+    return ierr;
+    }
+  if (NumEntries>Length) 
+    {
+    Tools::Warning("insufficient space provided",__FILE__,__LINE__);
+    return -2;
+    }
+  int lenA=0;
   if (MyRow<A_->NumMyRows())
     {
     DEBUG("   belongs to A V");
     ierr = A_->ExtractMyRowCopy(MyRow,Length,lenA,Values,Indices);
-    if (ierr) {return ierr;}
+    if (ierr) 
+      {
+      Tools::Warning("error "+Teuchos::toString(ierr)+" returned from A_->ExtractMyRowCopy",
+        __FILE__, __LINE__);
+      return ierr;
+      }
+    
     for (int k=0;k<NumBorderVectors();k++)
       {
       Values[lenA+k] = (*V_)[k][MyRow];
@@ -158,6 +173,7 @@ namespace HYMLS {
     int k=MyRow-A_->NumMyRows();
     if (Length!=Wloc_->MyLength() + NumBorderVectors())
       {
+      Tools::Warning("dense row length mismatch",__FILE__,__LINE__);
       return -3; // length mismatch for dense row
       }
     for (int i=0;i<Wloc_->MyLength();i++)

@@ -6,6 +6,7 @@
 #include "Epetra_SerialDenseMatrix.h"
 
 #include "HYMLS_DenseUtils.H"
+#include "HYMLS_MatrixUtils.H"
 
 namespace HYMLS
   {
@@ -23,7 +24,7 @@ namespace HYMLS
 
 HYMLS::BorderedLU::~BorderedLU()
   {
-  START_TIMER3(label_,"Constructor");
+  START_TIMER3(label_,"Destructor");
   }
 
   int BorderedLU::SetUseTranspose(bool UseTranspose)
@@ -42,11 +43,12 @@ HYMLS::BorderedLU::~BorderedLU()
     int BorderedLU::ApplyInverse(const Epetra_MultiVector& Y, Epetra_MultiVector& X) const
       {
       START_TIMER3(label_, "ApplyInverse (1)");
-      int m=C_->M();
+      int m=V_->NumVectors();
       int k=X.NumVectors();
       Epetra_SerialDenseMatrix S(m,k);
       Epetra_SerialDenseMatrix T(m,k);
-      return this->ApplyInverse(Y,T,X,S);
+      int ierr = this->ApplyInverse(Y,T,X,S);
+      return ierr;
       }
 
     int BorderedLU::SetBorder(Teuchos::RCP<const Epetra_MultiVector> V,
@@ -85,16 +87,20 @@ HYMLS::BorderedLU::~BorderedLU()
   CHECK_ZERO(A_->ApplyInverse(Y,X));
   if (V_==Teuchos::null)
     {
+    DEBUG("no border set");
     return 1; // border not set
     }
   int m = V_->NumVectors();
+  DEBVAR(m);
   int k = Y.NumVectors();
+  DEBVAR(k);
   // W'y
   Epetra_SerialDenseMatrix B(m, k);
   CHECK_ZERO(DenseUtils::MatMul(*W_,Y,B));
   B.Scale(-1.0);
   B+=T;
   // s = (C-W'S\V) \ (T-W'y)
+  DEBUG("solve tiny system");
   CHECK_ZERO(LU_.SetVectors(S,B));
   CHECK_ZERO(LU_.Solve());
   
@@ -132,7 +138,6 @@ int BorderedLU::Compute()
     
   // build the border for the Schur-complement
   Q_ = Teuchos::rcp(new Epetra_MultiVector(V_->Map(),m));
-    
   CHECK_ZERO(A_->ApplyInverse(*V_,*Q_));
 
   S_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(m,m));
@@ -144,7 +149,15 @@ DEBVAR(*S_);
 
   // factor it using LAPACK
   LU_.SetMatrix(*S_);
-  CHECK_ZERO(LU_.Factor());
+  int ierr = LU_.Factor();
+  if (ierr!=0)
+    {
+    Epetra_SerialDenseMatrix* AF = LU_.FactoredMatrix();
+    for (int i=0;i<AF->N();i++)
+      {
+      if (abs((*AF)(i,i))<HYMLS_SMALL_ENTRY) (*AF)(i,i) = 1.0;
+      }
+    }
   return 0;
   }
     

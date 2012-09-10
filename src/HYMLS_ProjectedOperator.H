@@ -8,9 +8,11 @@
 namespace HYMLS 
   {
 
-  //! given an operator A and a vector space V, this class      
-  //! implements the action of V'AV or V_orth'AV_orth, where    
-  //! V_orth x = (I-VV')x.                                      
+  //! given an operator A and a vector space V, this class       
+  //! implements the action of V'AV or V_orth'AV_orth, where     
+  //! V_orth x = (I-VV')x.                                       
+  //! An optional left preconditioning operation P can be added, 
+  //! in which case P\(V'AV)x or P\(V_orth'AV_orth)x are applied.
   class ProjectedOperator : public Epetra_Operator 
     {
     
@@ -26,6 +28,14 @@ namespace HYMLS
     //! Destructor
    ~ProjectedOperator() {};
   //@}
+  
+  //! set left preconditioner P (should implement ApplyInverse())
+  int SetLeftPrecond(Teuchos::RCP<const Epetra_Operator> P)
+    {
+    leftPrecond_=P;
+    return 0;
+    }
+  
   
   //! @name Atribute set methods
   //@{ 
@@ -140,6 +150,9 @@ does not support transpose.
 
     //! temporary vector for intermediate results
     mutable Teuchos::RCP<Epetra_MultiVector> tmpVector_;
+    
+    //! optional left preconditioner
+    Teuchos::RCP<const Epetra_Operator> leftPrecond_;
     
     //! do we represent V'AV or V_orth'AV_orth?
     bool useVorth_;
