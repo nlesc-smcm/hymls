@@ -1887,11 +1887,19 @@ int SchurPreconditioner::UpdateVsumRhs(const Epetra_MultiVector& B, Epetra_Multi
                 borderW_->Values(),borderW_->Stride(),borderW_->NumVectors()));
 
     // create AugmentedMatrix, refactor reducedSchurSolver_
+    bool status=true;
+    try {
     augmentedMatrix_ = Teuchos::rcp
         (new HYMLS::AugmentedMatrix(restrictedMatrix_,Vprime,Wprime,borderC_));
+    } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status);
+    if (!status) {Tools::Fatal("caught an exception when constructing final bordered system",__FILE__,__LINE__);}
     Teuchos::ParameterList& amesosList=PL().sublist("Coarse Solver");                    
 #ifdef STORE_MATRICES
+    status=true;
+    try {
     EpetraExt::RowMatrixToMatrixMarketFile("FinalBorderedSchur.mtx",*augmentedMatrix_);
+    } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status);
+    if (status==false) Tools::Warning("caught exception when trying to dump final bordered SC",__FILE__,__LINE__);
 #endif
     if (amActive_)
       {

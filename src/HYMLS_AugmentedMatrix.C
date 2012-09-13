@@ -99,21 +99,30 @@ namespace HYMLS {
   rowMap_ = Teuchos::rcp(new 
         Epetra_Map(-1,NumMyRows(),id,rowMapA.IndexBase(), *comm_));
   delete [] id;
-  int numMyColEntries = colMapA.NumMyElements() + numBorderVectors_;
+  
+  int numMyColEntries = 
+        NumMyDenseRows()>0? NumGlobalRows() : colMapA.NumMyElements() + numBorderVectors_;
   id = new int[numMyColEntries];
+  int pos=0;
   for (int i=0;i<colMapA.NumMyElements();i++)
     {
-    id[i]=colMapA.GID(i);
+    id[pos++]=colMapA.GID(i);
     }
   k=colMapA.MaxAllGID()+1;
-  for (int i=colMapA.NumMyElements();i<numMyColEntries;i++)
+  for (int i=0;i<NumBorderVectors();i++)
     {
-    id[i]=k++;
-    }  
+    id[pos++]=k++;
+    }
+  for (int i=0;i<Wloc_->MyLength();i++)
+    {
+    if (colMapA.MyGID(Wloc_->Map().GID(i))==false)
+    id[pos++]=Wloc_->Map().GID(i);
+    }
   colMap_ = Teuchos::rcp(new 
         Epetra_Map(-1,numMyColEntries,id,colMapA.IndexBase(), *comm_));
   delete [] id;
-
+  DEBVAR(*rowMap_);
+  DEBVAR(*colMap_);
   rangeMap_ = rowMap_;
   domainMap_ = rowMap_;
   import_=Teuchos::rcp(new Epetra_Import(*colMap_,*domainMap_));
@@ -137,6 +146,7 @@ namespace HYMLS {
     int AugmentedMatrix::ExtractMyRowCopy(int MyRow, int Length, int & NumEntries, 
         double *Values, int * Indices) const
   {
+  START_TIMER3(label_,"ExtractMyRowCopy");
   int ierr=NumMyRowEntries(MyRow, NumEntries);
   if (ierr) 
     {
@@ -154,7 +164,7 @@ namespace HYMLS {
     {
     DEBUG("   belongs to A V");
     ierr = A_->ExtractMyRowCopy(MyRow,Length,lenA,Values,Indices);
-    if (ierr) 
+    if (ierr)
       {
       Tools::Warning("error "+Teuchos::toString(ierr)+" returned from A_->ExtractMyRowCopy",
         __FILE__, __LINE__);
@@ -164,7 +174,7 @@ namespace HYMLS {
     for (int k=0;k<NumBorderVectors();k++)
       {
       Values[lenA+k] = (*V_)[k][MyRow];
-      Indices[lenA+k]= colMap_->GID(A_->NumGlobalRows()+k);
+      Indices[lenA+k]= colMap_->LID(A_->NumGlobalRows()+k);
       }
     }
   else
@@ -179,12 +189,12 @@ namespace HYMLS {
     for (int i=0;i<Wloc_->MyLength();i++)
       {
       Values[i] = (*Wloc_)[k][i];
-      Indices[i]= Wloc_->Map().GID(i);
+      Indices[i]= colMap_->LID(Wloc_->Map().GID(i));
       }
     for (int i=0;i<NumBorderVectors();i++)
       {
       Values[Wloc_->MyLength()+i]=(*C_)[k][i];
-      Indices[Wloc_->MyLength()+i]=Wloc_->Map().MaxAllGID()+i+1;
+      Indices[Wloc_->MyLength()+i]=colMap_->LID(Wloc_->Map().MaxAllGID()+i+1);
       }
     }
 #ifdef DEBUGGING

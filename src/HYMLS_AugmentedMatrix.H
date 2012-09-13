@@ -15,8 +15,15 @@ class Epetra_SerialDenseMatrix;
 namespace HYMLS {
 
 //! implements the matrix A  V  where A is a standard row matrix,
-//!                       W' C, 
-//! V and W are multivecotrs and C is a serial dense matrix.
+//!                       W' C,                                  
+//! V and W are multivecotrs and C is a serial dense matrix.     
+//!                                                              
+//! The functionality of this class is very limited, it is only  
+//! intended for solving the last bordered Schur system using    
+//! Amesos. The dense rows are physically stored on a single     
+//! process, but that doesn't matter that much because the last  
+//! SC should be small anyway. You should not use this class for 
+//! larger bordered systems.
 class AugmentedMatrix: public Epetra_RowMatrix 
 {
 

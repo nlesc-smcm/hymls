@@ -31,6 +31,9 @@ namespace HYMLS {
 
 class BorderedLU;
 
+namespace Belos {
+class EpetraOperator;
+};
 /*! iterative solver class, basically         
    an Epetra wrapper for Belos extended with  
    some bordering and deflation functionality.
@@ -44,9 +47,9 @@ public:
   typedef double ST;
   typedef Epetra_MultiVector MV;
   typedef Epetra_Operator OP;
-  typedef Belos::EpetraPrecOp belosPrecType_;
-  typedef Belos::LinearProblem<ST,MV,OP> belosProblemType_;
-  typedef Belos::SolverManager<ST,MV,OP> belosSolverType_;
+  typedef ::Belos::EpetraPrecOp belosPrecType_;
+  typedef ::Belos::LinearProblem<ST,MV,OP> belosProblemType_;
+  typedef ::Belos::SolverManager<ST,MV,OP> belosSolverType_;
 
 
   //!                                                     
@@ -209,7 +212,7 @@ Teuchos::RCP<Epetra_SerialDenseMatrix> borderC_;
 Teuchos::RCP<Epetra_Operator> Aorth_;
 
 //! a belos solver for Aorth_, disguised as an Epetra_Operator
-Teuchos::RCP<Epetra_Operator> AorthSolver_;
+Teuchos::RCP<Belos::EpetraOperator> AorthSolver_;
 
 //! object handling the bordered solve
 Teuchos::RCP<BorderedLU> LU_;

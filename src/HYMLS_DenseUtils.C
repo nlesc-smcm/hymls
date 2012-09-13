@@ -101,9 +101,11 @@ int DenseUtils::MatMul(const Epetra_MultiVector& V, const Epetra_MultiVector& W,
     }
 
   // this object is replicated on all procs because of the LocalMap:
-  Teuchos::RCP<Epetra_MultiVector> VW = CreateView(C);
+  Epetra_SerialDenseMatrix tmp = C;
+  Teuchos::RCP<Epetra_MultiVector> VW = CreateView(tmp);
 
   CHECK_ZERO(VW->Multiply('T','N',1.0,V,W,0.0));
+  CHECK_ZERO(V.Comm().SumAll(tmp.A(),C.A(),m*n));
 
   return 0;
   }
@@ -128,12 +130,11 @@ int DenseUtils::ApplyOrth(const Epetra_MultiVector& V, const Epetra_MultiVector&
     }
   int m=V.NumVectors();
   int k=W.NumVectors();
-  
   Epetra_SerialDenseMatrix C(m,k);
   // this object is replicated on all procs because of the LocalMap:
   Teuchos::RCP<Epetra_MultiVector> VW=CreateView(C);
   //VW=V'W
-  CHECK_ZERO(VW->Multiply('T','N',1.0,V,W,0.0));
+  CHECK_ZERO(MatMul(V,W,C));
   //Z=W-VV'W
   Z=W;
   CHECK_ZERO(Z.Multiply('N','N',-1.0,V,*VW,1.0));

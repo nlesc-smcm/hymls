@@ -307,9 +307,17 @@ int Solver::SetupDeflation(int maxEigs)
       Tools::out()<<"using LU bordering"<<std::endl;
       op = Teuchos::rcp(new BorderedLU(precond_,nullSpace_,nullSpace_));
       }
+#ifdef DEBUGGING
+    Epetra_Vector test_b(matrix_->RowMatrixRowMap());
+    Epetra_Vector test_x(matrix_->RowMatrixRowMap());
+    MatrixUtils::Random(test_b,12419);
+    CHECK_ZERO(op->ApplyInverse(test_b,test_x));
+    MatrixUtils::Dump(test_b,"TEST_BorderedPreconditioner_B.txt");
+    MatrixUtils::Dump(test_x,"TEST_BorderedPreconditioner_X.txt");
+#endif    
     }
 
-  if (numEigs_!=0)
+  if (numEigs_!=0)    
     {
     Tools::Warning("very experimental functionality, not tested.",
         __FILE__,__LINE__);
@@ -534,6 +542,7 @@ int Solver::SetupDeflation(int maxEigs)
       }
     
     Aorth_=Teuchos::rcp(new ProjectedOperator(matrix_,V_,true));
+
     CHECK_ZERO(Teuchos::rcp_dynamic_cast<HYMLS::ProjectedOperator>(Aorth_)->SetLeftPrecond(precond_));
 
     belosProblemPtr_->setOperator(Aorth_);
@@ -586,7 +595,8 @@ int Solver::ApplyInverse(const Epetra_MultiVector& B,
     DEBUG("Solver: Bordered Solve");
     // bordered solve
     ierr=LU_->ApplyInverse(B,X);
-    }
+    numIter_ = AorthSolver_->getNumIters();
+   }
   else
     {
 #ifdef TESTING
@@ -638,28 +648,10 @@ int Solver::ApplyInverse(const Epetra_MultiVector& B,
     if (!status) Tools::Warning("caught an exception",__FILE__,__LINE__);
 
   numIter_ = belosSolverPtr_->getNumIters();
-  if (comm_->MyPID()==0)
-     {
-     Tools::Out("++++++++++++++++++++++++++++++++++++++++++++++++");
-     Tools::Out("+ Number of iterations: "+Teuchos::toString(numIter_));
-     Tools::Out("++++++++++++++++++++++++++++++++++++++++++++++++");
-     Tools::Out("");
-     }
 
-    //TODO: avoid this copy operation
-    X=*belosSol_;
-/*    
-    for (int j=0;j<X.NumVectors();j++)
-      {
-      for (int i=0;i<X.MyLength();i++)
-        if (X[j][i]!=(*belosSol_)[j][i])
-          {
-          Tools::out() << "belos: "<<*belosSol_<<std::endl;
-          Tools::out() << "output: "<<X <<std::endl;
-          Tools::Error("Copy operation failed!",__FILE__,__LINE__);
-          }
-      }
-*/
+  //TODO: avoid this copy operation
+  X=*belosSol_;
+
 #ifdef TESTING
 // compute explicit residual of Schur problem
 Epetra_MultiVector resid(belosRhs_->Map(),belosRhs_->NumVectors());
@@ -688,9 +680,16 @@ delete [] resNorm;
         Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_);
       MatrixUtils::Dump(*Acrs,"FailedMatrix.txt");
       MatrixUtils::Dump(B,"FailedRhs.txt");
-#endif      
+#endif
       ierr = -1;
       }
+    }
+  if (comm_->MyPID()==0)
+    {
+    Tools::Out("++++++++++++++++++++++++++++++++++++++++++++++++");
+    Tools::Out("+ Number of iterations: "+Teuchos::toString(numIter_));
+    Tools::Out("++++++++++++++++++++++++++++++++++++++++++++++++");
+    Tools::Out("");
     }
   return ierr;
   }

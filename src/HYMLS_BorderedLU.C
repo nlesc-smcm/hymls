@@ -139,6 +139,11 @@ int BorderedLU::Compute()
   // build the border for the Schur-complement
   Q_ = Teuchos::rcp(new Epetra_MultiVector(V_->Map(),m));
   CHECK_ZERO(A_->ApplyInverse(*V_,*Q_));
+  
+#ifdef STORE_MATRICES
+  HYMLS::MatrixUtils::Dump(*V_,"BorderedLU_V.txt");
+  HYMLS::MatrixUtils::Dump(*Q_,"BorderedLU_Q.txt");
+#endif  
 
   S_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(m,m));
   CHECK_ZERO(DenseUtils::MatMul(*W_,*Q_,*S_));
