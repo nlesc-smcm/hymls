@@ -209,6 +209,9 @@ namespace HYMLS {
         "This is only intended for Navier-Stokes type problems and it is a bit \n"
         "ad-hoc right now.");
 
+    VPL().set("Fix Pressure Level",true,
+        "Put a Dirichlet condition on a single P-node on the coarsest grid");
+
     VPL().set("Fix GID 1",-1,"put a Dirichlet condition for node x in the last Schur \n"
                                  "complement. This is useful for e.g. fixing the pressure \n"
                                  "level.");
@@ -1435,10 +1438,13 @@ int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& lis
         presList.set("Variable Type","Uncoupled");
         }
       }
-    // we fix the singularity by inserting a Dirichlet condition for 
-    // global pressure node 2 
-    precList.set("Fix GID 1",factor*dim_);
-    if (is_complex) precList.set("Fix GID 2",2*dim_+1);
+    if (PL().get("Fix Pressure Level",true)==true)
+      {
+      // we fix the singularity by inserting a Dirichlet condition for 
+      // global pressure node 2 
+      precList.set("Fix GID 1",factor*dim_);
+      if (is_complex) precList.set("Fix GID 2",2*dim_+1);
+      }      
     }
   else if (eqn=="Stokes-B")
     {
@@ -1491,12 +1497,15 @@ int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& lis
         presList.set("Variable Type","Uncoupled");
         }
       }
-    // we fix the singularity by inserting a Dirichlet condition for 
-    // global pressure in cells 0 and 1, since we retain two pressures
-    // per subdomain both will be retained until the coarsest grid.
-    // We use +nx*dof here to skip the dummy P-nodes (@).
-    precList.set("Fix GID 1",dim_+nx_*dof_);
-    precList.set("Fix GID 2",2*dim_+nx_*dof_);
+    if (PL().get("Fix Pressure Level",true)==true)
+      {
+      // we fix the singularity by inserting a Dirichlet condition for 
+      // global pressure in cells 0 and 1, since we retain two pressures
+      // per subdomain both will be retained until the coarsest grid.
+      // We use +nx*dof here to skip the dummy P-nodes (@).
+      precList.set("Fix GID 1",dim_+nx_*dof_);
+      precList.set("Fix GID 2",2*dim_+nx_*dof_);
+      }
     }
   else
     {

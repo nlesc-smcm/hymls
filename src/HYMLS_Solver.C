@@ -75,7 +75,7 @@ namespace HYMLS {
     if (dof==-1)
       {
       dof=3;
-      Tools::Warning("'Pressure Variable' not specified in 'Solver' sublist", 
+      Tools::Warning("'Degrees of Freedom' not specified in 'Solver' sublist", 
         __FILE__, __LINE__);
       }
     
@@ -389,7 +389,6 @@ int Solver::SetupDeflation(int maxEigs)
   
     // now project the original Schur-complement onto the space spanned by these most
     // unstable modes of the preconditioner, e.g. compute V'SV
-
     KV=Teuchos::rcp(new Epetra_MultiVector(V));
     CHECK_ZERO(matrix_->Apply(V,*KV));
 

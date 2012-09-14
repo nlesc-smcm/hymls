@@ -456,7 +456,7 @@ ApplyInverse(const Epetra_MultiVector& X, Epetra_MultiVector& Y) const
   
 #ifdef TESTING
 Epetra_MultiVector R(X);
-CHECK_ZERO(Matrix_->Multiply(false,Y,R));
+CHECK_ZERO(Matrix_->Multiply(UseTranspose_,Y,R));
 CHECK_ZERO(R.Update(-1.0,X,1.0));
 double *rnorm2 = new double[X.NumVectors()];
 double *bnorm2 = new double[X.NumVectors()];
@@ -698,8 +698,8 @@ for (int i=0;i<N;i++) invperm[col_perm_[i]]=i;
       // sort row entries by column index
       MatrixUtils::SortMatrixRow(&Ai_[Ai_index-len],&Aval_[Ai_index-len],len);
       }    
-    Ap_[N] = Ai_index; 
-    }  
+    Ap_[N] = Ai_index;
+    }
   return 0;
   }
 
@@ -784,6 +784,15 @@ int SparseDirectSolver::KluSolve(const Epetra_MultiVector& B, Epetra_MultiVector
     {
     buf_x_ = Teuchos::rcp(new Epetra_MultiVector(serialX->Map(),NumVectors));
     }
+    
+  const Teuchos::RCP<Epetra_Vector>& sca_l =
+        UseTranspose_? scaRight_: scaLeft_;
+  const Teuchos::RCP<Epetra_Vector>& sca_r =
+        UseTranspose_? scaLeft_: scaRight_;
+  const Teuchos::Array<int>& row_perm =
+        UseTranspose_? col_perm_: row_perm_;
+  const Teuchos::Array<int>& col_perm =
+        UseTranspose_? row_perm_: col_perm_;
 
   int ldx;
   double *xval;
@@ -796,7 +805,7 @@ int SparseDirectSolver::KluSolve(const Epetra_MultiVector& B, Epetra_MultiVector
       {
       for (int i=0;i<N;i++)
         {
-        (*buf_x_)[j][i] = (*serialB)[j][row_perm_[i]] * (*scaLeft_)[row_perm_[i]];
+        (*buf_x_)[j][i] = (*serialB)[j][row_perm[i]] * (*sca_l)[row_perm[i]];
         }
       }
     if (UseTranspose()==false)
@@ -813,7 +822,7 @@ int SparseDirectSolver::KluSolve(const Epetra_MultiVector& B, Epetra_MultiVector
       {
       for (int i=0;i<N;i++) 
         {
-        (*serialX)[j][col_perm_[i]] = (*buf_x_)[j][i] * (*scaRight_)[col_perm_[i]];
+        (*serialX)[j][col_perm[i]] = (*buf_x_)[j][i] * (*sca_r)[col_perm[i]];
         }
       }
     status = klu_->Common_->status;

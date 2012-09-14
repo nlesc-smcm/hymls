@@ -1326,10 +1326,11 @@ Teuchos::RCP<MatrixUtils::Eigensolution> MatrixUtils::Eigs(
   debug=true;
 #endif
 
-  std::string which("LR");
+  std::string which("LM");
 
   int blockSize = 1;
-  int numBlocks = 250;
+  int numBlocks = 120;
+  int stepSize = 10;
   int maxRestarts = 10;
 
   // Create a sort manager to pass into the block Krylov-Schur solver manager
@@ -1361,7 +1362,7 @@ Teuchos::RCP<MatrixUtils::Eigensolution> MatrixUtils::Eigs(
   MyPL.set( "Block Size", blockSize );
   MyPL.set( "Num Blocks", numBlocks );
   MyPL.set( "Maximum Restarts", maxRestarts );
-  //MyPL.set( "Step Size", stepSize );
+  MyPL.set( "Step Size", stepSize );
   MyPL.set( "Convergence Tolerance", tol );
 
   // Create an Epetra_MultiVector for an initial vector to start the solver.

@@ -33,7 +33,7 @@ class BorderedLU;
 
 namespace Belos {
 class EpetraOperator;
-};
+}
 /*! iterative solver class, basically         
    an Epetra wrapper for Belos extended with  
    some bordering and deflation functionality.

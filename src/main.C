@@ -193,6 +193,12 @@ bool status=true;
       }
     CHECK_ZERO(M->FillComplete());
     }
+
+  if (eqn=="Stokes-C")
+    {
+    K->Scale(-1.0);
+    b->Scale(-1.0);
+    }
   
   HYMLS::Tools::Out("Create Preconditioner");
 
