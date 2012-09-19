@@ -1346,7 +1346,7 @@ Teuchos::RCP<MatrixUtils::Eigensolution> MatrixUtils::Eigs(
     verbosity += Anasazi::FinalSummary + Anasazi::TimingDetails;
   }
   if (debug) {
-    verbosity += Anasazi::Debug;
+//    verbosity += Anasazi::Debug;
   }
 
   //
@@ -1355,7 +1355,6 @@ Teuchos::RCP<MatrixUtils::Eigensolution> MatrixUtils::Eigs(
   Teuchos::ParameterList MyPL;
   MyPL.set( "Verbosity", verbosity );
   MyPL.set( "Output Stream",Tools::out().getOStream());
-  
 
 //  MyPL.set( "Sort Manager", MySort );
   MyPL.set( "Which", which );
@@ -1382,12 +1381,15 @@ Teuchos::RCP<MatrixUtils::Eigensolution> MatrixUtils::Eigs(
   DEBUG("create eigen-problem");
   Teuchos::RCP<Anasazi::BasicEigenproblem<ST, MV, OP> > MyProblem;
 
-  if (Teuchos::is_null(B))
+  // as of Trilinos 10.12 it doesn't seem to make any difference if we
+  // pass in the mass matrix, so in our Solver class where we call this
+  // function we provide M\B as operator and solve a standard EVP.
+  if (Teuchos::is_null(B) || true)
     {
     MyProblem =  Teuchos::rcp( new Anasazi::BasicEigenproblem<ST, MV, OP>(A, ivec) );
     }
   else
-    { 
+    {
     MyProblem =  Teuchos::rcp( new Anasazi::BasicEigenproblem<ST, MV, OP>(A,B, ivec) );
     }
 
@@ -1421,6 +1423,9 @@ Teuchos::RCP<MatrixUtils::Eigensolution> MatrixUtils::Eigs(
         __FILE__,__LINE__);
     }
 
+  // somehow Anasazi manages to kill our I/O...
+ // Tools::RestoreIO();
+
   DEBUG("post-process returned solution");
   // Get the Ritz values from the eigensolver
   std::vector<Anasazi::Value<double> > ritzValues = MySolverMgr.getRitzValues();
@@ -1442,6 +1447,7 @@ Teuchos::RCP<MatrixUtils::Eigensolution> MatrixUtils::Eigs(
               << std::endl;
       }
     Tools::out()<<"-----------------------------------------------------------"<<std::endl;
+    Tools::out() << std::flush;
     }
 
   return Teuchos::rcp(new Eigensolution(MyProblem->getSolution()));
@@ -1542,6 +1548,7 @@ int MatrixUtils::Random(Epetra_MultiVector& v, int seed)
     {
     gVec->SetSeed(seed);
     }
+  Tools::out() << "SEED: "<< gVec->Seed() << std::endl;
   gVec->Random();
   Teuchos::RCP<Epetra_MultiVector> lVec = Scatter(*gVec,v.Map());
   v=*lVec;

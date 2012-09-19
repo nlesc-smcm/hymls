@@ -2,6 +2,7 @@
 #define HYMLS_SOLVER_H
 
 #include "Teuchos_RCP.hpp"
+#include "Epetra_Operator.h"
 #include "Ifpack_Preconditioner.h"
 
 #include "BelosLinearProblem.hpp"
@@ -232,6 +233,9 @@ Teuchos::RCP<BorderedLU> LU_;
   mutable int numIter_;
   
   private:
+  
+  //! a pointer array we need in order to construct a product operator
+  Teuchos::RCP<const Epetra_Operator> op_array_[2];
   
   };
 

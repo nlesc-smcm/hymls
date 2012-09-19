@@ -4,6 +4,7 @@
 #include <mpi.h>
 #include <stack>
 #include <cstdio>
+#include <signal.h>
 
 #include "Epetra_Comm.h"
 #include <iostream>
@@ -107,7 +108,18 @@ Teuchos::print_stack_on_segfault();
 #endif
      InitializeIO(comm,fancy_out,fancy_deb);
      }
-     
+   
+   // sometime sthe I/O gets killed e.g. by Anasazi, restore it to something that
+   // works (currently we set the output stream to std::cout)
+   static void RestoreIO()
+     {
+     output_stream = Teuchos::rcp(new 
+         Teuchos::FancyOStream(Teuchos::rcp(&std::cerr,false)));
+           
+     output_stream->setOutputToRootOnly(0);
+     output_stream->setShowProcRank(false);
+     }
+   
    static bool InitializedIO() {return output_stream!=Teuchos::null;}
 
    static void Out(std::string msg)
@@ -139,7 +151,7 @@ Teuchos::print_stack_on_segfault();
       }
       
     static void Fatal(std::string msg, const char* file, int line)
-      {      
+      {
       printFunctionStack(std::cerr);
       PrintMemUsage(std::cerr);
       std::cerr << std::endl;
@@ -182,6 +194,14 @@ Teuchos::print_stack_on_segfault();
     rem=(rem-j)/ny;
     k=MOD(rem,nz);
     }
+
+static void SignalHandler(int signum)
+  {
+  std::string msg="Caught signal "+Teuchos::toString(signum);
+  if (signum==SIGINT) msg+=" (SIGINT, interrupt)";
+  else if (signum==SIGSEGV) msg+=" (SIGSEGV, segmentation fault)";
+  HYMLS::Tools::Fatal(msg,__FILE__,__LINE__);
+  }
 
   //! converts linear index to cartesian subscripts
   static inline void ind2sub(int nx, int ny, int nz, int idx, int& i, int& j, int& k)

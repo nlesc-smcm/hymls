@@ -19,6 +19,7 @@
 #include "Epetra_SerialDenseMatrix.h"
 #include "Epetra_SerialDenseVector.h"
 #include "Epetra_InvOperator.h"
+#include "HYMLS_EpetraExt_ProductOperator.H"
 
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_Utils.hpp"
@@ -288,23 +289,24 @@ int Solver::SetupDeflation(int maxEigs)
   START_TIMER(label_,"SetupDeflation");
 
   Teuchos::RCP<Epetra_Operator> op, iop;
-  Teuchos::RCP<Epetra_MultiVector> KV,V_hat;
+  Teuchos::RCP<Epetra_MultiVector> KV;
   
   op=precond_;
 
   if (nullSpace_!=Teuchos::null)
     {
-    // we compute eigs of the operator [K e; e' 0] to make the operator nonsingular
+    // we compute eigs of the operator [K N; N' 0] to make the operator nonsingular
     Teuchos::RCP<BorderedSolver> bprec
         = Teuchos::rcp_dynamic_cast<BorderedSolver>(precond_);
     if (bprec!=Teuchos::null)
       {
-      Tools::out()<<"using preconditioner's bordering option"<<std::endl;
+      Tools::Out("set null space as border for preconditioner");
       CHECK_ZERO(bprec->SetBorder(nullSpace_,nullSpace_));      
       }
     else if (precond_!=Teuchos::null)
       {
-      Tools::out()<<"using LU bordering"<<std::endl;
+      Tools::Out("add null space to preconditioner by LU");
+      Tools::Warning("feature not tested",__FILE__,__LINE__);
       op = Teuchos::rcp(new BorderedLU(precond_,nullSpace_,nullSpace_));
       }
 #ifdef DEBUGGING
@@ -317,11 +319,15 @@ int Solver::SetupDeflation(int maxEigs)
 #endif    
     }
 
+////////////////////////////////////////////////////////////////////////
+// if we want to deflate more eigenmodes, compute the dominant eigen-   
+// values and -vectors of the preconditioner (augmented by the null-    
+// space), and select which are worth deflating.                        
+////////////////////////////////////////////////////////////////////////
   if (numEigs_!=0)    
     {
-    Tools::Warning("very experimental functionality, not tested.",
+    Tools::Warning("Deflation is experimental functionality...",
         __FILE__,__LINE__);
-    iop = Teuchos::rcp(new Epetra_InvOperator(op.get()));
 #ifdef STORE_MATRICES
     if (massMatrix_!=Teuchos::null) 
       {
@@ -336,22 +342,46 @@ int Solver::SetupDeflation(int maxEigs)
         Tools::Warning("mass matrix not in CRS format??",__FILE__,__LINE__);
         }
       }
-    else
-      {
-      // for e.g. Navier-Stokes it is important to set the mass matrix before
-      // calling this function, by calling SetMassMatrix() in both the solver
-      // and the preconditioner.
-      Tools::Warning("SetupDeflation() called without mass matrix, is that what you want?",
-          __FILE__,__LINE__);
-      }
 #endif
 
-    // compute dominant eigenvalues of P^{-1}.
-    // mass matrix may still be null, the routine works for both cases.
+  ////////////////////////////////////////////////////////////////////////
+  // Start by constructing the operator iop, which will be                
+  // [P N; N' 0] * [M 0; 0 I], with P the preconditioner, M the mass      
+  // matrix, N the null space and I the identity matrix.                  
+  ////////////////////////////////////////////////////////////////////////
+  if (massMatrix_!=Teuchos::null) 
+    {
+    // construct the operator P\M
+    EpetraExt::ProductOperator::EApplyMode mode[2];
+    Teuchos::ETransp trans[2];
+    
+    op_array_[1]=massMatrix_;
+    mode[1]=EpetraExt::ProductOperator::APPLY_MODE_APPLY;
+    trans[1]=Teuchos::NO_TRANS;
+    op_array_[0]=precond_;
+    mode[0]=EpetraExt::ProductOperator::APPLY_MODE_APPLY_INVERSE;
+    trans[0]=Teuchos::NO_TRANS;
+    
+    iop=Teuchos::rcp(new EpetraExt::ProductOperator(2,&op_array_[0],trans,mode));
+    }
+  else
+    {
+    // for e.g. Navier-Stokes it is important to set the mass matrix before
+    // calling this function, by calling SetMassMatrix() in both the solver
+    // and the preconditioner.
+    Tools::Warning("SetupDeflation() called without mass matrix, is that what you want?",
+          __FILE__,__LINE__);
+    iop = Teuchos::rcp(new Epetra_InvOperator(op.get()));
+    }
+
+    ////////////////////////////////////////////////////
+    // compute dominant eigenvalues of (P^{-1}, M).     
+    ////////////////////////////////////////////////////
     bool status=true;
     try {
+    Tools::Out("Compute max eigs of inv(P)");
     precEigs_ = MatrixUtils::Eigs
-            (iop, massMatrix_, numEigs_,1.0e-8);
+            (iop, Teuchos::null, numEigs_,1.0e-8);
     } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status);
     if (!status) return -5;
     
@@ -385,10 +415,21 @@ int Solver::SetupDeflation(int maxEigs)
     Tools::Error("no eigenvector basis has been returned.",__FILE__,__LINE__);
     }
 
+#ifdef DEBUGGING
+  DEBUG("precEigs_->Evals = ...");
+  for (unsigned int i=0;i<precEigs_->Evals.size();i++)
+    {
+    DEBUG(precEigs_->Evals[i].realpart << "\t"<<precEigs_->Evals[i].imagpart);
+    }
+  HYMLS::MatrixUtils::Dump(*(precEigs_->Evecs),"EigenvectorsOfBorderedPrec.txt");
+  HYMLS::MatrixUtils::Dump(*(precEigs_->Espace),"EigenBasisOfBorderedPrec.txt");
+
+#endif 
+
     Epetra_MultiVector V = *(precEigs_->Espace);
   
-    // now project the original Schur-complement onto the space spanned by these most
-    // unstable modes of the preconditioner, e.g. compute V'SV
+    // now project the original matrix onto the space spanned by these most
+    // unstable modes of the preconditioner, e.g. compute C=V'KV
     KV=Teuchos::rcp(new Epetra_MultiVector(V));
     CHECK_ZERO(matrix_->Apply(V,*KV));
 
@@ -397,6 +438,7 @@ int Solver::SetupDeflation(int maxEigs)
     Epetra_SerialDenseMatrix C(n,n);
     CHECK_ZERO(DenseUtils::MatMul(V,*KV,C));
 
+    // compute all eigenpairs of V'KV
     Epetra_SerialDenseMatrix EVL(n,n);
     Epetra_SerialDenseMatrix EVR(n,n);
     Epetra_SerialDenseVector lambda_r(n);
@@ -405,38 +447,43 @@ int Solver::SetupDeflation(int maxEigs)
     double lambda_max=-1.0e100;
 #ifdef TESTING
     Tools::out()<<std::scientific;
-    Tools::out() << "eigenvalue estimates near zero:"<<std::endl;
-    Tools::out() << "==============================="<<std::endl;
+    Tools::Out("eigenvalue estimates near zero:");
+    Tools::Out("===============================");
 #endif
 
+    // these eigenvalues give a good indication of e.g. a bifurcation:
     for (int i=0;i<n;i++)
       {
-#ifdef TESTING
-      Tools::out() << lambda_r[i]<<"\t+ i\t"<<lambda_i[i]<<std::endl;
-#endif
+      Tools::Out(Teuchos::toString(lambda_r[i])+"\t+ i\t"+Teuchos::toString(lambda_i[i]));
       if (lambda_r[i]<0.0)
         {
         lambda_max=std::max(lambda_max,lambda_r[i]);
         }
       else
         {
-        Tools::out() << "an eigenvalue is in the right half plane."<<std::endl;
-        Tools::out() << "lambda(V'KV)="<<lambda_r[i]<<" + i "<<lambda_i[i]<<std::endl;
+        Tools::Out("an eigenvalue is in the right half plane.");
+        Tools::Out("lambda(V'KV)="+Teuchos::toString(lambda_r[i])+" + i "+Teuchos::toString(lambda_i[i]));
         }
       }
-    Tools::out() << "======================================="<<std::endl;
-    Tools::out() << "next most delicate eigenvalue: "<< lambda_max<<std::endl;
-    Tools::out() << "======================================="<<std::endl;
+    Tools::Out("=======================================");
+    Tools::Out("next most delicate eigenvalue: "+Teuchos::toString(lambda_max));
+    Tools::Out("=======================================");
 
-    // now compute V'P\SV and see which modes are not well handled
-    // by the preconditioner.
+    ////////////////////////////////////////////////////////////////////
+    // now compute V'P\KV and see which modes are not well handled      
+    // by the preconditioner.                                           
+    ////////////////////////////////////////////////////////////////////
     Epetra_MultiVector PKV = V;
 
+
     CHECK_ZERO(precond_->ApplyInverse(*KV,PKV));
-  
+
     CHECK_ZERO(DenseUtils::MatMul(V,PKV,C));
     // compute all eigenvalues of this operator
     DenseUtils::Eig(C,lambda_r,lambda_i,EVR,EVL);
+
+    DEBUG("V'inv(P)KV, should be close to identity if preconditioner is good:");
+    DEBVAR(C);
 
     // keep those that are further away from 1 then the "Deflation Threshold"
     std::vector<bool> keep(n);
@@ -448,35 +495,41 @@ int Solver::SetupDeflation(int maxEigs)
 #ifdef TESTING
         Tools::out() << "lambda(V'P\\SV)["<<i<<"]=";
         Tools::out() << lambda_r[i] << " + i (" << lambda_i[i] << ")"<<std::endl;
+        DEBUG("lambda(V'P\\SV)["<<i<<"]="<<lambda_r[i] << " + i (" << lambda_i[i] << ")");
 #endif
       if ((re*re+im*im)>tol)
         {
         Tools::out() << "deflating eigenmode "<<i<<": lambda(V'P\\SV)=";
         Tools::out() << lambda_r[i] << " + i (" << lambda_i[i] << ")"<<std::endl;
         keep[i]=true;
+        DEBUG("deflated");
         }
       else
         {
+        DEBUG("not deflated");
         numDeflated_--;
         keep[i]=false;
         }
       }
-    Tools::out() << "number of eigenmodes to be deflated: "<<numDeflated_<<std::endl;
-
-    Epetra_SerialDenseMatrix W(n,numDeflated_);
- 
-    if (numDeflated_>0)
+    Tools::Out("number of eigenmodes to be deflated: "+Teuchos::toString(numDeflated_));
+    if (numDeflated_==0)
       {
-      // throw out the according vectors from W and V
-      V_hat = Teuchos::rcp(new Epetra_MultiVector(V.Map(),numDeflated_));
-  
+      numDeflated_=nullSpace_->NumVectors();
+      V_=nullSpace_;
+      }
+    else
+      {
+      Epetra_SerialDenseMatrix W(n,numDeflated_);
+ 
+      // throw out the according vectors from W
+      Epetra_MultiVector V_hat(V.Map(),numDeflated_);
+
       int pos=0;
  
       for (int j=0;j<n;j++)
         {
         if (keep[j])
           {
-          *(*V_hat)(pos) = *V(j);
           for (int i=0;i<n;i++)
             {
             W[pos][i]=EVR[j][i];
@@ -484,102 +537,127 @@ int Solver::SetupDeflation(int maxEigs)
           pos++;
           }
         }
-      }
-    //TODO: also deflate null space, I guess!
     
-    // orthogonalize W
-    CHECK_ZERO(DenseUtils::Orthogonalize(W));
+      // interpret W as a MultiVector
+      Teuchos::RCP<Epetra_MultiVector> W_hat = DenseUtils::CreateView(W);
 
-    // interpret W as a MultiVector
-    Teuchos::RCP<Epetra_MultiVector> W_hat = DenseUtils::CreateView(W);
-  
-    // compute the new V as V*W_hat  
-    V_=Teuchos::rcp(new Epetra_MultiVector(V.Map(),numDeflated_));
-    CHECK_ZERO(V_->Multiply('N','N',1.0,*V_hat,*W_hat,0.0));
-    
-    //TODO: move the entire eigensolve to a separate function
-    //      for clarity
+      // orthogonalize W (probably it already is orthogonal?)
+      CHECK_ZERO(DenseUtils::Orthogonalize(W));
+
+      // compute the new V as V*W_hat  
+      CHECK_ZERO(V_hat.Multiply('N','N',1.0,V,*W_hat,0.0));
+
+      // also deflate the default null space.
+      int dimNull = nullSpace_->NumVectors();
+      V_=Teuchos::rcp(new Epetra_MultiVector(V.Map(),numDeflated_+dimNull));
+      for (int k=0;k<dimNull;k++) *((*V_)(k)) = *((*nullSpace_)(k));
+      for (int k=0;k<numDeflated_;k++) *((*V_)(dimNull+k)) = *(V_hat(k));
+      numDeflated_+=dimNull;
+      }
     }
   else
     {
     numDeflated_=nullSpace_->NumVectors();
     V_=nullSpace_;
-    V_hat=Teuchos::rcp(new Epetra_MultiVector(*V_));
-    KV = Teuchos::rcp(new Epetra_MultiVector(*V_));
-    CHECK_ZERO(matrix_->Apply(*V_,*KV));
     }
+    
+#ifdef STORE_MATRICES
+  MatrixUtils::Dump(*V_,"DeflationVectors.txt");
+#endif
 
-    borderV_=Teuchos::rcp(new Epetra_MultiVector(V_->Map(),numDeflated_));    
-    // compute V_orth'KV
-    DenseUtils::ApplyOrth(*V_,*KV,*borderV_);
-    // compute V'KV_orth (K is not symmetric, so we
-    // actually compute borderW_' = V_orthK'V. V_orth=I-VV' is symmetric)
-    borderW_=Teuchos::rcp(new Epetra_MultiVector(V_->Map(),numDeflated_));
-    CHECK_ZERO(matrix_->Multiply(true,*V_,*V_hat));
-    CHECK_ZERO(DenseUtils::ApplyOrth(*V_,*V_hat,*borderW_));
-    // compute V'KV
-    borderC_=Teuchos::rcp(new Epetra_SerialDenseMatrix(numDeflated_,numDeflated_));
-    CHECK_ZERO(DenseUtils::MatMul(*V_,*KV,*borderC_));
+////////////////////////////////////////////////////////////////////////
+// construct the operator we use to solve for v_orth:                   
+// (V_orth'P V_orth) \ V_orth' K V_orth, where the preconditioner hand- 
+// les the projection as a border.                                      
+////////////////////////////////////////////////////////////////////////
 
-    // check if the preconditioner can handle a bordered system. It has to
-    // solve a system of the form                               
-    // |A  V| |x|   |b|                                         
-    // |V' O| |s| = |0| now to maintain orthogonality wrt V.    
-    //                                                          
-    Teuchos::RCP<HYMLS::BorderedSolver> borderedPrec =
+  // check if the preconditioner can handle a bordered system. It has to
+  // solve a system of the form                               
+  // |A  V| |x|   |b|                                         
+  // |V' O| |s| = |0| now to maintain orthogonality wrt V.    
+  //                                                          
+  Teuchos::RCP<HYMLS::BorderedSolver> borderedPrec =
         Teuchos::rcp_dynamic_cast<HYMLS::BorderedSolver>(precond_);
     
-    if (Teuchos::is_null(borderedPrec) && (precond_!=Teuchos::null))
-      {
-      Tools::Error("preconditioner cannot handle bordering",__FILE__,__LINE__);
-      }
-    else if (borderedPrec!=Teuchos::null)
-      {
-      Teuchos::RCP<Epetra_SerialDenseMatrix> C = Teuchos::rcp(new
-        Epetra_SerialDenseMatrix(numDeflated_,numDeflated_));
-      CHECK_ZERO(borderedPrec->SetBorder(V_,V_,C));
-      }
+  if (Teuchos::is_null(borderedPrec) && (precond_!=Teuchos::null))
+    {
+    Tools::Error("preconditioner cannot handle bordering",__FILE__,__LINE__);
+    }
+  else if (borderedPrec!=Teuchos::null)
+    {
+    Teuchos::RCP<Epetra_SerialDenseMatrix> C = Teuchos::rcp(new
+      Epetra_SerialDenseMatrix(numDeflated_,numDeflated_));
+    CHECK_ZERO(borderedPrec->SetBorder(V_,V_,C));
+    }
     
-    Aorth_=Teuchos::rcp(new ProjectedOperator(matrix_,V_,true));
+  Aorth_=Teuchos::rcp(new ProjectedOperator(matrix_,V_,true));
 
-    CHECK_ZERO(Teuchos::rcp_dynamic_cast<HYMLS::ProjectedOperator>(Aorth_)->SetLeftPrecond(precond_));
+  CHECK_ZERO(Teuchos::rcp_dynamic_cast<HYMLS::ProjectedOperator>(Aorth_)->SetLeftPrecond(precond_));
 
-    belosProblemPtr_->setOperator(Aorth_);
-    belosProblemPtr_->setLeftPrec(Teuchos::null);
-    belosProblemPtr_->setRightPrec(Teuchos::null);
-    belosProblemPtr_->setProblem();
+  /////////////////////////////////////////////////////////////////////////////////
+  // construct the global LU factorization of the bordered system
+  // |A_orth      V_orth'AV |
+  // |V'AV_orth   V'AV      |
+  /////////////////////////////////////////////////////////////////////////////////
+  KV = Teuchos::rcp(new Epetra_MultiVector(*V_));
 
+  // compute V'KV_orth (K is not symmetric, so we
+  // actually compute borderW_' = V_orthK'V. V_orth=I-VV' is symmetric)
+  CHECK_ZERO(matrix_->Multiply(true,*V_,*KV));
+  borderW_=Teuchos::rcp(new Epetra_MultiVector(V_->Map(),numDeflated_));
+  CHECK_ZERO(DenseUtils::ApplyOrth(*V_,*KV,*borderW_));
+
+  // compute V_orth'KV
+  CHECK_ZERO(matrix_->Multiply(false,*V_,*KV));
+  borderV_=Teuchos::rcp(new Epetra_MultiVector(V_->Map(),numDeflated_));    
+  CHECK_ZERO(DenseUtils::ApplyOrth(*V_,*KV,*borderV_));
+  // compute C=V'KV
+  borderC_=Teuchos::rcp(new Epetra_SerialDenseMatrix(numDeflated_,numDeflated_));
+  CHECK_ZERO(DenseUtils::MatMul(*V_,*KV,*borderC_));
+
+  // the actual LU-factorizatoin of the system is handled by a separate class,
+  // but we need to provide an operator that can do A_orth.ApplyInverse by GMRES:
+  bool status=true;
+  try {
+  belosProblemPtr_->setOperator(Aorth_);
+  belosProblemPtr_->setLeftPrec(Teuchos::null);
+  belosProblemPtr_->setRightPrec(Teuchos::null);
+  CHECK_TRUE(belosProblemPtr_->setProblem(belosSol_,belosRhs_));
+  } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status);
+  if (status==false) Tools::Fatal("caught an exception updating Belos",__FILE__,__LINE__);
   Teuchos::ParameterList& belosList = PL().sublist("Iterative Solver");
     
-    Teuchos::RCP<Teuchos::ParameterList> belosParamPtr = Teuchos::rcp(
+  Teuchos::RCP<Teuchos::ParameterList> belosParamPtr = Teuchos::rcp(
         new Teuchos::ParameterList(belosList));
         
-    if (solverType_=="GMRES")
-      {
-      belosParamPtr->set("Solver","BlockGmres");
-      belosParamPtr->set("Block Size",numDeflated_);
-      }
-    else if (solverType_=="CG")
-      {
-      belosParamPtr->set("Solver","BlockCG");
-      belosParamPtr->set("Block Size",numDeflated_);
-      }
-    else
-      {
-      Tools::Error("not implemented",__FILE__,__LINE__);
-      }
-
+  if (solverType_=="GMRES")
+    {
+    belosParamPtr->set("Solver","BlockGmres");
+//    belosParamPtr->set("Block Size",numDeflated_);
+//    belosParamPtr->set("Implicit Residual Scaling","None");
+    }
+  else if (solverType_=="CG")
+    {
+    belosParamPtr->set("Solver","BlockCG");
+    belosParamPtr->set("Block Size",numDeflated_);
+    }
+  else
+    {
+    Tools::Error("not implemented",__FILE__,__LINE__);
+    }
+try {
     AorthSolver_ = Teuchos::rcp(new HYMLS::Belos::EpetraOperator
         (belosProblemPtr_,belosParamPtr,
         precond_,V_));
-
-    // setup the LU decomposition
-    bool status = true;
-    try {
+    } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status);
+  if (status==false) Tools::Fatal("failed to create Belos operator",__FILE__,__LINE__);
+    
+  // setup the LU decomposition
+  status = true;
+  try {
     LU_=Teuchos::rcp(new BorderedLU(AorthSolver_,borderV_,borderW_,borderC_));
     } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status);
-    if (!status) Tools::Error("failed to create bordered outer solver",__FILE__,__LINE__);
-
+  if (!status) Tools::Error("failed to create bordered outer solver",__FILE__,__LINE__);
   return 0;
   }
 

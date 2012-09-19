@@ -94,15 +94,19 @@ HYMLS::BorderedLU::~BorderedLU()
   DEBVAR(m);
   int k = Y.NumVectors();
   DEBVAR(k);
-  // W'y
+  // W'x
   Epetra_SerialDenseMatrix B(m, k);
-  CHECK_ZERO(DenseUtils::MatMul(*W_,Y,B));
+  CHECK_ZERO(DenseUtils::MatMul(*W_,X,B));
   B.Scale(-1.0);
   B+=T;
   // s = (C-W'S\V) \ (T-W'y)
   DEBUG("solve tiny system");
-  CHECK_ZERO(LU_.SetVectors(S,B));
-  CHECK_ZERO(LU_.Solve());
+  CHECK_ZERO(SVD_.SetVectors(S,B));
+//  CHECK_ZERO(SVD_.Solve());
+int ierr=SVD_.Solve();
+// ierr=1 is a warning that the matrix should be equilibrated,
+// but that is based on our possibly singular matrix
+if (ierr!=0 && ierr!=1) return ierr;
   
   Teuchos::RCP<Epetra_MultiVector> s = DenseUtils::CreateView(S);
   
@@ -136,7 +140,7 @@ int BorderedLU::Compute()
         __FILE__,__LINE__);
     }
     
-  // build the border for the Schur-complement
+  // compute Q =A\borderV (W_A in Fred's projections document)
   Q_ = Teuchos::rcp(new Epetra_MultiVector(V_->Map(),m));
   CHECK_ZERO(A_->ApplyInverse(*V_,*Q_));
   
@@ -145,6 +149,7 @@ int BorderedLU::Compute()
   HYMLS::MatrixUtils::Dump(*Q_,"BorderedLU_Q.txt");
 #endif  
 
+  //Schur-complement
   S_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(m,m));
   CHECK_ZERO(DenseUtils::MatMul(*W_,*Q_,*S_));
   CHECK_ZERO(S_->Scale(-1.0));
@@ -153,17 +158,9 @@ int BorderedLU::Compute()
 DEBVAR(*S_);
 
   // factor it using LAPACK
-  LU_.SetMatrix(*S_);
-  int ierr = LU_.Factor();
-  if (ierr!=0)
-    {
-    Epetra_SerialDenseMatrix* AF = LU_.FactoredMatrix();
-    for (int i=0;i<AF->N();i++)
-      {
-      if (abs((*AF)(i,i))<HYMLS_SMALL_ENTRY) (*AF)(i,i) = 1.0;
-      }
-    }
+  SVD_.SetMatrix(*S_);
+  CHECK_ZERO(SVD_.Invert());
   return 0;
   }
-    
+
   }//namespace

@@ -4,7 +4,7 @@
 #include "Teuchos_RCP.hpp"
 #include "HYMLS_BorderedSolver.H"
 #include "Epetra_Operator.h"
-#include "Epetra_SerialDenseSolver.h"
+#include "Epetra_SerialDenseSVD.h"
 
 class Epetra_SerialDenseMatrix;
 class Epetra_MultiVector;
@@ -100,7 +100,7 @@ namespace HYMLS
     Teuchos::RCP<Epetra_SerialDenseMatrix> S_;
     
     //! solver for the Schur-complement (emtpy lapack interface)
-    mutable Epetra_SerialDenseSolver LU_;
+    mutable Epetra_SerialDenseSVD SVD_;
     
     //! use transposed operator?
     bool useTranspose_;

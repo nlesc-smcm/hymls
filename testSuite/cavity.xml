@@ -11,11 +11,12 @@
     <Parameter name="Number of solves" type="int" value="1"/>
     <Parameter name="Diagonal Perturbation" type="double" value="0.0"/>
   
-    <Parameter name="Store Solution" type="bool" value="0"/>
-    <Parameter name="Store Matrix" type="bool" value="0"/>
+    <Parameter name="Store Solution" type="bool" value="1"/>
+    <Parameter name="Store Matrix" type="bool" value="1"/>
     
     <Parameter name="Read Linear System" type="bool" value="1"/>
-    <Parameter name="Data Directory" type="string" value="data/DrivenCavity/64x64/Re0"/>
+    <Parameter name="Data Directory" type="string" 
+    value="data/DrivenCavity/32x32/Re0"/>
     <Parameter name="File Format" type="string" value="MatrixMarket"/>
     <Parameter name="Exact Solution Available" type="bool" value="1"/>
     
@@ -28,8 +29,8 @@
     <Parameter name="Equations" type="string" value="Stokes-C"/>
     <Parameter name="Dimension" type="int" value="2"/>
 
-    <Parameter name="nx" type="int" value="64"/>
-    <Parameter name="ny" type="int" value="64"/>
+    <Parameter name="nx" type="int" value="32"/>
+    <Parameter name="ny" type="int" value="32"/>
     <Parameter name="nz" type="int" value="1"/>
         
   </ParameterList><!--}-->
@@ -39,10 +40,13 @@
 
     <Parameter name="Deflated Subspace Dimension" type="int" value="0"/>
     <Parameter name="Deflation Threshold" type="double" value="0.0"/>
+
+    <Parameter name="Null Space" type="string" value="Constant P"/>
+
     
     <!-- "CG", "GMRES", "PCPG" (only GMRES actually supported by our solver right now) -->
-    <Parameter name="Krylov Method" type="string" value="GMRES"/>  
-
+    <Parameter name="Krylov Method" type="string" value="GMRES"/>
+    
     <!-- parameters for the iterative solver (Belos) -->
     <ParameterList name="Iterative Solver">
       <Parameter name="Maximum Iterations" type="int" value="100"/>
@@ -61,6 +65,8 @@
 
     <!-- only "Cartesian" supported up to now -->
     <Parameter name="Partitioner" type="string" value="Cartesian"/>
+    
+    <Parameter name="Fix Pressure Level" type="bool" value="false"/>
       
     <!-- type of approximation for the non-Vsums -->
     <!--Parameter name="Preconditioner Variant" type="string" value="Domain Decomposition"/-->
@@ -87,7 +93,7 @@
       <Parameter name="amesos: solver type" type="string" value="Klu"/>
       <Parameter name="Custom Ordering" type="bool" value="1"/>
       <Parameter name="Custom Scaling" type="bool" value="1"/>
-      <Parameter name="OutputLevel" type="int" value="1"/>
+      <Parameter name="OutputLevel" type="int" value="0"/>
     </ParameterList>
     
     <!-- this list is used for the "Block Diagonal" preconditioner -->
@@ -101,9 +107,9 @@
       <!-- "Amesos_Klu" is the default here. This system is distributed, and  -->
       <!-- it may be worthwile using Amesos_Mumps, for instance.              -->
       <Parameter name="amesos: solver type" type="string" value="Amesos_Superludist"/>
-      <Parameter name="PrintStatus" type="bool" value="1"/>
-      <Parameter name="PrintTiming" type="bool" value="1"/>
-      <Parameter name="OutputLevel" type="int" value="5"/>
+      <Parameter name="PrintStatus" type="bool" value="0"/>
+      <Parameter name="PrintTiming" type="bool" value="0"/>
+      <Parameter name="OutputLevel" type="int" value="1"/>
       <ParameterList name="mumps">
         <!-- output stream: stdout=6, none=-1 -->
         <Parameter name="ICNTL(1)" type="int" value="6"/>

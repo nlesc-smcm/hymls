@@ -21,6 +21,7 @@ OBJ=    HYMLS_Solver.o \
         HYMLS_BorderedLU.o \
         HYMLS_BelosEpetraOperator.o \
         HYMLS_View_MultiVector.o \
+        HYMLS_EpetraExt_ProductOperator.o \
         HYMLS_SparseDirectSolver.o \
         HYMLS_Householder.o \
         HYMLS_AugmentedMatrix.o \

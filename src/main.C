@@ -15,6 +15,9 @@
 #include "Teuchos_XMLParameterListHelpers.hpp"
 #include "Teuchos_ParameterListAcceptorHelpers.hpp"
 #include "Teuchos_StandardCatchMacros.hpp"
+#ifdef DEBUGGING
+#include <signal.h>
+#endif
 
 #include "main_utils.H"
 
@@ -33,6 +36,15 @@
 int main(int argc, char* argv[])
   {
   MPI_Init(&argc, &argv);
+
+#ifdef DEBUGGING
+  signal(SIGINT,HYMLS::Tools::SignalHandler);
+  signal(SIGSEGV,HYMLS::Tools::SignalHandler);
+#endif
+
+// random number initialization (if TESTING is defined
+// we provide our own seed when creating vectors below)
+std::srand ( std::time(NULL) );
 
 bool status=true;
 
@@ -53,6 +65,7 @@ bool status=true;
   START_TIMER("main","entire run");
 
   std::string param_file;
+  Teuchos::Array<std::string> extra_files;
 
   if (argc<2)
     {
@@ -64,6 +77,12 @@ bool status=true;
     {
     param_file = argv[1];
     HYMLS::Tools::Out("Reading parameters from "+param_file);
+    extra_files.resize(argc-2);
+    for (int i=0;i<argc-2;i++)
+      {
+      extra_files[i]=argv[2+i];
+    HYMLS::Tools::Out("... overloading parameters from "+extra_files[i]);
+      }
     }
 
 
@@ -75,8 +94,15 @@ bool status=true;
   Teuchos::RCP<Teuchos::ParameterList> params = 
         Teuchos::getParametersFromXmlFile(param_file);
         
+  for (int i=0;i<extra_files.size();i++)
+    {
+    Teuchos::updateParametersFromXmlFile(extra_files[i],params.ptr());
+    }
+        
     Teuchos::ParameterList& driverList = params->sublist("Driver");
 
+    int seed = driverList.get("Random Seed",-1);
+    if (seed!=-1) std::srand(seed);
     bool print_final_list = driverList.get("Store Final Parameter List",false);        
     bool store_solution = driverList.get("Store Solution",true);
     bool store_matrix = driverList.get("Store Matrix",false);
@@ -93,7 +119,7 @@ bool status=true;
     // alltogether...   
     bool read_problem=driverList.get("Read Linear System",false);
     string datadir,file_format;
-    bool have_exact_sol;
+    bool have_exact_sol=false;
 
     if (read_problem)
       {
@@ -135,10 +161,6 @@ bool status=true;
     }
   // create a random exact solution
   Teuchos::RCP<Epetra_MultiVector> x_ex = Teuchos::rcp(new Epetra_MultiVector(*map,numRhs));
-
-#ifdef TESTING
-  int seed=42;
-#endif
 
   // construct right-hand side
   Teuchos::RCP<Epetra_MultiVector> b = Teuchos::rcp(new Epetra_MultiVector(*map,numRhs));
@@ -196,8 +218,29 @@ bool status=true;
 
   if (eqn=="Stokes-C")
     {
+    // scale equations by -1 to make operator negative indefinite
+    // (for testing the deflation capabilities)
     K->Scale(-1.0);
     b->Scale(-1.0);
+    // put a zero in the mass matrix for singletons
+    int lenA, lenM;
+    int *indA, *indM;
+    double *valA, *valM;
+    for (int i=0;i<K->NumMyRows();i++)
+      {
+      CHECK_ZERO(K->ExtractMyRowView(i,lenA,valA,indA));
+      CHECK_ZERO(M->ExtractMyRowView(i,lenM,valM,indM));
+      if (lenA==1)
+        {
+        if (K->GCID(indA[0])==K->GRID(i))
+          {
+          for (int j=0;j<lenM;j++)
+            {
+            valM[j]=0.0;
+            }
+          }
+        }
+      }
     }
   
   HYMLS::Tools::Out("Create Preconditioner");
@@ -251,12 +294,15 @@ for (int f=0;f<numComputes;f++)
     {
     if (read_problem==false)
       {
-#ifdef TESTING
-      seed++;
-      CHECK_ZERO(HYMLS::MatrixUtils::Random(*x_ex, seed));
-#else
-      CHECK_ZERO(HYMLS::MatrixUtils::Random(*x_ex));
-#endif
+      if (seed!=-1)
+        {
+        CHECK_ZERO(HYMLS::MatrixUtils::Random(*x_ex, seed));
+        seed++;
+        }
+      else
+        {
+        CHECK_ZERO(HYMLS::MatrixUtils::Random(*x_ex));
+        }
       if (Nul!=Teuchos::null)
         {
         double alpha;
@@ -301,7 +347,6 @@ DEBVAR(*b);
         Epetra_MultiVector(*map,numRhs));
     Teuchos::RCP<Epetra_MultiVector> err = Teuchos::rcp(new 
         Epetra_MultiVector(*map,numRhs));
-
     CHECK_ZERO(K->Multiply(false,*x,*res));
     CHECK_ZERO(res->Update(1.0,*b,-1));
   
@@ -333,7 +378,7 @@ DEBVAR(*b);
     HYMLS::Tools::out() << std::endl;
     }
   }
-  
+
   if (store_matrix)
     {
     HYMLS::Tools::Out("store matrix...");
@@ -367,6 +412,7 @@ DEBVAR(*b);
       }
     }
   
+  
     } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr, status);
   if (!status) HYMLS::Tools::Fatal("Caught an exception",__FILE__,__LINE__);
 
@@ -375,7 +421,6 @@ DEBVAR(*b);
 
 comm->Barrier();
   HYMLS::Tools::Out("leaving main program");  
-  
 
   MPI_Finalize();
   return 0;
