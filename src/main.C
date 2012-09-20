@@ -223,26 +223,28 @@ bool status=true;
     K->Scale(-1.0);
     b->Scale(-1.0);
     // put a zero in the mass matrix for singletons
-    int lenA, lenM;
-    int *indA, *indM;
-    double *valA, *valM;
-    for (int i=0;i<K->NumMyRows();i++)
+    if (M!=Teuchos::null)
       {
-      CHECK_ZERO(K->ExtractMyRowView(i,lenA,valA,indA));
-      CHECK_ZERO(M->ExtractMyRowView(i,lenM,valM,indM));
-      if (lenA==1)
+     int lenA, lenM;
+      int *indA, *indM;
+      double *valA, *valM;
+      for (int i=0;i<K->NumMyRows();i++)
         {
-        if (K->GCID(indA[0])==K->GRID(i))
+        CHECK_ZERO(K->ExtractMyRowView(i,lenA,valA,indA));
+        CHECK_ZERO(M->ExtractMyRowView(i,lenM,valM,indM));
+        if (lenA==1)
           {
-          for (int j=0;j<lenM;j++)
+          if (K->GCID(indA[0])==K->GRID(i))
             {
-            valM[j]=0.0;
+            for (int j=0;j<lenM;j++)
+              {
+              valM[j]=0.0;
+              }
             }
           }
         }
       }
     }
-  
   HYMLS::Tools::Out("Create Preconditioner");
 
   Teuchos::RCP<HYMLS::Preconditioner> precond = Teuchos::rcp(new HYMLS::Preconditioner(K, params));
