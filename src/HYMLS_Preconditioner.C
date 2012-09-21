@@ -849,7 +849,7 @@ if (dumpVectors_)
 
     if (borderW_!=Teuchos::null)
       {
-      CHECK_ZERO(DenseUtils::MatMul(*borderW1_,*z1,q));
+      CHECK_ZERO(DenseUtils::MatMul(*borderW1_,*x1,q));
       CHECK_ZERO(q.Scale(-1));
       s.Reshape(q.M(),q.N());
       }
