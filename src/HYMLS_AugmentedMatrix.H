@@ -238,10 +238,16 @@ class AugmentedMatrix: public Epetra_RowMatrix
     //!
     long long int NumGlobalNonzeros64() const 
       {
+#ifdef OLD_TRILINOS
+      int val=A_->NumGlobalNonzeros();
+      val+=2*NumBorderVectors()*A_->NumGlobalRows();
+      val+=NumBorderVectors()*NumBorderVectors();
+#else
       long long int val=A_->NumGlobalNonzeros64();
       val+=2*NumBorderVectors()*A_->NumGlobalRows64();
       val+=NumBorderVectors()*NumBorderVectors();
-      return val;
+#endif      
+      return (long long int)val;
       }
 
     //! Returns the number of global matrix rows.
@@ -252,7 +258,11 @@ class AugmentedMatrix: public Epetra_RowMatrix
       
     long long int NumGlobalRows64() const
       {
+#ifdef OLD_TRILINOS
+      return (long long int)(A_->NumGlobalRows() + NumBorderVectors());
+#else
       return A_->NumGlobalRows64() + NumBorderVectors();
+#endif
       }
 
     //! Returns the number of global matrix columns.
@@ -264,7 +274,11 @@ class AugmentedMatrix: public Epetra_RowMatrix
     //!
     long long int NumGlobalCols64() const
       {
+#ifdef OLD_TRILINOS
+      return (long long int)(A_->NumGlobalCols() + NumBorderVectors());
+#else
       return A_->NumGlobalCols64() + NumBorderVectors();
+#endif
       }
 
     //! Returns the number of global nonzero diagonal entries, based on global row/column index comparisons.
@@ -276,7 +290,11 @@ class AugmentedMatrix: public Epetra_RowMatrix
     //!
     long long int NumGlobalDiagonals64() const
       {
+#ifdef OLD_TRILINOS
+      return (long long int)(A_->NumGlobalDiagonals() + NumBorderVectors());
+#else
       return A_->NumGlobalDiagonals64() + NumBorderVectors();      
+#endif
       }
     
     //! Returns the number of nonzero entries in the calling processor's portion of the matrix.
