@@ -1423,9 +1423,6 @@ Teuchos::RCP<MatrixUtils::Eigensolution> MatrixUtils::Eigs(
         __FILE__,__LINE__);
     }
 
-  // somehow Anasazi manages to kill our I/O...
- // Tools::RestoreIO();
-
   DEBUG("post-process returned solution");
   // Get the Ritz values from the eigensolver
   std::vector<Anasazi::Value<double> > ritzValues = MySolverMgr.getRitzValues();
@@ -1434,7 +1431,7 @@ Teuchos::RCP<MatrixUtils::Eigensolution> MatrixUtils::Eigs(
     {
     // Output computed eigenvalues and their direct residuals
     int numritz = (int)ritzValues.size();
-    Tools::out()<<"operator: "<<A->Label()<<std::endl;
+//    Tools::out()<<"operator: "<<A->Label()<<std::endl;
     Tools::out()<<std::endl<< "Computed Ritz Values"<< std::endl;
     Tools::out()<< std::setw(OUTPUT_WIDTH) << "Real Part"
             << std::setw(OUTPUT_WIDTH) << "Imag Part"
@@ -1447,7 +1444,6 @@ Teuchos::RCP<MatrixUtils::Eigensolution> MatrixUtils::Eigs(
               << std::endl;
       }
     Tools::out()<<"-----------------------------------------------------------"<<std::endl;
-    Tools::out() << std::flush;
     }
 
   return Teuchos::rcp(new Eigensolution(MyProblem->getSolution()));

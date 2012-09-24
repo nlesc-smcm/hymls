@@ -214,8 +214,9 @@ double ProductOperator::NormInf() const
 
 const char* ProductOperator::Label() const
 {
-	assertInitialized();
-	return NULL;
+        return "Product Operator";
+//	assertInitialized();
+//	return NULL;
 }
 
 bool ProductOperator::UseTranspose() const

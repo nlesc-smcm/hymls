@@ -323,7 +323,7 @@ for (int f=0;f<numComputes;f++)
   HYMLS::Tools::StopTiming("main: Solve",true);
 
     // subtract constant from pressure if solving Stokes-C
-    if (eqn=="Stokes-C")
+    if (eqn=="Stokes-C"&&false)
       {
       int dof=dim+1;
       for (int k=0;k<numRhs;k++)

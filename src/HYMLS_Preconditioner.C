@@ -772,7 +772,7 @@ if (dumpVectors_)
   {
   MatrixUtils::Dump(B, "Preconditioner"+Teuchos::toString(myLevel_)+"_Rhs.txt");
   }
-#endif    
+#endif
     int numvec=X.NumVectors();   // these are used for calculating flops
     int veclen=X.GlobalLength();
 
@@ -827,13 +827,11 @@ if (dumpVectors_)
     // the repartitioning, whereas otherwise a Zero   
     // would be enough and no communication required. 
     CHECK_ZERO(b->Import(B,*importer_,Insert)); 
-  
-    
+     
     DEBUG("solve subdomains...");
     CHECK_ZERO(ApplyInverseA11(*b, *x));
     
     DEBUG("apply A21...");    
-    //CHECK_ZERO(ApplyA21(*x,z2,&flopsApplyInverse_));
     CHECK_ZERO(ApplyA21(*x,*z,&flopsApplyInverse_));
 
     if (schurRhs_->NumVectors()!=X.NumVectors())
@@ -1667,6 +1665,7 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
       {
       Tools::Error("not implemented!",__FILE__,__LINE__);
       }
+
     Teuchos::RCP<HYMLS::BorderedSolver> borderedSchurSolver = 
     Teuchos::rcp_dynamic_cast<HYMLS::BorderedSolver>(schurPrec_);
     if (Teuchos::is_null(borderedSchurSolver))
@@ -1688,12 +1687,172 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
   }           
 
   // if a border has been added, apply [X S]' = [K V; W' O]\[Y T]'
-  int Preconditioner::ApplyInverse
-        (const Epetra_MultiVector& Y, const Epetra_SerialDenseMatrix& T,
+  int Preconditioner::ApplyInverse(const Epetra_MultiVector& B, const Epetra_SerialDenseMatrix& T,
                Epetra_MultiVector& X,       Epetra_SerialDenseMatrix& S) const
   {
-  Tools::Error("not implemented",__FILE__,__LINE__);
-  return -99;
+    START_TIMER(label_,"ApplyInverse (with border)");
+    if (borderV_==Teuchos::null) return ApplyInverse(B,X);
+    numApplyInverse_++;
+    time_->ResetStartTime();
+
+#ifdef DEBUGGING
+if (dumpVectors_)
+  {
+  MatrixUtils::Dump(B, "BorderedPreconditioner"+Teuchos::toString(myLevel_)+"_Rhs.txt");
+  }
+#endif
+    int numvec=X.NumVectors();   // these are used for calculating flops
+    int veclen=X.GlobalLength();
+    
+    // create some vectors based on the map we use internally (first all internal and then 
+    // all separator variables):
+    Teuchos::RCP<Epetra_MultiVector> x,y,z,b;
+    // views of the interior nodes:
+    Teuchos::RCP<Epetra_MultiVector> x1,z1;
+    // views of the vsum nodes:
+    Teuchos::RCP<Epetra_MultiVector> x2,y2,z2,b2;
+    
+    // only reconstruct temporary vectors and views if
+    // first call or number of rhs changed:
+    bool realloc=false; 
+    if (tmpVec_[0]!=Teuchos::null)
+      {
+      realloc = (tmpVec_[0]->NumVectors()!=numvec);
+      }
+    else
+      {
+      realloc = true;
+      }
+
+    if (realloc)
+      {
+      for (int i=0;i<4;i++)
+        {
+        tmpVec_[i] = Teuchos::rcp( new Epetra_MultiVector(*rowMap_,X.NumVectors()) );
+        tmpVec_[4+i] = (*interior_)(tmpVec_[i]);
+        tmpVec_[8+i] = (*separators_)(tmpVec_[i]);
+        }
+      }
+    
+    for (int i=0;i<4;i++) tmpVec_[i]->PutScalar(0.0);
+      
+    x = tmpVec_[0];
+    y = tmpVec_[1];
+    z = tmpVec_[2];
+    b = tmpVec_[3];
+    x1= tmpVec_[4];
+    z1= tmpVec_[6];
+    x2= tmpVec_[8];
+    y2= tmpVec_[9];
+    z2= tmpVec_[10];
+    b2= tmpVec_[11];
+    
+    // should just be a local reordering, unless the  
+    // partitioner has repartitioned the domain (eg.  
+    // if there were fewer subdomains than procs).    
+    // in that case we need the 'Insert' here for     
+    // the repartitioning, whereas otherwise a Zero   
+    // would be enough and no communication required. 
+    CHECK_ZERO(b->Import(B,*importer_,Insert)); 
+  
+    
+    DEBUG("solve subdomains...");
+    CHECK_ZERO(ApplyInverseA11(*b, *x));
+    
+    DEBUG("apply A21...");    
+    //CHECK_ZERO(ApplyA21(*x,z2,&flopsApplyInverse_));
+    CHECK_ZERO(ApplyA21(*x,*z,&flopsApplyInverse_));
+
+    if (schurRhs_->NumVectors()!=X.NumVectors())
+      {
+      schurRhs_=Teuchos::rcp(new Epetra_MultiVector(*map2_,X.NumVectors()));
+      schurSol_=Teuchos::rcp(new Epetra_MultiVector(*map2_,X.NumVectors()));
+      schurSol_->PutScalar(0.0);
+      }        
+    schurRhs_->Update(1.0,*b2,-1.0,*z2,0.0);
+    flopsApplyInverse_+=veclen*numvec;
+    
+    if (S.M()!=T.M() || S.N()!=T.N() || S.N()!=numvec)
+      {
+      Tools::Error("invalid args to ApplyInverse (with border)",
+        __FILE__, __LINE__);
+      }
+
+    Epetra_SerialDenseMatrix q(T.M(),T.N());
+
+    CHECK_ZERO(DenseUtils::MatMul(*borderW1_,*x1,q));
+    CHECK_ZERO(q.Scale(-1));
+    q+=T;
+
+  if (scaleSchur_)
+    {
+    // left-scale rhs with schurScaLeft_
+    CHECK_ZERO(schurRhs_->Multiply(1.0, *schurScaLeft_, *schurRhs_, 0.0))
+    }
+
+  Teuchos::RCP<HYMLS::BorderedSolver> borderedSchurSolver
+        = Teuchos::rcp_dynamic_cast<HYMLS::BorderedSolver>(schurPrec_);
+  if (borderedSchurSolver==Teuchos::null)
+    {
+    Tools::Error("cannot handle bordered Schur system!",__FILE__,__LINE__);
+    }
+  else
+    {
+    CHECK_ZERO(borderedSchurSolver->ApplyInverse(*schurRhs_,q,*schurSol_,S));  
+    DEBUG("successfully applied bordered Schur precond");
+    }
+
+  // unscale rhs with schurScaRight_
+  if (scaleSchur_)
+    {
+    CHECK_ZERO(schurSol_->ReciprocalMultiply(1.0, *schurScaRight_, *schurSol_, 0.0))
+    }
+    
+  *x2=*schurSol_;
+  // this gives z1
+  DEBUG("Apply A12...");
+  CHECK_ZERO(ApplyA12(*x2, *z,&flopsApplyInverse_));
+  // this gives y1, y2=0   
+  DEBUG("solve subdomains...");
+  CHECK_ZERO(ApplyInverseA11(*z, *y));
+  // this gives the final result [x1-y1; x2]
+  CHECK_ZERO(x->Update(-1.0,*y,1.0));
+  flopsApplyInverse_+=numvec*veclen;
+
+  Teuchos::RCP<Epetra_MultiVector> ss = DenseUtils::CreateView(S);
+  CHECK_ZERO(x1->Multiply('N','N',-1.0,*borderQ1_,*ss,1.0));
+
+#ifdef DEBUGGING
+if (dumpVectors_)
+  {
+  MatrixUtils::Dump(*z1,"Preconditioner"+Teuchos::toString(myLevel_)+"_Z1.txt");
+  MatrixUtils::Dump(*z2,"Preconditioner"+Teuchos::toString(myLevel_)+"_Z2.txt");
+  MatrixUtils::Dump(*y2,"Preconditioner"+Teuchos::toString(myLevel_)+"_Y2.txt");
+  }
+#endif    
+
+
+  
+  DEBUG("export solution.");
+  
+  //'Zero' would disable repartitioning here (some
+  // ranks may have a part of the vector but not  
+  // of the preconditioner), and
+  //'Insert' would put the empty overlap nodes into
+  // the other subdomains, so we need to zero out X
+  // and 'Add' instead.
+  CHECK_ZERO(X.PutScalar(0.0));
+  CHECK_ZERO(X.Export(*x,*importer_,Add)); 
+
+#ifdef DEBUGGING
+  if (dumpVectors_)
+    {
+    MatrixUtils::Dump(X, "Preconditioner"+Teuchos::toString(myLevel_)+"_Sol.txt");
+    dumpVectors_=numApplyInverse_>1?false: true;
+    }
+#endif    
+    timeApplyInverse_+=time_->ElapsedTime();
+    return 0;
   }
 
 }//namespace

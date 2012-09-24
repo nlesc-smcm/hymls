@@ -1877,32 +1877,32 @@ int SchurPreconditioner::UpdateVsumRhs(const Epetra_MultiVector& B, Epetra_Multi
 
   if (myLevel_==maxLevel_)
     {
-    // we need to create views of the vectors here because the
-    // map is different for the solver (linear restricted map)
-    Teuchos::RCP<const Epetra_MultiVector> Vprime = 
-        Teuchos::rcp(new Epetra_MultiVector(View,restrictedMatrix_->RowMap(),
-                borderV_->Values(),borderV_->Stride(),borderV_->NumVectors()));
-    Teuchos::RCP<const Epetra_MultiVector> Wprime =
-        Teuchos::rcp(new Epetra_MultiVector(View,restrictedMatrix_->RowMap(),
-                borderW_->Values(),borderW_->Stride(),borderW_->NumVectors()));
-
-    // create AugmentedMatrix, refactor reducedSchurSolver_
-    bool status=true;
-    try {
-    augmentedMatrix_ = Teuchos::rcp
-        (new HYMLS::AugmentedMatrix(restrictedMatrix_,Vprime,Wprime,borderC_));
-    } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status);
-    if (!status) {Tools::Fatal("caught an exception when constructing final bordered system",__FILE__,__LINE__);}
-    Teuchos::ParameterList& amesosList=PL().sublist("Coarse Solver");                    
-#ifdef STORE_MATRICES
-    status=true;
-    try {
-    EpetraExt::RowMatrixToMatrixMarketFile("FinalBorderedSchur.mtx",*augmentedMatrix_);
-    } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status);
-    if (status==false) Tools::Warning("caught exception when trying to dump final bordered SC",__FILE__,__LINE__);
-#endif
     if (amActive_)
       {
+      // we need to create views of the vectors here because the
+      // map is different for the solver (linear restricted map)
+      Teuchos::RCP<const Epetra_MultiVector> Vprime = 
+          Teuchos::rcp(new Epetra_MultiVector(View,restrictedMatrix_->RowMap(),
+                borderV_->Values(),borderV_->Stride(),borderV_->NumVectors()));
+      Teuchos::RCP<const Epetra_MultiVector> Wprime =
+          Teuchos::rcp(new Epetra_MultiVector(View,restrictedMatrix_->RowMap(),
+                borderW_->Values(),borderW_->Stride(),borderW_->NumVectors()));
+
+      // create AugmentedMatrix, refactor reducedSchurSolver_
+      bool status=true;
+      try {
+      augmentedMatrix_ = Teuchos::rcp
+          (new HYMLS::AugmentedMatrix(restrictedMatrix_,Vprime,Wprime,borderC_));
+      } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status);
+      if (!status) {Tools::Fatal("caught an exception when constructing final bordered system",__FILE__,__LINE__);}
+      Teuchos::ParameterList& amesosList=PL().sublist("Coarse Solver");                    
+#ifdef STORE_MATRICES
+      status=true;
+      try {
+      EpetraExt::RowMatrixToMatrixMarketFile("FinalBorderedSchur.mtx",*augmentedMatrix_);
+      } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status);
+      if (status==false) Tools::Warning("caught exception when trying to dump final bordered SC",__FILE__,__LINE__);
+#endif
       reducedSchurSolver_= Teuchos::rcp(new Ifpack_Amesos(augmentedMatrix_.get()));
       CHECK_ZERO(reducedSchurSolver_->SetParameters(amesosList));
       DEBUG("re-initialize direct solver for augmented system");
@@ -1987,32 +1987,34 @@ if (dumpVectors_)
 
     if (myLevel_==maxLevel_)
       {
-      // on the coarsest level we have put the border explicitly into an
-      // AugmentedMatrix so we need to form the complete RHS
-      bool realloc_vectors = (linearRhs_==Teuchos::null);
-      if (!realloc_vectors) realloc_vectors = (linearRhs_->NumVectors()!=X.NumVectors());
-      if (!realloc_vectors) realloc_vectors = 
-      (linearRhs_->Map().SameAs(augmentedMatrix_->Map())==false);
-      if (realloc_vectors)
+      if (amActive_)
         {
-        DEBUG("(re-)allocate tmp vectors");
-        linearRhs_=Teuchos::rcp(new 
-        Epetra_MultiVector(augmentedMatrix_->Map(),Y.NumVectors()));
-        linearSol_=Teuchos::rcp(new 
-        Epetra_MultiVector(augmentedMatrix_->Map(),Y.NumVectors()));
-        }
-      for (int j=0;j<X.NumVectors();j++)
-        {
-        for (int i=0;i<X.MyLength();i++)
+        // on the coarsest level we have put the border explicitly into an
+        // AugmentedMatrix so we need to form the complete RHS
+        bool realloc_vectors = (linearRhs_==Teuchos::null);
+        if (!realloc_vectors) realloc_vectors = (linearRhs_->NumVectors()!=X.NumVectors());
+        if (!realloc_vectors) realloc_vectors = 
+          (linearRhs_->Map().SameAs(augmentedMatrix_->Map())==false);
+        if (realloc_vectors)
           {
-          (*linearRhs_)[j][i]=X[j][i] * (*reducedSchurScaLeft_)[i];
+          DEBUG("(re-)allocate tmp vectors");
+          linearRhs_=Teuchos::rcp(new 
+          Epetra_MultiVector(augmentedMatrix_->Map(),Y.NumVectors()));
+          linearSol_=Teuchos::rcp(new 
+          Epetra_MultiVector(augmentedMatrix_->Map(),Y.NumVectors()));
           }
-        for (int i=X.MyLength();i<linearRhs_->MyLength();i++)
+        for (int j=0;j<X.NumVectors();j++)
           {
-          int k = i-X.MyLength();
-          (*linearRhs_)[j][i]=T[j][k];
+          for (int i=0;i<X.MyLength();i++)
+            {
+            (*linearRhs_)[j][i]=X[j][i] * (*reducedSchurScaLeft_)[i];
+            }
+          for (int i=X.MyLength();i<linearRhs_->MyLength();i++)
+            {
+            int k = i-X.MyLength();
+            (*linearRhs_)[j][i]=T[j][k];
+            }
           }
-        }
 /* in augmented systems we do not fix any GIDs, I guess...
       for (int i=0;i<fix_gid_.length();i++)
         {
@@ -2026,43 +2028,44 @@ if (dumpVectors_)
           }
         }
 */
-      if (realloc_vectors)
-        {
+        if (realloc_vectors)
+          {
 #ifdef RESTRICT_ON_COARSE_LEVEL
-        // TODO - CHECK_ZERO at next Trilinos release
-//        CHECK_ZERO(restrictB_->restrict_comm(linearRhs_));
-//        CHECK_ZERO(restrictX_->restrict_comm(linearSol_));
-        restrictB_->restrict_comm(linearRhs_);
-        restrictX_->restrict_comm(linearSol_);
-        restrictedRhs_ = restrictB_->RestrictedMultiVector();
-        restrictedSol_ = restrictX_->RestrictedMultiVector();
+#ifndef OLD_TRILINOS
+          CHECK_ZERO(restrictB_->restrict_comm(linearRhs_));
+          CHECK_ZERO(restrictX_->restrict_comm(linearSol_));
 #else
-        restrictedRhs_=linearRhs_;
-        restrictedSol_=linearSol_;
+          restrictB_->restrict_comm(linearRhs_);
+          restrictX_->restrict_comm(linearSol_);
+#endif
+          restrictedRhs_ = restrictB_->RestrictedMultiVector();
+          restrictedSol_ = restrictX_->RestrictedMultiVector();
+#else
+          restrictedRhs_=linearRhs_;
+          restrictedSol_=linearSol_;
 #endif        
-        }
-      if (amActive_)
-        {
+          }
         DEBUG("coarse level solve");
         CHECK_ZERO(reducedSchurSolver_->ApplyInverse(*restrictedRhs_,*restrictedSol_));
-        }
-      // unscale the solution and split into X and S
-      for (int j=0;j<X.NumVectors();j++)
-        {
-        for (int i=0;i<X.MyLength();i++)
+
+        // unscale the solution and split into X and S
+        for (int j=0;j<X.NumVectors();j++)
           {
-          Y[j][i]=(*linearSol_)[j][i] * (*reducedSchurScaRight_)[i];
+          for (int i=0;i<X.MyLength();i++)
+            {
+            Y[j][i]=(*linearSol_)[j][i] * (*reducedSchurScaRight_)[i];
+            }
+          for (int i=X.MyLength();i<linearRhs_->MyLength();i++)
+            {
+            int k = i-X.MyLength();
+            S[j][k]=(*linearSol_)[j][i];
+            }
           }
-        for (int i=X.MyLength();i<linearRhs_->MyLength();i++)
-          {
-          int k = i-X.MyLength();
-          S[j][k]=(*linearSol_)[j][i];
-          }
-        }
 #ifdef DEBUGGING
 HYMLS::MatrixUtils::Dump(*linearRhs_,"CoarseLevelRhs.txt");
 HYMLS::MatrixUtils::Dump(*linearSol_,"CoarseLevelSol.txt");
 #endif      
+        }
       }
     else
       {
@@ -2124,7 +2127,6 @@ HYMLS::MatrixUtils::Dump(*linearSol_,"CoarseLevelSol.txt");
         {
         CHECK_ZERO(vsumSol_->Multiply(1.0,*reducedSchurScaRight_,*vsumSol_,0.0));
         }
-      
       // copy into X
       for (int j=0;j<Y.NumVectors();j++)
         for (int i=0;i<vsumSol_->MyLength();i++)
