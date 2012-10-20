@@ -44,7 +44,7 @@ namespace HYMLS {
     isConstructed_=false;
     // we do a finite-element style assembly of the full matrix    
     const Epetra_Map& map = mother_->Map2();
-    const RecursiveOverlappingPartitioner& hid = mother_->Partitioner();
+    const HierarchicalMap& hid = mother_->Partitioner();
     sparseMatrixRepresentation_ = Teuchos::rcp(new 
       Epetra_FECrsMatrix(Copy,map,mother_->Matrix().MaxNumEntries()));
     Scrs_=sparseMatrixRepresentation_;

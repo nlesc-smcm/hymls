@@ -1,7 +1,7 @@
 #ifndef HYMLS_OVERLAPPING_PARTITIONER_H
 #define HYMLS_OVERLAPPING_PARTITIONER_H
 
-#include "HYMLS_RecursiveOverlappingPartitioner.H"
+#include "HYMLS_HierarchicalMap.H"
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_Array.hpp"
 #include "GaleriExt_Periodic.h"
@@ -21,13 +21,13 @@ class Epetra_IntVector;
 namespace HYMLS {
 
 /*! This class offers an 'entrance point' to a hierarchy of
-    RecursiveOverlappingPartitioners. It constructs a interior/
+    HierarchicalMaps. It constructs a interior/
     separator ordering based on a problem-dependent graph. as it
-    inherits RecursiveOverlappingPartitioner it can be used to 
+    inherits HierarchicalMap it can be used to 
     create a hierarchical ordering by repeatedly calling the 
     Spawn() function.
 */
-class OverlappingPartitioner: public RecursiveOverlappingPartitioner,
+class OverlappingPartitioner: public HierarchicalMap,
                               public PLA
   {
   
@@ -64,7 +64,7 @@ public:
   //! (I think the RecursiveO.P. should become the Base, and this class 
   //! the sole implementation)                                          
   //!                                                                   
-  //! Whereas the Spawn functions in RecursiveOverlappingPartitioner    
+  //! Whereas the Spawn functions in HierarchicalMap                    
   //! retain a copy of the spawned object, this class doesn't. So you   
   //! should call it only once and keep an RCP yourself.                
   //!                                                                   
@@ -118,7 +118,7 @@ protected:
   GaleriExt::PERIO_Flag perio_;
   
   //! this parameter can be set by the entry "Substitute Graph" 
-  //! in the "Problem"->"Partitioner" sublist, and it    
+  //! in the "Problem"->"Partitioner" sublist, and it           
   //! defaults to 'true'. If true, the DetectSeparators() and   
   //! GroupSeparators() functions (i.e. the ordering) are based 
   //! on an idealized graph consisting of 9-/27-point Laplacians

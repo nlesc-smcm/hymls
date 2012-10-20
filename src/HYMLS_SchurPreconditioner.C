@@ -433,8 +433,8 @@ DEBVAR(*borderC_);
     {
 #if defined(STORE_MATRICES)
     // dump a reordering for the Schur-complement (for checking in MATLAB)
-    Teuchos::RCP<const RecursiveOverlappingPartitioner>
-        sepObject = hid_->Spawn(RecursiveOverlappingPartitioner::LocalSeparators);
+    Teuchos::RCP<const HierarchicalMap>
+        sepObject = hid_->Spawn(HierarchicalMap::LocalSeparators);
     std::string postfix = "_"+Teuchos::toString(myLevel_)+".txt";
     std::ofstream ofs(("pS"+postfix).c_str());
     std::ofstream ofs1(("pS1"+postfix).c_str());
@@ -568,8 +568,8 @@ int SchurPreconditioner::InitializeBlocks()
   {
   START_TIMER2(label_,"InitializeBlocks");
   // get an object with only local separators and remote connected separators:
-  Teuchos::RCP<const RecursiveOverlappingPartitioner> sepObject
-      = hid_->Spawn(RecursiveOverlappingPartitioner::LocalSeparators);
+  Teuchos::RCP<const HierarchicalMap> sepObject
+      = hid_->Spawn(HierarchicalMap::LocalSeparators);
     
     // number of blocks in this preconditioner (except next Schur-complement).
     // Some blocks may ultimately have 0 rows if they had only one element which
@@ -630,8 +630,8 @@ int SchurPreconditioner::InitializeSingleBlock()
   {
   START_TIMER2(label_,"InitializeSingleBlock");
   // get an object with only local separators and remote connected separators:
-  Teuchos::RCP<const RecursiveOverlappingPartitioner> sepObject
-      = hid_->Spawn(RecursiveOverlappingPartitioner::LocalSeparators);
+  Teuchos::RCP<const HierarchicalMap> sepObject
+      = hid_->Spawn(HierarchicalMap::LocalSeparators);
     
     // count the number of owned elements and vsums
     int numMyVsums=0;
@@ -693,8 +693,8 @@ int SchurPreconditioner::InitializeSeparatorGroups()
       HYMLS::Tools::Error("'Subdivide based on variable' parameter not set!",
               __FILE__,__LINE__);
       }
-    Teuchos::RCP<const RecursiveOverlappingPartitioner> sepObject
-        = hid_->Spawn(RecursiveOverlappingPartitioner::Separators);
+    Teuchos::RCP<const HierarchicalMap> sepObject
+        = hid_->Spawn(HierarchicalMap::Separators);
     Teuchos::RCP<Teuchos::Array<HYMLS::SepNode> > sepList 
         = Teuchos::rcp(new Teuchos::Array<HYMLS::SepNode>(sepObject->NumMyElements()));
     Teuchos::Array<int> connectedPs(2); // typically there are exactly two p-couplings
@@ -740,11 +740,11 @@ int SchurPreconditioner::InitializeSeparatorGroups()
         }
       }
       
-    hid_->Spawn(RecursiveOverlappingPartitioner::LocalSeparators,sepList);
+    hid_->Spawn(HierarchicalMap::LocalSeparators,sepList);
     }
   else
     {
-    hid_->Spawn(RecursiveOverlappingPartitioner::LocalSeparators);
+    hid_->Spawn(HierarchicalMap::LocalSeparators);
     }
 
 #ifdef DEBUGGING
@@ -759,9 +759,9 @@ int SchurPreconditioner::InitializeSeparatorGroups()
       ofs1.open("sep_data.m",std::ios::app);
       ofs2.open("lsep_data.m",std::ios::app);
       }
-    ofs1<<*(hid_->Spawn(RecursiveOverlappingPartitioner::Separators));
+    ofs1<<*(hid_->Spawn(HierarchicalMap::Separators));
     ofs1.close();
-    ofs2<<*(hid_->Spawn(RecursiveOverlappingPartitioner::LocalSeparators));
+    ofs2<<*(hid_->Spawn(HierarchicalMap::LocalSeparators));
     ofs2.close();
 #endif      
 
@@ -777,8 +777,8 @@ int SchurPreconditioner::InitializeOT()
     {
 
     // Get an object with only local separators and remote connected separators.
-    Teuchos::RCP<const RecursiveOverlappingPartitioner> sepObject
-        = hid_->Spawn(RecursiveOverlappingPartitioner::LocalSeparators);
+    Teuchos::RCP<const HierarchicalMap> sepObject
+        = hid_->Spawn(HierarchicalMap::LocalSeparators);
         
     // import our test vector into the map of this object (to get the off-processor
     // separators connected to local subdomains). The separators are unique in this object, 
@@ -847,8 +847,8 @@ int SchurPreconditioner::InitializeOT()
     {
     START_TIMER2(label_,"InitializeNextLevel");
 
-    Teuchos::RCP<const RecursiveOverlappingPartitioner>
-        sepObject = hid_->Spawn(RecursiveOverlappingPartitioner::LocalSeparators);
+    Teuchos::RCP<const HierarchicalMap>
+        sepObject = hid_->Spawn(HierarchicalMap::LocalSeparators);
     
     if (vsumMap_==Teuchos::null)
       {
@@ -1147,8 +1147,8 @@ int SchurPreconditioner::InitializeOT()
 #endif
 
     // Get an object with all separators connected to local subdomains
-    Teuchos::RCP<const RecursiveOverlappingPartitioner> sepObject
-        = hid_->Spawn(RecursiveOverlappingPartitioner::Separators);
+    Teuchos::RCP<const HierarchicalMap> sepObject
+        = hid_->Spawn(HierarchicalMap::Separators);
         
     // import our test vector into the map of this object (to get the off-processor
     // separators connected to local subdomains). The separators are unique in this object, 
@@ -1541,8 +1541,8 @@ int SchurPreconditioner::ApplyOT(bool trans, Epetra_MultiVector& v, double* flop
     // this object has each local separator as a group (without overlap),
     // and remote separators connecting to local subdomains as separators
     // (we only access the local separators here)
-    Teuchos::RCP<const RecursiveOverlappingPartitioner> sepObject
-          = hid_->Spawn(RecursiveOverlappingPartitioner::LocalSeparators);
+    Teuchos::RCP<const HierarchicalMap> sepObject
+          = hid_->Spawn(HierarchicalMap::LocalSeparators);
   
     if (trans)
       {

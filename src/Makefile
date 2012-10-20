@@ -11,7 +11,7 @@ OBJ=    HYMLS_Solver.o \
         HYMLS_SchurComplement.o \
         HYMLS_SchurPreconditioner.o \
         HYMLS_OverlappingPartitioner.o \
-        HYMLS_RecursiveOverlappingPartitioner.o \
+        HYMLS_HierarchicalMap.o \
         HYMLS_CartesianPartitioner.o \
         HYMLS_SepNode.o \
         HYMLS_HyperCube.o \

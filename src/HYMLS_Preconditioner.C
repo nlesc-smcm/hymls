@@ -326,11 +326,11 @@ namespace HYMLS {
 
     Teuchos::RCP<const Epetra_Map> repartMap = hid_->GetMap();
 
-    Teuchos::RCP<const RecursiveOverlappingPartitioner> interiorObject = 
-        hid_->Spawn(RecursiveOverlappingPartitioner::Interior);
+    Teuchos::RCP<const HierarchicalMap> interiorObject = 
+        hid_->Spawn(HierarchicalMap::Interior);
 
-    Teuchos::RCP<const RecursiveOverlappingPartitioner> sepObject = 
-        hid_->Spawn(RecursiveOverlappingPartitioner::Separators);
+    Teuchos::RCP<const HierarchicalMap> sepObject = 
+        hid_->Spawn(HierarchicalMap::Separators);
 
   map1_ = interiorObject->GetMap();
   map2_ = sepObject->GetMap();
@@ -402,9 +402,9 @@ namespace HYMLS {
   
   for (int sd=0;sd<hid_->NumMySubdomains();sd++)
     {
-    localMap1_[sd] = hid_->SpawnMap(sd,RecursiveOverlappingPartitioner::Interior);
+    localMap1_[sd] = hid_->SpawnMap(sd,HierarchicalMap::Interior);
     DEBVAR(*localMap1_[sd]);
-    localMap2_[sd] = hid_->SpawnMap(sd,RecursiveOverlappingPartitioner::Separators);
+    localMap2_[sd] = hid_->SpawnMap(sd,HierarchicalMap::Separators);
     DEBVAR(*localMap2_[sd]);
     }
             

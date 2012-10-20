@@ -65,7 +65,7 @@ namespace HYMLS {
   // a new level from an existing one.
   OverlappingPartitioner::OverlappingPartitioner(Teuchos::RCP<const Epetra_RowMatrix> K, 
       Teuchos::RCP<Teuchos::ParameterList> params, int level)
-      : RecursiveOverlappingPartitioner(Teuchos::rcp(&(K->Comm()),false),
+      : HierarchicalMap(Teuchos::rcp(&(K->Comm()),false),
                                         Teuchos::rcp(&(K->RowMatrixRowMap()),false),
                                         Teuchos::null,
                                         Teuchos::rcp(new Teuchos::Array< Teuchos::Array<int> >()),
@@ -1473,7 +1473,7 @@ int OverlappingPartitioner::GroupSeparators()
   // move singletons to the end of the ordering. 
   // singletons are groups with only one element.
   // TODO: this is probably unnecessary here - when
-  //       calling RecursiveOverlappingPartitioner::SpawnSeparators
+  //       calling HierarchicalMap::SpawnSeparators
   //       they are moved to the end of the ordering (per process)
   Teuchos::Array<SepNode>::iterator i=sepNodes.begin();
     int num_members=1;
