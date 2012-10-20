@@ -203,7 +203,10 @@ namespace HYMLS {
     VPL().set("Partitioner", "Cartesian",
         "Type of partitioner to be used to define the subdomains",
         partValidator);
-    
+    VPL().set("Cluster Retained Nodes",false,
+        "experimental feature for 3D Navier-Stokes, reduces size of SC by \n"
+        " eliminating variables on the edges between subdomains");
+        
     VPL().set("Scale Schur-Complement",false,
         "Apply scaling to the Schur complement before building an approximation.\n"
         "This is only intended for Navier-Stokes type problems and it is a bit \n"

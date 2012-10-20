@@ -173,7 +173,7 @@ void OverlappingPartitioner::setParameterList
   partitioningMethod_=PL("Preconditioner").get("Partitioner","Cartesian");  
   
   // this is special for Navier-Stokes in 3D
-  formFCTs_ = PL().get("Cluster Retained Nodes",false);
+  formFCTs_ = PL("Preconditioner").get("Cluster Retained Nodes",false);
 
     if (validateParameters_)
       {

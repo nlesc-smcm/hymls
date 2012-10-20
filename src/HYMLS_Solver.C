@@ -633,13 +633,16 @@ int Solver::SetupDeflation(int maxEigs)
   if (solverType_=="GMRES")
     {
     belosParamPtr->set("Solver","BlockGmres");
-//    belosParamPtr->set("Block Size",numDeflated_);
-//    belosParamPtr->set("Implicit Residual Scaling","None");
+    //belosParamPtr->set("Block Size",V_->NumVectors());
+    // for some reason the block variant fails if there is
+    // a null vector among the RHS's so that one of the solution
+    // vectors converges in 1 iteration (TODO)
+    belosParamPtr->set("Block Size",1);
     }
   else if (solverType_=="CG")
     {
     belosParamPtr->set("Solver","BlockCG");
-    belosParamPtr->set("Block Size",numDeflated_);
+    belosParamPtr->set("Block Size",V_->NumVectors());
     }
   else
     {
