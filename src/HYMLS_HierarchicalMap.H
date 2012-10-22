@@ -23,9 +23,17 @@ namespace HYMLS {
 
 class SepNode;
 
-//! documentation missing...
+//! class for hierarchically partitioned maps
 
-/*! TODO: document this class
+/*! This class allows constructing Epetra_Maps which are sub-maps
+    of a given base-map. The terminology we use comes from the   
+    HYMLS application of a map partitioned into 
+        - partitions (1 per proc)
+        - subdomains (many per proc)
+        - groups (several per subdomain
+    
+    The groups are again divided into 'interior' and 'separator' groups,
+    the first (main) group of each subdomain is called interior
 */
 class HierarchicalMap
   {
@@ -47,7 +55,8 @@ public:
 
   // constructor - empty object
   HierarchicalMap(Teuchos::RCP<const Epetra_Comm> comm,
-                  Teuchos::RCP<const Epetra_Map> baseMap);
+                  Teuchos::RCP<const Epetra_Map> baseMap,
+                  int numMySubdomains=0);
 
   //! destructor
   virtual ~HierarchicalMap();
@@ -213,7 +222,7 @@ public:
   //! given a list of GIDs, returns a list of subdomains to which they belong
   int getSubdomainList(int num_gids, int* gids, int* sd) const;
   
-protected: 
+protected:
   
   //! communicator
   Teuchos::RCP<const Epetra_Comm> comm_;
@@ -230,13 +239,19 @@ protected:
   //! pointer to index subdomains and groups
   Teuchos::RCP<Teuchos::Array< Teuchos::Array<int> > > groupPointer_;
   
+  //! list of ordered GIDs which will be transformed into a map in FillComplete
+  //! (and deleted, actually)
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<int> > > gidList_;
+  
   //! array of spawned objects (so we avoid building the same thing over and over again)
   mutable Teuchos::Array<Teuchos::RCP<const HierarchicalMap> > spawnedObjects_;
   
   //! array of spawned maps
   mutable Teuchos::Array<Teuchos::Array<Teuchos::RCP<const Epetra_Map> > > spawnedMaps_;
   
-  //! protected constructor
+  //! protected constructor - does not allow any more changes
+  //! (FillComplete() has been called), this is used for spawning
+  //! objects like a map with all separators etc.
   HierarchicalMap(Teuchos::RCP<const Epetra_Comm> comm,
               Teuchos::RCP<const Epetra_Map> baseMap,
               Teuchos::RCP<const Epetra_Map> overlappingMap,
@@ -245,19 +260,28 @@ protected:
 
   //! level ID
   int myLevel_;
+
+  //! add a new subdomain, returns the id of the subdomain. FillComplete()
+  //! should not have been called. The optional argument can be used to 
+  //! force the subdomain ID to be at least a certain value.
+  int AddSubdomain(int min_id=0);
   
+  //! add a group of GIDs to an existing subdomain. Returns the group id
+  //! of the new group. FillComplete() should not have been called.
+  int AddGroup(int sd, Teuchos::Array<int>& gidList);
+
   //! finalize the setup procedure by building the map
-  int BuildMap();
+  int FillComplete();
   
-  //! returns true if the map has been built
-  bool Finalized() const {return overlappingMap_!=Teuchos::null;}
-
+  //! indicates if any more changes can be made (FillComplete() has been called)
+  bool Filled() const {return overlappingMap_!=Teuchos::null;}
+    
 private:
-
+  //!
   Teuchos::RCP<const HierarchicalMap> SpawnInterior() const;
-
+  //!
   Teuchos::RCP<const HierarchicalMap> SpawnSeparators() const;
-
+  //!
   Teuchos::RCP<const HierarchicalMap> SpawnLocalSeparators
         (Teuchos::RCP<Teuchos::Array<HYMLS::SepNode> > regroup) const;
     

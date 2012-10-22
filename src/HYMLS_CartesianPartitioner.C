@@ -30,33 +30,9 @@ namespace HYMLS {
   CartesianPartitioner::CartesianPartitioner
         (Teuchos::RCP<const Epetra_Map> map, int nx, int ny, int nz, int dof, 
         GaleriExt::PERIO_Flag perio)
-        : BasePartitioner(), label_("CartesianPartitioner"),
-                baseMap_(map), nx_(nx), ny_(ny),nz_(nz),dof_(dof),perio_(perio)
+        : BaseCartesianPartitioner(map,nx,ny,nz,dof,perio)
         {
-        START_TIMER3(label_,"Constructor");        
-        node_distance_=1; //default, can be adjusted by calling SetNodeDistance()    
-        active_=true; // by default, everyone is assumed to own a part of the domain.
-                      // if in Partition() it turns out that there are more processor
-                      // partitions than subdomains, active_ is set to false for some
-                      // ranks, which will get an empty part of the reordered map    
-                      // (cartesianMap_).
-        
-        comm_=Teuchos::rcp(&(baseMap_->Comm()),false);
-        cartesianMap_=Teuchos::null;
-        numLocalSubdomains_=0;
-        
-        if (baseMap_->IndexBase()!=0)
-          {
-          Tools::Warning("Not sure, but I _think_ your map should be 0-based",
-                __FILE__, __LINE__);
-          }
-
-        DEBVAR(nx_);
-        DEBVAR(ny_);
-        DEBVAR(nz_);
-        DEBVAR(dof_);
-        
-        npx_=-1;// indicates that Partition() hasn't been called
+        START_TIMER3(label_,"Constructor");
         }
         
         
@@ -66,152 +42,6 @@ namespace HYMLS {
     START_TIMER3(label_,"Destructor");
     }
 
-  int CartesianPartitioner::flow(int gid1, int gid2)
-    {
-    int sd1 = (*this)(gid1);
-    int sd2 = (*this)(gid2);
-    int type1 = this->VariableType(gid1);
-    int type2 = this->VariableType(gid2);
-    
-    FLOW_DEBUG("### FLOW("<<gid1<<", "<<gid2<<") ###");
-    
-    if (sd1==sd2)
-      {
-      FLOW_DEBUG("# same subdomain, return 0");
-      return 0;
-      }
-    
-    if (type1!=type2)
-      {
-      FLOW_DEBUG("# different variable types, return 0");
-      return 0;
-      }
-
-    int i1,j1,k1,i2,j2,k2;
-    int var1,var2;
-      
-    Tools::ind2sub(nx_,ny_,nz_,dof_,gid1,i1,j1,k1,var1);
-    Tools::ind2sub(nx_,ny_,nz_,dof_,gid2,i2,j2,k2,var2);
-    
-    int di,dj,dk;
-
-    di=calc_distance(nx_,i1,i2,(perio_&GaleriExt::X_PERIO));
-    dj=calc_distance(ny_,j1,j2,(perio_&GaleriExt::Y_PERIO));
-    dk=calc_distance(nz_,k1,k2,(perio_&GaleriExt::Z_PERIO));
-#ifdef FLOW_DEBUGGING
-DEBVAR(di);
-DEBVAR(dj);
-DEBVAR(dk);
-#endif
-    // if the cells are not connected:
-    if ((std::abs(di)>stencil_width_) || 
-        (std::abs(dj)>stencil_width_) || 
-        (std::abs(dk)> stencil_width_))
-        {
-        FLOW_DEBUG("# not adjacent grid cells, return 0");  
-        return 0;
-        }
-
-    // the cells are connected and in different subdomains, so we have to
-    // return a nonzero value.
-
-    // for non-periodic problems it is fairly simple:
-    if (perio_==GaleriExt::NO_PERIO)
-      {
-      FLOW_DEBUG("# return "<<sd1-sd2);
-      return sd1-sd2;
-      }
-
-    // problem is periodic in at least one direction
-
-    int value;
-    int I1,J1,K1,I2,J2,K2;
-    int dI, dJ, dK;
-    int dum;
-
-    Tools::ind2sub(npx_,npy_,npz_,1,sd1,I1,J1,K1,dum);
-    Tools::ind2sub(npx_,npy_,npz_,1,sd2,I2,J2,K2,dum);
-
-    dI=calc_distance(npx_,I1,I2,(perio_&GaleriExt::X_PERIO));
-    dJ=calc_distance(npy_,J1,J2,(perio_&GaleriExt::Y_PERIO));
-    dK=calc_distance(npz_,K1,K2,(perio_&GaleriExt::Z_PERIO));
-
-    if (abs(dK)> 0)
-      {
-#ifdef FLOW_DEBUGGING
-      if (dk<0)
-        {
-        DEBUG("# top edge, return "<<dk);
-        }
-      else
-        {
-        DEBUG("# bottom edge, return "<<dk);
-        }
-#endif      
-      return dk;
-      }
-    if (abs(dJ)> 0)
-      {
-#ifdef FLOW_DEBUGGING
-      if (dj<0)
-        {
-        DEBUG("# north edge, return "<<dj);
-        }
-      else
-        {
-        DEBUG("# south edge, return "<<dj);
-        }
-#endif      
-      return dj;
-      }
-    if (abs(dI)> 0)
-      {
-#ifdef FLOW_DEBUGGING
-      if (di<0)
-        {
-        DEBUG("# east edge, return "<<di);
-        }
-      else
-        {
-        DEBUG("# west edge, return "<<di);
-        }
-#endif      
-      return di;
-      }
-    FLOW_DEBUG("weird case, return 0");
-    return 0;
-    }
-
-  // private
-  int CartesianPartitioner::calc_distance(int n, int i1,int i2,bool perio)
-    {
-    int di=i1-i2;
-    if (perio)
-      {
-      if (i1<i2)
-        {
-        i1+=n;
-        }
-      else
-        {
-        i2+=n;
-        }
-      if (abs(i1-i2)<abs(di))
-        {
-        di=i1-i2;
-        }
-      }
-    return ceil((double)di/node_distance_);
-    }
-
-  int CartesianPartitioner::Partition(int nparts, bool repart)
-    {
-    START_TIMER3(label_,"Partition (1)");
-    int npx,npy,npz;
-    Tools::SplitBox(nx_,ny_,nz_,nparts,npx,npy,npz);
-    return this->Partition(npx,npy,npz,repart);
-    }
-  
   // partition an [nx x ny x nz] grid with one DoF per node
   // into nparts global subdomains.
   int CartesianPartitioner::Partition
@@ -298,6 +128,8 @@ DEBVAR(dk);
       numLocalSubdomains_=0;
       }
       
+    CHECK_ZERO(comm_->SumAll(&numLocalSubdomains_,&numGlobalSubdomains_,1));
+
     DEBVAR(npx_);
     DEBVAR(npy_);
     DEBVAR(npz_);
@@ -306,7 +138,7 @@ DEBVAR(dk);
     DEBVAR(rankI);
     DEBVAR(rankJ);
     DEBVAR(rankK);        
-
+//TODO: the re-partitioning should be moved to class BaseCartesianPartitioner!
     sdMap_=MatrixUtils::CreateMap(npx_,npy_,npz_,1,0,*comm_);
     DEBVAR(*sdMap_);
 // create redistributed map:
