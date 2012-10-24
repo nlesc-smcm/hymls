@@ -1447,6 +1447,57 @@ int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& lis
       if (is_complex) precList.set("Fix GID 2",2*dim_+1);
       }      
     }
+    else if (eqn=="Bous-C")
+    {
+    // rare case - only one subdomain. Do not retain a pressure point because there won't be 
+    // aSchur-Complement
+    bool no_SC = false;
+    int sx,sy,sz;
+    if (precList.isParameter("Separator Length (x)"))
+      {
+      sx=precList.get("Separator Length (x)",-1);
+      sy=precList.get("Separator Length (y)",sx);
+      sz= dim_<3? 1: precList.get("Separator Length (z)",sx);
+      }
+    else
+      {
+      sx=precList.get("Separator Length",-1);
+      sy=sx;
+      sz=dim_<3? 1: sx;
+      }
+    if (nx_==sx && ny_==sy && nz_==sz) no_SC = true;
+    probList.set("Substitute Graph",false);
+    int factor = is_complex? 2 : 1;
+    probList.set("Degrees of Freedom",(dim_+2)*factor);
+    for (int i=0;i<=(dim_+1)*factor-1;i++)
+      {
+      Teuchos::ParameterList& velList =
+        probList.sublist("Variable "+Teuchos::toString(i));
+      velList.set("Variable Type","Laplace");
+      }
+    // pressure:
+    for (int i=0;i<factor;i++)
+      {
+      Teuchos::ParameterList& presList =
+        probList.sublist("Variable "+Teuchos::toString((dim_+1)*factor+i));
+      if (no_SC==false)
+        {
+        presList.set("Variable Type","Retain 1");
+        presList.set("Retain Isolated",true);
+        }
+      else
+        {
+        presList.set("Variable Type","Uncoupled");
+        }
+      }
+    if (PL().get("Fix Pressure Level",true)==true)
+      {
+      // we fix the singularity by inserting a Dirichlet condition for 
+      // global pressure node 2 
+      precList.set("Fix GID 1",factor*(dim_+1));
+      if (is_complex) precList.set("Fix GID 2",2*(dim_+1)+1);
+      }
+    }
   else if (eqn=="Stokes-B")
     {
     
