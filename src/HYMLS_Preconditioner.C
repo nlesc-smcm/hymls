@@ -198,14 +198,11 @@ namespace HYMLS {
     Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
         partValidator = Teuchos::rcp(
                 new Teuchos::StringToIntegralParameterEntryValidator<int>(
-                    Teuchos::tuple<std::string>("Cartesian"),"Partitioner"));
+                    Teuchos::tuple<std::string>("Cartesian","CartFlow"),"Partitioner"));
     
     VPL().set("Partitioner", "Cartesian",
         "Type of partitioner to be used to define the subdomains",
         partValidator);
-    VPL().set("Cluster Retained Nodes",false,
-        "experimental feature for 3D Navier-Stokes, reduces size of SC by \n"
-        " eliminating variables on the edges between subdomains");
         
     VPL().set("Scale Schur-Complement",false,
         "Apply scaling to the Schur complement before building an approximation.\n"
@@ -1401,6 +1398,7 @@ int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& lis
     // rare case - only one subdomain. Do not retain a pressure point because there won't be 
     // aSchur-Complement
     bool no_SC = false;
+    bool flowPart = (precList.get("Partitioner","Cartesian")=="FlowCart");
     int sx,sy,sz;
     if (precList.isParameter("Separator Length (x)"))
       {
@@ -1432,7 +1430,14 @@ int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& lis
       if (no_SC==false)
         {
         presList.set("Variable Type","Retain 1");
-        presList.set("Retain Isolated",true);
+        // unless the partitioner provides the correct partitioning
+        // (with full conservation cells as separate subdomains),  
+        // we need to locate them ourselves, which makes the       
+        // finding of separators more complex.
+        if (flowPart==false)
+          {
+          presList.set("Retain Isolated",true);
+          }
         }
       else
         {

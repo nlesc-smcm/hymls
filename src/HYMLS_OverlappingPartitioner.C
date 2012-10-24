@@ -5,6 +5,7 @@
 #include "HYMLS_Tools.H"
 #include "HYMLS_BaseCartesianPartitioner.H"
 #include "HYMLS_CartesianPartitioner.H"
+#include "HYMLS_CartFlowPartitioner.H"
 
 #include "Epetra_Comm.h"
 #include "Epetra_SerialComm.h"
@@ -169,8 +170,9 @@ void OverlappingPartitioner::setParameterList
   partitioningMethod_=PL("Preconditioner").get("Partitioner","Cartesian");  
   
   // this is special for Navier-Stokes in 3D
-  formFCTs_ = PL("Preconditioner").get("Cluster Retained Nodes",false);
-
+  //formFCTs_ = PL("Preconditioner").get("Cluster Retained Nodes",false);
+  formFCTs_=false; //TODO
+  
     if (validateParameters_)
       {
       this->getValidParameters();
@@ -218,15 +220,16 @@ Teuchos::RCP<const Teuchos::ParameterList> OverlappingPartitioner::getValidParam
   VPL().set("nx",16,"number of nodes in x-direction");
   VPL().set("ny",16,"number of nodes in y-direction");
   VPL().set("nz",1,"number of nodes in z-direction");
-  
+/*  
   VPL().set("Cluster Retained Nodes",false,
         "(only relevant for 3D Navier-Stokes), form full conservation tubes at subdomain\n" 
         " edges to reduce the size of the Schur Complement and the number of retained P-nodes");
+*/
   
   Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
         partValidator = Teuchos::rcp(
                 new Teuchos::StringToIntegralParameterEntryValidator<int>(
-                    Teuchos::tuple<std::string>("Cartesian"),"Partitioner"));
+                    Teuchos::tuple<std::string>("Cartesian","CartFlow"),"Partitioner"));
     
     VPL("Preconditioner").set("Partitioner", "Cartesian",
         "Type of partitioner to be used to define the subdomains",
@@ -435,6 +438,10 @@ int OverlappingPartitioner::Partition()
   if (partitioningMethod_=="Cartesian")
     {
     partitioner_=Teuchos::rcp(new CartesianPartitioner(baseMap_,nx_,ny_,nz_,dof_,perio_));
+    }
+  else if (partitioningMethod_=="CartFlow")
+    {
+    partitioner_=Teuchos::rcp(new CartFlowPartitioner(baseMap_,nx_,ny_,nz_,dof_,perio_));
     }
   else
     {
@@ -1592,7 +1599,8 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
 
   *newList = *getMyParamList();
 
-  if (newList->sublist("Preconditioner").get("Partitioner","Cartesian")!="Cartesian")
+  std::string partType=newList->sublist("Preconditioner").get("Partitioner","Cartesian");
+  if (partType!="Cartesian" && partType!="CartFlow")
     {
     Tools::Error("Can currently only handle cartesian partitioners",__FILE__,__LINE__);
     }

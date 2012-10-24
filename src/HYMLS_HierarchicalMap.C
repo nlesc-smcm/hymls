@@ -42,7 +42,7 @@ namespace HYMLS {
         : comm_(comm),
           baseMap_(baseMap),
           overlappingMap_(Teuchos::null),
-          myLevel_(0), label_("HierarchicalMap")
+          myLevel_(1), label_("HierarchicalMap")
     {
     groupPointer_=Teuchos::rcp(new Teuchos::Array<Teuchos::Array<int> >(numMySubdomains));
     gidList_=Teuchos::rcp(new Teuchos::Array<Teuchos::Array<int> >(numMySubdomains));

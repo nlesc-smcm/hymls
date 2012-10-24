@@ -34,15 +34,6 @@ class CartesianPartitioner : public BaseCartesianPartitioner
   //! destructor
   ~CartesianPartitioner();
   
-  //! partition an [nx x ny x nz] grid with one DoF per node
-  //! into npx*npy*npz global subdomains. If repart=true,   
-  //! the map may need repartitioning to match the cartesian
-  //! layout of the new partitioned map. Otherwise it is    
-  //! assumed that the map already has a global cartesian   
-  //! processor partitioning (as generated i.e. by the      
-  //! MatrixUtils::CreateMap functions).
-  int Partition(int npx, int npy, int npz, bool repart=true);
-  
   //! get non-overlapping subdomain id 
   inline int operator()(int i, int j, int k) const
     {
@@ -61,31 +52,7 @@ class CartesianPartitioner : public BaseCartesianPartitioner
     return ind;
     }
 
-private:
-
-  //! get local subdomain id 
-  inline int LSID(int i, int j, int k) const
-    {
-#ifdef TESTING
-    if (sdMap_==Teuchos::null)
-      {
-      Tools::Error("not partitioned yet!",__FILE__,__LINE__);
-      }
-#endif      
-    return sdMap_->LID((*this)(i,j,k));
-    }
-
-  //! get local subdomain id 
-  inline int LSID(int gid) const
-    {
-#ifdef TESTING
-    if (sdMap_==Teuchos::null)
-      {
-      Tools::Error("not partitioned yet!",__FILE__,__LINE__);
-      }
-#endif      
-    return sdMap_->LID(BaseCartesianPartitioner::operator()(gid));
-    }
+  Teuchos::RCP<Epetra_Map> CreateSubdomainMap() const;
 
   };
 
