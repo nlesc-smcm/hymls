@@ -1398,7 +1398,13 @@ int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& lis
     // rare case - only one subdomain. Do not retain a pressure point because there won't be 
     // aSchur-Complement
     bool no_SC = false;
-    bool flowPart = (precList.get("Partitioner","Cartesian")=="FlowCart");
+    if (precList.get("Partitioner","CartFlow")=="Cartesian")
+      {
+      Tools::Warning("Parameter 'Partitioner' has value 'Cartesian',\n"
+                     "this is adjusted to 'CartFlow' to ensure correct\n"
+                     "partitioning",__FILE__,__LINE__);
+      precList.set("Partitioner","CartFlow");                     
+      }
     int sx,sy,sz;
     if (precList.isParameter("Separator Length (x)"))
       {
@@ -1434,10 +1440,7 @@ int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& lis
         // (with full conservation cells as separate subdomains),  
         // we need to locate them ourselves, which makes the       
         // finding of separators more complex.
-        if (flowPart==false)
-          {
-          presList.set("Retain Isolated",true);
-          }
+        presList.set("Retain Isolated",true);
         }
       else
         {

@@ -222,6 +222,11 @@ private:
   //!@}
 
 
+#ifdef DEBUGGING
+//! pretty-print the nodeType vector for debugging
+std::ostream& PrintNodeTypeVector(const Epetra_IntVector& nt,std::ostream& os,std::string label);
+#endif
+
   };
 
 }

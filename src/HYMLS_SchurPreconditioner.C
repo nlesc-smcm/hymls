@@ -257,6 +257,9 @@ namespace HYMLS {
         SchurComplement_->Construct(mat);
         SchurMatrix_ = mat;
         }
+#ifdef STORE_MATRICES
+      HYMLS::MatrixUtils::Dump(*SchurMatrix_,"FinalSC.txt");
+#endif      
       }
     else
       {

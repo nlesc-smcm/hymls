@@ -14,7 +14,7 @@
 using Teuchos::toString;
 
 #ifdef DEBUGGING
-//#define FLOW_DEBUGGING
+#define FLOW_DEBUGGING
 #endif
 
 #ifdef FLOW_DEBUGGING
@@ -283,7 +283,22 @@ DEBVAR(dk);
     int rank=comm_->MyPID();
     int rankI=-1,rankJ=-1,rankK=-1;
     int ioff=-1,joff=-1,koff=-1;
-      
+
+    if (active_)
+      {
+      Tools::ind2sub(nprocx_,nprocy_,nprocz_,rank,rankI,rankJ,rankK);
+
+      ioff=rankI*npx_/nprocx_*sx_;
+      joff=rankJ*npy_/nprocy_*sy_;
+      koff=rankK*npz_/nprocz_*sz_;
+   
+      numLocalSubdomains_=(npx_/nprocx_)*(npy_/nprocy_)*(npz_/nprocz_);
+      }
+    else
+      {
+      numLocalSubdomains_=0;
+      }
+        
     DEBVAR(npx_);
     DEBVAR(npy_);
     DEBVAR(npz_);

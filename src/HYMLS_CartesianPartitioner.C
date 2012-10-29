@@ -22,7 +22,7 @@ namespace HYMLS {
         GaleriExt::PERIO_Flag perio)
         : BaseCartesianPartitioner(map,nx,ny,nz,dof,perio)
         {
-        label_="Cartesian Partitioner";
+        label_="CartesianPartitioner";
         START_TIMER3(label_,"Constructor");
         }
         

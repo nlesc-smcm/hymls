@@ -156,6 +156,8 @@ namespace HYMLS {
       for (int k=0;k<hid.NumMySubdomains();k++)
         {
         CHECK_ZERO(this->Construct(k, indices));
+        DEBVAR(k);
+        DEBVAR(indices);
         if (indices.Length()!=Sk.N())
           {
           Sk.Shape(indices.Length(),indices.Length());

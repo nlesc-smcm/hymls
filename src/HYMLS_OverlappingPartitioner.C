@@ -66,8 +66,10 @@ namespace HYMLS {
   // a new level from an existing one.
   OverlappingPartitioner::OverlappingPartitioner(Teuchos::RCP<const Epetra_RowMatrix> K, 
       Teuchos::RCP<Teuchos::ParameterList> params, int level)
-      : HierarchicalMap(Teuchos::rcp(&(K->Comm()),false),Teuchos::rcp(&(K->RowMatrixRowMap()),false),0),
-        PLA("Problem"), matrix_(K)
+      : HierarchicalMap(Teuchos::rcp(&(K->Comm()),false),
+                        Teuchos::rcp(&(K->RowMatrixRowMap()),false),
+                        0,"OverlappingPartitioner",level),
+                        PLA("Problem"), matrix_(K)
     {
     START_TIMER3(label_,"Constructor");
 
@@ -99,7 +101,7 @@ namespace HYMLS {
     // construct a graph with overlap between partitions (for finding/grouping    
     // separators in parallel).
     parallelGraph_=CreateParallelGraph();
-    
+    DEBVAR(*parallelGraph_);
     int nzgraph = parallelGraph_->NumMyNonzeros();
     REPORT_SUM_MEM(label_,"graph with overlap",0,nzgraph,comm_);
         
@@ -170,8 +172,7 @@ void OverlappingPartitioner::setParameterList
   partitioningMethod_=PL("Preconditioner").get("Partitioner","Cartesian");  
   
   // this is special for Navier-Stokes in 3D
-  //formFCTs_ = PL("Preconditioner").get("Cluster Retained Nodes",false);
-  formFCTs_=false; //TODO
+  formFCTs_ = ((partitioningMethod_=="CartFlow")&&(dim_==3));
   
     if (validateParameters_)
       {
@@ -575,7 +576,9 @@ int OverlappingPartitioner::DetectSeparators()
   Epetra_Import import(p_nodeType_->Map(),nodeType_->Map());
   CHECK_ZERO(p_nodeType_->Import(*nodeType_,import,Insert));
 
-DEBVAR(*p_nodeType_);
+#ifdef DEBUGGING
+this->PrintNodeTypeVector(*p_nodeType_,Tools::deb(),"initial");
+#endif
 
   // increase the node type of nodes that only connect to separators.         
   // A type 1 sep node that only connects to sep nodes becomes a type         
@@ -605,7 +608,9 @@ DEBVAR(*p_nodeType_);
   // import to "spread the word"
   CHECK_ZERO(p_nodeType_->Import(*nodeType_,import,Insert));
 
-  DEBVAR(*p_nodeType_);
+#ifdef DEBUGGING
+this->PrintNodeTypeVector(*p_nodeType_,Tools::deb(),"step 1");
+#endif
 
   //... then do it again: this is required to get a 3 in the corners in 3D
   CHECK_ZERO(this->DetectIsolated(*parallelGraph_,*p_nodeType_, *nodeType_,np_schur));
@@ -613,7 +618,12 @@ DEBVAR(*p_nodeType_);
   // import again
   CHECK_ZERO(p_nodeType_->Import(*nodeType_,import,Insert));
 
-  DEBVAR(*p_nodeType_);
+#ifdef DEBUGGING
+if (dim_>2)
+  {
+  this->PrintNodeTypeVector(*p_nodeType_,Tools::deb(),"step 2");
+  }
+#endif
   
   // we now have the following node types
   // 0: interior
@@ -625,7 +635,7 @@ DEBVAR(*p_nodeType_);
   //    cf. ClusterSingletons.
   // 5: only in 3D Stokes. Any retained P-node,
   //    or a V-node in an actual full conservation
-  //    cell (subdomain corner).
+  //    cell (subdomain corner). TODO: is this still true?
   
   int global_np_schur;
   comm_->SumAll(&np_schur,&global_np_schur,1);
@@ -651,16 +661,6 @@ DEBVAR(*p_nodeType_);
     retained_nodes.resize(0);
     CHECK_ZERO(this->BuildNodeLists(sd,*parallelGraph_, *nodeType_, *p_nodeType_,
                 interior_nodes, separator_nodes, retained_nodes));
-
-    // now try to group some of the retained nodes to form independent subdomains
-    // and separators, this is an important step in 3D Navier-Stokes, where so-  
-    // called 'full conservation tubes' occur on line separators where four faces
-    // of a subdomain meet.
-    if (formFCTs_)
-      {
-      CHECK_ZERO(this->ClusterSingletons(sd, *parallelGraph_, *p_nodeType_,
-                interior_nodes, separator_nodes, retained_nodes, np_schur));
-      }
 
     DEBVAR(sd);
     DEBVAR(interior_nodes);
@@ -753,7 +753,7 @@ DEBVAR(*p_nodeType_);
         if (retained[type]<retain[type])
           {
           DEBUG("retain "<<row<<" in Schur complement");
-          nodeType[i]=4;
+          nodeType[i]=5;
           retained[type]++;
           np_schur++;
           }
@@ -837,9 +837,15 @@ DEBVAR(*p_nodeType_);
       int row=map.GID(i);
       int lrow = G.LRID(row);
       CHECK_ZERO(G.ExtractMyRowView(lrow,len,cols));
-      int my_type = nodeType[i];
+      int my_type = p_nodeType[lrow];
       int var_i = partitioner_->VariableType(row);
       int min_neighbor = 99;
+      int min_same_neighbor = 99;
+      // check, for instance, if this edge separator node only connects to
+      // other edge separator nodes, in which case it becomes a vertex. To
+      // make this work in 3D Stokes we distinguish between min type of   
+      // same variable (for Laplace-like partitioning) and min type of all
+      // (velocity) variables, to find full conservation cells.
       for (int j=0;j<len;j++)
         {
 #ifdef TESTING
@@ -851,18 +857,30 @@ DEBVAR(*p_nodeType_);
           Tools::Error(msg,__FILE__,__LINE__);
           }
 #endif
+        int var_j = partitioner_->VariableType(G.GCID(cols[j]));
         if (G.GCID(cols[j])!=row)
           {
           min_neighbor=std::min(min_neighbor,p_nodeType[cols[j]]);
+          if (var_i==var_j)
+            {
+            min_same_neighbor=std::min(min_same_neighbor,p_nodeType[cols[j]]);
+            }
           }
         }//j
-      if (my_type==0) 
+        DEBUG("");
+      if (my_type==5)
         {
         if ((min_neighbor>0)&&retainIsolated_[var_i])
           {
-          DEBUG(" isolated interior node found: "<<row);
-          np_schur++;
-          nodeType[i]=4;
+          DEBUG(" full conservation cell around p: "<<row);
+#ifdef DEBUGGING          
+          Tools::deb() << "Div-row: ";
+          for (int j=0;j<len;j++)
+            {
+            Tools::deb() << p_map.GID(cols[j]) << " ";
+            }
+          Tools::deb() << std::endl;
+#endif          
           // all surrounding (velocity) nodes
           // are to be retained. As this is a
           // row from the 'Div' part of the  
@@ -872,7 +890,17 @@ DEBVAR(*p_nodeType_);
             {
             if (map.MyGID(p_map.GID(cols[j])))
               {
-              nodeType[map.LID(p_map.GID(cols[j]))]=4;
+              if (partitioner_->VariableType(p_map.GID(cols[j]))!=dim_)
+                {
+                nodeType[map.LID(p_map.GID(cols[j]))]=4;
+                }
+              else
+                {
+#ifdef TESTING
+                Tools::Warning("incorrect Div-row in Stokes matrix? Found a pressure!",
+                        __FILE__,__LINE__);
+#endif              
+                }
               }
             else
               {
@@ -889,10 +917,13 @@ DEBVAR(*p_nodeType_);
             }
           }
         }
-      else if (min_neighbor>=my_type)
+      else if (my_type!=0)
         {
-        DEBUG("increase node level of "<<row);
-        nodeType[i]=min_neighbor+1;
+        if (min_same_neighbor>=my_type)
+          {
+          //DEBUG("increase node level of "<<row);
+          nodeType[i]=min_same_neighbor+1;
+          }
         }
       }//i
     }//sd
@@ -934,24 +965,26 @@ DEBVAR(*p_nodeType_);
     Tools::Error("nodeType must be based on partitioner's map",
         __FILE__,__LINE__);
     }
-#endif  
+#endif
   for (int i=partitioner_->First(sd); i<partitioner_->First(sd+1);i++)
     {
     int row=partitioner_->Map().GID(i);
     int var_i = partitioner_->VariableType(row);
-    if (nodeType[i]==0)
+    // check for non-local separators of the subdomain
+    if (nodeType[i]==0 || nodeType[i]==5)
       {
-      interior.append(row);
       // add any separator nodes on adjacent subdomains
       CHECK_ZERO(G.ExtractGlobalRowCopy(row,MaxNumEntriesPerRow,len,cols));
       for (int j=0;j<len;j++)
         {
         int sd_j = (*partitioner_)(cols[j]);
         int var_j = partitioner_->VariableType(cols[j]);
-        if ((sd_j!=sd_i) &&(var_j==var_i) )
+        int nt_j = (*p_nodeType_)[p_map.LID(cols[j])];
+        //TODO - again, assuming var(dim)=P
+        if ((sd_j!=sd_i)&&(var_j!=dim_)&&nt_j>0)
           {
           DEBUG("include "<<cols[j]<<" from "<<row);
-          if (p_nodeType[p_map.LID(cols[j])]>=4)
+          if (nt_j>=4)
             {
             retained.append(cols[j]);
             }
@@ -962,11 +995,16 @@ DEBVAR(*p_nodeType_);
           }
         }
       }
+    // put node i in the correct list
+    if (nodeType[i]==0)
+      {
+      interior.append(row);
+      }
     else if (nodeType[i]>=4)
       {
       retained.append(row);
       }
-    else
+    else 
       {
       separator.append(row);
       }
@@ -992,23 +1030,7 @@ DEBVAR(*p_nodeType_);
   std::set<int> separatorL1;
   std::set<int> separatorL2;
   std::set<int> separatorL3;
-  
-  // TODO-BUG: here somewhere. The present implementation seems to
-  //       work for both Laplace and Stokes-C, but for Laplace some remote  
-  //       nodes are included that should not. For instance, a 8x8 Laplace  
-  //       problem on 4 procs with sx=4 gives these separators for proc 3   
-  //       (SD4, upper left):                                               
-  //                            59              
-  //                            51              
-  //                            43              
-  //                            35              
-  //                         26 27 28 29 30 31  
-  //                            19              
-  //                                            
-  // This does not infringe the numerics of the solver, but if there is only 
-  // one sd on a proc it causes trouble. For Navier-Stokes there is no prob- 
-  // lem, I think.                                                           
-  
+    
   separatorL1.insert(separator.begin(),separator.end());
   separatorL1.insert(retained.begin(),retained.end());
   // consider the 3D case. We get the following situations (slice in x-y plane)
@@ -1297,6 +1319,7 @@ int OverlappingPartitioner::FindMissingSepNodes
     DEBVAR(*i);
     int sd_i = (*partitioner_)(*i);
     int type_i = p_nodeType[lid_i];
+    int var_i = partitioner_->VariableType(*i);
     for (std::set<int>::const_iterator j=i; j!=in.end();j++)
       {
       if (*i!=*j)
@@ -1304,28 +1327,39 @@ int OverlappingPartitioner::FindMissingSepNodes
         int lid_j=p_map.LID(*j);
         int sd_j = (*partitioner_)(*j);
         int type_j = p_nodeType[lid_j];
+        int var_j = partitioner_->VariableType(*j);
         // a level 1 node can include level 2 nodes, but not level 0
         // or 1 (and the same holds on each level).
-        int min_type = std::min(type_i,type_j);
-        DEBUG("\t check "<<*i<<" and "<<*j);
-        CHECK_ZERO(G.ExtractMyRowView(lid_i,lenI,colsI));
-        CHECK_ZERO(G.ExtractMyRowView(lid_j,lenJ,colsJ));
-        for (int ii=0;ii<lenI;ii++)
+        if ((type_i==type_j || std::max(type_i,type_j)==4) && var_i==var_j)
           {
-          int sd_ii = (*partitioner_)(G.GCID(colsI[ii]));
-          int type_ii = p_nodeType[p_map.LID(G.GCID(colsI[ii]))];
-          if ((sd_ii!=my_sd)&&(type_ii>min_type))
+          DEBUG("\t check "<<*i<<" and "<<*j<<" ["<<type_j<<"]");
+          CHECK_ZERO(G.ExtractMyRowView(lid_i,lenI,colsI));
+          CHECK_ZERO(G.ExtractMyRowView(lid_j,lenJ,colsJ));
+          for (int ii=0;ii<lenI;ii++)
             {
-            for (int jj=0;jj<lenJ;jj++)
+            int sd_ii = (*partitioner_)(G.GCID(colsI[ii]));
+            int type_ii = p_nodeType[p_map.LID(G.GCID(colsI[ii]))];
+            int var_ii = partitioner_->VariableType(G.GCID(colsI[ii]));
+            //TODO - the dim_ here is for Stokes, so here we assume
+            //       that the first variables are u,v[,w],p, which 
+            //       may not always be the case...
+            if (sd_ii!=my_sd && var_ii!=dim_)
               {
-              if (G.GCID(colsI[ii])==G.GCID(colsJ[jj]))
+              if ((type_i<type_ii && type_ii< 4) ||
+                  (type_i== 4      && type_ii==4))
                 {
-                DEBUG("\t\t missed node "<<G.GCID(colsJ[jj])<<" inserted");
-                out.insert(G.GCID(colsJ[jj]));
-                }// match
-              }//jj
-            }//if sd_ii != sd_jj
-          }//ii
+                for (int jj=0;jj<lenJ;jj++)
+                  {
+                  if (G.GCID(colsI[ii])==G.GCID(colsJ[jj]))
+                    {
+                    DEBUG("\t\t missed node "<<G.GCID(colsJ[jj])<<" inserted");
+                    out.insert(G.GCID(colsJ[jj]));
+                    }// match
+                  }//jj
+                }// conditions on node type
+              }//if sd_ii != sd_jj and not a P-node
+            }//ii
+          }// same type i j
         }//if i!=j
       }//j
     }//i
@@ -1402,7 +1436,7 @@ int OverlappingPartitioner::GroupSeparators()
 //        DEBVAR((*p_nodeType_)[p_map.LID(cols[j])]);
         // We only consider edges to lower-level nodes here,
         // e.g. from face separators to interior, from 
-        // from edges to faces and from vertices to edges.
+        // edges to faces and from vertices to edges.
         if ((*p_nodeType_)[p_map.LID(cols[j])]<myLevel)
           {
           int flow = partitioner_->flow(row,cols[j]);    
@@ -1767,5 +1801,72 @@ int OverlappingPartitioner::DumpGraph() const
   return 0;
   }
 
+#ifdef DEBUGGING
+std::ostream& OverlappingPartitioner::PrintNodeTypeVector
+  (const Epetra_IntVector& nT,std::ostream& os,std::string label)
+  {
+  int imin,jmin,kmin,vmin,imax,jmax,kmax,vmax;
+  int min_gid = nT.Map().MinMyGID();
+  int max_gid = nT.Map().MaxMyGID();
+  Tools::ind2sub(nx_,ny_,nz_,dof_,min_gid,imin,jmin,kmin,vmin);
+  Tools::ind2sub(nx_,ny_,nz_,dof_,max_gid,imax,jmax,kmax,vmax);
+  os << "nodeType ("<<label<<")"<<std::endl;
+  os << "partition: ["<<imin<<".."<<imax<<"]x["<<jmin<<".."<<jmax<<"]x["<<kmin<<".."<<kmax<<"]\n";
 
+    os << "GIDs "<<std::endl;
+    for (int k=kmin;k<=kmax;k++)
+      {
+      os << "k="<<k<<std::endl;
+      for (int j=jmax;j>=0;j--)
+        {
+        for (int i=imin;i<=imax;i++)
+          {
+          int gid=-1,lid=-1;
+          for (int v=0;v<dof_;v++)
+            {
+            gid=Tools::sub2ind(nx_,ny_,nz_,dof_,i,j,k,v);
+            lid = std::max(lid,nT.Map().LID(gid));
+            }
+          if (lid>=0)
+            {
+            int gid=nT.Map().GID(lid);
+            os << setw(4)<<gid<<" ";
+            }
+          else
+            {
+            os << "    " << " ";
+            }
+          }
+        os << std::endl;
+        }
+      }
+
+  for (int v=0;v<dof_;v++)
+    {
+    os << "variable "<<v<<std::endl;
+    for (int k=kmin;k<=kmax;k++)
+      {
+      os << "k="<<k<<std::endl;
+      for (int j=jmax;j>=0;j--)
+        {
+        for (int i=imin;i<=imax;i++)
+          {
+          int gid = Tools::sub2ind(nx_,ny_,nz_,dof_,i,j,k,v);
+          int lid = nT.Map().LID(gid);
+          if (lid>=0)
+            {
+            os << nT[lid]<<" ";
+            }
+          else
+            {
+            os << " " << " ";
+            }
+          }
+        os << std::endl;
+        }
+      }
+    }
+  return os;
+  }
+#endif
 }//namespace

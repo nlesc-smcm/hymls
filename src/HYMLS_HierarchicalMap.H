@@ -56,7 +56,9 @@ public:
   // constructor - empty object
   HierarchicalMap(Teuchos::RCP<const Epetra_Comm> comm,
                   Teuchos::RCP<const Epetra_Map> baseMap,
-                  int numMySubdomains=0);
+                  int numMySubdomains=0,
+                  std::string label="HierarchicalMap",
+                  int level=1);
 
   //! destructor
   virtual ~HierarchicalMap();

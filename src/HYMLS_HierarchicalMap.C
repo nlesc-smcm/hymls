@@ -38,12 +38,14 @@ namespace HYMLS {
 
   //empty constructor
   HierarchicalMap::HierarchicalMap(Teuchos::RCP<const Epetra_Comm> comm, 
-        Teuchos::RCP<const Epetra_Map> baseMap, int numMySubdomains)
+        Teuchos::RCP<const Epetra_Map> baseMap, int numMySubdomains,
+        std::string label, int level)
         : comm_(comm),
           baseMap_(baseMap),
           overlappingMap_(Teuchos::null),
-          myLevel_(1), label_("HierarchicalMap")
+          myLevel_(level), label_(label+" (level "+Teuchos::toString(level)+")")
     {
+    START_TIMER3(label_,"Constructor");
     groupPointer_=Teuchos::rcp(new Teuchos::Array<Teuchos::Array<int> >(numMySubdomains));
     gidList_=Teuchos::rcp(new Teuchos::Array<Teuchos::Array<int> >(numMySubdomains));
     for (int i=0;i<numMySubdomains;i++)
@@ -72,7 +74,7 @@ namespace HYMLS {
     myLevel_(level),
     label_(label+" (level "+Teuchos::toString(level)+")")
     {
-    START_TIMER3("HierarchicalMap","Constructor");
+    START_TIMER3(label_,"HierarchicalMap Constructor");
     spawnedObjects_.resize(4); // can currently spawn Interior, Separator and 
                                // LocalSeparator objects and 
                                // return a self-reference (All)    
