@@ -143,10 +143,6 @@ protected:
   //! conservation cell)                                    
   Teuchos::Array<bool> retainIsolated_;
   
-  //! if true, we try to form full-conservation tubes from
-  //! the retained nodes (3D Navier-Stokes only)
-  bool formFCTs_;
-  
 private:
   
   //! partition - Cartesian
@@ -171,22 +167,42 @@ private:
   int BuildInitialNodeTypeVector(const Epetra_CrsGraph& parallelGraph, 
                                         Epetra_IntVector& nodeTypes,
                                         int& num_retained) const;
+
+  //! update the nodeType vector to look like this:
+  //!   0 0 1 0 0
+  //!   0 0 1 0 0
+  //!   1 1 2 1 1
+  //!   0 0 1 0 0
+  //!   0 0 1 0 0
+  //! The function is called twice in DetectSeparators to get the following
+  //! node types:
+  //!   0: interior
+  //!   1: face separator in 3D or edge in 2D
+  //!   2: edge separator in 3D or vertex in 2D
+  //!   3: vertex in 3D
+  //!   5: retained P-node
+  int UpdateNodeTypeVector(const Epetra_CrsGraph& parallelGraph, 
+                      const Epetra_IntVector& p_nodeTypes,
+                            Epetra_IntVector& nodeTypes) const;
   
-  //! detect isolated interior nodes and mark them 'retain' (3)
-  int DetectIsolated(const Epetra_CrsGraph& parallelGraph, 
+  //! detect isolated P-nodes and mark the surrounding V-nodes
+  //! as '4' in the nodeType vector. This is Stokes-specific  
+  //! functionality.
+  int DetectFCC(const Epetra_CrsGraph& parallelGraph, 
                       const Epetra_IntVector& p_nodeTypes,
                             Epetra_IntVector& nodeTypes,
                             int& num_retaineed) const;
 
-  //! look again at the isolated nodes found by DetectIsolated and try to
-  //! find subdomains and separators (sets of unknowns that can be elimina-
-  //! ted or reduced by our transformation strategy)
-  int ReintegrateIsolated(const Epetra_CrsGraph& parallelGraph, 
+  //! Detect subdomains in which some separator variables can   
+  //! be made 'interior' again. This is 3D Stokes-specific, in  
+  //! which case the CartFlow partitioner provides the edge sub-
+  //! domains, which form 'full conservation tubes' (FCTs). The 
+  //! P-nodes and one of the velocity components in the interior
+  //! of such a tube can be eliminated.
+  int DetectFCT(const Epetra_CrsGraph& parallelGraph, 
                       const Epetra_IntVector& p_nodeTypes,
-                            Epetra_IntVector& nodeTypes,
-                            int& num_retaineed,
-                            int& numNewSubdomains) const;
-  
+                            Epetra_IntVector& nodeTypes) const;
+
   //! form list with interior, separator and retained nodes for subdomain
   // sd. Links separators to subdomains.
   int BuildNodeLists(int sd, const Epetra_CrsGraph& parallelGraph, 
@@ -196,20 +212,6 @@ private:
                               Teuchos::Array<int>& separatorNodes,
                               Teuchos::Array<int>& retainedNodes) const;
   
-  //! it may be possible to combine some of the 'retained' nodes
-  //! and either eliminate them as interior or treat them as    
-  //! regular separators. This reduces the size of the SC. It    
-  //! occurs in 3D Navier-Stokes in so-called 'full conservation 
-  //! tubes' on the edges of the subdomains. np_schur is updated 
-  //! if necessary.
-  int ClusterSingletons(   int sd,
-                           const Epetra_CrsGraph& parallelGraph,
-                           const Epetra_IntVector& p_nodeType,
-                           Teuchos::Array<int>& interior,
-                           Teuchos::Array<int>& separator,
-                           Teuchos::Array<int>& retained,
-                           int& np_schur) const;
-
   //! this is a helper function to associate separators with subdomains 
   //! correctly, in particular to find separator nodes in corners which 
   //! are not directly connected to any interior nodes of the subdomain.
