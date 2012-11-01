@@ -144,6 +144,10 @@ public:
     return overlappingMap_->GID(this->LID(sd,grp,j));
     }
     
+  //@}
+  
+  //!\name data member access
+  //@{  
     
   //! get a reference to the non-overlapping map used inside this class
   const Epetra_Map& Map() const 
@@ -170,6 +174,23 @@ public:
     return overlappingMap_;
     }
 
+  //!
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<int> > > GetGroupPointer() const
+    {
+    return groupPointer_;
+    }
+
+  //!
+  const Epetra_Comm& Comm() const {return *comm_;}
+
+  //!
+  Teuchos::RCP<const Epetra_Comm> GetComm() const {return comm_;}
+
+  //!
+  std::string Label() const {return label_;}
+  
+  //!
+  int Level() const {return myLevel_;}
   
   //@}
   
@@ -224,7 +245,31 @@ public:
   //! given a list of GIDs, returns a list of subdomains to which they belong
   int getSubdomainList(int num_gids, int* gids, int* sd) const;
   
-protected:
+  //! add a new subdomain, returns the id of the subdomain. FillComplete()
+  //! should not have been called. The optional argument can be used to 
+  //! force the subdomain ID to be at least a certain value.
+  int AddSubdomain(int min_id=0);
+  
+  //! add a group of GIDs to an existing subdomain. Returns the group id
+  //! of the new group. FillComplete() should not have been called.
+  int AddGroup(int sd, Teuchos::Array<int>& gidList);
+  
+  //! delete the map and all subdomains and groups that have been added so far
+  int Reset(int num_sd);
+
+  //! finalize the setup procedure by building the map
+  int FillComplete();
+  
+  //! restart putting in things, deletes the map and resets the groupPointer
+  //! to local indexing. This function is called internally if you call     
+  //! AddSubdomain() or AddGroup() after FillComplete(), Filled() will then 
+  //! return false until you call FillComplete() again.
+  int FillStart();
+  
+  //! indicates if any more changes can be made (FillComplete() has been called)
+  bool Filled() const {return overlappingMap_!=Teuchos::null;}
+    
+private:
   
   //! communicator
   Teuchos::RCP<const Epetra_Comm> comm_;
@@ -242,7 +287,6 @@ protected:
   Teuchos::RCP<Teuchos::Array< Teuchos::Array<int> > > groupPointer_;
   
   //! list of ordered GIDs which will be transformed into a map in FillComplete
-  //! (and deleted, actually)
   Teuchos::RCP<Teuchos::Array<Teuchos::Array<int> > > gidList_;
   
   //! array of spawned objects (so we avoid building the same thing over and over again)
@@ -263,22 +307,9 @@ protected:
   //! level ID
   int myLevel_;
 
-  //! add a new subdomain, returns the id of the subdomain. FillComplete()
-  //! should not have been called. The optional argument can be used to 
-  //! force the subdomain ID to be at least a certain value.
-  int AddSubdomain(int min_id=0);
-  
-  //! add a group of GIDs to an existing subdomain. Returns the group id
-  //! of the new group. FillComplete() should not have been called.
-  int AddGroup(int sd, Teuchos::Array<int>& gidList);
+  //! \name private member functions
+  //! @{
 
-  //! finalize the setup procedure by building the map
-  int FillComplete();
-  
-  //! indicates if any more changes can be made (FillComplete() has been called)
-  bool Filled() const {return overlappingMap_!=Teuchos::null;}
-    
-private:
   //!
   Teuchos::RCP<const HierarchicalMap> SpawnInterior() const;
   //!
@@ -286,7 +317,8 @@ private:
   //!
   Teuchos::RCP<const HierarchicalMap> SpawnLocalSeparators
         (Teuchos::RCP<Teuchos::Array<HYMLS::SepNode> > regroup) const;
-    
+
+  //@}    
   };
 
 std::ostream & operator<<(std::ostream& os, const HierarchicalMap& h);

@@ -71,7 +71,7 @@ namespace HYMLS {
                         0,"OverlappingPartitioner",level),
                         PLA("Problem"), matrix_(K)
     {
-    START_TIMER3(label_,"Constructor");
+    START_TIMER3(Label(),"Constructor");
 
     setParameterList(params);
 
@@ -103,19 +103,19 @@ namespace HYMLS {
     parallelGraph_=CreateParallelGraph();
     DEBVAR(*parallelGraph_);
     int nzgraph = parallelGraph_->NumMyNonzeros();
-    REPORT_SUM_MEM(label_,"graph with overlap",0,nzgraph,comm_);
+    REPORT_SUM_MEM(Label(),"graph with overlap",0,nzgraph,GetComm());
         
 #ifdef DEBUGGING
   this->DumpGraph();
 #endif
     CHECK_ZERO(this->DetectSeparators());
-
-    CHECK_ZERO(this->GroupSeparators());
+    CHECK_ZERO(this->GroupSeparators());   
+    CHECK_ZERO(this->FixSubCells());
     }
     
   OverlappingPartitioner::~OverlappingPartitioner()
     {
-    START_TIMER3(label_,"Destructor");
+    START_TIMER3(Label(),"Destructor");
     }
 
 
@@ -123,7 +123,7 @@ namespace HYMLS {
 void OverlappingPartitioner::setParameterList
         (const Teuchos::RCP<Teuchos::ParameterList>& params)
   {
-  START_TIMER3(label_,"setParameterList");
+  START_TIMER3(Label(),"setParameterList");
   
   setMyParamList(params);
     
@@ -182,7 +182,7 @@ void OverlappingPartitioner::setParameterList
 Teuchos::RCP<const Teuchos::ParameterList> OverlappingPartitioner::getValidParameters() const
   {
   if (validParams_!=Teuchos::null) return validParams_;
-  START_TIMER3(label_,"getValidParameters");
+  START_TIMER3(Label(),"getValidParameters");
 
   VPL().set("Dimension",2,"physical dimension of the problem");   
   VPL().set("Degrees of Freedom",1,"number of unknowns per node");
@@ -238,7 +238,7 @@ Teuchos::RCP<const Teuchos::ParameterList> OverlappingPartitioner::getValidParam
   
 int OverlappingPartitioner::CreateGraph()
   {
-  START_TIMER2(label_,"CreateGraph");
+  START_TIMER2(Label(),"CreateGraph");
   
   // in the most general case we could use the pattern of given matrix. This could be done
   // whenever we get a CrsMatrix, but will typically not work because our
@@ -275,7 +275,7 @@ int OverlappingPartitioner::CreateGraph()
   // create a dof-1 map
   if (dof_==1) 
     {
-    scalarMap=baseMap_;
+    scalarMap=GetMap();
     }
   else
     {
@@ -359,7 +359,7 @@ int OverlappingPartitioner::CreateGraph()
   double* values=new double[maxlen];
 
   Teuchos::RCP<Epetra_CrsMatrix> crsMatrix = Teuchos::rcp(new Epetra_CrsMatrix
-        (Copy,*baseMap_,maxlen));
+        (Copy,Map(),maxlen));
   
   DEBUG("Put in the new stencils");
   for (int var=0;var<dof_;var++)
@@ -424,7 +424,7 @@ int OverlappingPartitioner::CreateGraph()
   graph_=Teuchos::rcp(new Epetra_CrsGraph(crsMatrix->Graph()));
 
     int nzgraph = graph_->NumMyNonzeros();
-    REPORT_SUM_MEM(label_,"aux graph",0,nzgraph,comm_);
+    REPORT_SUM_MEM(Label(),"aux graph",0,nzgraph,GetComm());
 
   return 0;    
   }
@@ -432,14 +432,15 @@ int OverlappingPartitioner::CreateGraph()
 
 int OverlappingPartitioner::Partition()
   {
-  START_TIMER2(label_,"Partition");
+  START_TIMER2(Label(),"Partition");
   if (partitioningMethod_=="Cartesian")
     {
-    partitioner_=Teuchos::rcp(new CartesianPartitioner(baseMap_,nx_,ny_,nz_,dof_,perio_));
+    partitioner_=Teuchos::rcp(new CartesianPartitioner
+        (GetMap(),nx_,ny_,nz_,dof_,perio_));
     }
   else if (partitioningMethod_=="CartFlow")
     {
-    partitioner_=Teuchos::rcp(new CartFlowPartitioner(baseMap_,nx_,ny_,nz_,dof_,perio_));
+    partitioner_=Teuchos::rcp(new CartFlowPartitioner(GetMap(),nx_,ny_,nz_,dof_,perio_));
     }
   else
     {
@@ -493,7 +494,7 @@ int OverlappingPartitioner::Partition()
   else 
     {
     int numGlobalSubdomains=solverParams.get("Number of Subdomains", 
-                4*comm_->NumProc());
+                4*Comm().NumProc());
     Tools::SplitBox(nx_,ny_,nz_,numGlobalSubdomains,npx,npy,npz);
     }
 
@@ -523,13 +524,13 @@ int OverlappingPartitioner::Partition()
   //   domains                                                    
   // - the data layout becomes more favorable because the nodes   
   //   of a subdomain are contiguous in the partitioner's map.    
-  baseMap_ = partitioner_->GetMap();
+  GetMap() = partitioner_->GetMap();
 
 #ifdef DEBUGGING
 DEBUG("Partition numbers:");
-for (int i=0;i<baseMap_->NumMyElements();i++)
+for (int i=0;i<Map().NumMyElements();i++)
   {
-  int gid=baseMap_->GID(i);
+  int gid=Map().GID(i);
   DEBUG(gid << " " << (*partitioner_)(gid));
   }
 #endif  
@@ -545,7 +546,7 @@ for (int i=0;i<baseMap_->NumMyElements();i++)
   
 int OverlappingPartitioner::DetectSeparators()
   {
-  START_TIMER2(label_,"DetectSeparators");
+  START_TIMER2(Label(),"DetectSeparators");
   //! first we import our original matrix into the ordering defined by the partitioner.
 
   if (Teuchos::is_null(graph_))
@@ -558,12 +559,10 @@ int OverlappingPartitioner::DetectSeparators()
     Tools::Error("parallelGraph not yet constructed!",__FILE__,__LINE__);
     }
   
-  int np_schur=0;// number of pressures on SC
-  
   nodeType_=Teuchos::rcp(new Epetra_IntVector(partitioner_->Map()));
   nodeType_->PutValue(-1);
 
-  CHECK_ZERO(this->BuildInitialNodeTypeVector(*parallelGraph_,*nodeType_,np_schur));
+  CHECK_ZERO(this->BuildInitialNodeTypeVector(*parallelGraph_,*nodeType_));
 
   // now every subdomain has marked those nodes it owns and 
   // that should become interior, separator or retained nodes.
@@ -623,7 +622,7 @@ if (dim_>2)
   //           |   |                                                          
   //           |   |                                                          
   //                                                                          
-  CHECK_ZERO(this->DetectFCC(*parallelGraph_,*p_nodeType_, *nodeType_,np_schur));
+  CHECK_ZERO(this->DetectFCC(*parallelGraph_,*p_nodeType_, *nodeType_));
 
   // import again
   CHECK_ZERO(p_nodeType_->Import(*nodeType_,import,Insert));
@@ -654,15 +653,20 @@ if (dim_>2 && dof_>1)
   this->PrintNodeTypeVector(*p_nodeType_,Tools::deb(),"with FCTs");
   }
 #endif
+/*
+  CHECK_ZERO(this->CorrectFCT(*parallelGraph_,*p_nodeType_, *nodeType_));
+
+  // import again
+  CHECK_ZERO(p_nodeType_->Import(*nodeType_,import,Insert));
+
+#ifdef DEBUGGING
+if (dim_>2 && dof_>1)
+  {
+  this->PrintNodeTypeVector(*p_nodeType_,Tools::deb(),"with corrected FCTs");
+  }
+#endif
+  */
   
-  int global_np_schur;
-  comm_->SumAll(&np_schur,&global_np_schur,1);
-
-  if (comm_->MyPID()==0 && global_np_schur>0)
-    {
-    Tools::Out("Number of retained pressures: "+Teuchos::toString(global_np_schur));
-    }
-
   // put them into lists
  
   // nodes to be eliminated exactly in the next step  
@@ -672,53 +676,83 @@ if (dim_>2 && dof_>1)
   // nodes to be retained in the Schur complement (typically pressures)
   Teuchos::Array<int> retained_nodes;
 
+  // first we do all 'regular' subdomains and then the
+  // special ones (FCCs and FCTs for CartStokes partitioner)
   for (int sd=0;sd<partitioner_->NumLocalParts();sd++)
     {
-    interior_nodes.resize(0);
-    separator_nodes.resize(0);
-    retained_nodes.resize(0);
-    CHECK_ZERO(this->BuildNodeLists(sd,*parallelGraph_, *nodeType_, *p_nodeType_,
+    int gsid = partitioner_->GPID(sd);
+    if (gsid<0) continue; // empty subdomain
+    if (partitioner_->IsSubCell(gsid)==false)
+      {
+      interior_nodes.resize(0);
+      separator_nodes.resize(0);
+      retained_nodes.resize(0);
+      CHECK_ZERO(this->BuildNodeLists(sd,*parallelGraph_, *nodeType_, *p_nodeType_,
                 interior_nodes, separator_nodes, retained_nodes));
 
-    DEBVAR(sd);
-    DEBVAR(interior_nodes);
-    DEBVAR(separator_nodes);
-    DEBVAR(retained_nodes);
+      DEBVAR(sd);
+      DEBVAR(gsid);
+      DEBVAR(interior_nodes);
+      DEBVAR(separator_nodes);
+      DEBVAR(retained_nodes);
     
-    // in this function we just form three groups per subdomain:
-    // interior, separator or retained. In GroupSeparators() this
-    // grouping is refined.
-    this->AddGroup(sd, interior_nodes);
-    this->AddGroup(sd, separator_nodes);
-    this->AddGroup(sd, retained_nodes);    
+      // in this function we just form three groups per subdomain:
+      // interior, separator or retained. In GroupSeparators() this
+      // grouping is refined.
+      this->AddGroup(sd, interior_nodes);
+      this->AddGroup(sd, separator_nodes);
+      this->AddGroup(sd, retained_nodes);    
+      }
     }
-
-  int old_global_np_schur=global_np_schur;
-  global_np_schur=0;
-  comm_->SumAll(&np_schur,&global_np_schur,1);
-
-  if (comm_->MyPID()==0 && global_np_schur!=old_global_np_schur)
+/*
+  // the FCTs need a special treatment because their separators
+  // should match those of the surrounding subdomains. The     
+  // BuildNodeLists function used for subdomains constructs    
+  // thin separators, but we want the entire face separator al-
+  // so for the small tube-shaped subdomains on the edges.     
+  for (int sd=0;sd<partitioner_->NumLocalParts();sd++)
     {
-    Tools::Out("Final number of P-nodes in SC: "+Teuchos::toString(global_np_schur));
-    }
+    int gsid = partitioner_->GPID(sd);
+    if (gsid<0) continue; // empty subdomain
+    if (partitioner_->IsSubCell(gsid)==true)
+      {
+      interior_nodes.resize(0);
+      separator_nodes.resize(0);
+      retained_nodes.resize(0);
+      CHECK_ZERO(this->BuildNodeLists2(sd,*parallelGraph_, *nodeType_, *p_nodeType_,
+                interior_nodes, separator_nodes, retained_nodes));
 
+      DEBVAR(sd);
+      DEBVAR(gsid);
+      DEBVAR(interior_nodes);
+      DEBVAR(separator_nodes);
+      DEBVAR(retained_nodes);
+    
+      // in this function we just form three groups per subdomain:
+      // interior, separator or retained. In GroupSeparators() this
+      // grouping is refined.
+      this->AddGroup(sd, interior_nodes);
+      this->AddGroup(sd, separator_nodes);
+      this->AddGroup(sd, retained_nodes);    
+      }
+    }
+*/
   // build the overlapping map, this means that we can't add more subdomains from now on,
   // but we will manually re-arrange things and re-build the map then
   CHECK_ZERO(this->FillComplete());
   
-  REPORT_SUM_MEM(label_,"map with overlap",0,overlappingMap_->NumMyElements(),comm_);
-  REPORT_SUM_MEM(label_,"int vectors",0,nodeType_->MyLength()
-        +p_nodeType_->MyLength(),comm_);
+  REPORT_SUM_MEM(Label(),"map with overlap",0,OverlappingMap().NumMyElements(),GetComm());
+  REPORT_SUM_MEM(Label(),"int vectors",0,nodeType_->MyLength()
+        +p_nodeType_->MyLength(),GetComm());
   
   return 0;
   }
 
   //! build initial vector with 0 (interior), 1 (separator) or 2 (retained)
   int OverlappingPartitioner::BuildInitialNodeTypeVector(
-        const Epetra_CrsGraph& G, Epetra_IntVector& nodeType,
-        int& np_schur) const
+        const Epetra_CrsGraph& G, Epetra_IntVector& nodeType) const
   {
-  START_TIMER3(label_,"BuildInitialNodeTypeVector");
+  START_TIMER3(Label(),"BuildInitialNodeTypeVector");
 
 
   int *cols;
@@ -726,10 +760,6 @@ if (dim_>2 && dof_>1)
 
   Teuchos::Array<int> retain(dof_);
   Teuchos::Array<int> retained(dof_);
-
-  np_schur=0; // count number of pressures in Schur-complement
-              // (we don't need this count, but it is convenient when 
-              // comparing the ordering with MATLAB)
 
   for (int var=0;var<dof_;var++)
     {
@@ -773,7 +803,6 @@ if (dim_>2 && dof_>1)
           DEBUG("retain "<<row<<" in Schur complement");
           nodeType[i]=5;
           retained[type]++;
-          np_schur++;
           }
         }
       else
@@ -828,7 +857,7 @@ if (dim_>2 && dof_>1)
                       const Epetra_IntVector& p_nodeType,
                             Epetra_IntVector& nodeType) const
   {
-  START_TIMER3(label_,"UpdateNodeTypeVector");
+  START_TIMER3(Label(),"UpdateNodeTypeVector");
   
   int MaxNumEntriesPerRow = G.MaxNumIndices();
   
@@ -866,7 +895,7 @@ if (dim_>2 && dof_>1)
           {
           std::string msg="parallel map used does not contain all necessary nodes, node "
           +Teuchos::toString(G.GCID(cols[j]))+" not found on processor "
-          +Teuchos::toString(comm_->MyPID());
+          +Teuchos::toString(Comm().MyPID());
           Tools::Error(msg,__FILE__,__LINE__);
           }
 #endif
@@ -898,10 +927,9 @@ if (dim_>2 && dof_>1)
   int OverlappingPartitioner::DetectFCC(
                       const Epetra_CrsGraph& G, 
                       const Epetra_IntVector& p_nodeType,
-                            Epetra_IntVector& nodeType,
-                            int& np_schur) const
+                            Epetra_IntVector& nodeType) const
   {
-  START_TIMER3(label_,"DetectFCC");
+  START_TIMER3(Label(),"DetectFCC");
   
   int MaxNumEntriesPerRow = G.MaxNumIndices();
   
@@ -1000,7 +1028,7 @@ if (dim_>2 && dof_>1)
                             Epetra_IntVector& nodeType) const
   {
   if (dim_<3 || dof_<4) return 0;
-  START_TIMER3(label_,"DetectFCT");
+  START_TIMER3(Label(),"DetectFCT");
 
   // we currently have the following node types 
   // (assuming that UpdateNodeTypeVector has been
@@ -1070,6 +1098,109 @@ if (dim_>2 && dof_>1)
   return 0;  
   }
 
+  // after DetectFCT we get a situation like    
+  // this in the edge subdomains (FCTs):        
+  //   ---+---+---+                             
+  //   > o > o |...                             
+  //   ---+---+---+                             
+  //                                            
+  //   are eliminated as interior, and          
+  //                                            
+  //         >   >   |   |                      
+  //      -^-+-^-+-^-+---+                       
+  //       o |   |   *FCC|                      
+  //      -^-+-^-+-^-+---+                      
+  //         >   >   ?   |                      
+  //                                            
+  // are the separators. The u-node at (*)      
+  // is a type 4 (retained) node, and the       
+  // u-node at (?) is missed as a sep-node.     
+  // it is not included by FindMissing...       
+  // because it is a type 1 node, just          
+  // like the neighboring (>) nodes.            
+  //                                            
+/*               
+  int OverlappingPartitioner::CorrectFCT(
+                      const Epetra_CrsGraph& G, 
+                      const Epetra_IntVector& p_nodeType,
+                            Epetra_IntVector& nodeType) const
+  {
+  if (dim_<3 || dof_<4) return 0;
+  START_TIMER3(Label(),"CorrectFCT");
+
+  int MaxNumEntriesPerRow = G.MaxNumIndices();
+  
+  int *cols;
+  int len;
+ 
+  const Epetra_BlockMap& map = nodeType.Map();
+  const Epetra_BlockMap& p_map = p_nodeType.Map();
+
+  // for all subdomains
+  for (int sd=0;sd<partitioner_->NumLocalParts();sd++)
+    {
+    // check if this is an FCT: true if interior V-nodes
+    // connect to 4+ separator nodes.
+    bool isFCT=true;
+    for (int i=partitioner_->First(sd); i<partitioner_->First(sd+1);i++)
+      {
+      int row=map.GID(i);
+      int var_i = partitioner_->VariableType(row);
+      int type_i = p_nodeType[p_map.LID(row)];
+      if (type_i==0 && var_i<dim_) // interior V-node
+        {
+        int count=0;
+        int lrow = G.LRID(row);
+        CHECK_ZERO(G.ExtractMyRowView(lrow,len,cols));
+        for (int j=0;j<len;j++)
+          {
+          int var_j = partitioner_->VariableType(G.GCID(cols[j]));
+          int type_j  = p_nodeType[p_map.LID(G.GCID(cols[j]))];
+          if (var_j==var_i && type_j>0)
+            {
+            count++;
+            }
+          }//j
+        if (count<4)
+          {
+          isFCT=false;
+          break;
+          }
+        }//if
+      }//i
+    if (isFCT)
+      {
+      DEBUG("subdomain "<<sd<<" is an FCC or FCT");
+      // change the nodeType of V-nodes connected to the
+      // single retained V-node at the end of the tube  
+      // from 1 to 2 so that it is treated correctly by 
+      // FindMissingSepNodes:
+      for (int i=partitioner_->First(sd); i<partitioner_->First(sd+1);i++)
+        {
+        int row=map.GID(i);
+        int var_i = partitioner_->VariableType(row);
+        int type_i = p_nodeType[p_map.LID(row)];
+        if (type_i==4 && var_i<dim_) // retained V-node
+          {
+          int lrow = G.LRID(row);
+          CHECK_ZERO(G.ExtractMyRowView(lrow,len,cols));
+          for (int j=0;j<len;j++)
+            {
+            int var_j = partitioner_->VariableType(G.GCID(cols[j]));
+            int type_j  = p_nodeType[p_map.LID(G.GCID(cols[j]))];
+            if (var_j==var_i && type_j==1)
+              {
+              nodeType[cols[j]]++;
+              }
+            }//j
+          }
+        }
+      }
+    }//sd
+    
+  return 0;  
+  }
+*/
   //! form list with interior, separator and retained nodes for subdomain
   // sd. Links separators to subdomains.
   int OverlappingPartitioner::BuildNodeLists(int sd, 
@@ -1080,7 +1211,7 @@ if (dim_>2 && dof_>1)
                               Teuchos::Array<int>& separator,
                               Teuchos::Array<int>& retained) const
   {
-  START_TIMER3(label_,"BuildNodeLists");
+  START_TIMER3(Label(),"BuildNodeLists");
 
   int MaxNumEntriesPerRow = G.MaxNumIndices();
   
@@ -1224,13 +1355,46 @@ if (dim_>2 && dof_>1)
   delete [] cols;  
   return 0;
   }
+/*
+  // form correct separator lists for FCTs.              
+  // This function is called after the regular subdomains
+  // have been formed, so we can access their separators.
+  int OverlappingPartitioner::BuildNodeLists2(int sd, 
+                              const Epetra_CrsGraph& G, 
+                              const Epetra_IntVector& nodeType,
+                              const Epetra_IntVector& p_nodeType,
+                              Teuchos::Array<int>& interior,
+                              Teuchos::Array<int>& separator,
+                              Teuchos::Array<int>& retained) const
+  {
+  START_TIMER3(Label(),"BuildNodeLists2");
+
+  // start out by building the regular 1-layer separators
+  CHECK_ZERO(BuildNodeLists(sd,G,nodeType,p_nodeType,
+        interior,separator,retained));
+
+  int my_sd = partitioner_->GPID(sd);
+  std::set<int> new_separator;
+
+  // for all separator nodes which are on a different subdomain
+  for (int_i i=separators.begin();i!=separators.end();i++)
+    {
+    if ((*partitioner_)(*i)!=my_sd)
+      {
+      // check
+      }
+    }
+
+  return 0;
+  }
+*/
 
 int OverlappingPartitioner::FindMissingSepNodes
         (int my_sd, const Epetra_CrsGraph& G, const Epetra_IntVector& p_nodeType,
          const std::set<int>& in, std::set<int>& out) const
 
   {
-  START_TIMER3(label_,"FindMissingSepNodes");
+  START_TIMER3(Label(),"FindMissingSepNodes");
   const Epetra_BlockMap& p_map=p_nodeType.Map();
   int *colsI;
   int *colsJ;
@@ -1290,10 +1454,11 @@ int OverlappingPartitioner::FindMissingSepNodes
   }
 
 
-//TODO: this function needs to be thoroughly worked over!
+// reorders the separators found in DtectSeparators()
+// into groups suitable for our transformations.
 int OverlappingPartitioner::GroupSeparators()
   {
-  START_TIMER2(label_,"GroupSeparators");
+  START_TIMER2(Label(),"GroupSeparators");
   if (Teuchos::is_null(graph_))
     {
     Tools::Error("Graph not yet constructed!",__FILE__,__LINE__);
@@ -1302,11 +1467,21 @@ int OverlappingPartitioner::GroupSeparators()
     {
     Tools::Error("overlapping Graph not yet constructed!",__FILE__,__LINE__);
     }
-  if (Teuchos::is_null(overlappingMap_))
+  if (!Filled())
     {
     Tools::Error("Separators not yet detected!",__FILE__,__LINE__);
     }
+  DEBVAR(*this);
   const Epetra_BlockMap& p_map = p_nodeType_->Map();
+  
+  // copy old data structures and reset base class (HierarchicalMap)
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<int> > > groupPointer
+        = this->GetGroupPointer();
+
+  Teuchos::RCP<const Epetra_Map> overlappingMap =
+        this->GetOverlappingMap();
+  
+  this->Reset(partitioner_->NumLocalParts());
       
   DEBUG("build separator lists...");
 
@@ -1316,13 +1491,30 @@ int OverlappingPartitioner::GroupSeparators()
   int len;
 
   Teuchos::Array<SepNode> sepNodes;
+  Teuchos::Array<int> gidList;
     
-  int NumMyElements = overlappingMap_->NumMyElements();
-  int *MyElements=new int[NumMyElements];
-
   for (int sd=0;sd<partitioner_->NumLocalParts();sd++)
     {
-    int numSepNodes=(*groupPointer_)[sd][2]-(*groupPointer_)[sd][1]; 
+    // the subcells of the partitioning are parts with special
+    // rules, such as full conservation tubes in 3D Stokes, which
+    // need to copy their separator groups from the adjacent subdomains
+    // instead of trying to form their own separators. This is possible
+    // because they separate subdomains, actually.
+    if (partitioner_->IsSubCell(partitioner_->GPID(sd))) continue;
+
+#ifdef TESTING
+    if (sd>=groupPointer->size())
+      {
+      Tools::Error("(temporary) groupPointer array incorrect",__FILE__,__LINE__);
+      }
+    // [ interior separators retained] 
+    if ((*groupPointer)[sd].size()!=4)
+      {
+      Tools::Error("(temporary) groupPointer array incorrect",__FILE__,__LINE__);
+      }
+#endif
+
+    int numSepNodes=(*groupPointer)[sd][2]-(*groupPointer)[sd][1]; 
                 // this does not include retained variables, 
                 // which start at groupPointer[2]
                                                                
@@ -1338,7 +1530,7 @@ int OverlappingPartitioner::GroupSeparators()
     int new_id = partitioner_->NumLocalParts()+1;
     for (int i=0;i<numSepNodes;i++)
       {
-      int row=overlappingMap_->GID((*groupPointer_)[sd][1]+i);
+      int row=overlappingMap->GID((*groupPointer)[sd][1]+i);
       int myLevel = (*p_nodeType_)[p_map.LID(row)];
 
       //DEBUG("Process node "<<i<<", GID "<<row);
@@ -1349,22 +1541,16 @@ int OverlappingPartitioner::GroupSeparators()
       if (ierr!=0)
         {
         Tools::Error("extracting global row "+Teuchos::toString(row)+
-                " failed on rank "+Teuchos::toString(comm_->MyPID()),__FILE__,__LINE__);
+                " failed on rank "+Teuchos::toString(Comm().MyPID()),__FILE__,__LINE__);
         }
-//      DEBVAR(row);
-//      DEBVAR(myLevel);
       for (int j=0;j<len;j++)
         {
-//        DEBVAR(cols[j]);
-//        DEBVAR((*p_nodeType_)[p_map.LID(cols[j])]);
         // We only consider edges to lower-level nodes here,
         // e.g. from face separators to interior, from 
         // edges to faces and from vertices to edges.
         if ((*p_nodeType_)[p_map.LID(cols[j])]<myLevel)
           {
-          int flow = partitioner_->flow(row,cols[j]);    
-          
-          //TODO: check if this still makes sense!
+          int flow = partitioner_->flow(row,cols[j]);
           
           // if the row and col are not in the same subdomain, multiply
           // the partition ID by +1 or -1, depending on the "direction of
@@ -1380,8 +1566,8 @@ int OverlappingPartitioner::GroupSeparators()
             connectedSubs.append(sign*(*partitioner_)(cols[j]));
             }
 //          DEBVAR(connectedSubs);
-          }
-        }
+          }// if nodeType
+        }//j
       if (connectedSubs.length()==0)
         {
         // this is a singleton as they appear in the corners
@@ -1389,41 +1575,39 @@ int OverlappingPartitioner::GroupSeparators()
         // it a unique ID so that it isn't put in the same group
         // as other singletons around the same subdomain.
         connectedSubs.append(new_id++);
-        }
+        }//if
       int variableType=partitioner_->VariableType(row);
       SepNode S(row,connectedSubs,variableType);
       sepNodes[i]=S;
+      }//i
+      
+    // now we sort the nodes by subdomains they connect to.
+    // That way we get the correct ordering and only have to
+    // set the group pointers:
+    DEBUG("Sort sep nodes");
+    std::sort(sepNodes.begin(),sepNodes.end());
+  
+    // list of retained nodes. We sort these by subdomain and variable type so that
+    // pressures appear at the end of the ordering.
+    int numRetained=(*groupPointer)[sd][3]-(*groupPointer)[sd][2];
+    Teuchos::Array<SepNode> retNodes(numRetained);
+    Teuchos::Array<int> conSub(1);
+    conSub[0]=sd;
+  
+    for (int i=(*groupPointer)[sd][2];i<(*groupPointer)[sd][3];i++)
+      {
+      int gid=overlappingMap->GID(i);
+      int varType = partitioner_->VariableType(gid);
+      SepNode S(gid,conSub,varType);
+      retNodes[i-(*groupPointer)[sd][2]]=S;
       }
       
-  // now we sort the nodes by subdomains they connect to.
-  // That way we get the correct ordering and only have to
-  // set the group pointers:
-  DEBUG("Sort sep nodes");
-  std::sort(sepNodes.begin(),sepNodes.end());
-  DEBVAR(sepNodes);
-  
-
-  // list of retained nodes. We sort these by subdomain and variable type so that
-  // pressures appear at the end of the ordering.
-  int numRetained=(*groupPointer_)[sd][3]-(*groupPointer_)[sd][2];
-  Teuchos::Array<SepNode> retNodes(numRetained);
-  Teuchos::Array<int> conSub(1);
-  conSub[0]=sd;
-  
-  for (int i=(*groupPointer_)[sd][2];i<(*groupPointer_)[sd][3];i++)
-    {
-    int gid=overlappingMap_->GID(i);
-    int varType = partitioner_->VariableType(gid);
-    SepNode S(gid,conSub,varType);
-    retNodes[i-(*groupPointer_)[sd][2]]=S;
-    }
-
-  // move singletons to the end of the ordering. 
-  // singletons are groups with only one element.
-  // TODO: this is probably unnecessary here - when
-  //       calling HierarchicalMap::SpawnSeparators
-  //       they are moved to the end of the ordering (per process)
-  Teuchos::Array<SepNode>::iterator i=sepNodes.begin();
+    // move singletons to the end of the ordering. 
+    // singletons are groups with only one element.
+    // TODO: this is probably unnecessary here - when
+    //       calling HierarchicalMap::SpawnSeparators
+    //       they are moved to the end of the ordering (per process)
+    Teuchos::Array<SepNode>::iterator i=sepNodes.begin();
     int num_members=1;
     bool last_member=false;
     while (i!=sepNodes.end())
@@ -1449,110 +1633,79 @@ int OverlappingPartitioner::GroupSeparators()
         SepNode S(i->GID(),conSub,i->type());
         retNodes.append(S);
         i=sepNodes.erase(i);
-        ((*groupPointer_)[sd][2])--;  // retained nodes are between groupPointer[sd][2] and [3]
+        ((*groupPointer)[sd][2])--;  // retained nodes are between groupPointer[sd][2] and [3]
         }
       else
         {
         i++;
         }
-      }
+      }//i
 
-  std::sort(retNodes.begin(),retNodes.end());
+    std::sort(retNodes.begin(),retNodes.end());
 
-  // place interior nodes into new map (unchanged)
-  for (int i=(*groupPointer_)[sd][0];i<(*groupPointer_)[sd][1];i++)
-    {
-    MyElements[i]=overlappingMap_->GID(i);
-    }
-  
-  // place reordered separator nodes in new map:
-  for (int i=(*groupPointer_)[sd][1];i<(*groupPointer_)[sd][2];i++)
-    {
-    int j=i-(*groupPointer_)[sd][1];
-    MyElements[i]=sepNodes[j].GID();
-    }
+    DEBVAR(sepNodes);
+    DEBVAR(retNodes);
     
-    
-  for (int i=(*groupPointer_)[sd][2];i<(*groupPointer_)[sd][3];i++)
-    {
-    int j=i-(*groupPointer_)[sd][2];
-    MyElements[i]=retNodes[j].GID();
-    }
-    
-    
-  // adjust group pointer:
-  
-  int start_sub=(*groupPointer_)[sd][0];
-  int start_sep=(*groupPointer_)[sd][1];
-  int start_retained=(*groupPointer_)[sd][2];
-  
-  int num_retained=(*groupPointer_)[sd][3]-(*groupPointer_)[sd][2];
-  
-  Teuchos::Array<SepNode> tmp=sepNodes;
-  Teuchos::Array<SepNode>::iterator end = std::unique(tmp.begin(),tmp.end());
-  
-  int numGroups=std::distance(tmp.begin(),end);  
-  numGroups +=num_retained;     // each retained node is forced 
-                                // to start a group of its own
-  
-  DEBVAR(numGroups);
-  
-  (*groupPointer_)[sd].resize(numGroups+2); //+1 for interior, +1 for last element
-  (*groupPointer_)[sd][0]=start_sub;
-  (*groupPointer_)[sd][1]=start_sep;
-  int pos=2;
-  for (int i=1;i<sepNodes.size();i++)
-    {
-    if (sepNodes[i]!=sepNodes[i-1])
+    DEBUG("add the new groups...");
+
+    // place interior nodes into new map (unchanged)
+    int num = (*groupPointer)[sd][1]-(*groupPointer)[sd][0];
+    gidList.resize(num);
+    for (int i=0;i<num;i++)
       {
-      // new group starts
-      (*groupPointer_)[sd][pos++]=start_sep+i;
+      gidList[i]=overlappingMap->GID((*groupPointer)[sd][0]+i);
       }
-    }
-  if (start_sep!=start_retained) // there may not be any separator nodes
-    {
-    (*groupPointer_)[sd][pos++]=start_retained;
-    }
-
-  // retained separator nodes: each in a separate group
-  for (int i=0;i<num_retained;i++)
-    {
-    (*groupPointer_)[sd][pos]=(*groupPointer_)[sd][pos-1]+1;
-    pos++;
-    }
-  }
-   
-  // sort all elements groupwise in lexicographic ordering.
-  // Note that sorting sepnodes just puts them in the right
-  // group-wise ordering and in each group they sometimes become
-  // sorted in a strange way.
-  for (int sd=0;sd<partitioner_->NumLocalParts();sd++)
-    {
-    for (int grp=0;grp<NumGroups(sd);grp++)
+    this->AddGroup(sd,gidList);
+  
+    // place reordered separator nodes in new map:
+    gidList.resize(0);
+    for (int i=0;i<sepNodes.size()-1;i++)
       {
-      int len=NumElements(sd,grp);
-      Epetra_Util::Sort(true,len, MyElements + (*groupPointer_)[sd][grp],
-        0, NULL, 0, NULL);
+      gidList.append(sepNodes[i].GID());
+      if (sepNodes[i+1]!=sepNodes[i])
+        {
+        // new group starts, insert previous one
+        CHECK_ZERO(this->AddGroup(sd,gidList));
+        gidList.resize(0);
+        }
       }
-    }
+    if (sepNodes.length()>0)
+      {
+      gidList.append((sepNodes.end()-1)->GID());
+      this->AddGroup(sd,gidList);
+      }
 
-  // rebuild the map with the new ordering:  
-  overlappingMap_=Teuchos::rcp(new  Epetra_Map
-        (-1,NumMyElements, MyElements,partitioner_->Map().IndexBase(),*comm_));
-
-  DEBVAR(*overlappingMap_);
+    num = (*groupPointer)[sd][3]-(*groupPointer)[sd][2];
+    gidList.resize(1);        
+    for (int i=0;i<num;i++)
+      {
+      gidList[0]=retNodes[i].GID();
+      this->AddGroup(sd,gidList);
+      }        
+    }//sd
+  
+  sepNodes.resize(0);
+  gidList.resize(0);
+  
+  // and rebuild map and global groupPointer
+  CHECK_ZERO(this->FillComplete());
+  DEBVAR(*this);
 
   delete [] cols;
-  delete [] MyElements;
   return 0;
   }
 
+int OverlappingPartitioner::FixSubCells()
+  {
+  START_TIMER2(Label(),"FixSubCells");
+  return 0;
+  }
 
 
 Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLevel
         (Teuchos::RCP<const Epetra_RowMatrix> Ared, Teuchos::RCP<Teuchos::ParameterList> newList) const
   {
-  START_TIMER3(label_,"SpawnNextLevel");
+  START_TIMER3(Label(),"SpawnNextLevel");
 
   *newList = *getMyParamList();
 
@@ -1640,7 +1793,7 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
   DEBVAR(*newList);
   
   Teuchos::RCP<const OverlappingPartitioner> newLevel;
-  newLevel = Teuchos::rcp(new OverlappingPartitioner(Ared, newList,myLevel_+1));
+  newLevel = Teuchos::rcp(new OverlappingPartitioner(Ared, newList,Level()+1));
   return newLevel;
   }
 
@@ -1661,7 +1814,7 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
   // ... actually we need 3 levels of overlap in 3D.
   Teuchos::RCP<Epetra_CrsGraph> OverlappingPartitioner::CreateParallelGraph()
     {
-    START_TIMER2(label_,"CreateParallelGraph");
+    START_TIMER2(Label(),"CreateParallelGraph");
     
     if (graph_==Teuchos::null) 
       {
@@ -1682,7 +1835,7 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
     CHECK_ZERO(G_repart->Import(*graph_,importRepart,Insert));
     CHECK_ZERO(G_repart->FillComplete());
     
-    if (comm_->NumProc()==1)
+    if (Comm().NumProc()==1)
       {
       return G_repart;
       }
@@ -1714,8 +1867,8 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
 
 int OverlappingPartitioner::DumpGraph() const
   {
-  START_TIMER2(label_,"DumpGraph");
-  std::string filename="matrixGraph"+Teuchos::toString(myLevel_)+".txt";
+  START_TIMER2(Label(),"DumpGraph");
+  std::string filename="matrixGraph"+Teuchos::toString(Level())+".txt";
   
   Teuchos::RCP<Epetra_CrsMatrix> graph=
        Teuchos::rcp(new Epetra_CrsMatrix(Copy,*graph_));

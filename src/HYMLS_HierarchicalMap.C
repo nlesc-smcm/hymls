@@ -46,18 +46,7 @@ namespace HYMLS {
           myLevel_(level), label_(label+" (level "+Teuchos::toString(level)+")")
     {
     START_TIMER3(label_,"Constructor");
-    groupPointer_=Teuchos::rcp(new Teuchos::Array<Teuchos::Array<int> >(numMySubdomains));
-    gidList_=Teuchos::rcp(new Teuchos::Array<Teuchos::Array<int> >(numMySubdomains));
-    for (int i=0;i<numMySubdomains;i++)
-      {
-      (*gidList_)[i].resize(0);
-      (*groupPointer_)[i].resize(0);
-      }
-    spawnedObjects_.resize(4); // can currently spawn Interior, Separator and 
-                               // LocalSeparator objects and 
-                               // return a self-reference (All)    
-    spawnedMaps_.resize(4);
-    for (int i=0;i<spawnedObjects_.size();i++) spawnedObjects_[i]=Teuchos::null;
+    this->Reset(numMySubdomains);
     }
 
   //private constructor
@@ -95,6 +84,25 @@ namespace HYMLS {
     START_TIMER3("HierarchicalMap","Destructor");
     }
 
+  int HierarchicalMap::Reset(int numMySubdomains)
+    {
+    START_TIMER2(label_,"Reset");
+    groupPointer_=Teuchos::rcp(new Teuchos::Array<Teuchos::Array<int> >(numMySubdomains));
+    gidList_=Teuchos::rcp(new Teuchos::Array<Teuchos::Array<int> >(numMySubdomains));
+    for (int i=0;i<numMySubdomains;i++)
+      {
+      (*gidList_)[i].resize(0);
+      (*groupPointer_)[i].resize(1);
+      (*groupPointer_)[i][0]=0;
+      }
+    spawnedObjects_.resize(4); // can currently spawn Interior, Separator and 
+                               // LocalSeparator objects and 
+                               // return a self-reference (All)    
+    spawnedMaps_.resize(4);
+    for (int i=0;i<spawnedObjects_.size();i++) spawnedObjects_[i]=Teuchos::null;
+    overlappingMap_=Teuchos::null;
+    }
+
   int HierarchicalMap::FillComplete()
     {
     for (int i=0;i<spawnedObjects_.size();i++) spawnedObjects_[i]=Teuchos::null;
@@ -121,19 +129,49 @@ namespace HYMLS {
       }
     int numel = all_gids.size();
     int *my_gids = numel>0? &(all_gids[0]) : NULL;
+    
+    // sort all elements groupwise in lexicographic ordering.
+    // Note that sorting sepnodes just puts them in the right
+    // group-wise ordering and in each group they sometimes become
+    // sorted in a strange way.
+    for (int sd=0;sd<NumMySubdomains();sd++)
+      {
+      for (int grp=0;grp<NumGroups(sd);grp++)
+        {
+        int len=NumElements(sd,grp);
+        Epetra_Util::Sort(true,len, my_gids + (*groupPointer_)[sd][grp],
+          0, NULL, 0, NULL);
+        }
+      }
+    
     overlappingMap_ = Teuchos::rcp(new Epetra_Map
         (-1,numel,my_gids,baseMap_->IndexBase(),*comm_));
-    gidList_ = Teuchos::null; // no longer needed
+    // we keep the gidLists so we can add more subdomains and groups
+    // and call FillComplete() again.
     all_gids.resize(0);
+    return 0;
+    }
+
+  int HierarchicalMap::FillStart()
+    {
+    // adjust the group pointer back to local indexing per subdomain
+    for (int sd=0;sd<NumMySubdomains();sd++)
+      {
+      if (sd>0)
+        {
+        for (int_i j=(*groupPointer_)[sd].begin();j!=(*groupPointer_)[sd].end();j++)
+          {
+          *j-=*((*groupPointer_)[sd-1].end()-1);
+          }
+        }
+      }
+    overlappingMap_ = Teuchos::null;
     return 0;
     }
 
   int HierarchicalMap::AddSubdomain(int min_id)
     {
-    if (Filled())
-      {
-      Tools::Error("object already filled",__FILE__,__LINE__);
-      }
+    if (Filled()) this->FillStart();
     int id = groupPointer_->size();
     if (id<min_id) id=min_id;
     groupPointer_->resize(id+1);
@@ -145,12 +183,11 @@ namespace HYMLS {
     
   int HierarchicalMap::AddGroup(int sd, Teuchos::Array<int>& gidList)
     {
-    if (Filled())
-      {
-      Tools::Error("object already filled",__FILE__,__LINE__);
-      }
+    if (Filled()) this->FillStart();
+
     if (sd>=groupPointer_->size())
       {
+      Tools::Warning("invalid subdomain index",__FILE__,__LINE__);
       return -1; //AddSubdomain has to be called to generate a valid sd
       }
     int offset=*((*groupPointer_)[sd].end()-1);
@@ -178,11 +215,6 @@ namespace HYMLS {
       os << "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"<<std::endl;
       os << std::endl;
       }
-
-//      os << "Parameter List: "<<std::endl;
-//      os << *params_<<std::endl;
-//      os << std::endl;
-//      os << "Partitioning object: "<<*partitioner_<<std::endl;
 
     for (int proc=0;proc<comm_->NumProc();proc++)
       {

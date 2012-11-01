@@ -147,7 +147,17 @@ class BasePartitioner
       }
     return 0;
     };
-      
+
+  //! advanced partiitoners may declare a partition to be a 'subcell', 
+  //! in which case it is treated differently when grouping separators.
+  //! the default implementation here just returns false.
+  //! input: global subdomain ID as returned by operator().
+  virtual bool IsSubCell(int gsid) const
+    {
+    return false;
+    }
+    
+  
   };
 
 }

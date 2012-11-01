@@ -157,6 +157,11 @@ private:
   //! reorder and group separators
   int GroupSeparators();
   
+  //! for sub-cells of subdomains, like e.g. the edges
+  //! in 3D Navier-Stokes, form the separators by     
+  //! copying them from neighboring subdomains
+  int FixSubCells();
+  
   //! build parallel graph after detecting separators
   Teuchos::RCP<Epetra_CrsGraph> CreateParallelGraph();
 
@@ -165,8 +170,7 @@ private:
   
   //! build initial vector with 0 (interior), 1 (separator) or 2 (retained
   int BuildInitialNodeTypeVector(const Epetra_CrsGraph& parallelGraph, 
-                                        Epetra_IntVector& nodeTypes,
-                                        int& num_retained) const;
+                                        Epetra_IntVector& nodeTypes) const;
 
   //! update the nodeType vector to look like this:
   //!   0 0 1 0 0
@@ -190,8 +194,7 @@ private:
   //! functionality.
   int DetectFCC(const Epetra_CrsGraph& parallelGraph, 
                       const Epetra_IntVector& p_nodeTypes,
-                            Epetra_IntVector& nodeTypes,
-                            int& num_retaineed) const;
+                            Epetra_IntVector& nodeTypes) const;
 
   //! Detect subdomains in which some separator variables can   
   //! be made 'interior' again. This is 3D Stokes-specific, in  
@@ -202,7 +205,12 @@ private:
   int DetectFCT(const Epetra_CrsGraph& parallelGraph, 
                       const Epetra_IntVector& p_nodeTypes,
                             Epetra_IntVector& nodeTypes) const;
-
+/*
+  //! fix nodeType of separators around FCTs
+  int CorrectFCT(const Epetra_CrsGraph& parallelGraph, 
+                      const Epetra_IntVector& p_nodeTypes,
+                            Epetra_IntVector& nodeTypes) const;
+*/
   //! form list with interior, separator and retained nodes for subdomain
   // sd. Links separators to subdomains.
   int BuildNodeLists(int sd, const Epetra_CrsGraph& parallelGraph, 
@@ -211,7 +219,18 @@ private:
                               Teuchos::Array<int>& interiorNodes,
                               Teuchos::Array<int>& separatorNodes,
                               Teuchos::Array<int>& retainedNodes) const;
-  
+/*
+  //! BuildNodeLists cannot be used for full conservation tubes (FCTs),
+  //! which occur on the edges of 3D Stokes subdomains. These should   
+  //! have the entire face separators as groups so that they are con-  
+  //! sistent with the subdomain grouping.
+  int BuildNodeLists2(int sd, const Epetra_CrsGraph& parallelGraph, 
+                              const Epetra_IntVector& nodeTypes,
+                              const Epetra_IntVector& p_nodeTypes,
+                              Teuchos::Array<int>& interiorNodes,
+                              Teuchos::Array<int>& separatorNodes,
+                              Teuchos::Array<int>& retainedNodes) const;
+*/  
   //! this is a helper function to associate separators with subdomains 
   //! correctly, in particular to find separator nodes in corners which 
   //! are not directly connected to any interior nodes of the subdomain.
