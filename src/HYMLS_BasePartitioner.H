@@ -77,11 +77,9 @@ class BasePartitioner
     {
     int gpid = -1;
     if (NumElements(sd)>0) gpid = (*this)(GID(sd,0));
-#ifdef TESTING
     if (gpid==-1) Tools::Error
-        ("partitioner function not implemented for the case of empty subdomains!",
+        ("partitioner function GPID not implemented for the case of empty subdomains!",
                 __FILE__,__LINE__);
-#endif    
     return gpid;        
     }
   
@@ -147,16 +145,6 @@ class BasePartitioner
       }
     return 0;
     };
-
-  //! advanced partiitoners may declare a partition to be a 'subcell', 
-  //! in which case it is treated differently when grouping separators.
-  //! the default implementation here just returns false.
-  //! input: global subdomain ID as returned by operator().
-  virtual bool IsSubCell(int gsid) const
-    {
-    return false;
-    }
-    
   
   };
 

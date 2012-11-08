@@ -143,57 +143,9 @@ public:
     {
     return overlappingMap_->GID(this->LID(sd,grp,j));
     }
-    
-  //@}
-  
-  //!\name data member access
-  //@{  
-    
-  //! get a reference to the non-overlapping map used inside this class
-  const Epetra_Map& Map() const 
-    {
-    return *baseMap_;
-    }
-
-  //! get a reference to the overlapping map used inside this class
-  const Epetra_Map& OverlappingMap() const 
-    {
-    return *overlappingMap_;
-    }
-
-
-  //! get a pointer to the non-overlapping map used inside this class
-  Teuchos::RCP<const Epetra_Map> GetMap() const 
-    {
-    return baseMap_;
-    }
-
-  //! get a reference to the overlapping map used inside this class
-  Teuchos::RCP<const Epetra_Map> GetOverlappingMap() const 
-    {
-    return overlappingMap_;
-    }
-
-  //!
-  Teuchos::RCP<Teuchos::Array<Teuchos::Array<int> > > GetGroupPointer() const
-    {
-    return groupPointer_;
-    }
-
-  //!
-  const Epetra_Comm& Comm() const {return *comm_;}
-
-  //!
-  Teuchos::RCP<const Epetra_Comm> GetComm() const {return comm_;}
-
-  //!
-  std::string Label() const {return label_;}
-  
-  //!
-  int Level() const {return myLevel_;}
   
   //@}
-  
+
   //! creates a 'next generation' object that retains certain nodes.
   
   /*!                                                                   
@@ -237,10 +189,68 @@ public:
   virtual Teuchos::RCP<const HierarchicalMap> Spawn(SpawnStrategy strat,
         Teuchos::RCP<Teuchos::Array<HYMLS::SepNode> > regroup=Teuchos::null) const;
 
-
   //! spawn a map containing all Interior or all Separator nodes belonging to one subdomain,
   //! or All nodes belonging to one subdomain.
   Teuchos::RCP<const Epetra_Map> SpawnMap(int sd, SpawnStrategy strat) const;
+  
+
+  //!\name data member access
+  //@{  
+  
+  //!
+  const Epetra_Comm& Comm() const {return *comm_;}
+
+  //!
+  std::string Label() const {return label_;}
+  
+  //! get a reference to the non-overlapping map used inside this class
+  const Epetra_Map& Map() const 
+    {
+    return *baseMap_;
+    }
+
+  //! get a reference to the overlapping map used inside this class
+  const Epetra_Map& OverlappingMap() const 
+    {
+    return *overlappingMap_;
+    }
+
+  //!
+  Teuchos::RCP<const Epetra_Comm> GetComm() const {return comm_;}
+
+  //!
+  int Level() const {return myLevel_;}
+  
+    
+  //! get a pointer to the non-overlapping map used inside this class
+  Teuchos::RCP<const Epetra_Map> GetMap() const 
+    {
+    return baseMap_;
+    }
+
+  //! get a reference to the overlapping map used inside this class
+  Teuchos::RCP<const Epetra_Map> GetOverlappingMap() const 
+    {
+    return overlappingMap_;
+    }
+
+  protected:
+
+  //! given a subdomain sd and a global node ID gid, return the local
+  //! group id in which the GID appears first, or -1 if it is not found
+  //! in this subdomain. We make this private because it is inefficient
+  //! if used excessively.
+  int GetGroupID(int sd, int gid) const;
+  
+
+
+  //!
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<int> > > GetGroupPointer() const
+    {
+    return groupPointer_;
+    }
+
+  //@}
   
   //! given a list of GIDs, returns a list of subdomains to which they belong
   int getSubdomainList(int num_gids, int* gids, int* sd) const;

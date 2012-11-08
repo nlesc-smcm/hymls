@@ -21,11 +21,14 @@ class Epetra_IntVector;
 namespace HYMLS {
 
 /*! This class offers an 'entrance point' to a hierarchy of
-    HierarchicalMaps. It constructs a interior/
-    separator ordering based on a problem-dependent graph. as it
-    inherits HierarchicalMap it can be used to 
-    create a hierarchical ordering by repeatedly calling the 
-    Spawn() function.
+    HierarchicalMaps. It constructs a interior/separator   
+    ordering based on the graph of the system matrix and a 
+    non-overlapping partitioning (BasePartitioner). As it  
+    inherits HierarchicalMap it can be used to create a    
+    hierarchical ordering by repeatedly calling the Spawn()
+    function. It also adds the SpawnNextLevel() function,  
+    which is specific for our solver and selects the V-sum 
+    nodes to form the next level object.
 */
 class OverlappingPartitioner: public HierarchicalMap,
                               public PLA
@@ -126,6 +129,7 @@ protected:
   //! If false, the graph of the original matrix is used, which 
   //! probably leads to lower quality partitioning and not to   
   //! grid-independent convergence.                             
+  //! TODO - this parameter is deprecated and should be removed.
   bool substituteGraph_;
   
   //! indicates the type of variables in the problem
@@ -145,30 +149,35 @@ protected:
   
 private:
   
-  //! partition - Cartesian
+  //! Step 1: non-overlapping partitioning
   int Partition();
 
   //! create graph to be used for identifying separators
+  //! this is now typically just the graph of the system
+  //! matrix.
   int CreateGraph();
 
-  //! construct overlapping maps after partitioning
+  //! Step 2: construct overlapping maps after partitioning
+  //! the result is a HierarchicalMap with three groups per
+  //! subdomain: interior, separator and retained.
   int DetectSeparators();
-  
-  //! reorder and group separators
-  int GroupSeparators();
-  
-  //! for sub-cells of subdomains, like e.g. the edges
-  //! in 3D Navier-Stokes, form the separators by     
-  //! copying them from neighboring subdomains
-  int FixSubCells();
-  
+
   //! build parallel graph after detecting separators
   Teuchos::RCP<Epetra_CrsGraph> CreateParallelGraph();
-
+  
+  //! Step 3: reorder and group separators. 
+  //! The result is a HierarchicalMap with a
+  //! group per subdomain for interior and a
+  //! group for each separator, e.g. for the
+  //! northern U-face separator, etc. and a 
+  //! separate group for each retained P-   
+  //! node.
+  int GroupSeparators();
+  
   //!\name functions called from DetectSeparators()
   //!@{
   
-  //! build initial vector with 0 (interior), 1 (separator) or 2 (retained
+  //! build initial vector with 0 (interior), 1 (separator) or 5 (retained P-node)
   int BuildInitialNodeTypeVector(const Epetra_CrsGraph& parallelGraph, 
                                         Epetra_IntVector& nodeTypes) const;
 
@@ -189,28 +198,24 @@ private:
                       const Epetra_IntVector& p_nodeTypes,
                             Epetra_IntVector& nodeTypes) const;
   
-  //! detect isolated P-nodes and mark the surrounding V-nodes
-  //! as '4' in the nodeType vector. This is Stokes-specific  
-  //! functionality.
+  //! detect isolated P-nodes and increase their nodeType and
+  //! that of the surrounding V-nodes by 1. This gives a 1 for
+  //! the P-node and a 2,3 or 4 for the V-nodes (in 3D).
   int DetectFCC(const Epetra_CrsGraph& parallelGraph, 
                       const Epetra_IntVector& p_nodeTypes,
                             Epetra_IntVector& nodeTypes) const;
 
   //! Detect subdomains in which some separator variables can   
   //! be made 'interior' again. This is 3D Stokes-specific, in  
-  //! which case the CartFlow partitioner provides the edge sub-
-  //! domains, which form 'full conservation tubes' (FCTs). The 
-  //! P-nodes and one of the velocity components in the interior
-  //! of such a tube can be eliminated.
+  //! domains, which case 'full conservation tubes' (FCTs) can  
+  //! be formed on the edges between 4 subdomains. The P-nodes  
+  //! and one of the velocity components in the interior of such
+  //! a tube can be eliminated (one P-node has to be retained,  
+  //! as usual).
   int DetectFCT(const Epetra_CrsGraph& parallelGraph, 
                       const Epetra_IntVector& p_nodeTypes,
                             Epetra_IntVector& nodeTypes) const;
-/*
-  //! fix nodeType of separators around FCTs
-  int CorrectFCT(const Epetra_CrsGraph& parallelGraph, 
-                      const Epetra_IntVector& p_nodeTypes,
-                            Epetra_IntVector& nodeTypes) const;
-*/
+
   //! form list with interior, separator and retained nodes for subdomain
   // sd. Links separators to subdomains.
   int BuildNodeLists(int sd, const Epetra_CrsGraph& parallelGraph, 
@@ -219,18 +224,7 @@ private:
                               Teuchos::Array<int>& interiorNodes,
                               Teuchos::Array<int>& separatorNodes,
                               Teuchos::Array<int>& retainedNodes) const;
-/*
-  //! BuildNodeLists cannot be used for full conservation tubes (FCTs),
-  //! which occur on the edges of 3D Stokes subdomains. These should   
-  //! have the entire face separators as groups so that they are con-  
-  //! sistent with the subdomain grouping.
-  int BuildNodeLists2(int sd, const Epetra_CrsGraph& parallelGraph, 
-                              const Epetra_IntVector& nodeTypes,
-                              const Epetra_IntVector& p_nodeTypes,
-                              Teuchos::Array<int>& interiorNodes,
-                              Teuchos::Array<int>& separatorNodes,
-                              Teuchos::Array<int>& retainedNodes) const;
-*/  
+
   //! this is a helper function to associate separators with subdomains 
   //! correctly, in particular to find separator nodes in corners which 
   //! are not directly connected to any interior nodes of the subdomain.

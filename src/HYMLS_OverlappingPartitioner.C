@@ -5,7 +5,6 @@
 #include "HYMLS_Tools.H"
 #include "HYMLS_BaseCartesianPartitioner.H"
 #include "HYMLS_CartesianPartitioner.H"
-#include "HYMLS_CartFlowPartitioner.H"
 
 #include "Epetra_Comm.h"
 #include "Epetra_SerialComm.h"
@@ -109,8 +108,10 @@ namespace HYMLS {
   this->DumpGraph();
 #endif
     CHECK_ZERO(this->DetectSeparators());
+    DEBVAR(*this);
     CHECK_ZERO(this->GroupSeparators());   
-    CHECK_ZERO(this->FixSubCells());
+    DEBVAR(*this);
+    return;
     }
     
   OverlappingPartitioner::~OverlappingPartitioner()
@@ -438,10 +439,6 @@ int OverlappingPartitioner::Partition()
     partitioner_=Teuchos::rcp(new CartesianPartitioner
         (GetMap(),nx_,ny_,nz_,dof_,perio_));
     }
-  else if (partitioningMethod_=="CartFlow")
-    {
-    partitioner_=Teuchos::rcp(new CartFlowPartitioner(GetMap(),nx_,ny_,nz_,dof_,perio_));
-    }
   else
     {
     Tools::Error("Up to now we only support Cartesian partitioning",__FILE__,__LINE__);
@@ -653,19 +650,6 @@ if (dim_>2 && dof_>1)
   this->PrintNodeTypeVector(*p_nodeType_,Tools::deb(),"with FCTs");
   }
 #endif
-/*
-  CHECK_ZERO(this->CorrectFCT(*parallelGraph_,*p_nodeType_, *nodeType_));
-
-  // import again
-  CHECK_ZERO(p_nodeType_->Import(*nodeType_,import,Insert));
-
-#ifdef DEBUGGING
-if (dim_>2 && dof_>1)
-  {
-  this->PrintNodeTypeVector(*p_nodeType_,Tools::deb(),"with corrected FCTs");
-  }
-#endif
-  */
   
   // put them into lists
  
@@ -676,69 +660,33 @@ if (dim_>2 && dof_>1)
   // nodes to be retained in the Schur complement (typically pressures)
   Teuchos::Array<int> retained_nodes;
 
-  // first we do all 'regular' subdomains and then the
-  // special ones (FCCs and FCTs for CartStokes partitioner)
+  // first we do all 'regular' subdomains.
+  // The special ones (FCCs and FCTs for CartStokes partitioner)
+  // are treated in FixSubCells() because they need the regular 
+  // subdomains to be finished already (FixSubCells is called   
+  // after GroupSeparators()).
   for (int sd=0;sd<partitioner_->NumLocalParts();sd++)
     {
-    int gsid = partitioner_->GPID(sd);
-    if (gsid<0) continue; // empty subdomain
-    if (partitioner_->IsSubCell(gsid)==false)
-      {
-      interior_nodes.resize(0);
-      separator_nodes.resize(0);
-      retained_nodes.resize(0);
-      CHECK_ZERO(this->BuildNodeLists(sd,*parallelGraph_, *nodeType_, *p_nodeType_,
-                interior_nodes, separator_nodes, retained_nodes));
+    interior_nodes.resize(0);
+    separator_nodes.resize(0);
+    retained_nodes.resize(0);
+    CHECK_ZERO(this->BuildNodeLists(sd,*parallelGraph_, *nodeType_, *p_nodeType_,
+              interior_nodes, separator_nodes, retained_nodes));
 
-      DEBVAR(sd);
-      DEBVAR(gsid);
-      DEBVAR(interior_nodes);
-      DEBVAR(separator_nodes);
-      DEBVAR(retained_nodes);
-    
-      // in this function we just form three groups per subdomain:
-      // interior, separator or retained. In GroupSeparators() this
-      // grouping is refined.
-      this->AddGroup(sd, interior_nodes);
-      this->AddGroup(sd, separator_nodes);
-      this->AddGroup(sd, retained_nodes);    
-      }
-    }
-/*
-  // the FCTs need a special treatment because their separators
-  // should match those of the surrounding subdomains. The     
-  // BuildNodeLists function used for subdomains constructs    
-  // thin separators, but we want the entire face separator al-
-  // so for the small tube-shaped subdomains on the edges.     
-  for (int sd=0;sd<partitioner_->NumLocalParts();sd++)
-    {
-    int gsid = partitioner_->GPID(sd);
-    if (gsid<0) continue; // empty subdomain
-    if (partitioner_->IsSubCell(gsid)==true)
-      {
-      interior_nodes.resize(0);
-      separator_nodes.resize(0);
-      retained_nodes.resize(0);
-      CHECK_ZERO(this->BuildNodeLists2(sd,*parallelGraph_, *nodeType_, *p_nodeType_,
-                interior_nodes, separator_nodes, retained_nodes));
+    DEBVAR(sd);
+    DEBVAR(interior_nodes);
+    DEBVAR(separator_nodes);
+    DEBVAR(retained_nodes);
 
-      DEBVAR(sd);
-      DEBVAR(gsid);
-      DEBVAR(interior_nodes);
-      DEBVAR(separator_nodes);
-      DEBVAR(retained_nodes);
-    
-      // in this function we just form three groups per subdomain:
-      // interior, separator or retained. In GroupSeparators() this
-      // grouping is refined.
-      this->AddGroup(sd, interior_nodes);
-      this->AddGroup(sd, separator_nodes);
-      this->AddGroup(sd, retained_nodes);    
-      }
+    // in this function we just form three groups per subdomain:
+    // interior, separator or retained. In GroupSeparators() this
+    // grouping is refined.
+    this->AddGroup(sd, interior_nodes);
+    this->AddGroup(sd, separator_nodes);
+    this->AddGroup(sd, retained_nodes);    
     }
-*/
-  // build the overlapping map, this means that we can't add more subdomains from now on,
-  // but we will manually re-arrange things and re-build the map then
+  // build the temporary map with three groups per regular subdomain
+  // (interior separator retained)
   CHECK_ZERO(this->FillComplete());
   
   REPORT_SUM_MEM(Label(),"map with overlap",0,OverlappingMap().NumMyElements(),GetComm());
@@ -944,12 +892,11 @@ if (dim_>2 && dof_>1)
       {
       int row=map.GID(i);
       int lrow = G.LRID(row);
-      int my_type = p_nodeType[lrow];
-      if (my_type==5)
+      int var_i=partitioner_->VariableType(row);
+      if (retainIsolated_[var_i]) 
         {
         CHECK_ZERO(G.ExtractMyRowView(lrow,len,cols));
-        /*
-        int var_i = partitioner_->VariableType(row);
+        
         int min_neighbor = 99;
         // check, for instance, if this edge separator node only connects to
         // other edge separator nodes, in which case it becomes a vertex. 
@@ -962,13 +909,6 @@ if (dim_>2 && dof_>1)
             }
           }//j
         if ((min_neighbor>0))
-        */
-        int numType3 = 0;
-        for (int j=0;j<len;j++)
-          {
-          if (p_nodeType[cols[j]]==dim_) numType3++;
-          }//j
-        if (numType3>=2)
           {
           DEBUG(" full conservation cell around p: "<<row);
 #ifdef DEBUGGING          
@@ -978,7 +918,8 @@ if (dim_>2 && dof_>1)
             Tools::deb() << p_map.GID(cols[j]) << " ";
             }
           Tools::deb() << std::endl;
-#endif          
+#endif
+          nodeType[i]++;
           // all surrounding (velocity) nodes
           // are to be retained. As this is a
           // row from the 'Div' part of the  
@@ -988,18 +929,18 @@ if (dim_>2 && dof_>1)
             {
             if (map.MyGID(p_map.GID(cols[j])))
               {
-              if (partitioner_->VariableType(p_map.GID(cols[j]))!=dim_)
-                {
-                nodeType[map.LID(p_map.GID(cols[j]))]=4;
-                }
-              else
-                {
 #ifdef TESTING
+              if (partitioner_->VariableType(G.GCID(cols[j]))>=dim_)
+                {
+                Tools::Warning("unexpected Div-row, we're assuming Stokes-type matrix here",
+                                __FILE__,__LINE__);
+                }
                 Tools::Warning("incorrect Div-row in Stokes matrix? Found a pressure!",
                         __FILE__,__LINE__);
 #endif              
-                }
+              nodeType[map.LID(p_map.GID(cols[j]))]++;
               }
+            /*
             else
               {
               // we would have to modify p_nodeType and then import it    
@@ -1011,14 +952,15 @@ if (dim_>2 && dof_>1)
               // situations I can think of these will be retained by the  
               // owning partiiton anyway because of a retained P-node in  
               // the adjacent cell.
-              }
+              }                           
+            */
             }
           }
         }
       }//i
     }//sd
     
-  return 0;  
+  return 0;
   }
 
   // Additional step for 3D Stokes - form full conservation tubes
@@ -1030,17 +972,28 @@ if (dim_>2 && dof_>1)
   if (dim_<3 || dof_<4) return 0;
   START_TIMER3(Label(),"DetectFCT");
 
-  // we currently have the following node types 
-  // (assuming that UpdateNodeTypeVector has been
-  // called twice and DetectFCC once)
-  // 0: interior
-  // 1: face separator node
-  // 2: edge separator node
-  // 3: corner. These become type 4 in case of Stokes, so they shouldn't be there, actually.
-  // 4: retained V-nodes. They can be clustered to form full conservation tubes.
-  //    Actual FCCs are put into single-cell subdomains by the CartStokes       
-  //    partitioner, so they can be treated alike.
-  // 5: retained P-node
+  // we currently have the following node types for
+  // V-nodes, assuming that UpdateNodeTypeVector 
+  // has been called twice and DetectFCC once.
+  //                            
+  // 0: interior                
+  // 1: face separator node     
+  // 2: and 3: edges            
+  // 4: these can be eliminated 
+  //    unless they connect to   
+  //    type 2 nodes.
+  //                            
+  // 1 1 2 3 1 1                
+  // 4 4 4 5 4 4                
+  // 1 1 2 3 1 1                
+  // 1 1 2 3 1 1                
+  // 1 1 2 3 1 1                
+  //                            
+  // For pressures we have type 5 for the P-node which is  
+  // retained per subdomain and type 1 in the edge separa- 
+  // tors and corners. A type 1 P-node can be eliminated   
+  // if it connects to two type 4 velocities.
+
   int MaxNumEntriesPerRow = G.MaxNumIndices();
   
   int *cols;
@@ -1049,158 +1002,73 @@ if (dim_>2 && dof_>1)
   const Epetra_BlockMap& map = nodeType.Map();
   const Epetra_BlockMap& p_map = p_nodeType.Map();
   
-  // for all V-nodes which are currently not marked 'interior',
+  // for all V-nodes which are currently marked 'retained',
   // make them interior if they only connect to local P-nodes  
   // and separator V-nodes
   for (int sd=0;sd<partitioner_->NumLocalParts();sd++)
     {
+    DEBVAR(sd);
     for (int i=partitioner_->First(sd); i<partitioner_->First(sd+1);i++)
       {
-      bool eliminate=true;
-      int type_i = nodeType[i];
-      if (type_i==2) //V-node on an edge separator
+      int row=map.GID(i);
+      bool eliminate=false;
+      bool retain=false;
+      int type_i = p_nodeType[p_map.LID(row)];
+      int var_i = partitioner_->VariableType(row);
+      if (var_i==dim_ && type_i==1) // candidate P-node for elimination
         {
-        int row=map.GID(i);
+        eliminate=true;
+        DEBUG("P-Node "<<partitioner_->GID(sd,i));
+        int lrow = G.LRID(row);
+        CHECK_ZERO(G.ExtractMyRowView(lrow,len,cols));
+        int numType4=0;
+        for (int j=0;j<len;j++)
+          {
+          if (p_nodeType[cols[j]]==4) numType4++;
+          }//j
+        DEBVAR(numType4);
+        eliminate= (numType4==2);
+        retain=!eliminate;
+        }
+      else if (type_i==4) //candidate V-node for elimination
+        {
+        eliminate=true;
+        DEBUG("V-Node "<<partitioner_->GID(sd,i));
         int lrow = G.LRID(row);
         int sd_i = (*partitioner_)(row);
         CHECK_ZERO(G.ExtractMyRowView(lrow,len,cols));
         for (int j=0;j<len;j++)
           {
+          DEBUG("\t"<<G.GCID(cols[j])<<" ["<<nodeType[map.LID(G.GCID(cols[j]))]<<"]")
+          int type_j = p_nodeType[cols[j]];
           int var_j = partitioner_->VariableType(G.GCID(cols[j]));
-          int sd_j  = (*partitioner_)(G.GCID(cols[j]));
-          if (var_j==dim_ && sd_i!=sd_j)
+          if (var_j==var_i)
             {
-            eliminate=false;
-            }
-          }//j
-#ifdef DEBUGGING
-        DEBVAR(row);
-        for (int j=0;j<len;j++)
-          {
-          int var_j = partitioner_->VariableType(G.GCID(cols[j]));
-          int sd_j  = (*partitioner_)(G.GCID(cols[j]));
-          if (var_j==dim_)
-            {
-            Tools::deb() << G.GCID(cols[j])<<" ";
-            }
-          }//j
-        Tools::deb() << std::endl;
-#endif
-        if (eliminate)
-          {
-          DEBUG("eliminate node "<<row<<" as interior");
-          nodeType[i]=0;
-          }
-        }//if
-      }//i
-    }//sd
-    
-  return 0;  
-  }
-
-  // after DetectFCT we get a situation like    
-  // this in the edge subdomains (FCTs):        
-  //   ---+---+---+                             
-  //   > o > o |...                             
-  //   ---+---+---+                             
-  //                                            
-  //   are eliminated as interior, and          
-  //                                            
-  //         >   >   |   |                      
-  //      -^-+-^-+-^-+---+                       
-  //       o |   |   *FCC|                      
-  //      -^-+-^-+-^-+---+                      
-  //         >   >   ?   |                      
-  //                                            
-  // are the separators. The u-node at (*)      
-  // is a type 4 (retained) node, and the       
-  // u-node at (?) is missed as a sep-node.     
-  // it is not included by FindMissing...       
-  // because it is a type 1 node, just          
-  // like the neighboring (>) nodes.            
-  //                                            
-/*               
-  int OverlappingPartitioner::CorrectFCT(
-                      const Epetra_CrsGraph& G, 
-                      const Epetra_IntVector& p_nodeType,
-                            Epetra_IntVector& nodeType) const
-  {
-  if (dim_<3 || dof_<4) return 0;
-  START_TIMER3(Label(),"CorrectFCT");
-
-  int MaxNumEntriesPerRow = G.MaxNumIndices();
-  
-  int *cols;
-  int len;
- 
-  const Epetra_BlockMap& map = nodeType.Map();
-  const Epetra_BlockMap& p_map = p_nodeType.Map();
-
-  // for all subdomains
-  for (int sd=0;sd<partitioner_->NumLocalParts();sd++)
-    {
-    // check if this is an FCT: true if interior V-nodes
-    // connect to 4+ separator nodes.
-    bool isFCT=true;
-    for (int i=partitioner_->First(sd); i<partitioner_->First(sd+1);i++)
-      {
-      int row=map.GID(i);
-      int var_i = partitioner_->VariableType(row);
-      int type_i = p_nodeType[p_map.LID(row)];
-      if (type_i==0 && var_i<dim_) // interior V-node
-        {
-        int count=0;
-        int lrow = G.LRID(row);
-        CHECK_ZERO(G.ExtractMyRowView(lrow,len,cols));
-        for (int j=0;j<len;j++)
-          {
-          int var_j = partitioner_->VariableType(G.GCID(cols[j]));
-          int type_j  = p_nodeType[p_map.LID(G.GCID(cols[j]))];
-          if (var_j==var_i && type_j>0)
-            {
-            count++;
-            }
-          }//j
-        if (count<4)
-          {
-          isFCT=false;
-          break;
-          }
-        }//if
-      }//i
-    if (isFCT)
-      {
-      DEBUG("subdomain "<<sd<<" is an FCC or FCT");
-      // change the nodeType of V-nodes connected to the
-      // single retained V-node at the end of the tube  
-      // from 1 to 2 so that it is treated correctly by 
-      // FindMissingSepNodes:
-      for (int i=partitioner_->First(sd); i<partitioner_->First(sd+1);i++)
-        {
-        int row=map.GID(i);
-        int var_i = partitioner_->VariableType(row);
-        int type_i = p_nodeType[p_map.LID(row)];
-        if (type_i==4 && var_i<dim_) // retained V-node
-          {
-          int lrow = G.LRID(row);
-          CHECK_ZERO(G.ExtractMyRowView(lrow,len,cols));
-          for (int j=0;j<len;j++)
-            {
-            int var_j = partitioner_->VariableType(G.GCID(cols[j]));
-            int type_j  = p_nodeType[p_map.LID(G.GCID(cols[j]))];
-            if (var_j==var_i && type_j==1)
+//            if (type_j!=1 && type_j!=4)
+            if (type_j==2)
               {
-              nodeType[cols[j]]++;
+              eliminate=false;
+              break;
               }
-            }//j
-          }
+            }
+          }//j
+        }//if 
+      if (eliminate)
+        {
+        DEBUG("eliminate node "<<partitioner_->GID(sd,i)<<" as interior");
+        nodeType[i]=0;
         }
-      }
+      if (retain)
+        {
+        DEBUG("retain node "<<partitioner_->GID(sd,i)<<" as single P-node");
+        nodeType[i]=5;
+        }
+      }//i
     }//sd
     
   return 0;  
   }
-*/
+
   //! form list with interior, separator and retained nodes for subdomain
   // sd. Links separators to subdomains.
   int OverlappingPartitioner::BuildNodeLists(int sd, 
@@ -1241,7 +1109,7 @@ if (dim_>2 && dof_>1)
     int row=partitioner_->Map().GID(i);
     int var_i = partitioner_->VariableType(row);
     // check for non-local separators of the subdomain
-    if (nodeType[i]==0 || nodeType[i]==5)
+    if (nodeType[i]==0)
       {
       // add any separator nodes on adjacent subdomains
       CHECK_ZERO(G.ExtractGlobalRowCopy(row,MaxNumEntriesPerRow,len,cols));
@@ -1250,8 +1118,7 @@ if (dim_>2 && dof_>1)
         int sd_j = (*partitioner_)(cols[j]);
         int var_j = partitioner_->VariableType(cols[j]);
         int nt_j = (*p_nodeType_)[p_map.LID(cols[j])];
-        //TODO - again, assuming var(dim)=P
-        if ((sd_j!=sd_i)&&(var_j!=dim_)&&nt_j>0)
+        if ((sd_j!=sd_i)&&(var_i==var_j)&&nt_j>0)
           {
           DEBUG("include "<<cols[j]<<" from "<<row);
           if (nt_j>=4)
@@ -1355,40 +1222,8 @@ if (dim_>2 && dof_>1)
   delete [] cols;  
   return 0;
   }
-/*
-  // form correct separator lists for FCTs.              
-  // This function is called after the regular subdomains
-  // have been formed, so we can access their separators.
-  int OverlappingPartitioner::BuildNodeLists2(int sd, 
-                              const Epetra_CrsGraph& G, 
-                              const Epetra_IntVector& nodeType,
-                              const Epetra_IntVector& p_nodeType,
-                              Teuchos::Array<int>& interior,
-                              Teuchos::Array<int>& separator,
-                              Teuchos::Array<int>& retained) const
-  {
-  START_TIMER3(Label(),"BuildNodeLists2");
 
-  // start out by building the regular 1-layer separators
-  CHECK_ZERO(BuildNodeLists(sd,G,nodeType,p_nodeType,
-        interior,separator,retained));
-
-  int my_sd = partitioner_->GPID(sd);
-  std::set<int> new_separator;
-
-  // for all separator nodes which are on a different subdomain
-  for (int_i i=separators.begin();i!=separators.end();i++)
-    {
-    if ((*partitioner_)(*i)!=my_sd)
-      {
-      // check
-      }
-    }
-
-  return 0;
-  }
-*/
-
+//
 int OverlappingPartitioner::FindMissingSepNodes
         (int my_sd, const Epetra_CrsGraph& G, const Epetra_IntVector& p_nodeType,
          const std::set<int>& in, std::set<int>& out) const
@@ -1407,7 +1242,7 @@ int OverlappingPartitioner::FindMissingSepNodes
     int sd_i = (*partitioner_)(*i);
     int type_i = p_nodeType[lid_i];
     int var_i = partitioner_->VariableType(*i);
-    for (std::set<int>::const_iterator j=i; j!=in.end();j++)
+    for (std::set<int>::const_iterator j=in.begin(); j!=in.end();j++)
       {
       if (*i!=*j)
         {
@@ -1416,10 +1251,21 @@ int OverlappingPartitioner::FindMissingSepNodes
         int type_j = p_nodeType[lid_j];
         int var_j = partitioner_->VariableType(*j);
         // a level 1 node can include level 2 nodes, but not level 0
-        // or 1 (and the same holds on each level).
-        if ((type_i==type_j || std::max(type_i,type_j)==4) && var_i==var_j)
+        // or 1 (and the same holds on each level). This results in 
+        // the corner being included in the subdomain for Laplace.  
+        // The isRetainedV statement fixes this for Stokes problems.
+        // The reason we need the corner is that node C connects to 
+        // separator nodes on various subdomains, and from each sub-
+        // domain the SC gets a contribution in the A22 block, so   
+        // each subdomain must have the C-node.                     
+        //                   |                  
+        //                   |                  
+        //         ----------C---------         
+        //                   |                  
+        //                   |                  
+        if (type_i==type_j && var_i==var_j) 
           {
-          DEBUG("\t check "<<*i<<" and "<<*j<<" ["<<type_j<<"]");
+          DEBUG("\t check "<<*i<<" ["<<type_i<<"] and "<<*j<<" ["<<type_j<<"]");
           CHECK_ZERO(G.ExtractMyRowView(lid_i,lenI,colsI));
           CHECK_ZERO(G.ExtractMyRowView(lid_j,lenJ,colsJ));
           for (int ii=0;ii<lenI;ii++)
@@ -1427,13 +1273,9 @@ int OverlappingPartitioner::FindMissingSepNodes
             int sd_ii = (*partitioner_)(G.GCID(colsI[ii]));
             int type_ii = p_nodeType[p_map.LID(G.GCID(colsI[ii]))];
             int var_ii = partitioner_->VariableType(G.GCID(colsI[ii]));
-            //TODO - the dim_ here is for Stokes, so here we assume
-            //       that the first variables are u,v[,w],p, which 
-            //       may not always be the case...
-            if (sd_ii!=my_sd && var_ii!=dim_)
+            if (sd_ii!=my_sd)
               {
-              if ((type_i<type_ii && type_ii< 4) ||
-                  (type_i== 4      && type_ii==4))
+              if ((type_i<type_ii))
                 {
                 for (int jj=0;jj<lenJ;jj++)
                   {
@@ -1471,7 +1313,7 @@ int OverlappingPartitioner::GroupSeparators()
     {
     Tools::Error("Separators not yet detected!",__FILE__,__LINE__);
     }
-  DEBVAR(*this);
+
   const Epetra_BlockMap& p_map = p_nodeType_->Map();
   
   // copy old data structures and reset base class (HierarchicalMap)
@@ -1495,13 +1337,6 @@ int OverlappingPartitioner::GroupSeparators()
     
   for (int sd=0;sd<partitioner_->NumLocalParts();sd++)
     {
-    // the subcells of the partitioning are parts with special
-    // rules, such as full conservation tubes in 3D Stokes, which
-    // need to copy their separator groups from the adjacent subdomains
-    // instead of trying to form their own separators. This is possible
-    // because they separate subdomains, actually.
-    if (partitioner_->IsSubCell(partitioner_->GPID(sd))) continue;
-
 #ifdef TESTING
     if (sd>=groupPointer->size())
       {
@@ -1531,7 +1366,7 @@ int OverlappingPartitioner::GroupSeparators()
     for (int i=0;i<numSepNodes;i++)
       {
       int row=overlappingMap->GID((*groupPointer)[sd][1]+i);
-      int myLevel = (*p_nodeType_)[p_map.LID(row)];
+      int type_i = (*p_nodeType_)[p_map.LID(row)];
 
       //DEBUG("Process node "<<i<<", GID "<<row);
       connectedSubs.resize(1);
@@ -1547,11 +1382,13 @@ int OverlappingPartitioner::GroupSeparators()
         {
         // We only consider edges to lower-level nodes here,
         // e.g. from face separators to interior, from 
-        // edges to faces and from vertices to edges.
-        if ((*p_nodeType_)[p_map.LID(cols[j])]<myLevel)
+        // edges to faces and from vertices to edges. We also
+        // skip edges to subcells (full conservation tubes in Stokes)
+        int type_j=(*p_nodeType_)[p_map.LID(cols[j])];
+        if (type_j<type_i)
           {
           int flow = partitioner_->flow(row,cols[j]);
-          
+
           // if the row and col are not in the same subdomain, multiply
           // the partition ID by +1 or -1, depending on the "direction of
           // flow" across the separator. If we don't do this, for periodic
@@ -1565,7 +1402,6 @@ int OverlappingPartitioner::GroupSeparators()
             int sign = flow/abs(flow);
             connectedSubs.append(sign*(*partitioner_)(cols[j]));
             }
-//          DEBVAR(connectedSubs);
           }// if nodeType
         }//j
       if (connectedSubs.length()==0)
@@ -1576,7 +1412,8 @@ int OverlappingPartitioner::GroupSeparators()
         // as other singletons around the same subdomain.
         connectedSubs.append(new_id++);
         }//if
-      int variableType=partitioner_->VariableType(row);
+      int variableType= type_i*10 +
+                        partitioner_->VariableType(row);
       SepNode S(row,connectedSubs,variableType);
       sepNodes[i]=S;
       }//i
@@ -1665,7 +1502,7 @@ int OverlappingPartitioner::GroupSeparators()
       if (sepNodes[i+1]!=sepNodes[i])
         {
         // new group starts, insert previous one
-        CHECK_ZERO(this->AddGroup(sd,gidList));
+        this->AddGroup(sd,gidList);
         gidList.resize(0);
         }
       }
@@ -1681,7 +1518,7 @@ int OverlappingPartitioner::GroupSeparators()
       {
       gidList[0]=retNodes[i].GID();
       this->AddGroup(sd,gidList);
-      }        
+      }//i
     }//sd
   
   sepNodes.resize(0);
@@ -1689,18 +1526,10 @@ int OverlappingPartitioner::GroupSeparators()
   
   // and rebuild map and global groupPointer
   CHECK_ZERO(this->FillComplete());
-  DEBVAR(*this);
 
   delete [] cols;
   return 0;
   }
-
-int OverlappingPartitioner::FixSubCells()
-  {
-  START_TIMER2(Label(),"FixSubCells");
-  return 0;
-  }
-
 
 Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLevel
         (Teuchos::RCP<const Epetra_RowMatrix> Ared, Teuchos::RCP<Teuchos::ParameterList> newList) const
@@ -1844,6 +1673,8 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
         Teuchos::rcp(new Epetra_CrsMatrix(Copy,*G_repart));
 //TODO - check how to do this with substituted graph. This is a new implementation because
 //       we had seg faults in Trilinos 10.x with using the OverlapGraph directly.
+//       Actually, we should kick out the whole 'substituteGraph' idea because it doesn't 
+//       work in multi-level mode
     if (substituteGraph_) 
         Tools::Error("graph substitution needs fix", __FILE__,__LINE__);
     CHECK_ZERO(Atest->Import(*matrix_,importRepart,Insert));
@@ -1901,7 +1732,8 @@ std::ostream& OverlappingPartitioner::PrintNodeTypeVector
           for (int v=0;v<dof_;v++)
             {
             gid=Tools::sub2ind(nx_,ny_,nz_,dof_,i,j,k,v);
-            lid = std::max(lid,nT.Map().LID(gid));
+            lid = nT.Map().LID(gid);
+            if (lid>=0) break;
             }
           if (lid>=0)
             {

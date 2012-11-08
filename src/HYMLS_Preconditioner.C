@@ -198,7 +198,7 @@ namespace HYMLS {
     Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
         partValidator = Teuchos::rcp(
                 new Teuchos::StringToIntegralParameterEntryValidator<int>(
-                    Teuchos::tuple<std::string>("Cartesian","CartFlow"),"Partitioner"));
+                    Teuchos::tuple<std::string>("Cartesian"),"Partitioner"));
     
     VPL().set("Partitioner", "Cartesian",
         "Type of partitioner to be used to define the subdomains",
@@ -1398,13 +1398,6 @@ int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& lis
     // rare case - only one subdomain. Do not retain a pressure point because there won't be 
     // aSchur-Complement
     bool no_SC = false;
-    if (precList.get("Partitioner","CartFlow")=="Cartesian")
-      {
-      Tools::Warning("Parameter 'Partitioner' has value 'Cartesian',\n"
-                     "this is adjusted to 'CartFlow' to ensure correct\n"
-                     "partitioning",__FILE__,__LINE__);
-      precList.set("Partitioner","CartFlow");                     
-      }
     int sx,sy,sz;
     if (precList.isParameter("Separator Length (x)"))
       {

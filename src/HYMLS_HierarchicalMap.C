@@ -105,6 +105,7 @@ namespace HYMLS {
 
   int HierarchicalMap::FillComplete()
     {
+    START_TIMER2(label_,"FillComplete");
     for (int i=0;i<spawnedObjects_.size();i++) spawnedObjects_[i]=Teuchos::null;
     for (int i=0;i<spawnedMaps_.size();i++)  
       {
@@ -154,13 +155,16 @@ namespace HYMLS {
 
   int HierarchicalMap::FillStart()
     {
+    START_TIMER2(label_,"FillStart");
     // adjust the group pointer back to local indexing per subdomain
     for (int sd=0;sd<NumMySubdomains();sd++)
       {
+      DEBVAR(sd);
       if (sd>0)
         {
         for (int_i j=(*groupPointer_)[sd].begin();j!=(*groupPointer_)[sd].end();j++)
           {
+          DEBVAR(*j);
           *j-=*((*groupPointer_)[sd-1].end()-1);
           }
         }
@@ -171,6 +175,7 @@ namespace HYMLS {
 
   int HierarchicalMap::AddSubdomain(int min_id)
     {
+    START_TIMER3(label_,"AddSubdomain");
     if (Filled()) this->FillStart();
     int id = groupPointer_->size();
     if (id<min_id) id=min_id;
@@ -183,6 +188,7 @@ namespace HYMLS {
     
   int HierarchicalMap::AddGroup(int sd, Teuchos::Array<int>& gidList)
     {
+    START_TIMER3(label_,"AddGroup");
     if (Filled()) this->FillStart();
 
     if (sd>=groupPointer_->size())
@@ -190,11 +196,17 @@ namespace HYMLS {
       Tools::Warning("invalid subdomain index",__FILE__,__LINE__);
       return -1; //AddSubdomain has to be called to generate a valid sd
       }
+      
+    DEBVAR(sd);
+    DEBVAR(gidList);
     int offset=*((*groupPointer_)[sd].end()-1);
     int len = gidList.size();
     (*groupPointer_)[sd].append(offset+len);
-    std::copy(gidList.begin(),gidList.end(),std::back_inserter((*gidList_)[sd]));
-    return 0;
+    if (len>0)
+      {
+      std::copy(gidList.begin(),gidList.end(),std::back_inserter((*gidList_)[sd]));
+      }
+    return (*groupPointer_)[sd].length()-1;
     }
 
   //! print domain decomposition to file
@@ -256,6 +268,29 @@ namespace HYMLS {
   return os;
   }
 
+  //! given a subdomain sd and a global node ID gid, return the local
+  //! group id in which the GID appears first, or -1 if it is not found
+  //! in this subdomain
+  int HierarchicalMap::GetGroupID(int sd, int gid) const
+    {
+    if (!Filled()) return -2;
+    if (sd>=NumMySubdomains()) return -3;
+    int group=-1; // if not found we return -1
+    for (int grp=0;grp<NumGroups(sd);grp++)
+      {
+      for (int i=0;i<NumElements(sd,grp);i++)
+        {
+        if (GID(sd,grp,i)==gid)
+          {
+          group=grp;
+          break;
+          }
+        }//i
+      if (group>=0) break;
+      }
+    return group;
+    }
+        
 
 Teuchos::RCP<const HierarchicalMap> 
 HierarchicalMap::Spawn(SpawnStrategy strat,
