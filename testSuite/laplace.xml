@@ -22,11 +22,11 @@
   <ParameterList name="Problem"><!--{-->
 
     <Parameter name="Equations" type="string" value="Laplace"/>
-    <Parameter name="Dimension" type="int" value="3"/>
+    <Parameter name="Dimension" type="int" value="2"/>
 
-    <Parameter name="nx" type="int" value="8"/>
-    <Parameter name="ny" type="int" value="8"/>
-    <Parameter name="nz" type="int" value="8"/>
+    <Parameter name="nx" type="int" value="16"/>
+    <Parameter name="ny" type="int" value="16"/>
+    <Parameter name="nz" type="int" value="1"/>
     
   </ParameterList><!--}-->
   
@@ -63,7 +63,7 @@
     
     <Parameter name="Partitioner" type="string" value="Cartesian"/>
 
-    <Parameter name="Visualize Solver" type="bool" value="0"/>
+    <Parameter name="Visualize Solver" type="bool" value="1"/>
         
     <Parameter name="Preconditioner Variant" type="string" value="Block Diagonal"/>
         
