@@ -521,7 +521,7 @@ int OverlappingPartitioner::Partition()
   //   domains                                                    
   // - the data layout becomes more favorable because the nodes   
   //   of a subdomain are contiguous in the partitioner's map.    
-  GetMap() = partitioner_->GetMap();
+  SetMap(partitioner_->GetMap());
 
 #ifdef DEBUGGING
 DEBUG("Partition numbers:");
@@ -1710,12 +1710,19 @@ int OverlappingPartitioner::DumpGraph() const
 std::ostream& OverlappingPartitioner::PrintNodeTypeVector
   (const Epetra_IntVector& nT,std::ostream& os,std::string label)
   {
+  START_TIMER2(Label(),"PrintNodeTypeVector");
+  os << "nodeType ("<<label<<")"<<std::endl;
+  
+  if (nT.Map().NumMyElements()==0) 
+    {
+    os << "[empty partition]"<<std::endl;
+    return os; 
+    }
   int imin,jmin,kmin,vmin,imax,jmax,kmax,vmax;
   int min_gid = nT.Map().MinMyGID();
   int max_gid = nT.Map().MaxMyGID();
   Tools::ind2sub(nx_,ny_,nz_,dof_,min_gid,imin,jmin,kmin,vmin);
   Tools::ind2sub(nx_,ny_,nz_,dof_,max_gid,imax,jmax,kmax,vmax);
-  os << "nodeType ("<<label<<")"<<std::endl;
   os << "partition: ["<<imin<<".."<<imax<<"]x["<<jmin<<".."<<jmax<<"]x["<<kmin<<".."<<kmax<<"]\n";
 
     os << "GIDs "<<std::endl;

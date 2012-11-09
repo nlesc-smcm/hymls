@@ -236,6 +236,13 @@ public:
 
   protected:
 
+  //! replace internal map. To be used with extreme care!
+  int SetMap(Teuchos::RCP<const Epetra_Map> map)
+    {
+    baseMap_=map;
+    return 0;
+    }
+
   //! given a subdomain sd and a global node ID gid, return the local
   //! group id in which the GID appears first, or -1 if it is not found
   //! in this subdomain. We make this private because it is inefficient
