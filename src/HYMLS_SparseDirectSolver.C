@@ -617,7 +617,7 @@ int SparseDirectSolver::ComputeScaling()
     // diagonal entry in A.
     for (int i=0;i<scaRight_->MyLength();i++)
       {
-      if ((*scaRight_)[i]<=HYMLS_SMALL_ENTRY)
+      if ((*scaRight_)[i]<=HYMLS_SMALL_ENTRY*dmax)
         {
         (*scaLeft_)[i] = dmax;
         (*scaRight_)[i] = dmax;

@@ -62,6 +62,7 @@ namespace HYMLS {
         sparseMatrixOT_(Teuchos::null),
         testVector_(testVector),
         matrix_(Teuchos::null),
+        tmpMatrix_(Teuchos::null),
         nextLevelHID_(Teuchos::null),
         linearRhs_(Teuchos::null), linearSol_(Teuchos::null),
         amActive_(true), haveBorder_(false),
@@ -252,10 +253,31 @@ namespace HYMLS {
         }
       if (SchurComplement_!=Teuchos::null)
         {
-        Teuchos::RCP<Epetra_FECrsMatrix> mat
-                = Teuchos::rcp(new Epetra_FECrsMatrix(Copy,*map_,32));
-        SchurComplement_->Construct(mat);
-        SchurMatrix_ = mat;
+        DEBUG("This is probably a one-level method.");
+        if (tmpMatrix_!=Teuchos::null) 
+          {
+          DEBUG("This is not the first call to InitializeCompute()");
+          // Check that the SchurMatrix_ was previously constructed 
+          // by this same function. As it is never passed out of the
+          // object we can adjust it in that case.
+          if (SchurMatrix_.get()!=tmpMatrix_.get())
+            {
+            Tools::Error("we seem to have both a SchurComplement object and a sparse\n"
+                         " matrix representation. This case is not allowed!",
+                         __FILE__,__LINE__);
+            }
+          }
+        else
+          {
+          DEBUG("This is the first call to InitializeCompute()");
+          tmpMatrix_ = Teuchos::rcp(new Epetra_FECrsMatrix(Copy,*map_,32));
+          }
+        SchurComplement_->Construct(tmpMatrix_);
+        if (SchurMatrix_.get()!=tmpMatrix_.get())
+          {
+          DEBUG("Set Pointer.");
+          SchurMatrix_ = tmpMatrix_;
+          }
         }
 #ifdef STORE_MATRICES
       HYMLS::MatrixUtils::Dump(*SchurMatrix_,"FinalSC.txt");
@@ -330,9 +352,10 @@ namespace HYMLS {
     {
     for (int i=0;i<fix_gid_.length();i++)
       {
+      DEBUG("set Dirichlet node "<<fix_gid_[i]);
       CHECK_ZERO(MatrixUtils::PutDirichlet(*reducedSchur_,fix_gid_[i]));
       }
-    }      
+    }
 
     // compute scaling for reduced Schur
     CHECK_ZERO(ComputeScaling(*reducedSchur_,reducedSchurScaLeft_,reducedSchurScaRight_));
@@ -341,7 +364,7 @@ namespace HYMLS {
     CHECK_ZERO(reducedSchur_->LeftScale(*reducedSchurScaLeft_));
     CHECK_ZERO(reducedSchur_->RightScale(*reducedSchurScaRight_));
 
-    DEBUG("reindex matrix");
+    DEBUG("reindex matrix to linear indexing");
     linearMatrix_ = Teuchos::rcp(&((*reindexA_)(*reducedSchur_)),false);
 
     // passed to direct solver - depends on what exactly we do
@@ -352,15 +375,21 @@ namespace HYMLS {
     if (restrictA_==Teuchos::null)
       {
       restrictA_ = Teuchos::rcp(new EpetraExt::RestrictedCrsMatrixWrapper());
-      //CHECK_ZERO(restrictA_->restrict_comm(linearMatrix_));      
-      // TODO - bug in Trilinos 10.10, uninitialized return. CHECK_ZERO when fixed.
-      restrictA_->restrict_comm(linearMatrix_);
-      amActive_=restrictA_->RestrictedProcIsActive();
       restrictX_ = Teuchos::rcp(new EpetraExt::RestrictedMultiVectorWrapper());
       restrictB_ = Teuchos::rcp(new EpetraExt::RestrictedMultiVectorWrapper());
-      restrictX_->SetMPISubComm(restrictA_->GetMPISubComm());
-      restrictB_->SetMPISubComm(restrictA_->GetMPISubComm());
       }
+      // we have to restrict_comm again because the pointer is no longer
+      // valid, it seems
+#ifdef OLD_TRILINOS      
+    // bug in Trilinos 10.10, uninitialized return
+    restrictA_->restrict_comm(linearMatrix_);
+#else
+    CHECK_ZERO(restrictA_->restrict_comm(linearMatrix_));      
+#endif
+    amActive_=restrictA_->RestrictedProcIsActive();
+    restrictX_->SetMPISubComm(restrictA_->GetMPISubComm());
+    restrictB_->SetMPISubComm(restrictA_->GetMPISubComm());
+
     restrictedMatrix_=restrictA_->RestrictedMatrix();
     int reducedNumProc = -1;
       if (restrictA_->RestrictedProcIsActive())
@@ -375,8 +404,10 @@ namespace HYMLS {
       {
       PL().sublist("Coarse Solver").set("MaxProcs",reducedNumProc);
       }
+    DEBUG("next SC defined as restricted linear-index matrix");
     S2=restrictedMatrix_;
 #else
+    DEBUG("next SC defined as linear-index matrix");
     S2=linearMatrix_;
     amActive_=true;
 #endif
@@ -423,16 +454,15 @@ DEBVAR(*borderC_);
       {
       if (S2==Teuchos::null)
         {
-        Tools::Error("failed to select matrix for next level",__FILE__,__LINE__);
+        Tools::Error("failed to select matrix for coarsest level",__FILE__,__LINE__);
         }
-
       reducedSchurSolver_= Teuchos::rcp(new Ifpack_Amesos(S2.get()));
       CHECK_ZERO(reducedSchurSolver_->SetParameters(amesosList));
       DEBUG("Initialize direct solver");
       CHECK_ZERO(reducedSchurSolver_->Initialize());
-      }  
+      }
     }
-  else
+  else // not on coarsest level
     {
 #if defined(STORE_MATRICES)
     // dump a reordering for the Schur-complement (for checking in MATLAB)
@@ -550,7 +580,7 @@ DEBVAR(*borderC_);
         = reducedSchur_;
       if (myLevel_==maxLevel_)
         {
-//        dumpMatrix = linearMatrix_;
+        dumpMatrix = linearMatrix_;
         }
         MatrixUtils::Dump(*dumpMatrix,"BadMatrix"+Teuchos::toString(myLevel_)+".txt");
 #endif      
@@ -1386,7 +1416,7 @@ if (dumpVectors_)
 if (dumpVectors_)
   {
   MatrixUtils::Dump(*(Y(0)),"SchurPreconditioner"+Teuchos::toString(myLevel_)+"_Sol.txt");
-  dumpVectors_=false;
+//  dumpVectors_=false;
   }
 #endif
       
@@ -1630,22 +1660,26 @@ int SchurPreconditioner::ComputeScaling(const Epetra_CrsMatrix& A,
     
   sca_left->PutScalar(1.0);
   sca_right->PutScalar(1.0);
-
-  return 0; //TODO: at the moment there is no scaling of the reduced (Vsum) SC
-
+  return 0; // this causes problems with the 1-level method for Stokes at 128x128,
+            // the scaling should be looked at (TODO)
   Epetra_Vector diagA(A.RowMap());
   
   CHECK_ZERO(A.ExtractDiagonalCopy(diagA));
   CHECK_ZERO(diagA.Abs(diagA));
-
+  double dmax;
+  CHECK_ZERO(diagA.MaxValue(&dmax));
+  // for saddle point matrices, this gets us 
+  // similarly sized entries in the A and B part.
   for (int i=0;i<diagA.MyLength();i++)
     {
-    if (diagA[i]>1e-8)
+    if (diagA[i]<dmax*HYMLS_SMALL_ENTRY)
       {
-      (*sca_left)[i] = 1.0/diagA[i];
+      (*sca_left)[i] = dmax;
+      (*sca_right)[i] = dmax;
       }
     }
-
+// this is old stuff
+#if 0
   if (hid_!=Teuchos::null)
     {
     const BasePartitioner& BP = hid_->Partitioner();
@@ -1673,6 +1707,7 @@ int SchurPreconditioner::ComputeScaling(const Epetra_CrsMatrix& A,
         }
       }
     }
+#endif    
   //MatrixUtils::Dump(*sca_left, "left_scale.txt");
   //MatrixUtils::Dump(*sca_right, "right_scale.txt");
   

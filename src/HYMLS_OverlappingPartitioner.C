@@ -935,8 +935,6 @@ if (dim_>2 && dof_>1)
                 Tools::Warning("unexpected Div-row, we're assuming Stokes-type matrix here",
                                 __FILE__,__LINE__);
                 }
-                Tools::Warning("incorrect Div-row in Stokes matrix? Found a pressure!",
-                        __FILE__,__LINE__);
 #endif              
               nodeType[map.LID(p_map.GID(cols[j]))]++;
               }

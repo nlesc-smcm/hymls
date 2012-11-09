@@ -6,9 +6,9 @@
   <ParameterList name="Driver">
 
     <!-- will create a series of slightly perturbed matrices -->
-    <Parameter name="Number of factorizations" type="int" value="1"/>
+    <Parameter name="Number of factorizations" type="int" value="2"/>
     <!-- for each matrix, solve with several right-hand sides in a row -->
-    <Parameter name="Number of solves" type="int" value="1"/>
+    <Parameter name="Number of solves" type="int" value="2"/>
     <Parameter name="Diagonal Perturbation" type="double" value="0.0"/>
   
     <Parameter name="Store Solution" type="bool" value="1"/>
@@ -16,7 +16,7 @@
     
     <Parameter name="Read Linear System" type="bool" value="1"/>
     <Parameter name="Data Directory" type="string" 
-    value="data/DrivenCavity/64x64/Re0"/>
+    value="data/DrivenCavity/128x128/Re0"/>
     <Parameter name="File Format" type="string" value="MatrixMarket"/>
     <Parameter name="Exact Solution Available" type="bool" value="1"/>
     
@@ -29,8 +29,8 @@
     <Parameter name="Equations" type="string" value="Stokes-C"/>
     <Parameter name="Dimension" type="int" value="2"/>
 
-    <Parameter name="nx" type="int" value="64"/>
-    <Parameter name="ny" type="int" value="64"/>
+    <Parameter name="nx" type="int" value="128"/>
+    <Parameter name="ny" type="int" value="128"/>
     <Parameter name="nz" type="int" value="1"/>
         
   </ParameterList><!--}-->
@@ -45,7 +45,7 @@
     <ParameterList name="Iterative Solver">
       <Parameter name="Maximum Iterations" type="int" value="250"/>
       <Parameter name="Maximum Restarts" type="int" value="1"/>
-      <Parameter name="Convergence Tolerance" type="double" value="1.0e-10"/>
+      <Parameter name="Convergence Tolerance" type="double" value="1.0e-12"/>
       <Parameter name="Flexible Gmres" type="bool" value="0"/>
       <Parameter name="Output Frequency" type="int" value="1"/>
       <Parameter name="Show Maximum Residual Norm Only" type="bool" value="1"/>
@@ -72,7 +72,7 @@
     <!-- number of levels to be created (1: direct solver for Schur complement, -->
     <!-- 2: solve Schur iteratively and reduced Schur directly,                 -->
     <!-- >2: not implemented.                                                   -->
-    <Parameter name="Number of Levels" type="int" value="2"/>
+    <Parameter name="Number of Levels" type="int" value="1"/>
     
     <Parameter name="Scale Schur-Complement" type="bool" value="0"/>
     

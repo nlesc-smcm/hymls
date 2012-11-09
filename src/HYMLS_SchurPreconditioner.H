@@ -237,6 +237,9 @@ protected:
   //! sparse matrix representation of the SC operator we want to precondition.
   //! May be null if a SchurComplement object is passed in.
   Teuchos::RCP<const Epetra_CrsMatrix> SchurMatrix_;
+
+  //! for internal use in case of 1-level method
+  Teuchos::RCP<Epetra_FECrsMatrix> tmpMatrix_;
   
   //! original SC object, may be null if a matrix is passed in.
   Teuchos::RCP<const SchurComplement> SchurComplement_;
