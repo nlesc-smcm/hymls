@@ -619,14 +619,30 @@ if (dim_>2)
   //           |   |                                                          
   //           |   |                                                          
   //                                                                          
-  CHECK_ZERO(this->DetectFCC(*parallelGraph_,*p_nodeType_, *nodeType_));
+  // We increase the nodeType of all variables around such a cell by one. For 
+  // the parallel 3D case we need to do this consistently, for instance the   
+  // u-node at the right cell boundary has to be increaqsed by +1 for the FCC 
+  // in the corner and by +1 by the adjacent cell, which is on a different    
+  // processor, possibly. So we introduce an extra vector here.               
+  Epetra_IntVector p_updateNT(p_nodeType_->Map());
+  Epetra_IntVector updateNT(nodeType_->Map());
+  CHECK_ZERO(p_updateNT.PutValue(0));
+  CHECK_ZERO(this->DetectFCC(*parallelGraph_,*p_nodeType_, p_updateNT));
 
-  // import again
+  CHECK_ZERO(updateNT.Export(p_updateNT,import,Add));
+
+  // add update
+  for (int i=0;i<nodeType_->MyLength();i++)
+    {
+    (*nodeType_)[i]+=updateNT[i];
+    }
+
   CHECK_ZERO(p_nodeType_->Import(*nodeType_,import,Insert));
 
 #ifdef DEBUGGING
 if (dof_>1)
   {
+  this->PrintNodeTypeVector(p_updateNT,Tools::deb(),"FCC update");
   this->PrintNodeTypeVector(*p_nodeType_,Tools::deb(),"with FCCs");
   }
 #endif
@@ -873,9 +889,9 @@ if (dim_>2 && dof_>1)
 
   //! detect isolated P-nodes and form full conservation cells
   int OverlappingPartitioner::DetectFCC(
-                      const Epetra_CrsGraph& G, 
+                      const Epetra_CrsGraph& G,
                       const Epetra_IntVector& p_nodeType,
-                            Epetra_IntVector& nodeType) const
+                            Epetra_IntVector& p_update) const
   {
   START_TIMER3(Label(),"DetectFCC");
   
@@ -883,15 +899,18 @@ if (dim_>2 && dof_>1)
   
   int *cols;
   int len;
- 
-  const Epetra_BlockMap& map = nodeType.Map();
+
+  // map of partitioner_ and nodeType_
+  const Epetra_BlockMap& map = partitioner_->Map();
+  // (row-)map of parallelGraph_ (=G) and p_nodeType/p_update
   const Epetra_BlockMap& p_map = p_nodeType.Map();
+
   for (int sd=0;sd<partitioner_->NumLocalParts();sd++)
     {
     for (int i=partitioner_->First(sd); i<partitioner_->First(sd+1);i++)
       {
-      int row=map.GID(i);
-      int lrow = G.LRID(row);
+      int row=partitioner_->GID(sd,i);
+      int lrow = p_map.LID(row);
       int var_i=partitioner_->VariableType(row);
       if (retainIsolated_[var_i]) 
         {
@@ -902,10 +921,11 @@ if (dim_>2 && dof_>1)
         // other edge separator nodes, in which case it becomes a vertex. 
         for (int j=0;j<len;j++)
           {
-          int var_j = partitioner_->VariableType(G.GCID(cols[j]));
-          if (G.GCID(cols[j])!=row)
+          int gcid=G.GCID(cols[j]);
+          int var_j = partitioner_->VariableType(gcid);
+          if (gcid!=row)
             {
-            min_neighbor=std::min(min_neighbor,p_nodeType[cols[j]]);
+            min_neighbor=std::min(min_neighbor,p_nodeType[p_map.LID(gcid)]);
             }
           }//j
         if ((min_neighbor>0))
@@ -915,11 +935,11 @@ if (dim_>2 && dof_>1)
           Tools::deb() << "Div-row: ";
           for (int j=0;j<len;j++)
             {
-            Tools::deb() << p_map.GID(cols[j]) << " ";
+            Tools::deb() << G.GCID(cols[j]) << " ";
             }
           Tools::deb() << std::endl;
 #endif
-          nodeType[i]++;
+          p_update[p_map.LID(row)]++;
           // all surrounding (velocity) nodes
           // are to be retained. As this is a
           // row from the 'Div' part of the  
@@ -927,18 +947,18 @@ if (dim_>2 && dof_>1)
           // tions to velocities.            
           for (int j=0;j<len;j++)
             {
-            if (map.MyGID(p_map.GID(cols[j])))
+            int gcid=G.GCID(cols[j]);
+            if (p_map.MyGID(gcid))
               {
 #ifdef TESTING
-              if (partitioner_->VariableType(G.GCID(cols[j]))>=dim_)
+              if (partitioner_->VariableType(gcid)>=dim_)
                 {
                 Tools::Warning("unexpected Div-row, we're assuming Stokes-type matrix here",
                                 __FILE__,__LINE__);
                 }
 #endif              
-              nodeType[map.LID(p_map.GID(cols[j]))]++;
+              p_update[p_map.LID(gcid)]++;
               }
-            /*
             else
               {
               // we would have to modify p_nodeType and then import it    
@@ -950,8 +970,8 @@ if (dim_>2 && dof_>1)
               // situations I can think of these will be retained by the  
               // owning partiiton anyway because of a retained P-node in  
               // the adjacent cell.
-              }                           
-            */
+              Tools::Error("incorrect parallel graph",__FILE__,__LINE__);
+              }
             }
           }
         }

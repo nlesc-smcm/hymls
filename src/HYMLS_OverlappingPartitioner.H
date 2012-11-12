@@ -200,10 +200,13 @@ private:
   
   //! detect isolated P-nodes and increase their nodeType and
   //! that of the surrounding V-nodes by 1. This gives a 1 for
-  //! the P-node and a 2,3 or 4 for the V-nodes (in 3D).
+  //! the P-node and a 2,3 or 4 for the V-nodes (in 3D). As the
+  //! increments may come from different processors, we need to
+  //! put them into a separate vector and perform an Import-Add
+  //! operation to get the correct values in parallel.
   int DetectFCC(const Epetra_CrsGraph& parallelGraph, 
                       const Epetra_IntVector& p_nodeTypes,
-                            Epetra_IntVector& nodeTypes) const;
+                            Epetra_IntVector& p_update) const;
 
   //! Detect subdomains in which some separator variables can   
   //! be made 'interior' again. This is 3D Stokes-specific, in  
