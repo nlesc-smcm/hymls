@@ -909,7 +909,7 @@ if (dim_>2 && dof_>1)
     {
     for (int i=partitioner_->First(sd); i<partitioner_->First(sd+1);i++)
       {
-      int row=partitioner_->GID(sd,i);
+      int row=map.GID(i);
       int lrow = p_map.LID(row);
       int var_i=partitioner_->VariableType(row);
       if (retainIsolated_[var_i]) 
