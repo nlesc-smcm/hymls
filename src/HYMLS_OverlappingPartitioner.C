@@ -642,7 +642,6 @@ if (dim_>2)
 #ifdef DEBUGGING
 if (dof_>1)
   {
-  this->PrintNodeTypeVector(p_updateNT,Tools::deb(),"FCC update");
   this->PrintNodeTypeVector(*p_nodeType_,Tools::deb(),"with FCCs");
   }
 #endif
@@ -854,21 +853,22 @@ if (dim_>2 && dof_>1)
       // other edge separator nodes, in which case it becomes a vertex. To
       for (int j=0;j<len;j++)
         {
+        int gcid = G.GCID(cols[j]);
 #ifdef TESTING
-        if (p_map.LID(G.GCID(cols[j]))==-1)
+        if (p_map.LID(gcid)==-1)
           {
           std::string msg="parallel map used does not contain all necessary nodes, node "
-          +Teuchos::toString(G.GCID(cols[j]))+" not found on processor "
+          +Teuchos::toString(gcid)+" not found on processor "
           +Teuchos::toString(Comm().MyPID());
           Tools::Error(msg,__FILE__,__LINE__);
           }
 #endif
-        int var_j = partitioner_->VariableType(G.GCID(cols[j]));
-        if (G.GCID(cols[j])!=row)
+        int var_j = partitioner_->VariableType(gcid);
+        if (gcid!=row)
           {
           if (var_i==var_j)
             {
-            min_neighbor=std::min(min_neighbor,p_nodeType[cols[j]]);
+            min_neighbor=std::min(min_neighbor,p_nodeType[p_map.LID(gcid)]);
             }
           }
         }//j
