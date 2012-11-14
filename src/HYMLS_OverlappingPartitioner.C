@@ -948,29 +948,25 @@ if (dim_>2 && dof_>1)
           for (int j=0;j<len;j++)
             {
             int gcid=G.GCID(cols[j]);
-            if (p_map.MyGID(gcid))
+            if (partitioner_->VariableType(gcid)<dim_)
               {
-#ifdef TESTING
-              if (partitioner_->VariableType(gcid)>=dim_)
+              if (p_map.MyGID(gcid))
                 {
-                Tools::Warning("unexpected Div-row, we're assuming Stokes-type matrix here",
-                                __FILE__,__LINE__);
+                p_update[p_map.LID(gcid)]++;
                 }
-#endif              
-              p_update[p_map.LID(gcid)]++;
-              }
-            else
-              {
-              // we would have to modify p_nodeType and then import it    
-              // back to nodeType. For our applications this occurs e.g.  
-              // in parallel 3D NS simulations where the P-nodes on 'line-
-              // separators' (separating 4 subdomains) are retained and   
-              // therefore velocities on a different partition have to be 
-              // retained in the next Schur-Complement. However, in all   
-              // situations I can think of these will be retained by the  
-              // owning partiiton anyway because of a retained P-node in  
-              // the adjacent cell.
-              Tools::Error("incorrect parallel graph",__FILE__,__LINE__);
+              else
+                {
+                // we would have to modify p_nodeType and then import it    
+                // back to nodeType. For our applications this occurs e.g.  
+                // in parallel 3D NS simulations where the P-nodes on 'line-
+                // separators' (separating 4 subdomains) are retained and   
+                // therefore velocities on a different partition have to be 
+                // retained in the next Schur-Complement. However, in all   
+                // situations I can think of these will be retained by the  
+                // owning partiiton anyway because of a retained P-node in  
+                // the adjacent cell.
+                Tools::Error("incorrect parallel graph",__FILE__,__LINE__);
+                }
               }
             }
           }
@@ -996,7 +992,7 @@ if (dim_>2 && dof_>1)
   //                            
   // 0: interior                
   // 1: face separator node     
-  // 2: and 3: edges            
+  // 2 and 3: edges            
   // 4: these can be eliminated 
   //    unless they connect to   
   //    type 2 nodes.
@@ -1010,7 +1006,24 @@ if (dim_>2 && dof_>1)
   // For pressures we have type 5 for the P-node which is  
   // retained per subdomain and type 1 in the edge separa- 
   // tors and corners. A type 1 P-node can be eliminated   
-  // if it connects to two type 4 velocities.
+  // if it connects to two type 4 velocities.              
+  //                                                       
+  // On the next level it becomes less structured, 2 and 3 
+  // nodes and 4 and 5 nodes aren't found in the same pat- 
+  // tern anymore. We get, for instance:                   
+  //                       
+  //     1       1       1 
+  // 1 1 1   2 2 1   1 1 1 
+  // 1 1     2 3     1 1   
+  //                       
+  //     1       1       1 
+  // 1 1 1   2 2 1   1 1 1 
+  // 4 4     4 4     4 4   
+  //                       
+  //     1       1       1 
+  // 1 1 1   2 2 1   1 1 1 
+  // 1 1     2 3     1 1   
+  //                       
 
   int MaxNumEntriesPerRow = G.MaxNumIndices();
   
