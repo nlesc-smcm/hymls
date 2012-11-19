@@ -1388,7 +1388,7 @@ int OverlappingPartitioner::FindMissingSepNodes
     int sd_i = (*partitioner_)(*i);
     int type_i = p_nodeType[lid_i];
     int var_i = partitioner_->VariableType(*i);
-    for (std::set<int>::const_iterator j=in.begin(); j!=in.end();j++)
+    for (std::set<int>::const_iterator j=i; j!=in.end();j++)
       {
       if (*i!=*j)
         {
