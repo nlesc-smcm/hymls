@@ -1,4 +1,4 @@
-
+//#include "HYMLS_no_debug.H"
 
 #include "HYMLS_SchurComplement.H"
 #include "HYMLS_OverlappingPartitioner.H"
@@ -332,7 +332,7 @@ namespace HYMLS {
         }
       }
     
-    DEBUG("Apply A11 inverse...");
+//    DEBUG("Apply A11 inverse...");
 #ifdef FLOPS_COUNT    
     double flopsOld=A11.ApplyInverseFlops();
 #endif
@@ -362,7 +362,7 @@ namespace HYMLS {
 #endif
     // re-index and put into final block
     
-    DEBUG("Copy into Sk matrix");
+//    DEBUG("Copy into Sk matrix");
     for (int i=0;i<nrows;i++)
       {
       int lrid = mother_->Map2(sd).LID(inds[i]);
@@ -374,7 +374,7 @@ namespace HYMLS {
 
     A11.SetNumVectors(1);
     
-    DEBUG("Block constructed successfully!");
+//    DEBUG("Block constructed successfully!");
 #ifdef FLOPS_COUNT
     if (count_flops!=NULL) *count_flops+=flops;
 #endif

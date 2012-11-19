@@ -1,3 +1,5 @@
+//#include "HYMLS_no_debug.H"
+
 #include "HYMLS_Householder.H"
 #include "HYMLS_Tools.H"
 #include "Epetra_SerialDenseMatrix.h"
@@ -7,9 +9,6 @@
 #include "HYMLS_MatrixUtils.H"
 #include "Epetra_RowMatrixTransposer.h"
 #include "Epetra_MultiVector.h"
-
-//#undef DEBUG
-//#define DEBUG(s) std::cout << (s) << std::endl;
 
 namespace HYMLS {
 

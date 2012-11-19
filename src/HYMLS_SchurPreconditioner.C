@@ -1,4 +1,5 @@
 #define RESTRICT_ON_COARSE_LEVEL
+//#include "HYMLS_no_debug.H"
 
 #include "HYMLS_SchurPreconditioner.H"
 
@@ -344,9 +345,12 @@ namespace HYMLS {
     // scale the matrix.
 #ifdef TESTING
       Tools::Out("drop on coarsest level");
-#endif      
+#endif
+
     reducedSchur_ = MatrixUtils::DropByValue(SchurMatrix_, 
         HYMLS_SMALL_ENTRY, MatrixUtils::Absolute);
+
+  reducedSchur_->SetLabel(("Coarsest Matrix (level "+Teuchos::toString(myLevel_+1)+")").c_str());
 
   if (!HaveBorder())
     {
@@ -546,11 +550,7 @@ DEBVAR(*borderC_);
   //  DropByValue before going to the next level. Careful about
   //  the pointer, though, which is shared with the next level 
   //  solver...
-  
-  // this step may be necessary if the subdomain solver requires numerical
-  // zeros to be removed physically from the saddlepoint problem on the next
-  // level, for now we disable it to save some time end space.
-/*
+
 #ifdef TESTING
   Tools::Out("drop before going to next level");
 #endif
@@ -558,8 +558,6 @@ DEBVAR(*borderC_);
         HYMLS_SMALL_ENTRY, MatrixUtils::Absolute);
   *reducedSchur_ = *tmp; 
   tmp=Teuchos::null;
-*/
-
   
 #ifdef STORE_MATRICES
     MatrixUtils::Dump(*reducedSchur_,"ReducedSchur"+Teuchos::toString(myLevel_)+".txt");
@@ -839,7 +837,7 @@ int SchurPreconditioner::InitializeOT()
       // where velocities are grouped depending on how they connect ot the pressures)
       for (int grp=0;grp<sepObject->NumGroups(sep);grp++)
         {
-        DEBVAR(grp);
+//        DEBVAR(grp);
         int len = sepObject->NumElements(sep,grp);
         if ((inds.Length()!=len) && (len>0))
           {
@@ -853,8 +851,8 @@ int SchurPreconditioner::InitializeOT()
           }
         if (len>0)
           {
-          DEBVAR(inds);
-          DEBVAR(vec);
+//          DEBVAR(inds);
+//          DEBVAR(vec);
           int ierr=OT->Construct(*sparseMatrixOT_,inds,vec);
           if (ierr)
             {
@@ -952,12 +950,14 @@ int SchurPreconditioner::InitializeOT()
     reducedSchur_ = MatrixUtils::RemoveColMap(reducedSchur_);
     CHECK_ZERO(reducedSchur_->FillComplete(*vsumMap_,*vsumMap_));
   
+    reducedSchur_->SetLabel(("Matrix (level "+Teuchos::toString(myLevel_+1)+")").c_str());
+  
 #ifdef TESTING
   this->Visualize("hid_data_deb.m",false);
 #endif
 
 
-  DEBVAR("Create solver for reduced Schur");
+  DEBUG("Create solver for reduced Schur");
 
   nextLevelParams_ = Teuchos::rcp(new Teuchos::ParameterList(*getMyParamList()));
 

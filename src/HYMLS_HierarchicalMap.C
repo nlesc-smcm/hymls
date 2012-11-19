@@ -9,6 +9,8 @@
 
 #include <iostream>
 
+//#include "HYMLS_no_debug.H"
+
 #include "HYMLS_HierarchicalMap.H"
 #include "HYMLS_Tools.H"
 #include "HYMLS_BasePartitioner.H"
@@ -391,6 +393,9 @@ HierarchicalMap::SpawnInterior() const
   HierarchicalMap::SpawnSeparators() const
   {
   START_TIMER3(label_,"SpawnSeparators");
+
+  if (!Filled()) Tools::Error("object not filled",__FILE__,__LINE__);
+
   Teuchos::RCP<const HierarchicalMap> newObject=Teuchos::null;
   Teuchos::RCP<Epetra_Map> newMap=Teuchos::null;
   Teuchos::RCP<Epetra_Map> newOverlappingMap=Teuchos::null;
@@ -499,8 +504,11 @@ HierarchicalMap::SpawnInterior() const
   // first non-singletons  
   for (int sd=0;sd<NumMySubdomains();sd++)
     {
+    DEBVAR(sd);
     for (int grp=1;grp<NumGroups(sd);grp++)
       {
+      DEBVAR(grp);
+      DEBVAR(NumElements(sd,grp));
       if (NumElements(sd,grp)>singleton)
         {
         int gid = GID(sd,grp,0);
@@ -524,54 +532,59 @@ HierarchicalMap::SpawnInterior() const
     }//for sd
 
   // non-pressure singletons
-  for (int sd=0;sd<NumMySubdomains();sd++)
+  if (singleton==1)
     {
-    for (int grp=1;grp<NumGroups(sd);grp++)
+    for (int sd=0;sd<NumMySubdomains();sd++)
       {
-      if (NumElements(sd,grp)==singleton)
+      for (int grp=1;grp<NumGroups(sd);grp++)
         {
-        int gid = GID(sd,grp,0);
-        if (MOD(gid,dof)!=pressure)
+        if (NumElements(sd,grp)==singleton)
           {
-          if (baseMap_->MyGID(gid))
+          int gid = GID(sd,grp,0);
+          if (MOD(gid,dof)!=pressure)
             {
-            int lid = tmpOverlappingMap->LID(gid);
-            if (groupID[lid]<0)
+            if (baseMap_->MyGID(gid))
               {
-              groupSize.append(1);
-              groupID[lid]=num_subdomains;
-              num_subdomains++;
-              }// if not assigned
-            }// if belongs to me
-          }// non-pressure
-        }//singleton
-      }// for grp
-    }//for sd
-
+              int lid = tmpOverlappingMap->LID(gid);
+              if (groupID[lid]<0)
+                {
+                groupSize.append(1);
+                groupID[lid]=num_subdomains;
+                num_subdomains++;
+                }// if not assigned
+              }// if belongs to me
+            }// non-pressure
+          }//singleton
+        }// for grp
+      }//for sd
+    }// singletons shifted to end?
   // pressure singletons
-  for (int sd=0;sd<NumMySubdomains();sd++)
+  if (pressure>=0)
     {
-    for (int grp=1;grp<NumGroups(sd);grp++)
+    for (int sd=0;sd<NumMySubdomains();sd++)
       {
-      if (NumElements(sd,grp)==1)
+      for (int grp=1;grp<NumGroups(sd);grp++)
         {
-        int gid = GID(sd,grp,0);
-        if (MOD(gid,dof)==pressure)
+        if (NumElements(sd,grp)==1)
           {
-          if (baseMap_->MyGID(gid))
+          int gid = GID(sd,grp,0);
+          if (MOD(gid,dof)==pressure)
             {
-            int lid = tmpOverlappingMap->LID(gid);
-            if (groupID[lid]<0)
+            if (baseMap_->MyGID(gid))
               {
-              groupSize.append(1);
-              groupID[lid]=num_subdomains;
-              num_subdomains++;
-              }// if not assigned
-            }// if belongs to me
-          }// pressure
-        }//singleton
-      }// for grp
-    }//for sd
+              int lid = tmpOverlappingMap->LID(gid);
+              if (groupID[lid]<0)
+                {
+                groupSize.append(1);
+                groupID[lid]=num_subdomains;
+                num_subdomains++;
+                }// if not assigned
+              }// if belongs to me
+            }// pressure
+          }//singleton
+        }// for grp
+      }//for sd
+    }// shift pressures to end
     
   // if there are no local separator groups, 
   // transform them into a single group without

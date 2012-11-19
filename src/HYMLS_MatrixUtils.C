@@ -4,6 +4,8 @@
  * as long as this header remains intact.                             *
  * contact: jonas@math.rug.nl                                         *
  **********************************************************************/
+//#include "HYMLS_no_debug.H"
+
 #include "Teuchos_RCP.hpp"
 #include "Epetra_Map.h"
 #include "Epetra_CrsMatrix.h"
@@ -1590,13 +1592,18 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
     new_len=0;
     for (int j=0;j<len;j++)      
       {
-// TODO - I think some Amesos solvers may need zeros on the diagonal?
-//      on the other hand we want to remove the zero diagonal entry for the 
-//      subdomain solver using Umfpack and our own FillReducingOrdering...
-//      if ( (std::abs(values[j]) > thres) )
-      if ( (std::abs(values[j]) > thres)||(A->GCID(indices[j])==A->GRID(i)) )
+// I think some Amesos solvers may need zeros on the diagonal?
+// on the other hand we want to remove the zero diagonal entry for the 
+// subdomain solver using Umfpack and our own FillReducingOrdering...
+      if (std::abs(values[j]) > thres)
         {
         new_values[new_len]=values[j];
+        new_indices[new_len]=A->GCID(indices[j]);
+        new_len++;
+        }
+      else if (A->GCID(indices[j])==A->GRID(i))
+        {
+        new_values[new_len]=0.0;
         new_indices[new_len]=A->GCID(indices[j]);
         new_len++;
         }
@@ -1736,15 +1743,22 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
   for (int i=0;i<Matrix.NumMyRows();i++)
     {
     int row = Matrix.GRID(i);
+    DEBVAR(row);
     CHECK_ZERO(Matrix.ExtractMyRowView(i,len,val,col));
     int j;
     bool no_diag=true;
     for (j=0;j<len;j++)
       {
-      if (Matrix.GCID(col[j])==row) break;
+      DEBVAR(Matrix.GCID(col[j]));
+      if (Matrix.GCID(col[j])==row) 
+        {
+        DEBVAR(val[j]);
+        no_diag=(abs(val[j])==0.0);
+        break;
+        }
       }
-    if (j<len) no_diag=(abs(val[j])<HYMLS_SMALL_ENTRY);
-    if (no_diag) 
+    DEBVAR(no_diag);
+    if (no_diag)
       {
       elts2[m++] = row;
       }
@@ -1778,7 +1792,7 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
     
     map1=Teuchos::rcp(new Epetra_Map(-1,n,elts1, base,comm));
     map2=Teuchos::rcp(new Epetra_Map(-1,m,elts2, base,comm));
-
+    
     Teuchos::RCP<Epetra_Map> colmap1 = map1;
     Teuchos::RCP<Epetra_Map> colmap2 = map2;
     // in parallel we would need actual column maps
@@ -1803,13 +1817,20 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
     CHECK_ZERO(B.FillComplete(*map2,*map1));
     CHECK_ZERO(Bt.FillComplete(*map1,*map2));
 
+    fmatrix = (B.MaxNumEntries()==2);
+    DEBVAR(fmatrix);
+
+    if (!fmatrix)
+      {
+      std::cerr << "B-part has MaxNumEntries!=2\n"
+                << "writing it to BadMatrixB.txt for you.\n";
+      Dump(B,"BadMatrixB.txt");
+      }
+
     CHECK_ZERO(A.PutScalar(1.0));
     CHECK_ZERO(B.PutScalar(1.0));
     CHECK_ZERO(Bt.PutScalar(1.0));
 
-    fmatrix = (B.MaxNumEntries()==2);
-    DEBVAR(fmatrix);
-    
     // create the graph of A+BB'
     tmpMatrix= Teuchos::rcp(new Epetra_CrsMatrix(Copy,*map1,A.MaxNumEntries()));
     CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(B,false,Bt,false,*tmpMatrix,false));
@@ -1820,8 +1841,13 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
     delete [] elts1;
     delete [] elts2;
 
+    bool dump=false;
+
     if (indefinite==true && ((fmatrix==false) || (parallel==true)))
       {
+      Dump(*map1,"BadMatrixMap1.txt");
+      Dump(*map2,"BadMatrixMap2.txt");
+
       Dump(Matrix,"BadMatrix.txt");
       std::cerr << "parallel="<<parallel<<", indefinite="<<indefinite<<", fmatrix="<<fmatrix<<std::endl;
       Tools::Error("this subroutine is intended for serial F-matrices \n"
@@ -1832,6 +1858,8 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
 
 #ifdef DEBUGGING
   std::ofstream deb;
+  if (dump)
+  {
   deb.open("fill_reducing_ordering.m");
 
   deb << "N="<<N<<"; n="<<n<<"; m="<<m<<";\n";
@@ -1883,6 +1911,7 @@ if (tmpMatrix.get()!=&Matrix)
   deb<<"Atilde=sparse(tmp(:,1),tmp(:,2),tmp(:,3));\n";
   }
 deb << std::flush;
+}
 #endif
 
   Teuchos::Array<int> q(n);
@@ -2007,6 +2036,8 @@ else
     for (int i=0;i<N;i++) perm[i] = i;
 
 #ifdef DEBUGGING
+if (dump)
+{
 deb << "N="<<N<<std::endl;
 deb << "n="<<n<<std::endl;
 deb << "m="<<m<<std::endl;
@@ -2015,6 +2046,7 @@ for (int i=0;i<n;i++)
   deb << Gr[i][0]<<" "<<Gr[i][1]<<";\n";
 deb << "];\n\n";
 deb << std::flush;
+}
 #endif
     int jj = 0;
     int gr1,gr2;
@@ -2108,6 +2140,8 @@ for (int i=0;i<jj;i++) Tools::deb() << symperm[i]<< " ";
     }
   }
 #ifdef DEBUGGING
+if (dump)
+  {
   deb << "% initial ordering of v-nodes\n";
   deb << "q0=[";
   for (int i=0;i<n;i++) deb<<q[i]+1<<" ";
@@ -2121,6 +2155,7 @@ for (int i=0;i<jj;i++) Tools::deb() << symperm[i]<< " ";
   for (int i=0;i<N;i++) deb << colperm[i]+1<<" ";
   deb<<"];\n";
   deb.close();
+  }
 #endif
 
   return 0;

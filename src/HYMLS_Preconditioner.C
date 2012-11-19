@@ -1,4 +1,5 @@
 //#define BLOCK_IMPLEMENTATION 1
+//#include "HYMLS_no_debug.H"
 
 #include "HYMLS_Preconditioner.H"
 
@@ -537,7 +538,20 @@ MatrixUtils::Dump(*A22_, "Precond"+Teuchos::toString(myLevel_)+"_A22.txt");
     IFPACK_CHK_ERR(subdomainSolver_[sd]->SetParameters
         (PL().sublist("Sparse Solver")));
     
-    CHECK_ZERO(subdomainSolver_[sd]->Initialize());
+#ifdef TESTING
+      bool status=true;
+      try {
+#endif
+    subdomainSolver_[sd]->Initialize();
+#ifdef TESTING
+      } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status);
+    if (status==false)
+      {
+      Tools::Fatal("caught an exception in subdomain solver init of sd="+
+        Teuchos::toString(sd)+" on partition "+Teuchos::toString(comm_->MyPID()),
+                __FILE__,__LINE__);
+      }
+#endif    
 
     // flops in Initialize() will be computed on-the-fly in method InitializeFlops().
 
@@ -673,7 +687,6 @@ int Preconditioner::InitializeCompute()
   time_->ResetStartTime();
 
 InitializeCompute();
-
 {
 START_TIMER(label_,"subdomain factorization");
 double nnz=0; // count number of stored nonzeros in factors
@@ -683,7 +696,20 @@ double nrow=0;
     if (subdomainSolver_[sd]->NumRows()>0)
       {
       // compute subdomain factorization
-      CHECK_ZERO(subdomainSolver_[sd]->Compute(*reorderedMatrix_));
+#ifdef TESTING
+      bool status=true;
+      try {
+#endif
+      subdomainSolver_[sd]->Compute(*reorderedMatrix_);
+#ifdef TESTING
+      } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status);
+    if (status==false)
+      {
+      Tools::Fatal("caught an exception in subdomain factorization of sd="+
+        Teuchos::toString(sd)+" on partition "+Teuchos::toString(comm_->MyPID()),
+                __FILE__,__LINE__);
+      }
+#endif    
 #ifndef NO_MEMORY_TRACING
 #ifndef USE_AMESOS
       Teuchos::RCP<Ifpack_SparseContainer<SparseDirectSolver> > container =
@@ -1261,12 +1287,13 @@ int Preconditioner::ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVe
       CHECK_ZERO(tmp.Import(loc_tmp,import,Insert));
       CHECK_ZERO(separators(Y)->Update(1.0,tmp,1.0));
       //CHECK_ZERO(separators(Y)->Import(loc_tmp,import,Add));
+      /*
       DEBVAR(import);
       DEBVAR(*localA21_[sd]);
       DEBVAR(loc_tmp);
       DEBVAR(*interior(X));
       DEBVAR(tmp);
-
+      */
       if (flops) *flops+=2*localA21_[sd]->NumGlobalNonzeros();
       }
 #else

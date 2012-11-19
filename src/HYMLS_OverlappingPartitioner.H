@@ -197,6 +197,12 @@ private:
   int UpdateNodeTypeVector(const Epetra_CrsGraph& parallelGraph, 
                       const Epetra_IntVector& p_nodeTypes,
                             Epetra_IntVector& nodeTypes) const;
+
+  //! this is a non-elegant bug-fix for multi-level Stokes, it will
+  //! only work for cartesian Grid Navier-Stokes problems.
+  int UpdateNodeTypeVectorStokes(const Epetra_CrsGraph& parallelGraph, 
+                      const Epetra_IntVector& p_nodeTypes,
+                            Epetra_IntVector& nodeTypes) const;
   
   //! detect isolated P-nodes and increase their nodeType and
   //! that of the surrounding V-nodes by 1. This gives a 1 for
@@ -240,10 +246,8 @@ private:
   //!@}
 
 
-#ifdef DEBUGGING
 //! pretty-print the nodeType vector for debugging
 std::ostream& PrintNodeTypeVector(const Epetra_IntVector& nt,std::ostream& os,std::string label);
-#endif
 
   };
 
