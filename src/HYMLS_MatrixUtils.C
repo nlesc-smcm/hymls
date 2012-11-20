@@ -1008,7 +1008,7 @@ void MatrixUtils::Dump(const Epetra_CrsMatrix& A, const string& filename,bool re
     }
   else
     {
-#if 0
+#if 1
     EpetraExt::RowMatrixToMatrixMarketFile(filename.c_str(),A);
 #elif 0
     Teuchos::RCP<std::ostream> ofs = Teuchos::rcp(new Teuchos::oblackholestream());
@@ -1020,6 +1020,7 @@ void MatrixUtils::Dump(const Epetra_CrsMatrix& A, const string& filename,bool re
     *ofs << std::scientific << std::setw(OUTPUT_WIDTH) << std::setprecision(OUTPUT_PREC);
     *ofs << *(MatrixUtils::Gather(A,0));
 #else
+// I think this is wrong, Epetra does that itself in A.Print()
     int my_rank = A.Comm().MyPID();
     for (int p=0; p<A.Comm().NumProc();p++)
       {

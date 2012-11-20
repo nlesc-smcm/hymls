@@ -944,6 +944,7 @@ int OverlappingPartitioner::GroupSeparators()
         // edges to faces and from vertices to edges. We also
         // skip edges to subcells (full conservation tubes in Stokes)
         int type_j=(*p_nodeType_)[p_map.LID(cols[j])];
+//TROET
 #if 0
         if (type_j<0)
           {
@@ -962,6 +963,8 @@ int OverlappingPartitioner::GroupSeparators()
         else if (type_j<type_i)
           {
 #endif          
+        if (type_j<type_i)
+          {
           int flow = partitioner_->flow(row,cols[j]);
 
           // if the row and col are not in the same subdomain, multiply
@@ -979,7 +982,7 @@ int OverlappingPartitioner::GroupSeparators()
             DEBUG("\t"<<cols[j]<<" "<<sd_id);
             connectedSubs.append(sign*sd_id);
             }
-//          }// if nodeType
+          }// if nodeType
         }//j
       if (connectedSubs.length()==0)
         {

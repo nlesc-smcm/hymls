@@ -21,6 +21,11 @@
 
 #include "Teuchos_StandardCatchMacros.hpp"
 
+//TROET
+#ifndef TESTING
+#define TESTING 1
+#endif
+
 namespace HYMLS {
 
   //constructor
@@ -106,15 +111,6 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"initial");
     this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"step 1");
 #endif
 
-    CHECK_ZERO(this->UpdateNodeTypeVector(*parallelGraph_,*p_nodeType_, *nodeType_));
-
-  // import again
-  CHECK_ZERO(p_nodeType_->Import(*nodeType_,import,Insert));
-
-#if defined(STORE_MATRICES) || defined(TESTING)
-this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"step 2");
-#endif
-
   // An interior (type 0) node that only connects to sep          
   // nodes becomes a 'retained' (type 4) node if this was specified in        
   // the "Partitioner" -> "Variable X" sublist by "Retain Isolated".   
@@ -148,6 +144,16 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"step 2");
 #if defined(STORE_MATRICES) || defined(TESTING)
   this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"with FCCs");
 #endif
+
+    CHECK_ZERO(this->UpdateNodeTypeVector(*parallelGraph_,*p_nodeType_, *nodeType_));
+
+  // import again
+  CHECK_ZERO(p_nodeType_->Import(*nodeType_,import,Insert));
+
+#if defined(STORE_MATRICES) || defined(TESTING)
+this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
+#endif
+
   
   return 0;
   }
@@ -246,6 +252,7 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"step 2");
           if (partitioner_->flow(row,cj)<0)
             {
             nodeType[i]=1;
+            break;
             }
           }
         }// not retained
@@ -395,7 +402,7 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"step 2");
               {
               if (map.MyGID(gcid))
                 {
-                nodeType[p_map.LID(gcid)]=4;
+                nodeType[map.LID(gcid)]=4;
                 }
               else
                 {

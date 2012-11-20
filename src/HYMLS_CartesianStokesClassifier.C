@@ -35,10 +35,10 @@
 #include "Teuchos_StandardParameterEntryValidators.hpp"
 #include "Teuchos_StandardCatchMacros.hpp"
 
-//#undef DEBUG
-//#define DEBUG(s) std::cerr << s << std::endl;
-//#undef DEBVAR
-//#define DEBVAR(s) std::cerr << #s << " = "<< s << std::endl;
+//TROET
+#ifndef TESTING
+#define TESTING 1
+#endif
 
 typedef Teuchos::Array<int>::iterator int_i;
 
