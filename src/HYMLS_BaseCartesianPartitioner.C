@@ -136,7 +136,7 @@ DEBVAR(dk);
     dJ=calc_distance(npy_,J1,J2,(perio_&GaleriExt::Y_PERIO));
     dK=calc_distance(npz_,K1,K2,(perio_&GaleriExt::Z_PERIO));
 
-    if (abs(dK)> 0)
+    if (std::abs(dK)> 0)
       {
 #ifdef FLOW_DEBUGGING
       if (dk<0)
@@ -150,7 +150,7 @@ DEBVAR(dk);
 #endif      
       return dk;
       }
-    if (abs(dJ)> 0)
+    if (std::abs(dJ)> 0)
       {
 #ifdef FLOW_DEBUGGING
       if (dj<0)
@@ -164,7 +164,7 @@ DEBVAR(dk);
 #endif      
       return dj;
       }
-    if (abs(dI)> 0)
+    if (std::abs(dI)> 0)
       {
 #ifdef FLOW_DEBUGGING
       if (di<0)
@@ -196,7 +196,7 @@ DEBVAR(dk);
         {
         i2+=n;
         }
-      if (abs(i1-i2)<abs(di))
+      if (std::abs(i1-i2)<std::abs(di))
         {
         di=i1-i2;
         }

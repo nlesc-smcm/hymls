@@ -269,9 +269,9 @@ static void SignalHandler(int signum)
       for (int t2=1;t2<=(int)(nparts/t1);t2++)
         {
         int t3=(int)(nparts/(t1*t2));        
-        r1 = abs((double)(nx/t1) - (double)(ny/t2));
-        r2 = abs((double)(nx/t1) - (double)(nz/t3));
-        r3 = abs((double)(ny/t2) - (double)(nz/t3));
+        r1 = std::abs((double)(nx/t1) - (double)(ny/t2));
+        r2 = std::abs((double)(nx/t1) - (double)(nz/t3));
+        r3 = std::abs((double)(ny/t2) - (double)(nz/t3));
         r=r1+r2+r3;
         
         if (t1*t2*t3==nparts && r<r_min)

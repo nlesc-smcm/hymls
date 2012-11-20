@@ -21,11 +21,11 @@
 
 #include "Teuchos_StandardCatchMacros.hpp"
 
-//TROET
+/*
 #ifndef TESTING
 #define TESTING 1
 #endif
-
+*/
 namespace HYMLS {
 
   //constructor

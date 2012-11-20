@@ -1009,7 +1009,7 @@ void MatrixUtils::Dump(const Epetra_CrsMatrix& A, const string& filename,bool re
   else
     {
 #if 1
-    EpetraExt::RowMatrixToMatrixMarketFile(filename.c_str(),A);
+    CHECK_ZERO(EpetraExt::RowMatrixToMatrixMarketFile(filename.c_str(),A));
 #elif 0
     Teuchos::RCP<std::ostream> ofs = Teuchos::rcp(new Teuchos::oblackholestream());
     int my_rank = A.Comm().MyPID();
@@ -1587,7 +1587,7 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
     
     if (type==Relative)
       {
-      thres = droptol*abs((*diagA)[i]);
+      thres = droptol*std::abs((*diagA)[i]);
       }
     
     new_len=0;
@@ -1723,6 +1723,8 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
   {
   START_TIMER2(Label(),"FillReducingOrdering");
   
+  if (!Matrix.Filled()) Tools::Error("matrix not filled",__FILE__,__LINE__);
+  
   bool parallel = (Matrix.Comm().NumProc()>1);
   DEBVAR(parallel);
     
@@ -1753,8 +1755,7 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
       DEBVAR(Matrix.GCID(col[j]));
       if (Matrix.GCID(col[j])==row) 
         {
-        DEBVAR(val[j]);
-        no_diag=(abs(val[j])==0.0);
+        no_diag=(std::abs(val[j])==0.0);
         break;
         }
       }

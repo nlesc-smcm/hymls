@@ -19,11 +19,6 @@
 
 #include <algorithm>
 
-#ifdef DEBUGGING
-#include "EpetraExt_MultiVectorOut.h"
-#include "EpetraExt_RowMatrixOut.h"
-#endif
-
 #include "EpetraExt_Reindex_CrsMatrix.h"
 
 #include "HYMLS_MatrixUtils.H"
@@ -35,11 +30,11 @@
 #include "Teuchos_StandardParameterEntryValidators.hpp"
 #include "Teuchos_StandardCatchMacros.hpp"
 
-//TROET
+/*
 #ifndef TESTING
 #define TESTING 1
 #endif
-
+*/
 typedef Teuchos::Array<int>::iterator int_i;
 
 namespace HYMLS {

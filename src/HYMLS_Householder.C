@@ -331,7 +331,8 @@ namespace HYMLS {
 
 #ifdef DEBUGGING
     MatrixUtils::Dump(*AwT,"HOUSE_AwT.txt");
-    MatrixUtils::Dump(*AwTw,"HOUSE_AwTw.txt");
+    // not filled yet
+    //MatrixUtils::Dump(*AwTw,"HOUSE_AwTw.txt");
 #endif
 
     // C=A-2Aw'w
@@ -368,7 +369,8 @@ namespace HYMLS {
 #endif
 #ifdef DEBUGGING
     MatrixUtils::Dump(*WCmat_,"HOUSE_wC.txt");
-    MatrixUtils::Dump(*wTwC,"HOUSE_wTwC.txt");
+    // not filled yet
+    //MatrixUtils::Dump(*wTwC,"HOUSE_wTwC.txt");
 #endif
     if (SaveMemory())
       {
@@ -380,7 +382,8 @@ namespace HYMLS {
     CHECK_ZERO(EpetraExt::MatrixMatrix::Add(*Cmat_,false,-1.0,*wTwC,2.0));
 
 #ifdef DEBUGGING
-    MatrixUtils::Dump(*wTwC,"HOUSE_HAH.txt");
+    // not filled yet
+    //MatrixUtils::Dump(*wTwC,"HOUSE_HAH.txt");
 #endif
 
     if (SaveMemory())

@@ -407,11 +407,11 @@ Teuchos::RCP<Epetra_Vector> SchurComplement::ConstructLeftScaling(int p_variable
         {
         if (Scrs_->GRID(i)==Scrs_->GCID(ind[j]))
           {
-          diag=abs(val[j]);
+          diag=std::abs(val[j]);
           }
         if (BP.VariableType(Scrs_->GCID(ind[j]))==p_variable)
           {
-          if (abs(val[j])>1.0e-8) has_pcol=true;
+          if (std::abs(val[j])>1.0e-8) has_pcol=true;
           }
         }
       if ((has_pcol==false) && (diag>1.0e-10))

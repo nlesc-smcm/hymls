@@ -30,17 +30,10 @@
 
 #include <algorithm>
 
-#ifdef DEBUGGING
-#include "EpetraExt_MultiVectorOut.h"
-#include "EpetraExt_RowMatrixOut.h"
-#endif
-
 #include "Galeri_Maps.h"
 #include "GaleriExt_Periodic.h"
 #include "Galeri_Star2D.h"
 #include "GaleriExt_Star3D.h"
-
-#include "EpetraExt_Reindex_CrsMatrix.h"
 
 #include "HYMLS_MatrixUtils.H"
 
@@ -944,7 +937,6 @@ int OverlappingPartitioner::GroupSeparators()
         // edges to faces and from vertices to edges. We also
         // skip edges to subcells (full conservation tubes in Stokes)
         int type_j=(*p_nodeType_)[p_map.LID(cols[j])];
-//TROET
 #if 0
         if (type_j<0)
           {
@@ -977,7 +969,7 @@ int OverlappingPartitioner::GroupSeparators()
           //                                                              
           if (flow)
             {
-            int sign = flow/abs(flow);
+            int sign = flow/std::abs(flow);
             int sd_id = (*partitioner_)(cols[j]);
             DEBUG("\t"<<cols[j]<<" "<<sd_id);
             connectedSubs.append(sign*sd_id);

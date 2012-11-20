@@ -751,7 +751,7 @@ int SchurPreconditioner::InitializeSeparatorGroups()
           int gcid = SchurMatrix_->GCID(indices[k]);
           if (MOD(gcid,dof)==pressure)
             {
-            if (abs(values[k])>1.0e-8)
+            if (std::abs(values[k])>1.0e-8)
               {
               if (pos==0)
                 {
@@ -1146,8 +1146,11 @@ int SchurPreconditioner::InitializeOT()
 
 #ifdef DEBUGGING
   std::string s1 = "SchurPrecond"+Teuchos::toString(myLevel_)+"_";
+/*
   MatrixUtils::Dump(*matrix_,s1+"Pattern.txt");
-  MatrixUtils::Dump(*transformedA22,s1+"TransformedA22.txt");
+  // not Filled yet
+  //MatrixUtils::Dump(*transformedA22,s1+"TransformedA22.txt");
+*/
 #endif
 
     if (transformedA22->RowMap().SameAs(matrix->RowMap())==false)
@@ -1697,7 +1700,7 @@ int SchurPreconditioner::ComputeScaling(const Epetra_CrsMatrix& A,
         {
         if (BP.VariableType(A.GCID(ind[j]))==p_node)
           {
-          p_entry=abs(val[j]);
+          p_entry=std::abs(val[j]);
           }
         }
       if (p_entry>1.0e-8)
