@@ -1,5 +1,17 @@
 Status HYMLS
 
+20 November 2012
+
+can solve bordered systems
+basically included 'full conservation tubes' (cf. parameter "Classifier"->"Stokes",
+but the feature only works in certain cases (e.g. 2-level and 32^3, 3-level sx=4)
+
+To be done
+Acceleration of convergence as in MATLAB using a better appromation of the Schur Complement
+on Stokes almost a factor 2 was gained.
+
+==========================================================================
+
 29 March 2012
 It runs on Huygens, Millipede, in general on gnu systems.
 

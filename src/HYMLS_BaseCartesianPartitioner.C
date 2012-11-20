@@ -66,7 +66,7 @@ namespace HYMLS {
     START_TIMER3(label_,"Destructor");
     }
 
-  int BaseCartesianPartitioner::flow(int gid1, int gid2)
+  int BaseCartesianPartitioner::flow(int gid1, int gid2) const
     {
     int sd1 = (*this)(gid1);
     int sd2 = (*this)(gid2);
@@ -183,7 +183,7 @@ DEBVAR(dk);
     }
 
   // private
-  int BaseCartesianPartitioner::calc_distance(int n, int i1,int i2,bool perio)
+  int BaseCartesianPartitioner::calc_distance(int n, int i1,int i2,bool perio) const
     {
     int di=i1-i2;
     if (perio)

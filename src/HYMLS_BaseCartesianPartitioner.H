@@ -123,7 +123,7 @@ class BaseCartesianPartitioner : public BasePartitioner
   inline int GID(int i, int j) const {return Map().GID(First(i)+j);}
               
   //! impose ordering on subdomains
-  int flow(int gid1, int gid2);
+  int flow(int gid1, int gid2) const;
   
   //! get the node distance used in this object.
   //! for instance, on the second level of our method,
@@ -143,7 +143,7 @@ class BaseCartesianPartitioner : public BasePartitioner
   private:
   
   //! compute distance between two points/subdomains
-  int calc_distance(int n, int i1, int i2, bool perio);
+  int calc_distance(int n, int i1, int i2, bool perio) const;
 
   protected:
 

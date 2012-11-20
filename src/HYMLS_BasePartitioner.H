@@ -137,7 +137,7 @@ class BasePartitioner
   //! partitioning. For other partitioners, one might look 
   //! at the orientation of a gradient operator.           
   //!                                                      
-  virtual int flow(int gid1, int gid2)
+  virtual int flow(int gid1, int gid2) const
     {
     if (VariableType(gid1)==VariableType(gid2))
       {

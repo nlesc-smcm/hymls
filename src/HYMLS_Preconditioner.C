@@ -194,8 +194,6 @@ namespace HYMLS {
     VPL("Problem").set("y-periodic", false,"assume periodicity in y-direction");
     VPL("Problem").set("z-periodic", false,"assume periodicity in z-direction");
 
-    //TODO: use validators everywhere
-
     Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
         partValidator = Teuchos::rcp(
                 new Teuchos::StringToIntegralParameterEntryValidator<int>(
@@ -205,6 +203,16 @@ namespace HYMLS {
         "Type of partitioner to be used to define the subdomains",
         partValidator);
         
+
+    Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
+        classValidator = Teuchos::rcp(
+                new Teuchos::StringToIntegralParameterEntryValidator<int>(
+                    Teuchos::tuple<std::string>("Standard","Stokes"),"Classifier"));
+    
+    VPL().set("Classifier", "Standard",
+        "Method to identify and classify separators",
+        classValidator);
+
     VPL().set("Scale Schur-Complement",false,
         "Apply scaling to the Schur complement before building an approximation.\n"
         "This is only intended for Navier-Stokes type problems and it is a bit \n"
@@ -1617,10 +1625,12 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
   comm_->Barrier();
   ofs << *hid_<<std::endl;
   ofs.close();
+#ifdef STORE_MATRICES  
 //  hid_->DumpGraph(); //that's the same as of the original matrix right now
   Teuchos::RCP<const Epetra_CrsMatrix> A = Teuchos::rcp_dynamic_cast
         <const Epetra_CrsMatrix>(matrix_);
   if (A!=Teuchos::null) MatrixUtils::Dump(*A,"matrix"+Teuchos::toString(myLevel_)+".txt");
+#endif
   if ((schurPrec_!=Teuchos::null) && (no_recurse!=true))
     {
     schurPrec_->Visualize(mfilename);

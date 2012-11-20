@@ -6,9 +6,9 @@
   <ParameterList name="Driver">
 
     <!-- will create a series of slightly perturbed matrices -->
-    <Parameter name="Number of factorizations" type="int" value="2"/>
+    <Parameter name="Number of factorizations" type="int" value="5"/>
     <!-- for each matrix, solve with several right-hand sides in a row -->
-    <Parameter name="Number of solves" type="int" value="2"/>
+    <Parameter name="Number of solves" type="int" value="1"/>
     <Parameter name="Diagonal Perturbation" type="double" value="0.0"/>
   
     <Parameter name="Store Solution" type="bool" value="1"/>
@@ -59,6 +59,7 @@
     <Parameter name="Fix Pressure Level" type="bool" value="true"/>
 
     <Parameter name="Partitioner" type="string" value="Cartesian"/>
+    <Parameter name="Classifier" type="string" value="Stokes"/>
     
     <!--Parameter name="Fix Pressure Level" type="bool" value="true"/-->
       

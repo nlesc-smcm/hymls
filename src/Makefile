@@ -14,6 +14,8 @@ OBJ=    HYMLS_Solver.o \
         HYMLS_HierarchicalMap.o \
         HYMLS_BaseCartesianPartitioner.o \
         HYMLS_CartesianPartitioner.o \
+        HYMLS_StandardNodeClassifier.o \
+        HYMLS_CartesianStokesClassifier.o \
         HYMLS_SepNode.o \
         HYMLS_HyperCube.o \
         HYMLS_MatrixUtils.o \
