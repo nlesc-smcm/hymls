@@ -30,11 +30,11 @@
 #include "Teuchos_StandardParameterEntryValidators.hpp"
 #include "Teuchos_StandardCatchMacros.hpp"
 
-/*
+
 #ifndef TESTING
 #define TESTING 1
 #endif
-*/
+
 typedef Teuchos::Array<int>::iterator int_i;
 
 namespace HYMLS {

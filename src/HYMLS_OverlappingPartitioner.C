@@ -937,7 +937,7 @@ int OverlappingPartitioner::GroupSeparators()
         // edges to faces and from vertices to edges. We also
         // skip edges to subcells (full conservation tubes in Stokes)
         int type_j=(*p_nodeType_)[p_map.LID(cols[j])];
-#if 0
+
         if (type_j<0)
           {
           // we have to create a 'new subdomain id' as the separator
@@ -953,9 +953,6 @@ int OverlappingPartitioner::GroupSeparators()
           connectedSubs.append(sd_id);
           }
         else if (type_j<type_i)
-          {
-#endif          
-        if (type_j<type_i)
           {
           int flow = partitioner_->flow(row,cols[j]);
 

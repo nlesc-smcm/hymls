@@ -123,9 +123,15 @@ public:
 
   //@}
 
+  //! computes dominant eigenpairs of inv(P)
+  Teuchos::RCP<MatrixUtils::Eigensolution> EigsPrec(int numEigs) const;
+
   //! computes the modes closest to 0 and sets up the solver's deflation
   //! capabilities. If maxEigs==-2, the value "Deflated Subspace Dimension"
   //! from the "Solver" sublist is used.
+  //!
+  //! If maxEigs==0, this function adds the null space as a border of the
+  //! preconditioner to make it non-singular.
   int SetupDeflation(int maxEigs=-2);
   
   //! get number of iterations performed in last ApplyInverse() call
@@ -235,7 +241,7 @@ Teuchos::RCP<BorderedLU> LU_;
   private:
   
   //! a pointer array we need in order to construct a product operator
-  Teuchos::RCP<const Epetra_Operator> op_array_[2];
+  mutable Teuchos::RCP<const Epetra_Operator> op_array_[2];
   
   };
 

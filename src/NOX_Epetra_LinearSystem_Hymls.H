@@ -96,6 +96,9 @@ public:
 
   //! Reset the linear solver parameters.
   virtual void reset(Teuchos::ParameterList& linearSolverParams);
+  
+  //! get HYMLS solver
+  Teuchos::RCP<HYMLS::Solver> getHymls() const {return hymls_;}
 
 protected:
   

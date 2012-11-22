@@ -64,23 +64,17 @@ namespace HYMLS {
     }
   else if (nullSpaceType=="Constant P")
     {
+    // NOTE: we assume u/v/w/p[/T] ordering here, it works for 2D and 3D as long
+    // as var[dim]=P
     nullSpace_ = Teuchos::rcp(new Epetra_Vector(matrix_->OperatorDomainMap()));
-    int pvar = PL().get("Pressure Variable",-1);
+    int pvar = PL("Problem").get("Dimension",-1);
+    int dof = PL("Problem").get("Degrees of Freedom",-1);
     // TODO: this is all a bit ad-hoc
-    if (pvar==-1)
+    if (pvar==-1||dof==-1)
       {
-      pvar=2;
-      Tools::Warning("'Pressure Variable' not specified in 'Solver' sublist", 
+      Tools::Error("'Dimension' or 'Degrees of Freedom' not set in 'Problem' sublist",
         __FILE__, __LINE__);
       }
-    int dof = PL().get("Degrees of Freedom",-1);
-    if (dof==-1)
-      {
-      dof=3;
-      Tools::Warning("'Degrees of Freedom' not specified in 'Solver' sublist", 
-        __FILE__, __LINE__);
-      }
-    
     CHECK_ZERO(nullSpace_->PutScalar(0.0))
     for (int i=dof-1;i<nullSpace_->MyLength();i+=dof)
       {
@@ -168,7 +162,7 @@ namespace HYMLS {
 void Solver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)
   {
   START_TIMER3(label_,"SetPrecond");
-  precond_=P; 
+  precond_=P;
   if (precond_==Teuchos::null || doBordering_) return;
   belosPrecPtr_=Teuchos::rcp(new belosPrecType_(precond_));
   string lor = PL().get("Left or Right Preconditioning","Right");
@@ -278,72 +272,17 @@ void Solver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)
     }
 
 
-int Solver::SetupDeflation(int maxEigs)
+Teuchos::RCP<MatrixUtils::Eigensolution> Solver::EigsPrec(int numEigs) const
   {
-  // by default leave numEigs_ at its present value:
-  if (maxEigs!=-2) numEigs_=maxEigs;
-  
   // If there is a null-space, deflate it.
   // If no NS and no additional vectors asked for -
   // nothing to be done.
-  if (numEigs_==0 && nullSpace_==Teuchos::null) return 0;
-  START_TIMER(label_,"SetupDeflation");
+  START_TIMER(label_,"EigsPrec");
 
   Teuchos::RCP<Epetra_Operator> op, iop;
-  Teuchos::RCP<Epetra_MultiVector> KV;
+  Teuchos::RCP<MatrixUtils::Eigensolution> precEigs=Teuchos::null;
   
   op=precond_;
-
-  if (nullSpace_!=Teuchos::null)
-    {
-    // we compute eigs of the operator [K N; N' 0] to make the operator nonsingular
-    Teuchos::RCP<BorderedSolver> bprec
-        = Teuchos::rcp_dynamic_cast<BorderedSolver>(precond_);
-    if (bprec!=Teuchos::null)
-      {
-      Tools::Out("set null space as border for preconditioner");
-      CHECK_ZERO(bprec->SetBorder(nullSpace_,nullSpace_));      
-      }
-    else if (precond_!=Teuchos::null)
-      {
-      Tools::Out("add null space to preconditioner by LU");
-      Tools::Warning("feature not tested",__FILE__,__LINE__);
-      op = Teuchos::rcp(new BorderedLU(precond_,nullSpace_,nullSpace_));
-      }
-#ifdef DEBUGGING
-    Epetra_Vector test_b(matrix_->RowMatrixRowMap());
-    Epetra_Vector test_x(matrix_->RowMatrixRowMap());
-    MatrixUtils::Random(test_b,12419);
-    CHECK_ZERO(op->ApplyInverse(test_b,test_x));
-    MatrixUtils::Dump(test_b,"TEST_BorderedPreconditioner_B.txt");
-    MatrixUtils::Dump(test_x,"TEST_BorderedPreconditioner_X.txt");
-#endif    
-    }
-
-////////////////////////////////////////////////////////////////////////
-// if we want to deflate more eigenmodes, compute the dominant eigen-   
-// values and -vectors of the preconditioner (augmented by the null-    
-// space), and select which are worth deflating.                        
-////////////////////////////////////////////////////////////////////////
-  if (numEigs_!=0)    
-    {
-    Tools::Warning("Deflation is experimental functionality...",
-        __FILE__,__LINE__);
-#ifdef STORE_MATRICES
-    if (massMatrix_!=Teuchos::null) 
-      {
-      Teuchos::RCP<const Epetra_CrsMatrix> massCrs
-        = Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(massMatrix_);
-      if (!Teuchos::is_null(massCrs))
-        {
-        MatrixUtils::Dump(*massCrs,"MassMatrix.txt");
-        }
-      else
-        {
-        Tools::Warning("mass matrix not in CRS format??",__FILE__,__LINE__);
-        }
-      }
-#endif
 
   ////////////////////////////////////////////////////////////////////////
   // Start by constructing the operator iop, which will be                
@@ -370,7 +309,7 @@ int Solver::SetupDeflation(int maxEigs)
     // for e.g. Navier-Stokes it is important to set the mass matrix before
     // calling this function, by calling SetMassMatrix() in both the solver
     // and the preconditioner.
-    Tools::Warning("SetupDeflation() called without mass matrix, is that what you want?",
+    Tools::Warning("EigsPrec() called without mass matrix, is that what you want?",
           __FILE__,__LINE__);
     iop = Teuchos::rcp(new Epetra_InvOperator(op.get()));
     }
@@ -381,24 +320,74 @@ int Solver::SetupDeflation(int maxEigs)
     bool status=true;
     try {
     Tools::Out("Compute max eigs of inv(P)");
-    precEigs_ = MatrixUtils::Eigs
+    precEigs = MatrixUtils::Eigs
             (iop, Teuchos::null, numEigs_,1.0e-8);
     } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status);
-    if (!status) return -5;
+    if (!status) Tools::Fatal("caught an exception",__FILE__,__LINE__);
     
     // I think this should never occur:
-    if (precEigs_==Teuchos::null)
+    if (precEigs==Teuchos::null)
       {
       Tools::Error("null returned from Eigs routine?",__FILE__,__LINE__);
       }
 
-    if (precEigs_->numVecs<numEigs_)
+    if (precEigs->numVecs<numEigs)
       {
-      Tools::Warning("found "+Teuchos::toString(precEigs_->numVecs)
-      +" eigenpairs in SetupDeflation(), while you requested "+Teuchos::toString(numEigs_),
+      Tools::Warning("found "+Teuchos::toString(precEigs->numVecs)
+      +" eigenpairs in EigsPrec(), while you requested "+Teuchos::toString(numEigs),
         __FILE__,__LINE__);
-      numEigs_=precEigs_->numVecs;
       }
+    return precEigs;
+    }
+
+
+int Solver::SetupDeflation(int maxEigs)
+  {
+  // by default leave numEigs_ at its present value:
+  if (maxEigs!=-2) numEigs_=maxEigs;
+  
+  // If there is a null-space, deflate it.
+  // If no NS and no additional vectors asked for -
+  // nothing to be done.
+  if (numEigs_==0 && nullSpace_==Teuchos::null) return 0;
+  START_TIMER(label_,"SetupDeflation");
+
+  Teuchos::RCP<Epetra_MultiVector> KV;
+        
+  // add null space as border to preconditioner
+  if (nullSpace_!=Teuchos::null)
+    {
+    // we compute eigs of the operator [K N; N' 0] to make the operator nonsingular
+    Teuchos::RCP<BorderedSolver> bprec
+        = Teuchos::rcp_dynamic_cast<BorderedSolver>(precond_);
+    if (bprec!=Teuchos::null)
+      {
+      Tools::Out("set null space as border for preconditioner");
+      CHECK_ZERO(bprec->SetBorder(nullSpace_,nullSpace_));      
+      }
+    else if (precond_!=Teuchos::null)
+      {
+      Tools::Error("feature not implemented",__FILE__,__LINE__);
+      // should work in principle, but we can handle borders smarter
+      /*
+      Tools::Out("add null space to preconditioner by LU");
+      op = Teuchos::rcp(new BorderedLU(precond_,nullSpace_,nullSpace_));
+      */
+      }
+    }
+
+////////////////////////////////////////////////////////////////////////
+// if we want to deflate more eigenmodes, compute the dominant eigen-   
+// values and -vectors of the preconditioner (augmented by the null-    
+// space), and select which are worth deflating.                        
+////////////////////////////////////////////////////////////////////////
+  if (numEigs_!=0)    
+    {
+    Tools::Warning("Deflation is experimental functionality...",
+        __FILE__,__LINE__);
+    precEigs_ = this->EigsPrec(numEigs_);
+    
+    numEigs_=precEigs_->numVecs;
 
   if (numEigs_==0) 
     {
@@ -586,9 +575,13 @@ int Solver::SetupDeflation(int maxEigs)
     }
   else if (borderedPrec!=Teuchos::null)
     {
-    Teuchos::RCP<Epetra_SerialDenseMatrix> C = Teuchos::rcp(new
-      Epetra_SerialDenseMatrix(numDeflated_,numDeflated_));
-    CHECK_ZERO(borderedPrec->SetBorder(V_,V_,C));
+    int nulDim = nullSpace_==Teuchos::null? 0: nullSpace_->NumVectors();
+    if (numDeflated_>nulDim)
+      {
+      Teuchos::RCP<Epetra_SerialDenseMatrix> C = Teuchos::rcp(new
+        Epetra_SerialDenseMatrix(numDeflated_,numDeflated_));
+      CHECK_ZERO(borderedPrec->SetBorder(V_,V_,C));
+      }
     }
     
   Aorth_=Teuchos::rcp(new ProjectedOperator(matrix_,V_,true));
@@ -734,23 +727,78 @@ int Solver::ApplyInverse(const Epetra_MultiVector& B,
   X=*belosSol_;
 
 #ifdef TESTING
-// compute explicit residual of Schur problem
+// compute explicit residual
+int dim = PL("Problem").get<int>("Dimension");
+int dof = PL("Problem").get<int>("Degrees of Freedom");
+
 Epetra_MultiVector resid(belosRhs_->Map(),belosRhs_->NumVectors());
 CHECK_ZERO(matrix_->Apply(*belosSol_,resid));
 CHECK_ZERO(resid.Update(1.0,B,-1.0));
-double *resNorm;
+double *resNorm,*rhsNorm,*resNormV,*resNormP;
 resNorm=new double[resid.NumVectors()];
+resNormV=new double[resid.NumVectors()];
+resNormP=new double[resid.NumVectors()];
+rhsNorm =new double[resid.NumVectors()];
+B.Norm2(rhsNorm);
 resid.Norm2(resNorm);
+
+if (dof>=dim)
+  {
+  Epetra_MultiVector residV=resid;
+  Epetra_MultiVector residP=resid;
+  for (int i=0;i<resid.MyLength();i+=dof)
+    {
+    for (int j=0;j<resid.NumVectors();j++)
+      {
+      for (int k=0;k<dim;k++)
+        {
+        residP[j][i+k]=0.0;
+        }
+      for (int k=dim+1;k<dof;k++)
+        {
+        residP[j][i+k]=0.0;
+        }
+      residV[j][i+dim]=0.0;
+      }
+    }  
+  residV.Norm2(resNormV);
+  residP.Norm2(resNormP);
+  }
+
 if (comm_->MyPID()==0)
   {
-  Tools::out() << "Residual norm: ";
+  Tools::out() << "Exp. res. norm(s): ";
   for (int ii=0;ii<resid.NumVectors();ii++)
     {
     Tools::out() << resNorm[ii] << " ";
     }
   Tools::out() << std::endl;
+  Tools::out() << "Rhs norm(s): ";
+  for (int ii=0;ii<resid.NumVectors();ii++)
+    {
+    Tools::out() << rhsNorm[ii] << " ";
+    }
+  Tools::out() << std::endl;
+  if (dof>=dim)
+    {
+    Tools::out() << "Exp. res. norm(s) of V-part: ";
+    for (int ii=0;ii<resid.NumVectors();ii++)
+      {
+      Tools::out() << resNormV[ii] << " ";
+      }
+    Tools::out() << std::endl;
+    Tools::out() << "Exp. res. norm(s) of P-part: ";
+    for (int ii=0;ii<resid.NumVectors();ii++)
+      {
+      Tools::out() << resNormP[ii] << " ";
+      }
+    Tools::out() << std::endl;
+    }
   }
 delete [] resNorm;
+delete [] rhsNorm;
+delete [] resNormV;
+delete [] resNormP;
 #endif
 
     if (ret!=::Belos::Converged)
