@@ -656,7 +656,7 @@ int OverlappingPartitioner::DetectSeparators()
     int row=partitioner_->Map().GID(i);
     int var_i = partitioner_->VariableType(row);
     // check for non-local separators of the subdomain
-    if (nodeType[i]==0)
+    if (nodeType[i]<=0)
       {
       // add any separator nodes on adjacent subdomains
       CHECK_ZERO(G.ExtractGlobalRowCopy(row,MaxNumEntriesPerRow,len,cols));
