@@ -298,7 +298,7 @@ namespace HYMLS {
     
     Wmat_=Teuchos::rcp(&T,false);  
     
-#ifdef DEBUGGING
+#ifdef STORE_MATRICES
     MatrixUtils::Dump(A, "HOUSE_A.txt");
     MatrixUtils::Dump(*Wmat_, "HOUSE_W.txt");
 #endif
@@ -329,7 +329,7 @@ namespace HYMLS {
     DEBUG("compute A*wT*w...");
     CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(*AwT,false,T,false,*AwTw,false));
 
-#ifdef DEBUGGING
+#ifdef STORE_MATRICES
     MatrixUtils::Dump(*AwT,"HOUSE_AwT.txt");
     // not filled yet
     //MatrixUtils::Dump(*AwTw,"HOUSE_AwTw.txt");
@@ -347,7 +347,7 @@ namespace HYMLS {
     CHECK_ZERO(EpetraExt::MatrixMatrix::Add(A,false,-1.0,*Cmat_,2.0));
     CHECK_ZERO(Cmat_->FillComplete());
 
-#ifdef DEBUGGING
+#ifdef STORE_MATRICES
     MatrixUtils::Dump(*Cmat_,"HOUSE_C.txt");
 #endif
 
@@ -367,7 +367,7 @@ namespace HYMLS {
 #else
     CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(*WTmat_,false,*WCmat_,false,*wTwC,false));
 #endif
-#ifdef DEBUGGING
+#ifdef STORE_MATRICES
     MatrixUtils::Dump(*WCmat_,"HOUSE_wC.txt");
     // not filled yet
     //MatrixUtils::Dump(*wTwC,"HOUSE_wTwC.txt");
@@ -381,7 +381,7 @@ namespace HYMLS {
     DEBUG("compute TAT=2wTwC-C...");
     CHECK_ZERO(EpetraExt::MatrixMatrix::Add(*Cmat_,false,-1.0,*wTwC,2.0));
 
-#ifdef DEBUGGING
+#ifdef STORE_MATRICES
     // not filled yet
     //MatrixUtils::Dump(*wTwC,"HOUSE_HAH.txt");
 #endif

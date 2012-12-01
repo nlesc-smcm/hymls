@@ -282,7 +282,7 @@ namespace HYMLS {
         }
 #ifdef STORE_MATRICES
       HYMLS::MatrixUtils::Dump(*SchurMatrix_,"FinalSC.txt");
-#endif      
+#endif
       }
     else
       {
@@ -1109,8 +1109,8 @@ int SchurPreconditioner::InitializeOT()
             }
           }
         indsPart.Resize(numVsums);
-        DEBVAR(sd);
-        DEBVAR(indsPart);
+        //DEBVAR(sd);
+        //DEBVAR(indsPart);
         CHECK_NONNEG(matrix->InsertGlobalValues(indsPart.Length(),
                 indsPart.Values(), Spart.A()));
         // now the non-Vsums
@@ -1123,7 +1123,7 @@ int SchurPreconditioner::InitializeOT()
             {
             indsPart[j]=hid_->GID(sd,grp,1+j);
             }//j
-          DEBVAR(indsPart);
+          //DEBVAR(indsPart);
           CHECK_NONNEG(matrix->InsertGlobalValues(indsPart.Length(),
                         indsPart.Values(),Spart.A()));
           }
@@ -1178,7 +1178,7 @@ int SchurPreconditioner::InitializeOT()
     delete [] values;
     delete [] cols;
     transformedA22=Teuchos::null;
-#ifdef DEBUGGING
+#ifdef STORE_MATRICES
   MatrixUtils::Dump(*matrix_,s1+"_TransDroppedA22.txt");
 #endif
 

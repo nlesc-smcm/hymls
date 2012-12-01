@@ -440,10 +440,17 @@ std::ostream& StandardNodeClassifier::PrintNodeTypeVector
     return os; 
     }
   int imin,jmin,kmin,vmin,imax,jmax,kmax,vmax;
-  int min_gid = nT.Map().MinMyGID();
-  int max_gid = nT.Map().MaxMyGID();
-  Tools::ind2sub(nx_,ny_,nz_,dof_,min_gid,imin,jmin,kmin,vmin);
-  Tools::ind2sub(nx_,ny_,nz_,dof_,max_gid,imax,jmax,kmax,vmax);
+  imin=nx_;imax=-1;jmin=ny_;jmax=-1;kmin=nz_;kmax=-1;
+  for (int lid=0;lid<nT.MyLength();lid++)
+    {
+    int gid=nT.Map().GID(lid);
+    int i,j,k,v;
+    Tools::ind2sub(nx_,ny_,nz_,dof_,gid,i,j,k,v);
+    imin=std::min(imin,i); imax=std::max(imax,i);
+    jmin=std::min(jmin,j); jmax=std::max(jmax,j);
+    kmin=std::min(kmin,k); kmax=std::max(kmax,k);
+    }
+    
   os << "partition: ["<<imin<<".."<<imax<<"]x["<<jmin<<".."<<jmax<<"]x["<<kmin<<".."<<kmax<<"]\n";
 
     os << "GIDs "<<std::endl;

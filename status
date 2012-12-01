@@ -1,14 +1,21 @@
 Status HYMLS
 
-20 November 2012
+1 December 2012
 
 can solve bordered systems
-basically included 'full conservation tubes' (cf. parameter "Classifier"->"Stokes",
-but the feature only works in certain cases (e.g. 2-level and 32^3, 3-level sx=4)
+new ordering eliminates 'full conservation tubes' (cf. parameter "Preconditioner"->"Classifier"="Stokes",
 
 To be done
+
+Superludist tends to hang on Huygens, very annoying
+
 Acceleration of convergence as in MATLAB using a better appromation of the Schur Complement
 on Stokes almost a factor 2 was gained.
+
+convergence criterion for GMRES should be independent of scaling of Grad and Div,
+we would like to use ||(Ax_u-Gx_p) - f_u|| instead of ||Kx-f||, for instance. This
+is a bit tricky to implement because Belos::BlockGmresSolMgr does not support
+user-defined status tests, so we need to fix it up.
 
 ==========================================================================
 

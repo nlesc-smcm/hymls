@@ -101,7 +101,7 @@ namespace HYMLS {
     int nzgraph = parallelGraph_->NumMyNonzeros();
     REPORT_SUM_MEM(Label(),"graph with overlap",0,nzgraph,GetComm());
         
-#ifdef DEBUGGING
+#ifdef STORE_MATRICES
   this->DumpGraph();
 #endif
     CHECK_ZERO(this->DetectSeparators());
@@ -810,7 +810,11 @@ int OverlappingPartitioner::FindMissingSepNodes
         //         ----------C---------         
         //                   |                  
         //                   |                  
-        if (type_i==type_j && var_i==var_j) 
+        
+        // this statement works for 2-level case Stokes and for multi-level Standard,
+        // but the edges are included asymmetrically
+        //if (type_i==type_j && var_i==var_j) 
+        if (var_i==var_j)
           {
           CHECK_ZERO(G.ExtractMyRowView(lid_i,lenI,colsI));
           CHECK_ZERO(G.ExtractMyRowView(lid_j,lenJ,colsJ));
@@ -821,7 +825,64 @@ int OverlappingPartitioner::FindMissingSepNodes
             int var_ii = partitioner_->VariableType(G.GCID(colsI[ii]));
             if (sd_ii!=my_sd)
               {
-              if ((type_i<type_ii))
+              //                                                        
+              // we want to handle the following situations correctly:  
+              //                                                        
+              // 1) Laplace 2D corner/3D edge                           
+              //                                                        
+              //     1                                                  
+              //     1           two type 1 nodes can include a type 2  
+              // 1 1 2 1 1       node on a different subdomain          
+              //     1                                                  
+              //     1                                                  
+              //                                                        
+              // 2) Laplace 3D corner                                   
+              //                                                        
+              // 1 1 2 1 1                                              
+              // 1 1 2 1 1  two type 2 nodes can include a type 3 node  
+              // 2 2 3 2 2  on a different subdomain.                   
+              // 1 1 2 1 1                                              
+              // 1 1 2 1 1                                              
+              //                                                        
+              // 3) Stokes 2D corner/3D edge                            
+              //                                                        
+              //     1           two type 1 or                          
+              //     1           a type 1 and a type 2 node can include 
+              // 1 2 3 1 1       a type 3 node on a different subdomain 
+              //     1                                                  
+              //     1                                                  
+              //                                                        
+              // 4) Stokes 3D corner                                    
+              //                                                        
+              // 1 2 3 1 1                                              
+              // 1 2 3 1 1  3+4 or 2+4 includes 5                       
+              // 4 4 5 4 4                                              
+              // 1 1 2 1 1                                              
+              // 1 1 2 1 1                                              
+              //                                                        
+              // if the Standard partitioner is udes for Stokes we get  
+              //                                                        
+              // 5) Stokes 2D corner/3D edge                            
+              //                                                        
+              //     1           two type 1 or                          
+              //     1           a type 1 and a type 4 node can include 
+              // 1 4 4 1 1       a type 4 node on a different subdomain 
+              //     1                                                  
+              //     1                                                  
+              //                                                        
+              // 6) Stokes 3D corner                                    
+              //                                                        
+              // 1 4 4 1 1                                              
+              // 1 4 4 1 1  3+4 or 2+4 includes 5                       
+              // 4 5 5 4 4                                              
+              // 1 4 4 1 1                                              
+              // 1 4 4 1 1                                              
+              //                                                        
+              // We do NOT want to include the isolated P-node in the   
+              // corners or edges, however. These have node type 5 and  
+              // retainIsolated = true.                                 
+              //                                                        
+              if ((std::max(type_i,type_j)<type_ii)&&(!retainIsolated_[var_ii]))
                 {
                 for (int jj=0;jj<lenJ;jj++)
                   {

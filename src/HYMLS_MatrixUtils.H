@@ -53,6 +53,12 @@ class MatrixUtils
   Relative, // drop if abs(value) < tol*abs(diag)
   Absolute   // drop if abs(value) < tol
   } DropType;
+
+  typedef enum {
+  MATRIXMARKET, // use EpetraExt ToMatrixMarketFile functions (fails for overlapping objects)
+  GATHER,       // collect to root and dump in ascii file (may require lots of memory on one proc)
+  HDF5          // not implemented, probably the best thing to do as it is portable
+  } PrintMethod;
   
   typedef Anasazi::Eigensolution<double,Epetra_MultiVector> Eigensolution;
 
@@ -203,7 +209,8 @@ class MatrixUtils
     //! dump CrsMatrix to file (the matrix is gathered so it can be easily
     //! read into MATLAB etc., but this is only meant for debugging etc.)
     static void Dump(const Epetra_CrsMatrix& A, const std::string& filename,
-           bool reindex=REINDEX_BY_DEFAULT);
+           bool reindex=REINDEX_BY_DEFAULT,
+           PrintMethod how=MATRIXMARKET);
     
     //! dump CrsMatrix in binary file (HDF5 format), which is parallel,   
     //! space efficient and preserves the data distribution. If the code  
@@ -219,11 +226,12 @@ class MatrixUtils
     //! dump Vector to file (the vector is gathered so it can be easily
     //! read into MATLAB etc., but this is only meant for debugging etc.)
     static void Dump(const Epetra_MultiVector& x, const std::string& filename, bool 
-        reindex=REINDEX_BY_DEFAULT);
+        reindex=REINDEX_BY_DEFAULT,
+        PrintMethod how=GATHER);
 
     //! dump Vector to file (the vector is gathered so it can be easily
     //! read into MATLAB etc., but this is only meant for debugging etc.)
-    static void Dump(const Epetra_IntVector& x, const std::string& filename); 
+    static void Dump(const Epetra_IntVector& x, const std::string& filename);
 
     //! dump Map to file (the map is gathered so it can be easily
     //! read into MATLAB etc., but this is only meant for debugging etc.)

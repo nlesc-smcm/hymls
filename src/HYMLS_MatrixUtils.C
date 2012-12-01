@@ -36,6 +36,7 @@
 #include "EpetraExt_Reindex_MultiVector.h"
 #include "EpetraExt_RowMatrixOut.h"
 #include "EpetraExt_VectorOut.h"
+#include "EpetraExt_MultiVectorOut.h"
 #include "EpetraExt_BlockMapOut.h"
 
 #include "Isorropia_EpetraOrderer.hpp"
@@ -385,8 +386,8 @@ MyGlobalElements,
       }
 
 if (Comm.NumProc()>1)
-  {    
-#ifdef HAVE_MPI    
+  {
+#ifdef HAVE_MPI
 
     const Epetra_MpiComm MpiComm = dynamic_cast<const Epetra_MpiComm&>(Comm);
     int *counts, *disps;
@@ -423,9 +424,13 @@ else
     else
       {
       NumMyElements=NumGlobalElements;
-      std::sort(AllGlobalElements,AllGlobalElements+NumGlobalElements);
+      Teuchos::ArrayView<int> view(AllGlobalElements,NumGlobalElements);
+      std::sort(view.begin(),view.end());
+      Teuchos::ArrayView<int>::iterator new_end=std::unique(view.begin(),view.end());
+      NumMyElements=std::distance(view.begin(),new_end);
+      NumGlobalElements=NumMyElements;
       }
-
+  CHECK_ZERO(Comm.Broadcast(&NumGlobalElements,1,0));
   // build the new (gathered) map
   Teuchos::RCP<Epetra_BlockMap> gmap = Teuchos::rcp(new Epetra_BlockMap
         (NumGlobalElements, NumMyElements, AllGlobalElements, 
@@ -993,7 +998,8 @@ void MatrixUtils::Identity(Teuchos::RCP<Epetra_CrsMatrix> A)
 
 
 // write CRS matrix to file
-void MatrixUtils::Dump(const Epetra_CrsMatrix& A, const string& filename,bool reindex)
+void MatrixUtils::Dump(const Epetra_CrsMatrix& A, const string& filename,
+        bool reindex, PrintMethod how)
   {
   START_TIMER3(Label(),"Dump (1)");
   DEBUG("Matrix with label "<<A.Label()<<" is written to file "<<filename);
@@ -1004,45 +1010,31 @@ void MatrixUtils::Dump(const Epetra_CrsMatrix& A, const string& filename,bool re
     int myLength = A.NumMyRows();
     newMap=Teuchos::rcp(new Epetra_Map(-1,myLength,0,A.Comm()));
     EpetraExt::CrsMatrix_Reindex renumber(*newMap);
-    Dump(renumber(const_cast<Epetra_CrsMatrix&>(A)),filename,false);
+    Dump(renumber(const_cast<Epetra_CrsMatrix&>(A)),filename,false,how);
     }
   else
     {
-#if 1
-    CHECK_ZERO(EpetraExt::RowMatrixToMatrixMarketFile(filename.c_str(),A));
-#elif 0
-    Teuchos::RCP<std::ostream> ofs = Teuchos::rcp(new Teuchos::oblackholestream());
-    int my_rank = A.Comm().MyPID();
-    if (my_rank==0)
+    if (how==MATRIXMARKET)
       {
-      ofs = Teuchos::rcp(new std::ofstream(filename.c_str()));
+      CHECK_ZERO(EpetraExt::RowMatrixToMatrixMarketFile(filename.c_str(),A));
       }
-    *ofs << std::scientific << std::setw(OUTPUT_WIDTH) << std::setprecision(OUTPUT_PREC);
-    *ofs << *(MatrixUtils::Gather(A,0));
-#else
-// I think this is wrong, Epetra does that itself in A.Print()
-    int my_rank = A.Comm().MyPID();
-    for (int p=0; p<A.Comm().NumProc();p++)
+    else if (how==GATHER)
       {
-      if (my_rank==p)
+      Teuchos::RCP<std::ostream> ofs = Teuchos::rcp(new Teuchos::oblackholestream());
+      int my_rank = A.Comm().MyPID();
+      if (my_rank==0)
         {
-        Teuchos::RCP<std::ofstream> ofs;
-        if (p==0)
-          {
-          ofs = Teuchos::rcp(new std::ofstream(filename.c_str(),std::ios::trunc));
-          }
-        else
-          {
-          ofs = Teuchos::rcp(new std::ofstream(filename.c_str(),std::ios::app));
-          }          
-        *ofs << std::scientific << std::setw(OUTPUT_WIDTH) << std::setprecision(OUTPUT_PREC);
-        *ofs << A;
-        ofs->close();
+        ofs = Teuchos::rcp(new std::ofstream(filename.c_str(),std::ios::trunc));
         }
-      A.Comm().Barrier();
-      }    
-#endif
+      *ofs << std::scientific << std::setw(OUTPUT_WIDTH) << std::setprecision(OUTPUT_PREC);
+      *ofs << *(MatrixUtils::Gather(A,0));
+      }
+    else
+      {
+      Tools::Error("not implemented",__FILE__,__LINE__);
+      }
     }
+  return;
   }
 
 
@@ -1077,8 +1069,9 @@ if (!success) Tools::Warning("caught an exception",__FILE__,__LINE__);
   }                                
 
 // write vector/dense matrix to file
-void MatrixUtils::Dump(const Epetra_MultiVector& x, const string& filename,bool reindex)
-  {  
+void MatrixUtils::Dump(const Epetra_MultiVector& x, const string& filename,
+        bool reindex, PrintMethod how)
+  {
   START_TIMER3(Label(),"Dump (2)");
   if (reindex)
     {
@@ -1086,22 +1079,30 @@ void MatrixUtils::Dump(const Epetra_MultiVector& x, const string& filename,bool 
     int myLength = x.MyLength();
     newMap=Teuchos::rcp(new Epetra_Map(-1,myLength,0,x.Comm()));
     EpetraExt::MultiVector_Reindex renumber(*newMap);
-    Dump(renumber(const_cast<Epetra_MultiVector&>(x)),filename,false);
+    Dump(renumber(const_cast<Epetra_MultiVector&>(x)),filename,false,how);
     }
   else
     {
     DEBUG("Vector with label "<<x.Label()<<" is written to file "<<filename);
-
-    //EpetraExt::VectorToMatrixMarketFile(filename.c_str(),x);
-    
-    Teuchos::RCP<std::ostream> ofs = Teuchos::rcp(new Teuchos::oblackholestream());
-    int my_rank = x.Comm().MyPID();
-    if (my_rank==0)
+    if (how==MATRIXMARKET)
       {
-      ofs = Teuchos::rcp(new std::ofstream(filename.c_str()));
+      EpetraExt::MultiVectorToMatrixMarketFile(filename.c_str(),x);
       }
-    *ofs << std::scientific << std::setw(OUTPUT_WIDTH) << std::setprecision(OUTPUT_PREC);    
-    *ofs << *(MatrixUtils::Gather(x,0));
+    else if (how==GATHER)
+      {
+      Teuchos::RCP<std::ostream> ofs = Teuchos::rcp(new Teuchos::oblackholestream());
+      int my_rank = x.Comm().MyPID();
+      if (my_rank==0)
+        {
+        ofs = Teuchos::rcp(new std::ofstream(filename.c_str(),std::ios::trunc));
+        }
+      *ofs << std::scientific << std::setw(OUTPUT_WIDTH) << std::setprecision(OUTPUT_PREC);    
+      *ofs << *(MatrixUtils::Gather(x,0));
+      }
+    else
+      {
+      Tools::Error("not implemented",__FILE__,__LINE__);
+      }
     }
   }
 

@@ -6,7 +6,7 @@
   <ParameterList name="Driver">
 
     <!-- will create a series of slightly perturbed matrices -->
-    <Parameter name="Number of factorizations" type="int" value="5"/>
+    <Parameter name="Number of factorizations" type="int" value="1"/>
     <!-- for each matrix, solve with several right-hand sides in a row -->
     <Parameter name="Number of solves" type="int" value="1"/>
     <Parameter name="Diagonal Perturbation" type="double" value="0.0"/>
@@ -16,7 +16,7 @@
     
     <Parameter name="Read Linear System" type="bool" value="1"/>
     <Parameter name="Data Directory" type="string" 
-    value="data/DrivenCavity/128x128/Re0"/>
+    value="data/DrivenCavity/32x32/Re0"/>
     <Parameter name="File Format" type="string" value="MatrixMarket"/>
     <Parameter name="Exact Solution Available" type="bool" value="1"/>
     
@@ -29,8 +29,8 @@
     <Parameter name="Equations" type="string" value="Stokes-C"/>
     <Parameter name="Dimension" type="int" value="2"/>
 
-    <Parameter name="nx" type="int" value="128"/>
-    <Parameter name="ny" type="int" value="128"/>
+    <Parameter name="nx" type="int" value="32"/>
+    <Parameter name="ny" type="int" value="32"/>
     <Parameter name="nz" type="int" value="1"/>
         
   </ParameterList><!--}-->
@@ -40,6 +40,7 @@
     
     <!-- "CG", "GMRES", "PCPG" (only GMRES actually supported by our solver right now) -->
     <Parameter name="Krylov Method" type="string" value="GMRES"/>
+    <Parameter name="Null Space" type="string" value="Constant P"/>
     
     <!-- parameters for the iterative solver (Belos) -->
     <ParameterList name="Iterative Solver">
@@ -56,7 +57,7 @@
   <ParameterList name="Preconditioner">
 
     <Parameter name="Visualize Solver" type="bool" value="1"/>
-    <Parameter name="Fix Pressure Level" type="bool" value="true"/>
+    <Parameter name="Fix Pressure Level" type="bool" value="false"/>
 
     <Parameter name="Partitioner" type="string" value="Cartesian"/>
     <Parameter name="Classifier" type="string" value="Stokes"/>
@@ -73,7 +74,7 @@
     <!-- number of levels to be created (1: direct solver for Schur complement, -->
     <!-- 2: solve Schur iteratively and reduced Schur directly,                 -->
     <!-- >2: not implemented.                                                   -->
-    <Parameter name="Number of Levels" type="int" value="1"/>
+    <Parameter name="Number of Levels" type="int" value="2"/>
     
     <Parameter name="Scale Schur-Complement" type="bool" value="0"/>
     

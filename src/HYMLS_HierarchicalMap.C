@@ -103,6 +103,7 @@ namespace HYMLS {
     spawnedMaps_.resize(4);
     for (int i=0;i<spawnedObjects_.size();i++) spawnedObjects_[i]=Teuchos::null;
     overlappingMap_=Teuchos::null;
+    return 0;
     }
 
   int HierarchicalMap::FillComplete()
@@ -488,17 +489,17 @@ HierarchicalMap::SpawnInterior() const
 //CAVEAT: this is just for debugging/testing, if it is defined
 // the code may not work for general problems!
 #ifdef SHIFT_PRESSURE_TO_END
-  int dof=3;
-  int pressure=std::min(dof-1,3);
+  const int dof=3; // assuming 2D Stokes here
+  const int pressure=2;
 #else
-  int dof=1;
-  int pressure=-1;
+  const int dof=1;
+  const int pressure=-1;
 #endif  
 
 #ifdef SHIFT_SINGLETONS_TO_END
-  int singleton=1;
+  const int singleton=1;
 #else
-  int singleton=0;
+  const int singleton=0;
 #endif
 
   // first non-singletons  
@@ -515,17 +516,31 @@ HierarchicalMap::SpawnInterior() const
         if (baseMap_->MyGID(gid))
           {
           int lid = tmpOverlappingMap->LID(gid);
-          if (groupID[lid]<0)
+#ifdef TESTING
+          if (lid<0) Tools::Error("inconsistency in ordering!!!",__FILE__,__LINE__);
+#endif
+          if (groupID[lid]==-1) 
             {
+            DEBUG("new group: "<<num_subdomains);
             groupSize.append(NumElements(sd,grp));
             for (int j=0;j<NumElements(sd,grp);j++)
               {
-              gid = this->GID(sd,grp,j);
-              lid = tmpOverlappingMap->LID(gid);
-              groupID[lid]=num_subdomains;
+              int gid_j = this->GID(sd,grp,j);
+              int lid_j = tmpOverlappingMap->LID(gid_j);
+#ifdef DEBUGGING
+              Tools::deb() << gid_j<<"/"<<lid_j<<" ";
+#endif
+              groupID[lid_j]=num_subdomains;
               }// for j
+            DEBUG("");
             num_subdomains++;
             }// if not assigned
+#ifdef DEBUGGING
+          else
+            {
+            DEBVAR(groupID[lid]);
+            }
+#endif            
           }// if belongs to me
         }// non-singleton
       }// for grp
@@ -602,7 +617,7 @@ HierarchicalMap::SpawnInterior() const
   // assign group-IDs to separators on other partitions
   // (new separators)
   int num_separator_groups=0;
-  
+  DEBUG("off-processor nodes:");
   for (int sd=0;sd<NumMySubdomains();sd++)
     {
     for (int grp=1;grp<NumGroups(sd);grp++)
@@ -611,17 +626,31 @@ HierarchicalMap::SpawnInterior() const
       if (!baseMap_->MyGID(gid))
         {
         int lid = tmpOverlappingMap->LID(gid);
+#ifdef TESTING
+          if (lid<0) Tools::Error("inconsistency in ordering!!!",__FILE__,__LINE__);
+#endif        
         if (groupID[lid]<0)
           {
+          DEBUG("new group: "<<num_subdomains+num_separator_groups);
           groupSize.append(NumElements(sd,grp));
           for (int j=0;j<NumElements(sd,grp);j++)
             {
-            gid = this->GID(sd,grp,j);
-            lid = tmpOverlappingMap->LID(gid);
-            groupID[lid]=num_subdomains+num_separator_groups;
+            int gid_j = this->GID(sd,grp,j);
+            int lid_j = tmpOverlappingMap->LID(gid_j);
+            groupID[lid_j]=num_subdomains+num_separator_groups;
+#ifdef DEBUGGING
+              Tools::deb() << gid_j <<"/"<<lid_j<<" ";
+#endif
             }// for j
+          DEBUG("");
           num_separator_groups++;
           }// if not assigned
+#ifdef DEBUGGING
+        else
+          {
+          DEBVAR(groupID[lid]);
+          }
+#endif
         }// if belongs to someone else
       }// for grp
     }//for sd
@@ -636,9 +665,9 @@ for (int i=0;i<groupID.MyLength();i++)
   {
   if (groupID[i]<0)
     {
-    HYMLS::Tools::Warning("node "+Teuchos::toString(tmpOverlappingMap->GID(i))+
-        " not assigned to any group!",
-        __FILE__,__LINE__);
+    std::cerr<<"P"+Teuchos::toString(comm_->MyPID())+": "+Label()+
+    " - node "+Teuchos::toString(tmpOverlappingMap->GID(i))+
+    " not assigned to any group!\n";
     }
   }
 #endif
