@@ -1,5 +1,5 @@
 //#define BLOCK_IMPLEMENTATION 1
-//#include "HYMLS_no_debug.H"
+#include "HYMLS_no_debug.H"
 #include "HYMLS_Solver.H"
 
 #include "HYMLS_Tools.H"

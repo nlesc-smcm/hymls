@@ -235,7 +235,8 @@ class MatrixUtils
 
     //! dump Map to file (the map is gathered so it can be easily
     //! read into MATLAB etc., but this is only meant for debugging etc.)
-    static void Dump(const Epetra_Map& M, const std::string& filename);
+    static void Dump(const Epetra_Map& M, const std::string& filename,
+        PrintMethod how=MATRIXMARKET);
         
     //! dump vector in binary (HDF5) format (see comment on DumpMatrixHDF)
     static void DumpHDF(const Epetra_MultiVector& x, const std::string& filename, 
@@ -244,7 +245,15 @@ class MatrixUtils
     
     //! Print an Epetra_RowMatrix to a stream
     static void PrintRowMatrix(const Epetra_RowMatrix&,std::ostream&);
+    
+    //! MatrixMarket output of MultiVector. The vectors are written in order
+    //! of ascending GID, but without storing the GIDs. This is different from
+    //! just calling the EpetraExt function as that one stores the entries    
+    //! processor-by-processor.
+    static int mmwrite(std::string filename, const Epetra_MultiVector& vec);
 
+    //! MatrixMarket input of MultiVector.
+    static int mmread(std::string filename, Epetra_MultiVector& vec);
     
     //! compute triple matrix product A*B*C or the like
     static Teuchos::RCP<Epetra_CrsMatrix> TripleProduct(bool transA, const Epetra_CrsMatrix& A,

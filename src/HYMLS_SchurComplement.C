@@ -1,4 +1,4 @@
-//#include "HYMLS_no_debug.H"
+#include "HYMLS_no_debug.H"
 
 #include "HYMLS_SchurComplement.H"
 #include "HYMLS_OverlappingPartitioner.H"

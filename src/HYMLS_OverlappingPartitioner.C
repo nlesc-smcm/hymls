@@ -644,6 +644,14 @@ int OverlappingPartitioner::DetectSeparators()
   
   const Epetra_BlockMap& p_map = p_nodeType.Map();
   
+  // in the case of 3D Stokes we get some extra separators
+  // around the 'full conservation tubes' (subdomain edges).
+  // We do not want these to participate in the function
+  // FindMissingSepNodes below because they are already on
+  // different subdomains and lead to spurious inclusion of
+  // nodes on coarser levels.
+  Teuchos::Array<int> specialSeparators;
+  
 #ifdef TESTING
   if (!partitioner_->Map().SameAs(nodeType.Map()))
     {
@@ -674,7 +682,14 @@ int OverlappingPartitioner::DetectSeparators()
             }
           else
             {
-            separator.append(cols[j]);
+            if (nodeType[i]==0)
+              {
+              separator.append(cols[j]);
+              }
+            else
+              {
+              specialSeparators.append(cols[j]);
+              }
             }
           }
         }
@@ -747,6 +762,7 @@ int OverlappingPartitioner::DetectSeparators()
   std::copy(separatorL2.begin(),separatorL2.end(),std::back_inserter(separator));
   std::copy(separatorL3.begin(),separatorL3.end(),std::back_inserter(separator));
   
+  separatorL1.insert(specialSeparators.begin(),specialSeparators.end());
   separatorL1.insert(separatorL2.begin(),separatorL2.end());
   separatorL1.insert(separatorL3.begin(),separatorL3.end());
 
@@ -860,7 +876,7 @@ int OverlappingPartitioner::FindMissingSepNodes
               // 1 1 2 1 1                                              
               // 1 1 2 1 1                                              
               //                                                        
-              // if the Standard partitioner is udes for Stokes we get  
+              // If the Standard partitioner is used for Stokes we get  
               //                                                        
               // 5) Stokes 2D corner/3D edge                            
               //                                                        
@@ -882,7 +898,22 @@ int OverlappingPartitioner::FindMissingSepNodes
               // corners or edges, however. These have node type 5 and  
               // retainIsolated = true.                                 
               //                                                        
+              //                                                        
+              // On the next level things become more complex, unfortu- 
+              // nately. With the above ideas, we get two type 1 (face) 
+              // separators including a type 2 face separator from      
+              // another k-level (v-nodes here):                        
+              //                                                        
+              //        1 1 1 - 1 1 1
+              //        1 1 1 - 1 1 1
+              //        3 3 3 5 3 3 3
+              //        2 2 2 4 2 2 2
+              //        1 1 1 - 1 1 1
+              //        1 1 1 - 1 1 1
+              
               if ((std::max(type_i,type_j)<type_ii)&&(!retainIsolated_[var_ii]))
+                 //&&(type_ii!=2)) // TODO kills Laplace case, and also doesn't
+                 // cure the problem in all cases
                 {
                 for (int jj=0;jj<lenJ;jj++)
                   {
@@ -980,6 +1011,7 @@ int OverlappingPartitioner::GroupSeparators()
       {
       int row=overlappingMap->GID((*groupPointer)[sd][1]+i);
       int type_i = (*p_nodeType_)[p_map.LID(row)];
+      int var_i=partitioner_->VariableType(row);
 
       //DEBUG("Process node "<<row);
       connectedSubs.resize(1);
@@ -995,11 +1027,13 @@ int OverlappingPartitioner::GroupSeparators()
         {
         // We only consider edges to lower-level nodes here,
         // e.g. from face separators to interior, from 
-        // edges to faces and from vertices to edges. We also
-        // skip edges to subcells (full conservation tubes in Stokes)
+        // edges to faces and from vertices to edges. We treat
+        // subcells (full conservation tubes in Stokes) as separate
+        // subdomains.
         int type_j=(*p_nodeType_)[p_map.LID(cols[j])];
+        int var_j=partitioner_->VariableType(cols[j]);
 
-        if (type_j<0)
+        if (type_j<0 && var_i!=var_j)
           {
           // we have to create a 'new subdomain id' as the separator
           // node connects to the interior of a full conservation tube.
@@ -1043,9 +1077,8 @@ int OverlappingPartitioner::GroupSeparators()
         connectedSubs.append(new_id++);
         }//if
       
-      //int variableType= partitioner_->VariableType(row);
-      int variableType= type_i*10 +
-                        partitioner_->VariableType(row);
+      //int variableType=var_i;
+      int variableType= type_i*10 + var_i;
       
       SepNode S(row,connectedSubs,variableType);
       sepNodes[i]=S;

@@ -92,7 +92,6 @@ int CartesianStokesClassifier::BuildNodeTypeVector()
   p_nodeType_=Teuchos::rcp(new Epetra_IntVector(parallelGraph_->RowMap()));
   Epetra_Import import(p_nodeType_->Map(),nodeType_->Map());
   CHECK_ZERO(p_nodeType_->Import(*nodeType_,import,Insert));
-
 #if defined(STORE_MATRICES)||defined(TESTING)
 std::ofstream nodeTypeStream;
 nodeTypeStream.open(("nodeTypes_L"+Teuchos::toString(myLevel_)+
@@ -178,7 +177,9 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"step 2");
 
 #if defined(STORE_MATRICES)||defined(TESTING)
   this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"with FCTs");
+  HYMLS::MatrixUtils::Dump(*nodeType_,"NodeTypes"+Teuchos::toString(myLevel_)+".txt");
 #endif
+
     
   return 0;
   }

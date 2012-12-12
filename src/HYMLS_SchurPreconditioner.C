@@ -1,5 +1,5 @@
 #define RESTRICT_ON_COARSE_LEVEL
-//#include "HYMLS_no_debug.H"
+#include "HYMLS_no_debug.H"
 
 #include "HYMLS_SchurPreconditioner.H"
 

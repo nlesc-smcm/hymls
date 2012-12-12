@@ -4,7 +4,7 @@
  * as long as this header remains intact.                             *
  * contact: jonas@math.rug.nl                                         *
  **********************************************************************/
-//#include "HYMLS_no_debug.H"
+#include "HYMLS_no_debug.H"
 
 #include "Teuchos_RCP.hpp"
 #include "Epetra_Map.h"
@@ -36,6 +36,7 @@
 #include "EpetraExt_Reindex_MultiVector.h"
 #include "EpetraExt_RowMatrixOut.h"
 #include "EpetraExt_VectorOut.h"
+#include "EpetraExt_MultiVectorIn.h"
 #include "EpetraExt_MultiVectorOut.h"
 #include "EpetraExt_BlockMapOut.h"
 
@@ -1108,7 +1109,7 @@ void MatrixUtils::Dump(const Epetra_MultiVector& x, const string& filename,
 
 // write CRS IntVector to file
 void MatrixUtils::Dump(const Epetra_IntVector& x, const string& filename)
-  {  
+  {
   START_TIMER3(Label(),"Dump (3)");
   DEBUG("Vector with label "<<x.Label()<<" is written to file "<<filename);
 
@@ -1125,6 +1126,44 @@ void MatrixUtils::Dump(const Epetra_IntVector& x, const string& filename)
   }
 
 
+int MatrixUtils::mmwrite(std::string filename, const Epetra_MultiVector& vec)
+  {
+  START_TIMER2(Label(),"mmwrite");
+  const Epetra_BlockMap& map = vec.Map();
+  int myLength=vec.MyLength();
+  int base=map.IndexBase();
+  Epetra_Map linearMap(-1,myLength,base,vec.Comm());
+  // the EpetraExt function here just creates a view of the vector with the linear map,
+  // which means that first all entries on partition 0 are written, then partition 1 etc.
+  // This destroys the ordering of the vector, however, so we do an import instead which 
+  // physically moves the GIDs 0:(nloc-1) to proc 0, etc.
+  Epetra_Import import(linearMap,map);
+  Epetra_MultiVector linearVec(linearMap,vec.NumVectors());
+  CHECK_ZERO(linearVec.Import(vec,import,Insert));
+  CHECK_ZERO(EpetraExt::MultiVectorToMatrixMarketFile(filename.c_str(),linearVec));
+  return 0;
+  }
+    
+//! MatrixMarket input of MultiVector. 
+int MatrixUtils::mmread(std::string filename, Epetra_MultiVector& vec)
+  {
+  START_TIMER2(Label(),"mmread");
+  const Epetra_BlockMap& map = vec.Map();
+  int myLength=vec.MyLength();
+  int base=map.IndexBase();
+  Epetra_Map linearMap(-1,myLength,base,vec.Comm());
+  Epetra_Import import(map,linearMap);
+
+  Epetra_MultiVector *ptr;
+  
+  CHECK_ZERO(EpetraExt::MatrixMarketFileToMultiVector(filename.c_str(),linearMap,ptr));
+  CHECK_ZERO(vec.Import(*ptr,import,Insert));
+  // TODO: this is a memory leak, but if we delete the pointer, which is created in EpetraExt,
+  //       we get a segfault. Why does this happen?
+  //delete [] ptr;
+  return 0;
+  }
+            
 void MatrixUtils::DumpHDF(const Epetra_MultiVector& x, 
                                 const string& filename, 
                                 const string& groupname,
@@ -1156,21 +1195,29 @@ if (!success) Tools::Warning("caught an exception",__FILE__,__LINE__);
   }
 
 // write map to file
-void MatrixUtils::Dump(const Epetra_Map& M, const string& filename)
+void MatrixUtils::Dump(const Epetra_Map& M, const string& filename, PrintMethod how)
   {
   START_TIMER3(Label(),"Dump (4)");
   DEBUG("Map with label "<<M.Label()<<" is written to file "<<filename);
-  EpetraExt::BlockMapToMatrixMarketFile(filename.c_str(),M);
-  /*
-  Teuchos::RCP<std::ostream> ofs = Teuchos::rcp(new Teuchos::oblackholestream());
-  int my_rank = M.Comm().MyPID();
-  if (my_rank==0)
+  if (how==MATRIXMARKET)
     {
-    ofs = Teuchos::rcp(new std::ofstream(filename.c_str()));
+    EpetraExt::BlockMapToMatrixMarketFile(filename.c_str(),M);
     }
-  *ofs << std::setw(OUTPUT_WIDTH) << std::setprecision(OUTPUT_PREC);
-  *ofs << *(MatrixUtils::Gather(M,0));  
-  */
+  else if (how==GATHER)
+    {
+    Teuchos::RCP<std::ostream> ofs = Teuchos::rcp(new Teuchos::oblackholestream());
+    int my_rank = M.Comm().MyPID();
+    if (my_rank==0)
+      {
+      ofs = Teuchos::rcp(new std::ofstream(filename.c_str()));
+      }
+    *ofs << std::setw(OUTPUT_WIDTH) << std::setprecision(OUTPUT_PREC);
+    *ofs << *(MatrixUtils::Gather(M,0));  
+    }
+  else
+    {
+    Tools::Error("not implemented",__FILE__,__LINE__);
+    }
   }
 
 // print row matrix
