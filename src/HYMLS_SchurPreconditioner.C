@@ -1153,7 +1153,7 @@ int SchurPreconditioner::InitializeOT()
       // assemble with all zeros
       DEBVAR("assemble pattern of transformed SC");
       CHECK_ZERO(matrix->GlobalAssemble(false));
-
+      // put in the pattern of H'A22H
       for (int i=0;i<matrix_->NumMyRows();i++)
         {
         //global row id
@@ -1162,6 +1162,7 @@ int SchurPreconditioner::InitializeOT()
         for (int j=0;j<len;j++) values[j]=0.0;
         CHECK_NONNEG(matrix_->InsertGlobalValues(grid,len,values,cols));
         }
+      CHECK_ZERO(matrix_->FillComplete());
       }
     else
       {
@@ -1182,7 +1183,6 @@ int SchurPreconditioner::InitializeOT()
       CHECK_NONNEG(matrix_->SumIntoGlobalValues(grid,len,values,cols));
       }
       
-    CHECK_ZERO(matrix_->FillComplete());
     // free temporary storage
     delete [] values;
     delete [] cols;

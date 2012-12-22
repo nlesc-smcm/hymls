@@ -192,15 +192,6 @@ private:
                               Teuchos::Array<int>& interiorNodes,
                               Teuchos::Array<int>& separatorNodes,
                               Teuchos::Array<int>& retainedNodes) const;
-
-  //! this is a helper function to associate separators with subdomains 
-  //! correctly, in particular to find separator nodes in corners which 
-  //! are not directly connected to any interior nodes of the subdomain.
-  int FindMissingSepNodes(int my_sd, 
-                           const Epetra_CrsGraph& parallelGraph,
-                           const Epetra_IntVector& p_nodeTypes,
-                           const std::set<int>& input_array,
-                                 std::set<int>& output_array) const;
     
   //!@}
 

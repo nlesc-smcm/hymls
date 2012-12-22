@@ -172,6 +172,8 @@ namespace HYMLS {
         }
   
       DEBUG("SchurComplement: Assembly with all zeros...");
+      //assemble without calling FillComplete because we
+      // still miss A22 in the pattern
       CHECK_ZERO(S->GlobalAssemble(false));
       }
     else
@@ -192,6 +194,7 @@ namespace HYMLS {
     //DEBVAR(mother_->A22());
     CHECK_ZERO(EpetraExt::MatrixMatrix::Add(mother_->A22(), false, 1.0, 
                                                 *S,-1.0));
+    // finish construction by creating local IDs:
     CHECK_ZERO(S->FillComplete());    
     return 0;
     }

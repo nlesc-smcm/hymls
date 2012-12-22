@@ -644,14 +644,6 @@ int OverlappingPartitioner::DetectSeparators()
   
   const Epetra_BlockMap& p_map = p_nodeType.Map();
   
-  // in the case of 3D Stokes we get some extra separators
-  // around the 'full conservation tubes' (subdomain edges).
-  // We do not want these to participate in the function
-  // FindMissingSepNodes below because they are already on
-  // different subdomains and lead to spurious inclusion of
-  // nodes on coarser levels.
-  Teuchos::Array<int> specialSeparators;
-  
 #ifdef TESTING
   if (!partitioner_->Map().SameAs(nodeType.Map()))
     {
@@ -662,7 +654,6 @@ int OverlappingPartitioner::DetectSeparators()
   for (int i=partitioner_->First(sd); i<partitioner_->First(sd+1);i++)
     {
     int row=partitioner_->Map().GID(i);
-    int var_i = partitioner_->VariableType(row);
     // check for non-local separators of the subdomain
     if (nodeType[i]<=0)
       {
@@ -671,7 +662,6 @@ int OverlappingPartitioner::DetectSeparators()
       for (int j=0;j<len;j++)
         {
         int sd_j = (*partitioner_)(cols[j]);
-        int var_j = partitioner_->VariableType(cols[j]);
         int nt_j = (*p_nodeType_)[p_map.LID(cols[j])];
         if ((sd_j!=sd_i)&&nt_j>0)
           {
@@ -682,14 +672,7 @@ int OverlappingPartitioner::DetectSeparators()
             }
           else
             {
-            if (nodeType[i]==0)
-              {
-              separator.append(cols[j]);
-              }
-            else
-              {
-              specialSeparators.append(cols[j]);
-              }
+            separator.append(cols[j]);
             }
           }
         }
@@ -709,69 +692,15 @@ int OverlappingPartitioner::DetectSeparators()
       }
     }
 
-  // now we still miss some nodes that do not have an edge to any interior nodes
-  // of subdomain sd. Those are secondary separators, and we have to spot them. 
-  // For instance node a for subdomain D in this picture:
-  //            
-  // C  |  D    
-  //   c-d      
-  //----+|----  
-  //   a|b      
-  //A   |    B  
-  //            
-  // to do this, we check for each pair of separator nodes if
-  // they have a common edge to another non-local separator node.
-  
-  // In general a single iteration may not be enough, as the newly
-  // introduced nodes may again connect to missing separators   
-  // (e.g. vertices in the corners of 3D subdomains, the first iteration
-  // would only find the 'edges').
-  std::set<int> separatorL1;
-  std::set<int> separatorL2;
-  std::set<int> separatorL3;
+  std::set<int> tmp;
     
-  separatorL1.insert(separator.begin(),separator.end());
-  separatorL1.insert(retained.begin(),retained.end());
-  // consider the 3D case. We get the following situations (slice in x-y plane)
-  // for the lower right subdomain:                             
-  //                                                            
-  //     'interior in z-direction'      'vertical separator'    
-  //                                                            
-  //            |                                 |             
-  //     SD3    |  SD4                            |             
-  //    --------+---------              ----------+--------     
-  //           C|AAAAAAAAA                       D|AAAAAAAA     
-  //           B|                                C|AAAAAAAA     
-  //     SD1   B| SD2                            C|AAAAAAAA     
-  //           B|                                C|AAAAAAAA     
-  //                    
-  // so far we have dealed with the A and B nodes (B's are included  
-  // from neighboring subdomains in a consistent way). The first call
-  // to 'FindMissingSepNodes' finds all the C nodes by looking for   
-  // shared edges between 'A or B' nodes which are not in the same   
-  // subdomain. This is sufficient to get the ordering right in 2D.  
-  //CHECK_ZERO(this->FindMissingSepNodes(sd_i,G,p_nodeType,separatorL1,separatorL2));
-  
-  // The D-node in the corner of the 3D subdomain has an edge to an A-
-  // and two C-nodes on subdomain 1 (from the perspective of SD2).
-  // For all other subdomains it has an edge to two C-nodes on 
-  // different subdomains.
-  //CHECK_ZERO(this->FindMissingSepNodes(sd_i,G,p_nodeType,separatorL2,separatorL3));
-
-/*  
-  separator.resize(0);
-  std::copy(separatorL1.begin(),separatorL1.end(),std::back_inserter(separator));
-  std::copy(separatorL2.begin(),separatorL2.end(),std::back_inserter(separator));
-  std::copy(separatorL3.begin(),separatorL3.end(),std::back_inserter(separator));
-*/  
-  separatorL1.insert(specialSeparators.begin(),specialSeparators.end());
-//  separatorL1.insert(separatorL2.begin(),separatorL2.end());
-//  separatorL1.insert(separatorL3.begin(),separatorL3.end());
+  tmp.insert(separator.begin(),separator.end());
+  tmp.insert(retained.begin(),retained.end());
 
   separator.clear();
   retained.clear();
 
-  for (std::set<int>::iterator i=separatorL1.begin();i!=separatorL1.end();i++)
+  for (std::set<int>::iterator i=tmp.begin();i!=tmp.end();i++)
     {
     if (p_nodeType[p_map.LID(*i)]<4)
       {
@@ -787,155 +716,6 @@ int OverlappingPartitioner::DetectSeparators()
   delete [] cols;  
   return 0;
   }
-
-//
-int OverlappingPartitioner::FindMissingSepNodes
-        (int my_sd, const Epetra_CrsGraph& G, const Epetra_IntVector& p_nodeType,
-         const std::set<int>& in, std::set<int>& out) const
-
-  {
-  START_TIMER3(Label(),"FindMissingSepNodes");
-  const Epetra_BlockMap& p_map=p_nodeType.Map();
-  int *colsI;
-  int *colsJ;
-  int lenI,lenJ;
-
-  for (std::set<int>::const_iterator i=in.begin(); i!=in.end();i++)
-    {
-    int lid_i=p_map.LID(*i);
-    DEBVAR(*i);
-    int sd_i = (*partitioner_)(*i);
-    int type_i = p_nodeType[lid_i];
-    int var_i = partitioner_->VariableType(*i);
-    for (std::set<int>::const_iterator j=i; j!=in.end();j++)
-      {
-      if (*i!=*j)
-        {
-        int lid_j=p_map.LID(*j);
-        int sd_j = (*partitioner_)(*j);
-        int type_j = p_nodeType[lid_j];
-        int var_j = partitioner_->VariableType(*j);
-        // a level 1 node can include level 2 nodes, but not level 0
-        // or 1 (and the same holds on each level). This results in 
-        // the corner being included in the subdomain for Laplace.  
-        // The isRetainedV statement fixes this for Stokes problems.
-        // The reason we need the corner is that node C connects to 
-        // separator nodes on various subdomains, and from each sub-
-        // domain the SC gets a contribution in the A22 block, so   
-        // each subdomain must have the C-node.                     
-        //                   |                  
-        //                   |                  
-        //         ----------C---------         
-        //                   |                  
-        //                   |                  
-        
-        // this statement works for 2-level case Stokes and for multi-level Standard,
-        // but the edges are included asymmetrically
-        //if (type_i==type_j && var_i==var_j) 
-        if (var_i==var_j)
-          {
-          CHECK_ZERO(G.ExtractMyRowView(lid_i,lenI,colsI));
-          CHECK_ZERO(G.ExtractMyRowView(lid_j,lenJ,colsJ));
-          for (int ii=0;ii<lenI;ii++)
-            {
-            int sd_ii = (*partitioner_)(G.GCID(colsI[ii]));
-            int type_ii = p_nodeType[p_map.LID(G.GCID(colsI[ii]))];
-            int var_ii = partitioner_->VariableType(G.GCID(colsI[ii]));
-            if (sd_ii!=my_sd)
-              {
-              //                                                        
-              // we want to handle the following situations correctly:  
-              //                                                        
-              // 1) Laplace 2D corner/3D edge                           
-              //                                                        
-              //     1                                                  
-              //     1           two type 1 nodes can include a type 2  
-              // 1 1 2 1 1       node on a different subdomain          
-              //     1                                                  
-              //     1                                                  
-              //                                                        
-              // 2) Laplace 3D corner                                   
-              //                                                        
-              // 1 1 2 1 1                                              
-              // 1 1 2 1 1  two type 2 nodes can include a type 3 node  
-              // 2 2 3 2 2  on a different subdomain.                   
-              // 1 1 2 1 1                                              
-              // 1 1 2 1 1                                              
-              //                                                        
-              // 3) Stokes 2D corner/3D edge                            
-              //                                                        
-              //     1           two type 1 or                          
-              //     1           a type 1 and a type 2 node can include 
-              // 1 2 3 1 1       a type 3 node on a different subdomain 
-              //     1                                                  
-              //     1                                                  
-              //                                                        
-              // 4) Stokes 3D corner                                    
-              //                                                        
-              // 1 2 3 1 1                                              
-              // 1 2 3 1 1  3+4 or 2+4 includes 5                       
-              // 4 4 5 4 4                                              
-              // 1 1 2 1 1                                              
-              // 1 1 2 1 1                                              
-              //                                                        
-              // If the Standard partitioner is used for Stokes we get  
-              //                                                        
-              // 5) Stokes 2D corner/3D edge                            
-              //                                                        
-              //     1           two type 1 or                          
-              //     1           a type 1 and a type 4 node can include 
-              // 1 4 4 1 1       a type 4 node on a different subdomain 
-              //     1                                                  
-              //     1                                                  
-              //                                                        
-              // 6) Stokes 3D corner                                    
-              //                                                        
-              // 1 4 4 1 1                                              
-              // 1 4 4 1 1  3+4 or 2+4 includes 5                       
-              // 4 5 5 4 4                                              
-              // 1 4 4 1 1                                              
-              // 1 4 4 1 1                                              
-              //                                                        
-              // We do NOT want to include the isolated P-node in the   
-              // corners or edges, however. These have node type 5 and  
-              // retainIsolated = true.                                 
-              //                                                        
-              //                                                        
-              // On the next level things become more complex, unfortu- 
-              // nately. With the above ideas, we get two type 1 (face) 
-              // separators including a type 2 face separator from      
-              // another k-level (v-nodes here):                        
-              //                                                        
-              //        1 1 1 - 1 1 1
-              //        1 1 1 - 1 1 1
-              //        3 3 3 5 3 3 3
-              //        2 2 2 4 2 2 2
-              //        1 1 1 - 1 1 1
-              //        1 1 1 - 1 1 1
-              
-              if ((std::max(type_i,type_j)<type_ii)&&(!retainIsolated_[var_ii]))
-                 //&&(type_ii!=2)) // TODO kills Laplace case, and also doesn't
-                 // cure the problem in all cases
-                {
-                for (int jj=0;jj<lenJ;jj++)
-                  {
-                  if (G.GCID(colsI[ii])==G.GCID(colsJ[jj]))
-                    {
-                    DEBUG("\t\t missed node "<<G.GCID(colsJ[jj])<<" inserted");
-                    DEBUG("\t\t from "<<*i<<" ["<<type_i<<"] and "<<*j<<" ["<<type_j<<"]");
-                    out.insert(G.GCID(colsJ[jj]));
-                    }// match
-                  }//jj
-                }// conditions on node type
-              }//if sd_ii != sd_jj and not a P-node
-            }//ii
-          }// same type i j
-        }//if i!=j
-      }//j
-    }//i
-  return 0;
-  }
-
 
 // reorders the separators found in DtectSeparators()
 // into groups suitable for our transformations.
