@@ -673,7 +673,7 @@ int OverlappingPartitioner::DetectSeparators()
         int sd_j = (*partitioner_)(cols[j]);
         int var_j = partitioner_->VariableType(cols[j]);
         int nt_j = (*p_nodeType_)[p_map.LID(cols[j])];
-        if ((sd_j!=sd_i)&&(var_i==var_j)&&nt_j>0)
+        if ((sd_j!=sd_i)&&nt_j>0)
           {
           DEBUG("include "<<cols[j]<<" from "<<row);
           if (nt_j>=4)
@@ -750,21 +750,23 @@ int OverlappingPartitioner::DetectSeparators()
   // to 'FindMissingSepNodes' finds all the C nodes by looking for   
   // shared edges between 'A or B' nodes which are not in the same   
   // subdomain. This is sufficient to get the ordering right in 2D.  
-  CHECK_ZERO(this->FindMissingSepNodes(sd_i,G,p_nodeType,separatorL1,separatorL2));
+  //CHECK_ZERO(this->FindMissingSepNodes(sd_i,G,p_nodeType,separatorL1,separatorL2));
   
   // The D-node in the corner of the 3D subdomain has an edge to an A-
   // and two C-nodes on subdomain 1 (from the perspective of SD2).
   // For all other subdomains it has an edge to two C-nodes on 
   // different subdomains.
-  CHECK_ZERO(this->FindMissingSepNodes(sd_i,G,p_nodeType,separatorL2,separatorL3));
+  //CHECK_ZERO(this->FindMissingSepNodes(sd_i,G,p_nodeType,separatorL2,separatorL3));
+
+/*  
   separator.resize(0);
   std::copy(separatorL1.begin(),separatorL1.end(),std::back_inserter(separator));
   std::copy(separatorL2.begin(),separatorL2.end(),std::back_inserter(separator));
   std::copy(separatorL3.begin(),separatorL3.end(),std::back_inserter(separator));
-  
+*/  
   separatorL1.insert(specialSeparators.begin(),specialSeparators.end());
-  separatorL1.insert(separatorL2.begin(),separatorL2.end());
-  separatorL1.insert(separatorL3.begin(),separatorL3.end());
+//  separatorL1.insert(separatorL2.begin(),separatorL2.end());
+//  separatorL1.insert(separatorL3.begin(),separatorL3.end());
 
   separator.clear();
   retained.clear();

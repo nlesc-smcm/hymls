@@ -1083,6 +1083,28 @@ int SchurPreconditioner::InitializeOT()
     Epetra_SerialDenseMatrix Spart;
     Epetra_IntSerialDenseVector indsPart;
 
+    Teuchos::RCP<Epetra_CrsMatrix> transformedA22 =
+    OT->Apply(*sparseMatrixOT_,SchurComplement_->A22());
+    
+#ifdef DEBUGGING
+  std::string s1 = "SchurPrecond"+Teuchos::toString(myLevel_)+"_";
+/*
+  MatrixUtils::Dump(*matrix_,s1+"Pattern.txt");
+  // not Filled yet
+  //MatrixUtils::Dump(*transformedA22,s1+"TransformedA22.txt");
+*/
+#endif
+
+    if (transformedA22->RowMap().SameAs(matrix->RowMap())==false)
+      {
+      HYMLS::Tools::Error("mismatched maps",__FILE__,__LINE__);
+      }
+
+    int len;
+    int maxlen=transformedA22->MaxNumEntries();    
+    int* cols=new int[maxlen];
+    double* values=new double[maxlen];
+
     if (!matrix->Filled())
       {
       // start out by just putting the structure together.
@@ -1130,39 +1152,24 @@ int SchurPreconditioner::InitializeOT()
         }
       // assemble with all zeros
       DEBVAR("assemble pattern of transformed SC");
-      CHECK_ZERO(matrix->GlobalAssemble());
-      CHECK_ZERO(matrix_->FillComplete());
+      CHECK_ZERO(matrix->GlobalAssemble(false));
+
+      for (int i=0;i<matrix_->NumMyRows();i++)
+        {
+        //global row id
+        int grid = transformedA22->GRID(i);
+        CHECK_ZERO(transformedA22->ExtractGlobalRowCopy(grid,maxlen,len,values,cols));
+        for (int j=0;j<len;j++) values[j]=0.0;
+        CHECK_NONNEG(matrix_->InsertGlobalValues(grid,len,values,cols));
+        }
       }
     else
       {
       CHECK_ZERO(matrix->PutScalar(0.0));
       }
 
-    // put T*A22*T into matrix_, dropping anything that doesn't fit in
-    // the predefined pattern.
-    Teuchos::RCP<Epetra_CrsMatrix> transformedA22 =
-    OT->Apply(*sparseMatrixOT_,SchurComplement_->A22());
     
-
-#ifdef DEBUGGING
-  std::string s1 = "SchurPrecond"+Teuchos::toString(myLevel_)+"_";
-/*
-  MatrixUtils::Dump(*matrix_,s1+"Pattern.txt");
-  // not Filled yet
-  //MatrixUtils::Dump(*transformedA22,s1+"TransformedA22.txt");
-*/
-#endif
-
-    if (transformedA22->RowMap().SameAs(matrix->RowMap())==false)
-      {
-      HYMLS::Tools::Error("mismatched maps",__FILE__,__LINE__);
-      }
-
-    int len;
-    int maxlen=transformedA22->MaxNumEntries();    
-    int* cols=new int[maxlen];
-    double* values=new double[maxlen];
-    
+    // put T*A22*T into matrix_
     for (int i=0;i<matrix_->NumMyRows();i++)
       {
       //global row id
@@ -1174,6 +1181,8 @@ int SchurPreconditioner::InitializeOT()
       // together properly (not sure why this is the case, actually).
       CHECK_NONNEG(matrix_->SumIntoGlobalValues(grid,len,values,cols));
       }
+      
+    CHECK_ZERO(matrix_->FillComplete());
     // free temporary storage
     delete [] values;
     delete [] cols;
@@ -1240,8 +1249,7 @@ int SchurPreconditioner::InitializeOT()
       }//sd
 
     DEBUG("assemble transformed/dropped SC");
-    CHECK_ZERO(matrix->GlobalAssemble());
-    CHECK_ZERO(matrix_->FillComplete());
+    CHECK_ZERO(matrix->GlobalAssemble(true));
 #ifdef STORE_MATRICES
     MatrixUtils::Dump(*matrix_,"SchurPreconditioner"+Teuchos::toString(myLevel_)+".txt");
 #endif

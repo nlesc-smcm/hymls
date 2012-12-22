@@ -172,10 +172,12 @@ namespace HYMLS {
         }
   
       DEBUG("SchurComplement: Assembly with all zeros...");
-      CHECK_ZERO(S->GlobalAssemble());
+      CHECK_ZERO(S->GlobalAssemble(false));
       }
-    
-    CHECK_ZERO(S->PutScalar(0.0));
+    else
+      {
+      CHECK_ZERO(S->PutScalar(0.0));
+      }
     
     for (int k=0;k<hid.NumMySubdomains();k++)
       {
@@ -186,11 +188,11 @@ namespace HYMLS {
       CHECK_ZERO(S->SumIntoGlobalValues(indices,Sk));
       }
     DEBUG("SchurComplement - GlobalAssembly");
-    CHECK_ZERO(S->GlobalAssemble());
+    CHECK_ZERO(S->GlobalAssemble(false));
     //DEBVAR(mother_->A22());
     CHECK_ZERO(EpetraExt::MatrixMatrix::Add(mother_->A22(), false, 1.0, 
                                                 *S,-1.0));
-    
+    CHECK_ZERO(S->FillComplete());    
     return 0;
     }
 
