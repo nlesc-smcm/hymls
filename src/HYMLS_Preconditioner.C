@@ -207,7 +207,7 @@ namespace HYMLS {
     Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
         classValidator = Teuchos::rcp(
                 new Teuchos::StringToIntegralParameterEntryValidator<int>(
-                    Teuchos::tuple<std::string>("Standard","Stokes"),"Classifier"));
+                    Teuchos::tuple<std::string>("Standard","Stokes","Hybrid"),"Classifier"));
     
     VPL().set("Classifier", "Standard",
         "Method to identify and classify separators",

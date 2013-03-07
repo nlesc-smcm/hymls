@@ -169,6 +169,22 @@ void OverlappingPartitioner::setParameterList
   partitioningMethod_=PL("Preconditioner").get("Partitioner","Cartesian");  
   classificationMethod_=PL("Preconditioner").get("Classifier","Standard");
   
+  // TODO: the Stokes classifier gives a far more efficient algrithm, but unfortunately
+  //       it does not yield grid-independent convergence unless the standard classifier
+  //       is used starting from level 2. It is not clear at this point wether this is
+  //       an algorithmic problem or a bug.
+  if (classificationMethod_=="Hybrid")
+    {
+    if (Level()==1)
+      {
+      classificationMethod_="Stokes";
+      }
+    else
+      {
+      classificationMethod_="Standard";
+      }
+    }
+  
     if (validateParameters_)
       {
       this->getValidParameters();
@@ -225,7 +241,7 @@ Teuchos::RCP<const Teuchos::ParameterList> OverlappingPartitioner::getValidParam
   Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
         partValidator = Teuchos::rcp(
                 new Teuchos::StringToIntegralParameterEntryValidator<int>(
-                    Teuchos::tuple<std::string>("Cartesian","CartFlow"),"Partitioner"));
+                    Teuchos::tuple<std::string>("Cartesian"),"Partitioner"));
     
     VPL("Preconditioner").set("Partitioner", "Cartesian",
         "Type of partitioner to be used to define the subdomains",
@@ -559,6 +575,14 @@ int OverlappingPartitioner::DetectSeparators()
     classifier_=Teuchos::rcp(new CartesianStokesClassifier
         (parallelGraph_,partitioner_,variableType_,retainIsolated_,
         perio_,dim_,Level(),nx_,ny_,nz_));
+#ifdef TESTING
+    // for comparison purposes - create the standard object so it
+    // writes its nodeType vector to file in TESTING mode
+    Teuchos::RCP<StandardNodeClassifier> tmp=Teuchos::rcp(new StandardNodeClassifier
+        (parallelGraph_,partitioner_,variableType_,retainIsolated_,
+        Level(),nx_,ny_,nz_));
+    CHECK_ZERO(tmp->BuildNodeTypeVector());
+#endif
     }
   else
     {
@@ -987,11 +1011,11 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
   *newList = *getMyParamList();
 
   std::string partType=newList->sublist("Preconditioner").get("Partitioner","Cartesian");
-  if (partType!="Cartesian" && partType!="CartFlow")
+  if (partType!="Cartesian")
     {
     Tools::Error("Can currently only handle cartesian partitioners",__FILE__,__LINE__);
     }
-  
+
   int dim = newList->sublist("Problem").get("Dimension",-1);
   if (dim==-1) Tools::Error("'Dimension' not set in 'Problem' subist",  
         __FILE__,__LINE__);
