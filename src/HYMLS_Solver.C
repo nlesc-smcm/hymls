@@ -80,6 +80,26 @@ namespace HYMLS {
       {
       (*nullSpace_)[0][i]=1.0;
       }
+    }
+  else if (nullSpaceType=="Checkerboard")
+    {
+    nullSpace_ = Teuchos::rcp(new Epetra_MultiVector(matrix_->OperatorDomainMap(),3));
+    int dof = PL("Problem").get("Degrees of Freedom",-1);
+    int dim = PL("Problem").get("Dimension",-1);
+    int nx = PL("Problem").get("nx",1);
+    int ny = PL("Problem").get("ny",nx);
+    int nz = PL("Problem").get("nz",dim>2?nx:1);
+    for (int lid=0;lid<nullSpace_->MyLength();lid++)
+      {
+      int gid=nullSpace_->Map().GID(lid);
+      int i,j,k,v;
+      HYMLS::Tools::ind2sub(nx, ny, nz, dof, gid, i, j, k, v);
+      double val1 =  (double)(MOD(i+j+k,2));
+      double val2 =  1.0-val1;
+      (*nullSpace_)[0][lid]=val1;
+      (*nullSpace_)[1][lid]=val2;
+      (*nullSpace_)[2][lid]=1.0;
+      }
     }    
   else if (nullSpaceType!="None")
     {

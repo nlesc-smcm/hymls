@@ -39,16 +39,15 @@
 #include "EpetraExt_MultiVectorIn.h"
 #include "EpetraExt_MultiVectorOut.h"
 #include "EpetraExt_BlockMapOut.h"
-
+#ifdef HAVE_METIS
+#include "Zoltan_config.h"
 #include "Isorropia_EpetraOrderer.hpp"
-
+#endif
 #include "AnasaziBlockKrylovSchurSolMgr.hpp"
 #include "AnasaziBasicEigenproblem.hpp"
 #include "AnasaziEpetraAdapter.hpp"
 
 #include "amesos_amd.h"
-
-#include "Zoltan_config.h"
 
 // ASCII output formatting
 

@@ -76,7 +76,7 @@ class BaseCartesianPartitioner : public BasePartitioner
     }
 
   //! get non-overlapping subdomain id 
-  inline int operator()(int gid) const
+  int operator()(int gid) const
     {
     int i,j,k,var;
 #ifdef TESTING    

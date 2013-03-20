@@ -119,6 +119,7 @@ bool status=true;
     // alltogether...   
     bool read_problem=driverList.get("Read Linear System",false);
     string datadir,file_format;
+    bool have_rhs=true;
     bool have_exact_sol=false;
 
     if (read_problem)
@@ -130,6 +131,7 @@ bool status=true;
                 __FILE__,__LINE__);
         }                
       file_format = driverList.get("File Format","MatrixMarket");
+      have_rhs = driverList.get("RHS Available",true);
       have_exact_sol = driverList.get("Exact Solution Available",false);
       }
 
@@ -170,10 +172,17 @@ bool status=true;
   
   if (read_problem)
     {
-    b=HYMLS::MainUtils::read_vector("rhs",datadir,file_format,map);
     if (have_exact_sol)
       {
       x_ex=HYMLS::MainUtils::read_vector("sol",datadir,file_format,map);
+      }
+    if (have_rhs)
+      {
+      b=HYMLS::MainUtils::read_vector("rhs",datadir,file_format,map);
+      }
+    else
+      {
+      b=Teuchos::rcp(new Epetra_Vector(*map));
       }
     }
 
@@ -271,6 +280,7 @@ for (int f=0;f<numComputes;f++)
     HYMLS::MatrixUtils::Random(diag_pert);
     for (int i=0;i<diag_pert.MyLength();i++)
       {
+//      diag[i]=diag_pert[i]*perturbation;
       diag[i]=diag[i] + diag_pert[i]*perturbation;
       }
     CHECK_ZERO(K->ReplaceDiagonalValues(diag));
@@ -294,7 +304,7 @@ for (int f=0;f<numComputes;f++)
   
   for (int s=0;s<numSolves;s++)
     {
-    if (read_problem==false)
+    if (read_problem==false || have_rhs==false)
       {
       if (seed!=-1)
         {
