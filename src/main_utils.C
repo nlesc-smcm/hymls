@@ -199,11 +199,13 @@ Teuchos::RCP<Epetra_Map> create_map(const Epetra_Comm& comm,
   std::string mapType="Cartesian"+Teuchos::toString(dim)+"D";
 
   HYMLS::Tools::Out("Create map");
-  int dof=1;
+  int dof=probl_params.get("Degrees of Freedom",1);
+  bool is_complex=probl_params.get("Complex Arithmetic",false);
+  if (is_complex) dof*=2;
 
   if (eqn=="Laplace" || eqn=="Laplace Neumann")
     {
-    map=HYMLS::MatrixUtils::CreateMap(nx,ny,nz,1,0,comm);
+    map=HYMLS::MatrixUtils::CreateMap(nx,ny,nz,dof,0,comm);
 //    try {
 //      map= Teuchos::rcp(Galeri::CreateMap(mapType, *comm, galeriList));
 //      } catch (Galeri::Exception G) {G.Print();}

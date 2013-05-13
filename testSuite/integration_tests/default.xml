@@ -1,9 +1,11 @@
-<ParameterList name="Trilinos HYMLS"><!--{-->
+<ParameterList name="Default settings for HYMLS unit tests"><!--{-->
 
   <!-- these first few settings are specific for the driver -->
   <!-- implemented in 'main.C' and are not passed on to the -->
   <!-- HYMLS solver classes.                                -->
-  <ParameterList name="Driver">
+  <ParameterList name="Driver"><!--{-->
+  
+    <Parameter name="Number of refinements" type="int" value="2"/>
 
     <!-- will create a series of slightly perturbed matrices -->
     <Parameter name="Number of factorizations" type="int" value="1"/>
@@ -11,37 +13,39 @@
     <Parameter name="Number of solves" type="int" value="1"/>
     <!-- number of right-hand sides per solve -->
     <Parameter name="Number of rhs" type="int" value="1"/>
-    <!-- add random perturbation to the diagonal? -->
-    <Parameter name="Diagonal Perturbation" type="double" value="0.0"/>
+    
+  </ParameterList><!--}-->
   
-    <Parameter name="Store Solution" type="bool" value="0"/>
-    <Parameter name="Store Matrix" type="bool" value="0"/>
-  
-  </ParameterList>
+  <ParameterList name="Targets"><!--{-->
+    <Parameter name="Number of Iterations" type="int" value="999"/>
+    <Parameter name="Relative Residual 2-Norm" type="double" value="5.0e-6"/>
+    <Parameter name="Relative Error 2-Norm" type="double" value="5.0e-6"/>
+  </ParameterList><!--}-->
 
   <ParameterList name="Problem"><!--{-->
 
     <Parameter name="Equations" type="string" value="Laplace"/>
-    <Parameter name="Dimension" type="int" value="3"/>
-    
-    <Parameter name="Complex Arithmetic" type="bool" value="0"/>
-    
-    <Parameter name="nx" type="int" value="128"/>
-    <Parameter name="ny" type="int" value="128"/>
-    <Parameter name="nz" type="int" value="128"/>
+    <Parameter name="Dimension" type="int" value="2"/>
+
+    <Parameter name="nx" type="int" value="32"/>
+    <Parameter name="ny" type="int" value="32"/>
+    <Parameter name="nz" type="int" value="1"/>
     
   </ParameterList><!--}-->
   
-  <ParameterList name="Solver">
+  <ParameterList name="Solver"><!--{-->
   
     <!-- "CG", "GMRES", "PCPG" (only GMRES actually supported by our solver right now) -->
     <Parameter name="Krylov Method" type="string" value="GMRES"/>
     
     <!-- vector to start the Krylov sequence: "Zero", "Random", "Previous" -->
-    <Parameter name="Initial Vector" type="string" value="Random"/>
+    <Parameter name="Initial Vector" type="string" value="Zero"/>
     
     <!-- apply preconditioning from left or right (if Krylov Method!="None") -->
     <Parameter name="Left or Right Preconditioning" type="string" value="Left"/>
+    
+    <!-- type of null space to be deflated (e.g. "Constant", "None", ... -->
+    <Parameter name="Null Space" type="string" value="None"/>
     
     <!-- this is not necessary for Laplace, of course, but we can test the eigensolver: -->
     <Parameter name="Deflated Subspace Dimension" type="int" value="0"/>
@@ -50,20 +54,18 @@
 
     <!-- parameters for the iterative solver (Belos) -->
     <ParameterList name="Iterative Solver">
-      <Parameter name="Maximum Iterations" type="int" value="500"/>
-      <Parameter name="Block Size" type="int" value="1"/>
-      <Parameter name="Flexible Gmres" type="bool" value="0"/>
-      <Parameter name="Explicit Residual Test" type="bool" value="0"/>
-      <Parameter name="Maximum Restarts" type="int" value="5"/>
-      <Parameter name="Convergence Tolerance" type="double" value="1.0e-10"/>
+      <Parameter name="Maximum Iterations" type="int" value="100"/>
+      <!--Parameter name="Block Size" type="int" value="1"/-->
+      <Parameter name="Convergence Tolerance" type="double" value="1.0e-6"/>
       <Parameter name="Output Frequency" type="int" value="1"/>
       <Parameter name="Show Maximum Residual Norm Only" type="bool" value="1"/>
     </ParameterList>
   </ParameterList><!--}-->
 
-  <ParameterList name="Preconditioner">
+  <ParameterList name="Preconditioner"><!--{-->
     
     <Parameter name="Partitioner" type="string" value="Cartesian"/>
+    <Parameter name="Classifier" type="string" value="Standard"/>
 
     <Parameter name="Visualize Solver" type="bool" value="0"/>
         
@@ -75,7 +77,7 @@
     <!-- number of levels to be created (1: direct solver for Schur complement, -->
     <!-- 2: solve Schur iteratively and reduced Schur directly,                 -->
     <!-- >2: not implemented.                                                   -->
-    <Parameter name="Number of Levels" type="int" value="4"/>
+    <Parameter name="Number of Levels" type="int" value="2"/>
     
     <Parameter name="Scale Schur-Complement" type="bool" value="0"/>
 
@@ -88,7 +90,7 @@
     <ParameterList name="Sparse Solver">
       <!-- "Klu" is the default here. These systems are always sequential -->
       <Parameter name="amesos: solver type" type="string" value="KLU"/>
-      <Parameter name="Custom Ordering" type="bool" value="1"/>
+      <Parameter name="Custom Ordering" type="bool" value="0"/>
       <Parameter name="Custom Scaling" type="bool" value="0"/>
     </ParameterList>
 
@@ -96,13 +98,13 @@
     <ParameterList name="Coarse Solver">
       <!-- "Amesos_Klu" is the default here. This system is distributed, and  -->
       <!-- it may be worthwile using Amesos_Mumps, for instance.              -->
-      <Parameter name="amesos: solver type" type="string" value="Amesos_Superludist"/>
+      <Parameter name="amesos: solver type" type="string" value="Amesos_Klu"/>
       <!--Parameter name="MaxProcs" type="int" value="4"/-->
-      <!--Parameter name="OutputLevel" type="int" value="5"/-->
-      <!--Parameter name="PrintTiming" type="bool" value="1"/!-->
-      <!--Parameter name="PrintStatus" type="bool" value="1"/-->
+      <Parameter name="OutputLevel" type="int" value="0"/>
+      <Parameter name="PrintTiming" type="bool" value="0"/>
+      <Parameter name="PrintStatus" type="bool" value="0"/>
       <ParameterList name="Superludist">
-        <Parameter name="PrintNonzeros" type="bool" value="1"/>
+        <Parameter name="PrintNonzeros" type="bool" value="0"/>
       </ParameterList>
       <ParameterList name="mumps">
         <!-- output stream: stdout=6, none=-1 -->

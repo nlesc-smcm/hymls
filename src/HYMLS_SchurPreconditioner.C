@@ -1188,7 +1188,7 @@ int SchurPreconditioner::InitializeOT()
     delete [] cols;
     transformedA22=Teuchos::null;
 #ifdef STORE_MATRICES
-  MatrixUtils::Dump(*matrix_,s1+"_TransDroppedA22.txt");
+//  HYMLS::MatrixUtils::Dump(*matrix_,s1+"_TransDroppedA22.txt");
 #endif
 
     // Get an object with all separators connected to local subdomains

@@ -38,13 +38,13 @@ OBJ=    HYMLS_Solver.o \
 LIBNAMEBASE=hymls_${PLAT}
 LIBNAME=lib${LIBNAMEBASE}.a
 
-default: main unit_tests
+default: main integration_tests
 
 main: main.C ${LIBNAME}
 	${CXX} ${CXX_FLAGS} -o main $< ${INCLUDES} -L. -l${LIBNAMEBASE} ${LIBS} 
 
-unit_tests: unit_tests.C ${LIBNAME}
-	${CXX} ${CXX_FLAGS} -o unit_tests $< ${INCLUDES} -L. -l${LIBNAMEBASE} ${LIBS} 
+integration_tests: integration_tests.C ${LIBNAME}
+	${CXX} ${CXX_FLAGS} -o integration_tests $< ${INCLUDES} -L. -l${LIBNAMEBASE} ${LIBS} 
 
 main_direct: main_direct.C ${LIBNAME}
 	${CXX} ${CXX_FLAGS} -o main_direct $< ${INCLUDES} -L. -l${LIBNAMEBASE} ${LIBS} 

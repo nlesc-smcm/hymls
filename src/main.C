@@ -149,7 +149,9 @@ bool status=true;
     std::string eqn=probl_params.get("Equations","Laplace");
 
     map = HYMLS::MainUtils::create_map(*comm,probl_params); 
-
+#ifdef STORE_MATRICES
+HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
+#endif
   if (read_problem)
     {
     K=HYMLS::MainUtils::read_matrix(datadir,file_format,map);
