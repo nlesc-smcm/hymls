@@ -19,6 +19,7 @@
 
 #include "GaleriExt_Cross2DN.h"
 #include "Galeri_CrsMatrices.h"
+#include "GaleriExt_Darcy3D.h"
 
 namespace HYMLS {
 
@@ -210,7 +211,7 @@ Teuchos::RCP<Epetra_Map> create_map(const Epetra_Comm& comm,
 //      map= Teuchos::rcp(Galeri::CreateMap(mapType, *comm, galeriList));
 //      } catch (Galeri::Exception G) {G.Print();}
     }
-  else if (eqn=="Stokes-C")
+  else if (eqn=="Stokes-C"||eqn=="Darcy")
     {
     dof=dim+1;
     map=HYMLS::MatrixUtils::CreateMap(nx,ny,nz,dof,0,comm);
@@ -247,11 +248,19 @@ Teuchos::RCP<Epetra_CrsMatrix> create_matrix(const Epetra_Map& map,
         matrix = Teuchos::rcp(GaleriExt::Matrices::Cross2DN(&map,
                 nx, ny, 4, -1, -1, -1, -1), true);
         }
+      }
+    else if (eqn=="Darcy")
+      {
+      if (dim==3)
+        {
+        matrix = Teuchos::rcp(GaleriExt::Matrices::Darcy3D(&map,
+                nx, ny, nz, 1, -1), true);
+        }
       else
         {
         HYMLS::Tools::Error("not implemented!",__FILE__,__LINE__);
         }
-      probl_params.set("Equations","Laplace");
+      probl_params.set("Equations","Stokes-C");
       }
     else
       {
