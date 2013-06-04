@@ -1,7 +1,7 @@
 include ${SHARED_DIR}/fredwubs/make.inc/Makefile.${PLAT}
 include Makefile.inc
 
-rev=$(shell head -n 4 .svn/entries |tail -n 1)
+rev=$(shell svn status -u | tail -1 | sed s/Status\ against\ revision://| sed s/\ //g)
 CXX_FLAGS+=-DHYMLS_REVISION=${rev}
 
 LIBS=${MY_LIBRARIES} ${TRILINOS_LIBRARIES} ${TPL_LIBRARIES} ${EXTRA_LD_FLAGS}
