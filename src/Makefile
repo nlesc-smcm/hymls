@@ -58,8 +58,6 @@ test: test.C ${LIBNAME}
 ${LIBNAME}: ${OBJ}
 	ar vrcs ${LIBNAME} ${OBJ}
 
-HYMLS_Tools.o: .svn/entries
-
 %.o: %.C %.H
 	${CXX} ${CXX_FLAGS} -c $< ${INCLUDES} 
 
