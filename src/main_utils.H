@@ -8,6 +8,7 @@ class Epetra_Comm;
 class Epetra_Map;
 class Epetra_CrsMatrix;
 class Epetra_Vector;
+class Epetra_MultiVector;
 
 namespace Teuchos {
 class ParameterList;
@@ -31,6 +32,12 @@ Teuchos::RCP<Epetra_Map> create_map(const Epetra_Comm& comm,
 Teuchos::RCP<Epetra_CrsMatrix> create_matrix(const Epetra_Map& map,
                                 Teuchos::ParameterList& probl_params,
                                 std::string galeriLabel, Teuchos::ParameterList& galeriList);
+
+int MakeSystemConsistent(const Epetra_CrsMatrix& A,
+                               Epetra_MultiVector& x_ex,
+                               Epetra_MultiVector& b,
+                               Teuchos::ParameterList& driverList);
+                               
 
 }
 }

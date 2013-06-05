@@ -5,6 +5,7 @@
 
 #include "Epetra_MpiComm.h"
 #include "Epetra_Map.h"
+#include "Epetra_MultiVector.h"
 #include "Epetra_Vector.h"
 #include "Epetra_CrsMatrix.h"
 #include "Epetra_Import.h"
@@ -19,6 +20,8 @@
 
 #include "GaleriExt_Cross2DN.h"
 #include "Galeri_CrsMatrices.h"
+
+#include "GaleriExt_Darcy2D.h"
 #include "GaleriExt_Darcy3D.h"
 
 namespace HYMLS {
@@ -251,7 +254,12 @@ Teuchos::RCP<Epetra_CrsMatrix> create_matrix(const Epetra_Map& map,
       }
     else if (eqn=="Darcy")
       {
-      if (dim==3)
+      if (dim==2)
+        {
+        matrix = Teuchos::rcp(GaleriExt::Matrices::Darcy2D(&map,
+                nx, ny, 1, -1), true);
+        }
+      else if (dim==3)
         {
         matrix = Teuchos::rcp(GaleriExt::Matrices::Darcy3D(&map,
                 nx, ny, nz, 1, -1), true);
@@ -281,6 +289,15 @@ Teuchos::RCP<Epetra_CrsMatrix> create_matrix(const Epetra_Map& map,
       }
   return matrix;
   }
+
+int MakeSystemConsistent(const Epetra_CrsMatrix& A,
+                               Epetra_MultiVector& x_ex,
+                               Epetra_MultiVector& b,
+                               Teuchos::ParameterList& driverList)
+  {
+  return 0;
+  }
+                                                                                             
 
 }//MainUtils
 

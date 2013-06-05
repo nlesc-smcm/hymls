@@ -317,6 +317,11 @@ for (int f=0;f<numComputes;f++)
         {
         CHECK_ZERO(HYMLS::MatrixUtils::Random(*x_ex));
         }
+      if (eqn=="Darcy" || eqn=="Stokes-C")
+        {
+        // make sure the div equation is Div U = 0 and the RHS is consistent
+        CHECK_ZERO(HYMLS::MainUtils::MakeSystemConsistent(*K,*x_ex,*b,driverList));
+        }
       if (Nul!=Teuchos::null)
         {
         double alpha;

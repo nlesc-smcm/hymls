@@ -27,8 +27,8 @@
 // ************************************************************************
 // @HEADER
 
-#ifndef GALERIEXT_DARCY3D_H
-#define GALERIEXT_DARCY3D_H
+#ifndef GALERIEXT_DARCY2D_H
+#define GALERIEXT_DARCY2D_H
 
 #include "Galeri_Exception.h"
 #include "Galeri_Utils.h"
@@ -43,8 +43,8 @@ namespace Matrices {
 
 //! generate an F-matrix with A = diag(a) and +b -b in the B part
 inline Epetra_CrsMatrix* 
-Darcy3D(const Epetra_Map* Map, 
-        const int nx, const int ny, const int nz,
+Darcy2D(const Epetra_Map* Map, 
+        const int nx, const int ny,
         const double a, const double b, 
         PERIO_Flag perio=NO_PERIO)
 {
@@ -53,16 +53,16 @@ Darcy3D(const Epetra_Map* Map,
   int NumMyElements = Map->NumMyElements();
   int* MyGlobalElements = Map->MyGlobalElements();
 
-  int left, right, lower, upper, below, above;
+  int left, right, lower, upper;
   
-  vector<double> Values(6);
-  vector<int> Indices(6);
+  vector<double> Values(4);
+  vector<int> Indices(4);
   
   int c = -b; // c==b => [A B'; B 0]. c==-b => A B'; -B 0]
   
-  int dof = 4;
+  int dof = 3;
   
-  if (dof*nx*ny*nz!=Map->NumGlobalElements())
+  if (dof*nx*ny!=Map->NumGlobalElements())
     {
     throw("bad input map for GaleriExt::Darcy3D. Should have 4 dof/node");
     }
@@ -74,39 +74,30 @@ Darcy3D(const Epetra_Map* Map,
     int ibase = std::floor(MyGlobalElements[i]/dof);
     int ivar   = MyGlobalElements[i]-ibase*dof;
     // first the regular 7-point stencil
-    GetNeighboursCartesian3d(ibase, nx, ny, nz,
-			     left, right, lower, upper, below, above,
+    GetNeighboursCartesian2d(ibase, nx, ny,
+			     left, right, lower, upper,
 			     perio);
 
-    if (ivar!=3)
+    if (ivar!=2)
       {
       NumEntries=1;
       Values[0]=a;
       Indices[0]=MyGlobalElements[i];
       if (right != -1 && ivar==0)
         {
-        Indices[NumEntries] = ibase*dof+3;
+        Indices[NumEntries] = ibase*dof+2;
         Values[NumEntries] = -b;
         ++NumEntries;
-        Indices[NumEntries] = right*dof+3;
+        Indices[NumEntries] = right*dof+2;
         Values[NumEntries] = b;
         ++NumEntries;
         }
       if (upper != -1 && ivar==1) 
         {
-        Indices[NumEntries] = ibase*dof+3;
+        Indices[NumEntries] = ibase*dof+2;
         Values[NumEntries] = -b;
         ++NumEntries;
-        Indices[NumEntries] = upper*dof+3;
-        Values[NumEntries] = b;
-        ++NumEntries;
-        }
-      if (above != -1 && ivar==2) 
-        {
-        Indices[NumEntries] = ibase*dof+3;
-        Values[NumEntries] = -b;
-        ++NumEntries;
-        Indices[NumEntries] = above*dof+3;
+        Indices[NumEntries] = upper*dof+2;
         Values[NumEntries] = b;
         ++NumEntries;
         }
@@ -126,12 +117,6 @@ Darcy3D(const Epetra_Map* Map,
         Values[NumEntries]=-c;
         NumEntries++;
         }
-      if (above!=-1)
-        {
-        Indices[NumEntries]=ibase*dof+2;
-        Values[NumEntries]=-c;
-        NumEntries++;
-        }
       if (left!=-1)
         {
         Indices[NumEntries]=left*dof+0;
@@ -141,12 +126,6 @@ Darcy3D(const Epetra_Map* Map,
       if (lower!=-1)
         {
         Indices[NumEntries]=lower*dof+1;
-        Values[NumEntries]=c;
-        NumEntries++;
-        }
-      if (below!=-1)
-        {
-        Indices[NumEntries]=below*dof+2;
         Values[NumEntries]=c;
         NumEntries++;
         }

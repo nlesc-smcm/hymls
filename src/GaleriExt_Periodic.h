@@ -27,7 +27,6 @@ typedef enum {NO_PERIO=0x0,
 void 
 GetNeighboursCartesian2d(const int i, const int nx, const int ny,
                          int& left, int& right, int& lower, int& upper,
-                         int& left2, int& right2, int& lower2, int& upper2,
                          PERIO_Flag perio);
 
 void 
