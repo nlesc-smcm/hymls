@@ -401,7 +401,7 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
         // other edge separator nodes, in which case it becomes a vertex. 
         for (int j=0;j<len;j++)
           {
-          int gcid=G.GCID(cols[j]); \\gives column number in global matrix
+          int gcid=G.GCID(cols[j]); //gives column number in global matrix
           int var_j = partitioner_->VariableType(gcid);
           if (gcid!=row)
             {

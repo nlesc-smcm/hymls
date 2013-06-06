@@ -32,7 +32,7 @@ namespace HYMLS
    friend class Exception;
    
    //! returns the SVN revision number of the hymls directory
-   static int Revision();
+   static const char* Revision();
   
    static void InitializeIO(Teuchos::RCP<const Epetra_Comm> comm,
                             Teuchos::RCP<Teuchos::FancyOStream> output=Teuchos::null,
