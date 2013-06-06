@@ -44,7 +44,7 @@ std::streambuf* Tools::rdbuf_bak = std::cout.rdbuf();
 // Timing functionality                                         //
 //////////////////////////////////////////////////////////////////
 
-int Tools::Revision()
+const char* Tools::Revision()
   {
   return HYMLS_REVISION;
   }
