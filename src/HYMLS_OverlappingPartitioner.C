@@ -1151,18 +1151,19 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
         Tools::Error("graph substitution needs fix", __FILE__,__LINE__);
     CHECK_ZERO(Atest->Import(*matrix_,importRepart,Insert));
     CHECK_ZERO(Atest->FillComplete());
-
+    //the original graph of the matrix is also distributed
     Ifpack_OverlappingRowMatrix Aov(Atest, dim_);
     Teuchos::RCP<const Epetra_Map> overlappingMap = 
         Teuchos::rcp(&(Aov.RowMatrixRowMap()),false);
     Teuchos::RCP<Epetra_Import> importOverlap =
       Teuchos::rcp(new Epetra_Import(*overlappingMap, graph_->RowMap()));
-
+    //importOverlap contains all information needed for MPI.
     G = Teuchos::rcp(new Epetra_CrsGraph
       (Copy,*overlappingMap,graph_->MaxNumIndices(),false));
-
+    //Definition of the Graph but it is still  empty
+    //below it is filled
   CHECK_ZERO(G->Import(*graph_,*importOverlap,Insert));
-  CHECK_ZERO(G->FillComplete());
+  CHECK_ZERO(G->FillComplete());// cleans everything up (removes workarrays).
     
     return G;
   }

@@ -35,19 +35,31 @@ namespace HYMLS {
   // and a partitioning object
   StandardNodeClassifier::StandardNodeClassifier(
         Teuchos::RCP<const Epetra_CrsGraph> parG,
+	// Overlapping partitioning Graph of the matrix on this processor 
+        // Made In Overlapping partioner
         Teuchos::RCP<const BasePartitioner> P, 
+        // Indicates for each element which subdomain it is in.
         const Teuchos::Array<std::string>& varType, 
+        // Gives type of each unknown: u=0,v=1,w=3,p=4,T=5 ...
         const Teuchos::Array<bool>& retIsol,
+        //Indicates how many of a certain variable  have to be retained. 
         int level, int nx, int ny, int nz,
+        // gives the level we are, needed for printing 
+        // nx,ny,nz give the global size of the  domain.
         std::string label) :
                 myLevel_(level),
+                // Stores level
                 partitioner_(P),
+                // sets a pointer, below this is now known as partitioner_
                 parallelGraph_(parG),
+                // sets a pointer, below it is known as parallelGraph_
                 nx_(nx),ny_(ny),nz_(nz),
+                //initializes nx_=nx etc
                 label_(label+" (level "+Teuchos::toString(level)+")")
+                //creates a string for printing purposes
     {
     START_TIMER3(Label(),"Constructor");
-    dof_=partitioner_->DofPerNode();
+    dof_=partitioner_->DofPerNode(); // DOFs per grid cell (4 for u,v,w,p) 
     if (varType.length()!=dof_ || retIsol.length()!=dof_)
       {
       Tools::Error("invalid input",__FILE__,__LINE__);
@@ -59,10 +71,12 @@ namespace HYMLS {
       variableType_[i]=varType[i];
       retainIsolated_[i]=retIsol[i];
       }
-    nodeType_=Teuchos::rcp(new Epetra_IntVector(partitioner_->Map()));
-    nodeType_->PutValue(-1);
+    nodeType_=Teuchos::rcp(new Epetra_IntVector(partitioner_->Map())); 
+    // creates a distributed nonoverlapping vector 
+    nodeType_->PutValue(-1);  // sets -1 to all entries
 
     p_nodeType_=Teuchos::rcp(new Epetra_IntVector(parallelGraph_->RowMap()));
+    // creates a distributed overlapping vector
     return;
     }
     
@@ -90,8 +104,10 @@ int StandardNodeClassifier::BuildNodeTypeVector()
 
   // import partition overlap
   Epetra_Import import(p_nodeType_->Map(),nodeType_->Map());
+  // a variable import is defined
   CHECK_ZERO(p_nodeType_->Import(*nodeType_,import,Insert));
-
+  // p_nodeType is the nodetype on the overlappingg domain. Here nodetype information from other processors is
+  //gathered.
 #if defined(STORE_MATRICES)||defined(TESTING)
 std::ofstream nodeTypeStream;
 nodeTypeStream.open(("nodeTypes_L"+Teuchos::toString(myLevel_)+
@@ -171,6 +187,8 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
   Teuchos::Array<int> retained(dof_);
 
   for (int var=0;var<dof_;var++)
+    // initialization of retain array with current values
+    // retain indicates how many of the current variables should be retained per subdomain.
     {
     Teuchos::Array<string> vartype=Teuchos::StrUtils::stringTokenizer(variableType_[var]);
     retain[var]=0;
@@ -188,15 +206,18 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
   // this vector does not yet relate the subdomains to the separators, 
   // but it finds all separator and retained nodes. 
   for (int sd=0;sd<partitioner_->NumLocalParts();sd++)
+    // loop over all subdomains on this node
     {
     for (int var=0;var<dof_;var++)
+      // initialization of retained array, loop over the number of unknowns per cell
       {
       retained[var]=0;
       }
     int sub=(*partitioner_)(partitioner_->GID(sd,0));// global subdomain ID
     for (int i=partitioner_->First(sd);i<partitioner_->First(sd+1);i++)
+      //loop over all unknowns from one subdomain
       {
-      int row=partitioner_->Map().GID(i);
+	int row=partitioner_->Map().GID(i); //row will be in the disjoint map.
       int type=partitioner_->VariableType(row);      
       
       int len;
@@ -206,6 +227,8 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
       // the first X are retained and the rest
       // is automatically interior.
       if (retain[type]>0)
+	//this assures that there will be as many unknowns  retained as required 
+	//on C-grid 1 p, on B-grid 2 p's
         {
         if (retained[type]<retain[type])
           {
@@ -217,6 +240,7 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
       else
         {
         CHECK_ZERO(G.ExtractMyRowView(G.LRID(row),len,cols));
+        // picks row from the local matrix
 
         // if a node connects to a subdomain with higher ID,            
         // it is marked as a separator node. To make this work          
@@ -246,12 +270,16 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
         // positive or negative, depending on wether gid1 and   
         // gid2 couple across the inner or the outer boundary.  
         for (int j=0;j<len;j++)
+	  //loop over the row; there are len nonzeros
           {
-          int cj=G.GCID(cols[j]);
+	  int cj=G.GCID(cols[j]); //columnumber of unknown
+	  //Due to overlap unknow cj is always on this processor.
           //int colsub=(*partitioner_)(cols[j]);
           if (partitioner_->flow(row,cj)<0)
+	    //for nonperiodic case
+	    //flow(row,cj)=domain(row)-domain(cj)
             {
-            nodeType[i]=1;
+	      nodeType[i]=1; //separator
             break;
             }
           }
@@ -287,8 +315,10 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
     }
 #endif  
   for (int sd=0;sd<partitioner_->NumLocalParts();sd++)
+    //loop over all subdomains    
     {
     for (int i=partitioner_->First(sd); i<partitioner_->First(sd+1);i++)
+      //loop over all unknowns from one subdomain
       {
       int row=map.GID(i);
       int lrow = G.LRID(row);
@@ -310,11 +340,12 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
           Tools::Error(msg,__FILE__,__LINE__);
           }
 #endif
-        int var_j = partitioner_->VariableType(gcid);
+        int var_j = partitioner_->VariableType(gcid);//type of unknown j
         if (gcid!=row)
           {
           if (var_i==var_j)
             {
+	      //Check if all Neighbors are separators.
             min_neighbor=std::min(min_neighbor,p_nodeType[p_map.LID(gcid)]);
             }
           }
@@ -353,13 +384,15 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
   const Epetra_BlockMap& p_map = p_nodeType.Map();
 
   for (int sd=0;sd<partitioner_->NumLocalParts();sd++)
+    //loop over all subdomains
     {
     for (int i=partitioner_->First(sd); i<partitioner_->First(sd+1);i++)
+      //loop over all unknowns in the subdomain
       {
-      int row=map.GID(i);
-      int lrow = p_map.LID(row);
+	int row=map.GID(i); //global row number
+	int lrow = p_map.LID(row);//local row number
       int var_i=partitioner_->VariableType(row);
-      if (retainIsolated_[var_i]) 
+      if (retainIsolated_[var_i]) //this array has been filled in the constructor 
         {
         CHECK_ZERO(G.ExtractMyRowView(lrow,len,cols));
         
@@ -368,7 +401,7 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
         // other edge separator nodes, in which case it becomes a vertex. 
         for (int j=0;j<len;j++)
           {
-          int gcid=G.GCID(cols[j]);
+          int gcid=G.GCID(cols[j]); \\gives column number in global matrix
           int var_j = partitioner_->VariableType(gcid);
           if (gcid!=row)
             {
@@ -376,7 +409,7 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
             }
           }//j
         if ((min_neighbor>0))
-          {
+          { // all separators around
           DEBUG(" full conservation cell around p: "<<row);
 #ifdef DEBUGGING          
           Tools::deb() << "Div-row: ";
