@@ -6,6 +6,7 @@
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_Array.hpp"
 #include "Epetra_Map.h"
+#include "Epetra_CrsGraph.h"
 #include "HYMLS_BasePartitioner.H"
 
 #include "GaleriExt_Periodic.h"
@@ -22,6 +23,9 @@ namespace HYMLS {
     operator()(i,j,k) and a function CreateSubdomainMap(),
     which returns a map of the owned global partition numbers.
     
+    
+    TODO - this class can probably be merged again as we only have one
+    CartesianPartitioner implementation.
 */
 class BaseCartesianPartitioner : public BasePartitioner
   {
@@ -33,6 +37,16 @@ class BaseCartesianPartitioner : public BasePartitioner
   
   //! destructor
   ~BaseCartesianPartitioner();
+
+  //! set the graph of the problem to be used for determining wether there
+  //! is an edge between two nodes. If no graph is set, heuristics are used,
+  //! for instance based on 'stencil width', as before. Setting the graph
+  //! should make the class more robust.
+  void SetGraph(Teuchos::RCP<const Epetra_CrsGraph> G){graph_=G;}
+
+  //! for Stokes - tell the class which one is the pressure variable, that
+  //! one should be ignored inthe flow() function. -1: no pressure variables.
+  void SetPressureVariable(int var){pvar_=var;}
 
   //! pure virtual functions
   //@{
@@ -194,6 +208,14 @@ class BaseCartesianPartitioner : public BasePartitioner
   //! nodes. This should be set to the separator length on 
   //! coarse levels.
   int node_distance_;
+  
+  //! graph of the problem. If not null, it is used to determine 
+  //! wether there is an edge between two given nodes of the graph.
+  Teuchos::RCP<const Epetra_CrsGraph> graph_;
+  
+  //! if not -1, pvar_ indicates which variable in each cell is the
+  //! pressure and should be ignored in the flow() function
+  int pvar_;
 
   //! pointers into map
   Teuchos::Array<int> subdomainPointer_;

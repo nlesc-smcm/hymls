@@ -95,7 +95,11 @@ protected:
 
   //! graph of the problem and a variant with overlap
   //! between partitions (but not subdomains)
-  Teuchos::RCP<const Epetra_CrsGraph> graph_,parallelGraph_;
+  Teuchos::RCP<const Epetra_CrsGraph> graph_;
+  Teuchos::RCP<Epetra_CrsGraph> p_graph_;
+  
+  //! for going between graph and p_Graph, nodeType and p_nodeType
+  Teuchos::RCP<Epetra_Import> importOverlap_;
   
   //! vector of node types (0: interior, 1: standard separator, 
   //! 2: secondary separator (vertex in 2D, edge in 3D),        
@@ -123,6 +127,9 @@ protected:
 
   //! number of variables per grid-cell
   int dof_;
+  
+  //! indicates which is the pressure variable (-1 if none)
+  int pvar_;
  
   //! indicates if in a certain direction there are periodic BC
   GaleriExt::PERIO_Flag perio_;
@@ -159,18 +166,25 @@ private:
   //! Step 1: non-overlapping partitioning
   int Partition();
 
-  //! create graph to be used for identifying separators
-  //! this is now typically just the graph of the system
-  //! matrix.
+  //! 1. build the graph on which we base the separator detection,
+  //     either just the pattern of A or, for saddlepoint problems,
+  //     (graph_)
+  //     the pattern of A+BB' B; B' 0].
+  //! 2. build parallel (overlapping) graph so we can access rows
+  //!    on separators easily. Creates p_graph_ from graph_
+  //!    (p_graph_)
+  //! also constructs the importer, importOverlap_, between the two.
   int CreateGraph();
+
+  //! If graph_/p_graph_ represent a saddlepoint matrix K=[A G; D 0], adds edges
+  //! so that the pattern is that of [A+G*D G; D 0]. Replaces graph_ and p_graph_,
+  //! which should both already be Filled().
+  int AugmentSppGraph(int pvar);
 
   //! Step 2: construct overlapping maps after partitioning
   //! the result is a HierarchicalMap with three groups per
   //! subdomain: interior, separator and retained.
   int DetectSeparators();
-
-  //! build parallel graph after detecting separators
-  Teuchos::RCP<Epetra_CrsGraph> CreateParallelGraph();
   
   //! Step 3: reorder and group separators. 
   //! The result is a HierarchicalMap with a

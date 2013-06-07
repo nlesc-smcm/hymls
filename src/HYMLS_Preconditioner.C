@@ -1414,7 +1414,6 @@ int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& lis
 
   if (eqn=="Laplace")
     {
-    probList.set("Substitute Graph",false); 
     if (!is_complex)
       {
       probList.set("Degrees of Freedom",1);      
@@ -1447,7 +1446,6 @@ int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& lis
       sz=dim_<3? 1: sx;
       }
     if (nx_==sx && ny_==sy && nz_==sz) no_SC = true;
-    probList.set("Substitute Graph",false);
     int factor = is_complex? 2 : 1;
     probList.set("Degrees of Freedom",(dim_+1)*factor);
     for (int i=0;i<dim_*factor;i++)
@@ -1502,7 +1500,6 @@ int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& lis
       sz=dim_<3? 1: sx;
       }
     if (nx_==sx && ny_==sy && nz_==sz) no_SC = true;
-    probList.set("Substitute Graph",false);
     int factor = is_complex? 2 : 1;
     probList.set("Degrees of Freedom",(dim_+2)*factor);
     for (int i=0;i<=(dim_+1)*factor-1;i++)
@@ -1563,7 +1560,6 @@ int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& lis
 */    
     // case of one subdomain per partition not implemented for B-grid
     bool no_SC=false;
-    probList.set("Substitute Graph",false);
     if (is_complex) Tools::Error("complex Stokes-B not implemented",__FILE__,__LINE__);
     probList.set("Degrees of Freedom",(dim_+1));
     for (int i=0;i<dim_;i++)

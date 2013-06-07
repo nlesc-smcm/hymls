@@ -214,7 +214,7 @@ Teuchos::RCP<Epetra_Map> create_map(const Epetra_Comm& comm,
 //      map= Teuchos::rcp(Galeri::CreateMap(mapType, *comm, galeriList));
 //      } catch (Galeri::Exception G) {G.Print();}
     }
-  else if (eqn=="Stokes-C"||eqn=="Darcy")
+  else if (eqn=="Stokes-C")
     {
     dof=dim+1;
     map=HYMLS::MatrixUtils::CreateMap(nx,ny,nz,dof,0,comm);
@@ -244,7 +244,7 @@ Teuchos::RCP<Epetra_CrsMatrix> create_matrix(const Epetra_Map& map,
   galeriList.set("ny",ny);
   galeriList.set("nz",nz);
 
-    if (eqn=="Laplace Neumann")
+    if (galeriLabel=="Laplace Neumann")
       {
       if (dim==2)
         {
@@ -252,7 +252,7 @@ Teuchos::RCP<Epetra_CrsMatrix> create_matrix(const Epetra_Map& map,
                 nx, ny, 4, -1, -1, -1, -1), true);
         }
       }
-    else if (eqn=="Darcy")
+    else if (galeriLabel=="Darcy")
       {
       if (dim==2)
         {
@@ -268,7 +268,6 @@ Teuchos::RCP<Epetra_CrsMatrix> create_matrix(const Epetra_Map& map,
         {
         HYMLS::Tools::Error("not implemented!",__FILE__,__LINE__);
         }
-      probl_params.set("Equations","Stokes-C");
       }
     else
       {

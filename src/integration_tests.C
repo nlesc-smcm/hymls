@@ -177,7 +177,7 @@ int main(int argc, char* argv[])
     HYMLS::Tools::out() << "WARNING: "<<failed<<" TESTS OUT OF "<<counter<<" FAILED"<<std::endl;
     }
   } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr, status);
-  if (!status) HYMLS::Tools::Fatal("Caught an exception",__FILE__,__LINE__);
+  if (!status) HYMLS::Tools::Warning("Caught an exception",__FILE__,__LINE__);
   
   HYMLS::Tools::StopTiming("Integration Tests",true);
 

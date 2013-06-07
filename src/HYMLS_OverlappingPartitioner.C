@@ -1,5 +1,6 @@
 #include <mpi.h>
 #include <iostream>
+#include <algorithm>
 
 #include "HYMLS_OverlappingPartitioner.H"
 #include "HYMLS_Tools.H"
@@ -27,8 +28,6 @@
 #include "Galeri_Utils.h"
 
 #include "HYMLS_SepNode.H"
-
-#include <algorithm>
 
 #include "Galeri_Maps.h"
 #include "GaleriExt_Periodic.h"
@@ -71,34 +70,31 @@ namespace HYMLS {
 
     setParameterList(params);
 
+    //TODO - partitioning before creating the graph is
+    //       kind of not so nice, it just works because
+    //       we use the cartesian partitioner, which does
+    //       not need a graph.
+
     CHECK_ZERO(this->Partition());
     
-    // try to construct or guess the connectivity of a related scalar problem
-    // ('Geometry Matrix')
-    if (substituteGraph_)
-      {
-      DEBUG("substitute matrix graph");
-      CreateGraph();
-      }
-    else
-      {
-      DEBUG("use original matrix graph");
-      Teuchos::RCP<const Epetra_CrsMatrix> myCrsMatrix = 
-          Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_);
-
-      if (Teuchos::is_null(myCrsMatrix))
-        {
-        Tools::Error("we need a CrsMatrix here!",__FILE__,__LINE__);
-        }
-      // copy the graph
-      graph_=Teuchos::rcp(&(myCrsMatrix->Graph()),false);
-      }
-
     // construct a graph with overlap between partitions (for finding/grouping    
     // separators in parallel).
-    parallelGraph_=CreateParallelGraph();
-    //DEBVAR(*parallelGraph_);
-    int nzgraph = parallelGraph_->NumMyNonzeros();
+    CHECK_ZERO(CreateGraph());
+    
+    // pass the graph to the cartesian partitioner so that the flow() function
+    // works. TODO - see comment above, we should first make the graph and then
+    // partition.
+    Teuchos::RCP<CartesianPartitioner> cartPart = 
+        Teuchos::rcp_dynamic_cast<CartesianPartitioner>(partitioner_);
+        
+    if (cartPart!=Teuchos::null)
+      {
+      cartPart->SetGraph(p_graph_);
+      cartPart->SetPressureVariable(pvar_);
+      }
+    
+    //DEBVAR(*p_graph_);
+    int nzgraph = p_graph_->NumMyNonzeros();
     REPORT_SUM_MEM(Label(),"graph with overlap",0,nzgraph,GetComm());
         
 #ifdef STORE_MATRICES
@@ -132,15 +128,6 @@ void OverlappingPartitioner::setParameterList
   
   perio_=PL().get("Periodicity",GaleriExt::NO_PERIO);
   
-  substituteGraph_ = PL().get("Substitute Graph",true);
-  
-  if (substituteGraph_ && dim_==2 && perio_!=GaleriExt::NO_PERIO)
-    {
-    // not implemented
-    HYMLS::Tools::Error("Cannot handle periodic BC in 2D with 'Substitute Graph'",
-        __FILE__,__LINE__);
-    }
-  
   variableType_.resize(dof_);
   retainIsolated_.resize(dof_);  
 
@@ -151,6 +138,24 @@ void OverlappingPartitioner::setParameterList
     retainIsolated_[i]=varList.get("Retain Isolated",false);
     }
   
+  pvar_=-1; int pcount=0;
+  for (int i=0;i<dof_;i++)
+    {
+    DEBVAR(variableType_[i]);
+    if (retainIsolated_[i]) {pvar_=i; pcount++;}
+    }
+  if (pcount>1) 
+    {
+    Tools::Error("can only have one 'Retain Isolated' variable",
+        __FILE__,__LINE__);
+    }
+  if (pvar_>=0 && pvar_!=dim_)
+    {
+    Tools::Warning("we require a certain ordering, u/v[/w]/p/...\n"
+                   "(although it is not certain where, but you may\n"
+                   "get problems)",__FILE__,__LINE__);
+    }
+
   nx_=PL().get("nx",-1);
   ny_=PL().get("ny",nx_);
   if (dim_>2)
@@ -204,9 +209,6 @@ Teuchos::RCP<const Teuchos::ParameterList> OverlappingPartitioner::getValidParam
   VPL().set("Periodicity",GaleriExt::NO_PERIO,"does the problem have periodic BC?"
         " (flag constructed by Preconditioner object)");
   
-  VPL().set("Substitute Graph",false,"use idealized graph for partitioning."
-        "This flag should not be used anymore except for development/testing.");
-        
   Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
        varValidator = Teuchos::rcp(new Teuchos::StringToIntegralParameterEntryValidator<int>(
                                                     Teuchos::tuple<std::string>
@@ -250,199 +252,6 @@ Teuchos::RCP<const Teuchos::ParameterList> OverlappingPartitioner::getValidParam
   return validParams_;
   }
   
-int OverlappingPartitioner::CreateGraph()
-  {
-  START_TIMER2(Label(),"CreateGraph");
-  
-  // in the most general case we could use the pattern of given matrix. This could be done
-  // whenever we get a CrsMatrix, but will typically not work because our
-  // OverlappingPartitioner algorithm is not so general. (The resulting ordering will not have the quality
-  // needed by the solver in the sense that the groups are not proper separators etc.)
-
-  Teuchos::RCP<const Epetra_CrsMatrix> myCrsMatrix = 
-        Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_);
-
-  if (Teuchos::is_null(myCrsMatrix))
-    {
-    Tools::Error("we need a CrsMatrix here!",__FILE__,__LINE__);
-    }
-
-  // we now look at the variable types:
-  // "Laplace": treated as 9- (27-)point stencil in 2D (3D)
-  // "Uncoupled": treated as identity
-  // "z-Laplace": uncoupled in x- and y-direction, Laplace in z- (for tHCM, mostly)
-  // "Retain X": treated as identity (get special attention in GroupSeparators())
-
-  // we will replace the stencil for "Laplace" using a matrix created by Galeri:
-  Teuchos::ParameterList galeriList;
-
-  galeriList.set("nx",nx_);
-  galeriList.set("ny",ny_);
-  galeriList.set("nz",nz_);
-
-  std::string mapType="Cartesian"+Teuchos::toString(dim_)+"D";
-
-  Teuchos::RCP<const Epetra_Map> scalarMap;
-
-  Epetra_SerialComm serialComm;
-  
-  // create a dof-1 map
-  if (dof_==1) 
-    {
-    scalarMap=GetMap();
-    }
-  else
-    {
-    try 
-     {
-     DEBUG("create a simple scalar map");
-     scalarMap=Teuchos::rcp(Galeri::CreateMap(mapType, serialComm, galeriList));
-     } catch (Galeri::Exception G) {G.Print();}
-   }
-    
-    
-  Teuchos::RCP<Epetra_CrsMatrix> scalarLaplace;
-  
-  // replace the u, v, T and S operators by Laplace 27-point stencils
-  // we assume that the variables are ordered per grid cell as u,v,w,p,T,S
-  DEBUG("create new stencil for Laplace-type variables");
-  try
-   {
-   if (dim_==2)
-     {//TODO: this whole section is only used for debugging now - we want to get to the
-      //      point where using the original matrix graph works for all problems in 2D and
-      //      3D on each level.
-      
-     // putting in zeros at the right location makes the stencil a 'cross' rather than a 
-     // 'star', but the algorithm should work for that case now.
-     scalarLaplace=Teuchos::rcp(Galeri::Matrices::Star2D(scalarMap.get(),nx_,ny_,
-                                       1.0,1.0,1.0,
-                                       1.0,1.0,0.0,
-                                       0.0,0.0,0.0));
-     }     
-   else if (dim_==3)
-     {
-     scalarLaplace=Teuchos::rcp(GaleriExt::Matrices::Star3D(scalarMap.get(),nx_,ny_,nz_,
-                                       1.0,1.0,0.0,0.0,perio_));
-//     scalarLaplace=Teuchos::rcp(GaleriExt::Matrices::Star3D(scalarMap.get(),nx_,ny_,nz_,
-//                                       1.0,1.0,1.0,1.0,perio_));
-     }
-   } catch (Galeri::Exception G) {G.Print();}  
-
-   //turn star into cross by dropping the zeros:
-   scalarLaplace=MatrixUtils::DropByValue(scalarLaplace);
-  
-  // I built this in for THCM, it is not really
-  // nice to have it here because it is so application-
-  // specific (I use it for the w-variables in THCM).
-  Teuchos::RCP<Epetra_CrsMatrix> zLaplace=Teuchos::null;
-  
-  for (int var=0;var<dof_;var++)
-    {
-    if (variableType_[var]=="z-Laplace")
-      {
-      if (zLaplace == Teuchos::null)
-        {
-        int le,ri,lo,up,be,ab;
-        DEBUG("create new stencil for z-Laplace variables");
-        zLaplace = Teuchos::rcp(new Epetra_CrsMatrix(Copy,*scalarMap,3));
-        std::vector<int> indices(3);
-        std::vector<double> values(3);
-        for (int i=0;i<3;i++) values[i]=1.0;
-        
-        int len;        
-        for (int i=0;i<zLaplace->NumMyRows();i++)
-          {
-          int grid = zLaplace->GRID(i);
-          Galeri::GetNeighboursCartesian3d(grid, nx_, ny_, nz_,
-                             le, ri, lo, up, be, ab);
-          len=0;
-          indices[len++]=grid;
-          if (be!=-1) indices[len++]=be;
-          if (ab!=-1) indices[len++]=ab;
-          CHECK_ZERO(zLaplace->InsertGlobalValues(grid, len, &values[0], &indices[0]));
-          }
-        CHECK_ZERO(zLaplace->FillComplete());
-        }
-      }
-    }
-
-  int len;
-  int maxlen=scalarLaplace->MaxNumEntries();
-  int* indices=new int[maxlen];
-  double* values=new double[maxlen];
-
-  Teuchos::RCP<Epetra_CrsMatrix> crsMatrix = Teuchos::rcp(new Epetra_CrsMatrix
-        (Copy,Map(),maxlen));
-  
-  DEBUG("Put in the new stencils");
-  for (int var=0;var<dof_;var++)
-    {
-    if (variableType_[var]=="Laplace")
-      {
-      for (int i=0;i<crsMatrix->NumMyRows()/dof_;i++)
-        {
-        int point_gid=crsMatrix->GRID(i*dof_)/dof_;
-        CHECK_ZERO(scalarLaplace->ExtractGlobalRowCopy(point_gid,maxlen,len,values,indices));
-        // adjust column indices
-        for (int j=0;j<len;j++) indices[j]=dof_*indices[j]+var;
-
-        int gid=crsMatrix->GRID(i*dof_+var);
-        CHECK_ZERO(crsMatrix->InsertGlobalValues(gid,len,values,indices));
-        }
-      }
-    else if (variableType_[var]=="z-Laplace")
-      {
-      for (int i=0;i<crsMatrix->NumMyRows()/dof_;i++)
-        {
-        int point_gid=crsMatrix->GRID(i*dof_)/dof_;
-        CHECK_ZERO(zLaplace->ExtractGlobalRowCopy(point_gid,maxlen,len,values,indices));
-        // adjust column indices
-        for (int j=0;j<len;j++) indices[j]=dof_*indices[j]+var;
-
-        int gid=crsMatrix->GRID(i*dof_+var);
-        CHECK_ZERO(crsMatrix->InsertGlobalValues(gid,len,values,indices));
-        }
-      }
-    else if (variableType_[var]=="Uncoupled")
-      {
-      // put in an identity matrix
-      for (int i=0;i<crsMatrix->NumMyRows()/dof_;i++)
-        {
-        int gid=crsMatrix->GRID(i*dof_+var);
-        double val=1.0;
-        CHECK_ZERO(crsMatrix->InsertGlobalValues(gid,1,&val,&gid));
-        }
-      }
-    else 
-      {
-      // keep stencil for "Retain X" variables: We ignore them
-      // when looking for separators but need the original connectivity
-      // to check for isolated variables
-      for (int i=0;i<crsMatrix->NumMyRows()/dof_;i++)
-        {
-        int lid=i*dof_+var;
-        int gid=crsMatrix->GRID(lid);
-        CHECK_ZERO(myCrsMatrix->ExtractGlobalRowCopy(gid,maxlen,len,values,indices));
-        CHECK_ZERO(crsMatrix->InsertGlobalValues(gid,len,values,indices));
-        }
-      }
-    }
-  
-  CHECK_ZERO(crsMatrix->FillComplete());
-  
-  delete [] indices;
-  delete [] values;
-
-  // copy the graph
-  graph_=Teuchos::rcp(new Epetra_CrsGraph(crsMatrix->Graph()));
-
-    int nzgraph = graph_->NumMyNonzeros();
-    REPORT_SUM_MEM(Label(),"aux graph",0,nzgraph,GetComm());
-
-  return 0;    
-  }
-
 
 int OverlappingPartitioner::Partition()
   {
@@ -564,22 +373,22 @@ int OverlappingPartitioner::DetectSeparators()
     Tools::Error("Graph not yet constructed!",__FILE__,__LINE__);
     }
 
-  if (Teuchos::is_null(parallelGraph_))
+  if (Teuchos::is_null(p_graph_))
     {
-    Tools::Error("parallelGraph not yet constructed!",__FILE__,__LINE__);
+    Tools::Error("p_graph not yet constructed!",__FILE__,__LINE__);
     }
 
   bool isCartStokes=(partitioningMethod_=="Cartesian" && classificationMethod_=="Stokes");
   if (isCartStokes)
     {
     classifier_=Teuchos::rcp(new CartesianStokesClassifier
-        (parallelGraph_,partitioner_,variableType_,retainIsolated_,
+        (p_graph_,partitioner_,variableType_,retainIsolated_,
         perio_,dim_,Level(),nx_,ny_,nz_));
 #ifdef TESTING
     // for comparison purposes - create the standard object so it
     // writes its nodeType vector to file in TESTING mode
     Teuchos::RCP<StandardNodeClassifier> tmp=Teuchos::rcp(new StandardNodeClassifier
-        (parallelGraph_,partitioner_,variableType_,retainIsolated_,
+        (p_graph_,partitioner_,variableType_,retainIsolated_,
         Level(),nx_,ny_,nz_));
     CHECK_ZERO(tmp->BuildNodeTypeVector());
 #endif
@@ -587,7 +396,7 @@ int OverlappingPartitioner::DetectSeparators()
   else
     {
     classifier_=Teuchos::rcp(new StandardNodeClassifier
-        (parallelGraph_,partitioner_,variableType_,retainIsolated_,
+        (p_graph_,partitioner_,variableType_,retainIsolated_,
         Level(),nx_,ny_,nz_));
     }  
     
@@ -614,7 +423,7 @@ int OverlappingPartitioner::DetectSeparators()
     interior_nodes.resize(0);
     separator_nodes.resize(0);
     retained_nodes.resize(0);
-    CHECK_ZERO(this->BuildNodeLists(sd,*parallelGraph_, *nodeType_, *p_nodeType_,
+    CHECK_ZERO(this->BuildNodeLists(sd,*p_graph_, *nodeType_, *p_nodeType_,
               interior_nodes, separator_nodes, retained_nodes));
 
     DEBVAR(sd);
@@ -750,7 +559,7 @@ int OverlappingPartitioner::GroupSeparators()
     {
     Tools::Error("Graph not yet constructed!",__FILE__,__LINE__);
     }
-  if (Teuchos::is_null(parallelGraph_))
+  if (Teuchos::is_null(p_graph_))
     {
     Tools::Error("overlapping Graph not yet constructed!",__FILE__,__LINE__);
     }
@@ -777,7 +586,7 @@ int OverlappingPartitioner::GroupSeparators()
       
   DEBUG("build separator lists...");
 
-  int MaxNumElements=parallelGraph_->MaxNumIndices();
+  int MaxNumElements=p_graph_->MaxNumIndices();
 
   int* cols = new int[MaxNumElements];
   int len;
@@ -822,8 +631,8 @@ int OverlappingPartitioner::GroupSeparators()
       //DEBUG("Process node "<<row);
       connectedSubs.resize(1);
       connectedSubs[0]=(*partitioner_)(row);
-      //CHECK_ZERO(parallelGraph_->ExtractGlobalRowCopy(row,MaxNumElements,len,cols));
-      int ierr=parallelGraph_->ExtractGlobalRowCopy(row,MaxNumElements,len,cols);
+      //CHECK_ZERO(p_graph_->ExtractGlobalRowCopy(row,MaxNumElements,len,cols));
+      int ierr=p_graph_->ExtractGlobalRowCopy(row,MaxNumElements,len,cols);
       if (ierr!=0)
         {
         Tools::Error("extracting global row "+Teuchos::toString(row)+
@@ -1082,14 +891,7 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
     {
     newList->sublist("Preconditioner").set
         ("Separator Length",new_sx);
-    }    
-  // the next level typically doesn't really resemble a   
-  // structured grid anymore, so we base the partitioning 
-  // on the matrix graph rather than an idealized graph.  
-  // in class OverlappingPartitioner, the matrix graph is 
-  // preprocessed to make sure that our separator detec-  
-  // tion works correctly.                                
-  newList->sublist("Problem").set("Substitute Graph",false);
+    }
   
   DEBVAR(*newList);
   
@@ -1098,9 +900,12 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
   return newLevel;
   }
 
-
+  // constructs a graph suitable for the partitioning process, for instance
+  // [A+BB' B; B' 0] for saddlepoint matrices (graph_), then
   // construct a graph with overlap between partitions (for finding/grouping    
-  // separators in parallel). We need two levels of overlap because we may      
+  // separators in parallel) (p_graph_). 
+  //
+  // We need two levels of overlap because we may
   // have to include nodes as separators of a subdomain that are not physically 
   // connected to a node in the subdomain (secondary separator nodes like node  
   // (a) in subdomain D in this picture):                                       
@@ -1113,59 +918,80 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
   //          :               
   //                          
   // ... actually we need 3 levels of overlap in 3D.
-  Teuchos::RCP<Epetra_CrsGraph> OverlappingPartitioner::CreateParallelGraph()
+  // ... TODO - check wether this is still true, even with the graph of [A+BB' B; B' 0]
+  //     that we use now.
+  int OverlappingPartitioner::CreateGraph()
     {
-    START_TIMER2(Label(),"CreateParallelGraph");
-    
-    if (graph_==Teuchos::null) 
+    START_TIMER2(Label(),"CreateGraph");
+
+    Teuchos::RCP<const Epetra_CrsMatrix> myCrsMatrix = 
+        Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_);
+
+    if (Teuchos::is_null(myCrsMatrix))
       {
-      Tools::Error("graph not yet constructed",__FILE__,__LINE__);
+      Tools::Error("we need a CrsMatrix here!",__FILE__,__LINE__);
       }
+    // copy the graph
+    graph_=Teuchos::rcp(&(myCrsMatrix->Graph()),false);
+    
     if (partitioner_->Partitioned()==false)
       {
       Tools::Error("domain not yet partitioned",__FILE__,__LINE__);
       }
 
-    Teuchos::RCP<Epetra_CrsGraph> G=Teuchos::null;
-
-    Epetra_Import importRepart(partitioner_->Map(),graph_->RowMap());
+   // repartition...
+   Teuchos::RCP<Epetra_Import> importRepart = 
+     Teuchos::rcp(new Epetra_Import(partitioner_->Map(),graph_->RowMap()));
 
     int MaxNumEntriesPerRow=graph_->MaxNumIndices();
     Teuchos::RCP<Epetra_CrsGraph> G_repart = Teuchos::rcp
         (new Epetra_CrsGraph(Copy,partitioner_->Map(),MaxNumEntriesPerRow,false));
-    CHECK_ZERO(G_repart->Import(*graph_,importRepart,Insert));
+    CHECK_ZERO(G_repart->Import(*graph_,*importRepart,Insert));
     CHECK_ZERO(G_repart->FillComplete());
-    
+ 
+    // parallel graph setup
+    p_graph_=Teuchos::null;
+
+   
     if (Comm().NumProc()==1)
       {
-      return G_repart;
+      p_graph_=G_repart;
+      importOverlap_=importRepart;
       }
-    // build a test matrix - we create an overlapping matrix and then extract its graph
-    Teuchos::RCP<Epetra_CrsMatrix> Atest = 
-        Teuchos::rcp(new Epetra_CrsMatrix(Copy,*G_repart));
-//TODO - check how to do this with substituted graph. This is a new implementation because
-//       we had seg faults in Trilinos 10.x with using the OverlapGraph directly.
-//       Actually, we should kick out the whole 'substituteGraph' idea because it doesn't 
-//       work in multi-level mode
-    if (substituteGraph_) 
-        Tools::Error("graph substitution needs fix", __FILE__,__LINE__);
-    CHECK_ZERO(Atest->Import(*matrix_,importRepart,Insert));
-    CHECK_ZERO(Atest->FillComplete());
-    //the original graph of the matrix is also distributed
-    Ifpack_OverlappingRowMatrix Aov(Atest, dim_);
-    Teuchos::RCP<const Epetra_Map> overlappingMap = 
+    else
+      {
+      // build a test matrix - we create an overlapping matrix and then extract its graph
+      Teuchos::RCP<Epetra_CrsMatrix> Atest = 
+          Teuchos::rcp(new Epetra_CrsMatrix(Copy,*G_repart));
+
+      CHECK_ZERO(Atest->Import(*matrix_,*importRepart,Insert));
+      CHECK_ZERO(Atest->FillComplete());
+      //the original graph of the matrix is also distributed
+      Ifpack_OverlappingRowMatrix Aov(Atest, dim_);
+      Teuchos::RCP<const Epetra_Map> overlappingMap = 
         Teuchos::rcp(&(Aov.RowMatrixRowMap()),false);
-    Teuchos::RCP<Epetra_Import> importOverlap =
+
+      importOverlap_ =
       Teuchos::rcp(new Epetra_Import(*overlappingMap, graph_->RowMap()));
-    //importOverlap contains all information needed for MPI.
-    G = Teuchos::rcp(new Epetra_CrsGraph
-      (Copy,*overlappingMap,graph_->MaxNumIndices(),false));
-    //Definition of the Graph but it is still  empty
-    //below it is filled
-  CHECK_ZERO(G->Import(*graph_,*importOverlap,Insert));
-  CHECK_ZERO(G->FillComplete());// cleans everything up (removes workarrays).
+      //importOverlap contains all information needed for MPI.
+      p_graph_ = Teuchos::rcp(new Epetra_CrsGraph
+        (Copy,*overlappingMap,graph_->MaxNumIndices(),false));
+      //Definition of the Graph but it is still  empty
+      //below it is filled
+
+      CHECK_ZERO(p_graph_->Import(*graph_,*importOverlap_,Insert));
+      CHECK_ZERO(p_graph_->FillComplete());// cleans everything up (removes workarrays).
+      }
     
-    return G;
+    if (pvar_>=0 && false) // TODO this section is disabled for now
+      {
+      DEBVAR(pvar_);
+      // given A  B, form  C  B, with C = A + BB'
+      //       B' 0        B' 0
+      CHECK_ZERO(AugmentSppGraph(pvar_));
+      }
+
+  return 0;
   }
   
 
@@ -1181,4 +1007,118 @@ int OverlappingPartitioner::DumpGraph() const
   return 0;
   }
 
+
+  //! If graph_/p_graph_ represent a saddlepoint matrix K=[A G; D 0], adds edges
+  //! so that the pattern is that of [A+G*D G; D 0]. Replaces graph_ and p_graph_,
+  //! which should both already be Filled().
+  int OverlappingPartitioner::AugmentSppGraph(int pvar)
+  {
+  START_TIMER2(Label(),"AugmentSppGraph");
+  
+  DEBVAR(pvar);
+  DEBVAR(pvar_);
+  DEBVAR(*p_graph_);
+  
+  if (!p_graph_->Filled()) Tools::Error("AugmentSppGraph() requires p_graph_ to be filled",
+        __FILE__,__LINE__);
+
+  if (!graph_->Filled()) Tools::Error("AugmentSppGraph() requires graph_ to be filled",
+        __FILE__,__LINE__);
+  
+  int max_len = p_graph_->MaxNumIndices()*4;
+  Teuchos::Array<int> cols;
+  int len,lenK, lenD;
+  int *colsD;
+  
+  Teuchos::RCP<Epetra_CrsGraph> graph = Teuchos::rcp(
+        new Epetra_CrsGraph(Copy, graph_->RowMap(),graph_->MaxNumIndices()));
+
+
+  for (int i=0;i<graph_->NumMyRows();i++)
+    {
+    cols.resize(max_len);
+    int grid = graph_->GRID(i);
+    CHECK_ZERO(graph_->ExtractGlobalRowCopy(grid,max_len,lenK,cols.getRawPtr()));
+    len=lenK;
+    if (MOD(grid,dof_)!=pvar && MOD(grid,dof_)<pvar_)
+      {
+      
+      // append B'B (Grad*Div)
+      
+      // walk through row of Grad
+      for (int j=0;j<lenK;j++)
+        {
+        if (MOD(cols[j],dof_)==pvar) // entry of Grad (=B)
+          {
+          // walk through row of Div to see which rows ii,jj of Grad have entries in common
+          // (that's where an entry ii,jj has to be added)
+          int lridD = p_graph_->LRID(cols[j]);
+          DEBVAR(lridD);
+          if (lridD>=0)
+            {
+            CHECK_ZERO(p_graph_->ExtractMyRowView(lridD,lenD,colsD));
+            for (int jj=0;jj<lenD;jj++)
+              {
+              if (MOD(p_graph_->GCID(colsD[jj]),dof_)!=pvar_ &&
+                  MOD(p_graph_->GCID(colsD[jj]),dof_)!=pvar)
+                {
+                if (len>=max_len) 
+                  {
+                  max_len*=4;
+                  cols.resize(max_len);
+                  }
+                cols[len++]=p_graph_->GCID(colsD[jj]);
+                }
+              }
+            }
+#ifdef TESTING
+          else
+            {
+            std::stringstream msg;
+            msg << "rank "<<p_graph_->Comm().MyPID()<<std::endl;
+            msg << "current row (V-node): "<<grid<<std::endl;
+            msg << "column in G: "<<cols[j] << std::endl;
+            msg << "Row not present in K on this proc.\n";
+            msg << "Case not handled, your graph should have overlap.\n";
+            msg << "If you compile with -DDEBUGGING, the bad graph is stored in \n";
+            msg << "debug*.txt, after the keyword AugmentSppGraph.\n";
+            DEBVAR(*p_graph_);
+            Tools::Error(msg.str(),__FILE__,__LINE__);
+            }
+#endif
+          }
+        }
+      std::sort(cols.begin(),cols.begin()+len);
+      int_i cols_end = std::unique(cols.begin(),cols.begin()+len);
+      len = std::distance(cols.begin(),cols_end);
+      
+#ifdef DEBUGGING_
+      DEBVAR(grid);
+      for (int j=0;j<len;j++)
+        {
+        Tools::deb() << cols[j] << " ";
+        }
+      DEBUG("");
+#endif
+      }
+    else
+      {
+      // copy in the div-row unchanged.
+      }
+    CHECK_ZERO(graph->InsertGlobalIndices(grid,len,cols.getRawPtr()));
+    }
+
+  DEBUG("call FillComplete on augmented graph");
+  CHECK_ZERO(graph->FillComplete());
+  graph_=graph;
+  
+  p_graph_ = Teuchos::rcp(new Epetra_CrsGraph
+      (Copy,p_graph_->RowMap(),graph_->MaxNumIndices(),false));
+
+  CHECK_ZERO(p_graph_->Import(*graph_,*importOverlap_,Insert));
+  CHECK_ZERO(p_graph_->FillComplete());
+  return 0;
+  }
+
 }//namespace
+

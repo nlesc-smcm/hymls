@@ -14,7 +14,7 @@
 using Teuchos::toString;
 
 #ifdef DEBUGGING
-//#define FLOW_DEBUGGING
+#define FLOW_DEBUGGING
 #endif
 
 #ifdef FLOW_DEBUGGING
@@ -55,6 +55,9 @@ namespace HYMLS {
         DEBVAR(ny_);
         DEBVAR(nz_);
         DEBVAR(dof_);
+
+        graph_=Teuchos::null;
+        pvar_=-1;
         
         npx_=-1;// indicates that Partition() hasn't been called
         }
@@ -70,8 +73,6 @@ namespace HYMLS {
     {
     int sd1 = (*this)(gid1);
     int sd2 = (*this)(gid2);
-    int type1 = this->VariableType(gid1);
-    int type2 = this->VariableType(gid2);
     
     FLOW_DEBUG("### FLOW("<<gid1<<", "<<gid2<<") ###");
     
@@ -80,38 +81,65 @@ namespace HYMLS {
       FLOW_DEBUG("# same subdomain, return 0");
       return 0;
       }
-    
-    if (type1!=type2)
-      {
-      FLOW_DEBUG("# different variable types, return 0");
-      return 0;
-      }
 
     int i1,j1,k1,i2,j2,k2;
     int var1,var2;
       
     Tools::ind2sub(nx_,ny_,nz_,dof_,gid1,i1,j1,k1,var1);
     Tools::ind2sub(nx_,ny_,nz_,dof_,gid2,i2,j2,k2,var2);
-    
-    int di,dj,dk;
+/*
+    if (var2==pvar_)
+      {
+      FLOW_DEBUG("# coupling to pressure, return 0");
+      return 0;
+      }
+  */  
+    if (var1!=var2)
+      {
+      FLOW_DEBUG("# different variables, return 0");
+      return 0;
+      }
+    bool adjacent=false;
+      int di,dj,dk;
 
-    di=calc_distance(nx_,i1,i2,(perio_&GaleriExt::X_PERIO));
-    dj=calc_distance(ny_,j1,j2,(perio_&GaleriExt::Y_PERIO));
-    dk=calc_distance(nz_,k1,k2,(perio_&GaleriExt::Z_PERIO));
+      di=calc_distance(nx_,i1,i2,(perio_&GaleriExt::X_PERIO));
+      dj=calc_distance(ny_,j1,j2,(perio_&GaleriExt::Y_PERIO));
+      dk=calc_distance(nz_,k1,k2,(perio_&GaleriExt::Z_PERIO));
+
+    if (graph_==Teuchos::null) // old style - look at 'node distance' and guess...
+      {
 #ifdef FLOW_DEBUGGING
 DEBVAR(di);
 DEBVAR(dj);
 DEBVAR(dk);
 #endif
     // if the cells are not connected:
-    if ((std::abs(di)>stencil_width_) || 
+      if ((std::abs(di)>stencil_width_) || 
         (std::abs(dj)>stencil_width_) || 
         (std::abs(dk)> stencil_width_))
         {
-        FLOW_DEBUG("# not adjacent grid cells, return 0");  
-        return 0;
+        FLOW_DEBUG("# not adjacent grid cells, return 0 [based on guesswork!]");
+        adjacent=false;
         }
-
+      }
+    else
+      {
+      int len;
+      int *cols;
+      int lrid1 = graph_->LRID(gid1);
+      CHECK_ZERO(graph_->ExtractMyRowView(lrid1,len,cols));
+      for (int j=0;j<len;j++)
+        {
+        if (graph_->GCID(cols[j])==gid2)
+          {
+          adjacent=true;
+          break;
+          }
+        }
+      FLOW_DEBUG("# not adjacent grid cells, return 0 [based on graph]");
+      }
+    if (!adjacent) return 0;
+    
     // the cells are connected and in different subdomains, so we have to
     // return a nonzero value.
 
@@ -121,7 +149,7 @@ DEBVAR(dk);
       FLOW_DEBUG("# return "<<sd1-sd2);
       return sd1-sd2;
       }
-
+      
     // problem is periodic in at least one direction
 
     int value;
