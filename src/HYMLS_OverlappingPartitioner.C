@@ -5,6 +5,8 @@
 #include "HYMLS_OverlappingPartitioner.H"
 #include "HYMLS_Tools.H"
 
+#include "HYMLS_Tester.H"
+
 #include "HYMLS_BaseCartesianPartitioner.H"
 #include "HYMLS_CartesianPartitioner.H"
 
@@ -29,10 +31,7 @@
 
 #include "HYMLS_SepNode.H"
 
-#include "Galeri_Maps.h"
 #include "GaleriExt_Periodic.h"
-#include "Galeri_Star2D.h"
-#include "GaleriExt_Star3D.h"
 
 #include "HYMLS_MatrixUtils.H"
 
@@ -69,6 +68,15 @@ namespace HYMLS {
     START_TIMER3(Label(),"Constructor");
 
     setParameterList(params);
+    
+    // check that this is an F-matrix. Note that the actual test is quite expensive,
+    // but it is only performed if -DTESTING is defined.
+    Teuchos::RCP<const Epetra_CrsMatrix> Kcrs = 
+        Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(K);
+    if (pvar_>=0 && Kcrs!=Teuchos::null)
+      {
+      HYMLS_TEST(Label(),isFmatrix(*Kcrs,dof_,pvar_),__FILE__,__LINE__);
+      }
 
     //TODO - partitioning before creating the graph is
     //       kind of not so nice, it just works because

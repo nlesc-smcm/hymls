@@ -30,6 +30,7 @@ OBJ=    HYMLS_Solver.o \
         HYMLS_Householder.o \
         HYMLS_AugmentedMatrix.o \
         HYMLS_Tools.o \
+        HYMLS_Tester.o \
         HYMLS_PLA.o \
         HYMLS_Exception.o \
         NOX_Epetra_LinearSystem_Hymls.o \
