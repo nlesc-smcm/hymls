@@ -135,10 +135,12 @@ namespace HYMLS {
       {
       eqn = probList_.get("Equations",eqn);
 #ifdef MATLAB_COMPATIBILITY_MODE
-      if (eqn!="Stokes-C" || dim_!=2)
+      if (eqn!="Stokes-C" || dim_!=3)
         {
-        Tools::Error("MATLAB_COMPATIBILITY_MODE is defined. The preconditioner\n"+
-                     std::string("only works for 2D Stokes-C problems in that case."),
+        // this is because of some assumptions we make when ordering the nodes
+        // in HierarchicalMap, where we don't have access to the problem definition:
+        Tools::Error("MATLAB_COMPATIBILITY_MODE is defined. The ordering\n"+
+                     std::string("only works for 3D Stokes-C problems in that case."),
                      __FILE__,__LINE__);
         }
 #endif      

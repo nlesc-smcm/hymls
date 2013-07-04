@@ -48,7 +48,16 @@ public:
   //! returns true if the input matrix is an F-matrix, where the 
   //! pressure is each dof'th unknown, starting from pvar
   static bool isFmatrix(const Epetra_CrsMatrix& A, int dof, int pvar);
-  
+
+  //! this test is a specialized test for the 3D Navier-Stokes equations on a C-grid.
+  //! It checks that the interior velocities of full conservation tubes only connect 
+  //! to interior pressures of the same tube.
+  static bool areTubesCorrect(const Epetra_CrsMatrix& K,
+                              const Epetra_IntVector& p_nodeType,
+                              int dof, int pvar);
+
+
+  //! tolerance if we have a numerical value that should be small  
   inline static double float_tol(){return 100.0*Teuchos::ScalarTraits<double>::eps();}
   
   //! this message buffer is printed when a test fails

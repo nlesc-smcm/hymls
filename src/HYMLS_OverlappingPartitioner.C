@@ -411,7 +411,12 @@ int OverlappingPartitioner::DetectSeparators()
   CHECK_ZERO(classifier_->BuildNodeTypeVector());
   nodeType_ = classifier_->GetVector();
   p_nodeType_ = classifier_->GetOverlappingVector();
-    
+  
+  if (dim_==3 && classificationMethod_=="Stokes")
+    {
+    HYMLS_TEST(Label(),areTubesCorrect(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_),*p_nodeType_,dof_,pvar_),__FILE__,__LINE__);
+    }
+  
   // put them into lists
  
   // nodes to be eliminated exactly in the next step  

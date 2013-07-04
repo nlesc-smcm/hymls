@@ -489,8 +489,8 @@ HierarchicalMap::SpawnInterior() const
 //CAVEAT: this is just for debugging/testing, if it is defined
 // the code may not work for general problems!
 #ifdef SHIFT_PRESSURE_TO_END
-  const int dof=3; // assuming 2D Stokes here
-  const int pressure=2;
+  const int dof=4; // assuming 3D Stokes here
+  const int pressure=3;
 #else
   const int dof=1;
   const int pressure=-1;
