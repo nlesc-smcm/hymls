@@ -25,6 +25,7 @@
 */
 #include "HYMLS_HyperCube.H"
 #include "HYMLS_Tools.H"
+#include "HYMLS_Tester.H"
 #include "HYMLS_Preconditioner.H"
 #include "HYMLS_Solver.H"
 #include "HYMLS_MatrixUtils.H"
@@ -37,7 +38,8 @@ PASSED=0,
 MAX_ITER_EXCEEDED=1,
 RES_TOO_LARGE =2,
 ERR_TOO_LARGE =8,
-CAUGHT_EXCEPTION=16
+CAUGHT_EXCEPTION=16,
+INTERNAL_TESTS_FAILED=32
 } ReturnCode;
 
 
@@ -211,6 +213,7 @@ int runTest(Teuchos::RCP<const Epetra_Comm> comm,
         Teuchos::RCP<Teuchos::ParameterList> params)
   {
   int ierr=PASSED;
+  HYMLS::Tester::numFailedTests_=0; // check if internal tests fail on the way
   std::string message="";
   int no_exception=true;
 
@@ -471,6 +474,8 @@ if (ierr!=PASSED)
       no_exception=false;
       }
   if (no_exception==false) ierr = ierr | CAUGHT_EXCEPTION;  
+
+  if (HYMLS::Tester::numFailedTests_>0) ierr = ierr | INTERNAL_TESTS_FAILED;  
 
   params->set("runTest output",message);
 

@@ -73,7 +73,7 @@ namespace HYMLS {
     // but it is only performed if -DTESTING is defined.
     Teuchos::RCP<const Epetra_CrsMatrix> Kcrs = 
         Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(K);
-    if (pvar_>=0 && Kcrs!=Teuchos::null)
+    if (Kcrs!=Teuchos::null)
       {
       HYMLS_TEST(Label(),isFmatrix(*Kcrs,dof_,pvar_),__FILE__,__LINE__);
       }

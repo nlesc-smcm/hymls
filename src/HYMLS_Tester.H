@@ -12,6 +12,11 @@ class Epetra_IntVector;
 #define HYMLS_TEST(CALLER,FCN,FILE,LINE) \
 {bool status=true; \
 try { \
+HYMLS::Tester::msg_.clear(); \
+HYMLS::Tester::msg_ <<"#####################################"<<std::endl; \
+HYMLS::Tester::msg_ <<" RUN TEST "<<#FCN<<std::endl; \
+HYMLS::Tester::msg_ <<" CALLER:  "<<CALLER<<")"<<std::endl; \
+HYMLS::Tester::msg_ <<"#####################################"<<std::endl; \
 status = HYMLS::Tester:: FCN; \
 } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status); \
 if (!status) { \
@@ -20,7 +25,9 @@ if (!status) { \
   ss << "Called by: "<<CALLER<<std::endl; \
   ss << "additional information:"<<std::endl; \
   ss << HYMLS::Tester::msg_.str() << std::endl; \
-  HYMLS::Tools::Warning(ss.str(),FILE,LINE); }}
+  Tester::numFailedTests_++; \
+  HYMLS::Tools::Warning(ss.str(),FILE,LINE); } \
+  HYMLS::Tester::msg_.str("");}
 #else
 #define HYMLS_TEST(CALLER,FCN,FILE,LINE)
 #endif
@@ -47,7 +54,7 @@ public:
 
   //! returns true if the input matrix is an F-matrix, where the 
   //! pressure is each dof'th unknown, starting from pvar
-  static bool isFmatrix(const Epetra_CrsMatrix& A, int dof, int pvar);
+  static bool isFmatrix(const Epetra_CrsMatrix& A,int dof=-1,int pvar=-1);
 
   //! this test is a specialized test for the 3D Navier-Stokes equations on a C-grid.
   //! It checks that the interior velocities of full conservation tubes only connect 
@@ -65,6 +72,15 @@ public:
 
   //! returns "Tester"
   static std::string Label() {return "Tester";}
+
+  //! some problem data, should be set once known
+  static int dim_,dof_,pvar_;
+  
+  //! do we have F-matrices
+  static bool doFmatTests_;
+  
+  //! static counter how many tests have failed so far
+  static int numFailedTests_;
   
   };
 

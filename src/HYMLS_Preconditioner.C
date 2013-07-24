@@ -25,6 +25,12 @@
 #include "Epetra_SerialDenseMatrix.h"
 #include "Epetra_SerialDenseVector.h"
 
+#include "HYMLS_Tester.H"
+
+#ifdef TESTING
+#include "Epetra_FECrsMatrix.h"
+#endif
+
 #include "Ifpack_SparseContainer.h"
 #include "Ifpack_DenseContainer.h"
 #include "Ifpack_Amesos.h"
@@ -134,6 +140,18 @@ namespace HYMLS {
     if (probList_.isParameter("Equations"))
       {
       eqn = probList_.get("Equations",eqn);
+#ifdef TESTING
+      if (eqn=="Stokes-C")
+        {
+        Tester::doFmatTests_=true;
+        Tester::pvar_=dim_;
+        Tester::dof_=dof_;
+        }
+      else
+        {
+        Tester::doFmatTests_=false;
+        }
+#endif
 #ifdef MATLAB_COMPATIBILITY_MODE
       if (eqn!="Stokes-C" || dim_!=3)
         {
@@ -748,6 +766,21 @@ double nrow=0;
       }
     }
 REPORT_SUM_MEM(label_,"subdomain solvers",nnz,nnz,comm_);
+
+#ifdef TESTING
+if (Tester::doFmatTests_)
+{
+Teuchos::RCP<Epetra_FECrsMatrix> TestSC = 
+        Teuchos::rcp(new Epetra_FECrsMatrix(Copy,Map2(),Matrix().MaxNumEntries()));
+// explicitly construct the SC and check wether it is an F-matrix
+CHECK_ZERO(Schur_->Construct(TestSC));
+
+Teuchos::RCP<Epetra_CrsMatrix> TestSC2 = MatrixUtils::DropByValue(TestSC,
+            HYMLS_SMALL_ENTRY, MatrixUtils::Absolute);
+HYMLS_TEST(Label(),isFmatrix(*TestSC2,dof_,dim_),__FILE__,__LINE__);            
+
+}
+#endif
 }
 
   if (scaleSchur_)

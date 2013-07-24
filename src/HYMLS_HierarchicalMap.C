@@ -491,6 +491,7 @@ HierarchicalMap::SpawnInterior() const
 #ifdef SHIFT_PRESSURE_TO_END
   const int dof=4; // assuming 3D Stokes here
   const int pressure=3;
+#warning "using SHIFT_PRESSURE_TO_END, a debugging feature for 3D Stokes only."
 #else
   const int dof=1;
   const int pressure=-1;
@@ -498,6 +499,7 @@ HierarchicalMap::SpawnInterior() const
 
 #ifdef SHIFT_SINGLETONS_TO_END
   const int singleton=1;
+#warning "using SHIFT_SINGLETONS_TO_END, a debugging feature."
 #else
   const int singleton=0;
 #endif

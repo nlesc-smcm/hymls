@@ -93,12 +93,14 @@ namespace HYMLS {
       FLOW_DEBUG("# coupling to pressure, return 0");
       return 0;
       }
-  */  
+  */
+/*
     if (var1!=var2)
       {
       FLOW_DEBUG("# different variables, return 0");
       return 0;
       }
+*/
     bool adjacent=false;
       int di,dj,dk;
 
@@ -108,6 +110,8 @@ namespace HYMLS {
 
     if (graph_==Teuchos::null) // old style - look at 'node distance' and guess...
       {
+      //TROET
+      Tools::Warning("flow function without graph",__FILE__,__LINE__);
 #ifdef FLOW_DEBUGGING
 DEBVAR(di);
 DEBVAR(dj);

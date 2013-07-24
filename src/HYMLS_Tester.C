@@ -11,7 +11,10 @@
 namespace HYMLS {
 
   std::stringstream Tester::msg_;
-
+  int Tester::dof_=1;
+  int Tester::pvar_=-1;
+  bool Tester::doFmatTests_=false;
+  int Tester::numFailedTests_=0;
 
 #define ASSERT_ZERO(FCN,STATUS) \
   try { \
@@ -55,45 +58,49 @@ namespace HYMLS {
 
   //! returns true if the input matrix is an F-matrix, where the 
   //! pressure is each dof'th unknown, starting from pvar
-  bool Tester::isFmatrix(const Epetra_CrsMatrix& A, int dof, int pvar)
+  bool Tester::isFmatrix(const Epetra_CrsMatrix& A, int dof_in, int pvar_in)
     {
+    bool status=true;
+    if (!doFmatTests_) return status; 
     START_TIMER(Label(),"isFmatrix");
+    int dof = dof_in<0 ? dof_: dof_in;
+    int pvar = pvar_in<0 ? pvar_: pvar_in;
     DEBVAR(dof);
     DEBVAR(pvar);
-    bool status = true;
+    ASSERT_TRUE(dof>0,status)
+    ASSERT_TRUE(pvar>0,status)
+    ASSERT_TRUE(pvar<dof,status)
     ASSERT_TRUE(isSymmetric(A.Graph()),status);
-    if (pvar>0 && dof>1) 
+
+    int len;
+    double * val;
+    int *cols;
+    for (int i=0; i<A.NumMyRows(); i++)
       {
-      int len;
-      double * val;
-      int *cols;
-      for (int i=0; i<A.NumMyRows(); i++)
+      int grid = A.GRID(i);
+      if (MOD(grid,dof)!=pvar)
         {
-        int grid = A.GRID(i);
-        if (MOD(grid,dof)!=pvar)
+        ASSERT_ZERO(A.ExtractMyRowView(i,len,val,cols),status);
+        int num_pcols=0; // should be at most 2
+        double psum=0.0; // should be 0
+        for (int j=0; j<len;j++)
           {
-          ASSERT_ZERO(A.ExtractMyRowView(i,len,val,cols),status);
-          int num_pcols=0; // should be at most 2
-          double psum=0.0; // should be 0
-          for (int j=0; j<len;j++)
+          int gcid = A.GCID(cols[j]);
+          if (MOD(gcid,dof)==pvar)
             {
-            int gcid = A.GCID(cols[j]);
-            if (MOD(gcid,dof)==pvar)
-              {
-              num_pcols++;
-              psum+=val[j];
-              }
+            num_pcols++;
+            psum+=val[j];
             }
-          if (num_pcols>2) 
-            {
-            msg_ << "global row "<<grid<< " has "<< num_pcols << " entries in Grad-part"<<std::endl;
-            status=false;
-            }
-          if (abs(psum)>float_tol())
-            {
-            msg_ << "global row "<<grid<< " has row sum(G)="<< psum << std::endl;
-            status=false;
-            }
+          }
+        if (num_pcols>2) 
+          {
+          msg_ << "global row "<<grid<< " has "<< num_pcols << " entries in Grad-part"<<std::endl;
+          status=false;
+          }
+        if (abs(psum)>float_tol())
+          {
+          msg_ << "global row "<<grid<< " has row sum(G)="<< psum << std::endl;
+          status=false;
           }
         }
       }
@@ -136,7 +143,10 @@ namespace HYMLS {
             // entry in the grad part of the matrix K
             int p_lcid = p_nodeType.Map().LID(gcid);
             ASSERT_TRUE(p_lcid>=0,status);
-            if (p_nodeType[p_lcid]!=p_nodeType[p_lrid])
+            // check if the P-node is eliminated together with the
+            // V-node or retained in an FCC, otherwise print warning.
+            if (p_nodeType[p_lcid]!=p_nodeType[p_lrid] &&
+                p_nodeType[p_lcid]<4)
               {
               msg_ << "V-node "<<grid<<" (variable type "<<MOD(grid,dof)<<")\n";
               msg_ << "belongs to the interior of a full conservation tube,\n ";
