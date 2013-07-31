@@ -1,5 +1,6 @@
 #include "HYMLS_Tester.H"
 #include "HYMLS_Tools.H"
+#include "HYMLS_HierarchicalMap.H"
 #include "Teuchos_StandardCatchMacros.hpp"
 
 #include "Epetra_CrsGraph.h"
@@ -52,6 +53,7 @@ namespace HYMLS {
     Epetra_CrsMatrix C = A;
     ASSERT_ZERO(EpetraExt::MatrixMatrix::Add(A,true,-1.0,C,1.0),status);
     ASSERT_TRUE(C.HasNormInf(),status); 
+    msg_ << "||A-A'||="<<C.NormInf()<<std::endl;
     ASSERT_TRUE(C.NormInf()<=float_tol(),status);
     return status;
     }
@@ -65,8 +67,8 @@ namespace HYMLS {
     START_TIMER(Label(),"isFmatrix");
     int dof = dof_in<0 ? dof_: dof_in;
     int pvar = pvar_in<0 ? pvar_: pvar_in;
-    DEBVAR(dof);
-    DEBVAR(pvar);
+    msg_<<"dof="<<dof<<std::endl;
+    msg_<<"pvar="<<pvar<<std::endl;
     ASSERT_TRUE(dof>0,status)
     ASSERT_TRUE(pvar>0,status)
     ASSERT_TRUE(pvar<dof,status)
@@ -159,4 +161,52 @@ namespace HYMLS {
       }
     return status;
     }
+
+  bool Tester::noPcouplingsDropped(const Epetra_CrsMatrix& transSC,
+                                    const HierarchicalMap& sepObject)
+  {
+    bool status=true;
+    if (!doFmatTests_) return status; 
+    START_TIMER(Label(),"noPcouplingsDropped");
+
+    msg_<<"dof="<<dof_<<", pvar="<<pvar_<<std::endl;
+    
+    int len;
+    double* val;
+    int* cols;
+    
+    int blk=0;
+
+  // loop over all separators
+  for (int sep=0;sep<sepObject.NumMySubdomains();sep++)
+    {
+    // loop over all local separator groups
+    for (int grp=0;grp<sepObject.NumGroups(sep);grp++)
+      {
+      // loop over all elements in the group, skipping the first one (the V-sum node)
+      for (int i=1;i<sepObject.NumElements(sep,grp);i++)
+        {
+        int grid=sepObject.GID(sep,grp,i);
+        // if this element is a V-node, check that any P-node couplings are 0
+        if (MOD(grid,dof_)!=pvar_)
+          {
+          int lrid = transSC.LRID(grid);
+          ASSERT_ZERO(transSC.ExtractMyRowView(lrid,len,val,cols),status);
+          for (int j=0;j<len;j++)
+            {
+            int gcid = cols[j];
+            if (MOD(gcid,dof_)==pvar_ && std::abs(val[j])>float_tol())
+              {
+              msg_ << "Coupling between non-Vsum-node "<<grid<<" and P-node "<<gcid<<" found.\n";
+              msg_ << "This coupling of size "<<std::abs(val[j])<<" will be dropped.\n";
+              status=false;
+              }
+            }
+          }
+        }
+      }
+    }
+  return status;
+  }             
+
 }//namespace

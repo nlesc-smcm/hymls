@@ -38,6 +38,7 @@
 #include "EpetraExt_MatrixMatrix.h"
 
 #include "HYMLS_AugmentedMatrix.H"
+#include "HYMLS_Tester.H"
 
 namespace HYMLS {
 
@@ -1040,6 +1041,9 @@ int SchurPreconditioner::InitializeOT()
     REPORT_SUM_MEM(label_,"Transformed SC",matrix_->NumMyNonzeros(),
                                        matrix_->NumMyNonzeros(),
                                        comm_);
+    HYMLS_TEST(Label(),
+            noPcouplingsDropped(*matrix_,*hid_->Spawn(HierarchicalMap::Separators)),
+            __FILE__,__LINE__);
     return 0;
     }
 
@@ -1255,6 +1259,10 @@ int SchurPreconditioner::InitializeOT()
 #endif
     REPORT_SUM_MEM(label_,"Transformed SC",matrix_->NumMyNonzeros(),
                                            matrix_->NumMyNonzeros(),comm_);
+
+    HYMLS_TEST(Label(),
+            noPcouplingsDropped(*matrix_,*hid_->Spawn(HierarchicalMap::Separators)),
+            __FILE__,__LINE__);
     return 0;
     }
 

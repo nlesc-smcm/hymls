@@ -17,6 +17,7 @@ HYMLS::Tester::msg_ <<"#####################################"<<std::endl; \
 HYMLS::Tester::msg_ <<" RUN TEST "<<#FCN<<std::endl; \
 HYMLS::Tester::msg_ <<" CALLER:  "<<CALLER<<")"<<std::endl; \
 HYMLS::Tester::msg_ <<"#####################################"<<std::endl; \
+HYMLS::Tools::out() <<std::endl<<HYMLS::Tester::msg_.str()<<std::endl; \
 status = HYMLS::Tester:: FCN; \
 } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status); \
 if (!status) { \
@@ -34,6 +35,8 @@ if (!status) { \
 
 namespace HYMLS
   {
+
+class HierarchicalMap;
 
 //! this class tests if the interaction of HYMLS components
 //! works as expected. It has a few static member functions that can
@@ -63,6 +66,8 @@ public:
                               const Epetra_IntVector& p_nodeType,
                               int dof, int pvar);
 
+  static bool noPcouplingsDropped(const Epetra_CrsMatrix& transSC,
+                                  const HierarchicalMap& sepObject);
 
   //! tolerance if we have a numerical value that should be small  
   inline static double float_tol(){return 100.0*Teuchos::ScalarTraits<double>::eps();}

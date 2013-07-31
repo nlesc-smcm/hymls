@@ -140,18 +140,6 @@ namespace HYMLS {
     if (probList_.isParameter("Equations"))
       {
       eqn = probList_.get("Equations",eqn);
-#ifdef TESTING
-      if (eqn=="Stokes-C")
-        {
-        Tester::doFmatTests_=true;
-        Tester::pvar_=dim_;
-        Tester::dof_=dof_;
-        }
-      else
-        {
-        Tester::doFmatTests_=false;
-        }
-#endif
 #ifdef MATLAB_COMPATIBILITY_MODE
       if (eqn!="Stokes-C" || dim_!=3)
         {
@@ -173,6 +161,19 @@ namespace HYMLS {
       }
 
     dof_=probList_.get("Degrees of Freedom",1);
+
+#ifdef TESTING
+      if (eqn=="Stokes-C")
+        {
+        Tester::doFmatTests_=true;
+        Tester::pvar_=dim_;
+        Tester::dof_=dof_;
+        }
+      else
+        {
+        Tester::doFmatTests_=false;
+        }
+#endif
 
     return 0;
     }
