@@ -66,7 +66,7 @@ namespace HYMLS {
         rangeMap_(Teuchos::rcp(&(K->RowMatrixRowMap()),false)),
         normInf_(-1.0), useTranspose_(false), 
         myLevel_(myLevel), testVector_(testVector),
-        label_("HYMLS::Preconditioner (level "+Teuchos::toString(myLevel_)+")"),
+        label_("Preconditioner (level "+Teuchos::toString(myLevel_)+")"),
         PLA("Preconditioner")
     {
     START_TIMER3(label_,"Constructor");
