@@ -779,7 +779,9 @@ CHECK_ZERO(Schur_->Construct(TestSC));
 Teuchos::RCP<Epetra_CrsMatrix> TestSC2 = MatrixUtils::DropByValue(TestSC,
             HYMLS_SMALL_ENTRY, MatrixUtils::Absolute);
 HYMLS_TEST(Label(),isFmatrix(*TestSC2,dof_,dim_),__FILE__,__LINE__);            
-
+#ifdef STORE_MATRICES
+HYMLS::MatrixUtils::Dump(*TestSC,"SchurComplement"+Teuchos::toString(myLevel_)+".txt");
+#endif
 }
 #endif
 }

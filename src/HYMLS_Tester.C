@@ -194,7 +194,7 @@ namespace HYMLS {
           ASSERT_ZERO(transSC.ExtractMyRowView(lrid,len,val,cols),status);
           for (int j=0;j<len;j++)
             {
-            int gcid = cols[j];
+            int gcid = transSC.GCID(cols[j]);
             if (MOD(gcid,dof_)==pvar_ && std::abs(val[j])>float_tol())
               {
               msg_ << "Coupling between non-Vsum-node "<<grid<<" and P-node "<<gcid<<" found.\n";
