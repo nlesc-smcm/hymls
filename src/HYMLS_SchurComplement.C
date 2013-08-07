@@ -126,7 +126,7 @@ namespace HYMLS {
     isConstructed_=true;
     CHECK_ZERO(this->Construct(sparseMatrixRepresentation_));
     Scrs_ = MatrixUtils::DropByValue(sparseMatrixRepresentation_,
-        HYMLS_SMALL_ENTRY, MatrixUtils::RelZeroDiag);
+        HYMLS_SMALL_ENTRY);
     REPORT_MEM(label_,"SchurComplement",Scrs_->NumGlobalNonzeros(),
                                         Scrs_->NumGlobalNonzeros()+
                                         Scrs_->NumGlobalRows());

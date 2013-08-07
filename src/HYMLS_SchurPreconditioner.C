@@ -1,5 +1,4 @@
 #define RESTRICT_ON_COARSE_LEVEL
-#define DROPTYPE AbsZeroDiag
 
 #include "HYMLS_no_debug.H"
 
@@ -351,7 +350,7 @@ namespace HYMLS {
 #endif
 
     reducedSchur_ = MatrixUtils::DropByValue(SchurMatrix_, 
-        HYMLS_SMALL_ENTRY, MatrixUtils::DROPTYPE);
+        HYMLS_SMALL_ENTRY);
 
   reducedSchur_->SetLabel(("Coarsest Matrix (level "+Teuchos::toString(myLevel_+1)+")").c_str());
 
@@ -561,7 +560,7 @@ DEBVAR(*borderC_);
   Tools::Out("drop before going to next level");
 #endif
   Teuchos::RCP<Epetra_CrsMatrix> tmp = MatrixUtils::DropByValue(reducedSchur_,
-        HYMLS_SMALL_ENTRY, MatrixUtils::DROPTYPE);
+        HYMLS_SMALL_ENTRY);
   *reducedSchur_ = *tmp; 
   tmp=Teuchos::null;
   
@@ -873,7 +872,6 @@ int SchurPreconditioner::InitializeOT()
     CHECK_ZERO(sparseMatrixOT_->FillComplete())
     }
 #ifdef STORE_MATRICES
-  MatrixUtils::Dump(*map_,"SchurMap"+Teuchos::toString(myLevel_)+".txt");
   MatrixUtils::Dump(*sparseMatrixOT_, 
         "Householder"+Teuchos::toString(myLevel_)+".txt");
 #endif  
@@ -950,7 +948,7 @@ int SchurPreconditioner::InitializeOT()
 #ifdef TESTING
     Tools::Out("drop because of next DD");
 #endif
-    reducedSchur_=MatrixUtils::DropByValue(reducedSchur_,HYMLS_SMALL_ENTRY,MatrixUtils::DROPTYPE);
+    reducedSchur_=MatrixUtils::DropByValue(reducedSchur_,HYMLS_SMALL_ENTRY);
       
     // I think this is required to make the matrix Ifpack-proof:
     reducedSchur_ = MatrixUtils::RemoveColMap(reducedSchur_);

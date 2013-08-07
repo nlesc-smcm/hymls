@@ -323,7 +323,7 @@ class MatrixUtils
     //! drop elements smaller than a threshold from a sparse matrix. By default the 
     //! threshold is 10^-14 so that numerical zeros are dropped.
     static Teuchos::RCP<Epetra_CrsMatrix> DropByValue(Teuchos::RCP<const Epetra_CrsMatrix> A, 
-        double threshold=1.0e-16, DropType t=Relative);
+        double threshold=1.0e-16, DropType t=AbsZeroDiag);
     
     //! replace one row and column by a Dirichlet condition (0 everywhere, 1 on diagonal).
     //! This function assumes that the pattern of the matrix is symmetric!

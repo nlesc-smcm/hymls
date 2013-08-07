@@ -448,10 +448,8 @@ namespace HYMLS {
 
 #if defined(STORE_MATRICES) || defined(TESTING)
 MatrixUtils::Dump(*rangeMap_,"originalMap"+Teuchos::toString(myLevel_)+".txt");
-#endif
-
-#if defined(TESTING) || defined(STORE_MATRICES)
 MatrixUtils::Dump(*rowMap_,"reorderedMap"+Teuchos::toString(myLevel_)+".txt");
+MatrixUtils::Dump(*map2_,"schurMap"+Teuchos::toString(myLevel_)+".txt");
 #endif
 
     // this object can be used to create a vector view of the interior nodes:
@@ -769,6 +767,7 @@ double nrow=0;
 REPORT_SUM_MEM(label_,"subdomain solvers",nnz,nnz,comm_);
 
 #ifdef TESTING
+
 if (Tester::doFmatTests_)
 {
 // explicitly construct the SC and check wether it is an F-matrix
@@ -779,7 +778,7 @@ CHECK_ZERO(Schur_->Construct(TestSC));
 // this is usually done in Construct(), but not if we pass in a pointer ourselves.
 // We need a new pointer because DropByValue creates a CrsMatrix, not FECrsMatrix.
 Teuchos::RCP<Epetra_CrsMatrix> TestSC_crs = 
-MatrixUtils::DropByValue(TestSC,HYMLS_SMALL_ENTRY, MatrixUtils::RelZeroDiag);
+MatrixUtils::DropByValue(TestSC,HYMLS_SMALL_ENTRY);
 HYMLS_TEST(Label(),isFmatrix(*TestSC_crs,dof_,dim_),__FILE__,__LINE__);            
 #ifdef STORE_MATRICES
 HYMLS::MatrixUtils::Dump(*TestSC_crs,"SchurComplement"+Teuchos::toString(myLevel_)+".txt");
