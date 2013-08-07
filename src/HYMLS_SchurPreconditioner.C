@@ -1,4 +1,6 @@
 #define RESTRICT_ON_COARSE_LEVEL
+#define DROPTYPE AbsZeroDiag
+
 #include "HYMLS_no_debug.H"
 
 #include "HYMLS_SchurPreconditioner.H"
@@ -349,7 +351,7 @@ namespace HYMLS {
 #endif
 
     reducedSchur_ = MatrixUtils::DropByValue(SchurMatrix_, 
-        HYMLS_SMALL_ENTRY, MatrixUtils::Absolute);
+        HYMLS_SMALL_ENTRY, MatrixUtils::DROPTYPE);
 
   reducedSchur_->SetLabel(("Coarsest Matrix (level "+Teuchos::toString(myLevel_+1)+")").c_str());
 
@@ -551,12 +553,15 @@ DEBVAR(*borderC_);
   //  DropByValue before going to the next level. Careful about
   //  the pointer, though, which is shared with the next level 
   //  solver...
+#ifdef STORE_MATRICES
+    MatrixUtils::Dump(*reducedSchur_,"ReducedSchurBeforeDropping"+Teuchos::toString(myLevel_)+".txt");
+#endif  
 
 #ifdef TESTING
   Tools::Out("drop before going to next level");
 #endif
   Teuchos::RCP<Epetra_CrsMatrix> tmp = MatrixUtils::DropByValue(reducedSchur_,
-        HYMLS_SMALL_ENTRY, MatrixUtils::Absolute);
+        HYMLS_SMALL_ENTRY, MatrixUtils::DROPTYPE);
   *reducedSchur_ = *tmp; 
   tmp=Teuchos::null;
   
@@ -944,8 +949,8 @@ int SchurPreconditioner::InitializeOT()
     // drop numerical zeros so that the domain decomposition works
 #ifdef TESTING
     Tools::Out("drop because of next DD");
-#endif      
-    reducedSchur_=MatrixUtils::DropByValue(reducedSchur_,HYMLS_SMALL_ENTRY,MatrixUtils::Absolute);
+#endif
+    reducedSchur_=MatrixUtils::DropByValue(reducedSchur_,HYMLS_SMALL_ENTRY,MatrixUtils::DROPTYPE);
       
     // I think this is required to make the matrix Ifpack-proof:
     reducedSchur_ = MatrixUtils::RemoveColMap(reducedSchur_);
@@ -1042,7 +1047,7 @@ int SchurPreconditioner::InitializeOT()
                                        matrix_->NumMyNonzeros(),
                                        comm_);
     HYMLS_TEST(Label(),
-            noPcouplingsDropped(*matrix_,*hid_->Spawn(HierarchicalMap::Separators)),
+            noPcouplingsDropped(*matrix_,*hid_->Spawn(HierarchicalMap::LocalSeparators)),
             __FILE__,__LINE__);
     return 0;
     }
@@ -1261,7 +1266,7 @@ int SchurPreconditioner::InitializeOT()
                                            matrix_->NumMyNonzeros(),comm_);
 
     HYMLS_TEST(Label(),
-            noPcouplingsDropped(*matrix_,*hid_->Spawn(HierarchicalMap::Separators)),
+            noPcouplingsDropped(*matrix_,*hid_->Spawn(HierarchicalMap::LocalSeparators)),
             __FILE__,__LINE__);
     return 0;
     }

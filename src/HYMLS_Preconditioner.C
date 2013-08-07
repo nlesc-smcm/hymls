@@ -771,16 +771,18 @@ REPORT_SUM_MEM(label_,"subdomain solvers",nnz,nnz,comm_);
 #ifdef TESTING
 if (Tester::doFmatTests_)
 {
+// explicitly construct the SC and check wether it is an F-matrix
 Teuchos::RCP<Epetra_FECrsMatrix> TestSC = 
         Teuchos::rcp(new Epetra_FECrsMatrix(Copy,Map2(),Matrix().MaxNumEntries()));
-// explicitly construct the SC and check wether it is an F-matrix
 CHECK_ZERO(Schur_->Construct(TestSC));
 
-Teuchos::RCP<Epetra_CrsMatrix> TestSC2 = MatrixUtils::DropByValue(TestSC,
-            HYMLS_SMALL_ENTRY, MatrixUtils::Absolute);
-HYMLS_TEST(Label(),isFmatrix(*TestSC2,dof_,dim_),__FILE__,__LINE__);            
+// this is usually done in Construct(), but not if we pass in a pointer ourselves.
+// We need a new pointer because DropByValue creates a CrsMatrix, not FECrsMatrix.
+Teuchos::RCP<Epetra_CrsMatrix> TestSC_crs = 
+MatrixUtils::DropByValue(TestSC,HYMLS_SMALL_ENTRY, MatrixUtils::RelZeroDiag);
+HYMLS_TEST(Label(),isFmatrix(*TestSC_crs,dof_,dim_),__FILE__,__LINE__);            
 #ifdef STORE_MATRICES
-HYMLS::MatrixUtils::Dump(*TestSC,"SchurComplement"+Teuchos::toString(myLevel_)+".txt");
+HYMLS::MatrixUtils::Dump(*TestSC_crs,"SchurComplement"+Teuchos::toString(myLevel_)+".txt");
 #endif
 }
 #endif
