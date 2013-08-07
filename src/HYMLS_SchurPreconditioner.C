@@ -282,6 +282,9 @@ namespace HYMLS {
           SchurMatrix_ = tmpMatrix_;
           }
         }
+      HYMLS_TEST(Label(),
+            isFmatrix(*SchurMatrix_),
+            __FILE__,__LINE__);
 #ifdef STORE_MATRICES
       HYMLS::MatrixUtils::Dump(*SchurMatrix_,"FinalSC.txt");
 #endif
