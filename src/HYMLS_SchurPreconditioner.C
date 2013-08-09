@@ -288,6 +288,10 @@ namespace HYMLS {
 #ifdef STORE_MATRICES
       HYMLS::MatrixUtils::Dump(*SchurMatrix_,"FinalSC.txt");
 #endif
+
+#if defined(STORE_MATRICES) || defined(TESTING)
+      HYMLS::MatrixUtils::Dump(SchurMatrix_->RowMap(),"finalMap.txt");
+#endif
       }
     else
       {

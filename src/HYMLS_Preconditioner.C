@@ -135,6 +135,8 @@ namespace HYMLS {
     // the entire "Problem" list used by the overlapping partiitioner
     // is fairly complex, but we implement a set of default cases like
     // "Laplace", "Stokes-C" etc to make it easier for the user.
+    // on coarser levels, the "Equation" parameter is removed and the
+    // "Problem Definition" list is provided by the previous level.
     string eqn="Undefined Problem";
     
     if (probList_.isParameter("Equations"))
@@ -163,7 +165,7 @@ namespace HYMLS {
     dof_=probList_.get("Degrees of Freedom",1);
 
 #ifdef TESTING
-      if (eqn=="Stokes-C")
+      if (probList_.get("Test F-Matrix Properties",false))
         {
         Tester::doFmatTests_=true;
         Tester::pvar_=dim_;
@@ -752,7 +754,7 @@ double nrow=0;
      if (cont!=Teuchos::null)
        {
        Tools::Warning("STORE_SUBDOMAIN_MATRICES is defined, this produces lots of output"
-                       " and make sthe code VERY slow",__FILE__,__LINE__);
+                       " and makes the code VERY slow",__FILE__,__LINE__);
        const Epetra_RowMatrix& Asd = cont->Inverse()->Matrix();
        std::string filename = "SubdomainMatrix_P"+Teuchos::toString(comm_->MyPID())+
                                              "_L"+Teuchos::toString(myLevel_)+
@@ -767,7 +769,7 @@ double nrow=0;
 REPORT_SUM_MEM(label_,"subdomain solvers",nnz,nnz,comm_);
 
 #ifdef TESTING
-
+Tools::out() << "Preconditioner level "<<myLevel_<<", doFmatTests="<<Tester::doFmatTests_<<std::endl;
 if (Tester::doFmatTests_)
 {
 // explicitly construct the SC and check wether it is an F-matrix
@@ -781,6 +783,7 @@ Teuchos::RCP<Epetra_CrsMatrix> TestSC_crs =
 MatrixUtils::DropByValue(TestSC,HYMLS_SMALL_ENTRY);
 HYMLS_TEST(Label(),isFmatrix(*TestSC_crs,dof_,dim_),__FILE__,__LINE__);            
 #ifdef STORE_MATRICES
+HYMLS::MatrixUtils::Dump(*TestSC,"SchurComplement"+Teuchos::toString(myLevel_)+"_noDrop.txt");
 HYMLS::MatrixUtils::Dump(*TestSC_crs,"SchurComplement"+Teuchos::toString(myLevel_)+".txt");
 #endif
 }
@@ -1519,6 +1522,7 @@ int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& lis
       precList.set("Fix GID 1",factor*dim_);
       if (is_complex) precList.set("Fix GID 2",2*dim_+1);
       }      
+    probList.set("Test F-Matrix Properties",true);
     }
     else if (eqn=="Bous-C")
     {

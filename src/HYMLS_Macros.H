@@ -10,7 +10,8 @@
 #endif
 
 #ifndef HYMLS_SMALL_ENTRY
-#define HYMLS_SMALL_ENTRY 1.0e-14
+#include <limits>
+#define HYMLS_SMALL_ENTRY std::numeric_limits<double>::epsilon()
 #endif
 
 // the timing macro's are also used for function tracing, so enable them all:

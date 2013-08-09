@@ -210,7 +210,9 @@ Teuchos::RCP<const Teuchos::ParameterList> OverlappingPartitioner::getValidParam
   {
   if (validParams_!=Teuchos::null) return validParams_;
   START_TIMER3(Label(),"getValidParameters");
-
+#ifdef TESTING
+  VPL().set("Test F-Matrix Properties",false,"do special tests for F-matrices in TESTING mode.");
+#endif
   VPL().set("Dimension",2,"physical dimension of the problem");   
   VPL().set("Degrees of Freedom",1,"number of unknowns per node");
   

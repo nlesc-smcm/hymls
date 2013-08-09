@@ -7,6 +7,7 @@
 #ifndef MATRIX_UTILS_H
 #define MATRIX_UTILS_H
 
+#include "HYMLS_Macros.H"
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_Array.hpp"
 #include "Teuchos_ParameterList.hpp"
@@ -50,15 +51,14 @@ class MatrixUtils
   public:
   
   typedef enum {
-  Absolute,   // drop aij if abs(aij) < tol
+  Absolute,   // drop aij if abs(aij) <= tol
   AbsZeroDiag,// like Absolute, but set diagonal entries with abs(aii)<tol to 0.0 rather 
               // than discarding them
-  Relative, // drop aij if abs(aij) < tol*abs(aii). 
-            // If abs(aii)==0, drop if abs(aij)<tol*abs(ajj))
+  Relative, // drop aij if abs(aij) <= tol*max(|aii|,|ajj|). 
             // This behavior should prevent asymmetric dropping in F-matrices,
             // diagonal entries are never dropped (unless you set tol>=1).
   RelDropDiag, // like Relative, but use absolute dropping criterion on diagonal,
-               // e.g. delete aif |aii|<tol
+               // e.g. delete aii if |aii|<=tol
   RelZeroDiag // like RelDropDiag, but put physical 0.0 in aii instead of deleting it.
   } DropType;
 
@@ -320,10 +320,12 @@ class MatrixUtils
     //! intended for creating initial vectors for reproducible results)
     static int Random(Epetra_MultiVector& v, int seed=-1);
     
-    //! drop elements smaller than a threshold from a sparse matrix. By default the 
-    //! threshold is 10^-14 so that numerical zeros are dropped.
+    //! drop elements <= a threshold from a sparse matrix. By default the 
+    //! threshold is the machine epsilon so that numerical zeros are dropped.
+    //! The threshold is scaled in a certain way, specified by the t parameter.
+    //! For details, see the DropType enum.
     static Teuchos::RCP<Epetra_CrsMatrix> DropByValue(Teuchos::RCP<const Epetra_CrsMatrix> A, 
-        double threshold=1.0e-16, DropType t=AbsZeroDiag);
+        double threshold=HYMLS_SMALL_ENTRY, DropType t=RelZeroDiag);
     
     //! replace one row and column by a Dirichlet condition (0 everywhere, 1 on diagonal).
     //! This function assumes that the pattern of the matrix is symmetric!

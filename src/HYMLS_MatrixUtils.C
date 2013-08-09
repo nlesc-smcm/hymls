@@ -1616,8 +1616,13 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
   // diagonal of A in column map
   Teuchos::RCP<Epetra_Vector> diagA;
 
+  // should the drop tol be scaled with anything?
   bool rel = (type==Relative || type==RelDropDiag || type==RelZeroDiag);
+  // if so, should an absolute dropping strategy be used on the diagonal?
+  bool relAbsDiag = (type==RelDropDiag || type==RelZeroDiag);
+  // should physical zeros be put on the diagonal where dropping occurs?
   bool zeroDiag = (type==RelZeroDiag || type==AbsZeroDiag);
+  // or should the diagonal entry be deleted?
   bool dropDiag = (type==RelDropDiag || type==Absolute);
   
   if (rel)
@@ -1637,6 +1642,14 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
       diagA = Teuchos::rcp(new Epetra_Vector(A->ColMap()));
       CHECK_ZERO(diagA->Import(*diagA_tmp, *A->Importer(), Insert));
       }
+    else
+      {
+      if (A->RowMap().SameAs(A->ColMap())==false)
+        {
+        Tools::Error("your matrix is suspicious, row map != col map, but no importer...",
+                __FILE__,__LINE__);
+        }
+      }
     }
 
   int len;
@@ -1647,8 +1660,8 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
   int *new_indices = new int[A->MaxNumEntries()];
   double *new_values = new double[A->MaxNumEntries()];
 
-  double thres=droptol;
-  double thres_i=thres;
+  double scal=1.0;
+  double scal_i=1.0;
 
   for (int i=0;i<A->NumMyRows();i++)
     {
@@ -1658,45 +1671,83 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
       {
       // this index trafo is required because diagA is based on the col map of A
       int lcid_i = diagA->Map().LID(A->GRID(i));
-      thres_i = droptol*std::abs((*diagA)[lcid_i]);
-      thres=thres_i; // we may have to locally adjust the threshold and reset it afterwards.
+#ifdef TESTING
+      if (lcid_i<0) Tools::Error("matrix is missing a column",__FILE__,__LINE__);
+#endif
+      scal_i = std::abs((*diagA)[lcid_i]);
       }
     
     new_len=0;
     for (int j=0;j<len;j++)      
       {
+      scal=scal_i;
       bool isDiag = (A->GCID(indices[j])==A->GRID(i));
-      // for F-matrices with exact zeros on the diagonal, use tol*|ajj| instead
-      // of tol*|aii|, this prevents loss of structural symmetry.
-      if (thres==0.0) 
+
+      if (isDiag && relAbsDiag)
         {
-        // this index trafo is required because diagA is based on the col map of A
+        // for RelDropDiag or RelZeroDiag, use absolute tol on diagonal
+        scal = 1.0;
+        }
+      else if (rel)
+        {
+        // for F-matrices with zeros on the diagonal, use tol*|ajj| instead
+        // of tol*|aii|, this prevents loss of structural symmetry.
         int lcid_j = diagA->Map().LID(A->GCID(indices[j]));
-        thres = droptol*std::abs((*diagA)[lcid_j]);
+#ifdef TESTING
+        if (lcid_j<0) Tools::Error("diagonal entry not imported?",__FILE__,__LINE__);
+#endif
+        scal = std::max(scal_i,std::abs((*diagA)[lcid_j]));
         }
-      // for RelDropDiag or Absolute dropping, physically remove 
-      // small entries on the diagonal
-      if (isDiag && dropDiag)
+
+      if (std::abs(values[j]) > scal*droptol)
         {
-        thres = droptol;
-        }
-      // I think some Amesos solvers may need zeros on the diagonal?
-      // on the other hand we want to remove the zero diagonal entry for the 
-      // subdomain solver using Umfpack and our own FillReducingOrdering...
-      if (std::abs(values[j]) >= thres)
-        {
+        // retain the entry
         new_values[new_len]=values[j];
         new_indices[new_len]=A->GCID(indices[j]);
         new_len++;
         }
       else if (isDiag && zeroDiag)
         {
+        // put physical 0.0 in
         new_values[new_len]=0.0;
         new_indices[new_len]=A->GCID(indices[j]);
         new_len++;
         }
-      thres=thres_i; // reset threshold for rest of row
       }//j
+#ifdef TESTING
+    bool testFailed=false;
+    for (int jj=0;jj<new_len;jj++)
+      {
+      if (std::abs(new_values[jj])<std::numeric_limits<double>::epsilon()
+        && new_indices[jj]!=A->GRID(i))
+        {
+        testFailed=true;
+        Tools::out() << "row "<<A->GRID(i) << " col "<<new_indices[jj]<<std::endl;
+        }
+      }
+    if (testFailed)
+      {
+      Tools::out() << "original matrix row ("<<len<<" entries): "<<std::endl;
+      for (int jj=0;jj<len;jj++)
+        {
+        Tools::out() << A->GRID(i) << " "<<A->GCID(indices[jj]) << " " << values[jj] << std::endl;
+        }
+      Tools::out() << "diagonal entry i: "<<(*diagA)[diagA->Map().LID(A->GRID(i))]<<std::endl;
+      Tools::out() << "diagonal entries j: "<<std::endl;
+      for (int jj=0;jj<len;jj++)
+        {
+        Tools::out() << A->GCID(indices[jj])<<" " <<A->GCID(indices[jj]) << " " << 
+                (*diagA)[diagA->Map().LID(A->GCID(indices[jj]))] << std::endl;
+        }
+      Tools::out() << "matrix row after dropping ("<<new_len<<" entries): "<<std::endl;
+      for (int jj=0;jj<new_len;jj++)
+        {
+        Tools::out() <<A->GRID(i) << " " << new_indices[jj] << " ";
+        Tools::out() << new_values[jj] << std::endl;
+        }
+      Tools::Warning("matrix contains tiny entries after dropping",__FILE__,__LINE__);
+      }
+#endif
     CHECK_ZERO(mat->InsertGlobalValues(A->GRID(i),new_len,new_values,new_indices));
     }
 
@@ -1712,8 +1763,13 @@ int new_nnz = mat->NumGlobalNonzeros();
 int nnz_dropped = old_nnz-new_nnz;
 double percent_dropped=100.0*(((double)nnz_dropped)/((double)old_nnz));
 
-Tools::Out("DropByValue ("+Teuchos::toString(droptol)+"):");
-Tools::Out(" => dropped "+Teuchos::toString(percent_dropped)+"% of nonzeros");
+#define STR(var) (var? #var : "")
+
+Tools::Out("DropByValue ("+Teuchos::toString((float)droptol)+"):");
+Tools::out() << "DropType: "<<(int)type<<std::endl;
+Tools::out() << "condition: " << STR(rel) << " " << STR(relAbsDiag) << " " 
+             << STR(zeroDiag) << " "<< STR(dropDiag) << std::endl; 
+Tools::Out(" => dropped "+Teuchos::toString((float)percent_dropped)+"% of nonzeros");
 
 #endif
 
