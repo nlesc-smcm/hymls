@@ -282,9 +282,6 @@ namespace HYMLS {
           SchurMatrix_ = tmpMatrix_;
           }
         }
-      HYMLS_TEST(Label(),
-            isFmatrix(*SchurMatrix_),
-            __FILE__,__LINE__);
 #ifdef STORE_MATRICES
       HYMLS::MatrixUtils::Dump(*SchurMatrix_,"FinalSC.txt");
 #endif
@@ -358,6 +355,10 @@ namespace HYMLS {
 
     reducedSchur_ = MatrixUtils::DropByValue(SchurMatrix_, 
         HYMLS_SMALL_ENTRY);
+
+    HYMLS_TEST(Label(),
+            isFmatrix(*reducedSchur_),
+            __FILE__,__LINE__);
 
   reducedSchur_->SetLabel(("Coarsest Matrix (level "+Teuchos::toString(myLevel_+1)+")").c_str());
 
