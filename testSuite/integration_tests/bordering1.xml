@@ -14,7 +14,8 @@
     <Parameter name="Number of factorizations" type="int" value="2"/>
     <!-- for each matrix, solve with several right-hand sides in a row -->
     <Parameter name="Number of solves" type="int" value="2"/>
-    
+     <!-- how to generate the matrix -->
+     <Parameter name="Galeri Label" type="string" value="Laplace Neumann"/> 
   </ParameterList><!--}-->
   
   <ParameterList name="Targets"><!--{-->
@@ -25,7 +26,7 @@
 
   <ParameterList name="Problem"><!--{-->
 
-    <Parameter name="Equations" type="string" value="Laplace Neumann"/>
+    <Parameter name="Equations" type="string" value="Laplace"/>
     <Parameter name="Dimension" type="int" value="2"/>
 
     <Parameter name="nx" type="int" value="32"/>
