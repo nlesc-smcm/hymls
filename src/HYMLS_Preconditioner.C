@@ -1545,17 +1545,16 @@ int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& lis
     if (nx_==sx && ny_==sy && nz_==sz) no_SC = true;
     int factor = is_complex? 2 : 1;
     probList.set("Degrees of Freedom",(dim_+2)*factor);
-    for (int i=0;i<=(dim_+1)*factor-1;i++)
+    for (int i=0;i<=(dim_+1)*factor-2;i++)
       {
       Teuchos::ParameterList& velList =
         probList.sublist("Variable "+Teuchos::toString(i));
       velList.set("Variable Type","Laplace");
       }
+
     // pressure:
-    for (int i=0;i<factor;i++)
-      {
       Teuchos::ParameterList& presList =
-        probList.sublist("Variable "+Teuchos::toString((dim_+1)*factor+i));
+        probList.sublist("Variable "+Teuchos::toString((dim_)*factor));
       if (no_SC==false)
         {
         presList.set("Variable Type","Retain 1");
@@ -1565,13 +1564,20 @@ int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& lis
         {
         presList.set("Variable Type","Uncoupled");
         }
+
+     // Temperature
+    for (int i=0;i<factor;i++)
+      {
+      Teuchos::ParameterList& velList =
+      probList.sublist("Variable "+Teuchos::toString((dim_+1)*factor+i));
+      velList.set("Variable Type","Laplace");
       }
     if (PL().get("Fix Pressure Level",true)==true)
       {
       // we fix the singularity by inserting a Dirichlet condition for 
       // global pressure node 2 
-      precList.set("Fix GID 1",factor*(dim_+1));
-      if (is_complex) precList.set("Fix GID 2",2*(dim_+1)+1);
+      precList.set("Fix GID 1",factor*(dim_));
+      if (is_complex) precList.set("Fix GID 2",2*(dim_)+1);
       }
     }
   else if (eqn=="Stokes-B")
