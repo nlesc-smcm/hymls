@@ -138,9 +138,12 @@ DEBVAR(dk);
           break;
           }
         }
-      FLOW_DEBUG("# not adjacent grid cells, return 0 [based on graph]");
       }
-    if (!adjacent) return 0;
+    if (!adjacent) 
+      {
+      FLOW_DEBUG("# not adjacent grid cells, return 0 [based on graph]");
+      return 0;
+      }
     
     // the cells are connected and in different subdomains, so we have to
     // return a nonzero value.

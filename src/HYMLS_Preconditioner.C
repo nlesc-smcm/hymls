@@ -128,6 +128,13 @@ namespace HYMLS {
       nz_=1;
       }
 
+#ifdef TESTING
+    Tester::nx_=nx_;
+    Tester::ny_=ny_;
+    Tester::nz_=nz_;
+    Tester::dim_=dim_;
+#endif
+
     scaleSchur_=PL().get("Scale Schur-Complement",false);
 
     sdSolverType_=PL().get("Subdomain Solver Type","Sparse");
@@ -165,11 +172,11 @@ namespace HYMLS {
     dof_=probList_.get("Degrees of Freedom",1);
 
 #ifdef TESTING
+      Tester::dof_=dof_;
       if (probList_.get("Test F-Matrix Properties",false))
         {
         Tester::doFmatTests_=true;
         Tester::pvar_=dim_;
-        Tester::dof_=dof_;
         }
       else
         {
@@ -327,13 +334,20 @@ namespace HYMLS {
     time_->ResetStartTime();
     if (hid_==Teuchos::null)
       {
+      // this is the partitioning step:
+      // - partition domain into small subdomains
+      // - find separators
+      // - group them according to the needs of our algorithm
       hid_=Teuchos::rcp(new 
          HYMLS::OverlappingPartitioner(matrix_,getMyNonconstParamList(),myLevel_));
       }
 
+HYMLS_TEST(Label(),isDDcorrect(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_),
+        *hid_),__FILE__,__LINE__);
+
 #ifdef TESTING
   this->Visualize("hid_data_deb.m",false);
-  // preconditioner will do the same thing,
+  // schur preconditioner will do the same thing,
   // so the hid_data_deb.m file is always written,
   // even if the program crashes before the end of
   // the Compute() phase.
@@ -563,9 +577,10 @@ MatrixUtils::Dump(*A22_, "Precond"+Teuchos::toString(myLevel_)+"_A22.txt");
       Tools::Error("invalid 'Subdomain Solver Type' in 'Solver' sublist",
         __FILE__,__LINE__);
       }
-
-    IFPACK_CHK_ERR(subdomainSolver_[sd]->SetParameters
-        (PL().sublist("Sparse Solver")));
+    // copy parameter list
+    Teuchos::ParameterList sd_list = PL().sublist("Sparse Solver");
+    sd_list.set("Label","direct solver (lev "+Teuchos::toString(myLevel_)+", sd "+Teuchos::toString(sd)+")");
+    IFPACK_CHK_ERR(subdomainSolver_[sd]->SetParameters(sd_list));
     
 #ifdef TESTING
       bool status=true;

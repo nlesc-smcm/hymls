@@ -125,6 +125,14 @@ public:
     //! Returns a character string describing the operator
     virtual const char * Label() const;
 
+  //! Sets the label. We allow setting the label in otherwise
+  //! const objects because it has no effect on the object's
+  //! behavior.
+  inline void SetLabel(const char* Label_in)
+  {
+    label_ = Label_in;
+  }
+
     //! Returns the current UseTranspose setting.
     virtual bool UseTranspose() const;
 
@@ -275,12 +283,6 @@ protected:
   
   //@{ \name Methods to get/set private data
 
-  //! Sets the label.
-  inline void SetLabel(const char* Label_in) 
-  {
-    label_ = Label_in;
-  }
-
   //! Sets \c IsInitialized_.
   inline void SetIsInitialized(const bool IsInitialized_in)
   {
@@ -360,7 +362,7 @@ private:
   SolverType method_;
 
   //! Contains the label of \c this object.
-  string label_;
+  std::string label_;
   //! If true, the linear system on this processor is empty, thus the preconditioner is null operation.
   bool IsEmpty_;
   //! If true, the preconditioner has been successfully initialized.

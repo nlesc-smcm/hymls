@@ -15,7 +15,7 @@ try { \
 HYMLS::Tester::msg_.clear(); \
 HYMLS::Tester::msg_ <<"#####################################"<<std::endl; \
 HYMLS::Tester::msg_ <<" RUN TEST "<<#FCN<<std::endl; \
-HYMLS::Tester::msg_ <<" CALLER:  "<<CALLER<<")"<<std::endl; \
+HYMLS::Tester::msg_ <<" CALLER:  "<<CALLER<<std::endl; \
 HYMLS::Tester::msg_ <<"#####################################"<<std::endl; \
 HYMLS::Tools::out() <<std::endl<<HYMLS::Tester::msg_.str()<<std::endl; \
 status = HYMLS::Tester:: FCN; \
@@ -37,6 +37,7 @@ namespace HYMLS
   {
 
 class HierarchicalMap;
+class OverlappingPartitioner;
 
 //! this class tests if the interaction of HYMLS components
 //! works as expected. It has a few static member functions that can
@@ -48,6 +49,9 @@ class Tester
   {
 
 public:
+
+  //!\name the tests
+  //!@{
 
   //! returns true if the input graph (i.e. the sparsity pattern of a matrix) is symmetric
   static bool isSymmetric(const Epetra_CrsGraph& G);
@@ -66,8 +70,23 @@ public:
                               const Epetra_IntVector& p_nodeType,
                               int dof, int pvar);
 
+  //! check that the domain decomposition worked, i.e. there are no couplings between 
+  //! interior nodes of two different subdomains.
+  static bool isDDcorrect(const Epetra_CrsMatrix& A, const HYMLS::OverlappingPartitioner& hid); 
+  
+  //! in the Schur-preconditioner, check that only V-P couplings are dropped which
+  //! have been reduced to zero by a transformation
   static bool noPcouplingsDropped(const Epetra_CrsMatrix& transSC,
                                   const HierarchicalMap& sepObject);
+
+  
+  //! test if a given CrsMatrix does not contain numerical zeros except on the diagonal
+  static bool noNumericalZeros(const Epetra_CrsMatrix& A);
+  
+  //!@}
+
+  //! convert global index to string for output (gid => (i,j,k,v)
+  static std::string gid2str(int gid); 
 
   //! tolerance if we have a numerical value that should be small  
   inline static double float_tol(){return 100.0*Teuchos::ScalarTraits<double>::eps();}
@@ -80,6 +99,9 @@ public:
 
   //! some problem data, should be set once known
   static int dim_,dof_,pvar_;
+  
+  //! grid dimension
+  static int nx_,ny_,nz_;
   
   //! do we have F-matrices
   static bool doFmatTests_;

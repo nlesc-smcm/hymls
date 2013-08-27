@@ -949,6 +949,8 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
     // copy the graph
     graph_=Teuchos::rcp(&(myCrsMatrix->Graph()),false);
     
+    HYMLS_TEST(Label(),noNumericalZeros(*myCrsMatrix),__FILE__,__LINE__);
+    
     if (partitioner_->Partitioned()==false)
       {
       Tools::Error("domain not yet partitioned",__FILE__,__LINE__);

@@ -206,6 +206,7 @@ START_TIMER3(label_,"SetParameters");
       }
     }
 
+label_=List_.get("Label",label_);
 label_=label_+" ("+label2+")";
 
 int prl = List_.get("OutputLevel",0);
@@ -751,6 +752,7 @@ if (MyPID_!=0) return 0;
   
 if (status ||(klu_->Numeric_==NULL))
   {
+  if (status==KLU_SINGULAR) this->DumpSolverStatus("kluSingular",false);
   HYMLS::Tools::Error("KLU Numeric Error "+Teuchos::toString(status),__FILE__,__LINE__);
   }
 DO_KLU(rcond)(klu_->Symbolic_,klu_->Numeric_,klu_->Common_);
@@ -993,9 +995,12 @@ void SparseDirectSolver::DumpSolverStatus(std::string filePrefix,
 if (overwrite==false)
   {
   std::ifstream ifs((filePrefix+".m").c_str());
-  if (ifs) return;
+  if (ifs) 
+    {
+    Tools::out() << "status info not written, file '"<<filePrefix<<".m exists.\n";
+    return;
+    }
   }
-
 Tools::out() << label_ << ": writing status info to " << filePrefix << "* files"<<std::endl;
 
 int N = Ap_.size()-1;

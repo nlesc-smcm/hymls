@@ -1,5 +1,6 @@
 #include "HYMLS_Tester.H"
 #include "HYMLS_Tools.H"
+#include "HYMLS_OverlappingPartitioner.H"
 #include "HYMLS_HierarchicalMap.H"
 #include "Teuchos_StandardCatchMacros.hpp"
 
@@ -12,8 +13,12 @@
 namespace HYMLS {
 
   std::stringstream Tester::msg_;
-  int Tester::dof_=1;
+  int Tester::dim_=-1;
+  int Tester::dof_=-1;
   int Tester::pvar_=-1;
+  int Tester::nx_=-1;
+  int Tester::ny_=-1;
+  int Tester::nz_=-1;
   bool Tester::doFmatTests_=false;
   int Tester::numFailedTests_=0;
 
@@ -162,6 +167,193 @@ namespace HYMLS {
     return status;
     }
 
+  // check that the domain decomposition worked, i.e. there are no couplings between 
+  // interior nodes of two different subdomains.
+  bool Tester::isDDcorrect(const Epetra_CrsMatrix& A, 
+                                  const HYMLS::OverlappingPartitioner& hid)
+    {
+    START_TIMER(Label(),"isDDcorrect");
+    bool status=true;
+    const HYMLS::BasePartitioner& part = hid.Partitioner();
+    int* cols;
+    double* val;
+    int len;
+    // make sure everyting is correctly initialized for this test:
+    ASSERT_TRUE(nx_>=0,status);
+    ASSERT_TRUE(ny_>=0,status);
+    ASSERT_TRUE(nz_>=0,status);
+    ASSERT_TRUE(dof_>=0,status);
+    ASSERT_TRUE(dim_>=0,status);
+    msg_ << "nx="<<nx_<<std::endl;
+    msg_ << "ny="<<ny_<<std::endl;
+    msg_ << "nz="<<nz_<<std::endl;
+    msg_ << "dim="<<dim_<<std::endl;
+    msg_ << "dof="<<dof_<<std::endl;
+    for (int i=0;i<A.NumMyRows();i++)
+      {
+      int gid_i= A.GRID(i);
+      int sd_i = part(A.GRID(i));
+      int type_i=-1;
+      // map containing only interior nodes of subdomain i
+      Teuchos::RCP<const Epetra_Map> imap_i = hid.SpawnMap(sd_i,HierarchicalMap::Interior);
+      // map containing only separator nodes of subdomain i
+      Teuchos::RCP<const Epetra_Map> smap_i = hid.SpawnMap(sd_i,HierarchicalMap::Separators);
+      bool hasInteriorCoupling=false; // check if an interior node of sd_i
+                                      // has any edge inside the subdomain,
+                                      // if not the sd matrix has an empty 
+                                      // row/column and is singular.
+      ASSERT_ZERO(A.ExtractMyRowView(i,len,val,cols),status);
+      for (int j=0;j<len;j++)
+        {
+        int gid_j= A.GCID(cols[j]);
+        int sd_j = part(gid_j);
+          
+        if (sd_i!=sd_j)
+          {
+          // map containing only interior nodes of subdomain j
+          Teuchos::RCP<const Epetra_Map> imap_j = hid.SpawnMap(sd_j,HierarchicalMap::Interior);
+         // map containing only separator nodes of subdomain j
+          Teuchos::RCP<const Epetra_Map> smap_j = hid.SpawnMap(sd_j,HierarchicalMap::Separators);
+          // basic sanity check - no node can be both interior and separator or neither
+          ASSERT_TRUE(imap_i->LID(gid_i)>=0 || smap_i->LID(gid_i)>=0, status);
+          ASSERT_TRUE(!(imap_i->LID(gid_i)>=0 && smap_i->LID(gid_i)>=0), status);
+          ASSERT_TRUE(imap_j->LID(gid_j)>=0 || smap_j->LID(gid_j)>=0, status);
+          ASSERT_TRUE(!(imap_j->LID(gid_j)>=0 && smap_j->LID(gid_j)>=0), status);
+
+          // check these options
+          // a) i is a separator of sd_i and sd_j, j is interior of either sd_i or sd_j.
+          //    the indices appear just on one of the interior maps and not
+          //    as both a separator and interior node (ok1)
+          // b) i is interior of sd_i, j is separator of sd_i and sd_j (ok2)
+          // c) corner situation, both i and j are separators,
+          // and at least one of them is in a group of it's own (a retained node) (ok3)
+          bool ok1 = smap_i->LID(gid_i)>=0 && 
+                     smap_j->LID(gid_i)>=0 &&
+                     imap_j->LID(gid_j)>=0;
+          bool ok2 = smap_i->LID(gid_j)>=0 && 
+                     smap_j->LID(gid_j)>=0 &&
+                     imap_i->LID(gid_i)>=0;
+          bool ok3=false;
+          if (!(ok1||ok2))
+            {
+            ok3 = smap_i->LID(gid_i)>=0 && 
+                  smap_j->LID(gid_j)>=0;
+            // we should do more tests if they are both
+            // separator nodes, but covering all situations
+            // is a bit difficult right now (TODO)
+            if (ok3&&false) // both separators
+              {
+              msg_ << "edge ("<<gid_i<<", "<<gid_j<<") candidate for singleton coupling\n";
+              // check if one of them is a retained node, that is, it is
+              // in a singleton group. That one should be a separator of
+              // both sd_i and sd_j, whereas the other is in only one of
+              // the two.
+              int grp_i_sd_i=-1;
+              int grp_j_sd_i=-1;
+              for (int grp=1;grp<hid.NumGroups(sd_i);grp++)
+                {
+                for (int jj=0; jj<hid.NumElements(sd_i,grp);jj++)
+                  {
+                  if (hid.GID(sd_i,grp,jj)==gid_i)
+                    {
+                    // check that the gid is only in one group
+                    ASSERT_TRUE(grp_i_sd_i==-1,status);
+                    grp_i_sd_i=grp;
+                    }
+                  if (hid.GID(sd_i,grp,jj)==gid_j)
+                    {
+                    // check that the gid is only in one group
+                    ASSERT_TRUE(grp_j_sd_i==-1,status);
+                    grp_j_sd_i=grp;
+                    }
+                  }
+                }
+              int grp_i_sd_j=-1;
+              int grp_j_sd_j=-1;
+              for (int grp=1;grp<hid.NumGroups(sd_j);grp++)
+                {
+                for (int jj=0; jj<hid.NumElements(sd_j,grp);jj++)
+                  {
+                  if (hid.GID(sd_j,grp,jj)==gid_i)
+                    {
+                    // check that the gid is only in one group
+                    ASSERT_TRUE(grp_i_sd_j==-1,status);
+                    grp_i_sd_j=grp;
+                    }
+                  if (hid.GID(sd_j,grp,jj)==gid_j)
+                    {
+                    // check that the gid is only in one group
+                    ASSERT_TRUE(grp_j_sd_j==-1,status);
+                    grp_j_sd_j=grp;
+                    }
+                  }
+                }
+              // gid_i or gid_j is in a singleton group
+              ok3 = hid.NumElements(sd_i,grp_i_sd_i)==1 ||
+                    hid.NumElements(sd_j,grp_j_sd_j)==1;
+              if (!ok3)
+                {
+                msg_ << "gid "<<gid_i<<" sd "<<sd_i<<", group "<<grp_i_sd_i;
+                msg_ << " ("<<hid.NumElements(sd_i,grp_i_sd_i)<<" elements)"<<std::endl;
+                if (grp_i_sd_j>0)
+                  {
+                  msg_ << "gid "<<gid_i<<" sd "<<sd_j<<", group "<<grp_i_sd_j;
+                  msg_ << " ("<<hid.NumElements(sd_j,grp_i_sd_j)<<" elements)"<<std::endl;
+                  }
+                msg_ << "gid "<<gid_j<<" sd "<<sd_j<<", group "<<grp_j_sd_j;
+                msg_ << "("<<hid.NumElements(sd_j,grp_j_sd_j)<<" elements)"<<std::endl;
+                if (grp_j_sd_i>0)
+                  {
+                  msg_ << "gid "<<gid_j<<" sd "<<sd_i<<", group "<<grp_j_sd_i<<std::endl;
+                  msg_ << " ("<<hid.NumElements(sd_i,grp_j_sd_i)<<" elements)"<<std::endl;
+                  }
+                }
+              }
+            }
+          if (!(ok1||ok2||ok3))
+            {
+            if (!(ok1||ok2))
+              {
+              msg_ <<" interior of sd_i: "<<*imap_i<<std::endl;
+              msg_ <<" separators of sd_i: "<<*smap_i<<std::endl;
+              msg_ <<" interior of sd_j: "<<*imap_j<<std::endl;
+              msg_ <<" separators of sd_j: "<<*smap_j<<std::endl;
+              }
+            msg_<<" edge between gid "<<gid_i<<" [sd "<<sd_i<<", "<<gid2str(gid_i)<<"] and "
+                                      <<gid_j<<" [sd "<<sd_j<<", "<<gid2str(gid_j)<<"] is incorrect\n";
+            status=false;
+            }
+          }
+        else if (imap_i->LID(gid_i)>=0 && imap_i->LID(gid_j)>=0)
+          {
+          // both belong to same subdomain and are interior
+          // edge between interior nodes. Is it nonzero?
+          if (std::abs(val[j])>HYMLS_SMALL_ENTRY)
+            {
+            hasInteriorCoupling=true;
+            }
+          }
+        }
+      // singular subdomain matrix?
+      if (imap_i->LID(gid_i)>=0 && (hasInteriorCoupling==false))
+        {
+        msg_<<"row "<<gid_i<<" [sd "<<sd_i<<", "<<gid2str(gid_i)<<"] is empty in sd "<<sd_i<<std::endl;
+        msg_<<"matrix row: "<<std::endl;
+        for (int j=0;j<len;j++)
+          {
+          int gid_j= A.GCID(cols[j]);
+          int sd_j = part(gid_j);
+          msg_ << gid_i << " " << gid_j << " [sd "<<sd_j<<", "<<gid2str(gid_j)<<"]\t" << val[j]<<std::endl;
+          }
+        msg_ <<" interior of sd_i: "<<*imap_i<<std::endl;
+        msg_ <<" separators of sd_i: "<<*smap_i<<std::endl;
+        status=false;
+        }
+      }
+    return status;
+    }
+
+
   bool Tester::noPcouplingsDropped(const Epetra_CrsMatrix& transSC,
                                     const HierarchicalMap& sepObject)
   {
@@ -197,7 +389,8 @@ namespace HYMLS {
             int gcid = transSC.GCID(cols[j]);
             if (MOD(gcid,dof_)==pvar_ && std::abs(val[j])>float_tol())
               {
-              msg_ << "Coupling between non-Vsum-node "<<grid<<" and P-node "<<gcid<<" found.\n";
+              msg_ << "Coupling between non-Vsum-node "<<grid<<" "<<gid2str(grid)<<
+              " and P-node "<<gcid<<" "<<gid2str(gcid)<<" found.\n";
               msg_ << "This coupling of size "<<std::abs(val[j])<<" will be dropped.\n";
               status=false;
               }
@@ -207,6 +400,50 @@ namespace HYMLS {
       }
     }
   return status;
-  }             
+  }
+
+  bool Tester::noNumericalZeros(const Epetra_CrsMatrix& A)
+    {
+    bool status=true;
+    START_TIMER(Label(),"noNumericalZeros");
+    int len;
+    double* val;
+    int* cols;
+    for (int i=0;i<A.NumMyRows();i++)
+      {
+      int grid=A.GRID(i);
+      ASSERT_ZERO(A.ExtractMyRowView(i,len,val,cols),status);
+      for (int j=0;j<len;j++)
+        {
+        if (std::abs(val[i])<=std::numeric_limits<double>::epsilon())
+          {
+          msg_ << "small entry A("<<grid<<","<<A.GCID(cols[j])<<")="<<val[j]<<std::endl;
+          msg_ << "row "<<gid2str(grid)<<std::endl;
+          msg_ << "col "<<gid2str(A.GCID(cols[j]))<<std::endl;
+          status=false;
+          }
+        }
+     
+      }
+    
+    return status;
+    }
+
+  // convert global index to string for output (gid => (i,j,k,v))
+  std::string Tester::gid2str(int gid)
+    {
+    if (nx_<0) return "Tester not initialized correctly";
+    int i,j,k,v;
+    Tools::ind2sub(nx_,ny_,nz_,dof_,gid,i,j,k,v);
+    std::stringstream ss;
+    std::string var = (v==0 ? "U": 
+                      (v==1 ? "V":
+                      (v==2 && dim_==2 ? "P":
+                      (v==2 && dim_==3 ? "W":
+                      (v==3 ? "P":"X")))));
+    ss<<"("<<i<<","<<j<<","<<k<<"):"<<var;
+    return ss.str();
+    }
+    
 
 }//namespace
