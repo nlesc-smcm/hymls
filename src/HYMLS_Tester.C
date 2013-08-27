@@ -415,7 +415,7 @@ namespace HYMLS {
       ASSERT_ZERO(A.ExtractMyRowView(i,len,val,cols),status);
       for (int j=0;j<len;j++)
         {
-        if (std::abs(val[i])<=std::numeric_limits<double>::epsilon())
+        if (std::abs(val[j])<=std::numeric_limits<double>::epsilon())
           {
           msg_ << "small entry A("<<grid<<","<<A.GCID(cols[j])<<")="<<val[j]<<std::endl;
           msg_ << "row "<<gid2str(grid)<<std::endl;
