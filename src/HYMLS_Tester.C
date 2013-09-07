@@ -36,6 +36,18 @@ namespace HYMLS {
   } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,msg_,STATUS); \
   if (!STATUS) return STATUS; 
 
+#define EXPECT_ZERO(FCN,STATUS) \
+  try { \
+  int ierr = FCN; \
+  if (ierr!=0) {msg_ << "call "<<#FCN<<" returned non-zero value "<<ierr<<std::endl; STATUS=false;} \
+  } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,msg_,STATUS); \
+
+#define EXPECT_TRUE(FCN,STATUS) \
+  try { \
+  STATUS = FCN; \
+  if (!STATUS) {msg_ << "call "<<#FCN<<" returned false" <<std::endl;} \
+  } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,msg_,STATUS); \
+
   // returns true if the input graph (i.e. the sparsity pattern of a matrix) is symmetric
   bool Tester::isSymmetric(const Epetra_CrsGraph& G)
     {
@@ -174,6 +186,13 @@ namespace HYMLS {
     {
     START_TIMER(Label(),"isDDcorrect");
     bool status=true;
+    if (A.RowMap().Comm().NumProc()>1)
+      {
+      // the map spawning does not work if the nodes connect to subdomains
+      // on other processes
+      msg_ << "test skipped, it works only for serial runs"<<std::endl;
+      return status;
+      }
     const HYMLS::BasePartitioner& part = hid.Partitioner();
     int* cols;
     double* val;
@@ -210,118 +229,121 @@ namespace HYMLS {
           
         if (sd_i!=sd_j)
           {
-          // map containing only interior nodes of subdomain j
-          Teuchos::RCP<const Epetra_Map> imap_j = hid.SpawnMap(sd_j,HierarchicalMap::Interior);
-         // map containing only separator nodes of subdomain j
-          Teuchos::RCP<const Epetra_Map> smap_j = hid.SpawnMap(sd_j,HierarchicalMap::Separators);
-          // basic sanity check - no node can be both interior and separator or neither
-          ASSERT_TRUE(imap_i->LID(gid_i)>=0 || smap_i->LID(gid_i)>=0, status);
-          ASSERT_TRUE(!(imap_i->LID(gid_i)>=0 && smap_i->LID(gid_i)>=0), status);
-          ASSERT_TRUE(imap_j->LID(gid_j)>=0 || smap_j->LID(gid_j)>=0, status);
-          ASSERT_TRUE(!(imap_j->LID(gid_j)>=0 && smap_j->LID(gid_j)>=0), status);
+          if (A.RowMap().MyGID(gid_j))
+            {
+            // map containing only interior nodes of subdomain j
+            Teuchos::RCP<const Epetra_Map> imap_j = hid.SpawnMap(sd_j,HierarchicalMap::Interior);
+           // map containing only separator nodes of subdomain j
+            Teuchos::RCP<const Epetra_Map> smap_j = hid.SpawnMap(sd_j,HierarchicalMap::Separators);
+            // basic sanity check - no node can be both interior and separator or neither
+            ASSERT_TRUE(imap_i->LID(gid_i)>=0 || smap_i->LID(gid_i)>=0, status);
+            ASSERT_TRUE(!(imap_i->LID(gid_i)>=0 && smap_i->LID(gid_i)>=0), status);
+            ASSERT_TRUE(imap_j->LID(gid_j)>=0 || smap_j->LID(gid_j)>=0, status);
+            ASSERT_TRUE(!(imap_j->LID(gid_j)>=0 && smap_j->LID(gid_j)>=0), status);
 
-          // check these options
-          // a) i is a separator of sd_i and sd_j, j is interior of either sd_i or sd_j.
-          //    the indices appear just on one of the interior maps and not
-          //    as both a separator and interior node (ok1)
-          // b) i is interior of sd_i, j is separator of sd_i and sd_j (ok2)
-          // c) corner situation, both i and j are separators,
-          // and at least one of them is in a group of it's own (a retained node) (ok3)
-          bool ok1 = smap_i->LID(gid_i)>=0 && 
+            // check these options
+            // a) i is a separator of sd_i and sd_j, j is interior of either sd_i or sd_j.
+            //    the indices appear just on one of the interior maps and not
+            //    as both a separator and interior node (ok1)
+            // b) i is interior of sd_i, j is separator of sd_i and sd_j (ok2)
+            // c) corner situation, both i and j are separators,
+            // and at least one of them is in a group of it's own (a retained node) (ok3)
+            bool ok1 = smap_i->LID(gid_i)>=0 && 
                      smap_j->LID(gid_i)>=0 &&
                      imap_j->LID(gid_j)>=0;
-          bool ok2 = smap_i->LID(gid_j)>=0 && 
+            bool ok2 = smap_i->LID(gid_j)>=0 && 
                      smap_j->LID(gid_j)>=0 &&
                      imap_i->LID(gid_i)>=0;
-          bool ok3=false;
-          if (!(ok1||ok2))
-            {
-            ok3 = smap_i->LID(gid_i)>=0 && 
-                  smap_j->LID(gid_j)>=0;
-            // we should do more tests if they are both
-            // separator nodes, but covering all situations
-            // is a bit difficult right now (TODO)
-            if (ok3&&false) // both separators
-              {
-              msg_ << "edge ("<<gid_i<<", "<<gid_j<<") candidate for singleton coupling\n";
-              // check if one of them is a retained node, that is, it is
-              // in a singleton group. That one should be a separator of
-              // both sd_i and sd_j, whereas the other is in only one of
-              // the two.
-              int grp_i_sd_i=-1;
-              int grp_j_sd_i=-1;
-              for (int grp=1;grp<hid.NumGroups(sd_i);grp++)
-                {
-                for (int jj=0; jj<hid.NumElements(sd_i,grp);jj++)
-                  {
-                  if (hid.GID(sd_i,grp,jj)==gid_i)
-                    {
-                    // check that the gid is only in one group
-                    ASSERT_TRUE(grp_i_sd_i==-1,status);
-                    grp_i_sd_i=grp;
-                    }
-                  if (hid.GID(sd_i,grp,jj)==gid_j)
-                    {
-                    // check that the gid is only in one group
-                    ASSERT_TRUE(grp_j_sd_i==-1,status);
-                    grp_j_sd_i=grp;
-                    }
-                  }
-                }
-              int grp_i_sd_j=-1;
-              int grp_j_sd_j=-1;
-              for (int grp=1;grp<hid.NumGroups(sd_j);grp++)
-                {
-                for (int jj=0; jj<hid.NumElements(sd_j,grp);jj++)
-                  {
-                  if (hid.GID(sd_j,grp,jj)==gid_i)
-                    {
-                    // check that the gid is only in one group
-                    ASSERT_TRUE(grp_i_sd_j==-1,status);
-                    grp_i_sd_j=grp;
-                    }
-                  if (hid.GID(sd_j,grp,jj)==gid_j)
-                    {
-                    // check that the gid is only in one group
-                    ASSERT_TRUE(grp_j_sd_j==-1,status);
-                    grp_j_sd_j=grp;
-                    }
-                  }
-                }
-              // gid_i or gid_j is in a singleton group
-              ok3 = hid.NumElements(sd_i,grp_i_sd_i)==1 ||
-                    hid.NumElements(sd_j,grp_j_sd_j)==1;
-              if (!ok3)
-                {
-                msg_ << "gid "<<gid_i<<" sd "<<sd_i<<", group "<<grp_i_sd_i;
-                msg_ << " ("<<hid.NumElements(sd_i,grp_i_sd_i)<<" elements)"<<std::endl;
-                if (grp_i_sd_j>0)
-                  {
-                  msg_ << "gid "<<gid_i<<" sd "<<sd_j<<", group "<<grp_i_sd_j;
-                  msg_ << " ("<<hid.NumElements(sd_j,grp_i_sd_j)<<" elements)"<<std::endl;
-                  }
-                msg_ << "gid "<<gid_j<<" sd "<<sd_j<<", group "<<grp_j_sd_j;
-                msg_ << "("<<hid.NumElements(sd_j,grp_j_sd_j)<<" elements)"<<std::endl;
-                if (grp_j_sd_i>0)
-                  {
-                  msg_ << "gid "<<gid_j<<" sd "<<sd_i<<", group "<<grp_j_sd_i<<std::endl;
-                  msg_ << " ("<<hid.NumElements(sd_i,grp_j_sd_i)<<" elements)"<<std::endl;
-                  }
-                }
-              }
-            }
-          if (!(ok1||ok2||ok3))
-            {
+            bool ok3=false;
             if (!(ok1||ok2))
               {
-              msg_ <<" interior of sd_i: "<<*imap_i<<std::endl;
-              msg_ <<" separators of sd_i: "<<*smap_i<<std::endl;
-              msg_ <<" interior of sd_j: "<<*imap_j<<std::endl;
-              msg_ <<" separators of sd_j: "<<*smap_j<<std::endl;
+              ok3 = smap_i->LID(gid_i)>=0 && 
+                    smap_j->LID(gid_j)>=0;
+              // we should do more tests if they are both
+              // separator nodes, but covering all situations
+              // is a bit difficult right now (TODO)
+              if (ok3&&false) // both separators
+                {
+                msg_ << "edge ("<<gid_i<<", "<<gid_j<<") candidate for singleton coupling\n";
+                // check if one of them is a retained node, that is, it is
+                // in a singleton group. That one should be a separator of
+                // both sd_i and sd_j, whereas the other is in only one of
+                // the two.
+                int grp_i_sd_i=-1;
+                int grp_j_sd_i=-1;
+                for (int grp=1;grp<hid.NumGroups(sd_i);grp++)
+                  {
+                  for (int jj=0; jj<hid.NumElements(sd_i,grp);jj++)
+                    {
+                    if (hid.GID(sd_i,grp,jj)==gid_i)
+                      {
+                      // check that the gid is only in one group
+                      ASSERT_TRUE(grp_i_sd_i==-1,status);
+                      grp_i_sd_i=grp;
+                      }
+                    if (hid.GID(sd_i,grp,jj)==gid_j)
+                      {
+                      // check that the gid is only in one group
+                      ASSERT_TRUE(grp_j_sd_i==-1,status);
+                      grp_j_sd_i=grp;
+                      }
+                    }
+                  }
+                int grp_i_sd_j=-1;
+                int grp_j_sd_j=-1;
+                for (int grp=1;grp<hid.NumGroups(sd_j);grp++)
+                  {
+                  for (int jj=0; jj<hid.NumElements(sd_j,grp);jj++)
+                    {
+                    if (hid.GID(sd_j,grp,jj)==gid_i)
+                      {
+                      // check that the gid is only in one group
+                      ASSERT_TRUE(grp_i_sd_j==-1,status);
+                      grp_i_sd_j=grp;
+                      }
+                    if (hid.GID(sd_j,grp,jj)==gid_j)
+                      {
+                      // check that the gid is only in one group
+                      ASSERT_TRUE(grp_j_sd_j==-1,status);
+                      grp_j_sd_j=grp;
+                      }
+                    }
+                  }
+                // gid_i or gid_j is in a singleton group
+                ok3 = hid.NumElements(sd_i,grp_i_sd_i)==1 ||
+                    hid.NumElements(sd_j,grp_j_sd_j)==1;
+                if (!ok3)
+                  {
+                  msg_ << "gid "<<gid_i<<" sd "<<sd_i<<", group "<<grp_i_sd_i;
+                  msg_ << " ("<<hid.NumElements(sd_i,grp_i_sd_i)<<" elements)"<<std::endl;
+                  if (grp_i_sd_j>0)
+                    {
+                    msg_ << "gid "<<gid_i<<" sd "<<sd_j<<", group "<<grp_i_sd_j;
+                    msg_ << " ("<<hid.NumElements(sd_j,grp_i_sd_j)<<" elements)"<<std::endl;
+                    }
+                  msg_ << "gid "<<gid_j<<" sd "<<sd_j<<", group "<<grp_j_sd_j;
+                  msg_ << "("<<hid.NumElements(sd_j,grp_j_sd_j)<<" elements)"<<std::endl;
+                  if (grp_j_sd_i>0)
+                    {
+                    msg_ << "gid "<<gid_j<<" sd "<<sd_i<<", group "<<grp_j_sd_i<<std::endl;
+                    msg_ << " ("<<hid.NumElements(sd_i,grp_j_sd_i)<<" elements)"<<std::endl;
+                    }
+                  }
+                }
               }
-            msg_<<" edge between gid "<<gid_i<<" [sd "<<sd_i<<", "<<gid2str(gid_i)<<"] and "
+            if (!(ok1||ok2||ok3))
+              {
+              if (!(ok1||ok2))
+                {
+                msg_ <<" interior of sd_i: "<<*imap_i<<std::endl;
+                msg_ <<" separators of sd_i: "<<*smap_i<<std::endl;
+                msg_ <<" interior of sd_j: "<<*imap_j<<std::endl;
+                msg_ <<" separators of sd_j: "<<*smap_j<<std::endl;
+                }
+              msg_<<" edge between gid "<<gid_i<<" [sd "<<sd_i<<", "<<gid2str(gid_i)<<"] and "
                                       <<gid_j<<" [sd "<<sd_j<<", "<<gid2str(gid_j)<<"] is incorrect\n";
-            status=false;
+              status=false;
+              }
             }
           }
         else if (imap_i->LID(gid_i)>=0 && imap_i->LID(gid_j)>=0)
