@@ -81,7 +81,7 @@ int CartesianStokesClassifier::BuildNodeTypeVector()
     }
   
   nodeType_=Teuchos::rcp(new Epetra_IntVector(partitioner_->Map()));
-  nodeType_->PutValue(-1);
+  nodeType_->PutValue(-999); // so we can find uninitialized nodes
 
   CHECK_ZERO(this->BuildInitialNodeTypeVector(*parallelGraph_,*nodeType_));
 

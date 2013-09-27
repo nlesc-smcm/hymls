@@ -1537,7 +1537,9 @@ int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& lis
       precList.set("Fix GID 1",factor*dim_);
       if (is_complex) precList.set("Fix GID 2",2*dim_+1);
       }      
+#ifdef TESTING
     probList.set("Test F-Matrix Properties",true);
+#endif
     }
     else if (eqn=="Bous-C")
     {
