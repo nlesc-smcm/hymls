@@ -93,14 +93,14 @@ namespace HYMLS {
       FLOW_DEBUG("# coupling to pressure, return 0");
       return 0;
       }
-  */
-/*
+*/  
+
     if (var1!=var2)
       {
       FLOW_DEBUG("# different variables, return 0");
       return 0;
       }
-*/
+
     bool adjacent=false;
       int di,dj,dk;
 
