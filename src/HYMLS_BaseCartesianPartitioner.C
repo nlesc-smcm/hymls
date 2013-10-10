@@ -286,37 +286,79 @@ DEBVAR(dk);
       {
       active_ = false;
       }
-     
 
     int color = active_? 1: 0; 
     int nprocs;
 
     CHECK_ZERO(comm_->SumAll(&color,&nprocs,1));
 
-    // if some processors have no subdomains, we need to 
-    // repartition the map even if it is a cartesian partitioned
-    // map already:
-    if (nprocs<comm_->NumProc()) repart=true; 
- 
     Tools::SplitBox(npx_,npy_,npz_,nprocs,nprocx_,nprocy_,nprocz_);
 
-    std::string s4 =
-    Teuchos::toString(nprocx_)+"x"+Teuchos::toString(nprocy_)+"x"+Teuchos::toString(nprocz_);
+    std::string s4;
 
-    int my_nx = (int)(nx_/nprocx_);
-    int my_ny = (int)(ny_/nprocy_);
-    int my_nz = (int)(nz_/nprocz_);
+  int my_npx, my_npy, my_npz;
+  int my_nx, my_ny, my_nz;
+
+  // we need a while loop here to find a partitioning that works.
+  // We may have to reduce the number of procs to find one. An example
+  // is the case nx=24, sx=4, 8 procs: => 6x6 subdomains, which have
+  // to be handled by 2x3=6 cores rather than 8
+  while (1)
+    {
+    nprocs=nprocx_*nprocy_*nprocz_;
+    s4=Teuchos::toString(nprocx_)+"x"+Teuchos::toString(nprocy_)+"x"+Teuchos::toString(nprocz_);
+
+    Tools::out()<<"attempting np="<<nprocs<<" ("<<s4<<")"<<std::endl;
+    my_nx = (int)(nx_/nprocx_);
+    my_ny = (int)(ny_/nprocy_);
+    my_nz = (int)(nz_/nprocz_);
     
+   
     if (
         (my_nx*nprocx_!=nx_)||
         (my_ny*nprocy_!=ny_)||
         (my_nz*nprocz_!=nz_) )
       {
-      std::string msg="You are trying to partition an "+s1+" domain on "+s4+" procs.\n"
-        "We currently need nx to be a multiple of nprocx etc.";
-      HYMLS::Tools::Error(msg,__FILE__,__LINE__);
+      std::string msg="Can't partition an "+s1+" domain on "+s4+" procs. Reducing #procs.";
+      Tools::Out(msg);
+      // reduce number of procs and retry
+      if (nprocx_>std::max(nprocy_,nprocz_)) nprocx_--;
+      else if (nprocy_>std::max(nprocx_,nprocz_)) nprocy_--;
+      else nprocz_--;
+      continue;
       }
+
+    my_npx=(int)(npx_/nprocx_);
+    my_npy=(int)(npy_/nprocy_);
+    my_npz=(int)(npz_/nprocz_);
+
+    // TODO - we could inactivate a number of procs to fix such an issue,
+    // it will most likely occur somewhere on coarser levels anyway.
+    if (
+        (my_npx*sx_!=my_nx)||
+        (my_npy*sy_!=my_ny)||
+        (my_npz*sz_!=my_nz) )
+      {
+      std::string msg="There are "+s2+" subdomains and a processor grid of "+s4+", reducing #procs";
+      Tools::Out(msg);
+      if (nprocx_>std::max(nprocy_,nprocz_)) nprocx_--;
+      else if (nprocy_>std::max(nprocx_,nprocz_)) nprocy_--;
+      else nprocz_--;
+      continue;
+      }
+    break;
+    }//while
         
+  if (comm_->MyPID()>=nprocs)
+    {
+    active_ = false;
+    }
+   
+    // if some processors have no subdomains, we need to 
+    // repartition the map even if it is a cartesian partitioned
+    // map already:
+    if (nprocs<comm_->NumProc()) repart=true;
+ 
     int rank=comm_->MyPID();
     int rankI=-1,rankJ=-1,rankK=-1;
     int ioff=-1,joff=-1,koff=-1;
@@ -329,19 +371,6 @@ DEBVAR(dk);
       joff=rankJ*npy_/nprocy_*sy_;
       koff=rankK*npz_/nprocz_*sz_;
 
-      int my_npx=(int)(npx_/nprocx_);
-      int my_npy=(int)(npy_/nprocy_);
-      int my_npz=(int)(npz_/nprocz_);
-
-    if (
-        (my_npx*sx_!=my_nx)||
-        (my_npy*sy_!=my_ny)||
-        (my_npz*sz_!=my_nz) )
-        {
-        std::string msg = "There are "+s2+" subdomains and a processor grid of "+s4+", which we can't handle up to now";
-        HYMLS::Tools::Error(msg,__FILE__,__LINE__);
-        }
-   
       numLocalSubdomains_=my_npx*my_npy*my_npz;
       }
     else
@@ -358,7 +387,7 @@ DEBVAR(dk);
     DEBVAR(rankJ);
     DEBVAR(rankK);        
 
-    sdMap_=CreateSubdomainMap();
+    sdMap_=CreateSubdomainMap(nprocs);
     DEBVAR(*sdMap_);
     
     numLocalSubdomains_ = sdMap_->NumMyElements();
@@ -368,8 +397,13 @@ DEBVAR(dk);
 Teuchos::RCP<Epetra_Map> repartitionedMap = 
         Teuchos::rcp_const_cast<Epetra_Map>(baseMap_);
 
+// repartitioning may occur for two reasons, typically on coarser levels:
+// a) the number of subdomains becomes smaller than the number of processes,
+// b) the subdomains can't be nicely distributed among the processes.
+// In both cases some processes are deactivated.
 if (repart==true)
   {
+  Tools::Out("repartition for "+s4+" procs");
   START_TIMER3(label_,"repartition map");
 #ifdef HAVE_MPI
   Teuchos::RCP<const Epetra_MpiComm> mpiComm =

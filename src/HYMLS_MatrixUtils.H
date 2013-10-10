@@ -80,10 +80,15 @@ class MatrixUtils
         This function can also be used if the number of grid cells nx*ny*nz
         is less than the number of processes, in which case any proc with PID
         >= nx*ny*nz gets 0 elements in the map.
+    
+    It is possible to artifically restrict the number of procs that get any nodes to
+    maxNumActiveProcs by setting the flag to something >0. The default -1 means all in comm 
+    get nodes (if there are sufficient nodes).
     */    
     static Teuchos::RCP<Epetra_Map> CreateMap(int nx, int ny, int nz, 
                              int dof, int indexbase,
-                             const Epetra_Comm& comm);
+                             const Epetra_Comm& comm,
+                             int maxNumActiveProcs=-1);
 
     //! a general map creating function for a 3D grid
     

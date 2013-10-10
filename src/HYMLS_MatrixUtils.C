@@ -63,11 +63,14 @@ namespace HYMLS
     Teuchos::RCP<Epetra_Map> 
     MatrixUtils::CreateMap(int nx, int ny, int nz,
                            int dof, int indexbase,
-                           const Epetra_Comm& comm)
+                           const Epetra_Comm& comm,
+                           int numActiveProcs)
       {
   START_TIMER3(Label(),"CreateMap (1)");
+  if (numActiveProcs==-1) numActiveProcs=comm.NumProc();
   // create a parallel map. We first figure out where in the domain we are                                                                                                               
   int np = std::min(comm.NumProc(),nx*ny*nz);
+  np = std::min(np,numActiveProcs);
   int pid=comm.MyPID();
 
   int npX,npY,npZ;

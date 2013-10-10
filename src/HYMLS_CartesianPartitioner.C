@@ -33,9 +33,10 @@ namespace HYMLS {
     START_TIMER3(label_,"Destructor");
     }
 
-  Teuchos::RCP<Epetra_Map> CartesianPartitioner::CreateSubdomainMap() const
+  Teuchos::RCP<Epetra_Map> CartesianPartitioner::CreateSubdomainMap
+        (int num_active) const
     {
-    return MatrixUtils::CreateMap(npx_,npy_,npz_,1,0,*comm_);
+    return MatrixUtils::CreateMap(npx_,npy_,npz_,1,0,*comm_,num_active);
     }
 
 

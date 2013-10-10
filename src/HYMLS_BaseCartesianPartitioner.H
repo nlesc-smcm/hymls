@@ -55,8 +55,10 @@ class BaseCartesianPartitioner : public BasePartitioner
   virtual int operator()(int i,int j,int k) const = 0;
   
   //! creates the map from global to local partition IDs. The implementation
-  //! may assume that npx_, sx_ etc. are already set so that operator() works
-  virtual Teuchos::RCP<Epetra_Map> CreateSubdomainMap() const = 0;
+  //! may assume that npx_, sx_ etc. are already set so that operator() works.
+  //! num_active indicates how many procs should get nodes (if there are at
+  //! least num_active nodes)
+  virtual Teuchos::RCP<Epetra_Map> CreateSubdomainMap(int num_active) const = 0;
   
   //@}
   

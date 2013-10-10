@@ -52,7 +52,7 @@ class CartesianPartitioner : public BaseCartesianPartitioner
     return ind;
     }
 
-  Teuchos::RCP<Epetra_Map> CreateSubdomainMap() const;
+  Teuchos::RCP<Epetra_Map> CreateSubdomainMap(int nActive) const;
 
   };
 
