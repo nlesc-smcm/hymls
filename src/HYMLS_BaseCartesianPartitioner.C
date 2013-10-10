@@ -303,10 +303,14 @@ DEBVAR(dk);
     std::string s4 =
     Teuchos::toString(nprocx_)+"x"+Teuchos::toString(nprocy_)+"x"+Teuchos::toString(nprocz_);
 
+    int my_nx = (int)(nx_/nprocx_);
+    int my_ny = (int)(ny_/nprocy_);
+    int my_nz = (int)(nz_/nprocz_);
+    
     if (
-        ((int)(nx_/nprocx_)*nprocx_!=nx_)||
-        ((int)(ny_/nprocy_)*nprocy_!=ny_)||
-        ((int)(nz_/nprocz_)*nprocz_!=nz_) )
+        (my_nx*nprocx_!=nx_)||
+        (my_ny*nprocy_!=ny_)||
+        (my_nz*nprocz_!=nz_) )
       {
       std::string msg="You are trying to partition an "+s1+" domain on "+s4+" procs.\n"
         "We currently need nx to be a multiple of nprocx etc.";
@@ -324,8 +328,21 @@ DEBVAR(dk);
       ioff=rankI*npx_/nprocx_*sx_;
       joff=rankJ*npy_/nprocy_*sy_;
       koff=rankK*npz_/nprocz_*sz_;
+
+      int my_npx=(int)(npx_/nprocx_);
+      int my_npy=(int)(npy_/nprocy_);
+      int my_npz=(int)(npz_/nprocz_);
+
+    if (
+        (my_npx*sx_!=my_nx)||
+        (my_npy*sy_!=my_ny)||
+        (my_npz*sz_!=my_nz) )
+        {
+        std::string msg = "There are "+s2+" subdomains and a processor grid of "+s4+", which we can't handle up to now";
+        HYMLS::Tools::Error(msg,__FILE__,__LINE__);
+        }
    
-      numLocalSubdomains_=(npx_/nprocx_)*(npy_/nprocy_)*(npz_/nprocz_);
+      numLocalSubdomains_=my_npx*my_npy*my_npz;
       }
     else
       {
