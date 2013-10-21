@@ -23,4 +23,4 @@
 #ifdef TIMING_LEVEL
 #undef TIMING_LEVEL
 #endif
-#define TIMING_LEVEL 1
+#define TIMING_LEVEL 2
