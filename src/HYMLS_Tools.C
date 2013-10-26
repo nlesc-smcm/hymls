@@ -49,7 +49,7 @@ const char* Tools::Revision()
   return HYMLS_REVISION;
   }
 
-void Tools::StartTiming(string fname)
+void Tools::StartTiming(std::string fname)
   {
 #ifdef FUNCTION_TRACING
   traceLevel_++;
@@ -81,7 +81,7 @@ void Tools::StartTiming(string fname)
   }
 
 
-void Tools::StopTiming(string fname,bool print)
+void Tools::StopTiming(std::string fname,bool print)
   {
 
 #ifdef FUNCTION_TRACING

@@ -110,6 +110,8 @@ bool status=true;
     int numSolves=driverList.get("Number of solves",1);
     int numRhs   =driverList.get("Number of rhs",1);
     double perturbation = driverList.get("Diagonal Perturbation",0.0);
+    double diag_shift = driverList.get("Diagonal Shift",0.0);
+    double diag_shift_i = driverList.get("Diagonal Shift (imag)",0.0);
     
     std::string galeriLabel=driverList.get("Galeri Label","");
     Teuchos::ParameterList galeriList;
@@ -256,6 +258,10 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
         }
       }
     }
+
+  Epetra_Vector diagK(*map);
+  CHECK_ZERO(K->ExtractDiagonalCopy(diagK));
+
   HYMLS::Tools::Out("Create Preconditioner");
 
   Teuchos::RCP<HYMLS::Preconditioner> precond = Teuchos::rcp(new HYMLS::Preconditioner(K, params));
@@ -273,17 +279,19 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
   
 for (int f=0;f<numComputes;f++)
   {
-  if (perturbation!=0)
+  if (diag_shift_i!=0.0)
+    {
+    HYMLS::Tools::Warning("complex shifts not implemented",__FILE__,__LINE__);
+    }
+  if (perturbation!=0 || diag_shift!=0)
     {
     // change the matrix values just to see if that works
-    Epetra_Vector diag(*map);
-    CHECK_ZERO(K->ExtractDiagonalCopy(diag));
+    Epetra_Vector diag=diagK;
     Epetra_Vector diag_pert(*map);
     HYMLS::MatrixUtils::Random(diag_pert);
     for (int i=0;i<diag_pert.MyLength();i++)
       {
-//      diag[i]=diag_pert[i]*perturbation;
-      diag[i]=diag[i] + diag_pert[i]*perturbation;
+      diag[i]=diag[i] + diag_shift + diag_pert[i]*perturbation;
       }
     CHECK_ZERO(K->ReplaceDiagonalValues(diag));
     }
@@ -396,7 +404,11 @@ DEBVAR(*b);
     delete [] errNorm;
     HYMLS::Tools::out() << std::endl;
     }
-  }
+   if (perturbation!=0 || diag_shift!=0)
+    {
+    CHECK_ZERO(K->ReplaceDiagonalValues(diagK));
+    }
+ }//f - number of factorizations
 
   if (store_matrix)
     {

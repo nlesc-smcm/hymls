@@ -84,6 +84,7 @@ HYMLS::Tools::Fatal("aborting at check point '"+msg+"'",file.c_str(),line);}}
 #define SET_CHECKPOINT(s1,s2,s3,s4,s5)
 #define BREAK_ON_CHECKPOINT(s1,s2)
 #endif
+
 #if TIMING_LEVEL>1
 #define START_TIMER2(s1,s2) START_TIMER(s1,s2)
 #else

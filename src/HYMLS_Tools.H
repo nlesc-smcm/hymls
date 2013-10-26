@@ -287,13 +287,13 @@ static void SignalHandler(int signum)
   
   //! start a timer for a specific part of the code
   //! The timing routine keeps track of total time 
-  //! and number of calls for each string you put  
-  //! in. The string must be the same when you call
+  //! and number of calls for each std::string you put  
+  //! in. The std::string must be the same when you call
   // StopTiming, of course.                        
-  static void StartTiming(string label);
+  static void StartTiming(std::string label);
 
   //! stop timing specific part of the code
-  static void StopTiming(string label,bool print=false);
+  static void StopTiming(std::string label,bool print=false);
 
 #ifdef DEBUGGING
   //! set breakpoint (does nothing if DEBUGGING is not defined)
@@ -386,9 +386,9 @@ private:
     static int traceLevel_;
     
     //! keep track of the function call stack if FUNCTION_TRACING is defined
-    static std::stack<string> functionStack_;
+    static std::stack<std::string> functionStack_;
     
-    //! get intentation string
+    //! get intentation std::string
     static std::string tabstring(int indent)
       {
       std::string ret="";
@@ -411,7 +411,7 @@ class TimerObject
   public: 
   
   //!
-  TimerObject(string s, bool print)
+  TimerObject(std::string s, bool print)
     {
     s_=s;
     print_=print;

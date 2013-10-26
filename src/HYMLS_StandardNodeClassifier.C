@@ -56,7 +56,7 @@ namespace HYMLS {
                 nx_(nx),ny_(ny),nz_(nz),
                 //initializes nx_=nx etc
                 label_(label+" (level "+Teuchos::toString(level)+")")
-                //creates a string for printing purposes
+                //creates a std::string for printing purposes
     {
     START_TIMER3(Label(),"Constructor");
     dof_=partitioner_->DofPerNode(); // DOFs per grid cell (4 for u,v,w,p) 
@@ -190,7 +190,7 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
     // initialization of retain array with current values
     // retain indicates how many of the current variables should be retained per subdomain.
     {
-    Teuchos::Array<string> vartype=Teuchos::StrUtils::stringTokenizer(variableType_[var]);
+    Teuchos::Array<std::string> vartype=Teuchos::StrUtils::stringTokenizer(variableType_[var]);
     retain[var]=0;
     if ((vartype.size()==2)&&(vartype[0]=="Retain"))
       {

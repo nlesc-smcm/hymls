@@ -1001,7 +1001,7 @@ void MatrixUtils::Identity(Teuchos::RCP<Epetra_CrsMatrix> A)
 
 
 // write CRS matrix to file
-void MatrixUtils::Dump(const Epetra_CrsMatrix& A, const string& filename,
+void MatrixUtils::Dump(const Epetra_CrsMatrix& A, const std::string& filename,
         bool reindex, PrintMethod how)
   {
   START_TIMER3(Label(),"Dump (1)");
@@ -1042,8 +1042,8 @@ void MatrixUtils::Dump(const Epetra_CrsMatrix& A, const string& filename,
 
 
 void MatrixUtils::DumpHDF(const Epetra_CrsMatrix& A, 
-                                const string& filename, 
-                                const string& groupname,
+                                const std::string& filename, 
+                                const std::string& groupname,
                                 bool new_file)
   {
   START_TIMER3(Label(),"DumpHDF (1)");
@@ -1072,7 +1072,7 @@ if (!success) Tools::Warning("caught an exception",__FILE__,__LINE__);
   }                                
 
 // write vector/dense matrix to file
-void MatrixUtils::Dump(const Epetra_MultiVector& x, const string& filename,
+void MatrixUtils::Dump(const Epetra_MultiVector& x, const std::string& filename,
         bool reindex, PrintMethod how)
   {
   START_TIMER3(Label(),"Dump (2)");
@@ -1110,7 +1110,7 @@ void MatrixUtils::Dump(const Epetra_MultiVector& x, const string& filename,
   }
 
 // write CRS IntVector to file
-void MatrixUtils::Dump(const Epetra_IntVector& x, const string& filename)
+void MatrixUtils::Dump(const Epetra_IntVector& x, const std::string& filename)
   {
   START_TIMER3(Label(),"Dump (3)");
   DEBUG("Vector with label "<<x.Label()<<" is written to file "<<filename);
@@ -1167,8 +1167,8 @@ int MatrixUtils::mmread(std::string filename, Epetra_MultiVector& vec)
   }
             
 void MatrixUtils::DumpHDF(const Epetra_MultiVector& x, 
-                                const string& filename, 
-                                const string& groupname,
+                                const std::string& filename, 
+                                const std::string& groupname,
                                 bool new_file)
   {
   START_TIMER3(Label(),"DumpHDF (2)");
@@ -1197,7 +1197,7 @@ if (!success) Tools::Warning("caught an exception",__FILE__,__LINE__);
   }
 
 // write map to file
-void MatrixUtils::Dump(const Epetra_Map& M, const string& filename, PrintMethod how)
+void MatrixUtils::Dump(const Epetra_Map& M, const std::string& filename, PrintMethod how)
   {
   START_TIMER3(Label(),"Dump (4)");
   DEBUG("Map with label "<<M.Label()<<" is written to file "<<filename);
@@ -1503,7 +1503,7 @@ Teuchos::RCP<MatrixUtils::Eigensolution> MatrixUtils::Eigs(
   }
 
 
-Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::ReadThcmMatrix(string prefix, const Epetra_Comm& comm,
+Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::ReadThcmMatrix(std::string prefix, const Epetra_Comm& comm,
               const Epetra_Map& rowmap,
               const Epetra_Map& colmap,
               const Epetra_Map* rangemap,
@@ -1518,7 +1518,7 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::ReadThcmMatrix(string prefix, const 
     }
   
   DEBUG("Read THCM Matrix with label "<<prefix);
-  string infofilename = prefix+".info";
+  std::string infofilename = prefix+".info";
   std::ifstream infofile(infofilename.c_str());
   int nnz,nrows;
   infofile >> nrows >> nnz;
@@ -1567,7 +1567,7 @@ Teuchos::RCP<Epetra_CrsMatrix> A=Teuchos::rcp(new Epetra_CrsMatrix(Copy, rowmap,
   }
 
 //! private helper function for THCM I/O
-void MatrixUtils::read_fortran_array(int n, int* array, string filename)
+void MatrixUtils::read_fortran_array(int n, int* array, std::string filename)
   {
   std::ifstream ifs(filename.c_str());
   for (int i=0;i<n;i++)
@@ -1578,7 +1578,7 @@ void MatrixUtils::read_fortran_array(int n, int* array, string filename)
   }
 
 //! private helper function for THCM I/O
-void MatrixUtils::read_fortran_array(int n, double* array, string filename)
+void MatrixUtils::read_fortran_array(int n, double* array, std::string filename)
   {
   std::ifstream ifs(filename.c_str());
   for (int i=0;i<n;i++)
