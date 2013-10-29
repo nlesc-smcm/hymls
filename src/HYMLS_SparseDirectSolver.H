@@ -279,6 +279,23 @@ public:
   //! return number of nonzeros in factorization
   double NumGlobalNonzerosLU() const; 
 
+#ifdef STORE_SD_LU
+public:
+#else
+private:
+#endif
+
+  //! for debugging - writes a number of .txt and .m files to look at the reordered
+  //! matrix and optionally the rhs and solution of a system
+  //! if overwrite==true, the function only dumps files if <filePrefix>.m doesn't
+  //! exist yet.
+  void DumpSolverStatus(std::string filePrefix,
+                  bool overwrite=true,
+                  Teuchos::RCP<const Epetra_MultiVector> X=Teuchos::null, 
+                  Teuchos::RCP<const Epetra_MultiVector> B=Teuchos::null) const;
+
+  
+
 protected:
   
   //@{ \name Methods to get/set private data
@@ -349,7 +366,7 @@ protected:
     List_ = List_in;
   }
   //@}
-  
+
 private:
 
   //! Pointers to the matrix to be preconditioned.
@@ -485,15 +502,6 @@ private:
 
   /*! perform solve using KLU */
   int KluSolve(const Epetra_MultiVector& B, Epetra_MultiVector& X) const;
-
-  //! for debugging - writes a number of .txt and .m files to look at the reordered
-  //! matrix and optionally the rhs and solution of a system
-  //! if overwrite==true, the function only dumps files if <filePrefix>.m doesn't
-  //! exist yet.
-  void DumpSolverStatus(std::string filePrefix,
-                  bool overwrite=true,
-                  Teuchos::RCP<const Epetra_MultiVector> X=Teuchos::null, 
-                  Teuchos::RCP<const Epetra_MultiVector> B=Teuchos::null) const;
 
 };
 }//namespace HYMLS
