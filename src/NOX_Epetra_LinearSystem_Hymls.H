@@ -5,6 +5,8 @@
 #include "NOX_Epetra_LinearSystem_AztecOO.H"
 #include "Teuchos_ScalarTraits.hpp"
 
+class Epetra_CrsMatrix;
+
 namespace HYMLS {
 class Solver;
 }

@@ -784,12 +784,16 @@ double nrow=0;
 REPORT_SUM_MEM(label_,"subdomain solvers",nnz,nnz,comm_);
 
 #ifdef STORE_SD_LU
-if (subdomainSolver_[0]->NumRows()>0)
+if (hid_->NumMySubdomains()>0)
   {
-  Teuchos::RCP<Ifpack_SparseContainer<SparseDirectSolver> > container =
+  if (subdomainSolver_[0]->NumRows()>0)
+    {
+    Teuchos::RCP<Ifpack_SparseContainer<SparseDirectSolver> > container =
       Teuchos::rcp_dynamic_cast<Ifpack_SparseContainer<SparseDirectSolver> >(subdomainSolver_[0]); 
-  std::string label="sdlu_L"+Teuchos::toString(myLevel_)+"_0_p"+Teuchos::toString(comm_->MyPID());
-  container->Inverse()->DumpSolverStatus(label,false,Teuchos::null,Teuchos::null);
+    std::string 
+     label="sdlu_L"+Teuchos::toString(myLevel_)+"_0_p"+Teuchos::toString(comm_->MyPID());
+    container->Inverse()->DumpSolverStatus(label,false,Teuchos::null,Teuchos::null);
+    }
   }
 #endif
 #ifdef TESTING
