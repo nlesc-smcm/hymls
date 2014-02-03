@@ -12,6 +12,7 @@
 #include "Epetra_Vector.h"
 #include "Epetra_IntVector.h"
 #include "Epetra_Import.h"
+#include "Epetra_Util.h"
 #include "HYMLS_MatrixUtils.H"
 #include "Epetra_Comm.h"
 #include "EpetraExt_MatrixMatrix.h"
@@ -1589,18 +1590,39 @@ void MatrixUtils::read_fortran_array(int n, double* array, std::string filename)
   }
 
 
+
 int MatrixUtils::Random(Epetra_MultiVector& v, int seed)
   {
   START_TIMER3(Label(),"Random");
-  Teuchos::RCP<Epetra_MultiVector> gVec=Gather(v,0);
-  if (seed>0)
+  const int len = v.GlobalLength();
+  Epetra_BlockMap const &map = v.Map();
+  Epetra_Util util;
+  double rand_val;
+  // communicate the seed to be able to generate the same vector on all processors
+  if (!(seed > 0))
     {
-    gVec->SetSeed(seed);
+    seed = util.Seed();
+    v.Comm().Broadcast(&seed, 1, 0);
     }
-  Tools::out() << "SEED: "<< gVec->Seed() << std::endl;
-  gVec->Random();
-  Teuchos::RCP<Epetra_MultiVector> lVec = Scatter(*gVec,v.Map());
-  v=*lVec;
+  util.SetSeed(seed);
+  Tools::out() << "SEED: "<< util.Seed() << std::endl;
+  // generate a consistent random vector that is independent of the number of processors
+  for (int j = 0; j < v.NumVectors(); j++)
+    {
+    for (int i = 0; i < len; i++)
+      {
+      // check if the value is on the current processor
+      if (map.MyGID(i))
+        {
+        CHECK_ZERO(v.ReplaceGlobalValue(i, j, util.RandomDouble()));
+        }
+      else
+        {
+        // generate the next seed value. RandomInt is faster than RandomDouble
+        util.RandomInt();
+        }
+      }
+    }
   return 0;
   }
 
@@ -2470,4 +2492,3 @@ int MatrixUtils::ExtractLocalBlock(const Epetra_RowMatrix& A, Epetra_CrsMatrix& 
 
 
 }
-
