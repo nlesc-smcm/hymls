@@ -88,6 +88,7 @@ HYMLS::Tools::Fatal("aborting at check point '"+msg+"'",file.c_str(),line);}}
 #if TIMING_LEVEL>1
 #define START_TIMER2(s1,s2) START_TIMER(s1,s2)
 #else
+#error "your timing level is " ${TIMING_LEVEL}
 #define START_TIMER2(s1,s2)
 #endif
 

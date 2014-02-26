@@ -32,7 +32,12 @@
 #include "HYMLS_MatrixUtils.H"
 
 #include "Ifpack.h"
+// due to a bug in Trilinos 11.4.1/3 I have cloned this file for the moment
+// (UseTranspose throws an error instead of returning false).
+#include "./ml_Ifpack_ML.h"
+#include "ml_MultiLevelPreconditioner.h"
 
+using namespace HYMLS::MainUtils;
 
 int main(int argc, char* argv[])
   {
@@ -99,18 +104,22 @@ bool status=true;
       have_exact_sol = driverList.get("Exact Solution Available",false);
       }
 
+    std::string galeriLabel=driverList.get("Galeri Label","");
+    Teuchos::ParameterList galeriList;
+    if (driverList.isSublist("Galeri")) galeriList = driverList.sublist("Galeri");
+
+    std::string ifp_type = driverList.get("Preconditioning Method","ILU");
+    int overlap = driverList.get("Ifpack Overlap",0);
+    Teuchos::ParameterList& precList = params->sublist("Preconditioner");
+  
     driverList.unused(std::cerr);
     params->remove("Driver");
-
         
     Teuchos::ParameterList& probl_params = params->sublist("Problem");
             
     int dim=probl_params.get("Dimension",2);
     std::string eqn=probl_params.get("Equations","Laplace");
 
-
-  Teuchos::ParameterList galeriList;
-  
   int nx=probl_params.get("nx",32);
   int ny=probl_params.get("ny",nx);
   int nz=probl_params.get("nz",(dim>2)?nx:1);
@@ -119,26 +128,7 @@ bool status=true;
   galeriList.set("ny",ny);
   galeriList.set("nz",nz);
     
-  std::string mapType="Cartesian"+Teuchos::toString(dim)+"D";
-
-  HYMLS::Tools::Out("Create map");
-  int dof=1;
-  if (eqn=="Laplace")
-    {
-    try {
-      map= Teuchos::rcp(Galeri::CreateMap(mapType, *comm, galeriList));
-      } catch (Galeri::Exception G) {G.Print();}
-    }
-  else if (eqn=="Stokes-C")
-    {
-    dof=dim+1;
-    map=HYMLS::MatrixUtils::CreateMap(nx,ny,nz,dof,0,*comm);
-    }
-  else
-    {
-    HYMLS::Tools::Error("cannot determine problem type from 'Equation' parameter "+eqn,
-        __FILE__, __LINE__);
-    }
+  map = HYMLS::MainUtils::create_map(*comm,probl_params);
   
 
   if (read_problem)
@@ -148,14 +138,9 @@ bool status=true;
   else
     {
     HYMLS::Tools::Out("Create matrix");
-
-    std::string matrixType=eqn+Teuchos::toString(dim)+"D";
-    try {
-      K= Teuchos::rcp(Galeri::CreateCrsMatrix(matrixType, map.get(), galeriList));
-      } catch (Galeri::Exception G) {G.Print();}
-    K->Scale(-1.0); // we like our matrix negative definite
-                     // (just to conform with the diffusion operator in the NSE,
-                     // the solver works anyway, of course).
+    
+        K=HYMLS::MainUtils::create_matrix(*map,probl_params,
+                galeriLabel, galeriList);
     }
 
   // create a random exact solution
@@ -190,8 +175,9 @@ bool status=true;
     int gid;
     double val1=1.0/(nx*ny*nz);
     double val0=0.0;
-    if (dof>1)
+    if (eqn=="Stokes-C")
       {
+      int dof=dim+1;
       for (int i=0;i<M->NumMyRows();i+=dof)
         {
         for (int j=i;j<i+dof-1;j++)
@@ -215,14 +201,32 @@ bool status=true;
     }
   
   HYMLS::Tools::Out("Create Preconditioner");
+  
+  Teuchos::RCP<Ifpack_Preconditioner> precond;
 
-  Ifpack factory;
-  std::string ifp_type = "ILU";
-  int overlap = 3;
-  Teuchos::RCP<Ifpack_Preconditioner> precond = 
+  if (ifp_type=="ML")
+    {
+    HYMLS::Tools::Out("create ML preconditioner");
+    precond = Teuchos::rcp(new ML_Epetra::Ifpack_ML(K.get()));
+    if (precList.sublist("ML list").isParameter("SetDefaults"))
+    {
+      string mlDefaults=precList.sublist("ML list").get("SetDefaults","SA");
+      ML_Epetra::SetDefaults(mlDefaults,precList.sublist("ML list"));
+    }
+    }
+  else
+    {
+    HYMLS::Tools::Out("create Ifpack preconditioner");
+    Ifpack factory;
+    precond = 
         Teuchos::rcp(factory.Create(ifp_type,K.get(),overlap));
+    }
 
   HYMLS::Tools::Out("Initialize Preconditioner...");
+  HYMLS::Tools::Out("Parameters for the preconditioner:");
+  HYMLS::Tools::out() << precList << std::endl;
+
+  CHECK_ZERO(precond->SetParameters(precList));
   CHECK_ZERO(precond->Initialize());
 
   HYMLS::Tools::Out("Create Solver");

@@ -16,7 +16,15 @@
   
     <Parameter name="Store Solution" type="bool" value="0"/>
     <Parameter name="Store Matrix" type="bool" value="0"/>
-  
+    
+    <Parameter name="Galeri Label" type="string" value="UniFlow2D"/>
+
+    <!-- this parameter list is augmented by info from the "Problem" list below, such as -->
+    <!-- the problem size nx, ny                                                         -->
+    <ParameterList name="Galeri List">
+      <Parameter name="conv" type="double" value="1.0"/>
+      <Parameter name="diff" type="double" value="1.0e-5"/>
+    </ParameterList>
   </ParameterList>
 
   <ParameterList name="Problem"><!--{-->
@@ -26,8 +34,8 @@
     
     <Parameter name="Complex Arithmetic" type="bool" value="0"/>
     
-    <Parameter name="nx" type="int" value="128"/>
-    <Parameter name="ny" type="int" value="128"/>
+    <Parameter name="nx" type="int" value="512"/>
+    <Parameter name="ny" type="int" value="512"/>
     <Parameter name="nz" type="int" value="1"/>
     
   </ParameterList><!--}-->
@@ -35,13 +43,13 @@
   <ParameterList name="Solver">
   
     <!-- "CG", "GMRES", "PCPG" (only GMRES actually supported by our solver right now) -->
-    <Parameter name="Krylov Method" type="string" value="CG"/>
+    <Parameter name="Krylov Method" type="string" value="GMRES"/>
     
     <!-- vector to start the Krylov sequence: "Zero", "Random", "Previous" -->
     <Parameter name="Initial Vector" type="string" value="Random"/>
     
     <!-- apply preconditioning from left or right (if Krylov Method!="None") -->
-    <Parameter name="Left or Right Preconditioning" type="string" value="Right"/>
+    <Parameter name="Left or Right Preconditioning" type="string" value="Left"/>
     
     <!-- this is not necessary for Laplace, of course, but we can test the eigensolver: -->
     <Parameter name="Deflated Subspace Dimension" type="int" value="0"/>

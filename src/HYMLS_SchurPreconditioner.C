@@ -4,6 +4,7 @@
 
 #include "HYMLS_SchurPreconditioner.H"
 
+#include "HYMLS_Macros.H" 
 #include "HYMLS_Tools.H" 
 #include "HYMLS_MatrixUtils.H"
 

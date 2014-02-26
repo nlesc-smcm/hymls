@@ -1,0 +1,84 @@
+<ParameterList name="Trilinos HYMLS"><!--{-->
+
+  <!-- these first few settings are specific for the driver -->
+  <!-- implemented in 'main.C' and are not passed on to the -->
+  <!-- HYMLS solver classes.                                -->
+  <ParameterList name="Driver">
+
+    <!-- will create a series of slightly perturbed matrices -->
+    <Parameter name="Number of factorizations" type="int" value="1"/>
+    <!-- for each matrix, solve with several right-hand sides in a row -->
+    <Parameter name="Number of solves" type="int" value="1"/>
+    <!-- number of right-hand sides per solve -->
+    <Parameter name="Number of rhs" type="int" value="1"/>
+    <!-- add random perturbation to the diagonal? -->
+    <Parameter name="Diagonal Perturbation" type="double" value="0.0"/>
+  
+    <Parameter name="Store Solution" type="bool" value="0"/>
+    <Parameter name="Store Matrix" type="bool" value="0"/>
+    <!-- string that is only read by the main_ifpack driver. Options are -->
+    <!-- "ML", "ILU" or anything else accepted by the Ifpack factory     -->
+    <!-- Parameters to the methods are passed via the "Preconditioner"   -->
+    <!-- sublist below.                                                  -->
+    <Parameter name="Preconditioning Method" type="string" value="ML"/>
+  
+  </ParameterList>
+
+  <ParameterList name="Problem"><!--{-->
+
+    <Parameter name="Equations" type="string" value="Laplace"/>
+    <Parameter name="Dimension" type="int" value="2"/>
+    
+    <Parameter name="Complex Arithmetic" type="bool" value="0"/>
+    
+    <Parameter name="nx" type="int" value="64"/>
+    <Parameter name="ny" type="int" value="64"/>
+    <Parameter name="nz" type="int" value="1"/>
+    
+  </ParameterList><!--}-->
+  
+  <ParameterList name="Solver">
+  
+    <!-- "CG", "GMRES", "PCPG" (only GMRES actually supported by our solver right now) -->
+    <Parameter name="Krylov Method" type="string" value="CG"/>
+    
+    <!-- vector to start the Krylov sequence: "Zero", "Random", "Previous" -->
+    <Parameter name="Initial Vector" type="string" value="Random"/>
+    
+    <!-- apply preconditioning from left or right (if Krylov Method!="None") -->
+    <Parameter name="Left or Right Preconditioning" type="string" value="Right"/>
+    
+    <!-- this is not necessary for Laplace, of course, but we can test the eigensolver: -->
+    <Parameter name="Deflated Subspace Dimension" type="int" value="0"/>
+    
+    <Parameter name="Deflation Threshold" type="double" value="0.0"/>
+
+    <!-- parameters for the iterative solver (Belos) -->
+    <ParameterList name="Iterative Solver">
+      <Parameter name="Maximum Iterations" type="int" value="500"/>
+      <Parameter name="Block Size" type="int" value="1"/>
+      <Parameter name="Num Blocks" type="int" value="100"/>
+      <Parameter name="Flexible Gmres" type="bool" value="0"/>
+      <Parameter name="Explicit Residual Test" type="bool" value="0"/>
+      <Parameter name="Maximum Restarts" type="int" value="5"/>
+      <Parameter name="Convergence Tolerance" type="double" value="1.0e-10"/>
+      <Parameter name="Output Frequency" type="int" value="1"/>
+      <Parameter name="Show Maximum Residual Norm Only" type="bool" value="1"/>
+    </ParameterList>
+  </ParameterList><!--}-->
+
+  <ParameterList name="Preconditioner"><!--{-->
+    <ParameterList name="ML list">
+      <Parameter name="SetDefaults" type="string" value="SA"/>
+      <Parameter name="ML output" type="int" value="1"/>
+      <Parameter name="ML validate parameter list" type="bool" value="1"/>
+      <Parameter name="cycle applications" type="int" value="1"/>
+      <Parameter name="prec type" type="string" value="full-MGV"/>
+      <Parameter name="smoother: pre or post" type="string" value="both"/>
+      <Parameter name="smoother: sweeps" type="int" value="1"/>
+      <Parameter name="smoother: type" type="string" value="symmetric Gauss-Seidel"/>
+    </ParameterList>
+  </ParameterList><!--}-->
+  
+  
+</ParameterList><!--}-->
