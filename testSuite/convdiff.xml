@@ -21,9 +21,10 @@
 
     <!-- this parameter list is augmented by info from the "Problem" list below, such as -->
     <!-- the problem size nx, ny                                                         -->
-    <ParameterList name="Galeri List">
+    <ParameterList name="Galeri">
       <Parameter name="conv" type="double" value="1.0"/>
-      <Parameter name="diff" type="double" value="1.0e-5"/>
+      <Parameter name="diff" type="double" value="0.0"/>
+      <Parameter name="alpha" type="double" value="0.0"/>
     </ParameterList>
   </ParameterList>
 
@@ -34,8 +35,8 @@
     
     <Parameter name="Complex Arithmetic" type="bool" value="0"/>
     
-    <Parameter name="nx" type="int" value="512"/>
-    <Parameter name="ny" type="int" value="512"/>
+    <Parameter name="nx" type="int" value="256"/>
+    <Parameter name="ny" type="int" value="256"/>
     <Parameter name="nz" type="int" value="1"/>
     
   </ParameterList><!--}-->
@@ -78,12 +79,14 @@
     <Parameter name="Preconditioner Variant" type="string" value="Block Diagonal"/>
         
     <!-- you can either set 'Separator Length' or 'Number of Subdomains' -->
-    <Parameter name="Separator Length" type="int" value="4"/>
+    <Parameter name="Separator Length (x)" type="int" value="256"/>
+    <Parameter name="Separator Length (y)" type="int" value="4"/>
+    <Parameter name="Separator Length (z)" type="int" value="1"/>
     
     <!-- number of levels to be created (1: direct solver for Schur complement, -->
     <!-- 2: solve Schur iteratively and reduced Schur directly,                 -->
     <!-- >2: not implemented.                                                   -->
-    <Parameter name="Number of Levels" type="int" value="3"/>
+    <Parameter name="Number of Levels" type="int" value="2"/>
     
     <Parameter name="Scale Schur-Complement" type="bool" value="0"/>
 
