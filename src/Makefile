@@ -3,7 +3,7 @@ include Makefile.inc
 
 #rev=$(shell svn status -u | tail -1 | sed s/Status\ against\ revision://| sed s/\ //g)
 rev=\"$(shell svnversion -n)\"
-CXX_FLAGS+=-DHYMLS_REVISION=${rev}
+CXX_FLAGS+=-DHYMLS_REVISION=${rev} -O3 -openmp
 
 LIBS=${MY_LIBRARIES} ${TRILINOS_LIBRARIES} ${TPL_LIBRARIES} ${EXTRA_LD_FLAGS}
 
