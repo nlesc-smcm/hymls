@@ -276,8 +276,6 @@ namespace HYMLS {
    }
 #endif
 
-
-    
     int nrows = hid.NumSeparatorElements(sd);
               
     if (inds.Length()!=nrows)
@@ -301,6 +299,8 @@ namespace HYMLS {
     DEBVAR(inds);
     DEBVAR(nrows);
 
+{
+    START_TIMER2(label_, "Fill RHS");
     int int_elems = hid.NumInteriorElements(sd);
     int len[int_elems];
     int *indices[int_elems];
@@ -314,6 +314,7 @@ namespace HYMLS {
 
     int pos = 0; // position in multi-vector (rhs of subdomain solver)
 
+    const Epetra_Map& A12_ColMap = A12.ColMap();
     // now loop over all the separators around this subdomain
     for (int grp=1;grp<hid.NumGroups(sd);grp++)
       {
@@ -321,20 +322,24 @@ namespace HYMLS {
       for (int j=0; j<hid.NumElements(sd,grp);j++)
         {
         int gcid=hid.GID(sd,grp,j);// global ID of separator node (sd,grp,j)
+        double *rhs = &A11.RHS(0, pos);
         // loop over all rows in this subdomain
         for (int i = 0;i<int_elems;i++)
           {
+          const int *incices_ptr = indices[i];
+          const double *values_ptr = values[i];
           // loop over the matrix row and look for matching entries
           for (int k = 0 ; k < len[i]; k++)
             {
-            if (gcid == A12.GCID(indices[i][k]))
-              A11.RHS(i, pos) = values[i][k];
+            if (gcid == A12_ColMap.GID(incices_ptr[k]))
+              rhs[i] = values_ptr[k];
             }
           }
         pos++;
         }
       }
-    
+}
+
 //    DEBUG("Apply A11 inverse...");
 #ifdef FLOPS_COUNT    
     double flopsOld=A11.ApplyInverseFlops();
@@ -366,12 +371,13 @@ namespace HYMLS {
     // re-index and put into final block
     
 //    DEBUG("Copy into Sk matrix");
-    for (int i=0;i<nrows;i++)
+    const Epetra_Map& mmap = mother_->Map2(sd);
+    for (int i = 0; i < nrows; i++)
       {
-      int lrid = mother_->Map2(sd).LID(inds[i]);
-      for (int j=0;j<nrows;j++)
+      const int lrid = mmap.LID(inds[i]);
+      for (int j = 0; j < nrows; j++)
         {
-        Sk(i,j) = Aloc[j][lrid];
+        Sk(j,i) = Aloc[j][lrid];
         }
       }
 
