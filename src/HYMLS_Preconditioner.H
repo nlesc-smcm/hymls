@@ -5,7 +5,6 @@
 #include "Teuchos_Array.hpp"
 
 #include "Ifpack_Preconditioner.h"
-#include "Ifpack_Container.h"
 #include "Epetra_Time.h"
 
 #include "BelosLinearProblem.hpp"
@@ -16,6 +15,7 @@
 #include "HYMLS_OverlappingPartitioner.H"
 #include "HYMLS_DenseUtils.H"
 #include "HYMLS_PLA.H"
+#include "HYMLS_SolverContainer.H"
 
 #include "HYMLS_BorderedSolver.H"
 
@@ -286,7 +286,7 @@ protected:
   std::string sdSolverType_;
 
   //! we use Ifpack conainers for solving the subdomain problems
-  Teuchos::Array<Teuchos::RCP<Ifpack_Container> > subdomainSolver_;
+  Teuchos::Array<Teuchos::RCP<SolverContainer> > subdomainSolver_;
   
   //! operator representation of our Schur-complement
   mutable Teuchos::RCP<SchurComplement> Schur_;
@@ -501,7 +501,7 @@ protected:
   const HYMLS::OverlappingPartitioner& Partitioner() const {return *hid_;}
 
   //! get solver for a diagonal block of A11
-  Ifpack_Container& SolverA11(int sd) const {return *subdomainSolver_[sd];}
+  SolverContainer& SolverA11(int sd) const {return *subdomainSolver_[sd];}
   
   //! get a submatrix A12
   Teuchos::RCP<const Epetra_CrsMatrix> A12(int sd) const;

@@ -2,8 +2,8 @@
 
 #include "HYMLS_SchurComplement.H"
 #include "HYMLS_OverlappingPartitioner.H"
-#include "HYMLS_SparseDirectSolver.H"
 #include "HYMLS_MatrixUtils.H"
+#include "HYMLS_SolverContainer.H"
 
 #include "Epetra_Comm.h"
 #include "Epetra_Map.h"
@@ -14,8 +14,6 @@
 #include "Epetra_CrsMatrix.h"
 #include "Epetra_FECrsMatrix.h"
 #include "Epetra_Import.h"
-
-#include "Ifpack_Container.h"
 
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_Array.hpp"
@@ -251,15 +249,8 @@ namespace HYMLS {
     const Epetra_CrsMatrix& A12 = *_A12;
     const Epetra_CrsMatrix& A21 = *_A21;
     const Epetra_CrsMatrix& A22 = mother_->A22();
-    Ifpack_Container& _A11 = mother_->SolverA11(sd);
-    Ifpack_SparseContainer<SparseDirectSolver> *sparseA11
-        = dynamic_cast<Ifpack_SparseContainer<SparseDirectSolver>*>(&_A11);
-    if (sparseA11==NULL)
-      {
-      Tools::Error("use of dense subdomain solvers not implemented, yet!",
-        __FILE__, __LINE__);
-      }
-    Ifpack_SparseContainer<SparseDirectSolver>& A11 = *sparseA11;
+    SolverContainer& A11 = mother_->SolverA11(sd);
+
     if (sd<0 || sd>hid.NumMySubdomains())
       {
       Tools::Warning("Subdomain index out of range!",__FILE__,__LINE__);

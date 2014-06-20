@@ -8,6 +8,7 @@
 #include "HYMLS_DenseUtils.H"
 #include "HYMLS_OverlappingPartitioner.H"
 
+#include "HYMLS_SolverContainer.H"
 #include "HYMLS_SparseDirectSolver.H"
 #include "HYMLS_SchurComplement.H"
 #include "HYMLS_SchurPreconditioner.H"
@@ -31,8 +32,6 @@
 #include "Epetra_FECrsMatrix.h"
 #endif
 
-#include "Ifpack_SparseContainer.h"
-#include "Ifpack_DenseContainer.h"
 #include "Ifpack_Amesos.h"
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_ParameterList.hpp"
@@ -574,13 +573,11 @@ MatrixUtils::Dump(*A22_, "Precond"+Teuchos::toString(myLevel_)+"_A22.txt");
     
     if (sdSolverType_=="Dense")
       {
-      subdomainSolver_[sd] = 
-        Teuchos::rcp( new Ifpack_DenseContainer(nrows) );
+      subdomainSolver_[sd] = Teuchos::rcp(new SolverContainer(SolverContainer::DENSE, nrows));
       }
     else if (sdSolverType_=="Sparse")
       {
-      subdomainSolver_[sd] = 
-        Teuchos::rcp( new Ifpack_SparseContainer<SparseDirectSolver>(nrows) );
+      subdomainSolver_[sd] = Teuchos::rcp(new SolverContainer(SolverContainer::SPARSE, nrows));
       }
     else
       {
@@ -730,7 +727,7 @@ int Preconditioner::InitializeCompute()
 #pragma omp parallel for schedule(static)
   for (int sd=0;sd<hid_->NumMySubdomains();sd++)
     {
-    CHECK_ZERO(subdomainSolver_[sd]->Initialize());
+    CHECK_ZERO(subdomainSolver_[sd]->InitializeCompute());
     }
 
   return 0;
@@ -781,31 +778,29 @@ double nrow=0;
                 __FILE__,__LINE__);
       }
 #endif    
+
 #ifndef NO_MEMORY_TRACING
 #ifndef USE_AMESOS
-      Teuchos::RCP<Ifpack_SparseContainer<SparseDirectSolver> > container =
-        Teuchos::rcp_dynamic_cast<Ifpack_SparseContainer<SparseDirectSolver> >(subdomainSolver_[sd]); 
-      nnz+=container->Inverse()->NumGlobalNonzerosA();      
-      nnz+=container->Inverse()->NumGlobalNonzerosLU();      
-      nrow+=container->NumRows();
-#endif      
+    nnz += subdomainSolver_[sd]->NumGlobalNonzeros();
+    nrow += subdomainSolver_[sd]->NumRows();
+#endif
 #endif
 #ifdef STORE_SUBDOMAIN_MATRICES
-      Teuchos::RCP<Ifpack_SparseContainer<SparseDirectSolver> > cont =
-        Teuchos::rcp_dynamic_cast<Ifpack_SparseContainer<SparseDirectSolver> >(subdomainSolver_[sd]); 
-     if (cont!=Teuchos::null)
-       {
-       Tools::Warning("STORE_SUBDOMAIN_MATRICES is defined, this produces lots of output"
+      Teuchos::RCP<Ifpack_SparseContainer<SparseDirectSolver> > container = subdomainSolver_[sd]->SparseContainer();
+      if (container != Teuchos::null)
+        {
+        Tools::Warning("STORE_SUBDOMAIN_MATRICES is defined, this produces lots of output"
                        " and makes the code VERY slow",__FILE__,__LINE__);
-       const Epetra_RowMatrix& Asd = cont->Inverse()->Matrix();
-       std::string filename = "SubdomainMatrix_P"+Teuchos::toString(comm_->MyPID())+
+        const Epetra_RowMatrix& Asd = container->Inverse()->Matrix();
+        std::string filename = "SubdomainMatrix_P"+Teuchos::toString(comm_->MyPID())+
                                              "_L"+Teuchos::toString(myLevel_)+
                                              "_SD"+Teuchos::toString(sd)+".txt"; 
-       std::ofstream ofs(filename.c_str());
-       MatrixUtils::PrintRowMatrix(Asd,ofs);
-       ofs.close();
-       }
-#endif      
+        std::ofstream ofs(filename.c_str());
+        MatrixUtils::PrintRowMatrix(Asd,ofs);
+        ofs.close();
+        }
+      }
+#endif
       }
     }
   PEC_HANDLE_ERRORS;
@@ -817,11 +812,12 @@ if (hid_->NumMySubdomains()>0)
   {
   if (subdomainSolver_[0]->NumRows()>0)
     {
-    Teuchos::RCP<Ifpack_SparseContainer<SparseDirectSolver> > container =
-      Teuchos::rcp_dynamic_cast<Ifpack_SparseContainer<SparseDirectSolver> >(subdomainSolver_[0]); 
-    std::string 
-     label="sdlu_L"+Teuchos::toString(myLevel_)+"_0_p"+Teuchos::toString(comm_->MyPID());
-    container->Inverse()->DumpSolverStatus(label,false,Teuchos::null,Teuchos::null);
+    Teuchos::RCP<Ifpack_SparseContainer<SparseDirectSolver> > container = subdomainSolver_[sd]->SparseContainer();
+    if (container != Teuchos::null)
+      {
+      std::string label = "sdlu_L"+Teuchos::toString(myLevel_)+"_0_p"+Teuchos::toString(comm_->MyPID());
+      container->Inverse()->DumpSolverStatus(label, false, Teuchos::null, Teuchos::null);
+      }
     }
   }
 #endif
@@ -1286,15 +1282,14 @@ int Preconditioner::ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVe
   int ierr=0;
   const int nsd=subdomainSolver_.size();
   Teuchos::Array<bool> prevtrans(nsd); // remember if the solvers were already transposed
-  Teuchos::RCP<const Ifpack_SparseContainer<SparseDirectSolver> > sparseLU=Teuchos::null;
+  Teuchos::RCP<const Ifpack_SparseContainer<SparseDirectSolver> > sparseLU = Teuchos::null;
 
   for (int sd=0;sd<nsd;sd++)
     {
-    sparseLU=Teuchos::rcp_dynamic_cast
-        <const Ifpack_SparseContainer<SparseDirectSolver> >(subdomainSolver_[sd]);
-    if (sparseLU!=Teuchos::null)
+    sparseLU = subdomainSolver_[sd]->SparseContainer();
+    if (sparseLU != Teuchos::null)
       {
-      prevtrans[sd]=sparseLU->Inverse()->UseTranspose();
+      prevtrans[sd] = sparseLU->Inverse()->UseTranspose();
       CHECK_ZERO(Teuchos::rcp_const_cast<SparseDirectSolver>(sparseLU->Inverse())->SetUseTranspose(true));
       }
     else
@@ -1308,8 +1303,7 @@ int Preconditioner::ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVe
 
   for (int sd=0;sd<nsd;sd++)
     {
-    sparseLU=Teuchos::rcp_dynamic_cast
-        <const Ifpack_SparseContainer<SparseDirectSolver> >(subdomainSolver_[sd]);
+    sparseLU = subdomainSolver_[sd]->SparseContainer();
     if (sparseLU!=Teuchos::null)
       {
       CHECK_ZERO(Teuchos::rcp_const_cast<SparseDirectSolver>(sparseLU->Inverse())->SetUseTranspose(prevtrans[sd]));
@@ -1318,7 +1312,7 @@ int Preconditioner::ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVe
       {
       Tools::Error("Transpose not implemented for dense subdomain solver!",__FILE__,__LINE__);
       }
-    sparseLU=Teuchos::null;
+    sparseLU = Teuchos::null;
     }
   return ierr;
   }
