@@ -806,9 +806,11 @@ int SparseDirectSolver::KluSolve(const Epetra_MultiVector& B, Epetra_MultiVector
     {
     for ( int j =0 ; j < NumVectors; j++ ) 
       {
+      double *buf_x_vec = (*buf_x_)[j];
+      double *serialB_vec = (*serialB)[j];
       for (int i=0;i<N;i++)
         {
-        (*buf_x_)[j][i] = (*serialB)[j][row_perm[i]] * (*sca_l)[row_perm[i]];
+        buf_x_vec[i] = serialB_vec[row_perm[i]] * (*sca_l)[row_perm[i]];
         }
       }
     if (UseTranspose()==false)
@@ -823,9 +825,11 @@ int SparseDirectSolver::KluSolve(const Epetra_MultiVector& B, Epetra_MultiVector
     // we now have x(col_perm) in x_buf
     for (int j=0;j<NumVectors;j++)
       {
+      double *buf_x_vec = (*buf_x_)[j];
+      double *serialX_vec = (*serialX)[j];
       for (int i=0;i<N;i++) 
         {
-        (*serialX)[j][col_perm[i]] = (*buf_x_)[j][i] * (*sca_r)[col_perm[i]];
+        serialX_vec[col_perm[i]] = buf_x_vec[i] * (*sca_r)[col_perm[i]];
         }
       }
     status = klu_->Common_->status;
@@ -959,9 +963,11 @@ Teuchos::RCP<const Epetra_MultiVector> serialB = Teuchos::rcp(&B,false);
     {    
     for ( int j =0 ; j < NumVectors; j++ ) 
       {
+      double *serialB_vec = (*serialB)[j];
+      double *serialX_vec = (*serialX)[j];
       for (int i=0;i<N;i++)
         {
-        b_buf[i] = (*serialB)[j][row_perm_[i]] * (*scaLeft_)[row_perm_[i]];
+        b_buf[i] = serialB_vec[row_perm_[i]] * (*scaLeft_)[row_perm_[i]];
         }
       status = umfpack_di_solve (UmfpackRequest, &Ap_[0], 
                                      &Ai_[0], &Aval_[0], 
@@ -972,7 +978,7 @@ Teuchos::RCP<const Epetra_MultiVector> serialB = Teuchos::rcp(&B,false);
       // we now have x(col_perm) in x_buf
       for (int i=0;i<N;i++) 
         {
-        (*serialX)[j][col_perm_[i]] = x_buf[i] * (*scaRight_)[col_perm_[i]];
+        serialX_vec[col_perm_[i]] = x_buf[i] * (*scaRight_)[col_perm_[i]];
         }
       }
     }
