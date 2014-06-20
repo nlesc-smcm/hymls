@@ -5,6 +5,9 @@
 #include <cstdlib>
 #include <stack>
 
+#include <dlfcn.h>
+#include <stdlib.h>
+
 using namespace Teuchos;
 
 //overwrite printf to make e.g. SuperLU_DIST write to our streams
@@ -40,6 +43,19 @@ int Tools::timerCounter_=0;
 std::stack<std::string> Tools::functionStack_;
 std::streambuf* Tools::rdbuf_bak = std::cout.rdbuf();
 
+unsigned long long (*getMem2)() = NULL;
+
+unsigned long long get_memory_usage_()
+  {
+  static bool once = false;
+  if (!once)
+    {
+    Tools::out() << "To enable memory profiling you need to LD_PRELOAD the malloc_impl library\n";
+    once = true;
+    }
+  return 0;
+  }
+
 //////////////////////////////////////////////////////////////////
 // Timing functionality                                         //
 //////////////////////////////////////////////////////////////////
@@ -49,10 +65,10 @@ const char* Tools::Revision()
   return HYMLS_REVISION;
   }
 
-int getMem()
+long long getMem()
   { 
   FILE* file = fopen("/proc/self/status", "r");
-  int result = -1;
+  long long result = -1;
   char line[128];
 
   while (fgets(line, 128, file) != NULL)
@@ -185,9 +201,21 @@ Teuchos::ParameterList sortedList;
 void Tools::ReportTotalMemUsage(std::string const &label)
   {
 
+  if (!getMem2)
+    {
+    getMem2 = (unsigned long long (*)())dlsym(RTLD_DEFAULT, "get_memory_usage");
+    if (!getMem2)
+        getMem2 = get_memory_usage_;
+    }
+
   std::ostringstream ss;
   ss << label << " (total)";
   memList_.set(ss.str(), static_cast<double>(getMem()));
+
+  std::ostringstream ss2;
+  ss2 << label << " (total 2)";
+  memList_.set(ss2.str(), static_cast<double>(getMem2()));
+
   }
 
 void Tools::ReportMemUsage(std::string const &label, double bytes)
@@ -207,7 +235,7 @@ void Tools::PrintMemUsage(std::ostream& os)
     label = i->first;
     unit = "B";
     value=memList_.get(label,0.0);
-    if (label.find("(total)") == string::npos)
+    if (label.find("(total)") == string::npos && label.find("(total 2)") == string::npos)
       total += value;
     if (value > 1.0e3) {value*=1.0e-3; unit="kB";}
     if (value > 1.0e3) {value*=1.0e-3; unit="MB";}
