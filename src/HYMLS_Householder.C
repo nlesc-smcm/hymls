@@ -28,6 +28,7 @@ namespace HYMLS {
   //! compute X=Q*X in place
   int Householder::Apply(Epetra_SerialDenseMatrix& X) const
     {
+    START_TIMER2(label_, "Apply (1)");
     // X = (2vv'/v'v-I)Y
     // can be written as X = Z-Y, Z= (2/nrmv^2 v'Y)v
     // (we use a vector v which is 1 everywhere except that the first entry is 1+sqrt(n))
@@ -56,6 +57,7 @@ namespace HYMLS {
   //! compute X=X*Q' in place
   int Householder::ApplyR(Epetra_SerialDenseMatrix& X) const
     {
+    START_TIMER2(label_, "ApplyR (1)");
     int n=X.N();
     double sqn=sqrt((double)n);
     double v1=1+sqn; // first vector element, all others are 1
@@ -81,6 +83,7 @@ namespace HYMLS {
   //! compute X=Q*Y*Q' in place
   int Householder::ApplyLR(Epetra_SerialDenseMatrix& Y) const
     {
+    START_TIMER2(label_, "ApplyLR (1)");
     // let Y \in R^{m x n}
     // Q = (1-alpha*vv')=Q', alpha = 2/(v'*v)
     // Y = (I-alpha_m*vmvm') Y (1-alpha_n*vnvn')
@@ -137,34 +140,42 @@ namespace HYMLS {
   int Householder::Apply(Epetra_SerialDenseMatrix& X,
                    const Epetra_SerialDenseVector& v) const
     {
+    START_TIMER2(label_, "Apply (2)");
     // X = (2vv'/v'v-I)Y
     // can be written as X = Z-Y, Z= (2/nrmv^2 v'Y)v
-    int n=X.M();
+    const int n=X.M();
 #ifdef TESTING
     if (v.Length()!=n)
       {
       return -1;
       }
 #endif
-    double nrmv=v.Norm2();
-    double v1=v(0)+nrmv; // first vector element, all others are those in v
+    const double nrmv=v.Norm2();
+    const double v1=v(0)+nrmv; // first vector element, all others are those in v
     // this is 2/(v'v) with the adjusted v
-    double fac1 = 1.0/(nrmv*v1);
+    const double fac1 = 1.0/(nrmv*v1);
+#pragma omp parallel
+{
+    double *Xrow;
+    const double *vvalues = v.Values();
+#pragma omp for
     for (int k=0;k<X.N();k++)
       {
       // v'x
-      double fac2 = nrmv*X[k][0];
+      Xrow = X[k];
+      double fac2 = nrmv*Xrow[0];
       for (int i=0;i<n;i++)
         {
-        fac2+= X[k][i]*v(i);
+        fac2+= Xrow[i]*vvalues[i];
         }
-      double fac=fac1*fac2;
-      X[k][0]=v1*fac-X[k][0];
+      const double fac=fac1*fac2;
+      Xrow[0]=v1*fac-Xrow[0];
       for (int i=1;i<n;i++)
         {
-        X[k][i]=v(i)*fac-X[k][i];
+        Xrow[i]=vvalues[i]*fac-Xrow[i];
         }
       }
+}
     return 0;
     }
 
@@ -172,6 +183,7 @@ namespace HYMLS {
   int Householder::ApplyR(Epetra_SerialDenseMatrix& X,
                     const Epetra_SerialDenseVector& v) const
     {
+    START_TIMER2(label_, "ApplyR (2)");
     // X = (2vv'/v'v-I)Y
     // can be written as X = Z-X, Z= (2/nrmv^2 v'Y)v
     int n=X.N();
@@ -182,24 +194,30 @@ namespace HYMLS {
       }
 #endif
     // to zero out all but the first entry in v, use v
-    double nrmv=v.Norm2();
-    double v1=v(0)+nrmv; // first vector element, all others are those in v
-    double fac1 = 1.0/(nrmv*v1); // 2/v'v
+    const double nrmv=v.Norm2();
+    const double v1=v(0)+nrmv; // first vector element, all others are those in v
+    // this is 2/(v'v) with the adjusted v
+    const double fac1 = 1.0/(nrmv*v1);
+#pragma omp parallel
+{
+    const double *vvalues = v.Values();
+#pragma omp for
     for (int k=0;k<X.M();k++)
       {
       // v'x
       double fac2 = nrmv*X[0][k];
       for (int i=0;i<n;i++)
         {
-        fac2+= X[i][k]*v(i);
+        fac2+= X[i][k]*vvalues[i];
         }
-      double fac=fac1*fac2;
-      X[0][k]=v1*fac-X[0][k];
-      for (int i=1;i<n;i++) 
+      const double fac=fac1*fac2;
+      X[0][k] = v1*fac-X[0][k];
+      for (int i=1;i<n;i++)
         {
-        X[i][k]=fac*v(i)-X[i][k];
+        X[i][k] = vvalues[i]*fac-X[i][k];
         }
-      }    
+      }
+}
     return 0;
     }
 
@@ -213,6 +231,7 @@ namespace HYMLS {
   //! the size of the output matrix.
   int Householder::Construct(Epetra_SerialDenseMatrix& M) const
     {
+    START_TIMER2(label_, "Construct (1)");
     int n=M.N();
 #ifdef TESTING
     if (M.M()!=n)
@@ -248,6 +267,7 @@ namespace HYMLS {
   int Householder::Construct(Epetra_CrsMatrix& H, 
             const Epetra_IntSerialDenseVector& inds) const
     {
+    START_TIMER2(label_, "Construct (2)");
     int n=inds.Length();
     Epetra_SerialDenseVector vec(n);
     for (int i=0;i<n;i++) vec[i]=1.0;
@@ -258,6 +278,7 @@ namespace HYMLS {
             const Epetra_IntSerialDenseVector& inds,
             const Epetra_SerialDenseVector& vec) const
     {
+    START_TIMER2(label_, "Construct (3)");
     // vec is the test vector to be zeroed out by this transform,
     // construct the according v for the Householder reflection: 
     Epetra_SerialDenseVector v = vec;
