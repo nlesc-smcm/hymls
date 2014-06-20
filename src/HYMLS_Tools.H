@@ -441,6 +441,57 @@ class TimerObject
   Teuchos::RCP<Epetra_Time> T_;
   };
 
+
+//! this object catches excpetions to be thrown after a parallel region
+class ParallelExceptionCatcher
+  {
+  public: 
+  
+  //!
+  ParallelExceptionCatcher()
+  :
+    exceptions_(),
+    ifpack_errors_()
+    {
+    }
+    
+  bool CheckErrors()
+    {
+    return (!exceptions_.empty() || !ifpack_errors_.empty());
+    }
+    
+  void IfpackCheckErr(int i)
+    {
+    if (i < 0)
+      ifpack_errors_.push_back(i);
+    }
+
+  void Error(HYMLS::Exception &e)
+    {
+    exceptions_.push_back(e);
+    }
+    
+  void reset()
+  {
+    exceptions_.clear();
+    ifpack_errors_.clear();
+  }
+  
+  int HandleErrors()
+    {
+    for (Teuchos::Array<HYMLS::Exception>::iterator it = exceptions_.begin(); it != exceptions_.end(); ++it)
+      throw *it;
+    for (Teuchos::Array<int>::iterator it = ifpack_errors_.begin(); it != ifpack_errors_.end(); ++it)
+      IFPACK_CHK_ERR(*it);
+    return 0;
+    }
+  private:
+  //!
+  Teuchos::Array<HYMLS::Exception> exceptions_;
+  //!
+  Teuchos::Array<int> ifpack_errors_;
+  };
+
   }
 
 #endif
