@@ -135,7 +135,7 @@ namespace HYMLS {
 
   int SchurComplement::Construct(Teuchos::RCP<Epetra_FECrsMatrix> S) const
     {
-    START_TIMER2(label_,"Construct");
+    START_TIMER2(label_,"Construct FEC");
     Epetra_IntSerialDenseVector indices;
     Epetra_SerialDenseMatrix Sk;
     
@@ -201,6 +201,7 @@ namespace HYMLS {
 
   int SchurComplement::Construct(int sd, Epetra_IntSerialDenseVector& inds) const
     {
+    START_TIMER2(label_,"Construct ISDV");
     const OverlappingPartitioner& hid=mother_->Partitioner();
     
     if (sd<0 || sd>hid.NumMySubdomains())
@@ -240,6 +241,7 @@ namespace HYMLS {
                                         const Epetra_IntSerialDenseVector& inds,
                                         double* count_flops) const
     {
+    START_TIMER2(label_,"Construct SDM");
 #ifdef FLOPS_COUNT
     double flops=0;
 #endif    
@@ -294,46 +296,42 @@ namespace HYMLS {
       }
           
     A11.SetNumVectors(nrows);
-    
-    int len;
-    int *indices;
-    double *values;
-
 
     DEBVAR(sd);
     DEBVAR(inds);
     DEBVAR(nrows);
-            
+
+    int int_elems = hid.NumInteriorElements(sd);
+    int len[int_elems];
+    int *indices[int_elems];
+    double *values[int_elems];
     // loop over all rows in this subdomain
-    for (int i = 0;i<hid.NumInteriorElements(sd);i++)
+    for (int i = 0;i<int_elems;i++)
       {
-      // note: we ignore the solver's ID array here, as it
-      // contains local indices into the row map of the original
-      // matrix, not the subdomain block
-      int grid=A12.GRID(i);
-      
       // get a view of the matrix row (with all separator couplings)
-      CHECK_ZERO(A12.ExtractMyRowView(i,len,values,indices));
-      
-      int pos = 0; // position in multi-vector (rhs of subdomain solver)
-      
-      // now loop over all the separators around this subdomain
-      for (int grp=1;grp<hid.NumGroups(sd);grp++)
+      CHECK_ZERO(A12.ExtractMyRowView(i,len[i],values[i],indices[i]));
+      }
+
+    int pos = 0; // position in multi-vector (rhs of subdomain solver)
+
+    // now loop over all the separators around this subdomain
+    for (int grp=1;grp<hid.NumGroups(sd);grp++)
+      {
+      // loop over all elements of each separator group
+      for (int j=0; j<hid.NumElements(sd,grp);j++)
         {
-        // loop over all elements of each separator group
-        for (int j=0; j<hid.NumElements(sd,grp);j++)
+        int gcid=hid.GID(sd,grp,j);// global ID of separator node (sd,grp,j)
+        // loop over all rows in this subdomain
+        for (int i = 0;i<int_elems;i++)
           {
-          int gcid=hid.GID(sd,grp,j);// global ID of separator node (sd,grp,j)
           // loop over the matrix row and look for matching entries
-          for (int k = 0 ; k < len; k++)
+          for (int k = 0 ; k < len[i]; k++)
             {
-            if (gcid == A12.GCID(indices[k]))
-              {
-              A11.RHS(i,pos) = values[k];
-              }
+            if (gcid == A12.GCID(indices[i][k]))
+              A11.RHS(i, pos) = values[i][k];
             }
-          pos++;
           }
+        pos++;
         }
       }
     
@@ -472,4 +470,3 @@ int SchurComplement::Unscale(Teuchos::RCP<Epetra_Vector> sca_left, Teuchos::RCP<
   }
 
 }
-
