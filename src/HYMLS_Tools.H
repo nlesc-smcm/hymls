@@ -412,32 +412,19 @@ private:
 //! stops it when it is destroyed.
 class TimerObject
   {
-  public: 
+  public:
   
   //!
-  TimerObject(std::string const &s, bool print)
-    {
-#pragma omp critical (HYMLS_TimerObject)
-{
-    s_=s;
-    print_=print;
-    T_=Tools::StartTiming(s);
-}
-    }
+  TimerObject(std::string const &s, bool print);
   //!
-  ~TimerObject()
-    {
-#pragma omp critical (HYMLS_TimerObject)
-{
-    Tools::StopTiming(s_, print_, T_);
-}
-    }
+  ~TimerObject();
+
   private:
   //!
   std::string s_;
   //!
   bool print_;
-  
+  //!
   Teuchos::RCP<Epetra_Time> T_;
   };
 
@@ -445,8 +432,8 @@ class TimerObject
 //! this object catches excpetions to be thrown after a parallel region
 class ParallelExceptionCatcher
   {
-  public: 
-  
+  public:
+
   //!
   ParallelExceptionCatcher()
   :
@@ -454,37 +441,13 @@ class ParallelExceptionCatcher
     ifpack_errors_()
     {
     }
-    
-  bool CheckErrors()
-    {
-    return (!exceptions_.empty() || !ifpack_errors_.empty());
-    }
-    
-  void IfpackCheckErr(int i)
-    {
-    if (i < 0)
-      ifpack_errors_.push_back(i);
-    }
 
-  void Error(HYMLS::Exception &e)
-    {
-    exceptions_.push_back(e);
-    }
-    
-  void reset()
-  {
-    exceptions_.clear();
-    ifpack_errors_.clear();
-  }
-  
-  int HandleErrors()
-    {
-    for (Teuchos::Array<HYMLS::Exception>::iterator it = exceptions_.begin(); it != exceptions_.end(); ++it)
-      throw *it;
-    for (Teuchos::Array<int>::iterator it = ifpack_errors_.begin(); it != ifpack_errors_.end(); ++it)
-      IFPACK_CHK_ERR(*it);
-    return 0;
-    }
+  bool CheckErrors();
+  void IfpackCheckErr(int i);
+  void Error(HYMLS::Exception &e);
+  void reset();
+
+  int HandleErrors();
   private:
   //!
   Teuchos::Array<HYMLS::Exception> exceptions_;

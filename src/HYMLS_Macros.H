@@ -171,7 +171,7 @@ if (ierr<0) {std::cerr<<"Trilinos Error "<<ierr<<" returned from call "<<#funcal
 #endif
 
 #ifndef PEC_IFPACK_CHK_ERR
-#define PEC_IFPACK_CHK_ERR(x) PEC.IfpackCheckErr(x); if (PEC.CheckErrors()) continue;
+#define PEC_IFPACK_CHK_ERR(x) PEC.IfpackCheckErr(x); PEC_PROTECT
 //#define PEC_IFPACK_CHK_ERR(x) IFPACK_CHK_ERR(x)
 #endif
 
@@ -181,16 +181,16 @@ if (ierr<0) {std::cerr<<"Trilinos Error "<<ierr<<" returned from call "<<#funcal
 #endif
 
 #ifndef PEC_ERROR
-#define PEC_ERROR(x) PEC.Error(x); continue;
+#define PEC_ERROR(x___) PEC.Error(x___); PEC_PROTECT
 #endif
 
 #ifndef PEC_CATCH
-#define PEC_CATCH(x) try { x;} catch (HYMLS::Exception &e) {PEC.Error(e); continue;}
+#define PEC_CATCH(x___) try { x___;} catch (HYMLS::Exception &ex___) {PEC.Error(ex___);} PEC_PROTECT
 //#define PEC_CATCH(x) x
 #endif
 
 #ifndef PEC_CATCH2
-#define PEC_CATCH2(x) try { x;} catch (HYMLS::Exception &e) {PEC.Error(e);}
+#define PEC_CATCH2(x___) try { x___;} catch (HYMLS::Exception &ex___) {PEC.Error(ex___);}
 //#define PEC_CATCH2(x) x
 #endif
 
