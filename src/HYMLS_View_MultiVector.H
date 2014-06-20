@@ -4,6 +4,8 @@
 #include "Epetra_BlockMap.h"
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_Array.hpp"
+#include "HYMLS_Tools.H"
+#include "HYMLS_Macros.H"
 
 class Epetra_MultiVector;
 
@@ -35,6 +37,7 @@ class MultiVector_View
   : OrigMap_(orig_map),
     NewMap_(new_map)
   {
+      START_TIMER2("MultiVector_View", "Constructor");
   Offset_=0;
   while (OrigMap_.GID(Offset_)!=NewMap_.GID(0) && Offset_<OrigMap_.NumMyElements())
     {
