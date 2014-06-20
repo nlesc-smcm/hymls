@@ -1677,17 +1677,19 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
       }
     }
 
+#pragma omp parallel
+{
   int len;
   int *indices;
   double *values;
   
   int new_len;
-  int *new_indices = new int[A->MaxNumEntries()];
-  double *new_values = new double[A->MaxNumEntries()];
+  int new_indices[A->MaxNumEntries()];
+  double new_values[A->MaxNumEntries()];
 
   double scal=1.0;
   double scal_i=1.0;
-
+#pragma omp for schedule(static)
   for (int i=0;i<A->NumMyRows();i++)
     {
     CHECK_ZERO(A->ExtractMyRowView(i,len,values,indices));
@@ -1775,9 +1777,7 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
 #endif
     CHECK_ZERO(mat->InsertGlobalValues(A->GRID(i),new_len,new_values,new_indices));
     }
-
-  delete [] new_indices;
-  delete [] new_values;
+}
 
   DEBUG("calling FillComplete()");
   CHECK_ZERO(mat->FillComplete());
