@@ -62,10 +62,10 @@ ${LIBNAME}: ${OBJ}
 	ar vrcs ${LIBNAME} ${OBJ}
 
 %.o: %.C %.H
-	${CXX} ${CXX_FLAGS} -c $< ${INCLUDES} 
+	${CXX} ${CXX_FLAGS} -c $< ${INCLUDES} -o $@
 
 %.o: %.cpp %.h
-	${CXX} ${CXX_FLAGS} -c $< ${INCLUDES} 
+	${CXX} ${CXX_FLAGS} -c $< ${INCLUDES} -o $@
 
 clean:
 	-rm *.o ${LIBNAME} main main_direct
