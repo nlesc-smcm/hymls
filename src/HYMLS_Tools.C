@@ -2,6 +2,7 @@
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_RCP.hpp"
 
+#include <cstdlib>
 #include <stack>
 
 using namespace Teuchos;
@@ -46,6 +47,28 @@ std::streambuf* Tools::rdbuf_bak = std::cout.rdbuf();
 const char* Tools::Revision()
   {
   return HYMLS_REVISION;
+  }
+
+int getMem()
+  { 
+  FILE* file = fopen("/proc/self/status", "r");
+  int result = -1;
+  char line[128];
+
+  while (fgets(line, 128, file) != NULL)
+    {
+    if (strncmp(line, "VmRSS:", 6) == 0)
+      {
+      char *line_ptr = line;
+      result = strlen(line_ptr);
+      while (*line_ptr < '0' || *line_ptr > '9') line_ptr++;
+      line_ptr[result-3] = '\0';
+      result = atoi(line_ptr);
+      break;
+      }
+    }
+  fclose(file);
+  return result * 1024;
   }
 
 RCP<Epetra_Time> Tools::StartTiming(std::string const &fname)
@@ -159,11 +182,20 @@ Teuchos::ParameterList sortedList;
   os << "=========================================================================================="<<std::endl;
   }
 
-void Tools::ReportMemUsage(std::string label, double bytes)
+void Tools::ReportTotalMemUsage(std::string const &label)
+  {
+
+  std::ostringstream ss;
+  ss << label << " (total)";
+  memList_.set(ss.str(), static_cast<double>(getMem()));
+  }
+
+void Tools::ReportMemUsage(std::string const &label, double bytes)
   {
   memList_.set(label,bytes);
+  ReportTotalMemUsage(label);
   }
-  
+
 void Tools::PrintMemUsage(std::ostream& os)
   {
   os << "=================================== MEMORY USAGE ==================================="<<std::endl;
@@ -175,7 +207,8 @@ void Tools::PrintMemUsage(std::ostream& os)
     label = i->first;
     unit = "B";
     value=memList_.get(label,0.0);
-    total += value;
+    if (label.find("(total)") == string::npos)
+      total += value;
     if (value > 1.0e3) {value*=1.0e-3; unit="kB";}
     if (value > 1.0e3) {value*=1.0e-3; unit="MB";}
     if (value > 1.0e3) {value*=1.0e-3; unit="GB";}

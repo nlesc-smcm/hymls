@@ -320,7 +320,9 @@ static void SignalHandler(int signum)
   //! label is passed in again, the entry is overwritten 
   //! (it is assumed that the memory has been freed in   
   //! the mean time). 
-  static void ReportMemUsage(std::string label, double bytes);
+  static void ReportMemUsage(std::string const &label, double bytes);
+  
+  static void ReportTotalMemUsage(std::string const &label);
   
   //! report memory usage
   static void PrintMemUsage(std::ostream& os);
@@ -415,14 +417,20 @@ class TimerObject
   //!
   TimerObject(std::string const &s, bool print)
     {
+#pragma omp critical (HYMLS_TimerObject)
+{
     s_=s;
     print_=print;
     T_=Tools::StartTiming(s);
+}
     }
   //!
   ~TimerObject()
     {
+#pragma omp critical (HYMLS_TimerObject)
+{
     Tools::StopTiming(s_, print_, T_);
+}
     }
   private:
   //!
@@ -432,7 +440,6 @@ class TimerObject
   
   Teuchos::RCP<Epetra_Time> T_;
   };
-
 
   }
 
