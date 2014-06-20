@@ -854,7 +854,7 @@ int SparseDirectSolver::KluSolve(const Epetra_MultiVector& B, Epetra_MultiVector
   Teuchos::RCP<Epetra_MultiVector> serialX = Teuchos::rcp(&X,false);
   Teuchos::RCP<const Epetra_MultiVector> serialB = Teuchos::rcp(&B,false);
 
-  double xbuf[NumVectors * N];
+  double *xbuf = new double[NumVectors * N];
 
   const Teuchos::RCP<Epetra_Vector>& sca_l =
         UseTranspose_? scaRight_: scaLeft_;
@@ -905,6 +905,8 @@ int SparseDirectSolver::KluSolve(const Epetra_MultiVector& B, Epetra_MultiVector
       }
     status = klu_->Common_->status;
     }
+
+  delete[] xbuf;
 
   if (serialX.get()!=&X) return -99; //not implemented
   return status;
@@ -1009,8 +1011,8 @@ int SparseDirectSolver::UmfpackSolve(const Epetra_MultiVector& B, Epetra_MultiVe
   int N = serialX->MyLength();
   int NumVectors = X.NumVectors();
 
-  double xbuf[N];
-  double bbuf[N];
+  double *xbuf = new double[N];
+  double *bbuf = new double[N];
 
   int UmfpackRequest = UseTranspose()?UMFPACK_A:UMFPACK_At;
 
@@ -1045,6 +1047,9 @@ int SparseDirectSolver::UmfpackSolve(const Epetra_MultiVector& B, Epetra_MultiVe
         }
       }
     }
+
+  delete[] xbuf;
+  delete[] bbuf;
 
   if (serialX.get()!=&X) return -99; //not implemented
   return 0;
@@ -1147,8 +1152,8 @@ int SparseDirectSolver::PardisoSolve(const Epetra_MultiVector& B, Epetra_MultiVe
   Teuchos::RCP<Epetra_MultiVector> serialX = Teuchos::rcp(&X,false);
   Teuchos::RCP<const Epetra_MultiVector> serialB = Teuchos::rcp(&B,false);
 
-  double xbuf[NumVectors * N];
-  double bbuf[NumVectors * N];
+  double *xbuf = new double[NumVectors * N];
+  double *bbuf = new double[NumVectors * N];
 
   const Teuchos::RCP<Epetra_Vector>& sca_l =
         UseTranspose_? scaRight_: scaLeft_;
@@ -1207,6 +1212,9 @@ int SparseDirectSolver::PardisoSolve(const Epetra_MultiVector& B, Epetra_MultiVe
         }
       }
     }
+
+  delete[] xbuf;
+  delete[] bbuf;
 
   if (serialX.get()!=&X) return -99; //not implemented
   return error;
