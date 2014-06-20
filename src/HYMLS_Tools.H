@@ -7,6 +7,7 @@
 #include <signal.h>
 
 #include "Epetra_Comm.h"
+#include "Epetra_Time.h"
 #include <iostream>
 #include "Teuchos_RCP.hpp"
 #include "EpetraExt_RowMatrixOut.h"
@@ -16,6 +17,7 @@
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_stacktrace.hpp"
 
+#include "Ifpack_ConfigDefs.h"
 
 #include "HYMLS_Macros.H"
 #include "HYMLS_Exception.H"
@@ -290,10 +292,10 @@ static void SignalHandler(int signum)
   //! and number of calls for each std::string you put  
   //! in. The std::string must be the same when you call
   // StopTiming, of course.                        
-  static void StartTiming(std::string label);
-
+  static Teuchos::RCP<Epetra_Time> StartTiming(std::string const &label);
+  
   //! stop timing specific part of the code
-  static void StopTiming(std::string label,bool print=false);
+  static void StopTiming(std::string const &fname, bool print=false, Teuchos::RCP<Epetra_Time> T=Teuchos::null);
 
 #ifdef DEBUGGING
   //! set breakpoint (does nothing if DEBUGGING is not defined)
@@ -411,25 +413,27 @@ class TimerObject
   public: 
   
   //!
-  TimerObject(std::string s, bool print)
+  TimerObject(std::string const &s, bool print)
     {
     s_=s;
     print_=print;
-    Tools::StartTiming(s_);
+    T_=Tools::StartTiming(s);
     }
   //!
   ~TimerObject()
     {
-    Tools::StopTiming(s_,print_);
+    Tools::StopTiming(s_, print_, T_);
     }
   private:
   //!
   std::string s_;
   //!
   bool print_;
+  
+  Teuchos::RCP<Epetra_Time> T_;
   };
 
-  
+
   }
 
 #endif

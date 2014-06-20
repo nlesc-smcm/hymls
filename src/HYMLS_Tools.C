@@ -1,5 +1,4 @@
 #include "HYMLS_Tools.H"
-#include "Epetra_Time.h"
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_RCP.hpp"
 
@@ -49,8 +48,11 @@ const char* Tools::Revision()
   return HYMLS_REVISION;
   }
 
-void Tools::StartTiming(std::string fname)
+RCP<Epetra_Time> Tools::StartTiming(std::string const &fname)
   {
+  RCP<Epetra_Time> T=null;
+#pragma omp critical (HYMLS_Timing)
+{
 #ifdef FUNCTION_TRACING
   traceLevel_++;
   functionStack_.push(fname);
@@ -70,7 +72,7 @@ void Tools::StartTiming(std::string fname)
 #endif
   if (InitializedIO())
     {
-    RCP<Epetra_Time> T=rcp(new Epetra_Time(*comm_));
+    T=rcp(new Epetra_Time(*comm_));
     if (timerList_.sublist("timer id").isParameter(fname)==false)
       {
       timerCounter_++;
@@ -78,12 +80,15 @@ void Tools::StartTiming(std::string fname)
       }  
     timerList_.sublist("timers").set(fname,T);
     }
+}
+    return T;
   }
 
 
-void Tools::StopTiming(std::string fname,bool print)
+void Tools::StopTiming(std::string const &fname, bool print, RCP<Epetra_Time> T)
   {
-
+#pragma omp critical (HYMLS_Timing)
+{
 #ifdef FUNCTION_TRACING
   // when an exception or other error is encountered,
   // the function printFunctionStack() may be called,
@@ -97,10 +102,11 @@ void Tools::StopTiming(std::string fname,bool print)
 #endif
     }
   traceLevel_--;
-#endif    
-  
-  RCP<Epetra_Time> T = null;
-  T=timerList_.sublist("timers").get(fname,T);
+#endif
+  if (T == null)
+    {
+    T=timerList_.sublist("timers").get(fname,T);
+    }
   double elapsed=0;
   if (T!=null)
     {
@@ -109,12 +115,13 @@ void Tools::StopTiming(std::string fname,bool print)
     double total_time=timerList_.sublist("total time").get(fname,0.0);
     timerList_.sublist("number of calls").set(fname,ncalls+1);
     timerList_.sublist("total time").set(fname,total_time+elapsed);
-  
+
     if (print)
       {
       out() << "### timing: "<<fname<<" "<<elapsed<<std::endl;
       }
     }
+}
   }
 
 void Tools::PrintTiming(std::ostream& os)
