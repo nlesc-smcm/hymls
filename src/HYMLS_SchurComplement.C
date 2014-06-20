@@ -246,8 +246,10 @@ namespace HYMLS {
     double flops=0;
 #endif    
     const OverlappingPartitioner& hid=mother_->Partitioner();
-    const Epetra_CrsMatrix& A12 = mother_->A12(sd);
-    const Epetra_CrsMatrix& A21 = mother_->A21(sd);
+    Teuchos::RCP<const Epetra_CrsMatrix> _A12 = mother_->A12(sd);
+    Teuchos::RCP<const Epetra_CrsMatrix> _A21 = mother_->A21(sd);
+    const Epetra_CrsMatrix& A12 = *_A12;
+    const Epetra_CrsMatrix& A21 = *_A21;
     const Epetra_CrsMatrix& A22 = mother_->A22();
     Ifpack_Container& _A11 = mother_->SolverA11(sd);
     Ifpack_SparseContainer<SparseDirectSolver> *sparseA11

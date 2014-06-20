@@ -358,8 +358,10 @@ HYMLS_TEST(Label(),isDDcorrect(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix
     localMap1_.resize(num_sd);
     localMap2_.resize(num_sd);
 
+#ifdef BLOCK_IMPLEMENTATION
     localA12_.resize(num_sd);
     localA21_.resize(num_sd);
+#endif
 
     subdomainSolver_.resize(num_sd);
 
@@ -449,7 +451,7 @@ HYMLS_TEST(Label(),isDDcorrect(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix
     localMap2_[sd] = hid_->SpawnMap(sd,HierarchicalMap::Separators);
     DEBVAR(*localMap2_[sd]);
     }
-            
+
   int MaxNumEntriesPerRow=matrix_->MaxNumEntries();
 
   Teuchos::RCP<const Epetra_CrsMatrix> Acrs = Teuchos::null;
@@ -503,6 +505,8 @@ try {
     // extract matrix parts per subdomain. This should
     // all be local copy operations.
     double nzCopy=0;
+
+#ifdef BLOCK_IMPLEMENTATION
 #pragma omp parallel for schedule(static) reduction(+:nzCopy)
     for (int sd=0;sd<hid_->NumMySubdomains();sd++)
       {
@@ -521,6 +525,7 @@ try {
       nzCopy += (double)(localA12_[sd]->NumMyNonzeros());
       nzCopy += (double)(localA21_[sd]->NumMyNonzeros());
       }
+#endif
 
 //TODO: we presently construct both local blocks and global blocks.
 //      For the preconditioner, local blocks are useful. For i.e. 
@@ -698,6 +703,7 @@ int Preconditioner::InitializeCompute()
     MatrixUtils::Dump(*Acrs,"originalMatrix"+Teuchos::toString(myLevel_)+".txt");
 #endif    
 
+#ifdef BLOCK_IMPLEMENTATION
 #pragma omp parallel for schedule(static)
   for (int sd=0;sd<hid_->NumMySubdomains();sd++)
     {
@@ -707,6 +713,7 @@ int Preconditioner::InitializeCompute()
     CHECK_ZERO(MatrixUtils::ExtractLocalBlock(*reorderedMatrix_,*localA12_[sd]));
     CHECK_ZERO(MatrixUtils::ExtractLocalBlock(*reorderedMatrix_,*localA21_[sd]));
     }
+#endif
     
   CHECK_ZERO(A12_->PutScalar(0.0));
   CHECK_ZERO(A21_->PutScalar(0.0));
@@ -1333,6 +1340,7 @@ int Preconditioner::ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVe
 
     HYMLS::MultiVector_View separators(X.Map(),*map2_);
 #ifdef BLOCK_IMPLEMENTATION
+//this seems to be really slow
     int lflops = 0;
 //#pragma omp parallel for schedule(static) reduction(+:lflops)
     for (int sd=0;sd<hid_->NumMySubdomains();sd++)
@@ -1505,6 +1513,39 @@ int Preconditioner::ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVe
     return 0;
     }
 
+Teuchos::RCP<const Epetra_CrsMatrix> Preconditioner::A12(int sd) const
+  {
+#ifdef BLOCK_IMPLEMENTATION
+  return localA12_[sd];
+#else
+  Teuchos::RCP<Epetra_CrsMatrix> localA12 = Teuchos::rcp(new
+          Epetra_CrsMatrix(Copy, *localMap1_[sd], *localMap2_[sd], matrix_->MaxNumEntries()));
+
+  CHECK_ZERO(localA12->PutScalar(0.0));
+  CHECK_ZERO(MatrixUtils::ExtractLocalBlock(*reorderedMatrix_,*localA12));
+
+  CHECK_ZERO(localA12->FillComplete(*localMap2_[sd],*localMap1_[sd]));
+
+  return localA12;
+#endif
+  }
+
+Teuchos::RCP<const Epetra_CrsMatrix> Preconditioner::A21(int sd) const
+  {
+#ifdef BLOCK_IMPLEMENTATION
+  return localA21_[sd];
+#else
+  Teuchos::RCP<Epetra_CrsMatrix> localA21 = Teuchos::rcp(new
+          Epetra_CrsMatrix(Copy, *localMap2_[sd], *localMap1_[sd], matrix_->MaxNumEntries()));
+
+  CHECK_ZERO(localA21->PutScalar(0.0));
+  CHECK_ZERO(MatrixUtils::ExtractLocalBlock(*reorderedMatrix_,*localA21));
+
+  CHECK_ZERO(localA21->FillComplete(*localMap1_[sd],*localMap2_[sd]));
+
+  return localA21;
+#endif
+  }
 
 int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& list)
   {

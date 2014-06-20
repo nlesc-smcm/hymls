@@ -301,6 +301,7 @@ protected:
   //! The range and domain of these operators are the rowMap_.
   Teuchos::RCP<Epetra_CrsMatrix> A12_, A21_, A22_;
 
+#ifdef BLOCK_IMPLEMENTATION
   //! A12-parts of matrix in separate blocks. The row maps of 
   //! these operators are disjunct, so (A12*x2)_i = A12_i x2
   Teuchos::Array<Teuchos::RCP<Epetra_CrsMatrix> > localA12_;
@@ -311,6 +312,7 @@ protected:
   // map so values shared by several procs are reproduced on 
   // all partitions owning the separator node.
   Teuchos::Array<Teuchos::RCP<Epetra_CrsMatrix> > localA21_;
+#endif
 
   //! map with _all_ interior elements
   Teuchos::RCP<const Epetra_Map> map1_;
@@ -502,10 +504,10 @@ protected:
   Ifpack_Container& SolverA11(int sd) const {return *subdomainSolver_[sd];}
   
   //! get a submatrix A12
-  const Epetra_CrsMatrix& A12(int sd) const {return *localA12_[sd];}
+  Teuchos::RCP<const Epetra_CrsMatrix> A12(int sd) const;
 
   //! get a submatrix A21
-  const Epetra_CrsMatrix& A21(int sd) const {return *localA21_[sd];}
+  Teuchos::RCP<const Epetra_CrsMatrix> A21(int sd) const;
 
   //! get entire matrix A21
   const Epetra_CrsMatrix& A21() const {return *A21_;}
