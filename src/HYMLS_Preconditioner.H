@@ -284,6 +284,10 @@ protected:
   
   //! string to indicate wether we use a dense or sparse solver for the subdomains
   std::string sdSolverType_;
+  
+  //! string to indicate wether we use a dense, sparse, or parallel sparse solver
+  //! for the subdomains at the last level
+  std::string sdLastSolverType_;
 
   //! we use Ifpack conainers for solving the subdomain problems
   Teuchos::Array<Teuchos::RCP<SolverContainer> > subdomainSolver_;

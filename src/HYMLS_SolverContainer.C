@@ -9,22 +9,16 @@
 #include "HYMLS_OverlappingPartitioner.H"
 
 #include "HYMLS_SparseDirectSolver.H"
+#include "HYMLS_ParallelSparseDirectSolver.H"
 
 #include "Epetra_Map.h"
 #include "Epetra_RowMatrix.h"
+#include "Epetra_MultiVector.h"
+#include "Epetra_IntSerialDenseVector.h"
 
-#include "Ifpack_SparseContainer.h"
-#include "Ifpack_DenseContainer.h"
 #include "Ifpack_Amesos.h"
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_ParameterList.hpp"
-
-#include "Ifpack_Partitioner.h"
-#include "Ifpack_GreedyPartitioner.h"
-#include "Ifpack_LinearPartitioner.h"
-#include "Ifpack_METISPartitioner.h"
-#include "Ifpack_Graph.h"
-#include "Ifpack_Graph_Epetra_RowMatrix.h"
 
 #include "Teuchos_StandardCatchMacros.hpp"
 #include <omp.h>
@@ -43,6 +37,9 @@ namespace HYMLS {
         break;
       case SPARSE:
         Container_ = Teuchos::rcp(new Ifpack_SparseContainer<SparseDirectSolver>(NumRows, NumVectors));
+        break;
+      case PARALLEL:
+        Container_ = Teuchos::rcp(new Ifpack_SparseContainer<ParallelSparseDirectSolver>(NumRows, NumVectors));
         break;
       default:
         Tools::Error("Solver type not supported", __FILE__, __LINE__);
@@ -77,6 +74,8 @@ namespace HYMLS {
         Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(NumRows(), 0, *comm));
         return Teuchos::rcp(new Epetra_MultiVector(Copy, *map, denseLhs.A(), denseLhs.LDA(), denseLhs.N()));
         }
+      case PARALLEL:
+        return SparseContainer2()->LHS();
       default: // SPARSE
         return SparseContainer()->LHS();
       }
@@ -101,6 +100,8 @@ namespace HYMLS {
         Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(NumRows(), 0, *comm));
         return Teuchos::rcp(new Epetra_MultiVector(Copy, *map, denseRhs.A(), denseRhs.LDA(), denseRhs.N()));
         }
+      case PARALLEL:
+        return SparseContainer2()->RHS();
       default: // SPARSE
         return SparseContainer()->RHS();
       }
@@ -116,6 +117,8 @@ namespace HYMLS {
       {
       case DENSE:
         return DenseContainer()->ID();
+      case PARALLEL:
+        return SparseContainer2()->ID();
       default: // SPARSE
         return SparseContainer()->ID();
       }
@@ -159,6 +162,8 @@ namespace HYMLS {
       {
       case DENSE:
         return NumRows() * NumRows() * 2;
+      case PARALLEL:
+        return 0;
       default: // SPARSE
         {
         int nnz = 0;
@@ -170,7 +175,7 @@ namespace HYMLS {
       }
     }
 
-  //! return the SparseContainer if the solver is a sparse one, otherwise null
+  //! return the DenseContainer if the solver is a sparse one, otherwise null
   Teuchos::RCP<Ifpack_DenseContainer> SolverContainer::DenseContainer() const
   {
     if (SolverType_ != DENSE)
@@ -179,13 +184,22 @@ namespace HYMLS {
     return Teuchos::rcp_dynamic_cast<Ifpack_DenseContainer>(Container_);
   }
 
-  //! return the DenseContainer if the solver is a dense one, otherwise null
+  //! return the SparseContainer if the solver is a dense one, otherwise null
   Teuchos::RCP<Ifpack_SparseContainer<SparseDirectSolver> > SolverContainer::SparseContainer() const
   {
     if (SolverType_ != SPARSE)
       return Teuchos::null;
 
     return Teuchos::rcp_dynamic_cast<Ifpack_SparseContainer<SparseDirectSolver> >(Container_);
+  }
+
+  //! return the SparseContainer if the solver is a dense one, otherwise null
+  Teuchos::RCP<Ifpack_SparseContainer<ParallelSparseDirectSolver> > SolverContainer::SparseContainer2() const
+  {
+    if (SolverType_ != PARALLEL)
+      return Teuchos::null;
+
+    return Teuchos::rcp_dynamic_cast<Ifpack_SparseContainer<ParallelSparseDirectSolver> >(Container_);
   }
 
 }//namespace

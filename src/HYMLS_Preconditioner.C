@@ -136,6 +136,8 @@ namespace HYMLS {
 
     sdSolverType_=PL().get("Subdomain Solver Type","Sparse");
 
+    sdLastSolverType_=PL().get("Last Level Subdomain Solver Type",sdSolverType_);
+
     // the entire "Problem" list used by the overlapping partiitioner
     // is fairly complex, but we implement a set of default cases like
     // "Laplace", "Stokes-C" etc to make it easier for the user.
@@ -289,10 +291,17 @@ namespace HYMLS {
         sparseDenseValidator = Teuchos::rcp(
                 new Teuchos::StringToIntegralParameterEntryValidator<int>(
                         Teuchos::tuple<std::string>( "Sparse","Dense"),"Subdomain Solver Type"));
-    
 
     VPL().set("Subdomain Solver Type","Sparse",
         "Sparse or dense subdomain solver?", sparseDenseValidator);
+
+    Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
+        lastSparseDenseValidator = Teuchos::rcp(
+                new Teuchos::StringToIntegralParameterEntryValidator<int>(
+                        Teuchos::tuple<std::string>( "Sparse","Dense", "Parallel"),"Last Level Subdomain Solver Type"));
+
+    VPL().set("Last Level Subdomain Solver Type","Sparse",
+        "Sparse or dense subdomain solver?", lastSparseDenseValidator);
       
     // this typically doesn't need parameters, it's just lapack on small dense
     // matrices.
@@ -558,14 +567,14 @@ MatrixUtils::Dump(*A12_, "Precond"+Teuchos::toString(myLevel_)+"_A12.txt");
 MatrixUtils::Dump(*A21_, "Precond"+Teuchos::toString(myLevel_)+"_A21.txt");
 MatrixUtils::Dump(*A22_, "Precond"+Teuchos::toString(myLevel_)+"_A22.txt");
 #endif
-      
+
   DEBUG("initialize subdomain solvers...");
-    
+
   Teuchos::ParameterList sd_list = PL().sublist("Sparse Solver");
-  
+
   PEC_INIT;
 #pragma omp parallel for schedule(static)
-  for (int sd=0;sd<hid_->NumMySubdomains();sd++)
+  for (int sd=0;sd<num_sd;sd++)
     {
 #pragma omp flush(PEC)
     PEC_PROTECT;
@@ -574,6 +583,10 @@ MatrixUtils::Dump(*A22_, "Precond"+Teuchos::toString(myLevel_)+"_A22.txt");
     if (sdSolverType_=="Dense" || (num_sd == 1 && sdLastSolverType_=="Dense"))
       {
       subdomainSolver_[sd] = Teuchos::rcp(new SolverContainer(SolverContainer::DENSE, nrows));
+      }
+    else if (num_sd == 1 && sdLastSolverType_=="Parallel")
+      {
+      subdomainSolver_[sd] = Teuchos::rcp(new SolverContainer(SolverContainer::PARALLEL, nrows));
       }
     else if (sdSolverType_=="Sparse")
       {

@@ -2,29 +2,25 @@
 #define HYMLS_SOLVERCONTAINER_H
 
 #include "Teuchos_RCP.hpp"
-#include "Teuchos_Array.hpp"
+#include "Teuchos_ParameterList.hpp"
 
-#include "Ifpack_Preconditioner.h"
+// Ifpack_ConfigDefs needed for Ifpack_Container apparently
+#include "Ifpack_ConfigDefs.h"
 #include "Ifpack_Container.h"
 
-#include "HYMLS_OverlappingPartitioner.H"
+#include "Ifpack_SparseContainer.h"
+#include "Ifpack_DenseContainer.h"
 
 // forward declarations
 class Epetra_Map;
 class Epetra_RowMatrix;
-class Ifpack_DenseContainer;
-
-template<typename T>
-class Ifpack_SparseContainer;
-
-namespace Teuchos 
-  {
-  class ParameterList;
-  }
+class Epetra_MultiVector;
+class Epetra_IntSerialDenseVector;
 
 namespace HYMLS {
 
 class SparseDirectSolver;
+class ParallelSparseDirectSolver;
 
 //! main solver class in HYMLS
 
@@ -35,7 +31,7 @@ class SolverContainer
   {
 
 public:
-  typedef enum {SPARSE, DENSE} Type;
+  typedef enum {SPARSE, DENSE, PARALLEL} Type;
 
   SolverContainer(Type SolverType, const int NumRows, const int NumVectors = 1);
 
@@ -208,11 +204,14 @@ public:
   //! return number of nonzeros in original matrix and the factorization
   int NumGlobalNonzeros() const;
 
-  //! return the SparseContainer if the solver is a sparse one, otherwise null
+  //! return the DenseContainer if the solver is a sparse one, otherwise null
   Teuchos::RCP<Ifpack_DenseContainer> DenseContainer() const;
 
-  //! return the DenseContainer if the solver is a dense one, otherwise null
+  //! return the SparseContainer if the solver is a dense one, otherwise null
   Teuchos::RCP<Ifpack_SparseContainer<SparseDirectSolver> > SparseContainer() const;
+
+  //! return the SparseContainer if the solver is a dense one, otherwise null
+  Teuchos::RCP<Ifpack_SparseContainer<ParallelSparseDirectSolver> > SparseContainer2() const;
 
 protected:
 
