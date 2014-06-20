@@ -55,7 +55,7 @@ class SparseDirectSolver : public Ifpack_Preconditioner
       
 public:
 
-  typedef enum {KLU,UMFPACK,CHOLMOD} SolverType;
+  typedef enum {KLU,UMFPACK,CHOLMOD,PARDISO} SolverType;
 
   //! \name Constructors/Destructors.
   //!@{
@@ -443,15 +443,21 @@ private:
     //! Umfpack output
     Teuchos::Array<double> umf_Info_;
     
+    mutable int *pardiso_pt_[64];
+    mutable int pardiso_iparam_[64];
+    mutable int pardiso_mtype_;
+    mutable Teuchos::Array<int> pardiso_perm_;
+    bool pardiso_initialized_;
+    
     //! KLU objects wrapped up so we don't need to include the header
     KluWrapper *klu_;
     
     //! row and column permutations
     Teuchos::Array<int> row_perm_, col_perm_;
     //!  Ap, Ai, Aval form the compressed row storage used by Umfpack
-    Teuchos::Array<int> Ap_;
-    Teuchos::Array<int> Ai_;
-    Teuchos::Array<double> Aval_;
+    mutable Teuchos::Array<int> Ap_;
+    mutable Teuchos::Array<int> Ai_;
+    mutable Teuchos::Array<double> Aval_;
     //@}
 
 private:  
@@ -499,6 +505,17 @@ private:
 
   /*! perform solve using KLU */
   int KluSolve(const Epetra_MultiVector& B, Epetra_MultiVector& X) const;
+
+  /*! symbolic factorization using Pardiso
+  */      
+  int PardisoSymbolic();
+
+  /*! numeric factorization using Pardiso
+  */
+  int PardisoNumeric();
+
+  /*! perform solve using Pardiso */
+  int PardisoSolve(const Epetra_MultiVector& B, Epetra_MultiVector& X) const;
 
 };
 }//namespace HYMLS

@@ -21,6 +21,9 @@
 
 
 extern "C" {
+#ifdef HAVE_PARDISO
+#include "mkl_pardiso.h"
+#endif
 #ifdef HAVE_SUITESPARSE
 #include "umfpack.h"
 #include "klu.h"
@@ -64,6 +67,10 @@ int my_printf(const char* fmt, ...)
 #define DO_KLU(function) amesos_klu_ ## function
 #endif
 
+#ifdef HAVE_PARDISO
+#define iparam(x) pardiso_iparam_[x-1]
+#endif
+
 namespace HYMLS {
 
 //==============================================================================
@@ -86,7 +93,8 @@ SparseDirectSolver::SparseDirectSolver(Epetra_RowMatrix* Matrix_in) :
   serialMatrix_(Teuchos::null),
   serialImport_(Teuchos::null),
   ownOrdering_(false), ownScaling_(false),
-  method_(KLU)
+  method_(KLU),
+  pardiso_initialized_(false)
 {
 START_TIMER3(label_,"Constructor");
 
@@ -134,7 +142,8 @@ SparseDirectSolver::SparseDirectSolver(const SparseDirectSolver& rhs) :
   ApplyInverseTime_(rhs.ApplyInverseTime()),
   ComputeFlops_(rhs.ComputeFlops()),
   ApplyInverseFlops_(rhs.ApplyInverseFlops()),
-  Condest_(rhs.Condest())
+  Condest_(rhs.Condest()),
+  pardiso_initialized_(false)
 {
 Tools::Error("not implemented!",__FILE__,__LINE__);
 }
@@ -173,6 +182,26 @@ SparseDirectSolver::~SparseDirectSolver()
     umf_Control_.resize(0);
     }
 #endif
+#ifdef HAVE_PARDISO
+  else if (method_==PARDISO)
+    {
+    if (pardiso_initialized_)
+      {
+      int N = serialMatrix_->NumGlobalRows();
+      int NumVectors = 1;
+      int maxfct = 1; // Max number of factors in memory
+      int mnum = 1; // Maxtrix number
+      int phase = -1; // Release internal memory
+      int msglvl = 0; // No output
+      int error = 0;
+      double ddum; // Dummy variable
+
+      pardiso(pardiso_pt_, &maxfct, &mnum, &pardiso_mtype_, &phase,
+              &N, &Aval_[0], &Ap_[0], &Ai_[0], &pardiso_perm_[0], &NumVectors,
+              pardiso_iparam_, &msglvl, &ddum, &ddum, &error);
+      }
+    }
+#endif
   else
     {
     Tools::Warning("destructor not implemented",__FILE__,__LINE__);
@@ -187,6 +216,7 @@ START_TIMER3(label_,"SetParameters");
   List_ = List_in;
   std::string choice = List_.get("amesos: solver type", "KLU");
   choice = Teuchos::StrUtils::allCaps(choice);
+  //~ std::cerr << "choice: " << choice << std::endl;
   method_=KLU; // default - always available.
   std::string label2="KLU";
 #ifdef HAVE_SUITESPARSE
@@ -196,7 +226,15 @@ START_TIMER3(label_,"SetParameters");
     label2="Umfpack";
     }
   else
-#endif    
+#endif
+#ifdef HAVE_PARDISO
+  if (choice=="PARDISO"||choice=="MKL_PARDISO"||choice=="MKL PARDISO")
+    {
+    method_=PARDISO;
+    label2="MKL ParDiSo";
+    }
+  else
+#endif
   if ((choice!="AMESOS_KLU" && choice!="KLU"))
     {
     if (firstTime)
@@ -225,6 +263,20 @@ else if (method_==UMFPACK)
   umf_Control_[UMFPACK_PRL]=prl;
   }
 #endif
+#ifdef HAVE_PARDISO
+  if (method_==PARDISO)
+    {
+    // Init pt_ for the first call to PARDISO
+    for (int i = 0; i < 64; i++)
+      {
+      pardiso_pt_[i] = 0;
+      }
+    // Real unsymmetric by default here
+    pardiso_mtype_ = 11;
+    pardisoinit(pardiso_pt_, &pardiso_mtype_, pardiso_iparam_);
+    iparam(35) = 1; // zero based indexing
+    }
+#endif
 
 ownOrdering_=List_.get("Custom Ordering",false);
 ownScaling_=List_.get("Custom Scaling",false);
@@ -252,6 +304,13 @@ if (ownOrdering_)
     umf_Control_[UMFPACK_PIVOT_TOLERANCE] = pivtol;
     }
 #endif
+#ifdef HAVE_PARDISO
+  else if (method_==PARDISO)
+    {
+    iparam(5) = 1; // user permutation
+    iparam(10) = 16; // pivot tolerance of 10^(-16)
+    }
+#endif
   }
 
 if (ownScaling_)
@@ -267,6 +326,12 @@ if (ownScaling_)
   else if (method_==UMFPACK)
     {
     umf_Control_[UMFPACK_SCALE] = UMFPACK_SCALE_NONE;
+    }
+#endif
+#ifdef HAVE_PARDISO
+  else if (method_==PARDISO)
+    {
+    iparam(11) = 0; // scaling vectors off
     }
 #endif
   }
@@ -312,17 +377,22 @@ START_TIMER2(label_,"Initialize");
     CHECK_ZERO(this->FillReducingOrdering());
     }
   CHECK_ZERO(this->ConvertToCRS());
-#ifdef HAVE_SUITESPARSE  
-  if (method_==UMFPACK)
-    {
-    CHECK_ZERO(this->UmfpackSymbolic());
-    }
-  else
-#endif
   if (method_==KLU)  
     {
     CHECK_ZERO(this->KluSymbolic());
     }
+#ifdef HAVE_SUITESPARSE  
+  else if (method_==UMFPACK)
+    {
+    CHECK_ZERO(this->UmfpackSymbolic());
+    }
+#endif
+#ifdef HAVE_PARDISO
+  else if (method_==PARDISO)
+    {
+    CHECK_ZERO(this->PardisoSymbolic());
+    }
+#endif
   else
     {
     // not implemented
@@ -374,17 +444,22 @@ START_TIMER2(label_,"Compute");
     CHECK_ZERO(ComputeScaling());
     }
   CHECK_ZERO(this->ConvertToCRS());
-#ifdef HAVE_SUITESPARSE
-  if (method_==UMFPACK)
-    {
-    CHECK_ZERO(this->UmfpackNumeric());
-    }
-  else
-#endif
   if (method_==KLU)
     {
     CHECK_ZERO(this->KluNumeric());
     }
+#ifdef HAVE_SUITESPARSE
+  else if (method_==UMFPACK)
+    {
+    CHECK_ZERO(this->UmfpackNumeric());
+    }
+#endif
+#ifdef HAVE_PARDISO
+  else if (method_==PARDISO)
+    {
+      CHECK_ZERO(this->PardisoNumeric());
+    }
+#endif
   else
     {
     return -99; // not implemented
@@ -440,17 +515,22 @@ ApplyInverse(const Epetra_MultiVector& X, Epetra_MultiVector& Y) const
     Xcopy = Teuchos::rcp( &X, false );
     }
 
-#ifdef HAVE_SUITESPARSE
-  if (method_==UMFPACK)
-    {
-    CHECK_ZERO(this->UmfpackSolve(*Xcopy,Y));
-    }
-  else
-#endif
    if (method_==KLU)
     {
     CHECK_ZERO(this->KluSolve(*Xcopy,Y));
     }
+#ifdef HAVE_SUITESPARSE
+  else if (method_==UMFPACK)
+    {
+    CHECK_ZERO(this->UmfpackSolve(*Xcopy,Y));
+    }
+#endif
+#ifdef HAVE_PARDISO
+  else if (method_==PARDISO)
+    {
+    CHECK_ZERO(this->PardisoSolve(*Xcopy,Y));
+    }
+#endif
   else 
     {
     return -99; // not implemented
@@ -975,6 +1055,168 @@ int SparseDirectSolver::UmfpackSolve(const Epetra_MultiVector& B, Epetra_MultiVe
 //////////////////////////////////////////////////////////////////////
 
 #endif // HAVE_SUITESPARSE
+
+#ifdef HAVE_PARDISO
+
+//////////////////////////////////////////////////////////////////////
+// PARDISO INTERFACE                                                //
+//////////////////////////////////////////////////////////////////////
+
+int SparseDirectSolver::PardisoSymbolic() 
+{
+  if (MyPID_!=0) return 0;
+  START_TIMER2(label_,"PardisoSymbolic");
+
+  int num_procs = 1;
+  char* var = getenv("OMP_NUM_THREADS");
+  if (var != NULL)
+    {
+    sscanf(var, "%d", &num_procs);
+    }
+  iparam(3) = num_procs;
+
+  int N = serialMatrix_->NumGlobalRows();
+  int NumVectors = 1;
+  int maxfct = 1; // Max number of factors in memory
+  int mnum = 1; // Maxtrix number
+  int phase = 11; // Only do analysis
+  int msglvl = 0; // No output
+  int error = 0;
+  double ddum; // Dummy variable
+
+  // We use our own permutation, so just pass a 0,...,N array to PARDISO
+  pardiso_perm_.resize(N);
+  for (int i=0; i < N; ++i)
+    pardiso_perm_[i] = i;
+
+  pardiso(pardiso_pt_, &maxfct, &mnum, &pardiso_mtype_, &phase,
+          &N, &Aval_[0], &Ap_[0], &Ai_[0], &pardiso_perm_[0], &NumVectors,
+          pardiso_iparam_, &msglvl, &ddum, &ddum, &error);
+
+  pardiso_initialized_ = true;
+
+  if (error)
+    {
+    HYMLS::Tools::Error("PARDISO Symbolic Error "+Teuchos::toString(error),
+                        __FILE__,__LINE__);
+    }
+
+  return 0;
+}
+
+//=============================================================================
+
+int SparseDirectSolver::PardisoNumeric() 
+{
+  START_TIMER2(label_,"PardisoNumeric");
+  if (MyPID_!=0) return 0;
+
+  int N = serialMatrix_->NumGlobalRows();
+  int NumVectors = 1;
+  int maxfct = 1; // Max number of factors in memory
+  int mnum = 1; // Maxtrix number
+  int phase = 22; // Only do numerical factorization
+  int msglvl = 0; // No output
+  int error = 0;
+  double ddum; // Dummy variable
+
+  pardiso(pardiso_pt_, &maxfct, &mnum, &pardiso_mtype_, &phase,
+          &N, &Aval_[0], &Ap_[0], &Ai_[0], &pardiso_perm_[0], &NumVectors,
+          pardiso_iparam_, &msglvl, &ddum, &ddum, &error);
+
+  if (error)
+    {
+    HYMLS::Tools::Error("PARDISO Numeric Error "+Teuchos::toString(error),
+                        __FILE__,__LINE__);
+    // condition number is not in PARDISO?
+    }
+  return 0;
+}
+
+//=============================================================================
+
+int SparseDirectSolver::PardisoSolve(const Epetra_MultiVector& B, Epetra_MultiVector& X) const
+  {
+  START_TIMER2(label_,"PardisoSolve");
+
+  if (Matrix_.get()!=serialMatrix_.get()) return -99; // not implemented
+
+  int N = Matrix_->NumMyRows();
+  int NumVectors = X.NumVectors();
+
+  Teuchos::RCP<Epetra_MultiVector> serialX = Teuchos::rcp(&X,false);
+  Teuchos::RCP<const Epetra_MultiVector> serialB = Teuchos::rcp(&B,false);
+
+  double xbuf[NumVectors * N];
+  double bbuf[NumVectors * N];
+
+  const Teuchos::RCP<Epetra_Vector>& sca_l =
+        UseTranspose_? scaRight_: scaLeft_;
+  const Teuchos::RCP<Epetra_Vector>& sca_r =
+        UseTranspose_? scaLeft_: scaRight_;
+  const Teuchos::Array<int>& row_perm =
+        UseTranspose_? col_perm_: row_perm_;
+  const Teuchos::Array<int>& col_perm =
+        UseTranspose_? row_perm_: col_perm_;
+        
+  if (UseTranspose_)
+    {
+    iparam(12) = 1;
+    }
+  else
+    {
+    iparam(12) = 0;
+    }
+
+  int maxfct = 1; // Max number of factors in memory
+  int mnum = 1; // Maxtrix number
+  int phase = 33; // Solve, iterative refinement
+  int msglvl = 0; // No output
+  int error = 0;
+
+  if ( MyPID_ == 0 )
+    {
+    // Get direct pointers to the arrays, which speeds up the code somewhat
+    const double *sca_l_ptr = sca_l->Values();
+    const int *row_perm_ptr = row_perm.getRawPtr();
+    const double *sca_r_ptr = sca_r->Values();
+    const int *col_perm_ptr = col_perm.getRawPtr();
+
+    for (int j = 0 ; j < NumVectors; j++) 
+      {
+      double *bbuf_ptr = bbuf + j * N;
+      const double *serialB_ptr = (*serialB)[j];
+      for (int i = 0; i < N; i++)
+        {
+        bbuf[i] = serialB_ptr[row_perm_ptr[i]] * sca_l_ptr[row_perm_ptr[i]];
+        }
+      }
+
+    pardiso(pardiso_pt_, &maxfct, &mnum, &pardiso_mtype_, &phase,
+            &N, &Aval_[0], &Ap_[0], &Ai_[0], &pardiso_perm_[0], &NumVectors,
+            pardiso_iparam_, &msglvl, bbuf, xbuf, &error);
+
+    // we now have x(col_perm) in x_buf
+    for (int j = 0; j < NumVectors; j++)
+      {
+      double *xbuf_ptr = xbuf + j * N;
+      double *serialX_ptr = (*serialX)[j];
+      for (int i = 0; i < N; i++)
+        {
+        serialX_ptr[col_perm_ptr[i]] = xbuf[i] * sca_r_ptr[col_perm_ptr[i]];
+        }
+      }
+    }
+
+  if (serialX.get()!=&X) return -99; //not implemented
+  return error;
+  }
+
+//////////////////////////////////////////////////////////////////////
+// END PARDISO INTERFACE                                            //
+//////////////////////////////////////////////////////////////////////
+
+#endif // HAVE_PARDISO
 
 void SparseDirectSolver::DumpSolverStatus(std::string filePrefix,
         bool overwrite,
