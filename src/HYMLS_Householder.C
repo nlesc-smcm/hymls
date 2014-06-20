@@ -9,6 +9,7 @@
 #include "HYMLS_MatrixUtils.H"
 #include "Epetra_RowMatrixTransposer.h"
 #include "Epetra_MultiVector.h"
+#include "Trilinos_version.h"
 
 namespace HYMLS {
 
@@ -329,12 +330,12 @@ namespace HYMLS {
         Epetra_CrsMatrix(Copy,A.RowMap(),A.MaxNumEntries()) );
 
     DEBUG("compute A*wT...");
-#if (TRILINOS_MAJOR_MINOR_VERSION<101000)
+#if (1 || TRILINOS_MAJOR_MINOR_VERSION<101000)
 #define MATMUL_BUG 1
 #endif
 #ifndef MATMUL_BUG
-        // buggy in older Trilinos versions in parallel
-        CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(A,false,T,true,*AwT,true));
+    // buggy in older Trilinos versions in parallel, slow in new versions
+    CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(A,false,T,true,*AwT,true));
 #else
     Transp_=Teuchos::rcp(new Epetra_RowMatrixTransposer(const_cast<Epetra_CrsMatrix*>(&T)));
     Epetra_CrsMatrix* tmp;
@@ -380,8 +381,8 @@ namespace HYMLS {
 
     // wTwC
     Teuchos::RCP<Epetra_CrsMatrix> wTwC = Teuchos::rcp(new 
-        Epetra_CrsMatrix(Copy,A.RowMap(),WCmat_->MaxNumEntries()) );
-
+        Epetra_CrsMatrix(Copy,A.RowMap(),WTmat_->MaxNumEntries()) );
+  
     DEBUG("compute wTwC...");
 #ifndef MATMUL_BUG
     CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(*Wmat_,true,*WCmat_,false,*wTwC,false));
@@ -397,10 +398,13 @@ namespace HYMLS {
       {
       WTmat_=Teuchos::null;
       WCmat_=Teuchos::null;
+      Wmat_=Teuchos::null;
+      Transp_=Teuchos::null;
       }
 
     DEBUG("compute TAT=2wTwC-C...");
     CHECK_ZERO(EpetraExt::MatrixMatrix::Add(*Cmat_,false,-1.0,*wTwC,2.0));
+    wTwC->FillComplete();
 
 #ifdef STORE_MATRICES
     // not filled yet
