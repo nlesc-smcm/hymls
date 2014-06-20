@@ -421,9 +421,6 @@ private:
   
   //! diagonal scaling
   Teuchos::RCP<Epetra_Vector> scaLeft_,scaRight_;
-
-  //! temporary vectors
-  mutable Teuchos::RCP<Epetra_MultiVector> buf_x_,buf_b_;
   
   //! import to serial
   Teuchos::RCP<Epetra_Import> serialImport_;

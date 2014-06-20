@@ -773,21 +773,9 @@ int SparseDirectSolver::KluSolve(const Epetra_MultiVector& B, Epetra_MultiVector
 
   Teuchos::RCP<Epetra_MultiVector> serialX = Teuchos::rcp(&X,false);
   Teuchos::RCP<const Epetra_MultiVector> serialB = Teuchos::rcp(&B,false);
-  bool realloc = false;
-  if (buf_x_==Teuchos::null)
-    {
-    realloc=true;
-    }
-  else if (buf_x_->NumVectors()!=NumVectors)
-    {
-    realloc=true;
-    }
 
-  if (realloc)
-    {
-    buf_x_ = Teuchos::rcp(new Epetra_MultiVector(serialX->Map(),NumVectors));
-    }
-    
+  double xbuf[NumVectors * N];
+
   const Teuchos::RCP<Epetra_Vector>& sca_l =
         UseTranspose_? scaRight_: scaLeft_;
   const Teuchos::RCP<Epetra_Vector>& sca_r =
@@ -796,10 +784,6 @@ int SparseDirectSolver::KluSolve(const Epetra_MultiVector& B, Epetra_MultiVector
         UseTranspose_? col_perm_: row_perm_;
   const Teuchos::Array<int>& col_perm =
         UseTranspose_? row_perm_: col_perm_;
-
-  int ldx;
-  double *xval;
-  CHECK_ZERO(buf_x_->ExtractView(&xval,&ldx ));
 
   int status=0;
   if ( MyPID_ == 0 )
@@ -812,36 +796,35 @@ int SparseDirectSolver::KluSolve(const Epetra_MultiVector& B, Epetra_MultiVector
 
     for (int j = 0 ; j < NumVectors; j++) 
       {
-      double *buf_x_ptr = (*buf_x_)[j];
+      double *xbuf_ptr = xbuf + j * N;
       const double *serialB_ptr = (*serialB)[j];
       for (int i = 0; i < N; i++)
         {
-        buf_x_ptr[i] = serialB_ptr[row_perm_ptr[i]] * sca_l_ptr[row_perm_ptr[i]];
+        xbuf_ptr[i] = serialB_ptr[row_perm_ptr[i]] * sca_l_ptr[row_perm_ptr[i]];
         }
       }
 
     if (UseTranspose() == false)
       {
-      DO_KLU(tsolve)(klu_->Symbolic_, klu_->Numeric_, ldx, NumVectors, xval,klu_->Common_);
+      DO_KLU(tsolve)(klu_->Symbolic_, klu_->Numeric_, N, NumVectors, xbuf, klu_->Common_);
       }
     else
       {
-      DO_KLU(solve)(klu_->Symbolic_, klu_->Numeric_, ldx, NumVectors, xval,klu_->Common_);
+      DO_KLU(solve)(klu_->Symbolic_, klu_->Numeric_, N, NumVectors, xbuf, klu_->Common_);
       }
 
     // we now have x(col_perm) in x_buf
     for (int j = 0; j < NumVectors; j++)
       {
       double *serialX_ptr = (*serialX)[j];
-      const double *buf_x_ptr = (*buf_x_)[j];
+      double *xbuf_ptr = xbuf + j * N;
       for (int i = 0; i < N; i++)
         {
-        serialX_ptr[col_perm_ptr[i]] = buf_x_ptr[i] * sca_r_ptr[col_perm_ptr[i]];
+        serialX_ptr[col_perm_ptr[i]] = xbuf_ptr[i] * sca_r_ptr[col_perm_ptr[i]];
         }
       }
     status = klu_->Common_->status;
     }
-
 
   if (serialX.get()!=&X) return -99; //not implemented
   return status;
@@ -935,37 +918,23 @@ if (status)
 //=============================================================================
 
 int SparseDirectSolver::UmfpackSolve(const Epetra_MultiVector& B, Epetra_MultiVector& X) const
-{
-START_TIMER2(label_,"UmfpackSolve");
+  {
+  START_TIMER2(label_,"UmfpackSolve");
 
-if (Matrix_.get()!=serialMatrix_.get()) return -99; // not implemented
+  if (Matrix_.get()!=serialMatrix_.get()) return -99; // not implemented
 
-Teuchos::RCP<Epetra_MultiVector> serialX = Teuchos::rcp(&X,false);
-Teuchos::RCP<const Epetra_MultiVector> serialB = Teuchos::rcp(&B,false);
+  Teuchos::RCP<Epetra_MultiVector> serialX = Teuchos::rcp(&X,false);
+  Teuchos::RCP<const Epetra_MultiVector> serialB = Teuchos::rcp(&B,false);
 
-  int N = serialX->MyLength();  
-  
-  if (buf_x_==Teuchos::null)
-    {
-    buf_x_ = Teuchos::rcp(new Epetra_Vector(serialX->Map()));
-    }
-
-  if (buf_b_==Teuchos::null)
-    {
-    buf_b_ = Teuchos::rcp(new Epetra_Vector(serialX->Map()));
-    }
-
-  double *x_buf;
-  double *b_buf;
-    
-  Teuchos::rcp_dynamic_cast<Epetra_Vector>(buf_x_)->ExtractView(&x_buf);
-  Teuchos::rcp_dynamic_cast<Epetra_Vector>(buf_b_)->ExtractView(&b_buf);
-  
+  int N = serialX->MyLength();
   int NumVectors = X.NumVectors();
 
-  int UmfpackRequest = UseTranspose()?UMFPACK_A:UMFPACK_At ;
-  int status = 0;
+  double xbuf[N];
+  double bbuf[N];
 
+  int UmfpackRequest = UseTranspose()?UMFPACK_A:UMFPACK_At;
+
+  int status = 0;
   if ( MyPID_ == 0 )
     {
     // Get direct pointers to the arrays, which speeds up the code somewhat
@@ -976,24 +945,23 @@ Teuchos::RCP<const Epetra_MultiVector> serialB = Teuchos::rcp(&B,false);
 
     for (int j = 0 ; j < NumVectors; j++) 
       {
-      double *buf_x_ptr = (*buf_x_)[j];
       const double *serialB_ptr = (*serialB)[j];
       double *serialX_ptr = (*serialX)[j];
       for (int i = 0; i < N; i++)
         {
-        b_buf[i] = serialB_ptr[row_perm_ptr[i]] * sca_l_ptr[row_perm_ptr[i]];
+        bbuf[i] = serialB_ptr[row_perm_ptr[i]] * sca_l_ptr[row_perm_ptr[i]];
         }
 
       status = umfpack_di_solve (UmfpackRequest, &Ap_[0], 
                                      &Ai_[0], &Aval_[0], 
-                                     x_buf, b_buf, 
+                                     xbuf, bbuf, 
                                      const_cast<void*>(umf_Numeric_),
                                      const_cast<double*>(&umf_Control_[0]),
                                      const_cast<double*>(&umf_Info_[0]));
       // we now have x(col_perm) in x_buf
       for (int i = 0; i < N; i++) 
         {
-        serialX_ptr[col_perm_ptr[i]] = x_buf[i] * sca_r_ptr[col_perm_ptr[i]];
+        serialX_ptr[col_perm_ptr[i]] = xbuf[i] * sca_r_ptr[col_perm_ptr[i]];
         }
       }
     }
