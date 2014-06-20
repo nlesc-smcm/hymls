@@ -804,16 +804,23 @@ int SparseDirectSolver::KluSolve(const Epetra_MultiVector& B, Epetra_MultiVector
   int status=0;
   if ( MyPID_ == 0 )
     {
-    for ( int j =0 ; j < NumVectors; j++ ) 
+    // Get direct pointers to the arrays, which speeds up the code somewhat
+    const double *sca_l_ptr = sca_l->Values();
+    const int *row_perm_ptr = row_perm.getRawPtr();
+    const double *sca_r_ptr = sca_r->Values();
+    const int *col_perm_ptr = col_perm.getRawPtr();
+
+    for (int j = 0 ; j < NumVectors; j++) 
       {
-      double *buf_x_vec = (*buf_x_)[j];
-      double *serialB_vec = (*serialB)[j];
-      for (int i=0;i<N;i++)
+      double *buf_x_ptr = (*buf_x_)[j];
+      const double *serialB_ptr = (*serialB)[j];
+      for (int i = 0; i < N; i++)
         {
-        buf_x_vec[i] = serialB_vec[row_perm[i]] * (*sca_l)[row_perm[i]];
+        buf_x_ptr[i] = serialB_ptr[row_perm_ptr[i]] * sca_l_ptr[row_perm_ptr[i]];
         }
       }
-    if (UseTranspose()==false)
+
+    if (UseTranspose() == false)
       {
       DO_KLU(tsolve)(klu_->Symbolic_, klu_->Numeric_, ldx, NumVectors, xval,klu_->Common_);
       }
@@ -823,13 +830,13 @@ int SparseDirectSolver::KluSolve(const Epetra_MultiVector& B, Epetra_MultiVector
       }
 
     // we now have x(col_perm) in x_buf
-    for (int j=0;j<NumVectors;j++)
+    for (int j = 0; j < NumVectors; j++)
       {
-      double *buf_x_vec = (*buf_x_)[j];
-      double *serialX_vec = (*serialX)[j];
-      for (int i=0;i<N;i++) 
+      double *serialX_ptr = (*serialX)[j];
+      const double *buf_x_ptr = (*buf_x_)[j];
+      for (int i = 0; i < N; i++)
         {
-        serialX_vec[col_perm[i]] = buf_x_vec[i] * (*sca_r)[col_perm[i]];
+        serialX_ptr[col_perm_ptr[i]] = buf_x_ptr[i] * sca_r_ptr[col_perm_ptr[i]];
         }
       }
     status = klu_->Common_->status;
@@ -959,16 +966,24 @@ Teuchos::RCP<const Epetra_MultiVector> serialB = Teuchos::rcp(&B,false);
   int UmfpackRequest = UseTranspose()?UMFPACK_A:UMFPACK_At ;
   int status = 0;
 
-  if ( MyPID_ == 0 ) 
-    {    
-    for ( int j =0 ; j < NumVectors; j++ ) 
+  if ( MyPID_ == 0 )
+    {
+    // Get direct pointers to the arrays, which speeds up the code somewhat
+    const double *sca_l_ptr = scaLeft_->Values();
+    const int *row_perm_ptr = row_perm_.getRawPtr();
+    const double *sca_r_ptr = scaRight_->Values();
+    const int *col_perm_ptr = col_perm_.getRawPtr();
+
+    for (int j = 0 ; j < NumVectors; j++) 
       {
-      double *serialB_vec = (*serialB)[j];
-      double *serialX_vec = (*serialX)[j];
-      for (int i=0;i<N;i++)
+      double *buf_x_ptr = (*buf_x_)[j];
+      const double *serialB_ptr = (*serialB)[j];
+      double *serialX_ptr = (*serialX)[j];
+      for (int i = 0; i < N; i++)
         {
-        b_buf[i] = serialB_vec[row_perm_[i]] * (*scaLeft_)[row_perm_[i]];
+        b_buf[i] = serialB_ptr[row_perm_ptr[i]] * sca_l_ptr[row_perm_ptr[i]];
         }
+
       status = umfpack_di_solve (UmfpackRequest, &Ap_[0], 
                                      &Ai_[0], &Aval_[0], 
                                      x_buf, b_buf, 
@@ -976,9 +991,9 @@ Teuchos::RCP<const Epetra_MultiVector> serialB = Teuchos::rcp(&B,false);
                                      const_cast<double*>(&umf_Control_[0]),
                                      const_cast<double*>(&umf_Info_[0]));
       // we now have x(col_perm) in x_buf
-      for (int i=0;i<N;i++) 
+      for (int i = 0; i < N; i++) 
         {
-        serialX_vec[col_perm_[i]] = x_buf[i] * (*scaRight_)[col_perm_[i]];
+        serialX_ptr[col_perm_ptr[i]] = x_buf[i] * sca_r_ptr[col_perm_ptr[i]];
         }
       }
     }
