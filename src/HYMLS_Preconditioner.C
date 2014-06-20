@@ -571,7 +571,7 @@ MatrixUtils::Dump(*A22_, "Precond"+Teuchos::toString(myLevel_)+"_A22.txt");
     PEC_PROTECT;
     const int nrows = hid_->NumInteriorElements(sd);
     
-    if (sdSolverType_=="Dense")
+    if (sdSolverType_=="Dense" || (num_sd == 1 && sdLastSolverType_=="Dense"))
       {
       subdomainSolver_[sd] = Teuchos::rcp(new SolverContainer(SolverContainer::DENSE, nrows));
       }
