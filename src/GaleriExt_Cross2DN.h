@@ -65,8 +65,8 @@ Cross2DN(const Epetra_Map* Map, const int nx, const int ny,
   int* MyGlobalElements = Map->MyGlobalElements();
 
   int left, right, lower, upper;
-  vector<double> Values(4);
-  vector<int> Indices(4);
+  std::vector<double> Values(4);
+  std::vector<int> Indices(4);
 
   //    e
   //  b a c

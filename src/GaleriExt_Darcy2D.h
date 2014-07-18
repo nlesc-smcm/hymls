@@ -55,8 +55,8 @@ Darcy2D(const Epetra_Map* Map,
 
   int left, right, lower, upper;
   
-  vector<double> Values(4);
-  vector<int> Indices(4);
+  std::vector<double> Values(4);
+  std::vector<int> Indices(4);
   
   int c = -b; // c==b => [A B'; B 0]. c==-b => A B'; -B 0]
   
