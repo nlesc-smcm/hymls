@@ -13,9 +13,13 @@ namespace Anasazi {
   {
   public:
     
+    typedef double ST;
+    typedef Epetra_MultiVector MV;
+    typedef HYMLS::Solver OP;
+    
     //! setup HYMLS for using the operator (beta*A-alpha*B)
-    static void SetShift(OP& Op, const ScalarType& beta,
-                                 const ScalarType& alpha)
+    static void SetShift(OP& Op, const ST& beta,
+                                 const ST& alpha)
     {
       //TODO
     }

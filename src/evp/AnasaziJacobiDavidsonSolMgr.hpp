@@ -108,6 +108,7 @@ class JacobiDavidsonSolMgr : public SolverManager<ScalarType,MV,OP>
          *   at each iteration.  Default: "NEV".
          */
         JacobiDavidsonSolMgr( const RCP< Eigenproblem<ScalarType,MV,OP> > &problem,
+                                   const RCP<PREC> &prec,
                                    Teuchos::ParameterList &pl );
 
         /*!

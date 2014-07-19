@@ -126,7 +126,7 @@ struct JacobiDavidsonState {
  * This class is currently only implemented for real scalar types
  * (i.e. float, double).
  */
-template <class ScalarType, class MV, class OP,PREC>
+template <class ScalarType, class MV, class OP,class PREC>
 class JacobiDavidson : public Eigensolver<ScalarType,MV,OP>
 {
   private:
@@ -449,8 +449,8 @@ class JacobiDavidson : public Eigensolver<ScalarType,MV,OP>
 //---------------------------------------------------------------------------//
 // Prevent instantiation on complex scalar type
 //---------------------------------------------------------------------------//
-template <class MagnitudeType, class MV, class OP>
-class JacobiDavidson<std::complex<MagnitudeType>,MV,OP>
+template <class MagnitudeType, class MV, class OP, class PREC>
+class JacobiDavidson<std::complex<MagnitudeType>,MV,OP,PREC>
 {
   public:
 
@@ -475,8 +475,8 @@ class JacobiDavidson<std::complex<MagnitudeType>,MV,OP>
 //---------------------------------------------------------------------------//
 // Constructor
 //---------------------------------------------------------------------------//
-template <class ScalarType, class MV, class OP>
-JacobiDavidson<ScalarType,MV,OP>::JacobiDavidson(
+template <class ScalarType, class MV, class OP, class PREC>
+JacobiDavidson<ScalarType,MV,OP,PREC>::JacobiDavidson(
         const RCP<Eigenproblem<ScalarType,MV,OP> > &problem,
         const RCP<SortManager<MagnitudeType> >     &sortman,
         const RCP<OutputManager<ScalarType> >      &outputman,
@@ -553,8 +553,8 @@ JacobiDavidson<ScalarType,MV,OP>::JacobiDavidson(
 //---------------------------------------------------------------------------//
 // Iterate
 //---------------------------------------------------------------------------//
-template <class ScalarType, class MV, class OP>
-void JacobiDavidson<ScalarType,MV,OP>::iterate()
+template <class ScalarType, class MV, class OP, class PREC>
+void JacobiDavidson<ScalarType,MV,OP,PREC>::iterate()
 {
     // Initialize Problem
     if( !d_initialized )
@@ -610,8 +610,8 @@ void JacobiDavidson<ScalarType,MV,OP>::iterate()
 //---------------------------------------------------------------------------//
 // Return the current state struct
 //---------------------------------------------------------------------------//
-template <class ScalarType, class MV, class OP>
-JacobiDavidsonState<ScalarType,MV> JacobiDavidson<ScalarType,MV,OP>::getState()
+template <class ScalarType, class MV, class OP, class PREC>
+JacobiDavidsonState<ScalarType,MV> JacobiDavidson<ScalarType,MV,OP,PREC>::getState()
 {
     JacobiDavidsonState<ScalarType,MV> state;
     state.curDim = d_curDim;
@@ -631,8 +631,8 @@ JacobiDavidsonState<ScalarType,MV> JacobiDavidson<ScalarType,MV,OP>::getState()
 //---------------------------------------------------------------------------//
 // Set block size
 //---------------------------------------------------------------------------//
-template <class ScalarType, class MV, class OP>
-void JacobiDavidson<ScalarType,MV,OP>::setBlockSize(int blockSize)
+template <class ScalarType, class MV, class OP, class PREC>
+void JacobiDavidson<ScalarType,MV,OP,PREC>::setBlockSize(int blockSize)
 {
     setSize(blockSize,d_maxSubspaceDim);
 }
@@ -640,8 +640,8 @@ void JacobiDavidson<ScalarType,MV,OP>::setBlockSize(int blockSize)
 //---------------------------------------------------------------------------//
 // Set block size and maximum subspace dimension.
 //---------------------------------------------------------------------------//
-template <class ScalarType, class MV, class OP>
-void JacobiDavidson<ScalarType,MV,OP>::setSize(int blockSize, int maxSubDim )
+template <class ScalarType, class MV, class OP, class PREC>
+void JacobiDavidson<ScalarType,MV,OP,PREC>::setSize(int blockSize, int maxSubDim )
 {
     if( blockSize != d_blockSize || maxSubDim != d_maxSubspaceDim )
     {
@@ -706,8 +706,9 @@ void JacobiDavidson<ScalarType,MV,OP>::setSize(int blockSize, int maxSubDim )
  * to A*state.V), so this function should be used carefully.
  */
 //---------------------------------------------------------------------------//
-template <class ScalarType, class MV, class OP>
-void JacobiDavidson<ScalarType,MV,OP>::initialize( JacobiDavidsonState<ScalarType,MV> state )
+template <class ScalarType, class MV, class OP, class PREC>
+void JacobiDavidson<ScalarType,MV,OP,PREC>::initialize( JacobiDavidsonState<ScalarType,MV> 
+state )
 {
     // If state has nonzero dimension, we initialize from that, otherwise
     //  we'll pick d_blockSize vectors to start with
@@ -873,8 +874,8 @@ void JacobiDavidson<ScalarType,MV,OP>::initialize( JacobiDavidsonState<ScalarTyp
 //---------------------------------------------------------------------------//
 // Initialize the eigenvalue problem with empty state
 //---------------------------------------------------------------------------//
-template <class ScalarType, class MV, class OP>
-void JacobiDavidson<ScalarType,MV,OP>::initialize()
+template <class ScalarType, class MV, class OP, class PREC>
+void JacobiDavidson<ScalarType,MV,OP,PREC>::initialize()
 {
     JacobiDavidsonState<ScalarType,MV> empty;
     initialize( empty );
@@ -883,9 +884,9 @@ void JacobiDavidson<ScalarType,MV,OP>::initialize()
 //---------------------------------------------------------------------------//
 // Get current residual norms
 //---------------------------------------------------------------------------//
-template <class ScalarType, class MV, class OP>
+template <class ScalarType, class MV, class OP, class PREC>
 std::vector<typename Teuchos::ScalarTraits<ScalarType>::magnitudeType>
-    JacobiDavidson<ScalarType,MV,OP>::getResNorms()
+    JacobiDavidson<ScalarType,MV,OP,PREC>::getResNorms()
 {
     return getResNorms(d_residualSize);
 }
@@ -893,9 +894,9 @@ std::vector<typename Teuchos::ScalarTraits<ScalarType>::magnitudeType>
 //---------------------------------------------------------------------------//
 // Get current residual norms
 //---------------------------------------------------------------------------//
-template <class ScalarType, class MV, class OP>
+template <class ScalarType, class MV, class OP, class PREC>
 std::vector<typename Teuchos::ScalarTraits<ScalarType>::magnitudeType>
-    JacobiDavidson<ScalarType,MV,OP>::getResNorms(int numWanted)
+    JacobiDavidson<ScalarType,MV,OP,PREC>::getResNorms(int numWanted)
 {
     std::vector<int> resIndices(numWanted);
     for( int i=0; i<numWanted; ++i )
@@ -912,8 +913,8 @@ std::vector<typename Teuchos::ScalarTraits<ScalarType>::magnitudeType>
 //---------------------------------------------------------------------------//
 // Get current Ritz values
 //---------------------------------------------------------------------------//
-template <class ScalarType, class MV, class OP>
-std::vector< Value<ScalarType> > JacobiDavidson<ScalarType,MV,OP>::getRitzValues()
+template <class ScalarType, class MV, class OP, class PREC>
+std::vector< Value<ScalarType> > JacobiDavidson<ScalarType,MV,OP,PREC>::getRitzValues()
 {
     std::vector< Value<ScalarType> > ritzValues;
     for( int ival=0; ival<d_curDim; ++ival )
@@ -940,8 +941,8 @@ std::vector< Value<ScalarType> > JacobiDavidson<ScalarType,MV,OP>::getRitzValues
  * the state, orthogonalizing V against the aux vecs and reinitializing.
  */
 //---------------------------------------------------------------------------//
-template <class ScalarType, class MV, class OP>
-void JacobiDavidson<ScalarType,MV,OP>::setAuxVecs(
+template <class ScalarType, class MV, class OP, class PREC>
+void JacobiDavidson<ScalarType,MV,OP,PREC>::setAuxVecs(
         const Teuchos::Array< RCP<const MV> > &auxVecs )
 {
     d_auxVecs = auxVecs;
@@ -960,8 +961,8 @@ void JacobiDavidson<ScalarType,MV,OP>::setAuxVecs(
 //---------------------------------------------------------------------------//
 // Reorder Schur form, bringing wanted values to front
 //---------------------------------------------------------------------------//
-template <class ScalarType, class MV, class OP>
-void JacobiDavidson<ScalarType,MV,OP>::sortProblem( int numWanted )
+template <class ScalarType, class MV, class OP, class PREC>
+void JacobiDavidson<ScalarType,MV,OP,PREC>::sortProblem( int numWanted )
 {
     // Get permutation vector
     std::vector<MagnitudeType> realRitz(d_curDim), imagRitz(d_curDim);
@@ -1064,8 +1065,8 @@ void JacobiDavidson<ScalarType,MV,OP>::sortProblem( int numWanted )
 //---------------------------------------------------------------------------//
 // Expand subspace using preconditioner and orthogonalize
 //---------------------------------------------------------------------------//
-template <class ScalarType, class MV, class OP>
-void JacobiDavidson<ScalarType,MV,OP>::expandSearchSpace()
+template <class ScalarType, class MV, class OP, class PREC>
+void JacobiDavidson<ScalarType,MV,OP,PREC>::expandSearchSpace()
 {
     // Get indices into relevant portion of residual and
     //  location to be added to search space
@@ -1088,7 +1089,11 @@ void JacobiDavidson<ScalarType,MV,OP>::expandSearchSpace()
     if( d_haveP )
     {
         // inform Preconditioner about shift and projection vectors
-        PRECT::SetShift(*d_P,TROET);
+        if (d_residualSize>1)
+        {
+          throw "Jacobi-Davidson only implemented for block size 1 up to now";
+        }
+        PRECT::SetShift(*d_P,d_betar[0],d_alphar[0]);
         PRECT::SetProjectionVectors(*d_P,V_cur);
         // Apply Preconditioner to Residual
         PRECT::ApplyInverse( *d_P, *R_active, *V_new );
@@ -1124,8 +1129,8 @@ void JacobiDavidson<ScalarType,MV,OP>::expandSearchSpace()
 //---------------------------------------------------------------------------//
 // Apply operators
 //---------------------------------------------------------------------------//
-template <class ScalarType, class MV, class OP>
-void JacobiDavidson<ScalarType,MV,OP>::applyOperators()
+template <class ScalarType, class MV, class OP, class PREC>
+void JacobiDavidson<ScalarType,MV,OP,PREC>::applyOperators()
 {
     // Get indices for different components
     std::vector<int> newIndices(d_expansionSize);
@@ -1151,8 +1156,8 @@ void JacobiDavidson<ScalarType,MV,OP>::applyOperators()
 //---------------------------------------------------------------------------//
 // Update projected matrices.
 //---------------------------------------------------------------------------//
-template <class ScalarType, class MV, class OP>
-void JacobiDavidson<ScalarType,MV,OP>::updateProjections()
+template <class ScalarType, class MV, class OP, class PREC>
+void JacobiDavidson<ScalarType,MV,OP,PREC>::updateProjections()
 {
     // Get indices for different components
     std::vector<int> newIndices(d_expansionSize);
@@ -1222,8 +1227,8 @@ void JacobiDavidson<ScalarType,MV,OP>::updateProjections()
 //---------------------------------------------------------------------------//
 // Solve low dimensional eigenproblem using LAPACK
 //---------------------------------------------------------------------------//
-template <class ScalarType, class MV, class OP>
-void JacobiDavidson<ScalarType,MV,OP>::solveProjectedEigenproblem()
+template <class ScalarType, class MV, class OP, class PREC>
+void JacobiDavidson<ScalarType,MV,OP,PREC>::solveProjectedEigenproblem()
 {
     if( d_haveB )
     {
@@ -1297,8 +1302,8 @@ void JacobiDavidson<ScalarType,MV,OP>::solveProjectedEigenproblem()
  * Reordering those vectors will invalidate the vector returned here.
  */
 //---------------------------------------------------------------------------//
-template <class ScalarType, class MV, class OP>
-void JacobiDavidson<ScalarType,MV,OP>::computeRitzIndex()
+template <class ScalarType, class MV, class OP, class PREC>
+void JacobiDavidson<ScalarType,MV,OP,PREC>::computeRitzIndex()
 {
     if( d_ritzIndexValid )
         return;
@@ -1330,8 +1335,8 @@ void JacobiDavidson<ScalarType,MV,OP>::computeRitzIndex()
  * Reordering those vectors will invalidate the vector returned here.
  */
 //---------------------------------------------------------------------------//
-template <class ScalarType, class MV, class OP>
-void JacobiDavidson<ScalarType,MV,OP>::computeRitzVectors()
+template <class ScalarType, class MV, class OP, class PREC>
+void JacobiDavidson<ScalarType,MV,OP,PREC>::computeRitzVectors()
 {
     if( d_ritzVectorsValid )
         return;
@@ -1389,8 +1394,8 @@ void JacobiDavidson<ScalarType,MV,OP>::computeRitzVectors()
 //---------------------------------------------------------------------------//
 // Use sort manager to sort generalized eigenvalues
 //---------------------------------------------------------------------------//
-template <class ScalarType, class MV, class OP>
-void JacobiDavidson<ScalarType,MV,OP>::sortValues( std::vector<MagnitudeType> &realParts,
+template <class ScalarType, class MV, class OP, class PREC>
+void JacobiDavidson<ScalarType,MV,OP,PREC>::sortValues( std::vector<MagnitudeType> &realParts,
                                              std::vector<MagnitudeType> &imagParts,
                                              std::vector<int>    &permVec,
                                              int N)
@@ -1421,8 +1426,8 @@ void JacobiDavidson<ScalarType,MV,OP>::sortValues( std::vector<MagnitudeType> &r
  * pencil (A,B) using the orthogonal matrices Q and Z.
  */
 //---------------------------------------------------------------------------//
-template <class ScalarType, class MV, class OP>
-void JacobiDavidson<ScalarType,MV,OP>::computeProjectedEigenvectors(
+template <class ScalarType, class MV, class OP, class PREC>
+void JacobiDavidson<ScalarType,MV,OP,PREC>::computeProjectedEigenvectors(
         Teuchos::SerialDenseMatrix<int,ScalarType> &X )
 {
     int N = X.numRows();
@@ -1473,8 +1478,8 @@ void JacobiDavidson<ScalarType,MV,OP>::computeProjectedEigenvectors(
 //---------------------------------------------------------------------------//
 // Scale eigenvectors by quasi-diagonal matrices alpha and beta
 //---------------------------------------------------------------------------//
-template <class ScalarType, class MV, class OP>
-void JacobiDavidson<ScalarType,MV,OP>::scaleEigenvectors(
+template <class ScalarType, class MV, class OP, class PREC>
+void JacobiDavidson<ScalarType,MV,OP,PREC>::scaleEigenvectors(
         const Teuchos::SerialDenseMatrix<int,ScalarType> &X,
               Teuchos::SerialDenseMatrix<int,ScalarType> &X_alpha,
               Teuchos::SerialDenseMatrix<int,ScalarType> &X_beta )
@@ -1541,8 +1546,8 @@ void JacobiDavidson<ScalarType,MV,OP>::scaleEigenvectors(
 //---------------------------------------------------------------------------//
 // Compute residual
 //---------------------------------------------------------------------------//
-template <class ScalarType, class MV, class OP>
-void JacobiDavidson<ScalarType,MV,OP>::computeResidual()
+template <class ScalarType, class MV, class OP, class PREC>
+void JacobiDavidson<ScalarType,MV,OP,PREC>::computeResidual()
 {
     computeRitzIndex();
 
@@ -1711,8 +1716,8 @@ void JacobiDavidson<ScalarType,MV,OP>::computeResidual()
 //---------------------------------------------------------------------------//
 // Print current status.
 //---------------------------------------------------------------------------//
-template <class ScalarType, class MV, class OP>
-void JacobiDavidson<ScalarType,MV,OP>::currentStatus( std::ostream &myout )
+template <class ScalarType, class MV, class OP, class PREC>
+void JacobiDavidson<ScalarType,MV,OP,PREC>::currentStatus( std::ostream &myout )
 {
     using std::endl;
 

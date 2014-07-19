@@ -74,13 +74,13 @@ namespace Anasazi {
     //! Jacobi-Davidson process.
     static void SetShift(OP& Op, const ScalarType& beta, const ScalarType& alpha)
     {
-      undefinedPreconditionerTraits<ScalarType,MV,OP>::notDefined();
+      UndefinedPreconditionerTraits<ScalarType,MV,OP>::notDefined();
     }
     
     //! set projection vectors V: operator should act as inverse of (I-VV')(A-sigma*B)
     static void SetProjectionVectors(OP& Op, const Teuchos::RCP<const MV>& Q)
     {
-      undefinedPreconditionerTraits<ScalarType,MV,OP>::notDefined();
+      UndefinedPreconditionerTraits<ScalarType,MV,OP>::notDefined();
     }
     
     //! @name Operator application method.
@@ -91,7 +91,7 @@ namespace Anasazi {
                         const MV& x, 
                         MV& y )
     {
-      undefinedPreconditionerTraits<ScalarType,MV,OP>::notDefined();
+      UndefinedPreconditionerTraits<ScalarType,MV,OP>::notDefined();
     }
     
     //@}
