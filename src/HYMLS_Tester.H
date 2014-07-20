@@ -89,7 +89,7 @@ public:
   static std::string gid2str(int gid); 
 
   //! tolerance if we have a numerical value that should be small  
-  inline static double float_tol(){return 100.0*Teuchos::ScalarTraits<double>::eps();}
+  inline static double float_tol(){return 256.0*Teuchos::ScalarTraits<double>::eps();}
   
   //! this message buffer is printed when a test fails
   static std::stringstream msg_;
