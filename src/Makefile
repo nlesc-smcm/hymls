@@ -42,10 +42,13 @@ OBJ=    HYMLS_Solver.o \
 LIBNAMEBASE=hymls_${PLAT}
 LIBNAME=lib${LIBNAMEBASE}.a
 
-default: main integration_tests main_ifpack
+default: main integration_tests main_ifpack main_eigs
 
 main: main.C ${LIBNAME}
 	${CXX} ${CXX_FLAGS} -o main $< ${INCLUDES} -L. -l${LIBNAMEBASE} ${LIBS} 
+
+main_eigs: main_eigs.C ${LIBNAME}
+	${CXX} ${CXX_FLAGS} -o main_eigs $< ${INCLUDES} -L. -l${LIBNAMEBASE} ${LIBS} 
 
 integration_tests: integration_tests.C ${LIBNAME}
 	${CXX} ${CXX_FLAGS} -o integration_tests $< ${INCLUDES} -L. -l${LIBNAMEBASE} ${LIBS} 

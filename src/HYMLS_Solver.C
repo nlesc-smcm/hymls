@@ -158,6 +158,9 @@ namespace HYMLS {
     belosSolverPtr_ = Teuchos::rcp(new 
         ::Belos::BlockGmresSolMgr<ST,MV,OP>
         (belosProblemPtr_,belosListPtr));
+        int blockSize=belosList.get("Block Size",1);
+        int numBlocks=belosList.get("Num Blocks",300);
+    REPORT_MEM(label_,"GMRES (estimate)",numBlocks*blockSize*matrix_->NumMyRows(),0);
     }
   else
     {

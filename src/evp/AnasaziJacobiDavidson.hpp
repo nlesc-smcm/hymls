@@ -160,7 +160,8 @@ class JacobiDavidson : public Eigensolver<ScalarType,MV,OP>
      *   to measure convergence.  Default: "false"
      *
      */
-    JacobiDavidson(const RCP<Eigenproblem<ScalarType,MV,OP> >  &problem,
+    JacobiDavidson(const RCP<Eigenproblem<ScalarType,MV,OP> >       &problem,
+                        const RCP<PREC>                             &prec,
                         const RCP<SortManager<MagnitudeType> >      &sortman,
                         const RCP<OutputManager<ScalarType> >       &outputman,
                         const RCP<StatusTest<ScalarType,MV,OP> >    &tester,
@@ -372,7 +373,7 @@ class JacobiDavidson : public Eigensolver<ScalarType,MV,OP>
     Teuchos::ParameterList d_pl;
     RCP<const OP> d_A;
     RCP<const OP> d_B;
-    RCP<const OP> d_P;
+    RCP<PREC> d_P;
     bool d_haveB;
     bool d_haveP;
 
@@ -457,6 +458,7 @@ class JacobiDavidson<std::complex<MagnitudeType>,MV,OP,PREC>
     typedef std::complex<MagnitudeType> ScalarType;
     JacobiDavidson(
         const RCP<Eigenproblem<ScalarType,MV,OP> > &problem,
+        const RCP<PREC>                            &prec,
         const RCP<SortManager<MagnitudeType> >     &sortman,
         const RCP<OutputManager<ScalarType> >      &outputman,
         const RCP<StatusTest<ScalarType,MV,OP> >   &tester,
@@ -478,6 +480,7 @@ class JacobiDavidson<std::complex<MagnitudeType>,MV,OP,PREC>
 template <class ScalarType, class MV, class OP, class PREC>
 JacobiDavidson<ScalarType,MV,OP,PREC>::JacobiDavidson(
         const RCP<Eigenproblem<ScalarType,MV,OP> > &problem,
+        const RCP<PREC>                            &prec,
         const RCP<SortManager<MagnitudeType> >     &sortman,
         const RCP<OutputManager<ScalarType> >      &outputman,
         const RCP<StatusTest<ScalarType,MV,OP> >   &tester,
@@ -485,6 +488,7 @@ JacobiDavidson<ScalarType,MV,OP,PREC>::JacobiDavidson(
         Teuchos::ParameterList                     &pl )
 {
     TEUCHOS_TEST_FOR_EXCEPTION(   problem == Teuchos::null, std::invalid_argument, "No Eigenproblem given to solver." );
+    TEUCHOS_TEST_FOR_EXCEPTION(   prec == Teuchos::null, std::invalid_argument, "No preconditioner given to solver." );
     TEUCHOS_TEST_FOR_EXCEPTION( outputman == Teuchos::null, std::invalid_argument, "No OutputManager given to solver." );
     TEUCHOS_TEST_FOR_EXCEPTION(  orthoman == Teuchos::null, std::invalid_argument, "No OrthoManager given to solver." );
     TEUCHOS_TEST_FOR_EXCEPTION(   sortman == Teuchos::null, std::invalid_argument, "No SortManager given to solver." );
@@ -492,12 +496,12 @@ JacobiDavidson<ScalarType,MV,OP,PREC>::JacobiDavidson(
     TEUCHOS_TEST_FOR_EXCEPTION(   !problem->isProblemSet(), std::invalid_argument, "Problem has not been set." );
 
     d_problem = problem;
+    d_P = prec;
     d_pl = pl;
     TEUCHOS_TEST_FOR_EXCEPTION( problem->getA()==Teuchos::null && problem->getOperator()==Teuchos::null,
                                 std::invalid_argument, "Either A or Operator must be non-null on Eigenproblem");
     d_A = problem->getA()!=Teuchos::null ? problem->getA() : problem->getOperator();
     d_B = problem->getM();
-    d_P = problem->getPrec();
     d_sortMan = sortman;
     d_outputMan = outputman;
     d_tester = tester;
@@ -1089,7 +1093,7 @@ void JacobiDavidson<ScalarType,MV,OP,PREC>::expandSearchSpace()
     if( d_haveP )
     {
         // inform Preconditioner about shift and projection vectors
-        if (d_residualSize>1)
+        if (d_residualSize!=1)
         {
           throw "Jacobi-Davidson only implemented for block size 1 up to now";
         }

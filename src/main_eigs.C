@@ -22,9 +22,10 @@
 
 #include "AnasaziBasicEigenproblem.hpp"
 #include "AnasaziEpetraAdapter.hpp"
-#include "evp/AnasaziHymlsAdapter.hpp"
 
 #include "AnasaziBlockKrylovSchurSolMgr.hpp"
+
+#include "evp/AnasaziHymlsAdapter.hpp"
 #include "evp/AnasaziJacobiDavidsonSolMgr.hpp"
 
 /*
@@ -37,7 +38,10 @@
 #include "HYMLS_Solver.H"
 #include "HYMLS_MatrixUtils.H"
 
-
+typedef double ST;
+typedef Epetra_MultiVector MV;
+typedef Epetra_Operator OP;
+typedef HYMLS::Solver PREC;
 
 int main(int argc, char* argv[])
   {
@@ -76,7 +80,7 @@ bool status=true;
 
   if (argc<2)
     {
-    HYMLS::Tools::Out("USAGE: main <parameter_filename>");
+    HYMLS::Tools::Out("USAGE: main_eigs <parameter_filename>");
     MPI_Finalize();
     return 0;
     }
@@ -95,8 +99,6 @@ bool status=true;
 
   Teuchos::RCP<Epetra_Map> map;
   Teuchos::RCP<Epetra_CrsMatrix> K;
-  Teuchos::RCP<Epetra_Vector> u_ex;
-  Teuchos::RCP<Epetra_Vector> f;
 
   Teuchos::RCP<Teuchos::ParameterList> params = 
         Teuchos::getParametersFromXmlFile(param_file);
@@ -107,18 +109,14 @@ bool status=true;
     }
         
     Teuchos::ParameterList& driverList = params->sublist("Driver");
+    Teuchos::ParameterList& eigList = driverList.sublist("Eigenvalues");
+    
+    int numEigs=eigList.get("How Many",8);
 
     int seed = driverList.get("Random Seed",-1);
     if (seed!=-1) std::srand(seed);
     bool print_final_list = driverList.get("Store Final Parameter List",false);        
     bool store_solution = driverList.get("Store Solution",true);
-    bool store_matrix = driverList.get("Store Matrix",false);
-    int numComputes=driverList.get("Number of factorizations",1);
-    int numSolves=driverList.get("Number of solves",1);
-    int numRhs   =driverList.get("Number of rhs",1);
-    double perturbation = driverList.get("Diagonal Perturbation",0.0);
-    double diag_shift = driverList.get("Diagonal Shift",0.0);
-    double diag_shift_i = driverList.get("Diagonal Shift (imag)",0.0);
     
     std::string galeriLabel=driverList.get("Galeri Label","");
     Teuchos::ParameterList galeriList;
@@ -172,30 +170,10 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     K=HYMLS::MainUtils::create_matrix(*map,probl_params,
         galeriLabel, galeriList);
     }
-  // create a random exact solution
-  Teuchos::RCP<Epetra_MultiVector> x_ex = Teuchos::rcp(new Epetra_MultiVector(*map,numRhs));
 
-  // construct right-hand side
-  Teuchos::RCP<Epetra_MultiVector> b = Teuchos::rcp(new Epetra_MultiVector(*map,numRhs));
-
-  // approximate solution
-  Teuchos::RCP<Epetra_MultiVector> x = Teuchos::rcp(new Epetra_MultiVector(*map,numRhs));
-  
-  if (read_problem)
-    {
-    if (have_exact_sol)
-      {
-      x_ex=HYMLS::MainUtils::read_vector("sol",datadir,file_format,map);
-      }
-    if (have_rhs)
-      {
-      b=HYMLS::MainUtils::read_vector("rhs",datadir,file_format,map);
-      }
-    else
-      {
-      b=Teuchos::rcp(new Epetra_Vector(*map));
-      }
-    }
+// create start vector
+Teuchos::RCP<Epetra_Vector> x=Teuchos::rcp(new Epetra_Vector(*map));
+HYMLS::MatrixUtils::Random(*x);
 
   Teuchos::ParameterList& solver_params = params->sublist("Solver");
   bool do_deflation = (solver_params.get("Deflated Subspace Dimension",0)>0);
@@ -238,10 +216,9 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
 
   if (eqn=="Stokes-C")
     {
-    // scale equations by -1 to make operator negative indefinite
+    // scale equations by -1 to make operator 'negative indefinite'
     // (for testing the deflation capabilities)
     K->Scale(-1.0);
-    b->Scale(-1.0);
     // put a zero in the mass matrix for singletons
     if (M!=Teuchos::null)
       {
@@ -266,9 +243,6 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
       }
     }
 
-  Epetra_Vector diagK(*map);
-  CHECK_ZERO(K->ExtractDiagonalCopy(diagK));
-
   HYMLS::Tools::Out("Create Preconditioner");
 
   Teuchos::RCP<HYMLS::Preconditioner> precond = Teuchos::rcp(new HYMLS::Preconditioner(K, params));
@@ -281,33 +255,13 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
   HYMLS::Tools::StopTiming("main: Initialize Preconditioner",true);
 
   HYMLS::Tools::Out("Create Solver");
-  Teuchos::RCP<HYMLS::Solver> solver = Teuchos::rcp(new HYMLS::Solver(K, precond, params,numRhs));
+  Teuchos::RCP<HYMLS::Solver> solver = Teuchos::rcp(new HYMLS::Solver(K, precond, params,1));
 
   // get the null space (if any), as specified in the xml-file
   Teuchos::RCP<Epetra_MultiVector> Nul = solver->getNullSpace();
 
   REPORT_MEM("main","before HYMLS",0,0);
   
-for (int f=0;f<numComputes;f++)
-  {
-  if (diag_shift_i!=0.0)
-    {
-    HYMLS::Tools::Warning("complex shifts not implemented",__FILE__,__LINE__);
-    }
-  if (perturbation!=0 || diag_shift!=0)
-    {
-    // change the matrix values just to see if that works
-    Epetra_Vector diag=diagK;
-    Epetra_Vector diag_pert(*map);
-    HYMLS::MatrixUtils::Random(diag_pert);
-    for (int i=0;i<diag_pert.MyLength();i++)
-      {
-      diag[i]=diag[i] + diag_shift + diag_pert[i]*perturbation;
-      }
-    CHECK_ZERO(K->ReplaceDiagonalValues(diag));
-    }
-  HYMLS::Tools::Out("Compute Preconditioner ("+Teuchos::toString(f+1)+")");
-
   if (precond!=Teuchos::null) 
     {
     HYMLS::Tools::StartTiming("main: Compute Preconditioner");
@@ -321,120 +275,69 @@ for (int f=0;f<numComputes;f++)
     CHECK_ZERO(solver->SetupDeflation());
     }
 
- // std::cout << *solver << std::endl;
-  
-  for (int s=0;s<numSolves;s++)
+  // Set verbosity level
+  int verbosity = Anasazi::Errors + Anasazi::Warnings;
+  verbosity += Anasazi::FinalSummary + Anasazi::TimingDetails;
+
+  eigList.set("Verbosity",verbosity);
+  eigList.set("Output Stream",HYMLS::Tools::out().getOStream());
+
+  // Create the eigenproblem.
+  DEBUG("create eigen-problem");
+  Teuchos::RCP<Anasazi::BasicEigenproblem<ST, MV, OP> > eigProblem;
+  eigProblem =  Teuchos::rcp( new Anasazi::BasicEigenproblem<ST,MV,OP>(K, M, x) );
+  eigProblem->setHermitian(false);
+  eigProblem->setNEV(numEigs);
+  if (eigProblem->setProblem()==false)
     {
-    if (read_problem==false || have_rhs==false)
-      {
-      if (seed!=-1)
-        {
-        CHECK_ZERO(HYMLS::MatrixUtils::Random(*x_ex, seed));
-        seed++;
-        }
-      else
-        {
-        CHECK_ZERO(HYMLS::MatrixUtils::Random(*x_ex));
-        }
-      if (eqn=="Darcy" || eqn=="Stokes-C")
-        {
-        // make sure the div equation is Div U = 0 and the RHS is consistent
-        CHECK_ZERO(HYMLS::MainUtils::MakeSystemConsistent(*K,*x_ex,*b,driverList));
-        }
-      if (Nul!=Teuchos::null)
-        {
-        double alpha;
-        double vnrm2;
-        CHECK_ZERO(x_ex->Dot(*Nul,&alpha));
-        CHECK_ZERO(Nul->Norm2(&vnrm2));
-        alpha/=(vnrm2*vnrm2);
-        CHECK_ZERO(x_ex->Update(-alpha,*Nul,1.0));
-        }
-      CHECK_ZERO(K->Multiply(false,*x_ex,*b));
-      }
-
-    HYMLS::Tools::Out("Solve ("+Teuchos::toString(s+1)+")");
-  HYMLS::Tools::StartTiming("main: Solve");
-    CHECK_ZERO(solver->ApplyInverse(*b,*x));
-  HYMLS::Tools::StopTiming("main: Solve",true);
-
-    // subtract constant from pressure if solving Stokes-C
-    if (eqn=="Stokes-C"&&false)
-      {
-      int dof=dim+1;
-      for (int k=0;k<numRhs;k++)
-        {
-        double pref=(*x)[k][dim];
-        if (have_exact_sol)
-          {
-          pref -= (*x_ex)[k][dim];
-          }
-        for (int i=dim; i<x->MyLength();i+=dof)
-          {
-          (*x)[k][i]-=pref;
-          }
-        }
-      }
-DEBVAR(*x);
-DEBVAR(*b);
-    HYMLS::Tools::Out("Compute residual.");
-  
-    // compute residual and error vectors
-
-    Teuchos::RCP<Epetra_MultiVector> res = Teuchos::rcp(new 
-        Epetra_MultiVector(*map,numRhs));
-    Teuchos::RCP<Epetra_MultiVector> err = Teuchos::rcp(new 
-        Epetra_MultiVector(*map,numRhs));
-    CHECK_ZERO(K->Multiply(false,*x,*res));
-    CHECK_ZERO(res->Update(1.0,*b,-1));
-  
-    CHECK_ZERO(err->Update(1.0,*x,-1.0,*x_ex,0.0));
-  
-    double *errNorm,*resNorm,*rhsNorm;
-    resNorm=new double[numRhs];
-    errNorm=new double[numRhs];
-    rhsNorm=new double[numRhs];
-  
-    err->Norm2(errNorm);
-    res->Norm2(resNorm);
-    b->Norm2(rhsNorm);
-  
-    HYMLS::Tools::out()<< "Residual Norm ||Ax-b||/||b||: ";
-    for (int k=0;k<numRhs;k++)
-      {
-      HYMLS::Tools::out()<<std::setw(8)<<std::setprecision(8)<<std::scientific<<Teuchos::toString(resNorm[k]/rhsNorm[k])<<"  ";
-      }
-    HYMLS::Tools::out()<<std::endl;
-    HYMLS::Tools::out()<<"Error Norm ||x-x_ex||/||b||: ";
-    for (int k=0;k<numRhs;k++)
-      {
-      HYMLS::Tools::out()<<std::setw(8)<<std::setprecision(8)<<std::scientific<<Teuchos::toString(errNorm[k]/rhsNorm[k])<<"  ";
-      }
-    delete [] resNorm;
-    delete [] rhsNorm;
-    delete [] errNorm;
-    HYMLS::Tools::out() << std::endl;
+    HYMLS::Tools::Error("eigProblem->setPoroblem returned 'false'",__FILE__,__LINE__);
     }
-   if (perturbation!=0 || diag_shift!=0)
+
+  Anasazi::JacobiDavidsonSolMgr<ST,MV,OP,PREC> 
+        jada(eigProblem,solver,eigList);
+
+  // Solve the problem to the specified tolerances or length
+  Anasazi::ReturnType returnCode;
+  DEBUG("solve eigenproblem");
+  returnCode = jada.solve();
+  if (returnCode != Anasazi::Converged)
     {
-    CHECK_ZERO(K->ReplaceDiagonalValues(diagK));
+    HYMLS::Tools::Warning("Anasazi::EigensolverMgr::solve() returned unconverged.",
+        __FILE__,__LINE__);
     }
- }//f - number of factorizations
+
+  DEBUG("post-process returned solution");
+
+  const Anasazi::Eigensolution<ST,MV>& eigSol =
+        eigProblem->getSolution();
+  
+  const std::vector<Anasazi::Value<ST> >& evals = eigSol.Evals;
+  numEigs = (int)evals.size();
+
+
+  if (1)
+    {
+    // Output computed eigenvalues and their direct residuals
+    HYMLS::Tools::out()<<std::endl<< "Computed Ritz Values"<< std::endl;
+    HYMLS::Tools::out()<< std::setw(20) << "Real Part"
+            << std::setw(20) << "Imag Part"
+            << std::endl;
+    HYMLS::Tools::out()<<"-----------------------------------------------------------"<<std::endl;
+    for (int i=0; i<numEigs; i++)
+      {
+      HYMLS::Tools::out()<< std::setw(20) << evals[i].realpart
+              << std::setw(20) << evals[i].imagpart
+              << std::endl;
+      }
+    HYMLS::Tools::out()<<"-----------------------------------------------------------"<<std::endl;
+    }
 
   REPORT_MEM("main","after HYMLS",0,0);
 
-  if (store_matrix)
-    {
-    HYMLS::Tools::Out("store matrix...");
-    HYMLS::MatrixUtils::Dump(*K, "Matrix.txt",false);
-    }
-    
   if (store_solution)
     {
-    HYMLS::Tools::Out("store solution...");
-    HYMLS::MatrixUtils::Dump(*x_ex, "ExactSolution.txt",false);
-    HYMLS::MatrixUtils::Dump(*x, "Solution.txt",false);
-    HYMLS::MatrixUtils::Dump(*b, "RHS.txt",false);
+//    HYMLS::Tools::Out("store solution...");
+//    HYMLS::MatrixUtils::Dump(*x, "EigenSolution.txt",false);
     }
     
   if (print_final_list)

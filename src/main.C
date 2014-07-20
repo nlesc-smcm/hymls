@@ -1,5 +1,4 @@
 #include <cstdlib>
-
 #include <iostream>
 
 #include <mpi.h>
@@ -63,6 +62,7 @@ bool status=true;
   try {
 
   START_TIMER("main","entire run");
+  REPORT_MEM("main","base line",0,0);
 
   std::string param_file;
   Teuchos::Array<std::string> extra_files;
@@ -268,7 +268,9 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
 
   HYMLS::Tools::Out("Initialize Preconditioner...");
   HYMLS::Tools::StartTiming("main: Initialize Preconditioner");
+  REPORT_MEM("main","before Initialize",0,0);
   CHECK_ZERO(precond->Initialize());
+  REPORT_MEM("main","after Initialize",0,0);
   HYMLS::Tools::StopTiming("main: Initialize Preconditioner",true);
 
   HYMLS::Tools::Out("Create Solver");
@@ -276,6 +278,8 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
 
   // get the null space (if any), as specified in the xml-file
   Teuchos::RCP<Epetra_MultiVector> Nul = solver->getNullSpace();
+
+  REPORT_MEM("main","before HYMLS",0,0);
   
 for (int f=0;f<numComputes;f++)
   {
@@ -409,6 +413,8 @@ DEBVAR(*b);
     CHECK_ZERO(K->ReplaceDiagonalValues(diagK));
     }
  }//f - number of factorizations
+
+  REPORT_MEM("main","after HYMLS",0,0);
 
   if (store_matrix)
     {

@@ -3,13 +3,14 @@
 
 
 #include "AnasaziPreconditionerTraits.hpp"
+#include "Epetra_MultiVector.h"
 #include "HYMLS_Solver.H"
 
 namespace Anasazi {
 
   //!
   template <>
-  class PreconditionerTraits<double,Epetra_Vector, HYMLS::Solver> 
+  class PreconditionerTraits<double,Epetra_MultiVector, HYMLS::Solver> 
   {
   public:
     
