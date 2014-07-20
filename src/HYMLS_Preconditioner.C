@@ -762,8 +762,9 @@ int Preconditioner::InitializeCompute()
       }
 
   time_->ResetStartTime();
-
+REPORT_MEM(label_,"before InitializeCompute",0,0);
 InitializeCompute();
+REPORT_MEM(label_,"after InitializeCompute",0,0);
 {
 START_TIMER(label_,"subdomain factorization");
 double nnz=0; // count number of stored nonzeros in factors
@@ -868,9 +869,9 @@ HYMLS::MatrixUtils::Dump(*TestSC_crs,"SchurComplement"+Teuchos::toString(myLevel
     //    THCM - doesn't work because P is variable 4 out of 6.   
     if (hid_->Partitioner().DofPerNode()>4)
       {
-      Tools::Error("scaling not implemented for THCM",__FILE__,__LINE__);
+      Tools::Error("scaling not implemented for dof>4",__FILE__,__LINE__);
       }
-    int pvar=hid_->Partitioner().DofPerNode()-1;
+    int pvar=dim_;
     schurScaLeft_=Schur_->ConstructLeftScaling(pvar);
     schurScaRight_=Schur_->ConstructRightScaling();
     
@@ -1707,6 +1708,9 @@ int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& lis
       precList.set("Fix GID 1",factor*(dim_));
       if (is_complex) precList.set("Fix GID 2",2*(dim_)+1);
       }
+#ifdef TESTING
+    probList.set("Test F-Matrix Properties",true);
+#endif
     }
   else if (eqn=="Stokes-B")
     {
