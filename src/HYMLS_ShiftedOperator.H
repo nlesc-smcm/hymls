@@ -43,8 +43,15 @@ does not support transpose.
   */
     int SetUseTranspose(bool UseTranspose)
         {
+        // not implemented
+        if (UseTranspose)
+          {
+          Tools::Error("transpose not implemented",__FILE__,__LINE__);
+          }
+/*
         useTranspose_=UseTranspose;
         labelT_= useTranspose_? "^T":"";
+*/
         return 0;
         }
   //@}
@@ -63,7 +70,7 @@ does not support transpose.
   */
   int Apply(const Epetra_MultiVector& X, Epetra_MultiVector& Y) const
     {
-    if (alpha!=0.0)
+    if (alpha_!=0.0)
       {
       if (B_==Teuchos::null)
         {
@@ -71,8 +78,10 @@ does not support transpose.
         }
       else
         {
-        B_->SetUseTranspose(useTranspose_);
+        //bool trans=B_->UseTranspose();
+        //B_->SetUseTranspose(useTranspose_);
         B_->Apply(X,Y);
+        //B_->SetUseTranspose(trans);
         }
       }
     else
@@ -80,9 +89,11 @@ does not support transpose.
         Y.PutScalar(0.0);
       }
     Epetra_MultiVector AX(X.Map(),X.NumVectors());
-    A_->SetUseTranspose(useTranspose);
+    //trans=A_->UseTranspose();
+    //A_->SetUseTranspose(useTranspose);
     A_->Apply(X,AX);
-    Y.Update(beta,AX,alpha);
+    //A_->SetUseTranspose(trans);
+    Y.Update(beta_,AX,alpha_);
     return 0;
     }
 

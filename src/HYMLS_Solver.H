@@ -81,11 +81,11 @@ public:
   //! for eigenvalue computations - set mass matrix
   void SetMassMatrix(Teuchos::RCP<const Epetra_RowMatrix> B);
   
-  //! Applies the operator (not implemented)
+  //! Applies the operator
   int Apply(const Epetra_MultiVector& X,
                            Epetra_MultiVector& Y) const 
     {
-    return matrix_->Apply(X,Y);
+    return operator_->Apply(X,Y);
     }
 
   //! Applies the preconditioner to vector X, returns the result in Y.
@@ -125,6 +125,9 @@ public:
 
   //! computes dominant eigenpairs of inv(P)
   Teuchos::RCP<MatrixUtils::Eigensolution> EigsPrec(int numEigs) const;
+  
+  //! setup the solver to solve (beta*A+alpha*B)x=b
+  int SetShift(double beta, double alpha);
 
   //! computes the modes closest to 0 and sets up the solver's deflation
   //! capabilities. If maxEigs==-2, the value "Deflated Subspace Dimension"
@@ -139,6 +142,11 @@ public:
   
   //! get the null space (or approximate null space) of the operator
   Teuchos::RCP<Epetra_MultiVector> getNullSpace() {return nullSpace_;}
+  
+  //! set  the (approximate) null space. The given vectors are added
+  //! to the constant (exact) null space defined by the "Null Space"
+  //! entry in the parameter list.
+  int setNullSpace(const Teuchos::RCP<const Epetra_MultiVector>& V);
 
 protected: 
 
@@ -147,6 +155,14 @@ protected:
 
   //! matrix
   Teuchos::RCP<const Epetra_RowMatrix> matrix_;
+ 
+ 
+ //! operator for which we solve OP*x=b, typically same as matrix_ or
+ //! beta*A+alpha*B (if SetShift was called)
+ Teuchos::RCP<const Epetra_Operator> operator_;
+  
+  //! We solve (beta*A+alpha*B)x=b
+  double beta_, alpha_;
 
   //! solver type and start vector type
   std::string solverType_, startVec_;
@@ -186,6 +202,9 @@ Teuchos::RCP<const Epetra_RowMatrix> massMatrix_;
 //! "Solver"->"Null Space" can be used to construct this, e.g. set it to "Constant P"
 //! for Stokes-C etc.)
 Teuchos::RCP<Epetra_MultiVector> nullSpace_;
+
+//! nullSpace augmented with user-defined vectors by "setNullSpace()".
+Teuchos::RCP<Epetra_MultiVector> augmentedNullSpace_;
 
 //! true if there is a border (e.g. a nullspace or some eigenmodes to be
 //! deflated).

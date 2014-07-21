@@ -8,6 +8,7 @@
 #include "HYMLS_BorderedSolver.H"
 #include "HYMLS_BorderedLU.H"
 #include "HYMLS_ProjectedOperator.H"
+#include "HYMLS_ShiftedOperator.H"
 
 #include <Epetra_Time.h> 
 #include "Epetra_Comm.h"
@@ -41,8 +42,10 @@ namespace HYMLS {
       Teuchos::RCP<Epetra_Operator> P,
       Teuchos::RCP<Teuchos::ParameterList> params,
       int numRhs)
-      : matrix_(K), precond_(P), comm_(Teuchos::rcp(&(K->Comm()),false)), 
+      : matrix_(K), operator_(K), precond_(P), comm_(Teuchos::rcp(&(K->Comm()),false)), 
+      beta_(1.0), alpha_(0.0),
         massMatrix_(Teuchos::null), nullSpace_(Teuchos::null),
+        augmentedNullSpace_(Teuchos::null),
         normInf_(-1.0), useTranspose_(false),
         numEigs_(0), numIter_(0), doBordering_(false),
         label_("HYMLS::Solver"), PLA("Solver")
@@ -116,8 +119,10 @@ namespace HYMLS {
       }
     delete [] nrm2;
     }
+    
+  augmentedNullSpace_=nullSpace_;
 
-  belosProblemPtr_=Teuchos::rcp(new belosProblemType_(matrix_,belosSol_,belosRhs_));
+  belosProblemPtr_=Teuchos::rcp(new belosProblemType_(operator_,belosSol_,belosRhs_));
   
   doBordering_ = ((nullSpaceType!="None") ||
                   (PL().get("Deflated Subspace Dimension",0)>0));
@@ -179,7 +184,15 @@ namespace HYMLS {
     {
     START_TIMER3(label_,"SetMatrix");
     matrix_ = A;
-    belosProblemPtr_->setOperator(matrix_);
+    if (alpha_!=0.0 || beta_!=1.0)
+      {
+      Tools::Warning("SetMatrix called while operator used is shifted."
+                     "Discarding shifts.",__FILE__,__LINE__);
+      alpha_=0.0;
+      beta_=1.0;
+      }
+    operator_=matrix_;
+    belosProblemPtr_->setOperator(operator_);
     }
 
 void Solver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)
@@ -216,9 +229,23 @@ void Solver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)
       Tools::Error("Mass matrix must have same row map as solver",
                 __FILE__,__LINE__);
       }
+    if (alpha_!=0.0 || beta_!=1.0)
+      {
+      Tools::Warning("SetmassMatrix called while solving shifted system."
+                     "Discarding shifts.",__FILE__,__LINE__);
+      alpha_=0.0;
+      beta_=1.0;
+      }
+    operator_=matrix_;
     }
 
-
+int Solver::SetShift(double beta, double alpha)
+  {
+  alpha_=alpha;
+  beta_=beta;
+  operator_=Teuchos::rcp(new ShiftedOperator(matrix_,massMatrix_,alpha_,beta_));
+  belosProblemPtr_->setOperator(operator_);
+  }
 
   // Sets all parameters for the solver
   void Solver::setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& List)
@@ -364,6 +391,30 @@ Teuchos::RCP<MatrixUtils::Eigensolution> Solver::EigsPrec(int numEigs) const
     }
 
 
+int Solver::setNullSpace(const Teuchos::RCP<const Epetra_MultiVector>& V)
+  {
+  int dim0=0;
+  if (nullSpace_!=Teuchos::null)
+    {
+    dim0=nullSpace_->NumVectors();
+    }
+  int dim1=V->NumVectors();
+  if (augmentedNullSpace_->NumVectors()!=dim0+dim1)
+    {
+    augmentedNullSpace_=Teuchos::rcp(new Epetra_MultiVector(OperatorRangeMap(),dim0+dim1));
+    if (nullSpace_!=Teuchos::null)
+      {
+      Epetra_MultiVector V0(View, *augmentedNullSpace_, 0, dim0);
+      V0=*nullSpace_;
+      }
+    }
+  if (dim1>1)
+    {
+    Epetra_MultiVector V1(View, *augmentedNullSpace_, dim0, dim1);
+    V1=*V;
+    }
+  }
+
 int Solver::SetupDeflation(int maxEigs)
   {
   // by default leave numEigs_ at its present value:
@@ -372,13 +423,13 @@ int Solver::SetupDeflation(int maxEigs)
   // If there is a null-space, deflate it.
   // If no NS and no additional vectors asked for -
   // nothing to be done.
-  if (numEigs_==0 && nullSpace_==Teuchos::null) return 0;
+  if (numEigs_==0 && augmentedNullSpace_==Teuchos::null) return 0;
   START_TIMER(label_,"SetupDeflation");
 
   Teuchos::RCP<Epetra_MultiVector> KV;
         
   // add null space as border to preconditioner
-  if (nullSpace_!=Teuchos::null)
+  if (augmentedNullSpace_!=Teuchos::null)
     {
     // we compute eigs of the operator [K N; N' 0] to make the operator nonsingular
     Teuchos::RCP<BorderedSolver> bprec
@@ -386,7 +437,7 @@ int Solver::SetupDeflation(int maxEigs)
     if (bprec!=Teuchos::null)
       {
       Tools::Out("set null space as border for preconditioner");
-      CHECK_ZERO(bprec->SetBorder(nullSpace_,nullSpace_));      
+      CHECK_ZERO(bprec->SetBorder(augmentedNullSpace_,augmentedNullSpace_));      
       }
     else if (precond_!=Teuchos::null)
       {
@@ -394,7 +445,7 @@ int Solver::SetupDeflation(int maxEigs)
       // should work in principle, but we can handle borders smarter
       /*
       Tools::Out("add null space to preconditioner by LU");
-      op = Teuchos::rcp(new BorderedLU(precond_,nullSpace_,nullSpace_));
+      op = Teuchos::rcp(new BorderedLU(precond_,augmentedNullSpace_,augmentedNullSpace_));
       */
       }
     }
@@ -527,8 +578,8 @@ int Solver::SetupDeflation(int maxEigs)
     Tools::Out("number of eigenmodes to be deflated: "+Teuchos::toString(numDeflated_));
     if (numDeflated_==0)
       {
-      numDeflated_=nullSpace_->NumVectors();
-      V_=nullSpace_;
+      numDeflated_=augmentedNullSpace_->NumVectors();
+      V_=augmentedNullSpace_;
       }
     else
       {
@@ -561,17 +612,17 @@ int Solver::SetupDeflation(int maxEigs)
       CHECK_ZERO(V_hat.Multiply('N','N',1.0,V,*W_hat,0.0));
 
       // also deflate the default null space.
-      int dimNull = nullSpace_->NumVectors();
+      int dimNull = augmentedNullSpace_->NumVectors();
       V_=Teuchos::rcp(new Epetra_MultiVector(V.Map(),numDeflated_+dimNull));
-      for (int k=0;k<dimNull;k++) *((*V_)(k)) = *((*nullSpace_)(k));
+      for (int k=0;k<dimNull;k++) *((*V_)(k)) = *((*augmentedNullSpace_)(k));
       for (int k=0;k<numDeflated_;k++) *((*V_)(dimNull+k)) = *(V_hat(k));
       numDeflated_+=dimNull;
       }
     }
   else
     {
-    numDeflated_=nullSpace_->NumVectors();
-    V_=nullSpace_;
+    numDeflated_=augmentedNullSpace_->NumVectors();
+    V_=augmentedNullSpace_;
     }
     
 #ifdef STORE_MATRICES
@@ -598,7 +649,7 @@ int Solver::SetupDeflation(int maxEigs)
     }
   else if (borderedPrec!=Teuchos::null)
     {
-    int nulDim = nullSpace_==Teuchos::null? 0: nullSpace_->NumVectors();
+    int nulDim = augmentedNullSpace_==Teuchos::null? 0: augmentedNullSpace_->NumVectors();
     if (numDeflated_>nulDim)
       {
       Teuchos::RCP<Epetra_SerialDenseMatrix> C = Teuchos::rcp(new

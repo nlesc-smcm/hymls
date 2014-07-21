@@ -22,13 +22,14 @@ namespace Anasazi {
     static void SetShift(OP& Op, const ST& beta,
                                  const ST& alpha)
     {
-      //TODO
+      Op.SetShift(beta,alpha);
     }
     
     //! set projection vectors V: operator should act as inverse of (I-VV')(beta*A-alpha*B)
     static void SetProjectionVectors(OP& Op, const Teuchos::RCP<const MV>& Q)
     {
-      //TODO
+      Op.setNullSpace(Q);
+      Op.SetupDeflation();
     }
     
     //! @name Operator application method.
