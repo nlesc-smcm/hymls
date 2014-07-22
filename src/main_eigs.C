@@ -109,7 +109,8 @@ bool status=true;
     }
         
     Teuchos::ParameterList& driverList = params->sublist("Driver");
-    Teuchos::ParameterList& eigList = driverList.sublist("Eigenvalues");
+    // copy out this list because we need to pass it on later
+    Teuchos::ParameterList eigList = driverList.sublist("Eigenvalues");
     
     int numEigs=eigList.get("How Many",8);
 
