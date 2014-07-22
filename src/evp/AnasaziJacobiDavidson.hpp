@@ -35,6 +35,9 @@
     \author Steven Hamilton
 */
 
+#include <exception>
+#include <string>
+
 #include "Teuchos_RCPDecl.hpp"
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_SerialDenseMatrix.hpp"
@@ -1095,7 +1098,7 @@ void JacobiDavidson<ScalarType,MV,OP,PREC>::expandSearchSpace()
         // inform Preconditioner about shift and projection vectors
         if (d_residualSize!=1)
         {
-          throw "Jacobi-Davidson only implemented for block size 1 up to now";
+          throw AnasaziError("Jacobi-Davidson only implemented for block size 1 up to now");
         }
         PRECT::SetShift(*d_P,d_betar[0],d_alphar[0]);
         PRECT::SetProjectionVectors(*d_P,V_cur);

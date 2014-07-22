@@ -7,6 +7,11 @@ CXX_FLAGS+=-DHYMLS_REVISION=${rev} -O3 -openmp
 
 LIBS=${MY_LIBRARIES} ${TRILINOS_LIBRARIES} ${TPL_LIBRARIES} ${EXTRA_LD_FLAGS}
 
+EVP_SRC=evp/AnasaziJacobiDavidson.hpp \
+         evp/AnasaziJacobiDavidsonSolMgr.hpp \
+         evp/AnasaziPreconditionerTraits.hpp \
+         evp/AnasaziHymlsAdapter.hpp
+
 OBJ=    HYMLS_Solver.o \
         HYMLS_Preconditioner.o \
         HYMLS_SchurComplement.o \
@@ -47,7 +52,7 @@ default: main integration_tests main_ifpack main_eigs
 main: main.C ${LIBNAME}
 	${CXX} ${CXX_FLAGS} -o main $< ${INCLUDES} -L. -l${LIBNAMEBASE} ${LIBS} 
 
-main_eigs: main_eigs.C ${LIBNAME}
+main_eigs: main_eigs.C ${LIBNAME} ${EVP_SRC}
 	${CXX} ${CXX_FLAGS} -o main_eigs $< ${INCLUDES} -L. -l${LIBNAMEBASE} ${LIBS} 
 
 integration_tests: integration_tests.C ${LIBNAME}

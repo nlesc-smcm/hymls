@@ -28,8 +28,8 @@ namespace Anasazi {
     //! set projection vectors V: operator should act as inverse of (I-VV')(beta*A-alpha*B)
     static void SetProjectionVectors(OP& Op, const Teuchos::RCP<const MV>& Q)
     {
-      Op.setNullSpace(Q);
-      Op.SetupDeflation();
+      CHECK_ZERO(Op.setNullSpace(Q));
+      CHECK_ZERO(Op.SetupDeflation());
     }
     
     //! @name Operator application method.
