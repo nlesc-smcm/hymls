@@ -95,7 +95,7 @@ int CartesianStokesClassifier::BuildNodeTypeVector()
 #if defined(STORE_MATRICES)||defined(TESTING)
 std::ofstream nodeTypeStream;
 nodeTypeStream.open(("nodeTypes_L"+Teuchos::toString(myLevel_)+
-        "_"+Teuchos::toString(nodeType_->Comm().MyPID())+"_CartStokes.txt").c_str(),ios::trunc);
+        "_"+Teuchos::toString(nodeType_->Comm().MyPID())+"_CartStokes.txt").c_str(),std::ios::trunc);
 this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"initial");
 #endif
 
