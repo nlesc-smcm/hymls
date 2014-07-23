@@ -243,7 +243,9 @@ HYMLS::MatrixUtils::Random(*x);
         }
       }
     }
-
+#ifdef STORE_MATRICES
+  HYMLS::MatrixUtils::Dump(*M,"massMatrix.txt");
+#endif
   HYMLS::Tools::Out("Create Preconditioner");
 
   Teuchos::RCP<HYMLS::Preconditioner> precond = Teuchos::rcp(new HYMLS::Preconditioner(K, params));
@@ -278,8 +280,12 @@ HYMLS::MatrixUtils::Random(*x);
 
   // Set verbosity level
   int verbosity = Anasazi::Errors + Anasazi::Warnings;
+  verbosity += Anasazi::IterationDetails;
+  verbosity += Anasazi::OrthoDetails;
   verbosity += Anasazi::FinalSummary + Anasazi::TimingDetails;
-
+#ifdef DEBUGGING
+  verbosity += Anasazi::Debug;
+#endif
   eigList.set("Verbosity",verbosity);
   eigList.set("Output Stream",HYMLS::Tools::out().getOStream());
 

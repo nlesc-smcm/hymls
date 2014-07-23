@@ -170,8 +170,12 @@ protected:
   //! preconditioner
   Teuchos::RCP<Epetra_Operator> precond_;
   
-  //! rhs and sol vectors
-  Teuchos::RCP<Epetra_MultiVector> belosRhs_,belosSol_;
+  //! rhs and sol vectors. I'm not sure if we need these vectors
+  //! in the object or could just pass on the input of ApplyInverse,
+  //! but since it is currently implemented like this we make them
+  //! mutable so they can be re-allocated in ApplyInverse() if the 
+  //! number of RHS changes
+  mutable Teuchos::RCP<Epetra_MultiVector> belosRhs_,belosSol_;
 
   //! Belos preconditioner interface
   Teuchos::RCP<belosPrecType_> belosPrecPtr_;

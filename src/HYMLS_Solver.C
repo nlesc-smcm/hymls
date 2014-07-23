@@ -231,7 +231,7 @@ void Solver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)
       }
     if (alpha_!=0.0 || beta_!=1.0)
       {
-      Tools::Warning("SetmassMatrix called while solving shifted system."
+      Tools::Warning("SetMassMatrix called while solving shifted system."
                      "Discarding shifts.",__FILE__,__LINE__);
       alpha_=0.0;
       beta_=1.0;
@@ -632,7 +632,7 @@ int Solver::SetupDeflation(int maxEigs)
 #ifdef STORE_MATRICES
   MatrixUtils::Dump(*V_,"DeflationVectors.txt");
 #endif
-  return 0; //TROET
+//  return 0; //TROET
 
 ////////////////////////////////////////////////////////////////////////
 // construct the operator we use to solve for v_orth:                   
@@ -752,16 +752,17 @@ int Solver::ApplyInverse(const Epetra_MultiVector& B,
    }
   else
     {
+    if (X.NumVectors()!=belosRhs_->NumVectors())
+      {
+      int numRhs=X.NumVectors();
+      belosRhs_=Teuchos::rcp(new Epetra_MultiVector(matrix_->OperatorRangeMap(),numRhs));
+      belosSol_=Teuchos::rcp(new Epetra_MultiVector(matrix_->OperatorDomainMap(),numRhs));
+      }
 #ifdef TESTING
   if (X.NumVectors()!=B.NumVectors())
     {
     Tools::Error("different number of input and output vectors",__FILE__,__LINE__);
     } 
-  if (X.NumVectors()!=belosRhs_->NumVectors())
-    {
-    // not implemented, number of vectors has to be passed to constructor
-    Tools::Error("cannot change number of vectors",__FILE__,__LINE__);
-    }
   if (!(X.Map().SameAs(belosSol_->Map()) && 
         B.Map().SameAs(belosRhs_->Map()) ))
     {
@@ -791,7 +792,7 @@ int Solver::ApplyInverse(const Epetra_MultiVector& B,
       *belosSol_=X;
       }
 
-    CHECK_TRUE(belosProblemPtr_->setProblem());
+    CHECK_TRUE(belosProblemPtr_->setProblem(belosSol_,belosRhs_));
 
     ::Belos::ReturnType ret;
     bool status=true;
