@@ -1087,21 +1087,30 @@ void JacobiDavidson<ScalarType,MV,OP,PREC>::expandSearchSpace()
     std::vector<int> curIndices(d_curDim);
     for( int i=0; i<d_curDim; ++i )
         curIndices[i] = i;
+    std::vector<int> latestIndex(1);
+    latestIndex[0]=d_curDim-1;
 
     // Get View of vectors
     RCP<MV>       V_new    = MVT::CloneViewNonConst( *d_V, newIndices);
     RCP<const MV> V_cur    = MVT::CloneView(         *d_V, curIndices);
+    RCP<const MV> V_latest    = MVT::CloneView(         *d_V, latestIndex);
     RCP<const MV> R_active = MVT::CloneView(         *d_R, d_expansionIndices);
 
     if( d_haveP )
     {
         // inform Preconditioner about shift and projection vectors
-        if (d_residualSize!=1)
+        if (d_expansionSize>2)
         {
+          // expSize may be blockSize+1 if last ritz val is a complex pair. We cannot handle
+          // blockSize>1 right now because we would have to set multiple shifts.
           throw AnasaziError("Jacobi-Davidson only implemented for block size 1 up to now");
         }
-        PRECT::SetShift(*d_P,d_betar[0],d_alphar[0]);
-        PRECT::SetProjectionVectors(*d_P,V_cur);
+        if (d_curDim==0)
+        {
+          throw Anasazi::AnasaziError("expected at least one vector in V already");
+        }
+        PRECT::SetShift(*d_P,d_betar[d_curDim-1],d_alphar[d_curDim-1]);
+        PRECT::SetProjectionVectors(*d_P,V_latest);
         // Apply Preconditioner to Residual
         PRECT::ApplyInverse( *d_P, *R_active, *V_new );
     }

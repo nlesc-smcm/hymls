@@ -19,7 +19,7 @@ namespace HYMLS
     ShiftedOperator(Teuchos::RCP<const Epetra_Operator> A, 
                       Teuchos::RCP<const Epetra_Operator> B,
                       double alpha, double beta)
-        : A_(A), B_(B), alpha_(alpha), beta_(beta) {}
+        : A_(A), B_(B), alpha_(alpha), beta_(beta), useTranspose_(false) {}
 
    //! @name Destructor
   //@{ 

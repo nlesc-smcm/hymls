@@ -245,6 +245,7 @@ int Solver::SetShift(double beta, double alpha)
   beta_=beta;
   operator_=Teuchos::rcp(new ShiftedOperator(matrix_,massMatrix_,alpha_,beta_));
   belosProblemPtr_->setOperator(operator_);
+  CHECK_TRUE(belosProblemPtr_->setProblem(belosSol_,belosRhs_));
   }
 
   // Sets all parameters for the solver
@@ -393,26 +394,30 @@ Teuchos::RCP<MatrixUtils::Eigensolution> Solver::EigsPrec(int numEigs) const
 
 int Solver::setNullSpace(const Teuchos::RCP<const Epetra_MultiVector>& V)
   {
-  int dim0=0;
-  if (nullSpace_!=Teuchos::null)
+  if (V==Teuchos::null)
     {
-    dim0=nullSpace_->NumVectors();
+    augmentedNullSpace_=nullSpace_;
+    return 0;
     }
+  int dim0=nullSpace_==Teuchos::null? 0: nullSpace_->NumVectors();
   int dim1=V->NumVectors();
-  if (augmentedNullSpace_->NumVectors()!=dim0+dim1)
+
+  if (augmentedNullSpace_==Teuchos::null)
+    {
+    augmentedNullSpace_=Teuchos::rcp(new Epetra_MultiVector(OperatorRangeMap(),dim0+dim1));    
+    }
+  else if (augmentedNullSpace_->NumVectors()!=dim0+dim1)
     {
     augmentedNullSpace_=Teuchos::rcp(new Epetra_MultiVector(OperatorRangeMap(),dim0+dim1));
-    if (nullSpace_!=Teuchos::null)
-      {
-      Epetra_MultiVector V0(View, *augmentedNullSpace_, 0, dim0);
-      V0=*nullSpace_;
-      }
     }
-  if (dim1>1)
+  
+  if (nullSpace_!=Teuchos::null)
     {
-    Epetra_MultiVector V1(View, *augmentedNullSpace_, dim0, dim1);
-    V1=*V;
+    Epetra_MultiVector V0(View, *augmentedNullSpace_, 0, dim0);
+    V0=*nullSpace_;
     }
+  Epetra_MultiVector V1(View, *augmentedNullSpace_, dim0, dim1);
+  V1=*V;
   }
 
 int Solver::SetupDeflation(int maxEigs)
@@ -436,7 +441,6 @@ int Solver::SetupDeflation(int maxEigs)
         = Teuchos::rcp_dynamic_cast<BorderedSolver>(precond_);
     if (bprec!=Teuchos::null)
       {
-      Tools::Out("set null space as border for preconditioner");
       CHECK_ZERO(bprec->SetBorder(augmentedNullSpace_,augmentedNullSpace_));      
       }
     else if (precond_!=Teuchos::null)
@@ -449,13 +453,13 @@ int Solver::SetupDeflation(int maxEigs)
       */
       }
     }
-
+    
 ////////////////////////////////////////////////////////////////////////
 // if we want to deflate more eigenmodes, compute the dominant eigen-   
 // values and -vectors of the preconditioner (augmented by the null-    
 // space), and select which are worth deflating.                        
 ////////////////////////////////////////////////////////////////////////
-  if (numEigs_!=0)    
+  if (numEigs_!=0)
     {
     Tools::Warning("Deflation is experimental functionality...",
         __FILE__,__LINE__);
@@ -624,10 +628,11 @@ int Solver::SetupDeflation(int maxEigs)
     numDeflated_=augmentedNullSpace_->NumVectors();
     V_=augmentedNullSpace_;
     }
-    
+
 #ifdef STORE_MATRICES
   MatrixUtils::Dump(*V_,"DeflationVectors.txt");
 #endif
+  return 0; //TROET
 
 ////////////////////////////////////////////////////////////////////////
 // construct the operator we use to solve for v_orth:                   

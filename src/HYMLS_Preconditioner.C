@@ -12,7 +12,6 @@
 #include "HYMLS_SparseDirectSolver.H"
 #include "HYMLS_SchurComplement.H"
 #include "HYMLS_SchurPreconditioner.H"
-#include "HYMLS_BorderedLU.H"
 
 #include <Epetra_Time.h> 
 #include "Epetra_Comm.h"

@@ -30,7 +30,6 @@ namespace HYMLS
   {
   class SchurComplement;
   class SchurPreconditioner;
-  class BorderedLU;
   class MultiVector_View;
   }
 

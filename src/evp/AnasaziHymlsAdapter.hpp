@@ -40,7 +40,11 @@ namespace Anasazi {
                         const MV& x, 
                         MV& y )
     {
-      //TODO
+      int ierr=Op.ApplyInverse(x,y);
+      if (ierr<0)
+        {
+        throw Anasazi::AnasaziError("Error code "+Teuchos::toString(ierr)+" returned from Op.ApplyInverse()");
+        }
     }
     
     //@}
