@@ -183,7 +183,7 @@ HYMLS::MatrixUtils::Random(*x);
     do_deflation=true;
     }
   Teuchos::RCP<Epetra_CrsMatrix> M = Teuchos::null;
-  if (do_deflation) // need a mass matrix
+  if (do_deflation||true) // need a mass matrix
     {
     HYMLS::Tools::Out("Create dummy mass matrix");
     M=Teuchos::rcp(new Epetra_CrsMatrix(Copy,*map,1,true));
@@ -219,7 +219,7 @@ HYMLS::MatrixUtils::Random(*x);
     {
     // scale equations by -1 to make operator 'negative indefinite'
     // (for testing the deflation capabilities)
-    K->Scale(-1.0);
+//    K->Scale(-1.0);
     // put a zero in the mass matrix for singletons
     if (M!=Teuchos::null)
       {

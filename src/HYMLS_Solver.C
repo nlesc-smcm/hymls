@@ -632,7 +632,6 @@ int Solver::SetupDeflation(int maxEigs)
 #ifdef STORE_MATRICES
   MatrixUtils::Dump(*V_,"DeflationVectors.txt");
 #endif
-//  return 0; //TROET
 
 ////////////////////////////////////////////////////////////////////////
 // construct the operator we use to solve for v_orth:                   
@@ -749,7 +748,7 @@ int Solver::ApplyInverse(const Epetra_MultiVector& B,
     // bordered solve
     ierr=LU_->ApplyInverse(B,X);
     numIter_ = AorthSolver_->getNumIters();
-   }
+    }
   else
     {
     if (X.NumVectors()!=belosRhs_->NumVectors())
@@ -774,7 +773,7 @@ int Solver::ApplyInverse(const Epetra_MultiVector& B,
    *belosRhs_ = B;
 
     if (startVec_=="Random")
-      {      
+      {
 #ifdef DEBUGGING
       int seed=42;
       MatrixUtils::Random(*belosSol_, seed);
@@ -806,13 +805,56 @@ int Solver::ApplyInverse(const Epetra_MultiVector& B,
   //TODO: avoid this copy operation
   X=*belosSol_;
 
+    if (ret!=::Belos::Converged)
+      {
+      HYMLS::Tools::Warning("Belos returned "+::Belos::convertReturnTypeToString(ret)+"'!",__FILE__,__LINE__);    
 #ifdef TESTING
+      Teuchos::RCP<const Epetra_CrsMatrix> Acrs =
+        Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_);
+      MatrixUtils::Dump(*Acrs,"FailedMatrix.txt");
+      MatrixUtils::Dump(B,"FailedRhs.txt");
+#endif
+      ierr = -1;
+      }
+    }
+  if (comm_->MyPID()==0)
+    {
+    Tools::Out("++++++++++++++++++++++++++++++++++++++++++++++++");
+    Tools::Out("+ Number of iterations: "+Teuchos::toString(numIter_));
+    Tools::Out("++++++++++++++++++++++++++++++++++++++++++++++++");
+    Tools::Out("");
+    }
+
+#ifdef TESTING
+
+Tools::Out("explicit residual test");
+Tools::out()<<"we were solving beta*A*x+alpha*B*x=rhs\n" <<
+      "   with "<<belosRhs_->NumVectors()<<" rhs\n" <<
+      "        beta ="<<beta_<<"\n" <<
+      "        alpha="<<alpha_<<"\n";
+if (massMatrix_==Teuchos::null)
+Tools::out()<<
+      "        B    =I\n"; 
 // compute explicit residual
 int dim = PL("Problem").get<int>("Dimension");
 int dof = PL("Problem").get<int>("Degrees of Freedom");
 
 Epetra_MultiVector resid(belosRhs_->Map(),belosRhs_->NumVectors());
 CHECK_ZERO(matrix_->Apply(*belosSol_,resid));
+if (alpha_!=0.0)
+  {
+  Epetra_MultiVector Bx=*belosSol_;
+  
+  if (massMatrix_!=Teuchos::null)
+    {
+    CHECK_ZERO(massMatrix_->Apply(*belosSol_,Bx));
+    }
+  CHECK_ZERO(resid.Update(alpha_,Bx,beta_));
+  }
+else if (beta_!=1.0)
+  {
+  CHECK_ZERO(resid.Scale(beta_));
+  }
 CHECK_ZERO(resid.Update(1.0,B,-1.0));
 double *resNorm,*rhsNorm,*resNormV,*resNormP;
 resNorm=new double[resid.NumVectors()];
@@ -881,25 +923,7 @@ delete [] resNormV;
 delete [] resNormP;
 #endif
 
-    if (ret!=::Belos::Converged)
-      {
-      HYMLS::Tools::Warning("Belos returned "+::Belos::convertReturnTypeToString(ret)+"'!",__FILE__,__LINE__);    
-#ifdef TESTING
-      Teuchos::RCP<const Epetra_CrsMatrix> Acrs =
-        Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_);
-      MatrixUtils::Dump(*Acrs,"FailedMatrix.txt");
-      MatrixUtils::Dump(B,"FailedRhs.txt");
-#endif
-      ierr = -1;
-      }
-    }
-  if (comm_->MyPID()==0)
-    {
-    Tools::Out("++++++++++++++++++++++++++++++++++++++++++++++++");
-    Tools::Out("+ Number of iterations: "+Teuchos::toString(numIter_));
-    Tools::Out("++++++++++++++++++++++++++++++++++++++++++++++++");
-    Tools::Out("");
-    }
+
   return ierr;
   }
 
