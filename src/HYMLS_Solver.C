@@ -659,10 +659,10 @@ int Solver::SetupDeflation(int maxEigs)
       Teuchos::RCP<Epetra_SerialDenseMatrix> C = Teuchos::rcp(new
         Epetra_SerialDenseMatrix(numDeflated_,numDeflated_));
       CHECK_ZERO(borderedPrec->SetBorder(V_,V_,C));
-      }
+      } // otherwise this was done above (only deflate a given null space)
     }
     
-  Aorth_=Teuchos::rcp(new ProjectedOperator(matrix_,V_,true));
+  Aorth_=Teuchos::rcp(new ProjectedOperator(operator_,V_,true));
 
   CHECK_ZERO(Teuchos::rcp_dynamic_cast<HYMLS::ProjectedOperator>(Aorth_)->SetLeftPrecond(precond_));
 
@@ -676,11 +676,24 @@ int Solver::SetupDeflation(int maxEigs)
   // compute V'KV_orth (K is not symmetric, so we
   // actually compute borderW_' = V_orthK'V. V_orth=I-VV' is symmetric)
   CHECK_ZERO(matrix_->Multiply(true,*V_,*KV));
+  if (shiftA_!=1.0)
+    {
+    CHECK_ZERO(KV->Scale(shiftA_));
+    }
+  if (shiftB_!=0.0)
+    {
+    Epetra_MultiVector BV=*V_;
+    if (massMatrix_!=Teuchos::null)
+      {
+      CHECK_ZERO(massMatrix_->Multiply(true,*V_,BV));
+      }    
+    CHECK_ZERO(KV->Update(shiftB_,BV,1.0));
+    }
   borderW_=Teuchos::rcp(new Epetra_MultiVector(V_->Map(),numDeflated_));
   CHECK_ZERO(DenseUtils::ApplyOrth(*V_,*KV,*borderW_));
 
   // compute V_orth'KV
-  CHECK_ZERO(matrix_->Multiply(false,*V_,*KV));
+  CHECK_ZERO(operator_->Apply(*V_,*KV));
   borderV_=Teuchos::rcp(new Epetra_MultiVector(V_->Map(),numDeflated_));    
   CHECK_ZERO(DenseUtils::ApplyOrth(*V_,*KV,*borderV_));
   // compute C=V'KV
