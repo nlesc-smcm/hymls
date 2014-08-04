@@ -18,11 +18,11 @@ namespace Anasazi {
     typedef Epetra_MultiVector MV;
     typedef HYMLS::Solver OP;
     
-    //! setup HYMLS for using the operator (beta*A-alpha*B)
-    static void SetShift(OP& Op, const ST& beta,
-                                 const ST& alpha)
+    //! setup HYMLS for using the operator (shiftA*A+shiftB*B)
+    static void SetShift(OP& Op, const ST& shiftA,
+                                 const ST& shiftB)
     {
-      Op.SetShift(beta,alpha);
+      Op.SetShift(shiftA,shiftB);
     }
     
     //! set projection vectors V: operator should act as inverse of (I-VV')(beta*A-alpha*B)

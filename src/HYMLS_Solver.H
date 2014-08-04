@@ -126,8 +126,8 @@ public:
   //! computes dominant eigenpairs of inv(P)
   Teuchos::RCP<MatrixUtils::Eigensolution> EigsPrec(int numEigs) const;
   
-  //! setup the solver to solve (beta*A+alpha*B)x=b
-  int SetShift(double beta, double alpha);
+  //! setup the solver to solve (shiftA*A+shiftB*B)x=b
+  int SetShift(double shiftA, double shiftB);
 
   //! computes the modes closest to 0 and sets up the solver's deflation
   //! capabilities. If maxEigs==-2, the value "Deflated Subspace Dimension"
@@ -162,7 +162,7 @@ protected:
  Teuchos::RCP<const Epetra_Operator> operator_;
   
   //! We solve (beta*A+alpha*B)x=b
-  double beta_, alpha_;
+  double shiftA_, shiftB_;
 
   //! solver type and start vector type
   std::string solverType_, startVec_;

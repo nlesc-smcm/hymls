@@ -8,8 +8,8 @@
 namespace HYMLS 
   {
 
-  //! given operators A, B and scalars alpha, beta, implements the
-  //! action Y=(beta*A+alpha*B)X
+  //! given operators A, B and scalars shiftA, shiftB, implements the
+  //! action Y=(shiftA*A+shiftB*B)X
   class ShiftedOperator : public Epetra_Operator 
     {
     
@@ -18,8 +18,8 @@ namespace HYMLS
     //!constructor
     ShiftedOperator(Teuchos::RCP<const Epetra_Operator> A, 
                       Teuchos::RCP<const Epetra_Operator> B,
-                      double alpha, double beta)
-        : A_(A), B_(B), alpha_(alpha), beta_(beta), useTranspose_(false) {}
+                      double shiftA, double shiftB)
+        : A_(A), B_(B), shiftA_(shiftA), shiftB_(shiftB), useTranspose_(false) {}
 
    //! @name Destructor
   //@{ 
@@ -70,7 +70,7 @@ does not support transpose.
   */
   int Apply(const Epetra_MultiVector& X, Epetra_MultiVector& Y) const
     {
-    if (alpha_!=0.0)
+    if (shiftB_!=0.0)
       {
       if (B_==Teuchos::null)
         {
@@ -93,7 +93,7 @@ does not support transpose.
     //A_->SetUseTranspose(useTranspose);
     A_->Apply(X,AX);
     //A_->SetUseTranspose(trans);
-    Y.Update(beta_,AX,alpha_);
+    Y.Update(shiftA_,AX,shiftB_);
     return 0;
     }
 
@@ -130,7 +130,7 @@ does not support transpose.
    const char * Label() const 
      {
 //     return ("["+labelV_+"^T"+labelA_+labelV_+"]"+labelT_).c_str();
-     return "beta*A+alpha*B";
+     return "shiftA*A+shiftB*B";
      }
 
     //! Returns the current UseTranspose setting.
@@ -168,7 +168,7 @@ does not support transpose.
     Teuchos::RCP<const Epetra_Operator> A_, B_;
     
     //! scalars
-    double alpha_, beta_;
+    double shiftA_, shiftB_;
     
     //! use transposed operator?
     bool useTranspose_;

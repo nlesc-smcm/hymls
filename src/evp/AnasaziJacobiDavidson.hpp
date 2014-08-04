@@ -1109,7 +1109,18 @@ void JacobiDavidson<ScalarType,MV,OP,PREC>::expandSearchSpace()
         {
           throw Anasazi::AnasaziError("expected at least one vector in V already");
         }
-        PRECT::SetShift(*d_P,d_betar[d_curDim-1],d_alphar[d_curDim-1]);
+        //TODO - complex shifts, how should we define the interface, which system should be 
+        //       solved etc.
+        for (int j=0;j<d_curDim;j++)
+          {
+          fprintf(stdout,"alpha[%d]=%e%+ei, beta[%d]=%e\tsigma=%+e\n",
+                j,d_alphar[j],d_alphai[j],j,d_betar[j],d_alphar[j]/d_betar[j]);
+          }
+        std::cout << "iter "<<d_curDim<<": set shift to "<<
+                     d_alphar[d_curDim-1]<<"/"<<d_betar[d_curDim-1]<<"="<<
+                     d_alphar[d_curDim-1]/d_betar[d_curDim-1]<<". Ignoring imag(alpha)="<<
+                     d_alphai[d_curDim-1]<<std::endl;
+        PRECT::SetShift(*d_P,1.0,-d_alphar[d_curDim-1]/d_betar[d_curDim-1]);
         PRECT::SetProjectionVectors(*d_P,V_latest);
         // Apply Preconditioner to Residual
         PRECT::ApplyInverse( *d_P, *R_active, *V_new );
@@ -1742,7 +1753,7 @@ void JacobiDavidson<ScalarType,MV,OP,PREC>::currentStatus( std::ostream &myout )
     myout <<endl;
     myout <<"================================================================================" << endl;
     myout << endl;
-    myout <<"                    JacobiDavidson Solver Solver Status" << endl;
+    myout <<"                    JacobiDavidson Solver Status" << endl;
     myout << endl;
     myout <<"The solver is "<<(d_initialized ? "initialized." : "not initialized.") << endl;
     myout <<"The number of iterations performed is " << d_iteration << endl;

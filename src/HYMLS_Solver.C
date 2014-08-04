@@ -43,7 +43,7 @@ namespace HYMLS {
       Teuchos::RCP<Teuchos::ParameterList> params,
       int numRhs)
       : matrix_(K), operator_(K), precond_(P), comm_(Teuchos::rcp(&(K->Comm()),false)), 
-      beta_(1.0), alpha_(0.0),
+      shiftA_(1.0), shiftB_(0.0),
         massMatrix_(Teuchos::null), nullSpace_(Teuchos::null),
         augmentedNullSpace_(Teuchos::null),
         normInf_(-1.0), useTranspose_(false),
@@ -184,12 +184,12 @@ namespace HYMLS {
     {
     START_TIMER3(label_,"SetMatrix");
     matrix_ = A;
-    if (alpha_!=0.0 || beta_!=1.0)
+    if (shiftB_!=0.0 || shiftA_!=1.0)
       {
       Tools::Warning("SetMatrix called while operator used is shifted."
                      "Discarding shifts.",__FILE__,__LINE__);
-      alpha_=0.0;
-      beta_=1.0;
+      shiftB_=0.0;
+      shiftA_=1.0;
       }
     operator_=matrix_;
     belosProblemPtr_->setOperator(operator_);
@@ -229,21 +229,21 @@ void Solver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)
       Tools::Error("Mass matrix must have same row map as solver",
                 __FILE__,__LINE__);
       }
-    if (alpha_!=0.0 || beta_!=1.0)
+    if (shiftB_!=0.0 || shiftA_!=1.0)
       {
       Tools::Warning("SetMassMatrix called while solving shifted system."
                      "Discarding shifts.",__FILE__,__LINE__);
-      alpha_=0.0;
-      beta_=1.0;
+      shiftB_=0.0;
+      shiftA_=1.0;
       }
     operator_=matrix_;
     }
 
-int Solver::SetShift(double beta, double alpha)
+int Solver::SetShift(double shiftA, double shiftB)
   {
-  alpha_=alpha;
-  beta_=beta;
-  operator_=Teuchos::rcp(new ShiftedOperator(matrix_,massMatrix_,alpha_,beta_));
+  shiftA_=shiftA;
+  shiftB_=shiftB;
+  operator_=Teuchos::rcp(new ShiftedOperator(matrix_,massMatrix_,shiftB_,shiftA_));
   belosProblemPtr_->setOperator(operator_);
   CHECK_TRUE(belosProblemPtr_->setProblem(belosSol_,belosRhs_));
   }
@@ -828,32 +828,32 @@ int Solver::ApplyInverse(const Epetra_MultiVector& B,
 #ifdef TESTING
 
 Tools::Out("explicit residual test");
-Tools::out()<<"we were solving beta*A*x+alpha*B*x=rhs\n" <<
-      "   with "<<belosRhs_->NumVectors()<<" rhs\n" <<
-      "        beta ="<<beta_<<"\n" <<
-      "        alpha="<<alpha_<<"\n";
+Tools::out()<<"we were solving (a*A*x+b*B)*x=rhs\n" <<
+      "   with "<<X.NumVectors()<<" rhs\n" <<
+      "        a = "<<shiftA_<<"\n" <<
+      "        b = "<<shiftB_<<"\n";
 if (massMatrix_==Teuchos::null)
 Tools::out()<<
-      "        B    =I\n"; 
+      "        B = I\n"; 
 // compute explicit residual
 int dim = PL("Problem").get<int>("Dimension");
 int dof = PL("Problem").get<int>("Degrees of Freedom");
 
-Epetra_MultiVector resid(belosRhs_->Map(),belosRhs_->NumVectors());
-CHECK_ZERO(matrix_->Apply(*belosSol_,resid));
-if (alpha_!=0.0)
+Epetra_MultiVector resid(X.Map(),X.NumVectors());
+CHECK_ZERO(matrix_->Apply(X,resid));
+if (shiftB_!=0.0)
   {
-  Epetra_MultiVector Bx=*belosSol_;
+  Epetra_MultiVector Bx=X;
   
   if (massMatrix_!=Teuchos::null)
     {
-    CHECK_ZERO(massMatrix_->Apply(*belosSol_,Bx));
+    CHECK_ZERO(massMatrix_->Apply(X,Bx));
     }
-  CHECK_ZERO(resid.Update(alpha_,Bx,beta_));
+  CHECK_ZERO(resid.Update(shiftB_,Bx,shiftA_));
   }
-else if (beta_!=1.0)
+else if (shiftA_!=1.0)
   {
-  CHECK_ZERO(resid.Scale(beta_));
+  CHECK_ZERO(resid.Scale(shiftA_));
   }
 CHECK_ZERO(resid.Update(1.0,B,-1.0));
 double *resNorm,*rhsNorm,*resNormV,*resNormP;

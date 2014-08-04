@@ -71,8 +71,9 @@ namespace Anasazi {
     //! set the shift $\sigma$ to be used in the preconditioner. The matrix is assumed
     //! to be fixed during the course of an Anasazi solve (and known to the preconditioner),
     //! the preconditioner may decide to which extend it makes use of updated shifts in a
-    //! Jacobi-Davidson process.
-    static void SetShift(OP& Op, const ScalarType& beta, const ScalarType& alpha)
+    //! Jacobi-Davidson process. The shift is given as two factors, the system to be 
+    //! solved will be (shiftA*A+shiftB*B)X=RHS
+    static void SetShift(OP& Op, const ScalarType& shiftA, const ScalarType& shiftB)
     {
       UndefinedPreconditionerTraits<ScalarType,MV,OP>::notDefined();
     }
