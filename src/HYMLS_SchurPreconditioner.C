@@ -544,7 +544,6 @@ DEBVAR(*borderC_);
   // compute LU decompositions of blocks...
   {
   START_TIMER(label_,"factor blocks");
-#pragma omp parallel for schedule(static)
   for (int i=0;i<blockSolver_.size();i++)
     {
     CHECK_ZERO(blockSolver_[i]->Compute(*matrix_));
@@ -621,10 +620,8 @@ int SchurPreconditioner::InitializeBlocks()
     // Some blocks may ultimately have 0 rows if they had only one element which
     // is retained as a 'Vsum'-node. That doesn't bother the solver, though.
     int numBlocks=0;
-    int blockStart[sepObject->NumMySubdomains()];
     for (int i=0;i<sepObject->NumMySubdomains();i++)
       {
-      blockStart[i] = numBlocks;
       numBlocks+=sepObject->NumGroups(i);
       }
 
@@ -645,29 +642,29 @@ int SchurPreconditioner::InitializeBlocks()
   // create an array of solvers for all the diagonal blocks
   blockSolver_.resize(numBlocks);
   double nnz=0.0;
-  Teuchos::ParameterList params = PL().sublist("Dense Solver");
-#pragma omp parallel for schedule(static) collapse(2) reduction(+:nnz)
+  int blk=0;
   for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
     {
     for (int grp=0;grp<sepObject->NumGroups(sep);grp++)
       {
-      const int blk = blockStart[sep] + grp;
       // in the spawned sepObject, each local separator is a group of a subdomain.
       // -1 because we remove one Vsum node from each block
-      const int numRows=std::max(sepObject->NumElements(sep,grp)-1,0);
+      int numRows=std::max(sepObject->NumElements(sep,grp)-1,0);
       nnz+=numRows*numRows; 
       blockSolver_[blk]=Teuchos::rcp(new 
              Ifpack_DenseContainer(numRows));
-      CHECK_ZERO(blockSolver_[blk]->SetParameters(params));
+      CHECK_ZERO(blockSolver_[blk]->SetParameters(
+              PL().sublist("Dense Solver")));
 
       CHECK_ZERO(blockSolver_[blk]->Initialize());
 
       for (int j=0; j<numRows; j++)
         {
-        const int gid=sepObject->GID(sep,grp,j+1); // skip first element, which is a Vsum
-        const int LRID = map_->LID(gid);
+        int gid=sepObject->GID(sep,grp,j+1); // skip first element, which is a Vsum
+        int LRID = map_->LID(gid);
         blockSolver_[blk]->ID(j) = LRID;
         }
+      blk++;
       }
     }
   REPORT_SUM_MEM(label_,"dense diagonal blocks",nnz,0,comm_);
@@ -835,6 +832,9 @@ int SchurPreconditioner::InitializeOT()
     Epetra_Import import(sepMap,*map_);
     Epetra_Vector localTestVector(sepMap);
     CHECK_ZERO(localTestVector.Import(*testVector_,import,Insert));
+
+    Epetra_IntSerialDenseVector inds;
+    Epetra_SerialDenseVector vec;
     
     int nnzPerRow = sepObject->NumMySubdomains()>0? sepObject->NumInteriorElements(0) : 
     0;
@@ -843,23 +843,14 @@ int SchurPreconditioner::InitializeOT()
         Epetra_CrsMatrix(Copy,*map_,nnzPerRow));
 
     // loop over all separators connected to a local subdomain
-    PEC_INIT;
-#pragma omp parallel
-{
-    Epetra_IntSerialDenseVector inds;
-    Epetra_SerialDenseVector vec;
-
-#pragma omp for schedule(static) collapse(2)
     for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
       {
-      //~ DEBVAR(sep);
+      DEBVAR(sep);
       // the LocalSeparator object has only local separators, but it may
       // have several groups due to splitting of groups (i.e. for the B-grid,
       // where velocities are grouped depending on how they connect ot the pressures)
       for (int grp=0;grp<sepObject->NumGroups(sep);grp++)
         {
-#pragma omp flush(PEC)
-        PEC_PROTECT;
 //        DEBVAR(grp);
         int len = sepObject->NumElements(sep,grp);
         if ((inds.Length()!=len) && (len>0))
@@ -881,13 +872,11 @@ int SchurPreconditioner::InitializeOT()
             {
             Tools::Warning("Error code "+Teuchos::toString(ierr)+" returned from Epetra call!",
                         __FILE__, __LINE__);                        
-            PEC_IFPACK_CHK_ERR(ierr);
+            return ierr;
             }
           }
-        }
+        }    
       }
-}
-    PEC_HANDLE_ERRORS;
     
     CHECK_ZERO(sparseMatrixOT_->FillComplete())
     }
@@ -1100,6 +1089,15 @@ int SchurPreconditioner::InitializeOT()
       matrix = Teuchos::rcp(new Epetra_FECrsMatrix(Copy,*map_,nzest));
       matrix_=matrix;
       }
+    
+    Epetra_IntSerialDenseVector indices;
+    Epetra_IntSerialDenseVector sep;
+    Epetra_SerialDenseVector v;
+    Epetra_SerialDenseMatrix Sk;
+        
+    // part remaining after dropping
+    Epetra_SerialDenseMatrix Spart;
+    Epetra_IntSerialDenseVector indsPart;
 
     Teuchos::RCP<Epetra_CrsMatrix> transformedA22 =
     OT->Apply(*sparseMatrixOT_,SchurComplement_->A22());
@@ -1118,18 +1116,13 @@ int SchurPreconditioner::InitializeOT()
       HYMLS::Tools::Error("mismatched maps",__FILE__,__LINE__);
       }
 
-    const int maxlen=transformedA22->MaxNumEntries();
+    int len;
+    int maxlen=transformedA22->MaxNumEntries();    
     int* cols=new int[maxlen];
     double* values=new double[maxlen];
 
     if (!matrix->Filled())
       {
-//~ #pragma omp parallel
-//~ {
-      // part remaining after dropping
-      Epetra_SerialDenseMatrix Spart;
-      Epetra_IntSerialDenseVector indsPart;
-
       // start out by just putting the structure together.
       // I do this because the SumInto function will fail 
       // unless the values have been put in already. On the
@@ -1138,8 +1131,7 @@ int SchurPreconditioner::InitializeOT()
       //
       // NOTE: this is where the 'dropping' occurs, so if we
       //       want to implement different schemes we have  
-      //       to adjust this loop in the first place.
-//~ #pragma omp for
+      //       to adjust this loop in the first place.      
       for (int sd=0;sd<hid_->NumMySubdomains();sd++)
         {
         // put in the Vsum-Vsum couplings
@@ -1157,15 +1149,12 @@ int SchurPreconditioner::InitializeOT()
         indsPart.Resize(numVsums);
         //DEBVAR(sd);
         //DEBVAR(indsPart);
-//~ #pragma omp critical(HYMLS_Insert)
-//~ {
         CHECK_NONNEG(matrix->InsertGlobalValues(indsPart.Length(),
-                indsPart.Values(), Spart.A(),Epetra_FECrsMatrix::ROW_MAJOR));
-//~ }
+                indsPart.Values(), Spart.A()));
         // now the non-Vsums
         for (int grp=1;grp<hid_->NumGroups(sd);grp++)
           {
-          const int len = hid_->NumElements(sd,grp)-1;
+          int len = hid_->NumElements(sd,grp)-1;
           indsPart.Resize(len);
           if (Spart.N()<len) Spart.Reshape(2*len,2*len);
           for (int j=0;j<len;j++)
@@ -1173,14 +1162,10 @@ int SchurPreconditioner::InitializeOT()
             indsPart[j]=hid_->GID(sd,grp,1+j);
             }//j
           //DEBVAR(indsPart);
-//~ #pragma omp critical(HYMLS_Insert)
-//~ {
           CHECK_NONNEG(matrix->InsertGlobalValues(indsPart.Length(),
-                        indsPart.Values(),Spart.A(),Epetra_FECrsMatrix::ROW_MAJOR));
-//~ }
+                        indsPart.Values(),Spart.A()));
           }
         }
-//~ }
       // assemble with all zeros
       DEBVAR("assemble pattern of transformed SC");
       CHECK_ZERO(matrix->GlobalAssemble(false));
@@ -1188,7 +1173,6 @@ int SchurPreconditioner::InitializeOT()
       for (int i=0;i<matrix_->NumMyRows();i++)
         {
         //global row id
-        int len;
         int grid = transformedA22->GRID(i);
         CHECK_ZERO(transformedA22->ExtractGlobalRowCopy(grid,maxlen,len,values,cols));
         for (int j=0;j<len;j++) values[j]=0.0;
@@ -1206,7 +1190,6 @@ int SchurPreconditioner::InitializeOT()
     for (int i=0;i<matrix_->NumMyRows();i++)
       {
       //global row id
-      int len;
       int grid = transformedA22->GRID(i);
       CHECK_ZERO(transformedA22->ExtractGlobalRowCopy(grid,maxlen,len,values,cols));
       // put entries that are already defined in matrix, others are dropped.
@@ -1227,7 +1210,7 @@ int SchurPreconditioner::InitializeOT()
     // Get an object with all separators connected to local subdomains
     Teuchos::RCP<const HierarchicalMap> sepObject
         = hid_->Spawn(HierarchicalMap::Separators);
-
+        
     // import our test vector into the map of this object (to get the off-processor
     // separators connected to local subdomains). The separators are unique in this object, 
     // so the Map() and OverlappingMap() are the same.
@@ -1236,20 +1219,12 @@ int SchurPreconditioner::InitializeOT()
     Epetra_Vector localTestVector(sepMap);
     CHECK_ZERO(localTestVector.Import(*testVector_,import,Insert));
 
-#pragma omp parallel
-{
-    Epetra_IntSerialDenseVector indices;
-    Epetra_IntSerialDenseVector sep;
-    Epetra_SerialDenseVector v;
-    Epetra_SerialDenseMatrix Sk;
-
     // now for each subdomain construct the SC part A21*A11\A12 for the      
     // surrounding separators, apply orthogonal transforms to each separator 
     // group and sum them into the pattern defined above, dropping everything
     // that is not defined in the matrix pattern.
      
     // loop over all subdomains
-#pragma omp for
     for (int sd=0;sd<hid_->NumMySubdomains();sd++)
       {
       // construct the local contribution of the SC
@@ -1265,7 +1240,7 @@ int SchurPreconditioner::InitializeOT()
       for (int grp=1;grp<hid_->NumGroups(sd);grp++)
         {
         // apply orthogonal transform from left and right to the separator
-        const int len = hid_->NumElements(sd,grp);
+        int len = hid_->NumElements(sd,grp);
         sep.Resize(len);
         v.Resize(len);
         for (int j=0;j<len;j++)
@@ -1286,12 +1261,9 @@ int SchurPreconditioner::InitializeOT()
           }//j
         RestrictedOT::Apply(Sk,sep,*OT,v);
         }//grp
-#pragma omp critical(HYMLS_SCHURPREC)
-{
-      CHECK_NONNEG(matrix->SumIntoGlobalValues(indices,Sk,Epetra_FECrsMatrix::ROW_MAJOR));
-}
+      CHECK_NONNEG(matrix->SumIntoGlobalValues(indices,Sk));
       }//sd
-}
+
     DEBUG("assemble transformed/dropped SC");
     CHECK_ZERO(matrix->GlobalAssemble(true));
 #ifdef STORE_MATRICES
@@ -1338,7 +1310,7 @@ int SchurPreconditioner::InitializeOT()
       Epetra_SerialDenseMatrix D(m,n);
       return ApplyInverse(X,C,Y,D);
       }
-
+    
     numApplyInverse_++;
     time_->ResetStartTime();
     if (!IsComputed())
@@ -1778,7 +1750,6 @@ int SchurPreconditioner::ApplyBlockDiagonal
   {
   START_TIMER2(label_,"Block Diagonal Solve");
   int numBlocks=blockSolver_.size(); // will be 0 on coarsest level
-#pragma omp parallel for schedule(static)
   for (int blk=0;blk<numBlocks;blk++)
     {
     if (Y.NumVectors()!=blockSolver_[blk]->NumVectors())

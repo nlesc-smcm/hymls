@@ -2,8 +2,8 @@
 
 #include "HYMLS_SchurComplement.H"
 #include "HYMLS_OverlappingPartitioner.H"
+#include "HYMLS_SparseDirectSolver.H"
 #include "HYMLS_MatrixUtils.H"
-#include "HYMLS_SolverContainer.H"
 
 #include "Epetra_Comm.h"
 #include "Epetra_Map.h"
@@ -14,6 +14,8 @@
 #include "Epetra_CrsMatrix.h"
 #include "Epetra_FECrsMatrix.h"
 #include "Epetra_Import.h"
+
+#include "Ifpack_Container.h"
 
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_Array.hpp"
@@ -244,13 +246,18 @@ namespace HYMLS {
     double flops=0;
 #endif    
     const OverlappingPartitioner& hid=mother_->Partitioner();
-    Teuchos::RCP<const Epetra_CrsMatrix> _A12 = mother_->A12(sd);
-    Teuchos::RCP<const Epetra_CrsMatrix> _A21 = mother_->A21(sd);
-    const Epetra_CrsMatrix& A12 = *_A12;
-    const Epetra_CrsMatrix& A21 = *_A21;
+    const Epetra_CrsMatrix& A12 = mother_->A12(sd);
+    const Epetra_CrsMatrix& A21 = mother_->A21(sd);
     const Epetra_CrsMatrix& A22 = mother_->A22();
-    SolverContainer& A11 = mother_->SolverA11(sd);
-
+    Ifpack_Container& _A11 = mother_->SolverA11(sd);
+    Ifpack_SparseContainer<SparseDirectSolver> *sparseA11
+        = dynamic_cast<Ifpack_SparseContainer<SparseDirectSolver>*>(&_A11);
+    if (sparseA11==NULL)
+      {
+      Tools::Error("use of dense subdomain solvers not implemented, yet!",
+        __FILE__, __LINE__);
+      }
+    Ifpack_SparseContainer<SparseDirectSolver>& A11 = *sparseA11;
     if (sd<0 || sd>hid.NumMySubdomains())
       {
       Tools::Warning("Subdomain index out of range!",__FILE__,__LINE__);
@@ -269,6 +276,8 @@ namespace HYMLS {
    }
 #endif
 
+
+    
     int nrows = hid.NumSeparatorElements(sd);
               
     if (inds.Length()!=nrows)
@@ -292,8 +301,6 @@ namespace HYMLS {
     DEBVAR(inds);
     DEBVAR(nrows);
 
-{
-    START_TIMER2(label_, "Fill RHS");
     int int_elems = hid.NumInteriorElements(sd);
     int len[int_elems];
     int *indices[int_elems];
@@ -307,7 +314,6 @@ namespace HYMLS {
 
     int pos = 0; // position in multi-vector (rhs of subdomain solver)
 
-    const Epetra_Map& A12_ColMap = A12.ColMap();
     // now loop over all the separators around this subdomain
     for (int grp=1;grp<hid.NumGroups(sd);grp++)
       {
@@ -315,24 +321,20 @@ namespace HYMLS {
       for (int j=0; j<hid.NumElements(sd,grp);j++)
         {
         int gcid=hid.GID(sd,grp,j);// global ID of separator node (sd,grp,j)
-        double *rhs = &A11.RHS(0, pos);
         // loop over all rows in this subdomain
         for (int i = 0;i<int_elems;i++)
           {
-          const int *incices_ptr = indices[i];
-          const double *values_ptr = values[i];
           // loop over the matrix row and look for matching entries
           for (int k = 0 ; k < len[i]; k++)
             {
-            if (gcid == A12_ColMap.GID(incices_ptr[k]))
-              rhs[i] = values_ptr[k];
+            if (gcid == A12.GCID(indices[i][k]))
+              A11.RHS(i, pos) = values[i][k];
             }
           }
         pos++;
         }
       }
-}
-
+    
 //    DEBUG("Apply A11 inverse...");
 #ifdef FLOPS_COUNT    
     double flopsOld=A11.ApplyInverseFlops();
@@ -364,13 +366,12 @@ namespace HYMLS {
     // re-index and put into final block
     
 //    DEBUG("Copy into Sk matrix");
-    const Epetra_Map& mmap = mother_->Map2(sd);
-    for (int i = 0; i < nrows; i++)
+    for (int i=0;i<nrows;i++)
       {
-      const int lrid = mmap.LID(inds[i]);
-      for (int j = 0; j < nrows; j++)
+      int lrid = mother_->Map2(sd).LID(inds[i]);
+      for (int j=0;j<nrows;j++)
         {
-        Sk(j,i) = Aloc[j][lrid];
+        Sk(i,j) = Aloc[j][lrid];
         }
       }
 

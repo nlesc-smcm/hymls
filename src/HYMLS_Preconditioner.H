@@ -5,6 +5,7 @@
 #include "Teuchos_Array.hpp"
 
 #include "Ifpack_Preconditioner.h"
+#include "Ifpack_Container.h"
 #include "Epetra_Time.h"
 
 #include "BelosLinearProblem.hpp"
@@ -15,7 +16,6 @@
 #include "HYMLS_OverlappingPartitioner.H"
 #include "HYMLS_DenseUtils.H"
 #include "HYMLS_PLA.H"
-#include "HYMLS_SolverContainer.H"
 
 #include "HYMLS_BorderedSolver.H"
 
@@ -283,13 +283,9 @@ protected:
   
   //! string to indicate wether we use a dense or sparse solver for the subdomains
   std::string sdSolverType_;
-  
-  //! string to indicate wether we use a dense, sparse, or parallel sparse solver
-  //! for the subdomains at the last level
-  std::string sdLastSolverType_;
 
   //! we use Ifpack conainers for solving the subdomain problems
-  Teuchos::Array<Teuchos::RCP<SolverContainer> > subdomainSolver_;
+  Teuchos::Array<Teuchos::RCP<Ifpack_Container> > subdomainSolver_;
   
   //! operator representation of our Schur-complement
   mutable Teuchos::RCP<SchurComplement> Schur_;
@@ -304,7 +300,6 @@ protected:
   //! The range and domain of these operators are the rowMap_.
   Teuchos::RCP<Epetra_CrsMatrix> A12_, A21_, A22_;
 
-#ifdef BLOCK_IMPLEMENTATION
   //! A12-parts of matrix in separate blocks. The row maps of 
   //! these operators are disjunct, so (A12*x2)_i = A12_i x2
   Teuchos::Array<Teuchos::RCP<Epetra_CrsMatrix> > localA12_;
@@ -315,7 +310,6 @@ protected:
   // map so values shared by several procs are reproduced on 
   // all partitions owning the separator node.
   Teuchos::Array<Teuchos::RCP<Epetra_CrsMatrix> > localA21_;
-#endif
 
   //! map with _all_ interior elements
   Teuchos::RCP<const Epetra_Map> map1_;
@@ -504,13 +498,13 @@ protected:
   const HYMLS::OverlappingPartitioner& Partitioner() const {return *hid_;}
 
   //! get solver for a diagonal block of A11
-  SolverContainer& SolverA11(int sd) const {return *subdomainSolver_[sd];}
+  Ifpack_Container& SolverA11(int sd) const {return *subdomainSolver_[sd];}
   
   //! get a submatrix A12
-  Teuchos::RCP<const Epetra_CrsMatrix> A12(int sd) const;
+  const Epetra_CrsMatrix& A12(int sd) const {return *localA12_[sd];}
 
   //! get a submatrix A21
-  Teuchos::RCP<const Epetra_CrsMatrix> A21(int sd) const;
+  const Epetra_CrsMatrix& A21(int sd) const {return *localA21_[sd];}
 
   //! get entire matrix A21
   const Epetra_CrsMatrix& A21() const {return *A21_;}
