@@ -661,6 +661,14 @@ int Solver::SetupDeflation(int maxEigs)
       CHECK_ZERO(borderedPrec->SetBorder(V_,V_,C));
       } // otherwise this was done above (only deflate a given null space)
     }
+
+#if 0
+//TODO - for JD I think we don't need to iterate orthogonal to V, the preconditioner
+//       should already take care of this. This has to be checked.
+Tools::Warning("In SetupDeflation: only using a bordered preconditioner right now",
+        __FILE__, __LINE__);
+return 0;
+#endif
     
   Aorth_=Teuchos::rcp(new ProjectedOperator(operator_,V_,true));
 
