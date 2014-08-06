@@ -418,6 +418,7 @@ int Solver::setNullSpace(const Teuchos::RCP<const Epetra_MultiVector>& V)
     }
   Epetra_MultiVector V1(View, *augmentedNullSpace_, dim0, dim1);
   V1=*V;
+  return 0;
   }
 
 int Solver::SetupDeflation(int maxEigs)
