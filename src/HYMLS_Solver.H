@@ -127,7 +127,7 @@ public:
   Teuchos::RCP<MatrixUtils::Eigensolution> EigsPrec(int numEigs) const;
   
   //! setup the solver to solve (shiftA*A+shiftB*B)x=b
-  int SetShift(double shiftA, double shiftB);
+  int setShift(double shiftA, double shiftB);
 
   //! computes the modes closest to 0 and sets up the solver's deflation
   //! capabilities. If maxEigs==-2, the value "Deflated Subspace Dimension"
@@ -147,6 +147,9 @@ public:
   //! to the constant (exact) null space defined by the "Null Space"
   //! entry in the parameter list.
   int setNullSpace(const Teuchos::RCP<const Epetra_MultiVector>& V);
+
+  //! use same preconditioner but operator (I-VV')A
+  int setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V);
 
 protected: 
 

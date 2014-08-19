@@ -239,7 +239,7 @@ void Solver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)
     operator_=matrix_;
     }
 
-int Solver::SetShift(double shiftA, double shiftB)
+int Solver::setShift(double shiftA, double shiftB)
   {
   shiftA_=shiftA;
   shiftB_=shiftB;
@@ -438,7 +438,7 @@ int Solver::SetupDeflation(int maxEigs)
   if (augmentedNullSpace_!=Teuchos::null)
     {
     // we compute eigs of the operator [K N; N' 0] to make the operator nonsingular
-    Teuchos::RCP<BorderedSolver> bprec
+    Teuchos::RCP<HYMLS::BorderedSolver> bprec
         = Teuchos::rcp_dynamic_cast<BorderedSolver>(precond_);
     if (bprec!=Teuchos::null)
       {
@@ -756,6 +756,18 @@ try {
     } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status);
   if (!status) Tools::Error("failed to create bordered outer solver",__FILE__,__LINE__);
   return 0;
+  }
+
+int Solver::setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V)
+  {
+  Aorth_=Teuchos::rcp(new ProjectedOperator(operator_,V,true));
+  Teuchos::RCP<HYMLS::BorderedSolver> bprec = 
+        Teuchos::rcp_dynamic_cast<HYMLS::BorderedSolver>(precond_);
+  if (bprec!=Teuchos::null)
+    {
+    CHECK_ZERO(bprec->SetBorder(V,V));
+    }
+  belosProblemPtr_->setOperator(Aorth_);
   }
 
 // Applies the preconditioner to vector X, returns the result in Y.

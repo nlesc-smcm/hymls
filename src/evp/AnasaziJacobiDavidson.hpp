@@ -1111,16 +1111,35 @@ void JacobiDavidson<ScalarType,MV,OP,PREC>::expandSearchSpace()
         }
         //TODO - complex shifts, how should we define the interface, which system should be 
         //       solved etc.
-        for (int j=0;j<d_curDim;j++)
+
+        //TODO: this seems *so* awkward, can't we get thie information on which is the next
+        //      shift more easily?
+        //{
+        std::vector<MagnitudeType> realRitz(d_curDim), imagRitz(d_curDim);
+        std::vector< Value<ScalarType> > ritzVals = getRitzValues();
+        for( int i=0; i<d_curDim; ++i )
           {
-          fprintf(stdout,"alpha[%d]=%e%+ei, beta[%d]=%e\tsigma=%+e\n",
-                j,d_alphar[j],d_alphai[j],j,d_betar[j],d_alphar[j]/d_betar[j]);
+            realRitz[i] = ritzVals[i].realpart;
+            imagRitz[i] = ritzVals[i].imagpart;
           }
+        std::vector<int> permvec;
+        sortValues( realRitz, imagRitz, permvec, d_curDim );
+        
+        // get indices of next (block of) unconverged Ritz value(s)
+        std::vector<int> shiftIdx=getBlockIndex();
+        
+        std::cout <<"shiftIdx="<<shiftIdx[0]<<std::endl;
+        for (int i=0;i<d_curDim;i++)
+        {
+          std::cout << realRitz[i]<<"+i("<<imagRitz[i]<<")"<<std::endl;
+        }
+
+        ScalarType shift=realRitz[d_curDim-(1+shiftIdx[0])];
+        //}
+
         std::cout << "iter "<<d_curDim<<": set shift to "<<
-                     d_alphar[d_curDim-1]<<"/"<<d_betar[d_curDim-1]<<"="<<
-                     d_alphar[d_curDim-1]/d_betar[d_curDim-1]<<". Ignoring imag(alpha)="<<
-                     d_alphai[d_curDim-1]<<std::endl;
-        PRECT::SetShift(*d_P,1.0,-d_alphar[d_curDim-1]/d_betar[d_curDim-1]);
+                     shift<<std::endl;
+        PRECT::SetShift(*d_P,1.0,-shift);
         PRECT::SetProjectionVectors(*d_P,V_latest);
         // Apply Preconditioner to Residual
         PRECT::ApplyInverse( *d_P, *R_active, *V_new );
