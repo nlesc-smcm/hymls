@@ -322,8 +322,8 @@ DEBVAR(dk);
       std::string msg="Can't partition an "+s1+" domain on "+s4+" procs. Reducing #procs.";
       Tools::Out(msg);
       // reduce number of procs and retry
-      if (nprocx_>std::max(nprocy_,nprocz_)) nprocx_--;
-      else if (nprocy_>std::max(nprocx_,nprocz_)) nprocy_--;
+      if (nprocx_>=std::max(nprocy_,nprocz_)) nprocx_--;
+      else if (nprocy_>=std::max(nprocx_,nprocz_)) nprocy_--;
       else nprocz_--;
       continue;
       }
@@ -341,8 +341,8 @@ DEBVAR(dk);
       {
       std::string msg="There are "+s2+" subdomains and a processor grid of "+s4+", reducing #procs";
       Tools::Out(msg);
-      if (nprocx_>std::max(nprocy_,nprocz_)) nprocx_--;
-      else if (nprocy_>std::max(nprocx_,nprocz_)) nprocy_--;
+      if (nprocx_>=std::max(nprocy_,nprocz_)) nprocx_--;
+      else if (nprocy_>=std::max(nprocx_,nprocz_)) nprocy_--;
       else nprocz_--;
       continue;
       }

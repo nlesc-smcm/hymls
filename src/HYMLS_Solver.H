@@ -127,7 +127,7 @@ public:
   Teuchos::RCP<MatrixUtils::Eigensolution> EigsPrec(int numEigs) const;
   
   //! setup the solver to solve (shiftA*A+shiftB*B)x=b
-  int setShift(double shiftA, double shiftB);
+  void setShift(double shiftA, double shiftB);
 
   //! computes the modes closest to 0 and sets up the solver's deflation
   //! capabilities. If maxEigs==-2, the value "Deflated Subspace Dimension"

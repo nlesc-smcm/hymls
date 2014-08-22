@@ -239,7 +239,7 @@ void Solver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)
     operator_=matrix_;
     }
 
-int Solver::setShift(double shiftA, double shiftB)
+void Solver::setShift(double shiftA, double shiftB)
   {
   shiftA_=shiftA;
   shiftB_=shiftB;
@@ -768,6 +768,7 @@ int Solver::setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V)
     CHECK_ZERO(bprec->SetBorder(V,V));
     }
   belosProblemPtr_->setOperator(Aorth_);
+  return 0;
   }
 
 // Applies the preconditioner to vector X, returns the result in Y.
