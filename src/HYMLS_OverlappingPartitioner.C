@@ -327,6 +327,12 @@ int OverlappingPartitioner::Partition()
     Tools::SplitBox(nx_,ny_,nz_,numGlobalSubdomains,npx,npy,npz);
     }
 
+  // npX==0 can occur on the last level
+  // for some reason, in that case we 
+  // simply set it to 1
+  npx=std::max(npx,1);
+  npy=std::max(npy,1);
+  npz=std::max(npz,1);
   
   Teuchos::RCP<BaseCartesianPartitioner> cartPart
         = Teuchos::rcp_dynamic_cast<BaseCartesianPartitioner>(partitioner_);
