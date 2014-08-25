@@ -305,10 +305,11 @@ DEBVAR(dk);
   // to be handled by 2x3=6 cores rather than 8
   while (1)
     {
-    nprocs=nprocx_*nprocy_*nprocz_;
+    HYMLS::Tools::SplitBox(nx_,ny_,nz_,nprocs,nprocx_,nprocy_,nprocz_);
+    
     s4=Teuchos::toString(nprocx_)+"x"+Teuchos::toString(nprocy_)+"x"+Teuchos::toString(nprocz_);
 
-    Tools::out()<<"attempting np="<<nprocs<<" ("<<s4<<")"<<std::endl;
+    Tools::out()<<"try np="<<nprocs<<" ("<<s4<<")"<<std::endl;
     my_nx = (int)(nx_/nprocx_);
     my_ny = (int)(ny_/nprocy_);
     my_nz = (int)(nz_/nprocz_);
@@ -322,9 +323,12 @@ DEBVAR(dk);
       std::string msg="Can't partition an "+s1+" domain on "+s4+" procs. Reducing #procs.";
       Tools::Out(msg);
       // reduce number of procs and retry
+      /*
       if (nprocx_>=std::max(nprocy_,nprocz_)) nprocx_--;
       else if (nprocy_>=std::max(nprocx_,nprocz_)) nprocy_--;
       else nprocz_--;
+      */
+      nprocs--;
       continue;
       }
 
@@ -341,9 +345,10 @@ DEBVAR(dk);
       {
       std::string msg="There are "+s2+" subdomains and a processor grid of "+s4+", reducing #procs";
       Tools::Out(msg);
-      if (nprocx_>=std::max(nprocy_,nprocz_)) nprocx_--;
-      else if (nprocy_>=std::max(nprocx_,nprocz_)) nprocy_--;
-      else nprocz_--;
+      nprocs--;
+      //if (nprocx_>=std::max(nprocy_,nprocz_)) nprocx_--;
+      //else if (nprocy_>=std::max(nprocx_,nprocz_)) nprocy_--;
+      //else nprocz_--;
       continue;
       }
     break;
