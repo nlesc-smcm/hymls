@@ -7,7 +7,7 @@
 #include <signal.h>
 
 #include "Epetra_Comm.h"
-#include "Epetra_Time.h"
+#include "HYMLS_Epetra_Time.h"
 #include <iostream>
 #include "Teuchos_RCP.hpp"
 #include "EpetraExt_RowMatrixOut.h"

@@ -6,7 +6,6 @@
 #include "Teuchos_RCP.hpp"
 
 class Epetra_Map;
-class Epetra_Time;
 class Epetra_Comm;
 class Epetra_MultiVector;
 class Epetra_RowMatrix;
@@ -18,6 +17,7 @@ class KluWrapper;
 
 namespace HYMLS {
 
+class Epetra_Time;
 class SolverContainer;
 
 //! This is a parallel openmp solver that creates a matrix of the form

@@ -10,7 +10,7 @@
 #include "Epetra_Comm.h"
 #include "Epetra_CrsMatrix.h"
 #include "Epetra_RowMatrix.h"
-#include "Epetra_Time.h"
+#include "HYMLS_Epetra_Time.h"
 #include "Teuchos_ParameterList.hpp"
 
 #include "HYMLS_Tools.H"
@@ -81,14 +81,6 @@ SparseDirectSolver::SparseDirectSolver(Epetra_RowMatrix* Matrix_in) :
   IsInitialized_(false),
   IsComputed_(false),
   UseTranspose_(false),
-  NumInitialize_(0),
-  NumCompute_(0),
-  NumApplyInverse_(0),
-  InitializeTime_(0.0),
-  ComputeTime_(0.0),
-  ApplyInverseTime_(0.0),
-  ComputeFlops_(0),
-  ApplyInverseFlops_(0),
   Condest_(-1.0),
   serialMatrix_(Teuchos::null),
   serialImport_(Teuchos::null),
@@ -134,14 +126,6 @@ SparseDirectSolver::SparseDirectSolver(const SparseDirectSolver& rhs) :
   IsEmpty_(false),
   IsInitialized_(false),
   IsComputed_(false),
-  NumInitialize_(rhs.NumInitialize()),
-  NumCompute_(rhs.NumCompute()),
-  NumApplyInverse_(rhs.NumApplyInverse()),
-  InitializeTime_(rhs.InitializeTime()),
-  ComputeTime_(rhs.ComputeTime()),
-  ApplyInverseTime_(rhs.ApplyInverseTime()),
-  ComputeFlops_(rhs.ComputeFlops()),
-  ApplyInverseFlops_(rhs.ApplyInverseFlops()),
   Condest_(rhs.Condest()),
   pardiso_initialized_(false)
 {
@@ -362,13 +346,8 @@ START_TIMER2(label_,"Initialize");
   if (Matrix_->NumGlobalRows() == 0) {
     IsEmpty_ = true;
     IsInitialized_ = true;
-    ++NumInitialize_;
     return(0);
   }
-
-  // create timer, which also starts it.
-  if (Time_ == Teuchos::null)
-    Time_ = Teuchos::rcp( new Epetra_Time(Comm()) );
 
   // create umfpack
   CHECK_ZERO(this->ConvertToSerial());
@@ -399,8 +378,6 @@ START_TIMER2(label_,"Initialize");
     return -99; 
     }
   IsInitialized_ = true;
-  ++NumInitialize_;
-  InitializeTime_ += Time_->ElapsedTime();
   return(0);
 }
 
@@ -413,12 +390,10 @@ START_TIMER2(label_,"Compute");
 
   if (IsEmpty_) {
     IsComputed_ = true;
-    ++NumCompute_;
     return(0);
   }
 
   IsComputed_ = false;
-  Time_->ResetStartTime();
 
   if (Matrix_ == Teuchos::null)
     {
@@ -466,8 +441,6 @@ START_TIMER2(label_,"Compute");
     }
 
   IsComputed_ = true;
-  ++NumCompute_;
-  ComputeTime_ += Time_->ElapsedTime();
   return(0);
 }
 
@@ -492,7 +465,6 @@ int SparseDirectSolver::
 ApplyInverse(const Epetra_MultiVector& X, Epetra_MultiVector& Y) const
 {
   if (IsEmpty_) {
-    ++NumApplyInverse_;
     return(0);
   }
 
@@ -502,7 +474,6 @@ ApplyInverse(const Epetra_MultiVector& X, Epetra_MultiVector& Y) const
   if (X.NumVectors() != Y.NumVectors())
         {return -2;}
   
-  Time_->ResetStartTime();
   // AztecOO gives X and Y pointing to the same memory location,
   // need to create an auxiliary vector, Xcopy
   Teuchos::RCP<const Epetra_MultiVector> Xcopy;
@@ -567,9 +538,6 @@ delete [] rnorm2;
 delete [] bnorm2;
 #endif  
 
-  ++NumApplyInverse_;
-  ApplyInverseTime_ += Time_->ElapsedTime();
-
   return(0);
 }
 
@@ -633,6 +601,7 @@ double SparseDirectSolver::Condest(const Ifpack_CondestType CT,
 //==============================================================================
 std::ostream& SparseDirectSolver::Print(std::ostream& os) const
 {
+#if 0
   if (!Comm().MyPID()) {
     os << endl;
     os << "================================================================================" << endl;
@@ -662,7 +631,7 @@ std::ostream& SparseDirectSolver::Print(std::ostream& os) const
     os << "================================================================================" << endl;
     os << endl;
   }
-
+#endif
   return(os);
 }
 

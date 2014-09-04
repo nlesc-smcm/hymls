@@ -20,7 +20,6 @@ typedef Ifpack_Amesos SparseDirectSolver;
 #include "Teuchos_RCP.hpp"
 
 class Epetra_Map;
-class Epetra_Time;
 class Epetra_Comm;
 class Epetra_MultiVector;
 class Epetra_Vector;
@@ -211,55 +210,55 @@ public:
   //! Returns the number of calls to Initialize().
   virtual int NumInitialize() const
   {
-    return(NumInitialize_);
+    return -1;
   }
 
   //! Returns the number of calls to Compute().
   virtual int NumCompute() const
   {
-    return(NumCompute_);
+    return -1;
   }
 
   //! Returns the number of calls to ApplyInverse().
   virtual int NumApplyInverse() const
   {
-    return(NumApplyInverse_);
+    return -1;
   }
 
   //! Returns the total time spent in Initialize().
   virtual double InitializeTime() const
   {
-    return(InitializeTime_);
+    return -1.0;
   }
 
   //! Returns the total time spent in Compute().
   virtual double ComputeTime() const
   {
-    return(ComputeTime_);
+    return  -1.0;
   }
 
   //! Returns the total time spent in ApplyInverse().
   virtual double ApplyInverseTime() const
   {
-    return(ApplyInverseTime_);
+    return  -1.0;
   }
 
   //! Returns the number of flops in the initialization phase.
   virtual double InitializeFlops() const
   {
-    return(0.0);
+    return  -1.0;
   }
 
   //! Returns the total number of flops to computate the preconditioner.
   virtual double ComputeFlops() const
   {
-    return(ComputeFlops_);
+    return -1.0;
   }
 
   //! Returns the total number of flops to apply the preconditioner.
   virtual double ApplyInverseFlops() const
   {
-    return(ApplyInverseFlops_);
+    return -1.0;
   }
 
   // Returns a constant reference to the internally stored 
@@ -312,54 +311,6 @@ protected:
     IsComputed_ = IsComputed_in;
   }
 
-  //! Sets \c NumInitialize_.
-  inline void SetNumInitialize(const int NumInitialize_in)
-  {
-    NumInitialize_ = NumInitialize_in;
-  }
-
-  //! Sets \c NumCompute_.
-  inline void SetNumCompute(const int NumCompute_in)
-  {
-    NumCompute_ = NumCompute_in;
-  }
-
-  //! Sets \c NumApplyInverse_.
-  inline void SetNumApplyInverse(const int NumApplyInverse_in)
-  {
-    NumApplyInverse_ = NumApplyInverse_in;
-  }
-
-  //! Sets \c InitializeTime_.
-  inline void SetInitializeTime(const double InitializeTime_in)
-  {
-    InitializeTime_ = InitializeTime_in;
-  }
-
-  //! Sets \c ComputeTime_.
-  inline void SetComputeTime(const double ComputeTime_in)
-  {
-    ComputeTime_ = ComputeTime_in;
-  }
-
-  //! Sets \c ApplyInverseTime_.
-  inline void SetApplyInverseTime(const double ApplyInverseTime_in)
-  {
-    ApplyInverseTime_ = ApplyInverseTime_in;
-  }
-
-  //! Sets \c ComputeFlops_.
-  inline void SetComputeFlops(const double ComputeFlops_in)
-  {
-    ComputeFlops_ = ComputeFlops_in;
-  }
-
-  //! Sets \c ComputeFlops_.
-  inline void SetApplyInverseFlops(const double ApplyInverseFlops_in)
-  {
-    ApplyInverseFlops_ = ApplyInverseFlops_in;
-  }
-
   //! Set \c List_.
   inline void SetList(const Teuchos::ParameterList& List_in)
   {
@@ -388,27 +339,6 @@ private:
   bool IsComputed_;
   //! If true, the preconditioner solves for the transpose of the matrix.
   bool UseTranspose_;
-
-  //! Contains the number of successful calls to Initialize().
-  int NumInitialize_;
-  //! Contains the number of successful call to Compute().
-  int NumCompute_;
-  //! Contains the number of successful call to ApplyInverse().
-  mutable int NumApplyInverse_;
-
-  //! Contains the time for all successful calls to Initialize().
-  double InitializeTime_;
-  //! Contains the time for all successful calls to Compute().
-  double ComputeTime_;
-  //! Contains the time for all successful calls to ApplyInverse().
-  mutable double ApplyInverseTime_;
-  //! Time object.
-  Teuchos::RCP<Epetra_Time> Time_;
-
-  //! Contains the number of flops for Compute().
-  double ComputeFlops_;
-  //! Contain sthe number of flops for ApplyInverse().
-  double ApplyInverseFlops_;
 
   //! Contains the estimated condition number.
   double Condest_;
