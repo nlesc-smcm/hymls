@@ -9,6 +9,12 @@
 #endif
 #endif
 
+#ifdef USE_SCOREP
+#include "SCOREP_User.h"
+#else
+#define SCOREP_USER_REGION(s,t)
+#endif
+
 #ifndef HYMLS_SMALL_ENTRY
 #include <limits>
 //#define HYMLS_SMALL_ENTRY std::numeric_limits<double>::epsilon()
@@ -69,7 +75,8 @@
 #if TIMING_LEVEL>0
 #define START_TIMER(s1,s2) HYMLS::TimerObject \
 Error_You_are_trying_to_start_multiple_timers_in_one_scope \
-(((std::string)(s1))+": "+(((std::string)(s2))),PRINT_TIMING)
+(((std::string)(s1))+": "+(((std::string)(s2))),PRINT_TIMING); \
+SCOREP_USER_REGION((std::string(s1)+std::string(s2)).c_str(),SCOREP_USER_REGION_TYPE_FUNCTION)
 #else
 #define START_TIMER(s1,s2)
 #endif
