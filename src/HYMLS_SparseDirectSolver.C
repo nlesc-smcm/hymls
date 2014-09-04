@@ -326,7 +326,7 @@ return(0);
 //==============================================================================
 int SparseDirectSolver::Initialize()
 {
-START_TIMER2(label_,"Initialize");
+START_TIMER3(label_,"Initialize");
   IsEmpty_ = false;
   IsInitialized_ = false;
   IsComputed_ = false;
@@ -384,7 +384,7 @@ START_TIMER2(label_,"Initialize");
 //==============================================================================
 int SparseDirectSolver::Compute()
 {
-START_TIMER2(label_,"Compute");
+START_TIMER3(label_,"Compute");
   if (!IsInitialized())
     CHECK_ZERO(Initialize());
 
@@ -709,7 +709,7 @@ int SparseDirectSolver::FillReducingOrdering()
 //=============================================================================
 int SparseDirectSolver::ConvertToCRS()
 {
-START_TIMER2(label_,"ConvertToCRS");
+START_TIMER3(label_,"ConvertToCRS");
   // Convert matrix to the form that Umfpack expects (Ap, Ai, Aval),
   // only on processor 0. The matrix has already been assembled in
   // serialMatrix_; if only one processor is used, then serialMatrix_
@@ -761,7 +761,7 @@ for (int i=0;i<N;i++) invperm[col_perm_[i]]=i;
 int SparseDirectSolver::KluSymbolic()
 {
 if (MyPID_!=0) return 0;
-START_TIMER2(label_,"KluSymbolic");  
+START_TIMER3(label_,"KluSymbolic");  
   
   int N = serialMatrix_->NumGlobalRows();
   
@@ -789,7 +789,7 @@ else
 
 int SparseDirectSolver::KluNumeric()
 {
-START_TIMER2(label_,"KluNumeric");
+START_TIMER3(label_,"KluNumeric");
 if (MyPID_!=0) return 0;
 
     if (klu_->Numeric_) DO_KLU(free_numeric)(&klu_->Numeric_,klu_->Common_);
@@ -813,7 +813,7 @@ return status;
 
 int SparseDirectSolver::KluSolve(const Epetra_MultiVector& B, Epetra_MultiVector& X) const
   {
-  START_TIMER2(label_,"KluSolve");
+  START_TIMER3(label_,"KluSolve");
 
   if (Matrix_.get()!=serialMatrix_.get()) return -99; // not implemented
 
@@ -894,7 +894,7 @@ int SparseDirectSolver::KluSolve(const Epetra_MultiVector& B, Epetra_MultiVector
 int SparseDirectSolver::UmfpackSymbolic() 
 {
 if (MyPID_!=0) return 0;
-START_TIMER2(label_,"UmfpackSymbolic");  
+START_TIMER3(label_,"UmfpackSymbolic");  
   
   int N = serialMatrix_->NumGlobalRows();
   
@@ -926,7 +926,7 @@ START_TIMER2(label_,"UmfpackSymbolic");
 
 int SparseDirectSolver::UmfpackNumeric() 
 {
-START_TIMER2(label_,"UmfpackNumeric");
+START_TIMER3(label_,"UmfpackNumeric");
 if (MyPID_!=0) return 0;
 
     if (umf_Numeric_) umfpack_di_free_numeric (&umf_Numeric_) ;
@@ -970,7 +970,7 @@ if (status)
 
 int SparseDirectSolver::UmfpackSolve(const Epetra_MultiVector& B, Epetra_MultiVector& X) const
   {
-  START_TIMER2(label_,"UmfpackSolve");
+  START_TIMER3(label_,"UmfpackSolve");
 
   if (Matrix_.get()!=serialMatrix_.get()) return -99; // not implemented
 
@@ -1039,7 +1039,7 @@ int SparseDirectSolver::UmfpackSolve(const Epetra_MultiVector& B, Epetra_MultiVe
 int SparseDirectSolver::PardisoSymbolic() 
 {
   if (MyPID_!=0) return 0;
-  START_TIMER2(label_,"PardisoSymbolic");
+  START_TIMER3(label_,"PardisoSymbolic");
 
   int num_procs = 1;
   char* var = getenv("OMP_NUM_THREADS");
@@ -1082,7 +1082,7 @@ int SparseDirectSolver::PardisoSymbolic()
 
 int SparseDirectSolver::PardisoNumeric() 
 {
-  START_TIMER2(label_,"PardisoNumeric");
+  START_TIMER3(label_,"PardisoNumeric");
   if (MyPID_!=0) return 0;
 
   int N = serialMatrix_->NumGlobalRows();
@@ -1111,7 +1111,7 @@ int SparseDirectSolver::PardisoNumeric()
 
 int SparseDirectSolver::PardisoSolve(const Epetra_MultiVector& B, Epetra_MultiVector& X) const
   {
-  START_TIMER2(label_,"PardisoSolve");
+  START_TIMER3(label_,"PardisoSolve");
 
   if (Matrix_.get()!=serialMatrix_.get()) return -99; // not implemented
 
