@@ -61,8 +61,9 @@ namespace HYMLS {
         timeInitialize_(0.0),timeCompute_(0.0),timeApplyInverse_(0.0),
         initialized_(false),computed_(false),
         normInf_(-1.0), useTranspose_(false),
-        label_("SchurPreconditioner (level "+Teuchos::toString(level)+")"),
+        label_("SchurPreconditioner"),
         myLevel_(level), variant_("Block Diagonal"),
+        denseSwitch_(99),
         sparseMatrixOT_(Teuchos::null),
         testVector_(testVector),
         matrix_(Teuchos::null),
@@ -72,7 +73,7 @@ namespace HYMLS {
         amActive_(true), haveBorder_(false),
         PLA("Preconditioner")
     {
-    START_TIMER3(label_,"Constructor (1)");
+    HYMLS_LPROF3(label_,"Constructor (1)");
     time_=Teuchos::rcp(new Epetra_Time(*comm_));
     
     if (SchurMatrix_==Teuchos::null && SchurComplement_==Teuchos::null)
@@ -120,14 +121,14 @@ namespace HYMLS {
   // destructor
   SchurPreconditioner::~SchurPreconditioner()
     {
-    START_TIMER3(label_,"Destructor");
+    HYMLS_LPROF3(label_,"Destructor");
     }
 
   // Ifpack_Preconditioner interface
   
   void SchurPreconditioner::setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& list)
     {
-    START_TIMER3(label_,"setParameterList");
+    HYMLS_LPROF3(label_,"setParameterList");
     setMyParamList(list);
     this->SetParameters(*list);
     // note - this class gets a few parameters from the big "Preconditioner"
@@ -139,7 +140,7 @@ namespace HYMLS {
   // Sets all parameters for the preconditioner.
   int SchurPreconditioner::SetParameters(Teuchos::ParameterList& List)
     {
-    START_TIMER3(label_,"SetParameters");
+    HYMLS_LPROF3(label_,"SetParameters");
     Teuchos::RCP<Teuchos::ParameterList> myPL = getMyNonconstParamList();
     
     if (myPL.get()!=&List)
@@ -149,6 +150,7 @@ namespace HYMLS {
     
     maxLevel_=PL().get("Number of Levels",myLevel_);
     variant_ = PL().get("Preconditioner Variant","Block Diagonal");
+    denseSwitch_=PL().get("Dense Solvers on Level",denseSwitch_);
     subdivideSeparators_=PL().get("Subdivide Separators",false);
     int pos=1;
     
@@ -178,7 +180,7 @@ namespace HYMLS {
     {
     /*
     if (validParams_!=Teuchos::null) return validParams_;
-    START_TIMER3(label_,"getValidParameters");
+    HYMLS_LPROF3(label_,"getValidParameters");
     
     VPL().set("Number of Levels",2,"If larger than 2, the method is applied recursively.");
     VPL().set("Subdivide Separators",false,"this has been implemented for the rotated "
@@ -196,7 +198,7 @@ namespace HYMLS {
   // force Compute() to re-initialize by deleting stuff
   int SchurPreconditioner::Initialize()
     {
-    START_TIMER2(label_,"Initialize");
+    HYMLS_LPROF2(label_,"Initialize");
     time_->ResetStartTime();
 
     // force next Compute/InitializeCompute to rebuild everything
@@ -241,7 +243,7 @@ namespace HYMLS {
       return 0;
       }
     
-    START_TIMER(label_,"InitializeCompute");
+    HYMLS_LPROF(label_,"InitializeCompute");
 
     if (myLevel_==maxLevel_)
       {
@@ -340,7 +342,7 @@ namespace HYMLS {
       computed_=true;
       return 0;      
       }
-    START_TIMER(label_,"Compute");
+    HYMLS_LPROF(label_,"Compute");
     CHECK_ZERO(this->InitializeCompute());
 
   time_->ResetStartTime();
@@ -543,7 +545,7 @@ DEBVAR(*borderC_);
 
   // compute LU decompositions of blocks...
   {
-  START_TIMER(label_,"factor blocks");
+  HYMLS_LPROF(label_,"factor blocks");
   for (int i=0;i<blockSolver_.size();i++)
     {
     CHECK_ZERO(blockSolver_[i]->Compute(*matrix_));
@@ -611,7 +613,7 @@ DEBVAR(*borderC_);
 
 int SchurPreconditioner::InitializeBlocks()
   {
-  START_TIMER2(label_,"InitializeBlocks");
+  HYMLS_LPROF2(label_,"InitializeBlocks");
   // get an object with only local separators and remote connected separators:
   Teuchos::RCP<const HierarchicalMap> sepObject
       = hid_->Spawn(HierarchicalMap::LocalSeparators);
@@ -673,7 +675,7 @@ int SchurPreconditioner::InitializeBlocks()
 
 int SchurPreconditioner::InitializeSingleBlock()
   {
-  START_TIMER2(label_,"InitializeSingleBlock");
+  HYMLS_LPROF2(label_,"InitializeSingleBlock");
   // get an object with only local separators and remote connected separators:
   Teuchos::RCP<const HierarchicalMap> sepObject
       = hid_->Spawn(HierarchicalMap::LocalSeparators);
@@ -717,7 +719,7 @@ int SchurPreconditioner::InitializeSingleBlock()
 
 int SchurPreconditioner::InitializeSeparatorGroups()
   {
-  START_TIMER2(label_,"InitializeSeparatorGroups");
+  HYMLS_LPROF2(label_,"InitializeSeparatorGroups");
   if (subdivideSeparators_)
     {
     if (SchurMatrix_==Teuchos::null)
@@ -815,7 +817,7 @@ int SchurPreconditioner::InitializeSeparatorGroups()
 
 int SchurPreconditioner::InitializeOT()
   {
-  START_TIMER2(label_,"InitializeOT");
+  HYMLS_LPROF2(label_,"InitializeOT");
   
   // create orthogonal transform as a sparse matrix representation
   if (sparseMatrixOT_==Teuchos::null)
@@ -889,7 +891,7 @@ int SchurPreconditioner::InitializeOT()
     
   int SchurPreconditioner::InitializeNextLevel()
     {
-    START_TIMER2(label_,"InitializeNextLevel");
+    HYMLS_LPROF2(label_,"InitializeNextLevel");
 
     Teuchos::RCP<const HierarchicalMap>
         sepObject = hid_->Spawn(HierarchicalMap::LocalSeparators);
@@ -996,7 +998,15 @@ int SchurPreconditioner::InitializeOT()
 
       CHECK_ZERO(nextTestVector->Import(transformedTestVector, *vsumImporter_, Insert));    
 
-      // create another level of HYMLS::Preconditioner, 
+      // create another level of HYMLS::Preconditioner,
+      
+      int64_t dim_next = reducedSchur_->NumGlobalRows();
+      int64_t nnz_next = reducedSchur_->NumGlobalNonzeros();
+      
+      if (myLevel_>=denseSwitch_-1)
+        {
+        nextLevelParams_->sublist("Preconditioner").set("Subdomain Solver Type","Dense");
+        }
   
       //TODO: move the direct solver thing to the Preconditioner class and rename
       //      the SchurPreconditioner SchurApproximation. Then this call can be put
@@ -1033,7 +1043,7 @@ int SchurPreconditioner::InitializeOT()
 
   int SchurPreconditioner::TransformAndDrop()
     {
-    START_TIMER2(label_,"TransformAndDrop");
+    HYMLS_LPROF2(label_,"TransformAndDrop");
 
     // currently we simply compute T'*S*T using a sparse matmul.
     // I tried more fancy block-variants, but they were quite tedious
@@ -1076,7 +1086,7 @@ int SchurPreconditioner::InitializeOT()
       timerLabel=timerLabel+" (first call)";
       }
 
-    START_TIMER2(label_,timerLabel);
+    HYMLS_LPROF2(label_,timerLabel);
         
     if (matrix==Teuchos::null)
       {
@@ -1298,7 +1308,7 @@ int SchurPreconditioner::InitializeOT()
                            Epetra_MultiVector& Y) const
     {
     if (isEmpty_) return 0;
-    START_TIMER(label_,"ApplyInverse");
+    HYMLS_LPROF(label_,"ApplyInverse");
 
     if (HaveBorder())
       {
@@ -1582,7 +1592,7 @@ if (dumpVectors_)
   // apply orthogonal transforms to a vector v
 int SchurPreconditioner::ApplyOT(bool trans, Epetra_MultiVector& v, double* flops) const
   {
-  START_TIMER2(label_,"ApplyOT");
+  HYMLS_LPROF2(label_,"ApplyOT");
 
 //  if ((!subdivideSeparators_))
   if (false)
@@ -1677,7 +1687,7 @@ int SchurPreconditioner::ComputeScaling(const Epetra_CrsMatrix& A,
                                         Teuchos::RCP<Epetra_Vector>& sca_left,
                                         Teuchos::RCP<Epetra_Vector>& sca_right)
   {
-  START_TIMER2(label_,"ComputeScaling");
+  HYMLS_LPROF2(label_,"ComputeScaling");
   // TODO: not general!
   if (Teuchos::is_null(sca_left))
     {
@@ -1748,7 +1758,7 @@ int SchurPreconditioner::ComputeScaling(const Epetra_CrsMatrix& A,
 int SchurPreconditioner::ApplyBlockDiagonal
         (const Epetra_MultiVector& B, Epetra_MultiVector& Y) const
   {
-  START_TIMER2(label_,"Block Diagonal Solve");
+  HYMLS_LPROF2(label_,"Block Diagonal Solve");
   int numBlocks=blockSolver_.size(); // will be 0 on coarsest level
   for (int blk=0;blk<numBlocks;blk++)
     {
@@ -1787,7 +1797,7 @@ int SchurPreconditioner::ApplyBlockDiagonal
 int SchurPreconditioner::ApplyBlockLowerTriangular
         (const Epetra_MultiVector& B, Epetra_MultiVector& Y) const
   {
-  START_TIMER2(label_,"Block Lower Triangular Solve");
+  HYMLS_LPROF2(label_,"Block Lower Triangular Solve");
   int numBlocks=blockSolver_.size(); // will be 0 on coarsest level
     
   int ierr = this->BlockTriangularSolve(B,Y,0,numBlocks,+1);
@@ -1799,7 +1809,7 @@ int SchurPreconditioner::ApplyBlockLowerTriangular
 int SchurPreconditioner::ApplyBlockUpperTriangular
         (const Epetra_MultiVector& B, Epetra_MultiVector& Y) const
   {
-  START_TIMER2(label_,"Block Lower Triangular Solve");
+  HYMLS_LPROF2(label_,"Block Lower Triangular Solve");
   int numBlocks=blockSolver_.size(); // will be 0 on coarsest level
     
   int ierr = this->BlockTriangularSolve(B,Y,numBlocks-1,-1,-1);
@@ -1811,7 +1821,7 @@ int SchurPreconditioner::BlockTriangularSolve
         (const Epetra_MultiVector& B, Epetra_MultiVector& Y,
         int start, int end, int incr) const
   {
-  START_TIMER3(label_,"General Triangular Solve");
+  HYMLS_LPROF3(label_,"General Triangular Solve");
   int *indices;
   double* values;
   int len;
@@ -1871,7 +1881,7 @@ int SchurPreconditioner::BlockTriangularSolve
 // update rhs for the next solve (currently does nothing)
 int SchurPreconditioner::UpdateVsumRhs(const Epetra_MultiVector& B, Epetra_MultiVector& Y) const
   {
-  START_TIMER3(label_,"Update Vsum RHS");
+  HYMLS_LPROF3(label_,"Update Vsum RHS");
 
   // update the RHS for the V-sum solve
   for (int i=0;i<vsumMap_->NumMyElements();i++)
@@ -1912,7 +1922,7 @@ int SchurPreconditioner::UpdateVsumRhs(const Epetra_MultiVector& B, Epetra_Multi
                           Teuchos::RCP<const Epetra_MultiVector> W,
                           Teuchos::RCP<const Epetra_SerialDenseMatrix> C)
   {
-  START_TIMER(label_,"SetBorder");
+  HYMLS_LPROF(label_,"SetBorder");
   int ierr=0;
   if (V==Teuchos::null) 
     {
@@ -2017,7 +2027,7 @@ int SchurPreconditioner::UpdateVsumRhs(const Epetra_MultiVector& B, Epetra_Multi
                             Epetra_MultiVector& Y,
                       Epetra_SerialDenseMatrix& S) const
   {
-  START_TIMER2(label_,"ApplyInverse (bordered)");
+  HYMLS_LPROF2(label_,"ApplyInverse (bordered)");
 
     // so the procedure to solve the system is  
     //                                          
@@ -2231,7 +2241,7 @@ if (dumpVectors_)
 
 void SchurPreconditioner::Visualize(std::string mfilename,bool recurse) const
   {
-  START_TIMER3(label_,"Visualize");
+  HYMLS_LPROF3(label_,"Visualize");
   if (myLevel_<maxLevel_)
     {
     std::ofstream ofs(mfilename.c_str(),std::ios::app);

@@ -67,7 +67,7 @@ EpetraOperator::EpetraOperator( Teuchos::RCP< ::Belos::LinearProblem<double,Epet
     initSolnVec_(initSolnVec),
     P_(P), V_(V), numIter_(0)
 {
-  START_TIMER3(label_,"Constructor");
+  HYMLS_PROF3(label_,"Constructor");
   // Get the solver's name from the parameter list, use block Gmres by default.
   std::string solver = plist_->get("Solver", "BlockGmres");
 
@@ -118,14 +118,14 @@ const Epetra_Map& EpetraOperator::OperatorRangeMap() const
 
 int EpetraOperator::Apply( const Epetra_MultiVector &X, Epetra_MultiVector &Y ) const
 {
-  START_TIMER3(label_,"Apply");
+  HYMLS_PROF3(label_,"Apply");
   int ierr = this->ApplyInverse(X,Y);
   return ierr;
 }
 
 int EpetraOperator::ApplyInverse( const Epetra_MultiVector &X, Epetra_MultiVector &Y ) const
 {
-  START_TIMER3(label_,"ApplyInverse");
+  HYMLS_PROF3(label_,"ApplyInverse");
   Epetra_MultiVector B1(X), B2(X);
   if (V_!=Teuchos::null)
     {

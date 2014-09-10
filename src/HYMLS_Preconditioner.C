@@ -64,10 +64,10 @@ namespace HYMLS {
         rangeMap_(Teuchos::rcp(&(K->RowMatrixRowMap()),false)),
         normInf_(-1.0), useTranspose_(false), 
         myLevel_(myLevel), testVector_(testVector),
-        label_("Preconditioner (level "+Teuchos::toString(myLevel_)+")"),
+        label_("Preconditioner"),
         PLA("Preconditioner")
     {
-    START_TIMER3(label_,"Constructor");
+    HYMLS_LPROF3(label_,"Constructor");
     REPORT_SUM_MEM(label_,"Matrix",K->NumMyNonzeros(),K->NumMyNonzeros(),comm_);
     serialComm_=Teuchos::rcp(new Epetra_SerialComm());
 //    serialComm_=Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_SELF));
@@ -83,7 +83,7 @@ namespace HYMLS {
   // destructor
   Preconditioner::~Preconditioner()
     {
-    START_TIMER3(label_,"Destructor");
+    HYMLS_LPROF3(label_,"Destructor");
     }
 
 
@@ -93,7 +93,7 @@ namespace HYMLS {
   // Sets all parameters for the preconditioner.
   int Preconditioner::SetParameters(Teuchos::ParameterList& List)
     {
-    START_TIMER3(label_,"SetParameters");
+    HYMLS_LPROF3(label_,"SetParameters");
     
     Teuchos::RCP<Teuchos::ParameterList> List_ = 
         getMyNonconstParamList();
@@ -188,7 +188,7 @@ namespace HYMLS {
   //!
   void Preconditioner::setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& list)
     {
-    START_TIMER3(label_,"setParameterList");
+    HYMLS_LPROF3(label_,"setParameterList");
     setMyParamList(list);
     this->SetParameters(*list);
     // this is the place where we check for
@@ -207,7 +207,7 @@ namespace HYMLS {
   Preconditioner::getValidParameters() const
     {
     if (validParams_!=Teuchos::null) return validParams_;
-    START_TIMER3(label_,"getValidParameters");
+    HYMLS_LPROF3(label_,"getValidParameters");
 
     validParams_=Teuchos::rcp(new Teuchos::ParameterList());
  
@@ -294,6 +294,9 @@ namespace HYMLS {
 
     VPL().set("Subdomain Solver Type","Sparse",
         "Sparse or dense subdomain solver?", sparseDenseValidator);
+
+    VPL().set("Dense Solvers on Level",99,
+        "Switch to dense subdomain solver on levels larger than this value");
       
     // this typically doesn't need parameters, it's just lapack on small dense
     // matrices.
@@ -328,7 +331,7 @@ namespace HYMLS {
   // Computes all it is necessary to initialize the preconditioner.
   int Preconditioner::Initialize()
     {
-    START_TIMER(label_,"Initialize");
+    HYMLS_LPROF(label_,"Initialize");
     time_->ResetStartTime();
     if (hid_==Teuchos::null)
       {
@@ -632,6 +635,10 @@ Tools::out() << "=============================="<<std::endl;
 Tools::out() << "LEVEL "<< myLevel_<<std::endl;
 Tools::out() << "SIZE OF A: "<< matrix_->NumGlobalRows()<<std::endl;
 Tools::out() << "SIZE OF S: "<< map2_->NumGlobalElements()<<std::endl;
+if (sdSolverType_=="Dense")
+  {
+    Tools::out() << "*** USING DENSE SUBDOMAIN SOLVERS ***"<<std::endl;
+  }
 Tools::out() << "=============================="<<std::endl;
 
   // we use a constant vector to generate the orthogonal transformation 
@@ -681,7 +688,7 @@ Tools::out() << "=============================="<<std::endl;
 
 int Preconditioner::InitializeCompute()
   {
-  START_TIMER(label_,"InitializeCompute");
+  HYMLS_LPROF(label_,"InitializeCompute");
 
 
   // (1) import values of matrix into local data structures.
@@ -715,7 +722,7 @@ int Preconditioner::InitializeCompute()
   CHECK_ZERO(A12_->Import(*reorderedMatrix_,*import1_,Insert));
   CHECK_ZERO(A21_->Import(*reorderedMatrix_,*import2_,Insert));
   CHECK_ZERO(A22_->Import(*reorderedMatrix_,*import2_,Insert));
-    
+
   // (2) re-initiailze the subdomain solvers. This seems to be
   //     required for the solver to work.
   DEBUG("initialize subdomain solvers...");
@@ -724,8 +731,16 @@ int Preconditioner::InitializeCompute()
   for (int sd=0;sd<hid_->NumMySubdomains();sd++)
     {
     CHECK_ZERO(subdomainSolver_[sd]->Initialize());
+    if (sdSolverType_=="Dense")
+      {
+      // Initialize destroys the indices for the Ifpack_DenseContainer :(
+      for (int j=0;j<subdomainSolver_[sd]->NumRows();j++)
+        {
+        const int LRID = rowMap_->LID(hid_->GID(sd,0,j));
+        subdomainSolver_[sd]->ID(j) = LRID;
+        }
+      }
     }
-
   return 0;
   }
 
@@ -735,7 +750,7 @@ int Preconditioner::InitializeCompute()
   // Computes all it is necessary to apply the preconditioner.
   int Preconditioner::Compute()
     {
-    START_TIMER(label_,"Compute");
+    HYMLS_LPROF(label_,"Compute");
     if (!IsInitialized())
       {
       // the user should normally call Initialize before Compute
@@ -748,7 +763,7 @@ int Preconditioner::InitializeCompute()
 
 InitializeCompute();
 {
-START_TIMER(label_,"subdomain factorization");
+HYMLS_LPROF(label_,"subdomain factorization");
 double nnz=0; // count number of stored nonzeros in factors
 double nrow=0;
   PEC_INIT;
@@ -776,14 +791,26 @@ double nrow=0;
 #endif    
 #ifndef NO_MEMORY_TRACING
 #ifndef USE_AMESOS
-      Teuchos::RCP<Ifpack_SparseContainer<SparseDirectSolver> > container =
-        Teuchos::rcp_dynamic_cast<Ifpack_SparseContainer<SparseDirectSolver> >(subdomainSolver_[sd]); 
-      nnz+=container->Inverse()->NumGlobalNonzerosA();      
-      nnz+=container->Inverse()->NumGlobalNonzerosLU();      
-      nrow+=container->NumRows();
+      if (sdSolverType_=="Sparse")
+        {
+        Teuchos::RCP<Ifpack_SparseContainer<SparseDirectSolver> > container =
+          Teuchos::rcp_dynamic_cast<Ifpack_SparseContainer<SparseDirectSolver> >(subdomainSolver_[sd]);
+        nnz+=container->Inverse()->NumGlobalNonzerosA();      
+        nnz+=container->Inverse()->NumGlobalNonzerosLU();      
+        nrow+=container->NumRows();
+        }
+      else
+        {
+        int nr=subdomainSolver_[sd]->NumRows();
+        nnz+=nr*nr;
+        nrow+=nr;
+        }
+      
 #endif      
 #endif
 #ifdef STORE_SUBDOMAIN_MATRICES
+if (sdSolverType_=="Sparse")
+{
       Teuchos::RCP<Ifpack_SparseContainer<SparseDirectSolver> > cont =
         Teuchos::rcp_dynamic_cast<Ifpack_SparseContainer<SparseDirectSolver> >(subdomainSolver_[sd]); 
      if (cont!=Teuchos::null)
@@ -798,6 +825,7 @@ double nrow=0;
        MatrixUtils::PrintRowMatrix(Asd,ofs);
        ofs.close();
        }
+}
 #endif      
       }
     }
@@ -889,7 +917,7 @@ REPORT_SUM_MEM(label_,"before schurprec",0,0, comm_);
   int Preconditioner::ApplyInverse(const Epetra_MultiVector& B,
                            Epetra_MultiVector& X) const
     {
-    START_TIMER(label_,"ApplyInverse");
+    HYMLS_LPROF(label_,"ApplyInverse");
 
     numApplyInverse_++;
     time_->ResetStartTime();
@@ -1169,7 +1197,7 @@ if (dumpVectors_)
   // Prints basic information on iostream. This function is used by operator<<.
   ostream& Preconditioner::Print(std::ostream& os) const
     {
-    START_TIMER2(label_,"Print");
+    HYMLS_LPROF2(label_,"Print");
     os << Label() << std::endl;
     if (IsInitialized())
       {
@@ -1208,7 +1236,7 @@ int Preconditioner::ApplyInverseA11(const Epetra_MultiVector& B, Epetra_MultiVec
     return -1;
     }
 
-  START_TIMER(label_,"subdomain solve");
+  HYMLS_LPROF(label_,"subdomain solve");
 
   PEC_INIT;
 #pragma omp parallel
@@ -1275,7 +1303,7 @@ int Preconditioner::ApplyInverseA11(const Epetra_MultiVector& B, Epetra_MultiVec
 // solve a block diagonal system with A11^T. Vectors are based on rowMap_
 int Preconditioner::ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVector& X) const
   {
-  START_TIMER3(label_,"ApplyInverseA11T");
+  HYMLS_LPROF3(label_,"ApplyInverseA11T");
   int ierr=0;
   const int nsd=subdomainSolver_.size();
   Teuchos::Array<bool> prevtrans(nsd); // remember if the solvers were already transposed
@@ -1323,7 +1351,7 @@ int Preconditioner::ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVe
                              Epetra_MultiVector& Y,
                              double* flops) const
     {
-  START_TIMER3(label_,"ApplyA12");
+  HYMLS_LPROF3(label_,"ApplyA12");
 
     if (!IsComputed())
       {
@@ -1356,7 +1384,7 @@ int Preconditioner::ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVe
                              Epetra_MultiVector& Y,
                              double* flops) const
   {
-  START_TIMER3(label_,"ApplyA12T");
+  HYMLS_LPROF3(label_,"ApplyA12T");
     if (!IsComputed())
       {
       Tools::Warning("solver not computed!",__FILE__,__LINE__);
@@ -1375,7 +1403,7 @@ int Preconditioner::ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVe
                              Epetra_MultiVector& Y,
                              double* flops) const
     {
-    START_TIMER3(label_,"ApplyA21");    
+    HYMLS_LPROF3(label_,"ApplyA21");    
     
     if (!IsComputed())
       {
@@ -1439,7 +1467,7 @@ int Preconditioner::ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVe
                              Epetra_MultiVector& Y,
                              double* flops) const
     {
-    START_TIMER3(label_,"ApplyA21T");
+    HYMLS_LPROF3(label_,"ApplyA21T");
     if (!IsComputed())
       {
       Tools::Warning("solver not computed!",__FILE__,__LINE__);
@@ -1461,7 +1489,7 @@ int Preconditioner::ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVe
                              Epetra_MultiVector& Y,
                              double *flops) const
     {
-    START_TIMER3(label_,"ApplyA22");
+    HYMLS_LPROF3(label_,"ApplyA22");
     if (!IsComputed())
       {
       Tools::Warning("solver not computed!",__FILE__,__LINE__);
@@ -1486,7 +1514,7 @@ int Preconditioner::ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVe
                              Epetra_MultiVector& Y,
                              double *flops) const
     {
-    START_TIMER3(label_,"ApplyA22T");
+    HYMLS_LPROF3(label_,"ApplyA22T");
     if (!IsComputed())
       {
       Tools::Warning("solver not computed!",__FILE__,__LINE__);
@@ -1508,7 +1536,7 @@ int Preconditioner::ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVe
 
 int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& list)
   {
-    START_TIMER3(label_,"SetProblemDefinition");
+    HYMLS_LPROF3(label_,"SetProblemDefinition");
   Teuchos::ParameterList& probList=list.sublist("Problem");
   Teuchos::ParameterList& precList=list.sublist("Preconditioner");
 
@@ -1734,7 +1762,7 @@ int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& lis
 
 void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
   {
-    START_TIMER2(label_,"Visualize");
+    HYMLS_LPROF2(label_,"Visualize");
   if ( (comm_->MyPID()==0) && (myLevel_==1))
     {
     std::ofstream ofs(mfilename.c_str(),std::ios::out);
@@ -1775,7 +1803,7 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
                Teuchos::RCP<const Epetra_MultiVector> W,
                Teuchos::RCP<const Epetra_SerialDenseMatrix> C)
     {
-    START_TIMER2(label_,"SetBorder");
+    HYMLS_LPROF2(label_,"SetBorder");
 
     Teuchos::RCP<const Epetra_MultiVector> _V=V;
     Teuchos::RCP<const Epetra_MultiVector> _W=W;
@@ -1910,7 +1938,7 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
   int Preconditioner::ApplyInverse(const Epetra_MultiVector& B, const Epetra_SerialDenseMatrix& T,
                Epetra_MultiVector& X,       Epetra_SerialDenseMatrix& S) const
   {
-    START_TIMER(label_,"ApplyInverse (with border)");
+    HYMLS_LPROF(label_,"ApplyInverse (with border)");
     if (borderV_==Teuchos::null) return ApplyInverse(B,X);
     numApplyInverse_++;
     time_->ResetStartTime();

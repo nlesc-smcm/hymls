@@ -18,13 +18,13 @@ namespace HYMLS
              Teuchos::RCP<const Epetra_SerialDenseMatrix> C)
   : A_(A),useTranspose_(false),label_("BorderedLU(A="+std::string(A->Label())+")")
   {
-  START_TIMER2(label_,"Constructor");
+  HYMLS_PROF2(label_,"Constructor");
   CHECK_ZERO(this->SetBorder(V,W,C));
   }
 
 HYMLS::BorderedLU::~BorderedLU()
   {
-  START_TIMER3(label_,"Destructor");
+  HYMLS_PROF3(label_,"Destructor");
   }
 
   int BorderedLU::SetUseTranspose(bool UseTranspose)
@@ -36,13 +36,13 @@ HYMLS::BorderedLU::~BorderedLU()
 
     int BorderedLU::Apply(const Epetra_MultiVector& X, Epetra_MultiVector& Y) const
       {
-      START_TIMER3(label_,"Apply (1)");
+      HYMLS_PROF3(label_,"Apply (1)");
       return A_->Apply(X,Y);
       }
       
     int BorderedLU::ApplyInverse(const Epetra_MultiVector& Y, Epetra_MultiVector& X) const
       {
-      START_TIMER3(label_, "ApplyInverse (1)");
+      HYMLS_PROF3(label_, "ApplyInverse (1)");
       int m=V_->NumVectors();
       int k=X.NumVectors();
       Epetra_SerialDenseMatrix S(m,k);
@@ -55,7 +55,7 @@ HYMLS::BorderedLU::~BorderedLU()
                   Teuchos::RCP<const Epetra_MultiVector> W,
                   Teuchos::RCP<const Epetra_SerialDenseMatrix> C)
   {
-  START_TIMER2(label_,"SetBorder");
+  HYMLS_PROF2(label_,"SetBorder");
   V_=V; W_=W; C_=C;
   if (V==Teuchos::null) Tools::Error("V is null",__FILE__,__LINE__);
   if (W==Teuchos::null) W_=V;
@@ -70,7 +70,7 @@ HYMLS::BorderedLU::~BorderedLU()
     int BorderedLU::Apply(const Epetra_MultiVector& X, const Epetra_SerialDenseMatrix& S,
                     Epetra_MultiVector& Y,       Epetra_SerialDenseMatrix& T) const
   {
-  START_TIMER2(label_,"Apply");
+  HYMLS_PROF2(label_,"Apply");
   CHECK_ZERO(A_->Apply(X,Y));
   Teuchos::RCP<const Epetra_MultiVector> s = DenseUtils::CreateView(S);
   CHECK_ZERO(Y.Multiply('N','N',1.0,*V_,*s,1.0));
@@ -83,7 +83,7 @@ HYMLS::BorderedLU::~BorderedLU()
     int BorderedLU::ApplyInverse(const Epetra_MultiVector& Y, const Epetra_SerialDenseMatrix& T,
                            Epetra_MultiVector& X,       Epetra_SerialDenseMatrix& S) const
   {
-  START_TIMER2(label_,"ApplyInverse");
+  HYMLS_PROF2(label_,"ApplyInverse");
   CHECK_ZERO(A_->ApplyInverse(Y,X));
   if (V_==Teuchos::null)
     {
@@ -119,7 +119,7 @@ if (ierr!=0 && ierr!=1) return ierr;
 
 int BorderedLU::Compute()
   {
-  START_TIMER2(label_,"Compute");
+  HYMLS_PROF2(label_,"Compute");
   if (V_==Teuchos::null || W_==Teuchos::null || C_==Teuchos::null)
     {
     Tools::Error("border not set in BorderedLU::Compute",__FILE__,__LINE__);

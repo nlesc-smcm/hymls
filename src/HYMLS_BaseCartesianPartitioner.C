@@ -34,7 +34,7 @@ namespace HYMLS {
                 baseMap_(map), nx_(nx), ny_(ny),nz_(nz),dof_(dof),perio_(perio),
                 numLocalSubdomains_(-1),numGlobalSubdomains_(-1)
         {
-        START_TIMER3(label_,"Constructor");        
+        HYMLS_PROF3(label_,"Constructor");        
         node_distance_=1; //default, can be adjusted by calling SetNodeDistance()    
         active_=true; // by default, everyone is assumed to own a part of the domain.
                       // if in Partition() it turns out that there are more processor
@@ -66,7 +66,7 @@ namespace HYMLS {
   // destructor
   BaseCartesianPartitioner::~BaseCartesianPartitioner()
     {
-    START_TIMER3(label_,"Destructor");
+    HYMLS_PROF3(label_,"Destructor");
     }
 
   int BaseCartesianPartitioner::flow(int gid1, int gid2) const
@@ -239,7 +239,7 @@ DEBVAR(dk);
 
   int BaseCartesianPartitioner::Partition(int nparts, bool repart)
     {
-    START_TIMER3(label_,"Partition");
+    HYMLS_PROF3(label_,"Partition");
     int npx,npy,npz;
     Tools::SplitBox(nx_,ny_,nz_,nparts,npx,npy,npz);
     return this->Partition(npx,npy,npz,repart);
@@ -251,7 +251,7 @@ DEBVAR(dk);
   int BaseCartesianPartitioner::Partition
         (int npx_in,int npy_in, int npz_in, bool repart)
     {
-    START_TIMER3(label_,"Partition (2)");
+    HYMLS_PROF3(label_,"Partition (2)");
     npx_=npx_in;
     npy_=npy_in;
     npz_=npz_in;
@@ -409,7 +409,7 @@ Teuchos::RCP<Epetra_Map> repartitionedMap =
 if (repart==true)
   {
   Tools::Out("repartition for "+s4+" procs");
-  START_TIMER3(label_,"repartition map");
+  HYMLS_PROF3(label_,"repartition map");
 #ifdef HAVE_MPI
   Teuchos::RCP<const Epetra_MpiComm> mpiComm =
         Teuchos::rcp_dynamic_cast<const Epetra_MpiComm>(comm_);

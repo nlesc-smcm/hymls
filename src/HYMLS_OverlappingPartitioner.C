@@ -65,7 +65,7 @@ namespace HYMLS {
                         0,"OverlappingPartitioner",level),
                         PLA("Problem"), matrix_(K)
     {
-    START_TIMER3(Label(),"Constructor");
+    HYMLS_PROF3(Label(),"Constructor");
 
     setParameterList(params);
     
@@ -117,7 +117,7 @@ namespace HYMLS {
     
   OverlappingPartitioner::~OverlappingPartitioner()
     {
-    START_TIMER3(Label(),"Destructor");
+    HYMLS_PROF3(Label(),"Destructor");
     }
 
 
@@ -125,7 +125,7 @@ namespace HYMLS {
 void OverlappingPartitioner::setParameterList
         (const Teuchos::RCP<Teuchos::ParameterList>& params)
   {
-  START_TIMER3(Label(),"setParameterList");
+  HYMLS_PROF3(Label(),"setParameterList");
   
   setMyParamList(params);
     
@@ -209,7 +209,7 @@ void OverlappingPartitioner::setParameterList
 Teuchos::RCP<const Teuchos::ParameterList> OverlappingPartitioner::getValidParameters() const
   {
   if (validParams_!=Teuchos::null) return validParams_;
-  START_TIMER3(Label(),"getValidParameters");
+  HYMLS_PROF3(Label(),"getValidParameters");
 #ifdef TESTING
   VPL().set("Test F-Matrix Properties",false,"do special tests for F-matrices in TESTING mode.");
 #endif
@@ -265,7 +265,7 @@ Teuchos::RCP<const Teuchos::ParameterList> OverlappingPartitioner::getValidParam
 
 int OverlappingPartitioner::Partition()
   {
-  START_TIMER2(Label(),"Partition");
+  HYMLS_PROF2(Label(),"Partition");
   if (partitioningMethod_=="Cartesian")
     {
     partitioner_=Teuchos::rcp(new CartesianPartitioner
@@ -381,7 +381,7 @@ for (int i=0;i<Map().NumMyElements();i++)
   
 int OverlappingPartitioner::DetectSeparators()
   {
-  START_TIMER2(Label(),"DetectSeparators");
+  HYMLS_PROF2(Label(),"DetectSeparators");
   //! first we import our original matrix into the ordering defined by the partitioner.
 
   if (Teuchos::is_null(graph_))
@@ -480,7 +480,7 @@ int OverlappingPartitioner::DetectSeparators()
                               Teuchos::Array<int>& separator,
                               Teuchos::Array<int>& retained) const
   {
-  START_TIMER3(Label(),"BuildNodeLists");
+  HYMLS_PROF3(Label(),"BuildNodeLists");
 
   int MaxNumEntriesPerRow = G.MaxNumIndices();
   
@@ -575,7 +575,7 @@ int OverlappingPartitioner::DetectSeparators()
 // into groups suitable for our transformations.
 int OverlappingPartitioner::GroupSeparators()
   {
-  START_TIMER2(Label(),"GroupSeparators");
+  HYMLS_PROF2(Label(),"GroupSeparators");
   if (Teuchos::is_null(graph_))
     {
     Tools::Error("Graph not yet constructed!",__FILE__,__LINE__);
@@ -836,7 +836,7 @@ int OverlappingPartitioner::GroupSeparators()
 Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLevel
         (Teuchos::RCP<const Epetra_RowMatrix> Ared, Teuchos::RCP<Teuchos::ParameterList> newList) const
   {
-  START_TIMER3(Label(),"SpawnNextLevel");
+  HYMLS_PROF3(Label(),"SpawnNextLevel");
 
   *newList = *getMyParamList();
 
@@ -943,7 +943,7 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
   //     that we use now.
   int OverlappingPartitioner::CreateGraph()
     {
-    START_TIMER2(Label(),"CreateGraph");
+    HYMLS_PROF2(Label(),"CreateGraph");
 
     Teuchos::RCP<const Epetra_CrsMatrix> myCrsMatrix = 
         Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_);
@@ -1020,7 +1020,7 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
 
 int OverlappingPartitioner::DumpGraph() const
   {
-  START_TIMER2(Label(),"DumpGraph");
+  HYMLS_PROF2(Label(),"DumpGraph");
   std::string filename="matrixGraph"+Teuchos::toString(Level())+".txt";
   
   Teuchos::RCP<Epetra_CrsMatrix> graph=
@@ -1036,7 +1036,7 @@ int OverlappingPartitioner::DumpGraph() const
   //! which should both already be Filled().
   int OverlappingPartitioner::AugmentSppGraph(int pvar)
   {
-  START_TIMER2(Label(),"AugmentSppGraph");
+  HYMLS_PROF2(Label(),"AugmentSppGraph");
   
   DEBVAR(pvar);
   DEBVAR(pvar_);

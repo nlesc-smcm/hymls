@@ -7,7 +7,7 @@ namespace HYMLS {
 
 PLA::PLA(std::string my_sublist)
   {
-  START_TIMER3("PLA","Constructor");
+  HYMLS_PROF3("PLA","Constructor");
 
   default_sublist_=my_sublist;  
   validateParameters_=true; // this statement determines wether
@@ -18,7 +18,7 @@ PLA::PLA(std::string my_sublist)
 
 PLA::~PLA()
   {
-  START_TIMER3("PLA","Destructor");
+  HYMLS_PROF3("PLA","Destructor");
   }
 
 }

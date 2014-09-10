@@ -261,6 +261,11 @@ protected:
   //! massively parallel runs.
   std::string variant_;
   
+  //! obtained from user parameter "Dense Solvers on Level", used
+  //! to switch to dense direct solvers on the subdomains on level
+  //! denseSwitch_.
+  int denseSwitch_;
+  
   //! domain decomposition object
   Teuchos::RCP<const OverlappingPartitioner> hid_;
   

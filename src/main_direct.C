@@ -56,7 +56,7 @@ bool status=true;
 
   try {
 
-  START_TIMER(std::string("main"),"entire run");
+  HYMLS_PROF(std::string("main"),"entire run");
 
   std::string param_file;
 
@@ -191,7 +191,7 @@ bool status=true;
 
   HYMLS::Tools::Out("Initialize Solver...");
   {
-  START_TIMER(std::string("main"),"INITIALIZE");
+  HYMLS_PROF(std::string("main"),"INITIALIZE");
   CHECK_ZERO(solver->Initialize());
   }
 for (int f=0;f<numComputes;f++)
@@ -210,7 +210,7 @@ for (int f=0;f<numComputes;f++)
   */
   HYMLS::Tools::Out("Compute Solver ("+Teuchos::toString(f+1)+")");
   {
-  START_TIMER(std::string("main"),"COMPUTE");
+  HYMLS_PROF(std::string("main"),"COMPUTE");
   CHECK_ZERO(solver->Compute());
   }  
  // std::cout << *solver << std::endl;
@@ -225,7 +225,7 @@ for (int f=0;f<numComputes;f++)
 
     HYMLS::Tools::Out("Solve ("+Teuchos::toString(s+1)+")");
     {
-    START_TIMER(std::string("main"),"SOLVE");
+    HYMLS_PROF(std::string("main"),"SOLVE");
     CHECK_ZERO(solver->ApplyInverse(*b,*x));
     }
     // subtract constant from pressure if solving Stokes-C

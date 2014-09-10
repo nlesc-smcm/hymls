@@ -45,9 +45,9 @@ namespace HYMLS {
         : comm_(comm),
           baseMap_(baseMap),
           overlappingMap_(Teuchos::null),
-          myLevel_(level), label_(label+" (level "+Teuchos::toString(level)+")")
+          myLevel_(level), label_(label)
     {
-    START_TIMER3(label_,"Constructor");
+    HYMLS_LPROF3(label_,"Constructor");
     this->Reset(numMySubdomains);
     }
 
@@ -63,9 +63,9 @@ namespace HYMLS {
     overlappingMap_(overlappingMap),
     groupPointer_(groupPointer),
     myLevel_(level),
-    label_(label+" (level "+Teuchos::toString(level)+")")
+    label_(label)
     {
-    START_TIMER3(label_,"HierarchicalMap Constructor");
+    HYMLS_LPROF3(label_,"HierarchicalMap Constructor");
     spawnedObjects_.resize(4); // can currently spawn Interior, Separator and 
                                // LocalSeparator objects and 
                                // return a self-reference (All)    
@@ -83,12 +83,12 @@ namespace HYMLS {
     
   HierarchicalMap::~HierarchicalMap()
     {
-    START_TIMER3("HierarchicalMap","Destructor");
+    HYMLS_LPROF3("HierarchicalMap","Destructor");
     }
 
   int HierarchicalMap::Reset(int numMySubdomains)
     {
-    START_TIMER2(label_,"Reset");
+    HYMLS_LPROF2(label_,"Reset");
     groupPointer_=Teuchos::rcp(new Teuchos::Array<Teuchos::Array<int> >(numMySubdomains));
     gidList_=Teuchos::rcp(new Teuchos::Array<Teuchos::Array<int> >(numMySubdomains));
     for (int i=0;i<numMySubdomains;i++)
@@ -108,7 +108,7 @@ namespace HYMLS {
 
   int HierarchicalMap::FillComplete()
     {
-    START_TIMER2(label_,"FillComplete");
+    HYMLS_LPROF2(label_,"FillComplete");
     for (int i=0;i<spawnedObjects_.size();i++) spawnedObjects_[i]=Teuchos::null;
     for (int i=0;i<spawnedMaps_.size();i++)  
       {
@@ -158,7 +158,7 @@ namespace HYMLS {
 
   int HierarchicalMap::FillStart()
     {
-    START_TIMER2(label_,"FillStart");
+    HYMLS_LPROF2(label_,"FillStart");
     // adjust the group pointer back to local indexing per subdomain
     for (int sd=0;sd<NumMySubdomains();sd++)
       {
@@ -178,7 +178,7 @@ namespace HYMLS {
 
   int HierarchicalMap::AddSubdomain(int min_id)
     {
-    START_TIMER3(label_,"AddSubdomain");
+    HYMLS_LPROF3(label_,"AddSubdomain");
     if (Filled()) this->FillStart();
     int id = groupPointer_->size();
     if (id<min_id) id=min_id;
@@ -191,7 +191,7 @@ namespace HYMLS {
     
   int HierarchicalMap::AddGroup(int sd, Teuchos::Array<int>& gidList)
     {
-    START_TIMER3(label_,"AddGroup");
+    HYMLS_LPROF3(label_,"AddGroup");
     if (Filled()) this->FillStart();
 
     if (sd>=groupPointer_->size())
@@ -220,7 +220,7 @@ namespace HYMLS {
       os << "(object not filled)" << std::endl;
       return os;
       }
-    START_TIMER3(label_,"Print");
+    HYMLS_LPROF3(label_,"Print");
     int rank=comm_->MyPID();
     
     if (rank==0)
@@ -315,7 +315,7 @@ HierarchicalMap::Spawn(SpawnStrategy strat,
     
   if (object==Teuchos::null)
     {
-    START_TIMER3(label_,"Spawn");
+    HYMLS_LPROF3(label_,"Spawn");
     if (strat==Interior)
       {
       object=SpawnInterior();
@@ -345,7 +345,7 @@ HierarchicalMap::Spawn(SpawnStrategy strat,
 Teuchos::RCP<const HierarchicalMap> 
 HierarchicalMap::SpawnInterior() const
   {
-  START_TIMER3(label_,"SpawnInterior");    
+  HYMLS_LPROF3(label_,"SpawnInterior");    
 
   Teuchos::RCP<const HierarchicalMap> newObject=Teuchos::null;
   Teuchos::RCP<Epetra_Map> newMap=Teuchos::null;
@@ -393,7 +393,7 @@ HierarchicalMap::SpawnInterior() const
   Teuchos::RCP<const HierarchicalMap> 
   HierarchicalMap::SpawnSeparators() const
   {
-  START_TIMER3(label_,"SpawnSeparators");
+  HYMLS_LPROF3(label_,"SpawnSeparators");
 
   if (!Filled()) Tools::Error("object not filled",__FILE__,__LINE__);
 
@@ -769,7 +769,7 @@ Teuchos::RCP<const HierarchicalMap>
 HierarchicalMap::SpawnLocalSeparators
         (Teuchos::RCP<Teuchos::Array<HYMLS::SepNode> > regroup) const
   { 
-  START_TIMER3(label_,"SpawnLocalSeparators");
+  HYMLS_LPROF3(label_,"SpawnLocalSeparators");
 
   Teuchos::RCP<const HierarchicalMap> newObject=Teuchos::null;
   Teuchos::RCP<Epetra_Map> newMap=Teuchos::null;
@@ -847,7 +847,7 @@ HierarchicalMap::SpawnLocalSeparators
   Teuchos::RCP<const Epetra_Map> HierarchicalMap::SpawnMap
         (int sd, SpawnStrategy strat) const
     {
-    START_TIMER3(label_,"SpawnMap");
+    HYMLS_LPROF3(label_,"SpawnMap");
     if ((sd<0)||(sd>NumMySubdomains()))
       {
       Tools::Error("subdomain index out of range",__FILE__,__LINE__);
@@ -911,7 +911,7 @@ std::ostream & operator<<(std::ostream& os, const HierarchicalMap& h)
 //! given a list of GIDs, returns a list of subdomains to which they belong
 int HierarchicalMap::getSubdomainList(int num_gids, int* gids, int* sd) const
   {
-  START_TIMER3(label_,"getSubdomainList");
+  HYMLS_LPROF3(label_,"getSubdomainList");
   int offset=0; // we do a cyclic search, which
                 // should be efficient if the indices
                 // belong to the same or adjacent subdomains

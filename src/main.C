@@ -61,7 +61,7 @@ bool status=true;
 
   try {
 
-  START_TIMER("main","entire run");
+  HYMLS_PROF("main","entire run");
   REPORT_MEM("main","base line",0,0);
 
   std::string param_file;

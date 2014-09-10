@@ -150,6 +150,9 @@ public:
   double ComputeFlops() const {return flopsCompute_;}
   
 protected: 
+
+  //!
+  int myLevel_;
   
   //! communicator
   Teuchos::RCP<const Epetra_Comm> comm_;

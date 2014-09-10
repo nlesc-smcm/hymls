@@ -51,7 +51,7 @@ namespace HYMLS {
   // returns true if the input graph (i.e. the sparsity pattern of a matrix) is symmetric
   bool Tester::isSymmetric(const Epetra_CrsGraph& G)
     {
-    START_TIMER(Label(),"isSymmetric(G)");
+    HYMLS_PROF(Label(),"isSymmetric(G)");
     bool status=true;
     ASSERT_TRUE(G.Filled(),status);
     Epetra_CrsMatrix A(Copy,G);
@@ -63,7 +63,7 @@ namespace HYMLS {
   //! returns true if the input matrix is symmetric
   bool Tester::isSymmetric(const Epetra_CrsMatrix& A)
     {
-    START_TIMER(Label(),"isSymmetric(A)");
+    HYMLS_PROF(Label(),"isSymmetric(A)");
     bool status=true;
     ASSERT_TRUE(A.Filled(),status);
     // we do assume here that the MatrixMatrix::Add function is correct
@@ -81,7 +81,7 @@ namespace HYMLS {
     {
     bool status=true;
     if (!doFmatTests_) return status; 
-    START_TIMER(Label(),"isFmatrix");
+    HYMLS_PROF(Label(),"isFmatrix");
     int dof = dof_in<0 ? dof_: dof_in;
     int pvar = pvar_in<0 ? pvar_: pvar_in;
     msg_<<"dof="<<dof<<std::endl;
@@ -133,7 +133,7 @@ namespace HYMLS {
                               const Epetra_IntVector& p_nodeType,
                               int dof, int pvar)
     {
-    START_TIMER(Label(),"areTubesCorrect");
+    HYMLS_PROF(Label(),"areTubesCorrect");
     
     // note: we do not test wether A is an F-matrix here, that is, wether Div=-Grad' etc.
     // the isFmatrix() test can be used for that independently. We only look at the grad-
@@ -184,7 +184,7 @@ namespace HYMLS {
   bool Tester::isDDcorrect(const Epetra_CrsMatrix& A, 
                                   const HYMLS::OverlappingPartitioner& hid)
     {
-    START_TIMER(Label(),"isDDcorrect");
+    HYMLS_PROF(Label(),"isDDcorrect");
     bool status=true;
     if (A.RowMap().Comm().NumProc()>1)
       {
@@ -381,7 +381,7 @@ namespace HYMLS {
   {
     bool status=true;
     if (!doFmatTests_) return status; 
-    START_TIMER(Label(),"noPcouplingsDropped");
+    HYMLS_PROF(Label(),"noPcouplingsDropped");
 
     msg_<<"dof="<<dof_<<", pvar="<<pvar_<<std::endl;
     
@@ -427,7 +427,7 @@ namespace HYMLS {
   bool Tester::noNumericalZeros(const Epetra_CrsMatrix& A)
     {
     bool status=true;
-    START_TIMER(Label(),"noNumericalZeros");
+    HYMLS_PROF(Label(),"noNumericalZeros");
     int len;
     double* val;
     int* cols;

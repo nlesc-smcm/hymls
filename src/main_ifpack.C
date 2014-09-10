@@ -53,7 +53,7 @@ bool status=true;
 
   try {
 
-  START_TIMER(std::string("main"),"entire run");
+  HYMLS_PROF(std::string("main"),"entire run");
 
   std::string param_file;
 

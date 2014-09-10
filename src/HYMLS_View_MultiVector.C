@@ -15,7 +15,7 @@ Teuchos::RCP<Epetra_MultiVector>
 MultiVector_View::
 operator()( Teuchos::RCP<Epetra_MultiVector> orig )
 {
-  START_TIMER3("MultiVector_View", "operator (1)");
+  HYMLS_PROF3("MultiVector_View", "operator (1)");
   // make sure the original is not deleted before this view object is
   origObj_.append(orig);
 
@@ -36,7 +36,7 @@ Teuchos::RCP<const Epetra_MultiVector>
 MultiVector_View::
 operator()(Teuchos::RCP<const Epetra_MultiVector> orig )
   {
-  START_TIMER3("MultiVector_View", "operator (2)");
+  HYMLS_PROF3("MultiVector_View", "operator (2)");
   // make sure the original is not deleted before this view object is
   origObj_.append(orig);
 
@@ -55,14 +55,14 @@ operator()(Teuchos::RCP<const Epetra_MultiVector> orig )
 Teuchos::RCP<Epetra_MultiVector>
 MultiVector_View::operator()(Epetra_MultiVector& orig )
   {
-  START_TIMER3("MultiVector_View", "operator (3)");
+  HYMLS_PROF3("MultiVector_View", "operator (3)");
   return this->operator()(Teuchos::rcp(&orig,false));
   }
 
 Teuchos::RCP<const Epetra_MultiVector>
 MultiVector_View::operator()(const Epetra_MultiVector& orig )
   {
-  START_TIMER3("MultiVector_View", "operator (4)");
+  HYMLS_PROF3("MultiVector_View", "operator (4)");
   return this->operator()(Teuchos::rcp(&orig,false));
   }
 

@@ -55,10 +55,10 @@ namespace HYMLS {
                 // sets a pointer, below it is known as parallelGraph_
                 nx_(nx),ny_(ny),nz_(nz),
                 //initializes nx_=nx etc
-                label_(label+" (level "+Teuchos::toString(level)+")")
+                label_(label)
                 //creates a std::string for printing purposes
     {
-    START_TIMER3(Label(),"Constructor");
+    HYMLS_LPROF3(Label(),"Constructor");
     dof_=partitioner_->DofPerNode(); // DOFs per grid cell (4 for u,v,w,p) 
     if (varType.length()!=dof_ || retIsol.length()!=dof_)
       {
@@ -82,7 +82,7 @@ namespace HYMLS {
     
   StandardNodeClassifier::~StandardNodeClassifier()
     {
-    START_TIMER3(Label(),"Destructor");
+    HYMLS_LPROF3(Label(),"Destructor");
     }
 
 
@@ -90,7 +90,7 @@ namespace HYMLS {
   
 int StandardNodeClassifier::BuildNodeTypeVector()
   {
-  START_TIMER2(Label(),"BuildNodeTypeVector");
+  HYMLS_LPROF2(Label(),"BuildNodeTypeVector");
 
   if (Teuchos::is_null(parallelGraph_))
     {
@@ -178,7 +178,7 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
   int StandardNodeClassifier::BuildInitialNodeTypeVector(
         const Epetra_CrsGraph& G, Epetra_IntVector& nodeType) const
   {
-  START_TIMER3(Label(),"BuildInitialNodeTypeVector");
+  HYMLS_LPROF3(Label(),"BuildInitialNodeTypeVector");
 
 
   int *cols;
@@ -295,7 +295,7 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
                       const Epetra_IntVector& p_nodeType,
                             Epetra_IntVector& nodeType) const
   {
-  START_TIMER3(Label(),"UpdateNodeTypeVector");
+  HYMLS_LPROF3(Label(),"UpdateNodeTypeVector");
   
   int MaxNumEntriesPerRow = G.MaxNumIndices();
   
@@ -371,7 +371,7 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
                       const Epetra_IntVector& p_nodeType,
                             Epetra_IntVector& nodeType) const
   {
-  START_TIMER3(Label(),"DetectFCC");
+  HYMLS_LPROF3(Label(),"DetectFCC");
   
   int MaxNumEntriesPerRow = G.MaxNumIndices();
   
@@ -464,7 +464,7 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
 std::ostream& StandardNodeClassifier::PrintNodeTypeVector
   (const Epetra_IntVector& nT,std::ostream& os,std::string label)
   {
-  START_TIMER2(Label(),"PrintNodeTypeVector");
+  HYMLS_LPROF2(Label(),"PrintNodeTypeVector");
   os << "nodeType ("<<label<<")"<<std::endl;
     
   if (nT.Map().NumMyElements()==0) 

@@ -58,13 +58,13 @@ namespace HYMLS {
                         "CartesianStokesClassifier"),
                         perio_(perio),dim_(dim)
     {
-    START_TIMER3(Label(),"Constructor");    
+    HYMLS_PROF3(Label(),"Constructor");    
     return;
     }
     
   CartesianStokesClassifier::~CartesianStokesClassifier()
     {
-    START_TIMER3(Label(),"Destructor");
+    HYMLS_PROF3(Label(),"Destructor");
     }
 
 
@@ -72,7 +72,7 @@ namespace HYMLS {
   
 int CartesianStokesClassifier::BuildNodeTypeVector()
   {
-  START_TIMER2(Label(),"BuildNodeTypeVector");
+  HYMLS_PROF2(Label(),"BuildNodeTypeVector");
   //! first we import our original matrix into the ordering defined by the partitioner.
 
   if (Teuchos::is_null(parallelGraph_))
@@ -190,7 +190,7 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"step 2");
                       const Epetra_IntVector& p_nodeType,
                             Epetra_IntVector& nodeType) const
   {
-  START_TIMER3(Label(),"UpdateNodeTypeVector_CartStokes");
+  HYMLS_PROF3(Label(),"UpdateNodeTypeVector_CartStokes");
   
   // we use geometrical info for the moment to get the nodeType vector correct,
   // we want 2 on edges and 3 in vertices (in 3D).
@@ -255,7 +255,7 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"step 2");
                       const Epetra_IntVector& p_nodeType,
                             Epetra_IntVector& p_update) const
   {
-  START_TIMER3(Label(),"DetectFCC");
+  HYMLS_PROF3(Label(),"DetectFCC");
   
   int MaxNumEntriesPerRow = G.MaxNumIndices();
   
@@ -349,7 +349,7 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"step 2");
                             Epetra_IntVector& nodeType) const
   {
   if (dim_<3 || dof_<4) return 0;
-  START_TIMER3(Label(),"DetectFCT");
+  HYMLS_PROF3(Label(),"DetectFCT");
 
   // we currently have the following node types for
   // V-nodes, assuming that UpdateNodeTypeVector 

@@ -23,14 +23,14 @@ namespace HYMLS {
         : BaseCartesianPartitioner(map,nx,ny,nz,dof,perio)
         {
         label_="CartesianPartitioner";
-        START_TIMER3(label_,"Constructor");
+        HYMLS_PROF3(label_,"Constructor");
         }
         
         
   // destructor
   CartesianPartitioner::~CartesianPartitioner()
     {
-    START_TIMER3(label_,"Destructor");
+    HYMLS_PROF3(label_,"Destructor");
     }
 
   Teuchos::RCP<Epetra_Map> CartesianPartitioner::CreateSubdomainMap

@@ -11,7 +11,7 @@ namespace HYMLS {
 
 HyperCube::HyperCube()
   {
-  START_TIMER3("HyperCube","HyperCube");
+  HYMLS_PROF3("HyperCube","HyperCube");
   commWorld_ = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
   // figure out on which node we are:
   char* procname=new char[MPI_MAX_PROCESSOR_NAME];

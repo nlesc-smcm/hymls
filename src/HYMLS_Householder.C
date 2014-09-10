@@ -15,7 +15,8 @@ namespace HYMLS {
 
  
   // constructor
-  Householder::Householder(int lev) : label_("Householder (level "+Teuchos::toString(lev)+")"),
+  Householder::Householder(int lev) : label_("Householder"),
+                               myLevel_(lev),
                                Wmat_(Teuchos::null),
                                WTmat_(Teuchos::null),
                                Cmat_(Teuchos::null)
@@ -29,7 +30,7 @@ namespace HYMLS {
   //! compute X=Q*X in place
   int Householder::Apply(Epetra_SerialDenseMatrix& X) const
     {
-    START_TIMER3(label_, "Apply (1)");
+    HYMLS_PROF3(label_, "Apply (1)");
     // X = (2vv'/v'v-I)Y
     // can be written as X = Z-Y, Z= (2/nrmv^2 v'Y)v
     // (we use a vector v which is 1 everywhere except that the first entry is 1+sqrt(n))
@@ -58,7 +59,7 @@ namespace HYMLS {
   //! compute X=X*Q' in place
   int Householder::ApplyR(Epetra_SerialDenseMatrix& X) const
     {
-    START_TIMER3(label_, "ApplyR (1)");
+    HYMLS_PROF3(label_, "ApplyR (1)");
     int n=X.N();
     double sqn=sqrt((double)n);
     double v1=1+sqn; // first vector element, all others are 1
@@ -84,7 +85,7 @@ namespace HYMLS {
   //! compute X=Q*Y*Q' in place
   int Householder::ApplyLR(Epetra_SerialDenseMatrix& Y) const
     {
-    START_TIMER3(label_, "ApplyLR (1)");
+    HYMLS_PROF3(label_, "ApplyLR (1)");
     // let Y \in R^{m x n}
     // Q = (1-alpha*vv')=Q', alpha = 2/(v'*v)
     // Y = (I-alpha_m*vmvm') Y (1-alpha_n*vnvn')
@@ -141,7 +142,7 @@ namespace HYMLS {
   int Householder::Apply(Epetra_SerialDenseMatrix& X,
                    const Epetra_SerialDenseVector& v) const
     {
-    START_TIMER3(label_, "Apply (2)");
+    HYMLS_PROF3(label_, "Apply (2)");
     // X = (2vv'/v'v-I)Y
     // can be written as X = Z-Y, Z= (2/nrmv^2 v'Y)v
     const int n=X.M();
@@ -184,7 +185,7 @@ namespace HYMLS {
   int Householder::ApplyR(Epetra_SerialDenseMatrix& X,
                     const Epetra_SerialDenseVector& v) const
     {
-    START_TIMER3(label_, "ApplyR (2)");
+    HYMLS_PROF3(label_, "ApplyR (2)");
     // X = (2vv'/v'v-I)Y
     // can be written as X = Z-X, Z= (2/nrmv^2 v'Y)v
     int n=X.N();
@@ -232,7 +233,7 @@ namespace HYMLS {
   //! the size of the output matrix.
   int Householder::Construct(Epetra_SerialDenseMatrix& M) const
     {
-    START_TIMER3(label_, "Construct (1)");
+    HYMLS_PROF3(label_, "Construct (1)");
     int n=M.N();
 #ifdef TESTING
     if (M.M()!=n)
@@ -268,7 +269,7 @@ namespace HYMLS {
   int Householder::Construct(Epetra_CrsMatrix& H, 
             const Epetra_IntSerialDenseVector& inds) const
     {
-    START_TIMER3(label_, "Construct (2)");
+    HYMLS_PROF3(label_, "Construct (2)");
     int n=inds.Length();
     Epetra_SerialDenseVector vec(n);
     for (int i=0;i<n;i++) vec[i]=1.0;
@@ -279,7 +280,7 @@ namespace HYMLS {
             const Epetra_IntSerialDenseVector& inds,
             const Epetra_SerialDenseVector& vec) const
     {
-    START_TIMER3(label_, "Construct (3)");
+    HYMLS_PROF3(label_, "Construct (3)");
     // vec is the test vector to be zeroed out by this transform,
     // construct the according v for the Householder reflection: 
     Epetra_SerialDenseVector v = vec;
@@ -309,7 +310,7 @@ namespace HYMLS {
   Teuchos::RCP<Epetra_CrsMatrix> Householder::Apply
         (const Epetra_CrsMatrix& T, const Epetra_CrsMatrix& A) const
     {
-    START_TIMER2(label_,"H^TAH (1)");
+    HYMLS_PROF2(label_,"H^TAH (1)");
         
     
     if (A.Filled()==false || T.Filled()==false)
@@ -436,7 +437,7 @@ namespace HYMLS {
   int Householder::Apply
     (Epetra_CrsMatrix& TAT, const Epetra_CrsMatrix& T, const Epetra_CrsMatrix& A) const
     {
-    START_TIMER2(label_,"H^TAH (2)");
+    HYMLS_PROF2(label_,"H^TAH (2)");
 
     if (SaveMemory())
       {
@@ -507,7 +508,7 @@ namespace HYMLS {
   int Householder::Apply
     (Epetra_MultiVector& Tv, const Epetra_CrsMatrix& T, const Epetra_MultiVector& v) const
     {
-    START_TIMER2(label_,"H*v");
+    HYMLS_PROF2(label_,"H*v");
     Epetra_MultiVector tmp = v;
     CHECK_ZERO(T.Multiply(false,v,tmp));
     CHECK_ZERO(T.Multiply(true,tmp,Tv));

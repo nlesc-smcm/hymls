@@ -82,6 +82,9 @@ protected:
   //! object label
   std::string label_;
   
+  //!
+  int myLevel_;
+  
   //! we store pointers to sparse matrices so that we can
   //! apply a series of transforms as T'AT more efficiently
   mutable Teuchos::RCP<Epetra_RowMatrixTransposer> Transp_;

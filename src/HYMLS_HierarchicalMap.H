@@ -285,6 +285,10 @@ public:
   
   //! indicates if any more changes can be made (FillComplete() has been called)
   bool Filled() const {return overlappingMap_!=Teuchos::null;}
+  
+  //! level ID
+  int myLevel_;
+
     
 private:
   
@@ -320,9 +324,6 @@ private:
               Teuchos::RCP<const Epetra_Map> overlappingMap,
               Teuchos::RCP<Teuchos::Array< Teuchos::Array<int> > > groupPointer,
               std::string label, int level);
-
-  //! level ID
-  int myLevel_;
 
   //! \name private member functions
   //! @{

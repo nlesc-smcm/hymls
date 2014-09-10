@@ -23,7 +23,7 @@ namespace HYMLS {
                    Teuchos::RCP<const Epetra_SerialDenseMatrix> C)
   {
   label_="AugmentedMatrix";
-  START_TIMER2(label_,"Constructor");
+  HYMLS_PROF2(label_,"Constructor");
   useTranspose_=false;
   if (!A->Filled())
     {
@@ -146,7 +146,7 @@ namespace HYMLS {
     int AugmentedMatrix::ExtractMyRowCopy(int MyRow, int Length, int & NumEntries, 
         double *Values, int * Indices) const
   {
-  START_TIMER3(label_,"ExtractMyRowCopy");
+  HYMLS_PROF3(label_,"ExtractMyRowCopy");
   int ierr=NumMyRowEntries(MyRow, NumEntries);
   if (ierr) 
     {
@@ -236,7 +236,7 @@ for (int i=0;i<NumEntries;i++)
     int AugmentedMatrix::Multiply(bool TransA, const Epetra_MultiVector& X, 
         Epetra_MultiVector& Y) const
   {
-  START_TIMER3(label_,"Multiply");  
+  HYMLS_PROF3(label_,"Multiply");  
   return -99; // not implemented
   }        
 
@@ -260,7 +260,7 @@ for (int i=0;i<NumEntries;i++)
         const Epetra_MultiVector& X, 
               Epetra_MultiVector& Y) const
   {
-  START_TIMER2(label_,"Solve");  
+  HYMLS_PROF2(label_,"Solve");  
   return -99; // not implemented
   }              
 
@@ -378,7 +378,7 @@ does not support transpose.
   */
     int AugmentedMatrix::Apply(const Epetra_MultiVector& X, Epetra_MultiVector& Y) const
       {
-      START_TIMER3(label_,"Apply");
+      HYMLS_PROF3(label_,"Apply");
       return this->Multiply(useTranspose_,X,Y);
       }
 
@@ -396,7 +396,7 @@ does not support transpose.
   */
     int AugmentedMatrix::ApplyInverse(const Epetra_MultiVector& X, Epetra_MultiVector& Y) const
       {
-      START_TIMER3(label_,"ApplyInverse");
+      HYMLS_PROF3(label_,"ApplyInverse");
       return -99; // not implemented
       }
 

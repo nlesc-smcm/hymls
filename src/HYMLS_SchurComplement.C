@@ -34,13 +34,14 @@ namespace HYMLS {
 
   SchurComplement::SchurComplement(Teuchos::RCP<const Preconditioner> mother, int lev)
        : mother_(mother),
-       label_("SchurComplement (level "+Teuchos::toString(lev)+")"),
+         label_("SchurComplement"),
+         myLevel_(lev),
          comm_(Teuchos::rcp(&(mother->Comm()),false)),
          useTranspose_(false), normInf_(-1.0),
          sparseMatrixRepresentation_(Teuchos::null),
          flopsApply_(0.0), flopsCompute_(0.0)
     {
-    START_TIMER3(label_,"Constructor");
+    HYMLS_LPROF3(label_,"Constructor");
     isConstructed_=false;
     // we do a finite-element style assembly of the full matrix    
     const Epetra_Map& map = mother_->Map2();
@@ -57,7 +58,7 @@ namespace HYMLS {
   // destructor
   SchurComplement::~SchurComplement()
     {
-    START_TIMER3(label_,"Destructor");
+    HYMLS_LPROF3(label_,"Destructor");
     }
 
 
@@ -66,7 +67,7 @@ namespace HYMLS {
   int SchurComplement::Apply(const Epetra_MultiVector& X,
                   Epetra_MultiVector& Y) const
     {
-    START_TIMER2(label_,"Apply");
+    HYMLS_LPROF2(label_,"Apply");
     int ierr=0;
     if (IsConstructed())
       {
@@ -119,7 +120,7 @@ namespace HYMLS {
   // construct complete Schur complement as a sparse matrix
   int SchurComplement::Construct()
     {
-    START_TIMER3(label_,"Construct (1)");
+    HYMLS_LPROF3(label_,"Construct (1)");
     const Epetra_Map& map = mother_->Map2();
     const OverlappingPartitioner& hid = mother_->Partitioner();
     
@@ -135,7 +136,7 @@ namespace HYMLS {
 
   int SchurComplement::Construct(Teuchos::RCP<Epetra_FECrsMatrix> S) const
     {
-    START_TIMER2(label_,"Construct FEC");
+    HYMLS_LPROF3(label_,"Construct FEC");
     Epetra_IntSerialDenseVector indices;
     Epetra_SerialDenseMatrix Sk;
     
@@ -201,7 +202,7 @@ namespace HYMLS {
 
   int SchurComplement::Construct(int sd, Epetra_IntSerialDenseVector& inds) const
     {
-    START_TIMER2(label_,"Construct ISDV");
+    HYMLS_LPROF3(label_,"Construct ISDV");
     const OverlappingPartitioner& hid=mother_->Partitioner();
     
     if (sd<0 || sd>hid.NumMySubdomains())
@@ -241,7 +242,7 @@ namespace HYMLS {
                                         const Epetra_IntSerialDenseVector& inds,
                                         double* count_flops) const
     {
-    START_TIMER2(label_,"Construct SDM");
+    HYMLS_LPROF3(label_,"Construct SDM");
 #ifdef FLOPS_COUNT
     double flops=0;
 #endif    
@@ -249,21 +250,14 @@ namespace HYMLS {
     const Epetra_CrsMatrix& A12 = mother_->A12(sd);
     const Epetra_CrsMatrix& A21 = mother_->A21(sd);
     const Epetra_CrsMatrix& A22 = mother_->A22();
-    Ifpack_Container& _A11 = mother_->SolverA11(sd);
-    Ifpack_SparseContainer<SparseDirectSolver> *sparseA11
-        = dynamic_cast<Ifpack_SparseContainer<SparseDirectSolver>*>(&_A11);
-    if (sparseA11==NULL)
-      {
-      Tools::Error("use of dense subdomain solvers not implemented, yet!",
-        __FILE__, __LINE__);
-      }
-    Ifpack_SparseContainer<SparseDirectSolver>& A11 = *sparseA11;
+    Ifpack_Container& A11 = mother_->SolverA11(sd);
+
     if (sd<0 || sd>hid.NumMySubdomains())
       {
       Tools::Warning("Subdomain index out of range!",__FILE__,__LINE__);
       return -1;
       }
-    
+
 #ifdef TESTING
  // verify that the ID array of the subdomain solver is sorted
  // in ascending order, I think we assume that...
@@ -275,8 +269,6 @@ namespace HYMLS {
      }
    }
 #endif
-
-
     
     int nrows = hid.NumSeparatorElements(sd);
               
@@ -313,7 +305,7 @@ namespace HYMLS {
       }
 
     int pos = 0; // position in multi-vector (rhs of subdomain solver)
-
+    
     // now loop over all the separators around this subdomain
     for (int grp=1;grp<hid.NumGroups(sd);grp++)
       {
@@ -334,7 +326,7 @@ namespace HYMLS {
         pos++;
         }
       }
-    
+
 //    DEBUG("Apply A11 inverse...");
 #ifdef FLOPS_COUNT    
     double flopsOld=A11.ApplyInverseFlops();
@@ -348,18 +340,23 @@ namespace HYMLS {
 #endif
     
     // get the solution, B=A11\A12, as a MultiVector in the domain map of operator A21
-
-    Teuchos::RCP<const Epetra_MultiVector> lhs = A11.LHS();
-    EpetraExt::MultiVector_Reindex reindex(mother_->Map1(sd));
-    const Epetra_MultiVector& B = reindex(const_cast<Epetra_MultiVector&>(*lhs));
+    Epetra_MultiVector B(mother_->Map1(sd),nrows);
+    Epetra_MultiVector Aloc(mother_->Map2(sd),B.NumVectors());
+    for (int j=0;j<B.MyLength();j++)
+      {
+      for (int k=0;k<nrows;k++)
+        {
+        B[k][j]=A11.LHS(j,k);
+        }
+      }
 
     // multiply by A21, giving A21*(A11\A12) in a vector based on Map2 (i.e. with a row
     // for each separator element) and a column for each separator node connected to this 
     // subdomain. Some separators may not be on this CPU: those need to be imported 
     // manually later on.
 
-    Epetra_MultiVector Aloc(mother_->Map2(sd),B.NumVectors());
     CHECK_ZERO(A21.Multiply(false,B,Aloc));
+
 #ifdef FLOPS_COUNT    
     flops +=2*B.NumVectors()*A21.NumGlobalNonzeros();
 #endif
@@ -386,7 +383,7 @@ namespace HYMLS {
 
 Teuchos::RCP<Epetra_Vector> SchurComplement::ConstructLeftScaling(int p_variable)
   {
-  START_TIMER2(label_,"ConstructLeftScaling");
+  HYMLS_LPROF2(label_,"ConstructLeftScaling");
   sca_left_->PutScalar(1.0);
   double *val; 
   int* ind;
@@ -428,7 +425,7 @@ Teuchos::RCP<Epetra_Vector> SchurComplement::ConstructLeftScaling(int p_variable
 
 int SchurComplement::Scale(Teuchos::RCP<Epetra_Vector> sca_left, Teuchos::RCP<Epetra_Vector> sca_right)
   {
-  START_TIMER3(label_,"Scale");
+  HYMLS_LPROF3(label_,"Scale");
   int ierr=0;
   if (!IsConstructed())    
     {
@@ -447,7 +444,7 @@ int SchurComplement::Scale(Teuchos::RCP<Epetra_Vector> sca_left, Teuchos::RCP<Ep
 
 int SchurComplement::Unscale(Teuchos::RCP<Epetra_Vector> sca_left, Teuchos::RCP<Epetra_Vector> sca_right)
   {
-  START_TIMER3(label_,"Unscale");
+  HYMLS_LPROF3(label_,"Unscale");
   
   int ierr=0;
   if (!IsConstructed())    

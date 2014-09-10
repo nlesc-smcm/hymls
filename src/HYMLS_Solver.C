@@ -50,7 +50,7 @@ namespace HYMLS {
         numEigs_(0), numIter_(0), doBordering_(false),
         label_("HYMLS::Solver"), PLA("Solver")
   {
-  START_TIMER3(label_,"Constructor");
+  HYMLS_PROF3(label_,"Constructor");
   setParameterList(params);
   
   belosRhs_=Teuchos::rcp(new Epetra_MultiVector(matrix_->OperatorRangeMap(),numRhs));
@@ -177,12 +177,12 @@ namespace HYMLS {
   // destructor
   Solver::~Solver()
     {
-    START_TIMER3(label_,"Destructor");
+    HYMLS_PROF3(label_,"Destructor");
     }
 
   void Solver::SetMatrix(Teuchos::RCP<const Epetra_RowMatrix> A)
     {
-    START_TIMER3(label_,"SetMatrix");
+    HYMLS_PROF3(label_,"SetMatrix");
     matrix_ = A;
     if (shiftB_!=0.0 || shiftA_!=1.0)
       {
@@ -197,7 +197,7 @@ namespace HYMLS {
 
 void Solver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)
   {
-  START_TIMER3(label_,"SetPrecond");
+  HYMLS_PROF3(label_,"SetPrecond");
   precond_=P;
   if (precond_==Teuchos::null || doBordering_) return;
   belosPrecPtr_=Teuchos::rcp(new belosPrecType_(precond_));
@@ -219,7 +219,7 @@ void Solver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)
   void Solver::SetMassMatrix(Teuchos::RCP<const Epetra_RowMatrix> mass)
     {
     if (mass==Teuchos::null) return;
-    START_TIMER3(label_,"SetMassMatrix");
+    HYMLS_PROF3(label_,"SetMassMatrix");
     if (mass->RowMatrixRowMap().SameAs(matrix_->RowMatrixRowMap()))
       {
       massMatrix_ = mass;
@@ -251,7 +251,7 @@ void Solver::setShift(double shiftA, double shiftB)
   // Sets all parameters for the solver
   void Solver::setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& List)
     {
-    START_TIMER3(label_,"SetParameterList");
+    HYMLS_PROF3(label_,"SetParameterList");
 
     setMyParamList(List);
 
@@ -278,7 +278,7 @@ void Solver::setShift(double shiftA, double shiftB)
   Teuchos::RCP<const Teuchos::ParameterList> Solver::getValidParameters() const
     {
     if (validParams_!=Teuchos::null) return validParams_;
-    START_TIMER3(label_,"getValidParameterList");
+    HYMLS_PROF3(label_,"getValidParameterList");
     
     //TODO: use validators everywhere
 
@@ -328,7 +328,7 @@ Teuchos::RCP<MatrixUtils::Eigensolution> Solver::EigsPrec(int numEigs) const
   // If there is a null-space, deflate it.
   // If no NS and no additional vectors asked for -
   // nothing to be done.
-  START_TIMER(label_,"EigsPrec");
+  HYMLS_PROF(label_,"EigsPrec");
 
   Teuchos::RCP<Epetra_Operator> op, iop;
   Teuchos::RCP<MatrixUtils::Eigensolution> precEigs=Teuchos::null;
@@ -430,7 +430,7 @@ int Solver::SetupDeflation(int maxEigs)
   // If no NS and no additional vectors asked for -
   // nothing to be done.
   if (numEigs_==0 && augmentedNullSpace_==Teuchos::null) return 0;
-  START_TIMER(label_,"SetupDeflation");
+  HYMLS_PROF(label_,"SetupDeflation");
 
   Teuchos::RCP<Epetra_MultiVector> KV;
         
@@ -775,7 +775,7 @@ int Solver::setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V)
 int Solver::ApplyInverse(const Epetra_MultiVector& B,
                            Epetra_MultiVector& X) const
   {
-  START_TIMER(label_,"ApplyInverse");
+  HYMLS_PROF(label_,"ApplyInverse");
   int ierr=0;
   if (LU_!=Teuchos::null)
     {

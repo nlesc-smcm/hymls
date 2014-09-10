@@ -52,7 +52,7 @@ ParallelSparseDirectSolver::ParallelSparseDirectSolver(Epetra_RowMatrix* Matrix_
   ApplyInverseFlops_(0),
   Condest_(-1.0)
 {
-START_TIMER3(label_,"Constructor");
+HYMLS_PROF3(label_,"Constructor");
 #ifdef HAVE_MPI
   Comm_ = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_SELF));
 #else
@@ -87,7 +87,7 @@ ParallelSparseDirectSolver::~ParallelSparseDirectSolver()
 //==============================================================================
 int ParallelSparseDirectSolver::SetParameters(Teuchos::ParameterList& List_in)
   {
-START_TIMER3(label_,"SetParameters");
+HYMLS_PROF3(label_,"SetParameters");
   List_ = List_in;
 
   if (A11_Solver_ == Teuchos::null)
@@ -107,7 +107,7 @@ START_TIMER3(label_,"SetParameters");
 
 int ParallelSparseDirectSolver::CreateSolvers()
   {
-START_TIMER2(label_,"CreateSolvers");
+HYMLS_PROF2(label_,"CreateSolvers");
   Teuchos::RCP<Ifpack_Graph> Graph = Teuchos::rcp(new Ifpack_Graph_Epetra_RowMatrix(Matrix_));
 
   Teuchos::RCP<Ifpack_Partitioner> partitioner = Teuchos::rcp( new Ifpack_GreedyPartitioner(&*Graph));
@@ -210,7 +210,7 @@ START_TIMER2(label_,"CreateSolvers");
 //==============================================================================
 int ParallelSparseDirectSolver::Initialize()
   {
-START_TIMER2(label_,"Initialize");
+HYMLS_PROF2(label_,"Initialize");
 
   IsEmpty_ = false;
   IsInitialized_ = false;
@@ -282,7 +282,7 @@ START_TIMER2(label_,"Initialize");
 //==============================================================================
 int ParallelSparseDirectSolver::Compute()
 {
-START_TIMER2(label_,"Compute");
+HYMLS_PROF2(label_,"Compute");
   if (!IsInitialized())
     CHECK_ZERO(Initialize());
 

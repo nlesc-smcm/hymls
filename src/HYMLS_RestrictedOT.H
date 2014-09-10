@@ -21,7 +21,7 @@ inline static int Apply(Epetra_SerialDenseMatrix& X,
                  const HYMLS::OrthogonalTransform& OT,
                  const Epetra_SerialDenseVector& v)
   {
-//  START_TIMER2("RestrictedOT", "Apply");
+//  HYMLS_PROF2("RestrictedOT", "Apply");
   int n=idx.Length();
   if (n<=0) return 0;
   // for now, the indices must be contiguous. This is typically the case
