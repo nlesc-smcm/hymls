@@ -817,12 +817,12 @@ if (numThreadsSD_>0)
   //TODO - get #threads dynamically from processor topology
   //      (see ProcTopo sketch above)
 #ifdef USE_MKL
-  reset_numThreads=1;
+  //reset_numThreads=1;
   mkl_set_num_threads(numThreadsSD_);
 #endif
 #ifdef USE_OPENMP
 #pragma omp parallel single
-  reset_numThreads=omp_num_threads();
+//  reset_numThreads=omp_num_threads();
   omp_set_num_threads(numThreadsSD_);
 #endif
   }
@@ -841,6 +841,7 @@ if (numThreadsSD_>0)
       try {
 #endif
 //      PEC_CATCH(PEC_IFPACK_CHK_ERR(subdomainSolver_[sd]->Compute(*reorderedMatrix_)));
+        CHECK_ZERO(subdomainSolver_[sd]->Compute(*reorderedMatrix_));
 #ifdef TESTING
       } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status);
     if (status==false)
