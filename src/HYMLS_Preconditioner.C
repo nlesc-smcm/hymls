@@ -45,6 +45,9 @@
 
 #include "GaleriExt_Periodic.h"
 
+#ifdef USE_MKL
+#include <mkl.h>
+#endif
 
 typedef Teuchos::Array<int>::iterator int_i;
 
@@ -63,6 +66,7 @@ namespace HYMLS {
         hid_(hid),
         rangeMap_(Teuchos::rcp(&(K->RowMatrixRowMap()),false)),
         normInf_(-1.0), useTranspose_(false), 
+        numThreadsSD_(-1),
         myLevel_(myLevel), testVector_(testVector),
         label_("Preconditioner"),
         PLA("Preconditioner")
@@ -136,6 +140,7 @@ namespace HYMLS {
     scaleSchur_=PL().get("Scale Schur-Complement",false);
 
     sdSolverType_=PL().get("Subdomain Solver Type","Sparse");
+    numThreadsSD_=PL().get("Subdomain Solver Num Threads",numThreadsSD_);
 
     // the entire "Problem" list used by the overlapping partiitioner
     // is fairly complex, but we implement a set of default cases like
@@ -297,7 +302,11 @@ namespace HYMLS {
 
     VPL().set("Dense Solvers on Level",99,
         "Switch to dense subdomain solver on levels larger than this value");
-      
+    
+    VPL().set("Subdomain Solver Num Threads",-1,
+        "Set number of OMP/MKL threads before calling subdomain solver, -1: don't "
+        "(default)");  
+    
     // this typically doesn't need parameters, it's just lapack on small dense
     // matrices.
     VPL().sublist("Dense Solver",false,
@@ -358,6 +367,22 @@ HYMLS_TEST(Label(),isDDcorrect(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix
     DEBUG("allocate memory for blocks");
     int num_sd=hid_->NumMySubdomains();
 
+    // this is an idea to make the "HyperCube" object
+    // statically available and using it to query things
+    // like "idle CPU cores on node" dynamically
+
+    /*
+    if (HYMLS::ProcTopo==Teuchos::null)
+      {
+      HYMLS::Tools::Error("static object HYMLS::ProcTopo not constructed!");
+      }
+  int active = num_sd>0 ? 1:0;
+  // this is just for figuring
+  // out how many threads we can
+  // use locally, it does not *change*
+  // the process layout
+  ProcTopo->setActive(myLevel_,active);
+*/
     localMap1_.resize(num_sd);
     localMap2_.resize(num_sd);
 
@@ -561,7 +586,7 @@ MatrixUtils::Dump(*A22_, "Precond"+Teuchos::toString(myLevel_)+"_A22.txt");
   DEBUG("initialize subdomain solvers...");
     
   Teuchos::ParameterList sd_list = PL().sublist("Sparse Solver");
-  
+
   PEC_INIT;
 #pragma omp parallel for schedule(static)
   for (int sd=0;sd<hid_->NumMySubdomains();sd++)
@@ -639,6 +664,24 @@ if (sdSolverType_=="Dense")
   {
     Tools::out() << "*** USING DENSE SUBDOMAIN SOLVERS ***"<<std::endl;
   }
+  
+  /*
+  int active_ranks=HYMLS::ProcTopo->getNumActive(myLevel_);
+  if (active_ranks==comm_->NumProc())
+    {
+    Tools::out() << "ALL MPI RANKS ACTIVE"<<std::endl;
+    }
+  else
+    {
+    Tools::out() << "NUMBER OF ACTIVE RANKS: "<<active_ranks<<std::endl;
+    }
+  */
+  /*
+  int ranks_on_node=HYMLS::ProcTopo->numActiveProcsOnNode(myLevel_);
+  int total_ranks_on_node=HYMLS::ProcTopo->numActiveProcsOnNode(0);
+  // figure out how many threads we can use here
+  numThreadsSD_=std::max(1,(int)(total_ranks_on_node/ranks_on_node));
+  */
 Tools::out() << "=============================="<<std::endl;
 
   // we use a constant vector to generate the orthogonal transformation 
@@ -766,12 +809,30 @@ InitializeCompute();
 HYMLS_LPROF(label_,"subdomain factorization");
 double nnz=0; // count number of stored nonzeros in factors
 double nrow=0;
-  PEC_INIT;
-#pragma omp parallel for schedule(static) reduction(+:nnz,nrow)
+
+int reset_numThreads=-1;
+
+if (numThreadsSD_>0)
+  {
+  //TODO - get #threads dynamically from processor topology
+  //      (see ProcTopo sketch above)
+#ifdef USE_MKL
+  reset_numThreads=1;
+  mkl_set_num_threads(numThreadsSD_);
+#endif
+#ifdef USE_OPENMP
+#pragma omp parallel single
+  reset_numThreads=omp_num_threads();
+  omp_set_num_threads(numThreadsSD_);
+#endif
+  }
+
+//  PEC_INIT;
+//#pragma omp parallel for schedule(static) reduction(+:nnz,nrow)
   for (int sd=0;sd<hid_->NumMySubdomains();sd++)
     {
-#pragma omp flush (PEC)
-    PEC_PROTECT;
+//#pragma omp flush (PEC)
+//    PEC_PROTECT;
     if (subdomainSolver_[sd]->NumRows()>0)
       {
       // compute subdomain factorization
@@ -779,7 +840,7 @@ double nrow=0;
       bool status=true;
       try {
 #endif
-      PEC_CATCH(PEC_IFPACK_CHK_ERR(subdomainSolver_[sd]->Compute(*reorderedMatrix_)));
+//      PEC_CATCH(PEC_IFPACK_CHK_ERR(subdomainSolver_[sd]->Compute(*reorderedMatrix_)));
 #ifdef TESTING
       } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status);
     if (status==false)
@@ -829,7 +890,18 @@ if (sdSolverType_=="Sparse")
 #endif      
       }
     }
-  PEC_HANDLE_ERRORS;
+//  PEC_HANDLE_ERRORS;
+
+if (reset_numThreads>0)
+  {
+#ifdef USE_MKL
+  mkl_set_num_threads(reset_numThreads);
+#endif
+#ifdef USE_OPENMP
+  omp_set_num_threads(reset_numThreads);
+#endif
+  }
+
 
 REPORT_SUM_MEM(label_,"subdomain solvers",nnz,nnz,comm_);
 
@@ -1237,6 +1309,18 @@ int Preconditioner::ApplyInverseA11(const Epetra_MultiVector& B, Epetra_MultiVec
     }
 
   HYMLS_LPROF(label_,"subdomain solve");
+
+if (numThreadsSD_>0)
+  {
+  //TODO - get #threads dynamically from processor topology
+  //      (see ProcTopo sketch above)
+#ifdef USE_MKL
+  mkl_set_num_threads(numThreadsSD_);
+#endif
+#ifdef USE_OPENMP
+  omp_set_num_threads(numThreadsSD_);
+#endif
+  }
 
   PEC_INIT;
 #pragma omp parallel

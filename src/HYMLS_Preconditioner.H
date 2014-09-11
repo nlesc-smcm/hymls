@@ -436,6 +436,9 @@ protected:
   mutable bool dumpVectors_;
 #endif
 
+  //! max num threads to use for subdomain solve
+  int numThreadsSD_;
+
 #ifdef DEBUGGING
 public:
 #else
