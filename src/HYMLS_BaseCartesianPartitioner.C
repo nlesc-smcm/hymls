@@ -303,10 +303,16 @@ DEBVAR(dk);
   // We may have to reduce the number of procs to find one. An example
   // is the case nx=24, sx=4, 8 procs: => 6x6 subdomains, which have
   // to be handled by 2x3=6 cores rather than 8
-  while (1)
+  while (nprocs)
     {
-    HYMLS::Tools::SplitBox(nx_,ny_,nz_,nprocs,nprocx_,nprocy_,nprocz_);
-    
+    bool fail = true;
+    std::vector<std::vector<int> > nprocxyz;
+    HYMLS::Tools::SplitBox(nx_,ny_,nz_,nprocs,nprocxyz);
+    for (std::vector<std::vector<int> >::const_iterator it = nprocxyz.begin(); it != nprocxyz.end(); ++it)
+      {
+       nprocx_ = (*it)[0];
+       nprocy_ = (*it)[1];
+       nprocz_ = (*it)[2];
     s4=Teuchos::toString(nprocx_)+"x"+Teuchos::toString(nprocy_)+"x"+Teuchos::toString(nprocz_);
 
     Tools::out()<<"try np="<<nprocs<<" ("<<s4<<")"<<std::endl;
@@ -328,7 +334,7 @@ DEBVAR(dk);
       else if (nprocy_>=std::max(nprocx_,nprocz_)) nprocy_--;
       else nprocz_--;
       */
-      nprocs--;
+      //~ nprocs--;
       continue;
       }
 
@@ -345,13 +351,18 @@ DEBVAR(dk);
       {
       std::string msg="There are "+s2+" subdomains and a processor grid of "+s4+", reducing #procs";
       Tools::Out(msg);
-      nprocs--;
+      //~ nprocs--;
       //if (nprocx_>=std::max(nprocy_,nprocz_)) nprocx_--;
       //else if (nprocy_>=std::max(nprocx_,nprocz_)) nprocy_--;
       //else nprocz_--;
       continue;
       }
-    break;
+      fail = false;
+      break;
+      }
+    if (!fail)
+      break;
+    nprocs--;
     }//while
         
   if (comm_->MyPID()>=nprocs)
