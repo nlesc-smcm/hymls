@@ -83,7 +83,7 @@ namespace HYMLS {
     
   HierarchicalMap::~HierarchicalMap()
     {
-    HYMLS_PROF3("HierarchicalMap","Destructor");
+    HYMLS_PROF3(label_,"Destructor");
     }
 
   int HierarchicalMap::Reset(int numMySubdomains)
