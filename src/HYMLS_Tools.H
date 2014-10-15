@@ -286,35 +286,6 @@ static void SignalHandler(int signum)
           }        
         }    
       }
-  static void SplitBox(int nx, int ny, int nz, int nparts, std::vector<std::vector<int> > &np)
-    {
-    // Factor the number of processors into two dimensions. (nprocs = npN*npM)
-
-//    DEBUG("SplitBox("<<nx<<","<<ny<<","<<nz<<")");
-//    DEBUG(" into "<<nparts<<" domains"<<std::endl);
-
-    np.clear();
-    // check all possibilities:
-    for (int t1=1; t1<=nparts;t1++)
-      for (int t2=1;t2<=(int)(nparts/t1);t2++)
-        {
-        int t3=(int)(nparts/(t1*t2));
-
-        double min = std::min((double)t1 / nx,(double)t2 / ny);
-        double max = std::max((double)t1 / nx,(double)t2 / ny);
-        //~ double min = std::min(std::min((double)t1 / nx,(double)t2 / ny),(double)t3 / nz);
-        //~ double max = std::max(std::max((double)t1 / nx,(double)t2 / ny),(double)t3 / nz);
-
-          if (t1*t2*t3==nparts && max / min <= 2.0)
-          {
-          std::vector<int> new_np;
-          new_np.push_back(t1);
-          new_np.push_back(t2);
-          new_np.push_back(t3);
-          np.push_back(new_np);
-          }
-        }
-      }
   
   //! start a timer for a specific part of the code
   //! The timing routine keeps track of total time 
