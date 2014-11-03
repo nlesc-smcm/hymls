@@ -2367,13 +2367,14 @@ int MatrixUtils::AMD(const Epetra_CrsGraph& A, Teuchos::Array<int>& p)
     Ap[i+1] = Ap[i] + len ;
     }
 
-double control[AMD_CONTROL];
-double info[AMD_INFO];
+  double *control = NULL;
+  double *info = new double[AMD_INFO];
   
   /* returns AMD_OK, AMD_OK_BUT_JUMBLED,
            AMD_INVALID, or AMD_OUT_OF_MEMORY */
-  int ierr =amesos_amd_order(n, Ap, Ai, &p[0], control, info);
+  int ierr = amesos_amd_order(n, Ap, Ai, &p[0], control, info);
   // TODO: check for errors
+  delete [] info;
   delete [] Ap;
   return ierr; 
   }
