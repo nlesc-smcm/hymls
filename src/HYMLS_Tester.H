@@ -15,7 +15,7 @@ try { \
 HYMLS::Tester::msg_.clear(); \
 HYMLS::Tester::msg_ <<"#####################################"<<std::endl; \
 HYMLS::Tester::msg_ <<" RUN TEST "<<#FCN<<std::endl; \
-HYMLS::Tester::msg_ <<" CALLER:  "<<CALLER<<std::endl; \
+HYMLS::Tester::msg_ <<" CALLER:  "<<CALLER<<" L"<<myLevel_<<std::endl; \
 HYMLS::Tester::msg_ <<"#####################################"<<std::endl; \
 HYMLS::Tools::out() <<std::endl<<HYMLS::Tester::msg_.str()<<std::endl; \
 status = HYMLS::Tester:: FCN; \
