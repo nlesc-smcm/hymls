@@ -707,6 +707,20 @@ Tools::out() << "=============================="<<std::endl;
   CHECK_ZERO(tmpVec.Import(*testVector_,*importer_,Insert));
   CHECK_ZERO(testVector2->Import(tmpVec,*import2_,Insert));
 
+#ifdef STORE_TESTVECTOR
+  Teuchos::RCP<Epetra_Import> importer = Teuchos::rcp(new Epetra_Import(Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_)->DomainMap(), *rangeMap_));
+  Epetra_Vector tmpVec2(Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_)->DomainMap());
+  tmpVec2.Import(*testVector_, *importer, Insert);
+
+  Epetra_Vector out(*rangeMap_);
+  matrix_->Multiply(false, tmpVec2, out);
+  MatrixUtils::Dump(*testVector_, "testVec"+Teuchos::toString(myLevel_)+".txt");
+  MatrixUtils::Dump(out, "multVec"+Teuchos::toString(myLevel_)+".txt");
+  MatrixUtils::Dump(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_), "multMat"+Teuchos::toString(myLevel_)+".txt");
+
+  MatrixUtils::Dump(*testVector2, "testVecDrop"+Teuchos::toString(myLevel_)+".txt");
+#endif
+
   if (schurPrec_==Teuchos::null)
     {
     DEBUG("Construct schur-preconditioner");
