@@ -253,40 +253,71 @@ static void SignalHandler(int signum)
     return sub2ind(nx,ny,nz,1,i,j,k,0);
     }
 
-
   //! split a cartesian box into nparts subdomains in a somehow 'good' way.
   //! This function just tells you how many subdomains there should be in 
-  //! every direction.
-  static void SplitBox(int nx, int ny, int nz, int nparts, int& npx, int& npy, int& npz)
+  //! every direction. Returns 1 if no splitting was found.
+  static int SplitBox(int nx, int ny, int nz, int nparts, int& ndx, int& ndy, int& ndz, int sx = 1, int sy = 1, int sz = 1)
     {
     // Factor the number of processors into two dimensions. (nprocs = npN*npM)
-    double r1,r2,r3,r;//remainder
-    double r_min=1e100;
 
 //    DEBUG("SplitBox("<<nx<<","<<ny<<","<<nz<<")");
 //    DEBUG(" into "<<nparts<<" domains"<<std::endl);
 
+    double rmin = 1e100;
+    int ret = 1;
+
+    int npx = nx / sx;
+    int npy = ny / sy;
+    int npz = nz / sz;
+
+    std::string s1 = Teuchos::toString(nx) + "x" + Teuchos::toString(ny) + "x" + Teuchos::toString(nz);
+    std::string s2 = Teuchos::toString(npx) + "x" + Teuchos::toString(npy) + "x" + Teuchos::toString(npz);
+
     // check all possibilities:
-    for (int t1=1; t1<=nparts;t1++)
-      for (int t2=1;t2<=(int)(nparts/t1);t2++)
+    for (int t1 = 1; t1 <= nparts; t1++)
+      for (int t2 = 1; t2 <= (int)(nparts / t1); t2++)
         {
-        int t3=(int)(nparts/(t1*t2));        
-        r1 = std::abs((double)(nx/t1) - (double)(ny/t2));
-        r2 = std::abs((double)(nx/t1) - (double)(nz/t3));
-        r3 = std::abs((double)(ny/t2) - (double)(nz/t3));
-        r=r1+r2+r3;
-        
-        if (t1*t2*t3==nparts && r<r_min)
+        int t3 = (int)(nparts/(t1*t2));
+
+        if (t1 * t2 * t3 == nparts)
           {
-//          DEBUG(t1<<"x"<<t2<<"x"<<t3<<" scores "<<r);
-          r_min=r;
-          npx=t1;
-          npy=t2;
-          npz=t3;
-          }        
-        }    
-      }
-  
+          std::string s3 = Teuchos::toString(t1) + "x" + Teuchos::toString(t2) + "x" + Teuchos::toString(t3);
+          int my_nx = nx / t1;
+          int my_ny = ny / t2;
+          int my_nz = nz / t3;
+          if ((my_nx * t1 != nx) || (my_ny * t2 != ny) || (my_nz * t3 != nz))
+            {
+            DEBUG("Can't partition a "+s1+" domain into "+s3+" parts.");
+            continue;
+            }
+
+          int my_npx = npx / t1;
+          int my_npy = npy / t2;
+          int my_npz = npz / t3;
+          if ((my_npx * sx != my_nx) || (my_npy * sy != my_ny) || (my_npz * sz != my_nz))
+            {
+            DEBUG("Can't partition "+s2+" domains onto "+s3+" processors.");
+            continue;
+            }
+
+          double r1 = std::abs((double)nx / (double)t1 - (double)ny / (double)t2);
+          double r2 = std::abs((double)nx / (double)t1 - (double)nz / (double)t3);
+          double r3 = std::abs((double)ny / (double)t2 - (double)nz / (double)t3);
+          double r = r1 + r2 + r3;
+
+          if (r < rmin)
+            {
+            rmin = r;
+            ndx = t1;
+            ndy = t2;
+            ndz = t3;
+            ret = 0;
+            }
+          }
+        }
+    return ret;
+    }
+
   //! start a timer for a specific part of the code
   //! The timing routine keeps track of total time 
   //! and number of calls for each std::string you put  

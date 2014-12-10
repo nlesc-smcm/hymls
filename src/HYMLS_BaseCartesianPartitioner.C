@@ -292,73 +292,28 @@ DEBVAR(dk);
 
     CHECK_ZERO(comm_->SumAll(&color,&nprocs,1));
 
-    Tools::SplitBox(npx_,npy_,npz_,nprocs,nprocx_,nprocy_,nprocz_);
-
-    std::string s4;
-
-  int my_npx, my_npy, my_npz;
-  int my_nx, my_ny, my_nz;
-
-  // we need a while loop here to find a partitioning that works.
-  // We may have to reduce the number of procs to find one. An example
-  // is the case nx=24, sx=4, 8 procs: => 6x6 subdomains, which have
-  // to be handled by 2x3=6 cores rather than 8
-  while (1)
-    {
-    HYMLS::Tools::SplitBox(nx_,ny_,nz_,nprocs,nprocx_,nprocy_,nprocz_);
-    
-    s4=Teuchos::toString(nprocx_)+"x"+Teuchos::toString(nprocy_)+"x"+Teuchos::toString(nprocz_);
-
-    Tools::out()<<"try np="<<nprocs<<" ("<<s4<<")"<<std::endl;
-    my_nx = (int)(nx_/nprocx_);
-    my_ny = (int)(ny_/nprocy_);
-    my_nz = (int)(nz_/nprocz_);
-    
-   
-    if (
-        (my_nx*nprocx_!=nx_)||
-        (my_ny*nprocy_!=ny_)||
-        (my_nz*nprocz_!=nz_) )
+    while (nprocs)
       {
-      std::string msg="Can't partition an "+s1+" domain on "+s4+" procs. Reducing #procs.";
-      Tools::Out(msg);
-      // reduce number of procs and retry
-      /*
-      if (nprocx_>=std::max(nprocy_,nprocz_)) nprocx_--;
-      else if (nprocy_>=std::max(nprocx_,nprocz_)) nprocy_--;
-      else nprocz_--;
-      */
-      nprocs--;
-      continue;
+      if (!Tools::SplitBox(nx_, ny_, nz_, nprocs, nprocx_, nprocy_, nprocz_, sx_, sy_, sz_))
+        {
+        break;
+        }
+      else
+        {
+        nprocs--;
+        }
+      }
+    std::string s4=Teuchos::toString(nprocx_)+"x"+Teuchos::toString(nprocy_)+"x"+Teuchos::toString(nprocz_);
+
+    int my_npx = npx_ / nprocx_;
+    int my_npy = npy_ / nprocy_;
+    int my_npz = npz_ / nprocz_;
+
+    if (comm_->MyPID()>=nprocs)
+      {
+      active_ = false;
       }
 
-    my_npx=(int)(npx_/nprocx_);
-    my_npy=(int)(npy_/nprocy_);
-    my_npz=(int)(npz_/nprocz_);
-
-    // TODO - we could inactivate a number of procs to fix such an issue,
-    // it will most likely occur somewhere on coarser levels anyway.
-    if (
-        (my_npx*sx_!=my_nx)||
-        (my_npy*sy_!=my_ny)||
-        (my_npz*sz_!=my_nz) )
-      {
-      std::string msg="There are "+s2+" subdomains and a processor grid of "+s4+", reducing #procs";
-      Tools::Out(msg);
-      nprocs--;
-      //if (nprocx_>=std::max(nprocy_,nprocz_)) nprocx_--;
-      //else if (nprocy_>=std::max(nprocx_,nprocz_)) nprocy_--;
-      //else nprocz_--;
-      continue;
-      }
-    break;
-    }//while
-        
-  if (comm_->MyPID()>=nprocs)
-    {
-    active_ = false;
-    }
-   
     // if some processors have no subdomains, we need to 
     // repartition the map even if it is a cartesian partitioned
     // map already:
