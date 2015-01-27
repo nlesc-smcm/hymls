@@ -195,6 +195,14 @@ namespace HYMLS {
     belosProblemPtr_->setOperator(operator_);
     }
 
+  void Solver::SetTolerance(double tol)
+    {
+    Teuchos::ParameterList& belosList = PL().sublist("Iterative Solver");
+    belosList.set("Convergence Tolerance", tol);
+    Teuchos::RCP<Teuchos::ParameterList> belosListPtr = rcp(&belosList, false);
+    belosSolverPtr_->setParameters(belosListPtr);
+    }
+
 void Solver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)
   {
   HYMLS_PROF3(label_,"SetPrecond");
@@ -243,7 +251,7 @@ void Solver::setShift(double shiftA, double shiftB)
   {
   shiftA_=shiftA;
   shiftB_=shiftB;
-  operator_=Teuchos::rcp(new ShiftedOperator(matrix_,massMatrix_,shiftB_,shiftA_));
+  operator_=Teuchos::rcp(new ShiftedOperator(matrix_,massMatrix_,shiftA_,shiftB_));
   belosProblemPtr_->setOperator(operator_);
   CHECK_TRUE(belosProblemPtr_->setProblem(belosSol_,belosRhs_));
   }

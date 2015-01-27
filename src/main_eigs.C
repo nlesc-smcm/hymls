@@ -25,8 +25,12 @@
 
 #include "AnasaziBlockKrylovSchurSolMgr.hpp"
 
-#include "evp/AnasaziHymlsAdapter.hpp"
+#ifdef HAVE_PHIST
+#include "evp/AnasaziPhistSolMgr.hpp"
+#else
 #include "evp/AnasaziJacobiDavidsonSolMgr.hpp"
+#include "evp/AnasaziHymlsAdapter.hpp"
+#endif
 
 /*
 #include "EpetraExt_HDF5.h"
@@ -248,14 +252,17 @@ HYMLS::MatrixUtils::Random(*x);
 #endif
   HYMLS::Tools::Out("Create Preconditioner");
 
-  Teuchos::RCP<HYMLS::Preconditioner> precond = Teuchos::rcp(new HYMLS::Preconditioner(K, params));
+  Teuchos::RCP<HYMLS::Preconditioner> precond = Teuchos::null;
 
-  HYMLS::Tools::Out("Initialize Preconditioner...");
-  HYMLS::Tools::StartTiming("main: Initialize Preconditioner");
-  REPORT_MEM("main","before Initialize",0,0);
-  CHECK_ZERO(precond->Initialize());
-  REPORT_MEM("main","after Initialize",0,0);
-  HYMLS::Tools::StopTiming("main: Initialize Preconditioner",true);
+  if (precond!=Teuchos::null)
+    {
+    HYMLS::Tools::Out("Initialize Preconditioner...");
+    HYMLS::Tools::StartTiming("main: Initialize Preconditioner");
+    REPORT_MEM("main","before Initialize",0,0);
+    CHECK_ZERO(precond->Initialize());
+    REPORT_MEM("main","after Initialize",0,0);
+    HYMLS::Tools::StopTiming("main: Initialize Preconditioner",true);
+    }
 
   HYMLS::Tools::Out("Create Solver");
   Teuchos::RCP<HYMLS::Solver> solver = Teuchos::rcp(new HYMLS::Solver(K, precond, params,1));
@@ -300,8 +307,11 @@ HYMLS::MatrixUtils::Random(*x);
     HYMLS::Tools::Error("eigProblem->setPoroblem returned 'false'",__FILE__,__LINE__);
     }
 
-  Anasazi::JacobiDavidsonSolMgr<ST,MV,OP,PREC> 
-        jada(eigProblem,solver,eigList);
+#ifdef HAVE_PHIST
+  Anasazi::PhistSolMgr<ST,MV,OP,PREC> jada(eigProblem,solver,eigList);
+#else
+  Anasazi::JacobiDavidsonSolMgr<ST,MV,OP,PREC> jada(eigProblem,solver,eigList);
+#endif
 
   // Solve the problem to the specified tolerances or length
   Anasazi::ReturnType returnCode;

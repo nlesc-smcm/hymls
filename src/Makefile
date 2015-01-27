@@ -2,15 +2,11 @@ include ${SHARED_DIR}/fredwubs/make.inc/Makefile.${PLAT}
 include Makefile.inc
 
 #rev=$(shell svn status -u | tail -1 | sed s/Status\ against\ revision://| sed s/\ //g)
-rev=\"$(shell svnversion -n)\"
-CXX_FLAGS+=-DHYMLS_REVISION=${rev}
+rev="\"$(shell svnversion -n)\""
+CXX_FLAGS+=-DHYMLS_REVISION=${rev} -fPIC
+CXX:=ccache ${CXX}
 
 LIBS=${MY_LIBRARIES} ${TRILINOS_LIBRARIES} ${TPL_LIBRARIES} ${EXTRA_LD_FLAGS}
-
-EVP_SRC=evp/AnasaziJacobiDavidson.hpp \
-         evp/AnasaziJacobiDavidsonSolMgr.hpp \
-         evp/AnasaziPreconditionerTraits.hpp \
-         evp/AnasaziHymlsAdapter.hpp
 
 OBJ=    HYMLS_Solver.o \
         HYMLS_Preconditioner.o \
@@ -48,12 +44,12 @@ OBJ=    HYMLS_Solver.o \
 LIBNAMEBASE=hymls_${PLAT}
 LIBNAME=lib${LIBNAMEBASE}.a
 
-default: main integration_tests main_ifpack main_eigs
+default: main integration_tests main_ifpack
 
 main: main.C ${LIBNAME}
 	${CXX} ${CXX_FLAGS} -o main $< ${INCLUDES} -L. -l${LIBNAMEBASE} ${LIBS} 
 
-main_eigs: main_eigs.C ${LIBNAME} ${EVP_SRC}
+main_eigs: main_eigs.C ${LIBNAME}
 	${CXX} ${CXX_FLAGS} -o main_eigs $< ${INCLUDES} -L. -l${LIBNAMEBASE} ${LIBS} 
 
 integration_tests: integration_tests.C ${LIBNAME}

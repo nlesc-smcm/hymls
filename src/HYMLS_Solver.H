@@ -129,6 +129,8 @@ public:
   //! setup the solver to solve (shiftA*A+shiftB*B)x=b
   void setShift(double shiftA, double shiftB);
 
+  void SetTolerance(double tol);
+
   //! computes the modes closest to 0 and sets up the solver's deflation
   //! capabilities. If maxEigs==-2, the value "Deflated Subspace Dimension"
   //! from the "Solver" sublist is used.
