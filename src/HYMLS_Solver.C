@@ -253,7 +253,6 @@ void Solver::setShift(double shiftA, double shiftB)
   shiftB_=shiftB;
   operator_=Teuchos::rcp(new ShiftedOperator(matrix_,massMatrix_,shiftA_,shiftB_));
   belosProblemPtr_->setOperator(operator_);
-  CHECK_TRUE(belosProblemPtr_->setProblem(belosSol_,belosRhs_));
   }
 
   // Sets all parameters for the solver
@@ -769,13 +768,23 @@ try {
 int Solver::setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V)
   {
   Aorth_=Teuchos::rcp(new ProjectedOperator(operator_,V,true));
-  Teuchos::RCP<HYMLS::BorderedSolver> bprec = 
-        Teuchos::rcp_dynamic_cast<HYMLS::BorderedSolver>(precond_);
-  if (bprec!=Teuchos::null)
+  if (precond_ != Teuchos::null)
     {
-    CHECK_ZERO(bprec->SetBorder(V,V));
+    Teuchos::RCP<ProjectedOperator> newPrec = Teuchos::rcp(new ProjectedOperator(precond_, V, true));
+
+    belosPrecPtr_=Teuchos::rcp(new belosPrecType_(newPrec));
+    string lor = PL().get("Left or Right Preconditioning","Right");
+    if (lor=="Left")
+      {
+      belosProblemPtr_->setLeftPrec(belosPrecPtr_);
+      }
+    else if (lor=="Right")
+      {
+      belosProblemPtr_->setRightPrec(belosPrecPtr_);
+      }
     }
   belosProblemPtr_->setOperator(Aorth_);
+  CHECK_TRUE(belosProblemPtr_->setProblem(belosSol_,belosRhs_));
   return 0;
   }
 

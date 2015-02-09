@@ -252,7 +252,7 @@ HYMLS::MatrixUtils::Random(*x);
 #endif
   HYMLS::Tools::Out("Create Preconditioner");
 
-  Teuchos::RCP<HYMLS::Preconditioner> precond = Teuchos::null;
+  Teuchos::RCP<HYMLS::Preconditioner> precond = Teuchos::rcp(new HYMLS::Preconditioner(K, params));
 
   if (precond!=Teuchos::null)
     {

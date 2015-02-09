@@ -5,6 +5,9 @@
 #include "Epetra_Operator.h"
 #include "HYMLS_Tools.H"
 
+class Epetra_SerialDenseSolver;
+class Epetra_SerialDenseMatrix;
+
 namespace HYMLS 
   {
 
@@ -150,6 +153,10 @@ does not support transpose.
 
     //! temporary vector for intermediate results
     mutable Teuchos::RCP<Epetra_MultiVector> tmpVector_;
+
+    //! Dense solver and matrix for ApplyInverse
+    mutable Teuchos::RCP<Epetra_SerialDenseSolver> HSolver_;
+    mutable Teuchos::RCP<Epetra_SerialDenseMatrix> H_;
     
     //! optional left preconditioner
     Teuchos::RCP<const Epetra_Operator> leftPrecond_;
