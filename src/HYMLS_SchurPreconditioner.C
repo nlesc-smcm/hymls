@@ -1185,23 +1185,7 @@ int SchurPreconditioner::InitializeOT()
         //global row id
         int grid = transformedA22->GRID(i);
         CHECK_ZERO(transformedA22->ExtractGlobalRowCopy(grid,maxlen,len,values,cols));
-
-#ifdef TESTING
-        //before we would sum the value because of duplicate entries,
-        //but here we check that they don't exist and instead just insert them
-        std::vector<int> colvec(len);
-        colvec.assign(cols, cols+len);
-        std::sort(colvec.begin(), colvec.end());
-        for (int i = 0; i < len - 1; i++)
-          {
-          if (colvec[i] == colvec[i + 1])
-            {
-            for (int j = 0; j < len; ++j)
-              Tools::Error("Duplicate entries on row "+Teuchos::toString(grid)+ " column "+Teuchos::toString(colvec[i]),__FILE__,__LINE__);
-            }
-          }
-#endif
-
+        for (int j=0;j<len;j++) values[j]=0.0;
         CHECK_NONNEG(matrix_->InsertGlobalValues(grid,len,values,cols));
         }
       CHECK_ZERO(matrix_->FillComplete());
@@ -1211,6 +1195,20 @@ int SchurPreconditioner::InitializeOT()
       CHECK_ZERO(matrix->PutScalar(0.0));
       }
 
+    
+    // put T*A22*T into matrix_
+    for (int i=0;i<matrix_->NumMyRows();i++)
+      {
+      //global row id
+      int grid = transformedA22->GRID(i);
+      CHECK_ZERO(transformedA22->ExtractGlobalRowCopy(grid,maxlen,len,values,cols));
+      // put entries that are already defined in matrix, others are dropped.
+      // We need to use SumInto here because the result in transformedA22 may
+      // have column entries defined multiple times and they have to be summed
+      // together properly (not sure why this is the case, actually).
+      CHECK_NONNEG(matrix_->SumIntoGlobalValues(grid,len,values,cols));
+      }
+      
     // free temporary storage
     delete [] values;
     delete [] cols;
