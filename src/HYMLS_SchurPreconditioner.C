@@ -1127,10 +1127,11 @@ int SchurPreconditioner::InitializeOT()
       }
 
     int len;
-    int maxlen=transformedA22->MaxNumEntries();    
-    int* cols=new int[maxlen];
-    double* values=new double[maxlen];
+    int maxlen = transformedA22->MaxNumEntries();
+    int* cols = new int[maxlen];
+    double* values = new double[maxlen];
 
+    // put H'*A22*H into matrix_
     if (!matrix->Filled())
       {
       // start out by just putting the structure together.
@@ -1179,13 +1180,28 @@ int SchurPreconditioner::InitializeOT()
       // assemble with all zeros
       DEBVAR("assemble pattern of transformed SC");
       CHECK_ZERO(matrix->GlobalAssemble(false));
-      // put in the pattern of H'A22H
+
+      // now fill with H'*A22*H
       for (int i=0;i<matrix_->NumMyRows();i++)
         {
         //global row id
         int grid = transformedA22->GRID(i);
         CHECK_ZERO(transformedA22->ExtractGlobalRowCopy(grid,maxlen,len,values,cols));
-        for (int j=0;j<len;j++) values[j]=0.0;
+
+#ifdef TESTING
+        //before we would sum the value because of duplicate entries,
+        //but here we check that they don't exist and instead just insert them
+        std::vector<int> colvec(len);
+        colvec.assign(cols, cols+len);
+        std::sort(colvec.begin(), colvec.end());
+        for (int j = 0; j < len - 1; j++)
+          {
+          if (colvec[j] == colvec[j + 1])
+            {
+            Tools::Error("Duplicate entries on row "+Teuchos::toString(grid)+ " column "+Teuchos::toString(colvec[j]),__FILE__,__LINE__);
+            }
+          }
+#endif
         CHECK_NONNEG(matrix_->InsertGlobalValues(grid,len,values,cols));
         }
       CHECK_ZERO(matrix_->FillComplete());
@@ -1193,22 +1209,57 @@ int SchurPreconditioner::InitializeOT()
     else
       {
       CHECK_ZERO(matrix->PutScalar(0.0));
+
+      for (int i=0;i<matrix_->NumMyRows();i++)
+        {
+        //global row id
+        int grid = transformedA22->GRID(i);
+        CHECK_ZERO(transformedA22->ExtractGlobalRowCopy(grid,maxlen,len,values,cols));
+
+#ifdef TESTING
+        //check that the pattern didn't change
+        int len2;
+        int maxlen2 = matrix_->MaxNumEntries();
+        int* cols2 = new int[maxlen2];
+        double* values2 = new double[maxlen2];
+        CHECK_ZERO(matrix_->ExtractGlobalRowCopy(grid,maxlen2,len2,values2,cols2));
+
+        std::vector<int> colvec(len);
+        colvec.assign(cols, cols+len);
+        std::sort(colvec.begin(), colvec.end());
+
+        std::vector<int> colvec2(len2);
+        colvec2.assign(cols2, cols2+len2);
+        std::sort(colvec2.begin(), colvec2.end());
+
+        int j2 = 0;
+        for (int j = 0; j < len; j++)
+          {
+          for (; j2 < len2; j2++)
+            {
+            if (colvec[j] == colvec2[j2])
+              break;
+
+            // We iterated past the number in colvec[j] so it is not in colvec2
+            if (colvec2[j2] > colvec[j])
+              {
+              Tools::Error("Pattern is different on row "+Teuchos::toString(grid)+ " column "+Teuchos::toString(cols[j]),__FILE__,__LINE__);
+              }
+            }
+          // colvec[j] is not anywhere before the last number in colvec2
+          if (j2 == len2)
+            {
+            Tools::Error("Pattern is different on row "+Teuchos::toString(grid)+ " column "+Teuchos::toString(cols[j]),__FILE__,__LINE__);
+            }
+          }
+
+        delete [] cols2;
+        delete [] values2;
+#endif
+        CHECK_NONNEG(matrix_->ReplaceGlobalValues(grid,len,values,cols));
+        }
       }
 
-    
-    // put T*A22*T into matrix_
-    for (int i=0;i<matrix_->NumMyRows();i++)
-      {
-      //global row id
-      int grid = transformedA22->GRID(i);
-      CHECK_ZERO(transformedA22->ExtractGlobalRowCopy(grid,maxlen,len,values,cols));
-      // put entries that are already defined in matrix, others are dropped.
-      // We need to use SumInto here because the result in transformedA22 may
-      // have column entries defined multiple times and they have to be summed
-      // together properly (not sure why this is the case, actually).
-      CHECK_NONNEG(matrix_->SumIntoGlobalValues(grid,len,values,cols));
-      }
-      
     // free temporary storage
     delete [] values;
     delete [] cols;
