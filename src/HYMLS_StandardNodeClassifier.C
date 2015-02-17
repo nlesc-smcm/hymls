@@ -273,11 +273,38 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
 	  //loop over the row; there are len nonzeros
           {
 	  int cj=G.GCID(cols[j]); //columnumber of unknown
-	  //Due to overlap unknow cj is always on this processor.
+	  //Due to overlap unknown cj is always on this processor.
           //int colsub=(*partitioner_)(cols[j]);
-          if (partitioner_->flow(row,cj)<0)
+
+          // The flow function returns 0 if the variables
+          // are e.g. different velocity components. This may
+          // lead to missing separator elements (when using the 
+          // Stokes classifier on level 1). So if flow==0 we
+          // check again if the variables are connected in the graph
+          // and are in different subdomains, and try to patch up the
+          // hole.
+          int flow=partitioner_->flow(row,cj);
+          if (flow==0)
+            {
+            int sd_j=(*partitioner_)(cj);
+            flow=sd-sd_j;
+#warning "situation not (yet) implemented for periodic BC"
+              // we found an edge in the graph that connects two different
+              // subdomains. The edge must be between different variable types,
+              // which makes the flow function ignore it, but we may still
+              // need to have one of the variables as a separator. This is an 
+              // attempt at hot-fixing an issue that occurs in the case
+              // 3D Stokes, 3 levels, sx-8, cf=2, with the Stokes classifier on 
+              // level 1 ("Hybrid" classifier). We can't simply change the flow
+              // function because other classes may rely on its behavior.
+              // \todo: clearly state what "flow" should behave like and make
+              //        sure it is used correctly everywhere.
+            }
+          if (flow<0)
 	    //for nonperiodic case
 	    //flow(row,cj)=domain(row)-domain(cj)
+	    // (if the nodes are connected). Requesting
+	    // flow<0 makes sure we get a "width-1" separator
             {
 	      nodeType[i]=1; //separator
             break;
