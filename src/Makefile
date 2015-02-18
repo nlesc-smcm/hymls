@@ -28,8 +28,6 @@ OBJ=    HYMLS_Solver.o \
         HYMLS_View_MultiVector.o \
         HYMLS_EpetraExt_ProductOperator.o \
         HYMLS_SparseDirectSolver.o \
-        HYMLS_SolverContainer.o \
-        HYMLS_ParallelSparseDirectSolver.o \
         HYMLS_Householder.o \
         HYMLS_AugmentedMatrix.o \
         HYMLS_Tools.o \
@@ -38,7 +36,9 @@ OBJ=    HYMLS_Solver.o \
         HYMLS_Exception.o \
         NOX_Epetra_LinearSystem_Hymls.o \
         GaleriExt_Periodic.o \
-        main_utils.o \
+        main_utils.o 
+#        HYMLS_SolverContainer.o \
+#        HYMLS_ParallelSparseDirectSolver.o \
 
 LIBNAMEBASE=hymls_${PLAT}
 LIBNAME=lib${LIBNAMEBASE}.a

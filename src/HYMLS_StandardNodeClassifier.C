@@ -284,7 +284,8 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
           // and are in different subdomains, and try to patch up the
           // hole.
           int flow=partitioner_->flow(row,cj);
-          if (flow==0)
+          bool one_is_a_p_node = (dof_==4)&&(MOD(row+1,dof_)==0||MOD(cj+1,dof_)==0);
+          if (flow==0 && !one_is_a_p_node && false)
             {
             int sd_j=(*partitioner_)(cj);
             flow=sd-sd_j;
