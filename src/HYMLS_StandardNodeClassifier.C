@@ -285,10 +285,11 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
           // hole.
           int flow=partitioner_->flow(row,cj);
           bool one_is_a_p_node = (dof_==4)&&(MOD(row+1,dof_)==0||MOD(cj+1,dof_)==0);
-          if (flow==0 && !one_is_a_p_node && false)
+          if (flow==0 && !one_is_a_p_node)
             {
+            int sd_i=partitioner_->GPID(sd);
             int sd_j=(*partitioner_)(cj);
-            flow=sd-sd_j;
+            flow=sd_i-sd_j;
 #warning "situation not (yet) implemented for periodic BC"
               // we found an edge in the graph that connects two different
               // subdomains. The edge must be between different variable types,
