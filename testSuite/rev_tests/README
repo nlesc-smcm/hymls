@@ -1,0 +1,10 @@
+Tool to test revisions for performance, test failures, and what not. This
+is nice to see where bugs were introduced, and where performance of hymls
+got worse. Both parallel and sequential tests are performed to also make
+sure the parallel code works.
+
+"sbatch submit_test_rev" will start the tests on cartesius
+
+When the job is done, dataparser makes nice graphs of the data.
+
+A lot of paths are hard-coded for now, so that should be fixed for sure.

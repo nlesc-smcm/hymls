@@ -1,0 +1,10 @@
+#!/bin/bash -l
+#SBATCH -p short -t 1:00:00
+#SBATCH -N 1 --tasks-per-node=16
+#SBATCH -J hymls_rev_test
+#SBATCH --constraint=haswell
+
+module load mkl
+
+cd $HOME/test_rev
+sh start_test
