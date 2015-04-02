@@ -16,7 +16,7 @@ class Command(object):
     def run(self, timeout=500):
         def target():
             self.out += 'Thread started\n'
-            self.process = subprocess.Popen(self.cmd, shell=True, executable="/bin/bash")
+            self.process = subprocess.Popen(self.cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, executable="/bin/bash")
             (out, err) = self.process.communicate()
             if out:
                 self.out += out
