@@ -405,6 +405,10 @@ def print_input(nodes, procs, size, levels, ssize, re_start, re_end, re_step, re
     f.write(text)
     f.close()
 
+    f = open('params.xml', 'w')
+    f.write(text)
+    f.close()
+
 class Command(object):
     def __init__(self, cmd):
         self.cmd = cmd
