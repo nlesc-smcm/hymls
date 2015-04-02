@@ -3,6 +3,46 @@ import os
 import shutil
 from optparse import OptionParser
 
+import threading
+import datetime
+
+class Command(object):
+    def __init__(self, cmd):
+        self.cmd = cmd
+        self.process = None
+        self.out = ''
+        self.err = ''
+
+    def run(self, timeout=500):
+        def target():
+            self.out += 'Thread started\n'
+            self.process = subprocess.Popen(self.cmd, shell=True, executable="/bin/bash")
+            (out, err) = self.process.communicate()
+            if out:
+                self.out += out
+            if err:
+                self.err += err
+            self.out += 'Thread finished at ' + str(datetime.datetime.now()) + '\n'
+
+        thread = threading.Thread(target=target)
+        thread.start()
+
+        thread.join(timeout)
+        killed = False
+        if thread.is_alive():
+            self.out += 'Terminating process\n'
+            subprocess.call('killall -9 '+self.cmd.partition(' ')[0], shell=True)
+            if len(self.cmd.split(' ')) > 2:
+                subprocess.call('killall -9 '+self.cmd.split(' ')[2], shell=True)
+            thread.join()
+            killed = True
+
+        if self.process is None:
+            return (-1, killed)
+
+        self.out += 'Returncode is ' + str(self.process.returncode) + '\n'
+        return (self.process.returncode, killed)
+
 test_path = os.getcwd()
 log_name = ''
 global_rev = '0'
@@ -21,11 +61,10 @@ def get_rev(path):
     return rev.strip()
 
 def get_trili_dir():
-    #FIXME: hardcoded
     if int(global_rev) > 1000:
-        return '/home/baars/Trilinos/11.12'
+        return os.path.join(os.path.expanduser("~"), 'Trilinos/11.12')
     else:
-        return '/home/baars/Trilinos/11.2'
+        return os.path.join(os.path.expanduser("~"), 'Trilinos/11.2')
 
 def log(text):
     global test_path
@@ -44,12 +83,10 @@ def log_set_name(name):
     log_name = name
 
 def platform(testing=False):
-    #FIXME: hardcoded
     return 'PLAT=%s' % ('cartdefault' if not testing else 'carttesting')
 
 def shared_dir(fredwubs_path):
-    #FIXME: hardcoded
-    return 'SHARED_DIR=/home/baars/stable/'
+    return 'SHARED_DIR='+os.path.join(os.path.expanduser("~"), 'stable/')
 
 def trilinos_home():
     return 'TRILINOS_HOME=%s' % get_trili_dir()
@@ -58,8 +95,7 @@ def library_path():
     return 'LD_LIBRARY_PATH=%s/lib:${LD_LIBRARY_PATH}' % get_trili_dir()
 
 def normal_path():
-    #FIXME: hardcoded
-    return 'PATH=/home/baars/local/bin:${PATH}'
+    return 'PATH='+os.path.join(os.path.expanduser("~"), 'local/bin')+':${PATH}'
 
 def env_vars(fredwubs_path, testing=False):
     return ' '.join([platform(testing), shared_dir(fredwubs_path), trilinos_home(), library_path(), normal_path()]) + ' '
@@ -72,14 +108,14 @@ def build(fredwubs_path, path, testing=False, target=None):
     src = os.path.join(fredwubs_path, path)
     os.chdir(src)
 
-    p = subprocess.Popen(env_vars(fredwubs_path, testing) + 'make clean', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-    (out, err) = p.communicate()
+    p = Command(env_vars(fredwubs_path, testing) + 'make clean')
+    p.run()
 
     log("Clean output:\n\n")
-    log(out)
+    log(p.out)
 
     log("Clean errors:\n\n")
-    log(err)
+    log(p.err)
 
     #patch makefile
     makefile_path = os.path.join(src, 'Makefile')
@@ -92,7 +128,7 @@ def build(fredwubs_path, path, testing=False, target=None):
 
     # ccache for faster compilation
     t = t.replace('include Makefile.inc', 'include Makefile.inc\nCXX:=ccache ${CXX}')
-
+ 
     #disable openmp support because it's broken with Intel 15
     t = t.replace('${EXTRA_LD_FLAGS}', '${EXTRA_LD_FLAGS}\nCXX_FLAGS:=$(filter-out -openmp,$(CXX_FLAGS))\nCXX_FLAGS:=$(filter-out -fopenmp,$(CXX_FLAGS))')
 
@@ -106,14 +142,14 @@ def build(fredwubs_path, path, testing=False, target=None):
       os.remove('NOX_Epetra_LinearSystem_Belos.H')
 
     target = (target if target else '')
-    p = subprocess.Popen(env_vars(fredwubs_path, testing) + 'make -j 20 '+target, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-    (out, err) = p.communicate()
+    p = Command(env_vars(fredwubs_path, testing) + 'make -j 20 '+target)
+    p.run()
 
     log("Build output:\n\n")
-    log(out)
+    log(p.out)
 
     log("Build errors:\n\n")
-    log(err)
+    log(p.err)
 
     os.chdir(prev_path)
 
@@ -124,14 +160,14 @@ def integration_tests(fredwubs_path, procs=1):
     path = os.path.join(fredwubs_path, 'hymls', 'testSuite', 'integration_tests')
     os.chdir(path)
 
-    p = subprocess.Popen(env_vars(fredwubs_path) + 'srun --ntasks-per-node=%d ../../src/integration_tests' % procs, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-    (out, err) = p.communicate()
+    p = Command(env_vars(fredwubs_path) + 'srun --ntasks-per-node=%d ../../src/integration_tests' % procs)
+    p.run()
 
     log("Test output:\n\n")
-    log(out)
+    log(p.out)
 
     log("Test errors:\n\n")
-    log(err)
+    log(p.err)
 
     os.chdir(prev_path)
 
@@ -142,14 +178,14 @@ def unit_tests(fredwubs_path):
     path = os.path.join(fredwubs_path, 'hymls', 'testSuite', 'unit_tests')
     os.chdir(path)
 
-    p = subprocess.Popen(env_vars(fredwubs_path) + 'srun --ntasks-per-node=1 ./main', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-    (out, err) = p.communicate()
+    p = Command(env_vars(fredwubs_path) + 'srun --ntasks-per-node=1 ./main')
+    p.run()
 
     log("Test output:\n\n")
-    log(out)
+    log(p.out)
 
     log("Test errors:\n\n")
-    log(err)
+    log(p.err)
 
     os.chdir(prev_path)
 
@@ -166,17 +202,17 @@ def fvm_test(fredwubs_path, test_path, testing=False, procs=1):
     levels = 3
     re_end = 0
 
-    p = subprocess.Popen(env_vars(fredwubs_path, testing) + 'python runtest.py %d %d %d %d %d' % (nodes, procs, size, ssize, levels), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-    (out, err) = p.communicate()
+    p = Command(env_vars(fredwubs_path, testing) + 'python runtest.py %d %d %d %d %d' % (nodes, procs, size, ssize, levels))
+    p.run()
 
     fname = 'FVM_LDCav_nn%02d_np%d_nx%d_sx%d_L%d_%d' % (nodes, procs, size, ssize, levels, re_end)
     shutil.copy(fname+'.out', test_path+'/'+fname+('' if not testing else '_testing')+'.out')
 
     log("Test output:\n\n")
-    log(out)
+    log(p.out)
 
     log("Test errors:\n\n")
-    log(err)
+    log(p.err)
 
     os.chdir(prev_path)
 
@@ -211,7 +247,7 @@ def options():
 
 def main():
     global test_path, global_rev
-    fredwubs_path = '/home/baars/stable/fredwubs'
+    fredwubs_path = os.path.join(os.path.expanduser("~"), 'stable/fredwubs')
     running_path = os.getcwd()
     os.chdir(fredwubs_path)
 

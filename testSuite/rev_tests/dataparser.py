@@ -23,18 +23,18 @@ class Parser:
 
     def parse(self):
         for i in os.listdir(self.prefix):
-            print i
             path = os.path.join(self.prefix, i)
             if os.path.isdir(path) and len(i) < 5:
+                print i
                 self.data[i] = self.parse_dir(path)
-                print self.data[i].fvm
+                #~ print self.data[i].fvm
 
     def parse_integration_test_data(self, data):
         parsed_data = ParserData()
         first = True
         for i in data:
             if 'TESTS OUT OF' in i:
-                print i
+                #~ print i
                 if first:
                     parsed_data.integration_tests['failures'] = int(i[9:11])
                     first = False
@@ -63,7 +63,7 @@ class Parser:
         data = ParserData()
         for i in os.listdir(path):
             if i.endswith('out'):
-                print i
+                #~ print i
                 fvm_path = os.path.join(path, i)
                 fvm_file = open(fvm_path, 'r')
                 fvm_data = fvm_file.readlines()
@@ -98,10 +98,12 @@ class Parser:
             y = []
             for rev in sorted(self.data.keys(), key=int):
                 data = self.data[rev]
-                print 'data', data.fvm
-                print rev
-                x.append(int(rev))
-                y.append(float(getattr(data, attr)['timing'].get(i, '0')))
+                #~ print 'data', data.fvm
+                #~ print rev
+                time = float(getattr(data, attr)['timing'].get(i, '0'))
+                if time > 0:
+                    x.append(int(rev))
+                    y.append(time)
             plot.plot(x, y, linewidth=2)
             yprev = 0
             for (i,j) in zip(x,y):
@@ -127,9 +129,11 @@ class Parser:
             y = []
             for rev in sorted(self.data.keys(), key=int):
                 data = self.data[rev]
-                print rev
-                x.append(int(rev))
-                y.append(float(getattr(data, attr)['failures']))
+                #~ print rev
+                failures = float(getattr(data, attr)['failures'])
+                if failures > 0:
+                    x.append(int(rev))
+                    y.append(failures)
             plot.plot(x, y, linewidth=2)
             yprev = 0
             for (i,j) in zip(x,y):
