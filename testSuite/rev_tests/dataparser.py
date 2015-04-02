@@ -3,6 +3,7 @@ import sys
 import matplotlib
 import matplotlib.pyplot as pyplot
 import copy
+import re
 
 class ParserData:
     def __init__(self):
@@ -52,7 +53,8 @@ class Parser:
             if timing_started:
                 d = i.split('\t')
                 if len(d) == 4:
-                    parsed_data['timing'][d[0]] = d[3].strip()
+                    name = re.sub('_L(\d)', ' (level \g<1>)', d[0])
+                    parsed_data['timing'][name] = d[3].strip()
             if 'FAILED!' in i:
                 parsed_data['failures'] += 1
         return parsed_data
@@ -66,7 +68,7 @@ class Parser:
                 fvm_file = open(fvm_path, 'r')
                 fvm_data = fvm_file.readlines()
                 fvm_file.close()
-                if '16' in i:
+                if'16' not in i:
                     if i.endswith('testing.out'):
                         data.fvm_testing = self.parse_fvm_data(fvm_data)
                     else:
@@ -90,7 +92,7 @@ class Parser:
     def plot_timing(self, attr='fvm'):
         figure = pyplot.figure()
         plot = figure.add_subplot(111)
-        data_list = ['main: continuation run', 'HYMLS::Solver: ApplyInverse', 'Preconditioner_L1: Compute']
+        data_list = ['main: continuation run', 'HYMLS::Solver: ApplyInverse', 'Preconditioner (level 1): Compute']
         for i in data_list:
             x = []
             y = []
@@ -101,6 +103,11 @@ class Parser:
                 x.append(int(rev))
                 y.append(float(getattr(data, attr)['timing'].get(i, '0')))
             plot.plot(x, y, linewidth=2)
+            yprev = 0
+            for (i,j) in zip(x,y):
+                if abs(yprev - j) > 0.05 * j:
+                    plot.annotate(str(i), xy=(i,j), xytext=(-10, 5), textcoords='offset points')
+                yprev = j
             plot.hold(True)
         leg = plot.legend(data_list, loc=1)
         frame = leg.get_frame()
@@ -124,6 +131,11 @@ class Parser:
                 x.append(int(rev))
                 y.append(float(getattr(data, attr)['failures']))
             plot.plot(x, y, linewidth=2)
+            yprev = 0
+            for (i,j) in zip(x,y):
+                if abs(yprev - j) > 0.05 * j:
+                    plot.annotate(str(i), xy=(i,j), xytext=(-10, 5), textcoords='offset points')
+                yprev = j
             plot.hold(True)
 
         data_list = ['FVM', 'FVM (parallel)', 'integration tests', 'integration tests (testing)']
