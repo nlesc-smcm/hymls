@@ -64,7 +64,7 @@ def normal_path():
 def env_vars(fredwubs_path, testing=False):
     return ' '.join([platform(testing), shared_dir(fredwubs_path), trilinos_home(), library_path(), normal_path()]) + ' '
 
-def build(fredwubs_path, path, testing=False):
+def build(fredwubs_path, path, testing=False, target=None):
 
     log("Starting HYMLS build process\n")
 
@@ -93,6 +93,9 @@ def build(fredwubs_path, path, testing=False):
     # ccache for faster compilation
     t = t.replace('include Makefile.inc', 'include Makefile.inc\nCXX:=ccache ${CXX}')
 
+    #disable openmp support because it's broken with Intel 15
+    t = t.replace('${EXTRA_LD_FLAGS}', '${EXTRA_LD_FLAGS}\nCXX_FLAGS:=$(filter-out -openmp,$(CXX_FLAGS))\nCXX_FLAGS:=$(filter-out -fopenmp,$(CXX_FLAGS))')
+
     makefile = open(makefile_path, 'w')
     makefile.write(t)
     makefile.close()
@@ -102,7 +105,8 @@ def build(fredwubs_path, path, testing=False):
       os.remove('NOX_Epetra_LinearSystem_Belos.C')
       os.remove('NOX_Epetra_LinearSystem_Belos.H')
 
-    p = subprocess.Popen(env_vars(fredwubs_path, testing) + 'make -j 20', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+    target = (target if target else '')
+    p = subprocess.Popen(env_vars(fredwubs_path, testing) + 'make -j 20 '+target, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     (out, err) = p.communicate()
 
     log("Build output:\n\n")
@@ -177,7 +181,7 @@ def fvm_test(fredwubs_path, test_path, testing=False, procs=1):
     os.chdir(prev_path)
 
 def build_hymls(fredwubs_path, testing=False):
-    build(fredwubs_path, 'hymls/src', testing)
+    build(fredwubs_path, 'hymls/src', testing, 'libhymls_'+('cartdefault' if not testing else 'carttesting')+'.a integration_tests')
 
 def build_unit_tests(fredwubs_path, testing=False):
     build(fredwubs_path, 'hymls/testSuite/unit_tests', testing)

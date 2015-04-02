@@ -115,40 +115,18 @@ class Parser:
         figure = pyplot.figure()
         plot = figure.add_subplot(111)
 
-        #fvm failures
-        x = []
-        y = []
-        for rev in sorted(self.data.keys(), key=int):
-            data = self.data[rev]
-            print rev
-            x.append(int(rev))
-            y.append(float(data.fvm_testing['failures']))
-        plot.plot(x, y, linewidth=2)
-        plot.hold(True)
+        for attr in ('fvm_testing', 'fvm_testing_parallel', 'integration_tests', 'integration_tests_testing'):
+            x = []
+            y = []
+            for rev in sorted(self.data.keys(), key=int):
+                data = self.data[rev]
+                print rev
+                x.append(int(rev))
+                y.append(float(getattr(data, attr)['failures']))
+            plot.plot(x, y, linewidth=2)
+            plot.hold(True)
 
-        #integration test failures
-        x = []
-        y = []
-        for rev in sorted(self.data.keys(), key=int):
-            data = self.data[rev]
-            print rev
-            x.append(int(rev))
-            y.append(float(data.integration_tests['failures']))
-        plot.plot(x, y, linewidth=2)
-        plot.hold(True)
-
-        #integration test failures
-        x = []
-        y = []
-        for rev in sorted(self.data.keys(), key=int):
-            data = self.data[rev]
-            print rev
-            x.append(int(rev))
-            y.append(float(data.integration_tests_testing['failures']))
-        plot.plot(x, y, linewidth=2)
-        plot.hold(True)
-
-        data_list = ['FVM', 'integration tests', 'integration tests (testing)']
+        data_list = ['FVM', 'FVM (parallel)', 'integration tests', 'integration tests (testing)']
         leg = plot.legend(data_list, loc=1)
         frame = leg.get_frame()
         frame.set_alpha(0.5)
