@@ -165,12 +165,6 @@ def fvm_test(fredwubs_path, test_path, testing=False, procs=1):
     p = subprocess.Popen(env_vars(fredwubs_path, testing) + 'python runtest.py %d %d %d %d %d' % (nodes, procs, size, ssize, levels), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     (out, err) = p.communicate()
 
-    nodes = 1
-    procs = 1
-    size = 32
-    ssize = 8
-    levels = 3
-    re_end = 0
     fname = 'FVM_LDCav_nn%02d_np%d_nx%d_sx%d_L%d_%d' % (nodes, procs, size, ssize, levels, re_end)
     shutil.copy(fname+'.out', test_path+'/'+fname+('' if not testing else '_testing')+'.out')
 
