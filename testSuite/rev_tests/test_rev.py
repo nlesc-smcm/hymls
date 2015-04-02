@@ -232,12 +232,12 @@ def main():
 
     run('build_fvm', fredwubs_path)
     run('fvm_test', fredwubs_path, test_path)
-    run('fvm_test', fredwubs_path, test_path, procs=16)
+    run('fvm_test', fredwubs_path, test_path, False, 16)
 
     run('build_hymls', fredwubs_path, True)
 
     run('integration_tests', fredwubs_path)
-    run('integration_tests', fredwubs_path, procs=16)
+    run('integration_tests', fredwubs_path, 16)
 
     if os.path.isfile(os.path.join(fredwubs_path, 'hymls/testSuite/unit_tests/Makefile')):
         run('build_unit_tests', fredwubs_path)
@@ -245,7 +245,7 @@ def main():
 
     run('build_fvm', fredwubs_path, True)
     run('fvm_test', fredwubs_path, test_path, True)
-    run('fvm_test', fredwubs_path, test_path, True, procs=16)
+    run('fvm_test', fredwubs_path, test_path, True, 16)
 
 if __name__ == '__main__':
     main()
