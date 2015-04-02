@@ -218,6 +218,11 @@ def main():
     global_rev = rev
     if not os.path.isdir(rev):
         os.mkdir(rev)
+    else:
+        # We stop here because the tests were already performed.
+        # It would be nice to do this per test, but this doesn't work,
+        # see the "run" method
+        return
 
     test_path = os.path.join(running_path, rev)
     os.chdir(test_path)
