@@ -45,7 +45,7 @@ def log_set_name(name):
 
 def platform(testing=False):
     #FIXME: hardcoded
-    return 'PLAT=%s' % ('cartdefault' if not testing else ' carttesting')
+    return 'PLAT=%s' % ('cartdefault' if not testing else 'carttesting')
 
 def shared_dir(fredwubs_path):
     #FIXME: hardcoded
