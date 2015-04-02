@@ -142,7 +142,7 @@ def unit_tests(fredwubs_path):
     path = os.path.join(fredwubs_path, 'hymls', 'testSuite', 'unit_tests')
     os.chdir(path)
 
-    p = subprocess.Popen(env_vars(fredwubs_path) + './main', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+    p = subprocess.Popen(env_vars(fredwubs_path) + 'srun --ntasks-per-node=1 ./main', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     (out, err) = p.communicate()
 
     log("Test output:\n\n")
