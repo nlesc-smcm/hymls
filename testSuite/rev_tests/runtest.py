@@ -284,8 +284,6 @@ def print_input(nodes, procs, size, levels, ssize, re_start, re_end, re_step, re
 
               <!-- switch to dense solver on next-to-last level -->
               <Parameter name="Subdomain Solver Type" type="string" value="Sparse"/>
-              <Parameter name="Dense Solvers on Level" type="int" value="3"/>
-              <Parameter name="Subdomain Solver Num Threads" type="int" value="16"/>
 
               <!-- scale those rows of the Schur complement that are not coupled to -->
               <!-- P-nodes so that they have ones on the diagonal                   -->
