@@ -150,6 +150,7 @@ namespace HYMLS {
       {
       int grid = K.GRID(i);
       int p_lrid = p_nodeType.Map().LID(grid);
+      ASSERT_TRUE(p_lrid>=0,status);
       if (p_nodeType[p_lrid]<0 && MOD(grid,dof)!=pvar)
         {
         // V-node in a tube
