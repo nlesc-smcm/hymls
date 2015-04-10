@@ -1,4 +1,26 @@
 git svn fetch
 git svn rebase
 
+echo "#!/bin/bash -l
+#SBATCH -p normal -t 23:00:00
+#SBATCH -N 1 --tasks-per-node=16
+#SBATCH -J hymls_rev_test
+#SBATCH --constraint=haswell
+
+module load mkl
+
+cd $HOME/rev_tests
+" > start_test
+
+d=$(pwd)
+
+cd ${HOME}/stable/fredwubs/
+commits=$(git log --pretty=oneline --format="%H" hymls/src fvm/src)
+cd $d
+
+for line in $commits
+do
+    echo "python test_rev.py $line" >> start_test
+done
+
 sbatch start_test
