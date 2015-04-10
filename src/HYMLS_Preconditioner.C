@@ -263,21 +263,21 @@ namespace HYMLS {
                                  "level.");
 
     int sepx=4;
-    std::string doc = "defines the subdomain size for cortesian partitioning";
+    std::string doc = "Defines the subdomain size for Cartesian partitioning";
 
     VPL().set("Visualize Solver", false, "write matlab files to visualize the partitioning");
 
     VPL().set("Separator Length", sepx,doc+" (square subdomains)");
-    VPL().set("Separator Length (x)", sepx,doc);
-    VPL().set("Separator Length (y)", sepx,doc);
-    VPL().set("Separator Length (z)", 1,doc);
+    VPL().set("Separator Length (x)", sepx, doc);
+    VPL().set("Separator Length (y)", sepx, doc);
+    VPL().set("Separator Length (z)", 1, doc);
 
-    std::string doc2 = "this is an internal parameter that should not be set by the user";
+    std::string doc2 = "Defines the coarsening factor of the subdomains size at each level";
 
-    VPL().set("Base Separator Length", sepx, doc2);
-    VPL().set("Base Separator Length (x)", sepx,doc2);
-    VPL().set("Base Separator Length (y)", sepx,doc2);
-    VPL().set("Base Separator Length (z)", 1,doc2);
+    VPL().set("Coarsening Factor", sepx, doc2);
+    VPL().set("Coarsening Factor (x)", sepx, doc2);
+    VPL().set("Coarsening Factor (y)", sepx, doc2);
+    VPL().set("Coarsening Factor (z)", 1, doc2);
 
     VPL().set("Subdivide Separators",false,
         "this was implemented for the rotated B-grid and is not intended for any other "

@@ -34,8 +34,7 @@ namespace HYMLS {
                 baseMap_(map), nx_(nx), ny_(ny),nz_(nz),dof_(dof),perio_(perio),
                 numLocalSubdomains_(-1),numGlobalSubdomains_(-1)
         {
-        HYMLS_PROF3(label_,"Constructor");        
-        node_distance_=1; //default, can be adjusted by calling SetNodeDistance()    
+        HYMLS_PROF3(label_,"Constructor");
         active_=true; // by default, everyone is assumed to own a part of the domain.
                       // if in Partition() it turns out that there are more processor
                       // partitions than subdomains, active_ is set to false for some
@@ -234,7 +233,7 @@ DEBVAR(dk);
         di=i1-i2;
         }
       }
-    return ceil((double)di/node_distance_);
+    return di;
     }
 
   int BaseCartesianPartitioner::Partition(int nparts, bool repart)

@@ -140,18 +140,6 @@ class BaseCartesianPartitioner : public BasePartitioner
               
   //! impose ordering on subdomains
   int flow(int gid1, int gid2) const;
-  
-  //! get the node distance used in this object.
-  //! for instance, on the second level of our method,
-  //! 'ngiehboring nodes' are s gids apart, where
-  //! s is the separator length. This value defaults
-  //! to 1 and can be set using the SetNodeDistance()
-  //! function.
-  inline double GetNodeDistance() {return node_distance_;}
-
-  //! set the node distance to be assumed by the object (influences
-  //! the behavior of the flow() function)
-  void SetNodeDistance(double dist) {node_distance_=dist;}
 
   //!
   std::string label_;
@@ -205,11 +193,6 @@ class BaseCartesianPartitioner : public BasePartitioner
   
   //! stencil width, currently set to 1.
   static const int stencil_width_=1;
-  
-  //! physical distance (in grid cells) between neighboring
-  //! nodes. This should be set to the separator length on 
-  //! coarse levels.
-  int node_distance_;
   
   //! graph of the problem. If not null, it is used to determine 
   //! wether there is an edge between two given nodes of the graph.
