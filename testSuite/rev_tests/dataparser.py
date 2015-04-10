@@ -16,6 +16,10 @@ class ParserData:
         self.integration_tests = {'failures': 0}
         self.integration_tests_testing = {'failures': 0}
 
+        self.unit_tests = {'failures': 0}
+
+        self.failed = False
+
 class Parser:
     def __init__(self, prefix=None):
         self.prefix = prefix
@@ -31,63 +35,82 @@ class Parser:
 
     def parse_integration_test_data(self, data):
         parsed_data = ParserData()
-        first = True
+        time = 0
         for i in data:
             if 'Starting integration tests' in i:
-                first = False
+                time += 1
             if 'failed' in i:
-                if first:
+                if time == 1:
                     parsed_data.integration_tests['failures'] += 1
                 else:
                     parsed_data.integration_tests_testing['failures'] += 1
         return parsed_data
 
+    def parse_unit_test_data(self, data):
+        parsed_data = ParserData()
+        for i in data:
+            if 'Summary: ' in i:
+                parsed_data.unit_tests['failures'] = int(i.split(' ')[-1])
+        return parsed_data
+
     def parse_fvm_data(self, data):
         timing_started = False
-        parsed_data = {'timing': {}, 'failures': 0, 'iterations': 0}
+        parsed_data = ParserData()
         for i in data:
             if 'TIMING RESULTS' in i:
                 timing_started = True
-            if timing_started and 'MEMORY USAGE' in i:
-                started = False
             if timing_started:
                 d = i.split('\t')
                 if len(d) == 4:
                     name = re.sub('_L(\d)', ' (level \g<1>)', d[0])
-                    parsed_data['timing'][name] = d[3].strip()
+                    parsed_data.fvm['timing'][name] = d[3].strip()
             if 'FAILED!' in i:
-                parsed_data['failures'] += 1
+                parsed_data.fvm['failures'] += 1
             if i.startswith('+ Number of iterations:'):
-                parsed_data['iterations'] = int(i[23:])
+                parsed_data.fvm['iterations'] = int(i[23:])
+
+        # If we don't have timing data something went wrong
+        if not parsed_data.fvm['timing']:
+            parsed_data.failed = True
+
         return parsed_data
 
     def parse_dir(self, path):
         data = ParserData()
         for i in os.listdir(path):
+            test_path = os.path.join(path, i)
+            test_file = open(test_path, 'r')
+            test_data = test_file.readlines()
+            test_file.close()
+
             if i.endswith('out'):
-                #~ print i
-                fvm_path = os.path.join(path, i)
-                fvm_file = open(fvm_path, 'r')
-                fvm_data = fvm_file.readlines()
-                fvm_file.close()
                 if'16' not in i:
                     if i.endswith('testing.out'):
-                        data.fvm_testing = self.parse_fvm_data(fvm_data)
+                        parsed_data = self.parse_fvm_data(test_data)
+                        data.fvm_testing = parsed_data.fvm
+                        data.failed = data.failed or parsed_data.failed
                     else:
-                        data.fvm = self.parse_fvm_data(fvm_data)
+                        parsed_data = self.parse_fvm_data(test_data)
+                        data.fvm = parsed_data.fvm
+                        data.failed = data.failed or parsed_data.failed
                 else:
                     if i.endswith('testing.out'):
-                        data.fvm_testing_parallel = self.parse_fvm_data(fvm_data)
+                        parsed_data = self.parse_fvm_data(test_data)
+                        data.fvm_testing_parallel = parsed_data.fvm
+                        data.failed = data.failed or parsed_data.failed
                     else:
-                        data.fvm_parallel = self.parse_fvm_data(fvm_data)
+                        parsed_data = self.parse_fvm_data(test_data)
+                        data.fvm_parallel = parsed_data.fvm
+                        data.failed = data.failed or parsed_data.failed
             elif i == 'integration_tests.txt':
-                test_path = os.path.join(path, i)
-                test_file = open(test_path, 'r')
-                test_data = test_file.readlines()
-                test_file.close()
                 parsed_data = self.parse_integration_test_data(test_data)
                 data.integration_tests = parsed_data.integration_tests
                 data.integration_tests_testing = parsed_data.integration_tests_testing
+                data.failed = data.failed or parsed_data.failed
+            elif i == 'unit_tests.txt':
+                parsed_data = self.parse_unit_test_data(test_data)
+                data.unit_tests = parsed_data.unit_tests
+                data.failed = data.failed or parsed_data.failed
 
         return data
 
@@ -100,8 +123,8 @@ class Parser:
             y = []
             for rev in sorted(self.data.keys(), key=int):
                 data = self.data[rev]
-                its = int(getattr(data, attr)['iterations'])
-                if its > 0:
+                if not data.failed:
+                    its = int(getattr(data, attr)['iterations'])
                     x.append(int(rev))
                     y.append(its)
                     prev_its = its
@@ -135,8 +158,8 @@ class Parser:
                 data = self.data[rev]
                 #~ print 'data', data.fvm
                 #~ print rev
-                time = float(getattr(data, attr)['timing'].get(i, '0'))
-                if time > 0:
+                if not data.failed:
+                    time = float(getattr(data, attr)['timing'].get(i, '0'))
                     x.append(int(rev))
                     y.append(time)
                     prev_time = time
@@ -157,21 +180,23 @@ class Parser:
         figure.savefig(os.path.join(self.prefix, attr+'_timing.eps'), bbox_inches='tight')
         figure.savefig(os.path.join(self.prefix, attr+'_timing.png'), bbox_inches='tight')
 
-
     def plot_failures(self):
         figure = pyplot.figure()
         plot = figure.add_subplot(111)
-
-        for attr in ('fvm_testing', 'fvm_testing_parallel', 'integration_tests', 'integration_tests_testing'):
+        prev_failures = 0
+        for attr in ('fvm_testing', 'fvm_testing_parallel', 'unit_tests', 'integration_tests', 'integration_tests_testing'):
             x = []
             y = []
             for rev in sorted(self.data.keys(), key=int):
                 data = self.data[rev]
                 #~ print rev
-                failures = float(getattr(data, attr)['failures'])
-                if failures > 0:
+                if not data.failed:
+                    failures = float(getattr(data, attr)['failures'])
                     x.append(int(rev))
                     y.append(failures)
+                    prev_failures = failures
+                else:
+                    plot.annotate('x', xy=(int(rev), prev_failures), xytext=(0,0), textcoords='offset points')
             plot.plot(x, y, linewidth=2)
             yprev = 0
             for (i,j) in zip(x,y):
@@ -180,7 +205,7 @@ class Parser:
                 yprev = j
             plot.hold(True)
 
-        data_list = ['FVM', 'FVM (parallel)', 'integration tests', 'integration tests (testing)']
+        data_list = ['FVM', 'FVM (parallel)', 'unit tests', 'integration tests', 'integration tests (testing)']
         leg = plot.legend(data_list, loc=1)
         frame = leg.get_frame()
         frame.set_alpha(0.5)
