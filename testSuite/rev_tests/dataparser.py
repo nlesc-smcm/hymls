@@ -14,7 +14,7 @@ class ParserData:
         self.fvm_testing_parallel = {'timing': {}, 'failures': 0, 'iterations': 0}
 
         self.integration_tests = {'failures': 0}
-        self.integration_tests_testing = {'failures': 0}
+        self.integration_tests_parallel = {'failures': 0}
 
         self.unit_tests = {'failures': 0}
 
@@ -43,7 +43,7 @@ class Parser:
                 if time == 1:
                     parsed_data.integration_tests['failures'] += 1
                 else:
-                    parsed_data.integration_tests_testing['failures'] += 1
+                    parsed_data.integration_tests_parallel['failures'] += 1
         return parsed_data
 
     def parse_unit_test_data(self, data):
@@ -105,7 +105,7 @@ class Parser:
             elif i == 'integration_tests.txt':
                 parsed_data = self.parse_integration_test_data(test_data)
                 data.integration_tests = parsed_data.integration_tests
-                data.integration_tests_testing = parsed_data.integration_tests_testing
+                data.integration_tests_parallel = parsed_data.integration_tests_parallel
                 data.failed = data.failed or parsed_data.failed
             elif i == 'unit_tests.txt':
                 parsed_data = self.parse_unit_test_data(test_data)
@@ -141,7 +141,7 @@ class Parser:
         frame = leg.get_frame()
         frame.set_alpha(0.5)
         plot.set_xlabel(u'rev', size='large')
-        plot.set_ylabel(u'time', size='large')
+        plot.set_ylabel(u'iterations', size='large')
         figure.savefig(os.path.join(self.prefix, 'fvm_iterations.eps'), bbox_inches='tight')
         figure.savefig(os.path.join(self.prefix, 'fvm_iterations.png'), bbox_inches='tight')
 
@@ -184,7 +184,7 @@ class Parser:
         figure = pyplot.figure()
         plot = figure.add_subplot(111)
         prev_failures = 0
-        for attr in ('fvm_testing', 'fvm_testing_parallel', 'unit_tests', 'integration_tests', 'integration_tests_testing'):
+        for attr in ('fvm_testing', 'fvm_testing_parallel', 'unit_tests', 'integration_tests', 'integration_tests_parallel'):
             x = []
             y = []
             for rev in sorted(self.data.keys(), key=int):
@@ -205,7 +205,7 @@ class Parser:
                 yprev = j
             plot.hold(True)
 
-        data_list = ['FVM', 'FVM (parallel)', 'unit tests', 'integration tests', 'integration tests (testing)']
+        data_list = ['FVM', 'FVM (parallel)', 'unit tests', 'integration tests', 'integration tests (parallel)']
         leg = plot.legend(data_list, loc=1)
         frame = leg.get_frame()
         frame.set_alpha(0.5)
