@@ -43,11 +43,11 @@ class CartesianPartitioner : public BaseCartesianPartitioner
       Tools::Error("Partition() not yet called!",__FILE__,__LINE__);
       }
 #endif      
-    int ii=(int)floor((double)(i/sx_));
-    int jj=(int)floor((double)(j/sy_));
-    int kk=(int)floor((double)(k/sz_));
-    
-    int ind=Tools::sub2ind(npx_,npy_,npz_,ii,jj,kk);
+    int ii = i / sx_;
+    int jj = j / sy_;
+    int kk = k / sz_;
+
+    int ind = Tools::sub2ind(npx_,npy_,npz_,ii,jj,kk);
     //DEBUG("Partition ID["<<i<<","<<j<<","<<k<<"] = "<<ind);
     return ind;
     }

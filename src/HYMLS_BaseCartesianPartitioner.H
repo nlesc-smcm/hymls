@@ -235,14 +235,14 @@ protected:
   inline int PID(int i, int j, int k) const
     {
     // in which subdomain is the cell?
-    int sdx = (int)floor((double)(i)/(double)sx_);
-    int sdy = (int)floor((double)(j)/(double)sy_);
-    int sdz = (int)floor((double)(k)/(double)sz_);
-    
+    int sdx = i / sx_;
+    int sdy = j / sy_;
+    int sdz = k / sz_;
+
     //how many subdomains are there per process?
-    int npx = (int)(npx_/nprocx_);
-    int npy = (int)(npy_/nprocy_);
-    int npz = (int)(npz_/nprocz_);
+    int npx = npx_ / nprocx_;
+    int npy = npy_ / nprocy_;
+    int npz = npz_ / nprocz_;
 
 #ifdef TESTING    
     if ( (npx*nprocx_!=npx_) ||
@@ -254,12 +254,11 @@ protected:
          }
 #endif
     // so, where is the cell (on which process)?
-    int pidx, pidy, pidz;
-    pidx = (int)(sdx/npx);
-    pidy = (int)(sdy/npy);
-    pidz = (int)(sdz/npz);
+    int pidx = sdx / npx;
+    int pidy = sdy / npy;
+    int pidz = sdz / npz;
 
-    int pid=Tools::sub2ind(nprocx_,nprocy_,nprocz_,1,pidx,pidy,pidz,0);
+    int pid = Tools::sub2ind(nprocx_,nprocy_,nprocz_,1,pidx,pidy,pidz,0);
 /*
     DEBUG("ijk: "<<i<<" "<<j<<" "<<k);
     DEBUG("np_loc: "<<npx<<" "<<npy<<" "<<npz);
