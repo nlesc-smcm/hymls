@@ -415,7 +415,7 @@ class Command(object):
     def run(self, timeout):
         def target():
             print('Thread started')
-            self.process = subprocess.Popen(self.cmd, shell=True    , executable="/bin/bash")
+            self.process = subprocess.Popen(self.cmd, shell=True, executable="/bin/bash")
             self.process.communicate()
             print('Thread finished at ' + str(datetime.datetime.now()))
 

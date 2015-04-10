@@ -1,4 +1,3 @@
-git svn fetch
 git svn rebase
 
 echo "#!/bin/bash -l
@@ -15,6 +14,10 @@ cd $HOME/rev_tests
 d=$(pwd)
 
 cd ${HOME}/stable/fredwubs/
+
+git reset --hard HEAD
+git svn rebase
+
 commits=$(git log --pretty=oneline --format="%H" hymls/src fvm/src)
 cd $d
 

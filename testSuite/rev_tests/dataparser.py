@@ -33,13 +33,13 @@ class Parser:
         parsed_data = ParserData()
         first = True
         for i in data:
-            if 'TESTS OUT OF' in i:
-                #~ print i
+            if 'Starting integration tests' in i:
+                first = False
+            if 'failed' in i:
                 if first:
-                    parsed_data.integration_tests['failures'] = int(i[9:11])
-                    first = False
+                    parsed_data.integration_tests['failures'] += 1
                 else:
-                    parsed_data.integration_tests_testing['failures'] = int(i[9:11])
+                    parsed_data.integration_tests_testing['failures'] += 1
         return parsed_data
 
     def parse_fvm_data(self, data):
