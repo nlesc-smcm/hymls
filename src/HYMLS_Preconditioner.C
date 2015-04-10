@@ -274,6 +274,11 @@ namespace HYMLS {
 
     std::string doc2 = "Defines the coarsening factor of the subdomains size at each level";
 
+    VPL().set("Base Separator Length", sepx, doc2+" (deprecated)");
+    VPL().set("Base Separator Length (x)", sepx, doc2+" (deprecated)");
+    VPL().set("Base Separator Length (y)", sepx, doc2+" (deprecated)");
+    VPL().set("Base Separator Length (z)", 1, doc2+" (deprecated)");
+
     VPL().set("Coarsening Factor", sepx, doc2);
     VPL().set("Coarsening Factor (x)", sepx, doc2);
     VPL().set("Coarsening Factor (y)", sepx, doc2);
