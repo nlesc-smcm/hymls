@@ -7,7 +7,7 @@ CXX_FLAGS+=-DHYMLS_REVISION=${rev}
 
 LIBS=${MY_LIBRARIES} ${TRILINOS_LIBRARIES} ${TPL_LIBRARIES} ${EXTRA_LD_FLAGS}
 
-OBJ=    main.o HYMLS_Tools.o HYMLS_DenseUtils.C
+OBJ=main.o HYMLS_Tools.o HYMLS_DenseUtils.o HYMLS_Tester.o
 
 default: main
 

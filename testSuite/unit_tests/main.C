@@ -4,5 +4,6 @@
 int main(int argc, char* argv[])
   {
   Teuchos::GlobalMPISession mpiSession(&argc, &argv);
+  Teuchos::UnitTestRepository::setGloballyReduceTestResult(true);
   return Teuchos::UnitTestRepository::runUnitTestsFromMain(argc, argv);
   }
