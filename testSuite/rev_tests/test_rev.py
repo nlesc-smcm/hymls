@@ -264,6 +264,10 @@ def main():
         # see the "run" method
         return
 
+    # We don't run tests before revision 621, because that's mostly broken anyway
+    if int(rev) < 621:
+        return
+
     test_path = os.path.join(running_path, rev)
     os.chdir(test_path)
 

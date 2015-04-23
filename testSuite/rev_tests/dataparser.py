@@ -115,6 +115,7 @@ class Parser:
         return data
 
     def plot_iterations(self):
+        last = 0
         figure = pyplot.figure()
         plot = figure.add_subplot(111)
         prev_its = 0
@@ -128,6 +129,7 @@ class Parser:
                     x.append(int(rev))
                     y.append(its)
                     prev_its = its
+                    last = rev
                 else:
                     plot.annotate('x', xy=(int(rev), prev_its), xytext=(0,0), textcoords='offset points')
             plot.plot(x, y, linewidth=2)
@@ -137,6 +139,8 @@ class Parser:
                     plot.annotate(str(i), xy=(i,j), xytext=(-10, 5), textcoords='offset points')
                 yprev = j
             plot.hold(True)
+
+        plot.set_title('Iterations up to revision '+str(last))
         leg = plot.legend(['FVM', 'FVM (parallel)'], loc=1)
         frame = leg.get_frame()
         frame.set_alpha(0.5)
@@ -147,6 +151,7 @@ class Parser:
 
 
     def plot_timing(self, attr='fvm'):
+        last = 0
         figure = pyplot.figure()
         plot = figure.add_subplot(111)
         data_list = ['main: continuation run', 'HYMLS::Solver: ApplyInverse', 'Preconditioner (level 1): Compute']
@@ -163,6 +168,7 @@ class Parser:
                     x.append(int(rev))
                     y.append(time)
                     prev_time = time
+                    last = rev
                 else:
                     plot.annotate('x', xy=(int(rev), prev_time), xytext=(0,0), textcoords='offset points')
             plot.plot(x, y, linewidth=2)
@@ -172,6 +178,8 @@ class Parser:
                     plot.annotate(str(i), xy=(i,j), xytext=(-10, 5), textcoords='offset points')
                 yprev = j
             plot.hold(True)
+
+        plot.set_title('Performance up to revision '+str(last)+(' (parallel)' if attr=='fvm_parallel' else ''))
         leg = plot.legend(data_list, loc=1)
         frame = leg.get_frame()
         frame.set_alpha(0.5)
@@ -181,6 +189,7 @@ class Parser:
         figure.savefig(os.path.join(self.prefix, attr+'_timing.png'), bbox_inches='tight')
 
     def plot_failures(self):
+        last = 0
         figure = pyplot.figure()
         plot = figure.add_subplot(111)
         prev_failures = 0
@@ -195,6 +204,7 @@ class Parser:
                     x.append(int(rev))
                     y.append(failures)
                     prev_failures = failures
+                    last = rev
                 else:
                     plot.annotate('x', xy=(int(rev), prev_failures), xytext=(0,0), textcoords='offset points')
             plot.plot(x, y, linewidth=2)
@@ -205,6 +215,7 @@ class Parser:
                 yprev = j
             plot.hold(True)
 
+        plot.set_title('Failures up to revision '+str(last))
         data_list = ['FVM', 'FVM (parallel)', 'unit tests', 'integration tests', 'integration tests (parallel)']
         leg = plot.legend(data_list, loc=1)
         frame = leg.get_frame()
