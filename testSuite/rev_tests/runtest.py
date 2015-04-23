@@ -6,6 +6,8 @@ import sys
 import datetime
 import shutil
 
+from test_rev import ParallelCommand
+
 def print_input(nodes, procs, size, levels, ssize, re_start, re_end, re_step, restart):
     text = '''<ParameterList name="Driven Cavity using LOCA/HYMLS"><!--{-->
 
@@ -407,36 +409,6 @@ def print_input(nodes, procs, size, levels, ssize, re_start, re_end, re_step, re
     f.write(text)
     f.close()
 
-class Command(object):
-    def __init__(self, cmd):
-        self.cmd = cmd
-        self.process = None
-
-    def run(self, timeout):
-        def target():
-            print('Thread started')
-            self.process = subprocess.Popen(self.cmd, shell=True, executable="/bin/bash")
-            self.process.communicate()
-            print('Thread finished at ' + str(datetime.datetime.now()))
-
-        thread = threading.Thread(target=target)
-        thread.start()
-
-        thread.join(timeout)
-        killed = False
-        if thread.is_alive():
-            print('Terminating process')
-            subprocess.call('killall -9 '+self.cmd.partition(' ')[0], shell=True)
-            subprocess.call('killall -9 '+self.cmd.split(' ')[10], shell=True)
-            thread.join()
-            killed = True
-
-        if self.process is None:
-            return (-1, killed)
-
-        print('Returncode is ' + str(self.process.returncode))
-        return (self.process.returncode, killed)
-
 def test_method(nodes, procs, size, levels, ssize, re_start, re_end, re_step, restart):
     fname = 'FVM_LDCav_nn%02d_np%d_nx%d_sx%d_L%d_%d' % (nodes, procs, size, ssize, levels, re_end)
 
@@ -445,12 +417,13 @@ def test_method(nodes, procs, size, levels, ssize, re_start, re_end, re_step, re
     else:
         print_input(nodes, procs, size, levels, ssize, re_start, re_end, re_step, False)
 
-    exe = 'srun --ntasks-per-node=%d env OMP_NUM_THREADS=1 /home/baars/stable/fredwubs/fvm/src/LDCavCont %s.xml &> %s.out' % (procs // nodes, fname, fname)
+    exe = os.path.join(os.path.expanduser('~/stable/fredwubs/fvm/src/LDCavCont')) + ' %s.xml &> %s.out' % (fname, fname)
 
-    print exe
-
-    c = Command(exe)
+    c = ParallelCommand(exe, {'OMP_NUM_THREADS': '1'}, procs, nodes)
     ret, killed = c.run(10000)
+
+    print c.out
+    print c.err
 
     #~ if os.path.isfile('restart.xml'):
         #~ shutil.copy('restart.xml', fname + '.restart')

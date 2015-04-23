@@ -2,21 +2,26 @@ import subprocess
 import os
 import shutil
 from optparse import OptionParser
+from collections import OrderedDict
 
 import threading
 import datetime
 
 class Command(object):
-    def __init__(self, cmd):
+    def __init__(self, cmd, env=None):
         self.cmd = cmd
         self.process = None
         self.out = ''
         self.err = ''
+        self.env = env
+        if self.env is not None:
+            self.env.update(os.environ)
 
     def run(self, timeout=500):
         def target():
             self.out += 'Thread started\n'
-            self.process = subprocess.Popen(self.cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, executable="/bin/bash")
+            self.out += 'Running ' + self.cmd + '\n'
+            self.process = subprocess.Popen(self.cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, executable="/bin/bash", env=self.env)
             (out, err) = self.process.communicate()
             if out:
                 self.out += out
@@ -30,10 +35,7 @@ class Command(object):
         thread.join(timeout)
         killed = False
         if thread.is_alive():
-            self.out += 'Terminating process\n'
-            subprocess.call('killall -9 '+self.cmd.partition(' ')[0], shell=True)
-            if len(self.cmd.split(' ')) > 2:
-                subprocess.call('killall -9 '+self.cmd.split(' ')[2], shell=True)
+            self.kill()
             thread.join()
             killed = True
 
@@ -42,6 +44,39 @@ class Command(object):
 
         self.out += 'Returncode is ' + str(self.process.returncode) + '\n'
         return (self.process.returncode, killed)
+
+    def kill():
+        self.out += 'Terminating process\n'
+        subprocess.call('killall -9 '+self.cmd.partition(' ')[0], shell=True)
+        if len(self.cmd.split(' ')) > 2:
+            subprocess.call('killall -9 '+self.cmd.split(' ')[2], shell=True)
+
+class ParallelCommand(Command):
+    def __init__(self, cmd, env=None, procs=1, nodes=1):
+        Command.__init__(self, cmd, env)
+
+        self.procs = procs
+        self.nodes = nodes
+        np = procs // nodes
+
+        self.mpis = OrderedDict([('mpiexec', 'mpiexec -n %d -npernode %d' % (self.procs, np)), ('mpirun', 'mpirun -n %d -npernode %d' % (self.procs, np)), ('srun', 'srun --nodes=%d --ntasks=%d --ntasks-per-node=%d' % (self.nodes, self.procs, np))])
+        self.orig_cmd = cmd
+        self.mpi = None
+
+        for mpi in self.mpis.iterkeys():
+            p = subprocess.Popen(mpi+' --help', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, executable="/bin/bash", env=self.env)
+            p.communicate()
+            if p.returncode == 0:
+                self.cmd = self.mpis[mpi] + ' ' + cmd
+                self.mpi = mpi
+                break
+
+    def kill():
+        super(ParallelCommand, self).kill()
+        if self.mpi:
+            subprocess.call('killall -9 '+self.mpi, shell=True)
+        if self.orig_cmd:
+            subprocess.call('killall -9 '+self.orig_cmd, shell=True)
 
 test_path = os.getcwd()
 log_name = ''
@@ -58,10 +93,14 @@ def get_rev(path):
         (rev, err) = p.communicate()
     os.chdir(prev_path)
 
+    print 'Revision', rev
+
     return rev.strip()
 
 def get_trili_dir():
-    if int(global_rev) > 1000:
+    if not global_rev.isdigit():
+        return os.path.join(os.path.expanduser("~"), 'Trilinos/11.12')
+    elif int(global_rev) > 1000:
         return os.path.join(os.path.expanduser("~"), 'Trilinos/11.12')
     else:
         return os.path.join(os.path.expanduser("~"), 'Trilinos/11.2')
@@ -92,13 +131,31 @@ def trilinos_home():
     return 'TRILINOS_HOME=%s' % get_trili_dir()
 
 def library_path():
-    return 'LD_LIBRARY_PATH=%s/lib:${LD_LIBRARY_PATH}' % get_trili_dir()
+    path = os.environ.get('LD_LIBRARY_PATH', '')
+    path = (':' + path if path else path)
+    return ('LD_LIBRARY_PATH=%s/lib' % get_trili_dir()) + path
 
 def normal_path():
-    return 'PATH='+os.path.join(os.path.expanduser("~"), 'local/bin')+':${PATH}'
+    path = os.environ.get('PATH', '')
+    path = (':' + path if path else path)
+    return 'PATH='+os.path.join(os.path.expanduser("~"), 'local/bin')+path
 
 def env_vars(fredwubs_path, testing=False):
-    return ' '.join([platform(testing), shared_dir(fredwubs_path), trilinos_home(), library_path(), normal_path()]) + ' '
+    envs = {}
+    for env in [platform(testing), shared_dir(fredwubs_path), trilinos_home(), library_path(), normal_path()]:
+        for i in env.split(' '):
+            var = i.split('=')
+            if len(var) == 2:
+                envs[var[0]] = var[1]
+            else:
+                print 'Error with environment variable', i
+    return envs
+
+def replace_if_not_replaced(text, old, new):
+    if (new in text):
+        return text
+
+    return text.replace(old, new)
 
 def build(fredwubs_path, path, testing=False, target=None):
 
@@ -108,7 +165,7 @@ def build(fredwubs_path, path, testing=False, target=None):
     src = os.path.join(fredwubs_path, path)
     os.chdir(src)
 
-    p = Command(env_vars(fredwubs_path, testing) + 'make clean')
+    p = Command('make clean', env=env_vars(fredwubs_path, testing))
     p.run()
 
     log("Clean output:\n\n")
@@ -124,13 +181,13 @@ def build(fredwubs_path, path, testing=False, target=None):
     makefile.close()
 
     # fix compilation with git
-    t = t.replace('rev=\\"$(shell svnversion -n)\\"', 'rev="\\"$(shell svnversion -n)\\""')
+    t = replace_if_not_replaced(t, 'rev=\\"$(shell svnversion -n)\\"', 'rev="\\"$(shell svnversion -n)\\""')
 
     # ccache for faster compilation
-    t = t.replace('include Makefile.inc', 'include Makefile.inc\nCXX:=ccache ${CXX}')
+    t = replace_if_not_replaced(t, 'include Makefile.inc', 'include Makefile.inc\nCXX:=ccache ${CXX}')
  
     #disable openmp support because it's broken with Intel 15
-    t = t.replace('${EXTRA_LD_FLAGS}', '${EXTRA_LD_FLAGS}\nCXX_FLAGS:=$(filter-out -openmp,$(CXX_FLAGS))\nCXX_FLAGS:=$(filter-out -fopenmp,$(CXX_FLAGS))')
+    t = replace_if_not_replaced(t, '${EXTRA_LD_FLAGS}', '${EXTRA_LD_FLAGS}\nCXX_FLAGS:=$(filter-out -openmp,$(CXX_FLAGS))\nCXX_FLAGS:=$(filter-out -fopenmp,$(CXX_FLAGS))')
 
     makefile = open(makefile_path, 'w')
     makefile.write(t)
@@ -138,11 +195,12 @@ def build(fredwubs_path, path, testing=False, target=None):
 
     #remove symlinks in fvm
     if os.path.isfile('NOX_Epetra_LinearSystem_Belos.H'):
-      os.remove('NOX_Epetra_LinearSystem_Belos.C')
-      os.remove('NOX_Epetra_LinearSystem_Belos.H')
+        os.remove('NOX_Epetra_LinearSystem_Belos.H')
+    if os.path.isfile('NOX_Epetra_LinearSystem_Belos.C'):
+        os.remove('NOX_Epetra_LinearSystem_Belos.C')
 
     target = (target if target else '')
-    p = Command(env_vars(fredwubs_path, testing) + 'make -j 20 '+target)
+    p = Command('make -j 20 '+target, env=env_vars(fredwubs_path, testing))
     p.run()
 
     log("Build output:\n\n")
@@ -160,7 +218,7 @@ def integration_tests(fredwubs_path, procs=1):
     path = os.path.join(fredwubs_path, 'hymls', 'testSuite', 'integration_tests')
     os.chdir(path)
 
-    p = Command(env_vars(fredwubs_path) + 'srun --ntasks-per-node=%d ../../src/integration_tests' % procs)
+    p = ParallelCommand('../../src/integration_tests', env_vars(fredwubs_path), procs)
     p.run()
 
     log("Test output:\n\n")
@@ -178,7 +236,7 @@ def unit_tests(fredwubs_path):
     path = os.path.join(fredwubs_path, 'hymls', 'testSuite', 'unit_tests')
     os.chdir(path)
 
-    p = Command(env_vars(fredwubs_path) + 'srun --ntasks-per-node=1 ./main')
+    p = ParallelCommand('./main', env=env_vars(fredwubs_path))
     p.run()
 
     log("Test output:\n\n")
@@ -202,7 +260,7 @@ def fvm_test(fredwubs_path, test_path, testing=False, procs=1):
     levels = 3
     re_end = 0
 
-    p = Command(env_vars(fredwubs_path, testing) + 'python runtest.py %d %d %d %d %d' % (nodes, procs, size, ssize, levels))
+    p = Command('python runtest.py %d %d %d %d %d' % (nodes, procs, size, ssize, levels), env=env_vars(fredwubs_path, testing))
     p.run()
 
     fname = 'FVM_LDCav_nn%02d_np%d_nx%d_sx%d_L%d_%d' % (nodes, procs, size, ssize, levels, re_end)
@@ -251,6 +309,8 @@ def main():
     running_path = os.getcwd()
     os.chdir(fredwubs_path)
 
+    print 'Path is', fredwubs_path
+
     options()
 
     os.chdir(running_path)
@@ -262,10 +322,6 @@ def main():
         # We stop here because the tests were already performed.
         # It would be nice to do this per test, but this doesn't work,
         # see the "run" method
-        return
-
-    # We don't run tests before revision 621, because that's mostly broken anyway
-    if int(rev) < 621:
         return
 
     test_path = os.path.join(running_path, rev)
