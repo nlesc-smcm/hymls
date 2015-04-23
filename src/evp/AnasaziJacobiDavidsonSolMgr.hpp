@@ -180,7 +180,7 @@ JacobiDavidsonSolMgr<ScalarType,MV,OP,PREC>::JacobiDavidsonSolMgr(
         const RCP<Eigenproblem<ScalarType,MV,OP> > &problem,
         const RCP<PREC> &prec,
         Teuchos::ParameterList &pl )
-   : d_prec(prec), d_problem(problem)
+   : d_problem(problem), d_prec(prec)
 {
     TEUCHOS_TEST_FOR_EXCEPTION( d_problem == Teuchos::null,                std::invalid_argument, "Problem not given to solver manager." );
     TEUCHOS_TEST_FOR_EXCEPTION( !d_problem->isProblemSet(),                std::invalid_argument, "Problem not set." );

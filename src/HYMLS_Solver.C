@@ -678,7 +678,7 @@ Tools::Warning("In SetupDeflation: only using a bordered preconditioner right no
 return 0;
 #endif
     
-  Aorth_=Teuchos::rcp(new ProjectedOperator(operator_,V_,true));
+  Aorth_=Teuchos::rcp(new ProjectedOperator(operator_,V_,massMatrix_,true));
 
   CHECK_ZERO(Teuchos::rcp_dynamic_cast<HYMLS::ProjectedOperator>(Aorth_)->SetLeftPrecond(precond_));
 
@@ -767,10 +767,10 @@ try {
 
 int Solver::setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V)
   {
-  Aorth_=Teuchos::rcp(new ProjectedOperator(operator_,V,true));
+  Aorth_=Teuchos::rcp(new ProjectedOperator(operator_, V, massMatrix_, true));
   if (precond_ != Teuchos::null)
     {
-    Teuchos::RCP<ProjectedOperator> newPrec = Teuchos::rcp(new ProjectedOperator(precond_, V, true));
+    Teuchos::RCP<ProjectedOperator> newPrec = Teuchos::rcp(new ProjectedOperator(precond_, V, massMatrix_, true));
 
     belosPrecPtr_=Teuchos::rcp(new belosPrecType_(newPrec));
     string lor = PL().get("Left or Right Preconditioning","Right");

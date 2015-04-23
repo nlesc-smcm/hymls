@@ -3,10 +3,13 @@
 
 #include <iostream>
 #include "Teuchos_ScalarTraits.hpp"
+#include "Teuchos_RCP.hpp"
 
+class Epetra_Operator;
 class Epetra_CrsMatrix;
 class Epetra_CrsGraph;
 class Epetra_IntVector;
+class Epetra_MultiVector;
 
 #ifdef TESTING
 #define HYMLS_TEST(CALLER,FCN,FILE,LINE) \
@@ -15,7 +18,7 @@ try { \
 HYMLS::Tester::msg_.clear(); \
 HYMLS::Tester::msg_ <<"#####################################"<<std::endl; \
 HYMLS::Tester::msg_ <<" RUN TEST "<<#FCN<<std::endl; \
-HYMLS::Tester::msg_ <<" CALLER:  "<<CALLER<<" L"<<myLevel_<<std::endl; \
+HYMLS::Tester::msg_ <<" CALLER:  "<<CALLER<<std::endl; \
 HYMLS::Tester::msg_ <<"#####################################"<<std::endl; \
 HYMLS::Tools::out() <<std::endl<<HYMLS::Tester::msg_.str()<<std::endl; \
 status = HYMLS::Tester:: FCN; \
@@ -26,7 +29,7 @@ if (!status) { \
   ss << "Called by: "<<CALLER<<std::endl; \
   ss << "additional information:"<<std::endl; \
   ss << HYMLS::Tester::msg_.str() << std::endl; \
-  Tester::numFailedTests_++; \
+  HYMLS::Tester::numFailedTests_++; \
   HYMLS::Tools::Warning(ss.str(),FILE,LINE); } \
   HYMLS::Tester::msg_.str("");}
 #else
@@ -59,6 +62,9 @@ public:
   //! returns true if the input matrix is symmetric
   static bool isSymmetric(const Epetra_CrsMatrix& A);
 
+  //! returns true if the input matrix is the identity matrix
+  static bool isIdentity(const Epetra_CrsMatrix& A);
+
   //! returns true if the input matrix is an F-matrix, where the 
   //! pressure is each dof'th unknown, starting from pvar
   static bool isFmatrix(const Epetra_CrsMatrix& A,int dof=-1,int pvar=-1);
@@ -72,7 +78,10 @@ public:
 
   //! check that the domain decomposition worked, i.e. there are no couplings between 
   //! interior nodes of two different subdomains.
-  static bool isDDcorrect(const Epetra_CrsMatrix& A, const HYMLS::OverlappingPartitioner& hid); 
+  static bool isDDcorrect(const Epetra_CrsMatrix& A, const HYMLS::OverlappingPartitioner& hid);
+
+  //! check that the vector V is divergence free, i.e. A*V has a zero p-part
+  static bool isDivFree(const Epetra_CrsMatrix& A, const Epetra_MultiVector &V, int dof=-1, int pvar=-1, double tol=1e-4);
   
   //! in the Schur-preconditioner, check that only V-P couplings are dropped which
   //! have been reduced to zero by a transformation
@@ -82,7 +91,6 @@ public:
   
   //! test if a given CrsMatrix does not contain numerical zeros except on the diagonal
   static bool noNumericalZeros(const Epetra_CrsMatrix& A);
-  
   //!@}
 
   //! convert global index to string for output (gid => (i,j,k,v)

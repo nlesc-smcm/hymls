@@ -51,6 +51,10 @@
 #include "phist_operator.h"
 #include "phist_jdqr.h"
 #include "phist_jadaOpts.h"
+#include "phist_orthog.h"
+
+#include "HYMLS_Tester.H"
+#include "Epetra_Util.h"
 
 using Teuchos::RCP;
 
@@ -178,7 +182,7 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
         const RCP<Eigenproblem<ScalarType,MV,OP> > &problem,
         const RCP<PREC> &prec,
         Teuchos::ParameterList &pl )
-   : d_prec(prec), d_problem(problem)
+   : d_problem(problem), d_prec(prec)
 {
     TEUCHOS_TEST_FOR_EXCEPTION( d_problem == Teuchos::null,                std::invalid_argument, "Problem not given to solver manager." );
     TEUCHOS_TEST_FOR_EXCEPTION( !d_problem->isProblemSet(),                std::invalid_argument, "Problem not set." );
@@ -275,20 +279,30 @@ template <class ScalarType, class MV, class OP, class PREC>
 ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
 {
   int iflag;
-  Teuchos::RCP<MV> X = MVT::Clone(*d_problem->getInitVec(), d_problem->getNEV() + 1);
+  Teuchos::RCP<MV> X = MVT::Clone(*d_problem->getInitVec(), d_problem->getNEV()+1);
+  Teuchos::RCP<MV> v0 = MVT::CloneCopy(*d_problem->getInitVec());
 
-  Teuchos::RCP<MV> v0 = MVT::CloneView(*X, Teuchos::Range1D(0, 0));
+  HYMLS::MatrixUtils::Dump(*d_problem->getInitVec(), "xinpsminit.txt");
+  HYMLS::MatrixUtils::Dump(*v0, "xinpsm.txt");
 
-  //~ d_opts.v0 = v0.get();
-  
+  d_opts.v0 = v0.get();
+  d_opts.arno = 0;
+  //~ d_opts.minBas = 5;
+  //~ d_opts.initialShift=-0.05;
+  //~ d_opts.initialShift=-51.0;
+
   // create operator wrapper for computing Y=A*X using a CRS matrix
   Teuchos::RCP<extended_Dop_t> A_op = Teuchos::rcp(new extended_Dop_t());
   phist_Dop_wrap_sparseMat((Dop_t *)A_op.get(), Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(d_problem->getOperator()).get(), &iflag);
   TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
-    "PhistSolMgr::solve: phist_Dop_wrap_sparseMat returned nonzero error code");
+    "PhistSolMgr::solve: phist_Dop_wrap_sparseMat returned nonzero error code "+Teuchos::toString(iflag));
   A_op->solver = d_prec;
 
-  Teuchos::RCP<Dop_t> B_op = Teuchos::null;
+  Teuchos::RCP<extended_Dop_t> B_op = Teuchos::rcp(new extended_Dop_t());
+  phist_Dop_wrap_sparseMat((Dop_t *)B_op.get(), Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(d_problem->getM()).get(), &iflag);
+  TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
+    "PhistSolMgr::solve: phist_Dop_wrap_sparseMat returned nonzero error code "+Teuchos::toString(iflag));
+  B_op->solver = d_prec;
 
   // allocate memory for eigenvalues and residuals. We allocate
   // one extra entry because in the real case we may get that the
@@ -300,14 +314,14 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
   std::vector<ScalarType> nrmX0(d_problem->getNEV()+1);
   phist_Dmvec_normalize(X.get(), &nrmX0[0], &iflag);
   TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
-    "PhistSolMgr::solve: phist_Dmvec_normalize returned nonzero error code");
+    "PhistSolMgr::solve: phist_Dmvec_normalize returned nonzero error code "+Teuchos::toString(iflag));
 
   int num_eigs, num_iters;
 
-  phist_Djdqr((Dop_t *)A_op.get(), B_op.get(), X.get() , &evals[0], &resid[0], &is_cmplx[0],
+  phist_Djdqr((Dop_t *)A_op.get(), (Dop_t *)B_op.get(), X.get(), &evals[0], &resid[0], &is_cmplx[0],
         d_opts, &num_eigs, &num_iters, &iflag);
   TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
-    "PhistSolMgr::solve: phist_Djdqr returned nonzero error code");
+    "PhistSolMgr::solve: phist_Djdqr returned nonzero error code "+Teuchos::toString(iflag));
 
   Eigensolution<ScalarType,MV> sol;
   sol.numVecs = num_eigs;
@@ -315,12 +329,20 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
   sol.index.resize(sol.numVecs);
   sol.Evals.resize(sol.numVecs);
 
-  for (int i = 0; i < sol.numVecs; ++i)
+  int i = 0;
+  while (i < sol.numVecs)
   {
     sol.index[i] = i;
-    // FIXME: this is not protable...
     sol.Evals[i].realpart = evals[i];
+    if (is_cmplx[i]) {
+      sol.Evals[i].imagpart = evals[i+1];
+      sol.Evals[i+1].realpart = evals[i];
+      sol.Evals[i+1].imagpart = -evals[i+1];
+      i++;
+    }
+    i++;
   }
+
   if (sol.numVecs)
     sol.Evecs = MVT::CloneCopy(*X, Teuchos::Range1D(0, sol.numVecs-1));
   d_problem->setSolution(sol);

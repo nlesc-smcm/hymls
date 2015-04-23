@@ -42,43 +42,12 @@
 #include "HYMLS_Preconditioner.H"
 #include "HYMLS_Solver.H"
 #include "HYMLS_MatrixUtils.H"
+#include "HYMLS_Tester.H"
 
 typedef double ST;
 typedef Epetra_MultiVector MV;
 typedef Epetra_Operator OP;
 typedef HYMLS::Solver PREC;
-
-Teuchos::RCP<Epetra_Map> GetVelocityMap(Epetra_Map const &map, int dim = 3, int dof = 4)
-{
-  int num = map.NumMyElements();
-  int *elementList = new int[num];
-  int *newElementList = new int[num];
-  map.MyGlobalElements(elementList);
-  int j = 0;
-  for (int i = 0; i < num; ++i)
-    {
-    if (elementList[i] % dof != dim)
-      {
-      newElementList[j] = elementList[i];
-      j++;
-      }
-    }
-  Teuchos::RCP<Epetra_Map> newMap = Teuchos::rcp(new Epetra_Map(-1, j, newElementList, map.IndexBase(), map.Comm()));
-
-  delete[] elementList;
-  delete[] newElementList;
-
-  return newMap;
-}
-
-Teuchos::RCP<Epetra_Import> GetVelocityImporter(Epetra_Map const &map, Teuchos::RCP<Epetra_Map> velocityMap=Teuchos::null, int dim = 3, int dof = 4)
-{
-  if (velocityMap == Teuchos::null)
-    {
-    velocityMap = GetVelocityMap(map, dim, dof);
-    }
-  return Teuchos::rcp(new Epetra_Import(*velocityMap, map));
-}
 
 int main(int argc, char* argv[])
   {
@@ -164,8 +133,6 @@ bool status=true;
     // alltogether...   
     bool read_problem=driverList.get("Read Linear System",false);
     string datadir,file_format;
-    bool have_rhs=true;
-    bool have_exact_sol=false;
     bool have_massmatrix=false;
 
     if (read_problem)
@@ -177,8 +144,6 @@ bool status=true;
                 __FILE__,__LINE__);
         }                
       file_format = driverList.get("File Format","MatrixMarket");
-      have_rhs = driverList.get("RHS Available",true);
-      have_exact_sol = driverList.get("Exact Solution Available",false);
       have_massmatrix = driverList.get("Mass Matrix Available",false);
       }
 
@@ -266,70 +231,8 @@ HYMLS::MatrixUtils::Random(*x);
       CHECK_ZERO(M->FillComplete());
       }
     }
-//~ 
-  //~ if (eqn=="Stokes-C")
-    //~ {
-    //~ // scale equations by -1 to make operator 'negative indefinite'
-    //~ // (for testing the deflation capabilities)
-//~ //    K->Scale(-1.0);
-    //~ // put a zero in the mass matrix for singletons
-    //~ if (M!=Teuchos::null)
-      //~ {
-     //~ int lenA, lenM;
-      //~ int *indA, *indM;
-      //~ double *valA, *valM;
-      //~ for (int i=0;i<K->NumMyRows();i++)
-        //~ {
-        //~ CHECK_ZERO(K->ExtractMyRowView(i,lenA,valA,indA));
-        //~ CHECK_ZERO(M->ExtractMyRowView(i,lenM,valM,indM));
-        //~ if (lenA==1)
-          //~ {
-          //~ if (K->GCID(indA[0])==K->GRID(i))
-            //~ {
-            //~ for (int j=0;j<lenM;j++)
-              //~ {
-              //~ valM[j]=0.0;
-              //~ }
-            //~ }
-          //~ }
-        //~ }
-      //~ }
-    //~ }
-  HYMLS::MatrixUtils::Dump(*M,"massMatrix.txt");
-#ifdef STORE_MATRICES
-  HYMLS::MatrixUtils::Dump(*M,"massMatrix.txt");
-#endif
-  HYMLS::Tools::Out("Create Preconditioner");
-
-{
-  Teuchos::RCP<Epetra_Import> velocityImporter = GetVelocityImporter(K->RangeMap());
-  Teuchos::RCP<Epetra_Map> velocityMap = GetVelocityMap(K->DomainMap());
-  Teuchos::RCP<Epetra_CrsMatrix> velocityK = Teuchos::rcp(new Epetra_CrsMatrix(*K, *velocityImporter));
-
-  HYMLS::MatrixUtils::Dump(*velocityK, "origVelocityK.txt");
-  HYMLS::MatrixUtils::Dump(*K, "origK.txt");
-}
-
-  int num = K->MaxNumEntries();
-  Teuchos::RCP<Epetra_Map> velocityMap = GetVelocityMap(K->RangeMap(), dim, dof);
-  Teuchos::RCP<Epetra_Import> velocityImporter = GetVelocityImporter(K->RangeMap(), velocityMap, dim, dof);
-  Teuchos::RCP<Epetra_Map> velocityColMap = HYMLS::MatrixUtils::CreateColMap(*K, *velocityMap, *velocityMap);
-
-  Teuchos::RCP<Epetra_CrsMatrix> velocityK = Teuchos::rcp(new
-          Epetra_CrsMatrix(Copy, *velocityMap, *velocityColMap, num));
-  CHECK_ZERO(velocityK->Import(*K, *velocityImporter, Insert));
-  CHECK_ZERO(velocityK->FillComplete(*velocityMap, *velocityColMap));
-
-  Teuchos::RCP<Epetra_CrsMatrix> velocityM = Teuchos::rcp(new
-          Epetra_CrsMatrix(Copy, *velocityMap, *velocityColMap, num));
-  CHECK_ZERO(velocityM->Import(*M, *velocityImporter, Insert));
-  CHECK_ZERO(velocityM->FillComplete(*velocityMap, *velocityColMap));
-
-  HYMLS::MatrixUtils::Dump(*velocityK, "velocityK.txt");
-  HYMLS::MatrixUtils::Dump(*K, "K.txt");
 
     Teuchos::RCP<HYMLS::Preconditioner> precond = Teuchos::rcp(new HYMLS::Preconditioner(K, params));
-    //~ Teuchos::RCP<HYMLS::Preconditioner> precond = Teuchos::null;
 
   if (precond!=Teuchos::null)
     {
@@ -390,30 +293,18 @@ HYMLS::MatrixUtils::Random(*x);
 
   precond->ApplyInverse(*v0, *x);
 
-  HYMLS_TEST("main_eigs",isDivFree(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(K), *x, dof, dim),__FILE__,__LINE__);
-
-  Teuchos::RCP<Epetra_Vector> velocityx = Teuchos::rcp(new
-          Epetra_Vector(*velocityMap));
-  Teuchos::RCP<Epetra_Vector> velocityTmp = Teuchos::rcp(new
-          Epetra_Vector(*velocityMap));
-  CHECK_ZERO(velocityx->Import(*x, *velocityImporter, Insert));
-
   // Make x B-orthogonal
   double result;
-  velocityM->Multiply(false, *velocityx, *velocityTmp);
-  velocityx->Dot(*velocityTmp, &result);
-  velocityx->Scale(1.0/sqrt(result));
+  M->Multiply(false, *x, *v0);
+  x->Dot(*v0, &result);
+  x->Scale(1.0/sqrt(result));
 
-  HYMLS::MatrixUtils::Dump(*velocityM, "velocityM.txt");
-  HYMLS::MatrixUtils::Dump(*M, "M.txt");
-
-  HYMLS::MatrixUtils::Dump(*velocityx, "velocityx.txt");
-  HYMLS::MatrixUtils::Dump(*x, "x.txt");
+  HYMLS_TEST("main_eigs",isDivFree(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(K), *x, dof, dim),__FILE__,__LINE__);
 
   // Create the eigenproblem.
   DEBUG("create eigen-problem");
   Teuchos::RCP<Anasazi::BasicEigenproblem<ST, MV, OP> > eigProblem;
-  eigProblem = Teuchos::rcp( new Anasazi::BasicEigenproblem<ST,MV,OP>(velocityK, velocityM, velocityx) );
+  eigProblem = Teuchos::rcp( new Anasazi::BasicEigenproblem<ST,MV,OP>(K, M, x) );
   eigProblem->setHermitian(false);
   eigProblem->setNEV(numEigs);
   if (eigProblem->setProblem()==false)

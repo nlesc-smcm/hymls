@@ -6,6 +6,7 @@
 
 #include "Epetra_CrsGraph.h"
 #include "Epetra_CrsMatrix.h"
+#include "Epetra_Vector.h"
 #include "Epetra_IntVector.h"
 
 #include "EpetraExt_MatrixMatrix.h"
@@ -72,6 +73,33 @@ namespace HYMLS {
     ASSERT_TRUE(C.HasNormInf(),status); 
     msg_ << "||A-A'||="<<C.NormInf()<<std::endl;
     ASSERT_TRUE(C.NormInf()<=float_tol(),status);
+    return status;
+    }
+
+  //! returns true if the input matrix is the identity matrix
+  bool Tester::isIdentity(const Epetra_CrsMatrix& A)
+    {
+    HYMLS_PROF(Label(),"isIdentity(A)");
+    bool status=true;
+    ASSERT_TRUE(A.Filled(),status);
+
+    double norm;
+    Epetra_Vector diag(A.RangeMap());
+    A.ExtractDiagonalCopy(diag);
+    Epetra_Vector diag2(A.RangeMap());
+    diag2.PutScalar(1.0);
+    diag2.Update(1.0, diag, -1.0);
+
+    diag2.Norm2(&norm);
+    msg_ << "||diag(a)-e||="<<norm<<std::endl;
+    ASSERT_TRUE(norm<=float_tol(),status);
+
+    Epetra_CrsMatrix C = A;
+    C.ReplaceDiagonalValues(diag2);
+    ASSERT_TRUE(C.HasNormInf(),status);
+    msg_ << "||A-I||="<<C.NormInf()<<std::endl;
+    ASSERT_TRUE(C.NormInf()<=float_tol(),status);
+
     return status;
     }
 
@@ -376,7 +404,6 @@ namespace HYMLS {
     return status;
     }
 
-
   bool Tester::noPcouplingsDropped(const Epetra_CrsMatrix& transSC,
                                     const HierarchicalMap& sepObject)
   {
@@ -449,6 +476,29 @@ namespace HYMLS {
      
       }
     
+    return status;
+    }
+
+  bool Tester::isDivFree(const Epetra_CrsMatrix& A, const Epetra_MultiVector &V,  int dof, int pvar, double tol)
+    {
+    HYMLS_PROF(Label(),"isDivFree");
+    Epetra_MultiVector out(A.OperatorRangeMap(), V.NumVectors());
+    CHECK_ZERO(A.Apply(V, out));
+
+    bool status = true;
+
+    for (int j = 0; j < out.NumVectors(); j++)
+      {
+      for (int i = 0; i < out.MyLength(); i++)
+        {
+        if (std::abs(out[j][i]) > tol && (out.Map().GID(i) % dof == pvar))
+          {
+          msg_ << "Rowsum not zero but " << out[j][i]
+               << " on row " << out.Map().GID(i) << std::endl;
+          status = false;
+          }
+        }
+      }
     return status;
     }
 

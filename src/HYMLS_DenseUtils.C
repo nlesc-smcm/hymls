@@ -114,7 +114,8 @@ int DenseUtils::MatMul(const Epetra_MultiVector& V, const Epetra_MultiVector& W,
 // as a new MultiVector Z. V, W and Z should have the same maps and numbers
 // of vectors (columns). The product is computed as Z=(I-VV')W.                
 int DenseUtils::ApplyOrth(const Epetra_MultiVector& V, const Epetra_MultiVector& W,
-                           Epetra_MultiVector& Z)
+                           Epetra_MultiVector& Z, Teuchos::RCP<const Epetra_Operator> B,
+                           bool reverse)
   {
   HYMLS_PROF3(Label(),"ApplyOrth");
   int ierr=0;
@@ -133,11 +134,34 @@ int DenseUtils::ApplyOrth(const Epetra_MultiVector& V, const Epetra_MultiVector&
   Epetra_SerialDenseMatrix C(m,k);
   // this object is replicated on all procs because of the LocalMap:
   Teuchos::RCP<Epetra_MultiVector> VW=CreateView(C);
-  //VW=V'W
-  CHECK_ZERO(MatMul(V,W,C));
   //Z=W-VV'W
-  Z=W;
-  CHECK_ZERO(Z.Multiply('N','N',-1.0,V,*VW,1.0));
+  if (B==Teuchos::null)
+    {
+    //VW=V'W
+    CHECK_ZERO(MatMul(V,W,C));
+    Z=W;
+    CHECK_ZERO(Z.Multiply('N','N',-1.0,V,*VW,1.0));
+    }
+  else if (reverse)
+    {
+    //VVBy
+    Epetra_MultiVector Y(W.Map(), W.NumVectors());
+    CHECK_ZERO(B->Apply(W, Y));
+    //VW=V'W
+    CHECK_ZERO(MatMul(V,Y,C));
+    Z=W;
+    CHECK_ZERO(Z.Multiply('N','N',-1.0,V,*VW,1.0));
+    }
+  else
+    {
+    //VW=V'W
+    CHECK_ZERO(MatMul(V,W,C));
+    //BVV'y
+    Epetra_MultiVector Y(W.Map(), W.NumVectors());
+    CHECK_ZERO(Y.Multiply('N','N',1.0,V,*VW,0.0));
+    CHECK_ZERO(B->Apply(Y, Z));
+    CHECK_ZERO(Z.Update(1.0,W,-1.0));
+    }
   return 0;
   }
 

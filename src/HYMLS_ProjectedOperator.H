@@ -24,6 +24,7 @@ namespace HYMLS
     //!constructor
     ProjectedOperator(Teuchos::RCP<const Epetra_Operator> A, 
                       Teuchos::RCP<const Epetra_MultiVector> V,
+                      Teuchos::RCP<const Epetra_Operator> B=Teuchos::null,
                       bool useVorth=false);
 
    //! @name Destructor
@@ -147,6 +148,9 @@ does not support transpose.
 
     //! original operator
     Teuchos::RCP<const Epetra_Operator> A_;
+
+    //! operator B, mass matrix
+    Teuchos::RCP<const Epetra_Operator> B_;
     
     //! vector space
     Teuchos::RCP<const Epetra_MultiVector> V_;

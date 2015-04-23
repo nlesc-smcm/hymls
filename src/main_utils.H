@@ -17,9 +17,10 @@ class ParameterList;
 namespace HYMLS {
 namespace MainUtils {
 
-Teuchos::RCP<Epetra_CrsMatrix> read_matrix(std::string datadir, 
-                                           std::string file_format, 
-                                           Teuchos::RCP<Epetra_Map> map);
+Teuchos::RCP<Epetra_CrsMatrix> read_matrix(std::string datadir,
+                                           std::string file_format,
+                                           Teuchos::RCP<Epetra_Map> map,
+                                           std::string name="jac");
         
 Teuchos::RCP<Epetra_Vector> read_vector(std::string name,
                                         std::string datadir, 

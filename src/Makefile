@@ -36,9 +36,7 @@ OBJ=    HYMLS_Solver.o \
         HYMLS_Exception.o \
         NOX_Epetra_LinearSystem_Hymls.o \
         GaleriExt_Periodic.o \
-        main_utils.o 
-#        HYMLS_SolverContainer.o \
-#        HYMLS_ParallelSparseDirectSolver.o \
+        main_utils.o \
 
 LIBNAMEBASE=hymls_${PLAT}
 LIBNAME=lib${LIBNAMEBASE}.a
@@ -50,6 +48,9 @@ main: main.C ${LIBNAME}
 
 main_eigs: main_eigs.C ${LIBNAME}
 	${CXX} ${CXX_FLAGS} -o main_eigs $< ${INCLUDES} -L. -l${LIBNAMEBASE} ${LIBS} 
+
+main_eigs_full: main_eigs_full.C ${LIBNAME}
+	${CXX} ${CXX_FLAGS} -o main_eigs_full $< ${INCLUDES} -L. -l${LIBNAMEBASE} ${LIBS} 
 
 integration_tests: integration_tests.C ${LIBNAME}
 	${CXX} ${CXX_FLAGS} -o integration_tests $< ${INCLUDES} -L. -l${LIBNAMEBASE} ${LIBS} 
@@ -73,4 +74,4 @@ ${LIBNAME}: ${OBJ}
 	${CXX} ${CXX_FLAGS} -c $< ${INCLUDES} -o $@
 
 clean:
-	-rm *.o ${LIBNAME} main main_direct
+	-rm *.o ${LIBNAME} main main_direct main_eigs main_eigs_full

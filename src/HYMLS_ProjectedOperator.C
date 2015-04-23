@@ -14,8 +14,9 @@ namespace HYMLS
     //!constructor
     ProjectedOperator::ProjectedOperator(Teuchos::RCP<const Epetra_Operator> A, 
                       Teuchos::RCP<const Epetra_MultiVector> V,
+                      Teuchos::RCP<const Epetra_Operator> B,
                       bool useVorth) :
-  A_(A), V_(V),
+  A_(A), V_(V), B_(B),
   useVorth_(useVorth),
   leftPrecond_(Teuchos::null),
   useTranspose_(false)
@@ -52,9 +53,10 @@ labelT_="";
         {
         //TODO: this may be optimized in several ways, e.g. keep temporary vectors
         // used inside ApplyOrth etc.
-        CHECK_ZERO(DenseUtils::ApplyOrth(*V_,X,Y));
-        CHECK_ZERO(A_->Apply(Y,*tmpVector_));
-        CHECK_ZERO(DenseUtils::ApplyOrth(*V_,*tmpVector_,Y));
+        //~ CHECK_ZERO(DenseUtils::ApplyOrth(*V_,X,Y, B_, true));
+        //~ CHECK_ZERO(A_->Apply(Y,*tmpVector_));
+        CHECK_ZERO(A_->Apply(X,*tmpVector_));
+        CHECK_ZERO(DenseUtils::ApplyOrth(*V_,*tmpVector_,Y, B_));
         }
       else
         {
@@ -75,7 +77,10 @@ labelT_="";
       if (useTranspose_) Tools::Error("not implemented!",__FILE__,__LINE__);
 
       // Old implementation for preconditioner for JDQZ (see nonl.ps.gz)
-      // Y=K^-1(I-ZH^-1Q'K^-1)X
+      // Y=K^-1(I-ZH^-1Q'K^-1)X, H=Q'K^-1Z
+      // With B it is
+      //~ // Y=K^-1(I-BZH^-1Q'K^-1)X, H=Q'BK^-1BZ
+      // Y=K^-1(I-BZH^-1Q'BK^-1)X, H=Q'K^-1BZ
 
       int m = V_->NumVectors();
       int k = X.NumVectors();
@@ -91,12 +96,22 @@ labelT_="";
 
         // H=Q'K^-1Z
         H_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(m, m));
-        CHECK_ZERO(A_->ApplyInverse(*V_, tmpVectorm));
+        if (B_ != Teuchos::null)
+          {
+          Epetra_MultiVector tmpVectorm2(V_->Map(), m);
+          CHECK_ZERO(B_->Apply(*V_, tmpVectorm));
+          CHECK_ZERO(A_->ApplyInverse(tmpVectorm, tmpVectorm2));
+          CHECK_ZERO(B_->Apply(tmpVectorm2, tmpVectorm));
+          }
+        else
+          {
+          CHECK_ZERO(A_->ApplyInverse(*V_, tmpVectorm));
+          }
         CHECK_ZERO(DenseUtils::MatMul(*V_, tmpVectorm, *H_));
 
         HSolver_ = Teuchos::rcp(new Epetra_SerialDenseSolver());
         CHECK_ZERO(HSolver_->SetMatrix(*H_));
-        CHECK_ZERO(HSolver_->Invert());
+        CHECK_ZERO(HSolver_->Factor());
         }
 
       //Y=K^-1X
@@ -105,18 +120,35 @@ labelT_="";
       Epetra_SerialDenseMatrix C(m, k);
       Epetra_SerialDenseMatrix D(m, k);
 
-      //C=Q'K^-1X
-      CHECK_ZERO(DenseUtils::MatMul(*V_, Y, C));
+      if (B_ == Teuchos::null)
+        {
+        //C=Q'K^-1X
+        CHECK_ZERO(DenseUtils::MatMul(*V_, Y, C));
+        }
+      else
+        {
+        CHECK_ZERO(B_->Apply(Y, *tmpVector_));
+        CHECK_ZERO(DenseUtils::MatMul(*V_, *tmpVector_, C));
+        }
 
       //D=H^-1Q'K^-1X
       CHECK_ZERO(HSolver_->SetVectors(D, C));
-      CHECK_ZERO(HSolver_->Solve());
+      HSolver_->Solve();
 
       Teuchos::RCP<Epetra_MultiVector> HVY = DenseUtils::CreateView(D);
 
       //T=X-ZH^-1Q'K^-1X
-      *tmpVector_ = X;
-      CHECK_ZERO(tmpVector_->Multiply('N', 'N', -1.0, *V_, *HVY, 1.0));
+      if (B_ == Teuchos::null)
+        {
+        *tmpVector_ = X;
+        CHECK_ZERO(tmpVector_->Multiply('N', 'N', -1.0, *V_, *HVY, 1.0));
+        }
+      else
+        {
+        CHECK_ZERO(Y.Multiply('N', 'N', 1.0, *V_, *HVY, 0.0));
+        CHECK_ZERO(B_->Apply(Y, *tmpVector_));
+        CHECK_ZERO(tmpVector_->Update(1.0, X, -1.0));
+        }
 
       //Y=K^-1(X-ZH^-1Q'K^-1X)
       CHECK_ZERO(A_->ApplyInverse(*tmpVector_, Y));

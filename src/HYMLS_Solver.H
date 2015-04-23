@@ -87,6 +87,27 @@ public:
     {
     return operator_->Apply(X,Y);
     }
+  
+  //! Applies the matrix
+  int ApplyMatrix(const Epetra_MultiVector& X,
+                           Epetra_MultiVector& Y) const 
+    {
+    return matrix_->Apply(X,Y);
+    }
+
+  //! Applies the preconditioner
+  int ApplyPrec(const Epetra_MultiVector& X,
+                           Epetra_MultiVector& Y) const 
+    {
+    return precond_->ApplyInverse(X,Y);
+    }
+
+  //! Applies the mass matrix
+  int ApplyMass(const Epetra_MultiVector& X,
+                           Epetra_MultiVector& Y) const 
+    {
+    return massMatrix_->Apply(X,Y);
+    }
 
   //! Applies the preconditioner to vector X, returns the result in Y.
   int ApplyInverse(const Epetra_MultiVector& X,
