@@ -9,7 +9,8 @@
 #include "Epetra_Vector.h"
 #include "Epetra_IntVector.h"
 
-#include "EpetraExt_MatrixMatrix.h"
+#include "EpetraExt_Transpose_RowMatrix.h"
+#include "EpetraExt_Transpose_CrsGraph.h"
 
 namespace HYMLS {
 
@@ -37,6 +38,20 @@ namespace HYMLS {
   } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,msg_,STATUS); \
   if (!STATUS) return STATUS; 
 
+#define ASSERT_EQUALITY(FCN1,FCN2,STATUS) \
+  try { \
+  STATUS = (FCN1 == FCN2); \
+  if (!STATUS) {msg_ << "unexpected result " << #FCN1 << " = " << FCN1 << " != " << #FCN2 << " = " << FCN2 << std::endl;} \
+  } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,msg_,STATUS); \
+  if (!STATUS) return STATUS; 
+
+#define ASSERT_FLOATING_EQUALITY(FCN1,FCN2,STATUS) \
+  try { \
+  STATUS = (std::abs(FCN1 - FCN2) < float_tol()); \
+  if (!STATUS) {msg_ << "unexpected result " << #FCN1 << " = " << FCN1 << " != " << #FCN2 << " = " << FCN2 << std::endl;} \
+  } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,msg_,STATUS); \
+  if (!STATUS) return STATUS; 
+
 #define EXPECT_ZERO(FCN,STATUS) \
   try { \
   int ierr = FCN; \
@@ -49,15 +64,48 @@ namespace HYMLS {
   if (!STATUS) {msg_ << "call "<<#FCN<<" returned false" <<std::endl;} \
   } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,msg_,STATUS); \
 
-  // returns true if the input graph (i.e. the sparsity pattern of a matrix) is symmetric
+  //! returns true if the input graph (i.e. the sparsity pattern of a matrix) is symmetric
   bool Tester::isSymmetric(const Epetra_CrsGraph& G)
     {
     HYMLS_PROF(Label(),"isSymmetric(G)");
-    bool status=true;
-    ASSERT_TRUE(G.Filled(),status);
-    Epetra_CrsMatrix A(Copy,G);
-    ASSERT_ZERO(A.PutScalar(1.0),status);
-    ASSERT_TRUE(isSymmetric(A),status);
+    bool status = true;
+    ASSERT_TRUE(G.Filled(), status);
+
+    Teuchos::RCP<EpetraExt::CrsGraph_Transpose> transposer = Teuchos::RCP<EpetraExt::CrsGraph_Transpose>(new EpetraExt::CrsGraph_Transpose());
+    Epetra_CrsGraph *GTranspose = &(dynamic_cast<Epetra_CrsGraph&>(((*transposer)(const_cast<Epetra_CrsGraph&>(G)))));
+
+    ASSERT_EQUALITY(G.NumMyRows(), GTranspose->NumMyRows(), status);
+
+    int MaxNumEntries = std::max(G.GlobalMaxNumIndices(), GTranspose->GlobalMaxNumIndices());
+
+    int GNumEntries, BNumEntries;
+    int *GIndices = new int[MaxNumEntries];
+    int *BIndices = new int[MaxNumEntries];
+
+    for (int i = 0; i < G.NumMyRows(); ++i)
+      {
+      G.ExtractMyRowCopy(i, MaxNumEntries, GNumEntries, GIndices);
+      for (int j = 0; j < GNumEntries; ++j)
+        GIndices[j] = G.GCID(GIndices[j]);
+
+      GTranspose->ExtractMyRowCopy(i, MaxNumEntries, BNumEntries, BIndices);
+      for (int j = 0; j < BNumEntries; ++j)
+        BIndices[j] = GTranspose->GCID(BIndices[j]);
+
+      ASSERT_EQUALITY(GNumEntries, BNumEntries, status);
+
+      std::sort(GIndices, GIndices+GNumEntries);
+      std::sort(BIndices, BIndices+BNumEntries);
+
+      for (int j = 0; j < GNumEntries; ++j)
+        {
+        ASSERT_EQUALITY(GIndices[j], BIndices[j], status);
+        }
+      }
+
+    delete[] GIndices;
+    delete[] BIndices;
+
     return status;
     }
 
@@ -65,14 +113,49 @@ namespace HYMLS {
   bool Tester::isSymmetric(const Epetra_CrsMatrix& A)
     {
     HYMLS_PROF(Label(),"isSymmetric(A)");
-    bool status=true;
-    ASSERT_TRUE(A.Filled(),status);
-    // we do assume here that the MatrixMatrix::Add function is correct
-    Epetra_CrsMatrix C = A;
-    ASSERT_ZERO(EpetraExt::MatrixMatrix::Add(A,true,-1.0,C,1.0),status);
-    ASSERT_TRUE(C.HasNormInf(),status); 
-    msg_ << "||A-A'||="<<C.NormInf()<<std::endl;
-    ASSERT_TRUE(C.NormInf()<=float_tol(),status);
+    bool status = true;
+    ASSERT_TRUE(A.Filled(), status);
+
+    Teuchos::RCP<EpetraExt::RowMatrix_Transpose> transposer = Teuchos::RCP<EpetraExt::RowMatrix_Transpose>(new EpetraExt::RowMatrix_Transpose());
+    Epetra_CrsMatrix *ATranspose = &(dynamic_cast<Epetra_CrsMatrix&>(((*transposer)(const_cast<Epetra_CrsMatrix&>(A)))));
+
+    ASSERT_EQUALITY(A.NumMyRows(), ATranspose->NumMyRows(), status);
+
+    int MaxNumEntries = std::max(A.GlobalMaxNumEntries(), ATranspose->GlobalMaxNumEntries());
+
+    int ANumEntries, BNumEntries;
+    int *AIndices = new int[MaxNumEntries];
+    int *BIndices = new int[MaxNumEntries];
+    double *AValues = new double[MaxNumEntries];
+    double *BValues = new double[MaxNumEntries];
+
+    for (int i = 0; i < A.NumMyRows(); ++i)
+      {
+      A.ExtractMyRowCopy(i, MaxNumEntries, ANumEntries, AValues, AIndices);
+      for (int j = 0; j < ANumEntries; ++j)
+        AIndices[j] = A.GCID(AIndices[j]);
+
+      ATranspose->ExtractMyRowCopy(i, MaxNumEntries, BNumEntries, BValues, BIndices);
+      for (int j = 0; j < BNumEntries; ++j)
+        BIndices[j] = ATranspose->GCID(BIndices[j]);
+
+      ASSERT_EQUALITY(ANumEntries, BNumEntries, status);
+
+      std::sort(AIndices, AIndices+ANumEntries);
+      std::sort(BIndices, BIndices+BNumEntries);
+
+      for (int j = 0; j < ANumEntries; ++j)
+        {
+        ASSERT_EQUALITY(AIndices[j], BIndices[j], status);
+        ASSERT_FLOATING_EQUALITY(AValues[j], BValues[j], status);
+        }
+      }
+
+    delete[] AIndices;
+    delete[] BIndices;
+    delete[] AValues;
+    delete[] BValues;
+
     return status;
     }
 
@@ -241,7 +324,6 @@ namespace HYMLS {
       {
       int gid_i= A.GRID(i);
       int sd_i = part(A.GRID(i));
-      int type_i=-1;
       // map containing only interior nodes of subdomain i
       Teuchos::RCP<const Epetra_Map> imap_i = hid.SpawnMap(sd_i,HierarchicalMap::Interior);
       // map containing only separator nodes of subdomain i
@@ -412,12 +494,10 @@ namespace HYMLS {
     HYMLS_PROF(Label(),"noPcouplingsDropped");
 
     msg_<<"dof="<<dof_<<", pvar="<<pvar_<<std::endl;
-    
+
     int len;
     double* val;
     int* cols;
-    
-    int blk=0;
 
   // loop over all separators
   for (int sep=0;sep<sepObject.NumMySubdomains();sep++)

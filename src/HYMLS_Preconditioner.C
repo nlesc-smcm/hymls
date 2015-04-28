@@ -939,24 +939,31 @@ if (hid_->NumMySubdomains()>0)
   }
 #endif
 #ifdef TESTING
-Tools::out() << "Preconditioner level "<<myLevel_<<", doFmatTests="<<Tester::doFmatTests_<<std::endl;
-if (Tester::doFmatTests_)
-{
-// explicitly construct the SC and check wether it is an F-matrix
-Teuchos::RCP<Epetra_FECrsMatrix> TestSC = 
-        Teuchos::rcp(new Epetra_FECrsMatrix(Copy,Map2(),Matrix().MaxNumEntries()));
-CHECK_ZERO(Schur_->Construct(TestSC));
+    Tools::out() << "Preconditioner level " << myLevel_ << ", doFmatTests=" << Tester::doFmatTests_ << std::endl;
+    if (Tester::doFmatTests_)
+      {
+      // explicitly construct the SC and check wether it is an F-matrix
+      Teuchos::RCP<Epetra_FECrsMatrix> TestSC =
+              Teuchos::rcp(new Epetra_FECrsMatrix(Copy, Map2(), Matrix().MaxNumEntries()));
+      CHECK_ZERO(Schur_->Construct(TestSC));
 
-// this is usually done in Construct(), but not if we pass in a pointer ourselves.
-// We need a new pointer because DropByValue creates a CrsMatrix, not FECrsMatrix.
-Teuchos::RCP<Epetra_CrsMatrix> TestSC_crs = 
-MatrixUtils::DropByValue(TestSC,HYMLS_SMALL_ENTRY);
-HYMLS_TEST(Label(),isFmatrix(*TestSC_crs,dof_,dim_),__FILE__,__LINE__);            
 #ifdef STORE_MATRICES
-HYMLS::MatrixUtils::Dump(*TestSC,"SchurComplement"+Teuchos::toString(myLevel_)+"_noDrop.txt");
-HYMLS::MatrixUtils::Dump(*TestSC_crs,"SchurComplement"+Teuchos::toString(myLevel_)+".txt");
+      HYMLS::MatrixUtils::Dump(*TestSC, "SchurComplement" + Teuchos::toString(myLevel_) + "_noDrop.txt");
 #endif
-}
+
+      // this is usually done in Construct(), but not if we pass in a pointer ourselves.
+      // We need a new pointer because DropByValue creates a CrsMatrix, not FECrsMatrix.
+      Teuchos::RCP<Epetra_CrsMatrix> TestSC_crs = MatrixUtils::DropByValue(TestSC, HYMLS_SMALL_ENTRY);
+
+      // Free some memory since these tests use huge amounts
+      TestSC = Teuchos::null;
+
+      HYMLS_TEST(Label(), isFmatrix(*TestSC_crs, dof_, dim_), __FILE__, __LINE__);
+
+#ifdef STORE_MATRICES
+      HYMLS::MatrixUtils::Dump(*TestSC_crs, "SchurComplement" + Teuchos::toString(myLevel_) + ".txt");
+#endif
+      }
 #endif
 }
 
