@@ -1,13 +1,11 @@
 from mailer import Mailer
 from mailer import Message
-import sys
+
 import dataparser
+import test_rev
 
 def main():
-    if len(sys.argv) < 2:
-        return
-
-    rev = sys.argv[1]
+    rev = test_rev.get_rev('./')
 
     message = Message(From="s.baars@rug.nl",
                       To="s.baars@rug.nl",

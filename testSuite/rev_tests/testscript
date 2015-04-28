@@ -11,4 +11,4 @@ git log --format="%H" -n 1
 git reset --hard
 python test_rev.py `git log --format="%H" -n 1`
 
-python mail_results.py `git log --format="%H" -n 1`
+python mail_results.py
