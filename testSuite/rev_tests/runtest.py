@@ -417,7 +417,7 @@ def test_method(nodes, procs, size, levels, ssize, re_start, re_end, re_step, re
     else:
         print_input(nodes, procs, size, levels, ssize, re_start, re_end, re_step, False)
 
-    exe = os.path.join(os.path.expanduser('~/stable/fredwubs/fvm/src/LDCavCont')) + ' %s.xml &> %s.out' % (fname, fname)
+    exe = os.path.join(os.path.expanduser('~/testing/fredwubs/fvm/src/LDCavCont')) + ' %s.xml &> %s.out' % (fname, fname)
 
     c = ParallelCommand(exe, {'OMP_NUM_THREADS': '1'}, procs, nodes)
     ret, killed = c.run(10000)

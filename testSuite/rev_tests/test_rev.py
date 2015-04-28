@@ -17,7 +17,7 @@ class Command(object):
         if self.env is not None:
             self.env.update(os.environ)
 
-    def run(self, timeout=500):
+    def run(self, timeout=600):
         def target():
             self.out += 'Thread started\n'
             self.out += 'Running ' + self.cmd + '\n'
@@ -45,11 +45,9 @@ class Command(object):
         self.out += 'Returncode is ' + str(self.process.returncode) + '\n'
         return (self.process.returncode, killed)
 
-    def kill():
+    def kill(self):
         self.out += 'Terminating process\n'
         subprocess.call('killall -9 '+self.cmd.partition(' ')[0], shell=True)
-        if len(self.cmd.split(' ')) > 2:
-            subprocess.call('killall -9 '+self.cmd.split(' ')[2], shell=True)
 
 class ParallelCommand(Command):
     def __init__(self, cmd, env=None, procs=1, nodes=1):
@@ -71,12 +69,12 @@ class ParallelCommand(Command):
                 self.mpi = mpi
                 break
 
-    def kill():
+    def kill(self):
         super(ParallelCommand, self).kill()
         if self.mpi:
             subprocess.call('killall -9 '+self.mpi, shell=True)
         if self.orig_cmd:
-            subprocess.call('killall -9 '+self.orig_cmd, shell=True)
+            subprocess.call('killall -9 '+self.orig_cmd.partition(' ')[0], shell=True)
 
 test_path = os.getcwd()
 log_name = ''
@@ -125,7 +123,7 @@ def platform(testing=False):
     return 'PLAT=%s' % ('cartdefault' if not testing else 'carttesting')
 
 def shared_dir(fredwubs_path):
-    return 'SHARED_DIR='+os.path.join(os.path.expanduser("~"), 'stable/')
+    return 'SHARED_DIR='+os.path.join(os.path.expanduser("~"), 'testing/')
 
 def trilinos_home():
     return 'TRILINOS_HOME=%s' % get_trili_dir()
@@ -194,9 +192,9 @@ def build(fredwubs_path, path, testing=False, target=None):
     makefile.close()
 
     #remove symlinks in fvm
-    if os.path.isfile('NOX_Epetra_LinearSystem_Belos.H'):
+    if os.path.lexists('NOX_Epetra_LinearSystem_Belos.H'):
         os.remove('NOX_Epetra_LinearSystem_Belos.H')
-    if os.path.isfile('NOX_Epetra_LinearSystem_Belos.C'):
+    if os.path.lexists('NOX_Epetra_LinearSystem_Belos.C'):
         os.remove('NOX_Epetra_LinearSystem_Belos.C')
 
     target = (target if target else '')
@@ -305,7 +303,7 @@ def options():
 
 def main():
     global test_path, global_rev
-    fredwubs_path = os.path.join(os.path.expanduser("~"), 'stable/fredwubs')
+    fredwubs_path = os.path.join(os.path.expanduser("~"), 'testing/fredwubs')
     running_path = os.getcwd()
     os.chdir(fredwubs_path)
 

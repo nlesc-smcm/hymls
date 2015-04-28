@@ -4,6 +4,7 @@ import matplotlib
 import matplotlib.pyplot as pyplot
 import copy
 import re
+import subprocess
 
 class ParserData:
     def __init__(self):
@@ -233,5 +234,68 @@ def main():
     parser.plot_iterations()
     parser.plot_failures()
 
+def find_previous_commit(commit):
+    if commit.isdigit() and len(commit) < 5:
+        p = subprocess.Popen('git svn find-rev r'+commit, stdout=subprocess.PIPE, shell=True)
+        (out, err) = p.communicate()
+        commit = out.strip()
+
+    p = subprocess.Popen('git log --pretty=oneline --format="%H" '+commit+'^ --', stdout=subprocess.PIPE, shell=True)
+    (out, err) = p.communicate()
+    commits = out.strip().split('\n')
+    d = os.listdir('./')
+    for i in commits:
+        if i in d:
+            return i
+        p = subprocess.Popen('git svn find-rev '+i, stdout=subprocess.PIPE, shell=True)
+        (out, err) = p.communicate()
+        rev = out.strip()
+        if rev in d:
+            return rev
+    return ''
+
+def compare(first, second=None):
+    if second is None:
+        second = first
+        first = find_previous_commit(second)
+
+    if not (os.path.isdir(first) and os.path.isdir(second)):
+        message = 'No valid directories/revisions supplied'
+        print message
+        return message
+
+    parser = Parser('./')
+    data1 = parser.parse_dir(first)
+    data2 = parser.parse_dir(second)
+
+    errors = ''
+    warnings = ''
+
+    # Bad hack for iterating over members of ParserData
+    for name in data1.__dict__.iterkeys():
+        subdata1 = getattr(data1, name)
+        subdata2 = getattr(data2, name)
+        if name == 'failed':
+            if subdata2:
+                errors += 'Error: Tests failed\n'
+            continue
+
+        for item, value in subdata1.iteritems():
+            if isinstance(value, int):
+                if value != subdata2[item]:
+                    warnings += 'Warning: %s in %s went from %d to %d\n' %(item, name, value, subdata2[item])
+
+    message = 'Tests completed succesfully'
+    if errors or warnings:
+        message = errors + '\n' + warnings
+
+    print message
+    return message
+
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) == 3:
+        compare(sys.argv[1], sys.argv[2])
+    elif len(sys.argv) == 2:
+        compare(sys.argv[1])
+    else:
+        main()

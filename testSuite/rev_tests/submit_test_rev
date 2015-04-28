@@ -13,7 +13,7 @@ cd $HOME/rev_tests
 
 d=$(pwd)
 
-cd ${HOME}/stable/fredwubs/
+cd ${HOME}/testing/fredwubs/
 
 git reset --hard HEAD
 git svn rebase
