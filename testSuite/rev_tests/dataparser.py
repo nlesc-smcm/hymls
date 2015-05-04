@@ -6,6 +6,20 @@ import copy
 import re
 import subprocess
 
+def parse_float(value):
+    try:
+        return float(value)
+    except ValueError:
+        return 0
+
+def get_max(arr1, arr2=None):
+    arrmax = 0
+    if arr1:
+        arrmax = max(arrmax, max(arr1))
+    if arr2:
+        arrmax = max(arrmax, max(arr2))
+    return arrmax
+
 class ParserData:
     def __init__(self):
         self.fvm = {'timing': {}, 'failures': 0, 'iterations': 0}
@@ -64,7 +78,7 @@ class Parser:
                 d = i.split('\t')
                 if len(d) == 4:
                     name = re.sub('_L(\d)', ' (level \g<1>)', d[0])
-                    parsed_data.fvm['timing'][name] = d[3].strip()
+                    parsed_data.fvm['timing'][name] = parse_float(d[3].strip())
             if 'FAILED!' in i:
                 parsed_data.fvm['failures'] += 1
             if i.startswith('+ Number of iterations:'):
@@ -165,7 +179,7 @@ class Parser:
                 #~ print 'data', data.fvm
                 #~ print rev
                 if not data.failed:
-                    time = float(getattr(data, attr)['timing'].get(i, '0'))
+                    time = getattr(data, attr)['timing'].get(i, 0)
                     x.append(int(rev))
                     y.append(time)
                     prev_time = time
@@ -270,6 +284,7 @@ def compare(first, second=None):
 
     errors = ''
     warnings = ''
+    report = ''
 
     # Bad hack for iterating over members of ParserData
     for name in data1.__dict__.iterkeys():
@@ -280,14 +295,42 @@ def compare(first, second=None):
                 errors += 'Error: Tests failed\n'
             continue
 
+        # Search for values that changed (too much) compared to the previous commit
         for item, value in subdata1.iteritems():
+            value2 = subdata2[item]
             if isinstance(value, int):
-                if value != subdata2[item]:
-                    warnings += 'Warning: %s in %s went from %d to %d\n' %(item, name, value, subdata2[item])
+                if value != value2:
+                    warnings += 'Warning: {:s} in {:s} went from {:d} to {:d}\n'.format(
+                        item, name, value, value2)
+            if item == 'timing':
+                maxtime = get_max(value.values(), value2.values())
+                for tname, t in value.iteritems():
+                    t2 = value2.get(tname, 0)
+                    # if t2 == 0 or t2 differs from t for more than 20%, assume failure
+                    if t > maxtime * 0.1 and (abs(t2) < 1e-8 or abs(t2 / t - 1) > 0.2):
+                        # long name
+                        short_tname = tname.replace('AssembleTransformAndDrop (first call)', 'AT&D')
+                        report += 'Warning: {:<50s} in {:s}: {:6.2f}s, was {:6.2f}s\n'.format(
+                            short_tname, name, t, subdata1.get(item, {}).get(tname, 0))
+
+        # Make a report containing all relevant values
+        report += '\n' + name + '\n'
+        for item, value in subdata2.iteritems():
+            if isinstance(value, int):
+                report += '{:s}: {:d}\n'.format(item, value)
+            if item == 'timing':
+                maxtime = get_max(value.values())
+                for tname, t in value.iteritems():
+                    if t > maxtime * 0.1:
+                        # long name
+                        short_tname = tname.replace('AssembleTransformAndDrop (first call)', 'AT&D')
+                        report += '{:<50s}: {:6.2f}s, was {:6.2f}s\n'.format(short_tname, t, subdata1.get(item, {}).get(tname, 0))
 
     message = 'Tests completed succesfully'
     if errors or warnings:
         message = errors + '\n' + warnings
+
+    message += '\n\n------------------------\nFull report\n------------------------\n' + report
 
     print message
     return message
