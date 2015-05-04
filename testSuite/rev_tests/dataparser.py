@@ -54,7 +54,7 @@ class Parser:
         for i in data:
             if 'Starting integration tests' in i:
                 time += 1
-            if 'failed' in i:
+            if re.match('^Test.+failed.$', i):
                 if time == 1:
                     parsed_data.integration_tests['failures'] += 1
                 else:
