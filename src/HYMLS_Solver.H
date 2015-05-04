@@ -80,14 +80,14 @@ public:
 
   //! for eigenvalue computations - set mass matrix
   void SetMassMatrix(Teuchos::RCP<const Epetra_RowMatrix> B);
-  
+
   //! Applies the operator
   int Apply(const Epetra_MultiVector& X,
                            Epetra_MultiVector& Y) const 
     {
     return operator_->Apply(X,Y);
     }
-  
+
   //! Applies the matrix
   int ApplyMatrix(const Epetra_MultiVector& X,
                            Epetra_MultiVector& Y) const 
@@ -181,20 +181,19 @@ protected:
 
   //! matrix
   Teuchos::RCP<const Epetra_RowMatrix> matrix_;
- 
- 
+
  //! operator for which we solve OP*x=b, typically same as matrix_ or
  //! beta*A+alpha*B (if SetShift was called)
  Teuchos::RCP<const Epetra_Operator> operator_;
-  
+
+  //! preconditioner
+  Teuchos::RCP<Epetra_Operator> precond_;
+
   //! We solve (beta*A+alpha*B)x=b
   double shiftA_, shiftB_;
 
   //! solver type and start vector type
   std::string solverType_, startVec_;
-
-  //! preconditioner
-  Teuchos::RCP<Epetra_Operator> precond_;
   
   //! rhs and sol vectors. I'm not sure if we need these vectors
   //! in the object or could just pass on the input of ApplyInverse,
@@ -281,11 +280,11 @@ Teuchos::RCP<BorderedLU> LU_;
   //! infinity norm
   double normInf_;
   
-  //! label
-  std::string label_;
-  
   //! number of iterations performed in last ApplyInverse() call
   mutable int numIter_;
+  
+  //! label
+  std::string label_;
   
   private:
   

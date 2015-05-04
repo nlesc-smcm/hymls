@@ -38,17 +38,19 @@
 namespace HYMLS {
 
   // constructor
-  Solver::Solver(Teuchos::RCP<const Epetra_RowMatrix> K, 
+  Solver::Solver(Teuchos::RCP<const Epetra_RowMatrix> K,
       Teuchos::RCP<Epetra_Operator> P,
       Teuchos::RCP<Teuchos::ParameterList> params,
       int numRhs)
-      : matrix_(K), operator_(K), precond_(P), comm_(Teuchos::rcp(&(K->Comm()),false)), 
-      shiftA_(1.0), shiftB_(0.0),
+      :
+        PLA("Solver"), comm_(Teuchos::rcp(&(K->Comm()),false)),
+        matrix_(K), operator_(K), precond_(P),
+        shiftA_(1.0), shiftB_(0.0),
         massMatrix_(Teuchos::null), nullSpace_(Teuchos::null),
         augmentedNullSpace_(Teuchos::null),
-        normInf_(-1.0), useTranspose_(false),
-        numEigs_(0), numIter_(0), doBordering_(false),
-        label_("HYMLS::Solver"), PLA("Solver")
+        doBordering_(false), numEigs_(0),
+        useTranspose_(false), normInf_(-1.0), numIter_(0),
+        label_("HYMLS::Solver")
   {
   HYMLS_PROF3(label_,"Constructor");
   setParameterList(params);
@@ -843,21 +845,21 @@ int Solver::ApplyInverse(const Epetra_MultiVector& B,
       *belosSol_=X;
       }
 
-    CHECK_TRUE(belosProblemPtr_->setProblem(belosSol_,belosRhs_));
+    CHECK_TRUE(belosProblemPtr_->setProblem(belosSol_, belosRhs_));
 
-    ::Belos::ReturnType ret;
-    bool status=true;
+    ::Belos::ReturnType ret = ::Belos::Unconverged;
+    bool status = true;
     try {
-    ret=belosSolverPtr_->solve();
-    } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr, status);
-    if (!status) Tools::Warning("caught an exception",__FILE__,__LINE__);
+      ret = belosSolverPtr_->solve();
+    } TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, status);
+    if (!status) Tools::Warning("caught an exception", __FILE__, __LINE__);
 
-  numIter_ = belosSolverPtr_->getNumIters();
+    numIter_ = belosSolverPtr_->getNumIters();
 
-  //TODO: avoid this copy operation
-  X=*belosSol_;
+    //TODO: avoid this copy operation
+    X = *belosSol_;
 
-    if (ret!=::Belos::Converged)
+    if (ret != ::Belos::Converged)
       {
       HYMLS::Tools::Warning("Belos returned "+::Belos::convertReturnTypeToString(ret)+"'!",__FILE__,__LINE__);    
 #ifdef TESTING
