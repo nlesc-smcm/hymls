@@ -571,7 +571,7 @@ DEBVAR(*borderC_);
   Tools::Out("drop before going to next level");
 #endif
   Teuchos::RCP<Epetra_CrsMatrix> tmp = MatrixUtils::DropByValue(reducedSchur_,
-        HYMLS_SMALL_ENTRY);
+        HYMLS_SMALL_ENTRY, MatrixUtils::RelDropDiag);
   *reducedSchur_ = *tmp; 
   tmp=Teuchos::null;
   
@@ -959,8 +959,9 @@ int SchurPreconditioner::InitializeOT()
 #ifdef TESTING
     Tools::Out("drop because of next DD");
 #endif
-    reducedSchur_=MatrixUtils::DropByValue(reducedSchur_,HYMLS_SMALL_ENTRY);
-      
+    reducedSchur_ = MatrixUtils::DropByValue(reducedSchur_, HYMLS_SMALL_ENTRY,
+                        MatrixUtils::RelDropDiag);
+
     // I think this is required to make the matrix Ifpack-proof:
     reducedSchur_ = MatrixUtils::RemoveColMap(reducedSchur_);
     CHECK_ZERO(reducedSchur_->FillComplete(*vsumMap_,*vsumMap_));
