@@ -23,9 +23,9 @@
   </ParameterList>
 
   <ParameterList name="Targets">
-    <Parameter name="Number of Iterations" type="int" value="55"/>
-    <Parameter name="Relative Residual 2-Norm" type="double" value="5.0e-8"/>
-    <Parameter name="Relative Error 2-Norm" type="double" value="5.0e-8"/>
+    <Parameter name="Number of Iterations" type="int" value="65"/>
+    <Parameter name="Relative Residual 2-Norm" type="double" value="1.0e-5"/>
+    <Parameter name="Relative Error 2-Norm" type="double" value="1.0e-5"/>
   </ParameterList>
 
   <ParameterList name="Problem"><!--{-->
@@ -49,7 +49,7 @@
 
     <!-- parameters for the iterative solver (Belos) -->
     <ParameterList name="Iterative Solver">
-      <Parameter name="Maximum Iterations" type="int" value="60"/>
+      <Parameter name="Maximum Iterations" type="int" value="70"/>
       <Parameter name="Maximum Restarts" type="int" value="1"/>
       <Parameter name="Convergence Tolerance" type="double" value="1.0e-8"/>
       <Parameter name="Flexible Gmres" type="bool" value="0"/>

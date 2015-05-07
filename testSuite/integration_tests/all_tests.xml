@@ -1,7 +1,5 @@
 <ParameterList name="HYMLS Unit Tests">
 
-  <Parameter name="skip 3D tests" type="bool" value="true"/>
-
   <!-- Stokes problem, 1-level method (direct method) -->
   <Parameter name="Test 1a" type="string" value="stokes0.xml"/>
   <!-- 2D test problems, 2-level method -->
