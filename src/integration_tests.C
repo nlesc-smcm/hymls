@@ -218,6 +218,55 @@ void printError(int ierr)
     }
   }
 
+void getLinearSystem(Teuchos::RCP<const Epetra_Comm> comm,
+    Teuchos::RCP<Teuchos::ParameterList> params, Teuchos::RCP<Epetra_CrsMatrix> &K,
+    Teuchos::RCP<Epetra_MultiVector> &b, Teuchos::RCP<Epetra_MultiVector> &x_ex)
+  {
+  Teuchos::ParameterList& driverList = params->sublist("Driver");
+
+  bool read_problem = driverList.get("Read Linear System", false);
+  int numRhs = driverList.get("Number of rhs", 1);
+
+  Teuchos::RCP<Epetra_Map> map = HYMLS::MainUtils::create_map(*comm, params->sublist("Problem"));
+
+  // exact solution
+  x_ex = Teuchos::rcp(new Epetra_MultiVector(*map, numRhs));
+
+  // right-hand side
+  b = Teuchos::rcp(new Epetra_MultiVector(*map, numRhs));
+
+  if (read_problem)
+    {
+    std::string datadir = driverList.get("Data Directory", "not specified");
+    if (datadir == "not specified")
+      {
+      HYMLS::Tools::Error("'Data Directory' not specified although 'Read Linear System' is true",
+              __FILE__, __LINE__);
+      }
+    std::string file_format = driverList.get("File Format", "MatrixMarket");
+    bool have_exact_sol = driverList.get("Exact Solution Available", false);
+
+    K = HYMLS::MainUtils::read_matrix(datadir, file_format, map);
+    b = HYMLS::MainUtils::read_vector("rhs", datadir, file_format, map);
+    if (have_exact_sol)
+      {
+      x_ex = HYMLS::MainUtils::read_vector("sol", datadir, file_format, map);
+      }
+    }
+  else
+    {
+    HYMLS::Tools::Out("Create matrix");
+    std::string galeriLabel = driverList.get("Galeri Label", "");
+    Teuchos::ParameterList galeriList;
+    if (driverList.isSublist("Galeri"))
+      {
+      galeriList = driverList.sublist("Galeri");
+      }
+    K = HYMLS::MainUtils::create_matrix(*map, params->sublist("Problem"),
+        galeriLabel, galeriList);
+    }
+  }
+
 int runTest(Teuchos::RCP<const Epetra_Comm> comm,
         Teuchos::RCP<Teuchos::ParameterList> params)
   {
@@ -234,32 +283,20 @@ int runTest(Teuchos::RCP<const Epetra_Comm> comm,
 #endif
 
   try {
-    Teuchos::RCP<Epetra_Map> map;
     Teuchos::RCP<Epetra_CrsMatrix> K;
     Teuchos::RCP<Epetra_Vector> u_ex;
     Teuchos::RCP<Epetra_Vector> f;
 
+    Teuchos::RCP<Epetra_MultiVector> b;
+    Teuchos::RCP<Epetra_MultiVector> x_ex;
+
     Teuchos::ParameterList& driverList = params->sublist("Driver");
 
-    int numComputes=driverList.get("Number of factorizations",1);
-    int numSolves=driverList.get("Number of solves",1);
-    int numRhs   =driverList.get("Number of rhs",1);
+    int numComputes = driverList.get("Number of factorizations", 1);
+    int numSolves = driverList.get("Number of solves", 1);
+    int numRhs = driverList.get("Number of rhs", 1);
 
-    bool read_problem=driverList.get("Read Linear System",false);
-    string datadir,file_format;
-    bool have_exact_sol=false;
-
-    if (read_problem)
-      {
-      datadir = driverList.get("Data Directory","not specified");
-      if (datadir=="not specified")
-        {
-        HYMLS::Tools::Error("'Data Directory' not specified although 'Read Linear System' is true",
-                __FILE__,__LINE__);
-        }
-      file_format = driverList.get("File Format","MatrixMarket");
-      have_exact_sol = driverList.get("Exact Solution Available",false);
-      }
+    bool read_problem = driverList.get("Read Linear System", false);
 
     driverList.unused(std::cerr);
 
@@ -269,52 +306,25 @@ int runTest(Teuchos::RCP<const Epetra_Comm> comm,
     double target_rel_err_norm2 = targetList.get("Relative Error 2-Norm",1.0);
 
     Teuchos::ParameterList& probl_params = params->sublist("Problem");
-
-    int dim=probl_params.get("Dimension",2);
-    std::string eqn=probl_params.get("Equations","Laplace");
+    int dim = probl_params.get("Dimension", 2);
+    std::string eqn = probl_params.get("Equations", "Laplace");
 
     // create a copy of the parameter list
     Teuchos::RCP<Teuchos::ParameterList> params_copy
           = Teuchos::rcp(new Teuchos::ParameterList(*params));
 
-      params_copy->remove("Targets");
-      params_copy->remove("Driver");
+    params_copy->remove("Targets");
 
-      map = HYMLS::MainUtils::create_map(*comm,probl_params);
+    // we pass in params_copy here because in case of Laplace-Neumann
+    // the "Problem" list is adjusted for the solver, which we do not
+    // want in the original list.
+    getLinearSystem(comm, params_copy, K, b, x_ex);
 
-    // create a random exact solution
-    Teuchos::RCP<Epetra_MultiVector> x_ex = Teuchos::rcp(new Epetra_MultiVector(*map,numRhs));
-
-    // construct right-hand side
-    Teuchos::RCP<Epetra_MultiVector> b = Teuchos::rcp(new Epetra_MultiVector(*map,numRhs));
+    // Use the map from the vectors from getLinearSystem here
+    Epetra_BlockMap const &map = x_ex->Map();
 
     // approximate solution
-    Teuchos::RCP<Epetra_MultiVector> x = Teuchos::rcp(new Epetra_MultiVector(*map,numRhs));
-
-    if (read_problem)
-      {
-      K=HYMLS::MainUtils::read_matrix(datadir,file_format,map);
-      b=HYMLS::MainUtils::read_vector("rhs",datadir,file_format,map);
-      if (have_exact_sol)
-        {
-        x_ex=HYMLS::MainUtils::read_vector("sol",datadir,file_format,map);
-        }
-      }
-    else
-      {
-      HYMLS::Tools::Out("Create matrix");
-      std::string galeriLabel = driverList.get("Galeri Label","");
-      Teuchos::ParameterList galeriList;
-      if (driverList.isSublist("Galeri"))
-        {
-        galeriList = driverList.sublist("Galeri");
-        }
-      // we pass in params_copy here because in case of Laplace-Neumann
-      // the "Problem" list is adjusted for the solver, which we do not
-      // want in the original list.
-      K=HYMLS::MainUtils::create_matrix(*map,params_copy->sublist("Problem"),
-          galeriLabel, galeriList);
-      }
+    Teuchos::RCP<Epetra_MultiVector> x = Teuchos::rcp(new Epetra_MultiVector(map, numRhs));
 
     HYMLS::Tools::Out("Create Preconditioner");
 
@@ -355,7 +365,7 @@ int runTest(Teuchos::RCP<const Epetra_Comm> comm,
 
       for (int s=0;s<numSolves;s++)
         {
-        if (read_problem==false)
+        if (!read_problem)
           {
           xseed = x_ex->Seed();
           CHECK_ZERO(HYMLS::MatrixUtils::Random(*x_ex));
@@ -381,14 +391,10 @@ int runTest(Teuchos::RCP<const Epetra_Comm> comm,
           int dof=dim+1;
           for (int k=0;k<numRhs;k++)
             {
-            double pref=(*x)[k][dim];
-            if (have_exact_sol)
-              {
-              pref -= (*x_ex)[k][dim];
-              }
+            double pref = (*x)[k][dim] - (*x_ex)[k][dim];
             for (int i=dim; i<x->MyLength();i+=dof)
               {
-              (*x)[k][i]-=pref;
+              (*x)[k][i] -= pref;
               }
             }
           }
@@ -398,9 +404,9 @@ int runTest(Teuchos::RCP<const Epetra_Comm> comm,
         // compute residual and error vectors
 
         Teuchos::RCP<Epetra_MultiVector> res = Teuchos::rcp(new
-            Epetra_MultiVector(*map,numRhs));
+            Epetra_MultiVector(map, numRhs));
         Teuchos::RCP<Epetra_MultiVector> err = Teuchos::rcp(new
-            Epetra_MultiVector(*map,numRhs));
+            Epetra_MultiVector(map, numRhs));
 
         CHECK_ZERO(K->Multiply(false,*x,*res));
         CHECK_ZERO(res->Update(1.0,*b,-1));
