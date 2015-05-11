@@ -3,10 +3,12 @@
 #SBATCH -N 1 --tasks-per-node=8
 #SBATCH -J hymls_rev_test
 
+export PYTHONPATH=${HOME}/testing/fredwubs/hymls/python
 cd ${HOME}/testing/fredwubs/hymls/testSuite/rev_tests
 
-echo 'Testing '
+echo 'Testing'
 pwd
+env
 git log --format="%H" -n 1
 git reset --hard
 python test_rev.py `git log --format="%H" -n 1`

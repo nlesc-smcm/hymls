@@ -6,7 +6,7 @@ import sys
 import datetime
 import shutil
 
-from test_rev import ParallelCommand
+from Command import *
 
 def print_input(nodes, procs, size, levels, ssize, re_start, re_end, re_step, restart):
     text = '''<ParameterList name="Driven Cavity using LOCA/HYMLS"><!--{-->
