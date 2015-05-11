@@ -158,7 +158,8 @@ void SUBR(jadaCorrectionSolver_run)(TYPE(jadaCorrectionSolver_ptr) me,
       solver->ApplyInverse(*(const Epetra_MultiVector *)r_i, *(Epetra_MultiVector *)t_i);
     }
 
-    HYMLS_TEST("jada",isDivFree(*(const Epetra_CrsMatrix *)A_op->A, *(const Epetra_MultiVector *)t_i, 4, 3),__FILE__,__LINE__);
+    if (solver->getNonconstParameterList()->sublist("Problem").get("Equations", "") == "Stokes-C")
+      HYMLS_TEST("jada",isDivFree(*(const Epetra_CrsMatrix *)A_op->A, *(const Epetra_MultiVector *)t_i, 4, 3),__FILE__,__LINE__);
 
   }
 
@@ -203,40 +204,44 @@ void SUBR(computeResidual)(TYPE(const_op_ptr) B_op, TYPE(mvec_ptr) r_ptr,
     PHIST_CHK_IERR(SUBR(mvec_times_sdMat)(-1.0,u_ptr,Theta,1.0,r_ptr,iflag),*iflag);
   }
 
-  Teuchos::RCP<HYMLS::Solver> solver = ((extended_Dop_t const *)B_op)->solver;
-
-  // We only want to import vectors etc if we don't solve the full system but
-  // only the v-part
-  if (!(((Epetra_MultiVector *)rtil_ptr)->Map().SameAs(solver->OperatorRangeMap())))
+  Teuchos::RCP<HYMLS::Solver> solver = Teuchos::null;
+  if (B_op != NULL)
   {
-    ((Epetra_MultiVector *)rtil_ptr)->PutScalar(0.0);
+    solver = ((extended_Dop_t const *)B_op)->solver;
 
-    TEUCHOS_ASSERT(solver->OperatorRangeMap().SameAs(solver->OperatorDomainMap()));
+    // We only want to import vectors etc if we don't solve the full system but
+    // only the v-part
+    if (!(((Epetra_MultiVector *)rtil_ptr)->Map().SameAs(solver->OperatorRangeMap())))
+    {
+      ((Epetra_MultiVector *)rtil_ptr)->PutScalar(0.0);
 
-    // make some space for the full vectors
-    const Epetra_Map &map = solver->OperatorRangeMap();
-    Epetra_Import import(map, ((const Epetra_MultiVector *)r_ptr)->Map());
-    Epetra_MultiVector vec1(map, ((const Epetra_MultiVector *)r_ptr)->NumVectors());
-    vec1.PutScalar(0.0);
-    CHECK_ZERO(vec1.Import(*(const Epetra_MultiVector *)r_ptr, import, Insert));
+      TEUCHOS_ASSERT(solver->OperatorRangeMap().SameAs(solver->OperatorDomainMap()));
 
-    Epetra_MultiVector vec2(map, ((Epetra_MultiVector *)r_ptr)->NumVectors());
+      // make some space for the full vectors
+      const Epetra_Map &map = solver->OperatorRangeMap();
+      Epetra_Import import(map, ((const Epetra_MultiVector *)r_ptr)->Map());
+      Epetra_MultiVector vec1(map, ((const Epetra_MultiVector *)r_ptr)->NumVectors());
+      vec1.PutScalar(0.0);
+      CHECK_ZERO(vec1.Import(*(const Epetra_MultiVector *)r_ptr, import, Insert));
 
-    // get the p-part
-    solver->ApplyPrec(vec1, vec2);
+      Epetra_MultiVector vec2(map, ((Epetra_MultiVector *)r_ptr)->NumVectors());
 
-    // put zeros in the v part
-    vec2.Import(*(const Epetra_MultiVector *)rtil_ptr, import, Insert);
+      // get the p-part
+      solver->ApplyPrec(vec1, vec2);
 
-    // multiply by A, but since the v-part is zero this is D*p
-    solver->ApplyMatrix(vec2, vec1);
+      // put zeros in the v part
+      vec2.Import(*(const Epetra_MultiVector *)rtil_ptr, import, Insert);
 
-    // now put back the result in rtil
-    Epetra_Import invImport(((Epetra_MultiVector *)rtil_ptr)->Map(), map);
-    CHECK_ZERO(((Epetra_MultiVector *)rtil_ptr)->Import(vec1, invImport, Insert));
+      // multiply by A, but since the v-part is zero this is D*p
+      solver->ApplyMatrix(vec2, vec1);
 
-    // recompute r by adding rtil
-    PHIST_CHK_IERR(SUBR(mvec_add_mvec)(-1.0,rtil_ptr,1.0,r_ptr,iflag),*iflag);
+      // now put back the result in rtil
+      Epetra_Import invImport(((Epetra_MultiVector *)rtil_ptr)->Map(), map);
+      CHECK_ZERO(((Epetra_MultiVector *)rtil_ptr)->Import(vec1, invImport, Insert));
+
+      // recompute r by adding rtil
+      PHIST_CHK_IERR(SUBR(mvec_add_mvec)(-1.0,rtil_ptr,1.0,r_ptr,iflag),*iflag);
+    }
   }
 
   // set rtil=r
@@ -281,8 +286,11 @@ void SUBR(computeResidual)(TYPE(const_op_ptr) B_op, TYPE(mvec_ptr) r_ptr,
   *resid=sqrt(nrm[0]+nrm[1]);
 
 #ifdef TESTING
-  // Should work in both the v-part and full system solvers
+  // TODO: We can't do anything here if we don't have B
+  if (solver == Teuchos::null)
+    return;
 
+  // Should work in both the v-part and full system solvers
   TEUCHOS_ASSERT(solver->OperatorRangeMap().SameAs(solver->OperatorDomainMap()));
 
   // make some space for the full vectors

@@ -19,6 +19,19 @@
 
 #include "main_utils.H"
 
+#include "Teuchos_FancyOStream.hpp"
+
+#include "AnasaziBasicEigenproblem.hpp"
+#include "AnasaziEpetraAdapter.hpp"
+#include "AnasaziBlockKrylovSchurSolMgr.hpp"
+
+#ifdef HAVE_PHIST
+#include "evp/AnasaziPhistSolMgr.hpp"
+#else
+#include "evp/AnasaziJacobiDavidsonSolMgr.hpp"
+#include "evp/AnasaziHymlsAdapter.hpp"
+#endif
+
 /*
 #include "EpetraExt_HDF5.h"
 #include "EpetraExt_Exception.h"
@@ -29,8 +42,6 @@
 #include "HYMLS_Preconditioner.H"
 #include "HYMLS_Solver.H"
 #include "HYMLS_MatrixUtils.H"
-
-#include "Teuchos_FancyOStream.hpp"
 
 typedef enum
 {
@@ -44,6 +55,8 @@ INTERNAL_TESTS_FAILED=32
 
 
 int runTest(Teuchos::RCP<const Epetra_Comm> comm,
+                   Teuchos::RCP<Teuchos::ParameterList> params);
+int runEigTest(Teuchos::RCP<const Epetra_Comm> comm,
                    Teuchos::RCP<Teuchos::ParameterList> params);
 void printError(int ierr);
 
@@ -115,6 +128,8 @@ int main(int argc, char* argv[])
     int ny = problemList.get("ny",nx);
     int nz = problemList.get("nz",dim>2? nx: 1);
 
+    bool eig_test = driverList.isSublist("Eigenvalues");
+
     HYMLS::Tools::Out(test_name+": "+description+" ["+test_file+"]");
 
     for (int ref=0;ref<=num_refines;ref++)
@@ -125,8 +140,9 @@ int main(int argc, char* argv[])
       std::string var = nxs+"x"+nys;
       if (dim>2) var = var+"x"+nzs;
       HYMLS::Tools::out() << "\t\t- grid size "<<var<<std::endl;
+
       ierr = runTest(comm,params);
-      if (ierr!=PASSED)
+      if (ierr != PASSED)
         {
         std::string msg=params->get("runTest output","no output available");
         HYMLS::Tools::Out("------------------------------------------------------------");
@@ -142,6 +158,30 @@ int main(int argc, char* argv[])
         failed++;
         break; // stop grid refinement
         }
+
+#ifdef HAVE_PHIST
+      if (eig_test)
+        {
+        ierr = runEigTest(comm,params);
+        if (ierr != PASSED)
+          {
+          std::string msg=params->get("runTest output", "no output available");
+          HYMLS::Tools::Out("------------------------------------------------------------");
+          HYMLS::Tools::out() << "Eigenvalue test "+Teuchos::toString(counter)+" ('"+test_file+"') failed.\n";
+          HYMLS::Tools::out() << "at resolution: "<<nx<<"x"<<ny<<"x"<<nz<<"\n";
+          HYMLS::Tools::out() << "Reason: ";
+          printError(ierr);
+          HYMLS::Tools::out() << msg << std::endl;
+#ifdef TESTING
+          HYMLS::Tools::out() << *params << std::endl;
+#endif
+          HYMLS::Tools::Out("------------------------------------------------------------");
+          failed++;
+          break; // stop grid refinement
+          }
+        }
+#endif
+
       nx*=2;
       ny*=2;
       if (dim>2) nz*=2;
@@ -219,7 +259,8 @@ void printError(int ierr)
   }
 
 void getLinearSystem(Teuchos::RCP<const Epetra_Comm> comm,
-    Teuchos::RCP<Teuchos::ParameterList> params, Teuchos::RCP<Epetra_CrsMatrix> &K,
+    Teuchos::RCP<Teuchos::ParameterList> params,
+    Teuchos::RCP<Epetra_CrsMatrix> &K, Teuchos::RCP<Epetra_CrsMatrix> &M,
     Teuchos::RCP<Epetra_MultiVector> &b, Teuchos::RCP<Epetra_MultiVector> &x_ex)
   {
   Teuchos::ParameterList& driverList = params->sublist("Driver");
@@ -235,6 +276,9 @@ void getLinearSystem(Teuchos::RCP<const Epetra_Comm> comm,
   // right-hand side
   b = Teuchos::rcp(new Epetra_MultiVector(*map, numRhs));
 
+  // mass matrix
+  M = Teuchos::null;
+
   if (read_problem)
     {
     std::string datadir = driverList.get("Data Directory", "not specified");
@@ -244,13 +288,16 @@ void getLinearSystem(Teuchos::RCP<const Epetra_Comm> comm,
               __FILE__, __LINE__);
       }
     std::string file_format = driverList.get("File Format", "MatrixMarket");
-    bool have_exact_sol = driverList.get("Exact Solution Available", false);
 
     K = HYMLS::MainUtils::read_matrix(datadir, file_format, map);
     b = HYMLS::MainUtils::read_vector("rhs", datadir, file_format, map);
-    if (have_exact_sol)
+    if (driverList.get("Exact Solution Available", false))
       {
       x_ex = HYMLS::MainUtils::read_vector("sol", datadir, file_format, map);
+      }
+    if (driverList.get("Mass Matrix Available", false))
+      {
+      M = HYMLS::MainUtils::read_matrix(datadir, file_format, map, "mass");
       }
     }
   else
@@ -284,6 +331,7 @@ int runTest(Teuchos::RCP<const Epetra_Comm> comm,
 
   try {
     Teuchos::RCP<Epetra_CrsMatrix> K;
+    Teuchos::RCP<Epetra_CrsMatrix> M;
     Teuchos::RCP<Epetra_Vector> u_ex;
     Teuchos::RCP<Epetra_Vector> f;
 
@@ -318,7 +366,7 @@ int runTest(Teuchos::RCP<const Epetra_Comm> comm,
     // we pass in params_copy here because in case of Laplace-Neumann
     // the "Problem" list is adjusted for the solver, which we do not
     // want in the original list.
-    getLinearSystem(comm, params_copy, K, b, x_ex);
+    getLinearSystem(comm, params_copy, K, M, b, x_ex);
 
     // Use the map from the vectors from getLinearSystem here
     Epetra_BlockMap const &map = x_ex->Map();
@@ -475,19 +523,235 @@ int runTest(Teuchos::RCP<const Epetra_Comm> comm,
 
     comm->Barrier();
     }
-  catch(HYMLS::Exception hym)
+  catch (HYMLS::Exception &e)
     {
+    message += e.what();
     no_exception = false;
-    message = message + hym.what();
     }
-  catch (std::exception e)
+  catch (std::exception &e)
     {
-    message = message + e.what();
+    message += e.what();
     no_exception = false;
     }
   catch (...)
     {
-    message = message + "unknown exception";
+    message += "unknown exception";
+    no_exception = false;
+    }
+  if (!no_exception) ierr = ierr | CAUGHT_EXCEPTION;
+
+  if (HYMLS::Tester::numFailedTests_ > 0) ierr = ierr | INTERNAL_TESTS_FAILED;
+
+  params->set("runTest output", message);
+
+#ifndef TESTING
+  // reset to HYMLS output
+  HYMLS::Tools::InitializeIO(comm);
+#endif
+  return ierr;
+  }
+
+int runEigTest(Teuchos::RCP<const Epetra_Comm> comm,
+        Teuchos::RCP<Teuchos::ParameterList> params)
+  {
+  int ierr = PASSED;
+  HYMLS::Tester::numFailedTests_ = 0; // check if internal tests fail on the way
+  std::string message = "";
+  int no_exception = true;
+
+#ifndef TESTING
+  // suppress all HYMLS output during the test
+  Teuchos::RCP<std::ostream> no_output
+        = Teuchos::rcp(new Teuchos::oblackholestream());
+  HYMLS::Tools::InitializeIO_std(comm,no_output,no_output);
+#endif
+
+  try {
+    Teuchos::RCP<Epetra_CrsMatrix> K;
+    Teuchos::RCP<Epetra_CrsMatrix> M;
+    Teuchos::RCP<Epetra_MultiVector> b;
+    Teuchos::RCP<Epetra_MultiVector> x;
+
+    Teuchos::ParameterList& driverList = params->sublist("Driver");
+
+    Teuchos::ParameterList& targetList = params->sublist("Targets");
+    double target_err = targetList.get("Error Eigenvalues", 1.0);
+
+    Teuchos::ParameterList& probl_params = params->sublist("Problem");
+    int dim = probl_params.get("Dimension", 2);
+    std::string eqn = probl_params.get("Equations", "Laplace");
+    int dof = 1;
+
+    // create a copy of the parameter list
+    Teuchos::RCP<Teuchos::ParameterList> params_copy
+          = Teuchos::rcp(new Teuchos::ParameterList(*params));
+
+    params_copy->remove("Targets");
+    params_copy->sublist("Driver").set("Number of rhs", 1);
+
+    // we pass in params_copy here because in case of Laplace-Neumann
+    // the "Problem" list is adjusted for the solver, which we do not
+    // want in the original list.
+    getLinearSystem(comm, params_copy, K, M, b, x);
+
+    HYMLS::Tools::Out("Create Preconditioner");
+
+    Teuchos::RCP<HYMLS::Preconditioner> precond = Teuchos::rcp(new HYMLS::Preconditioner(K,
+          params_copy));
+
+    HYMLS::Tools::Out("Initialize Preconditioner...");
+    CHECK_ZERO(precond->Initialize());
+
+    HYMLS::Tools::Out("Create Solver");
+    Teuchos::RCP<HYMLS::Solver> solver = Teuchos::rcp
+          (new HYMLS::Solver(K, precond, params_copy));
+
+    bool doDeflation = false;
+    Teuchos::RCP<Epetra_MultiVector> Nul = Teuchos::null;
+    if (params_copy->sublist("Solver").get("Null Space", "None") != "None")
+      {
+      doDeflation = true;
+      Nul = solver->getNullSpace();
+      }
+
+    if (params_copy->sublist("Solver").get("Deflated Subspace Dimension",0) > 0)
+      {
+      doDeflation = true;
+      }
+
+    message = "";
+    CHECK_ZERO(precond->Compute());
+    if (doDeflation)
+      {
+      CHECK_ZERO(solver->SetupDeflation());
+      }
+
+    Teuchos::RCP<Epetra_MultiVector> v0 = Teuchos::rcp(new Epetra_Vector(x->Map()));
+    HYMLS::MatrixUtils::Random(*v0);
+
+    for (int i = 0; i < v0->MyLength(); i++)
+      {
+      if (v0->Map().GID(i) % dof == dim)
+        {
+        (*v0)[0][i] = 0.0;
+        }
+      }
+
+    precond->ApplyInverse(*v0, *x);
+
+    // Make x B-orthogonal
+    if (M != Teuchos::null)
+      M->Multiply(false, *x, *v0);
+    else
+      *v0 = *x;
+
+    double result;
+    x->Dot(*v0, &result);
+    x->Scale(1.0/sqrt(result));
+
+    // Create the eigenproblem
+    HYMLS::Tools::Out("Create Eigenproblem");
+    Teuchos::ParameterList eigList = driverList.sublist("Eigenvalues");
+
+    typedef double ST;
+    typedef Epetra_MultiVector MV;
+    typedef Epetra_Operator OP;
+    typedef HYMLS::Solver PREC;
+
+    Teuchos::RCP<Anasazi::BasicEigenproblem<ST, MV, OP> > eigProblem;
+    eigProblem = Teuchos::rcp(new Anasazi::BasicEigenproblem<ST,MV,OP>(K, M, x));
+    eigProblem->setHermitian(false);
+    eigProblem->setNEV(eigList.get("How Many", 10));
+
+    if (!eigProblem->setProblem())
+      {
+      HYMLS::Tools::Error("eigProblem->setPoroblem returned 'false'",__FILE__,__LINE__);
+      }
+
+#ifdef HAVE_PHIST
+    Anasazi::PhistSolMgr<ST,MV,OP,PREC> jada(eigProblem, solver, eigList);
+#else
+    Anasazi::JacobiDavidsonSolMgr<ST,MV,OP,PREC> jada(eigProblem, solver, eigList);
+#endif
+
+    // Solve the problem to the specified tolerances or length
+    Anasazi::ReturnType returnCode;
+    returnCode = jada.solve();
+    if (returnCode != Anasazi::Converged)
+      {
+      HYMLS::Tools::Warning("Anasazi::EigensolverMgr::solve() returned unconverged.",
+          __FILE__,__LINE__);
+      }
+
+    const Anasazi::Eigensolution<ST,MV>& eigSol = eigProblem->getSolution();
+
+    const std::vector<Anasazi::Value<ST> >& evals = eigSol.Evals;
+    int numEigs = evals.size();
+
+    // We can compute the exact eigenvaleus for Laplace
+    if (eqn == "Laplace")
+      {
+      Teuchos::ParameterList& problemList = params->sublist("Problem");
+
+      int nx = problemList.get("nx", 32);
+      int ny = problemList.get("ny", nx);
+      int nz = problemList.get("nz", dim > 2 ? nx: 1);
+
+      double hx = 1.0 / (double)(nx+1);
+      double hy = 1.0 / (double)(ny+1);
+      double hz = 1.0 / (double)(nz+1);
+
+      // Generate all the exact eigenvalues of -K
+      std::vector<double> ev_list;
+      for (int i = 1; i < nx + 1; i++)
+      for (int j = 1; j < ny + 1; j++)
+      for (int k = 1; k < nz + 1; k++)
+        {
+        double ev = 4.0 * pow(sin(M_PI*i*hx / 2.0), 2)
+                  + 4.0 * pow(sin(M_PI*j*hy / 2.0), 2);
+        if (dim > 2)
+          {
+          ev += 4.0 * pow(sin(M_PI*k*hz / 2.0), 2);
+          }
+        ev_list.push_back(ev);
+        }
+
+      // Sort them so the smallest ones are first
+      std::sort(ev_list.begin(), ev_list.end());
+
+      // Now compare with the computed eigenvalues. We do numEigs-1, because
+      // depending on the random starting vector it may sometimes happen
+      // that we find one larger eigenvalue.
+      for (int i = 0; i < numEigs-1; i++)
+        {
+        if (std::abs(evals[i].imagpart) > target_err)
+          ierr = ierr | ERR_TOO_LARGE;
+
+        if (std::abs(evals[i].realpart + ev_list[i]) > target_err)
+          ierr = ierr | ERR_TOO_LARGE;
+
+        message += "found " + Teuchos::toString(evals[i].realpart)
+             + ", expected: " + Teuchos::toString(-ev_list[i]) + "\n";
+        }
+      }
+
+    message += "------------------------------------------\n";
+
+    comm->Barrier();
+    }
+  catch (HYMLS::Exception &e)
+    {
+    message += e.what();
+    no_exception = false;
+    }
+  catch (std::exception &e)
+    {
+    message += e.what();
+    no_exception = false;
+    }
+  catch (...)
+    {
+    message += "unknown exception";
     no_exception = false;
     }
   if (!no_exception) ierr = ierr | CAUGHT_EXCEPTION;

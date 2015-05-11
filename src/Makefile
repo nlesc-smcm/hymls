@@ -38,22 +38,37 @@ OBJ=    HYMLS_Solver.o \
         GaleriExt_Periodic.o \
         main_utils.o \
 
+# Normal library name
 LIBNAMEBASE=hymls_${PLAT}
 LIBNAME=lib${LIBNAMEBASE}.a
+
+# Name for the eigenvalue library
+LIBEIGSNAMEBASE=${LIBNAMEBASE}
+LIBEIGSNAME=${LIBNAME}
+
+# Variable used for the phist dependent library rules
+LIBPHISTNAMEBASE=hymls_${PLAT}_eigs
+LIBPHISTNAME=lib${LIBPHISTNAMEBASE}.a
+
+# Change the eigenvalue library name if we have phist
+ifeq (${HAVE_PHIST}, 1)
+	LIBEIGSNAMEBASE=${LIBPHISTNAMEBASE}
+	LIBEIGSNAME=${LIBPHISTNAME}
+endif
 
 default: main integration_tests main_ifpack
 
 main: main.C ${LIBNAME}
 	${CXX} ${CXX_FLAGS} -o main $< ${INCLUDES} -L. -l${LIBNAMEBASE} ${LIBS} 
 
-main_eigs: main_eigs.C ${LIBNAME}
-	${CXX} ${CXX_FLAGS} -o main_eigs $< ${INCLUDES} -L. -l${LIBNAMEBASE} ${LIBS} 
+main_eigs: main_eigs.C ${LIBEIGSNAME}
+	${CXX} ${CXX_FLAGS} -o main_eigs $< ${INCLUDES} -L. -l${LIBEIGSNAMEBASE} ${LIBS} 
 
-main_eigs_full: main_eigs_full.C ${LIBNAME}
-	${CXX} ${CXX_FLAGS} -o main_eigs_full $< ${INCLUDES} -L. -l${LIBNAMEBASE} ${LIBS} 
+main_eigs_full: main_eigs_full.C ${LIBEIGSNAME}
+	${CXX} ${CXX_FLAGS} -o main_eigs_full $< ${INCLUDES} -L. -l${LIBEIGSNAMEBASE} ${LIBS} 
 
-integration_tests: integration_tests.C ${LIBNAME}
-	${CXX} ${CXX_FLAGS} -o integration_tests $< ${INCLUDES} -L. -l${LIBNAMEBASE} ${LIBS} 
+integration_tests: integration_tests.C ${LIBEIGSNAME}
+	${CXX} ${CXX_FLAGS} -o integration_tests $< ${INCLUDES} -L. -l${LIBEIGSNAMEBASE} ${LIBS} 
 
 main_direct: main_direct.C ${LIBNAME}
 	${CXX} ${CXX_FLAGS} -o main_direct $< ${INCLUDES} -L. -l${LIBNAMEBASE} ${LIBS} 
@@ -62,10 +77,19 @@ main_ifpack: main_ifpack.C ${LIBNAME}
 	${CXX} ${CXX_FLAGS} -o main_ifpack $< ${INCLUDES} -L. -l${LIBNAMEBASE} ${LIBS} 
 
 test: test.C ${LIBNAME}
-	${CXX} ${CXX_FLAGS} -o test $< ${INCLUDES} -L. -l${LIBNAMEBASE} ${LIBS} 		
-	
+	${CXX} ${CXX_FLAGS} -o test $< ${INCLUDES} -L. -l${LIBNAMEBASE} ${LIBS} 
+
 ${LIBNAME}: ${OBJ}
 	ar vrcs ${LIBNAME} ${OBJ}
+
+${LIBPHISTNAME}: ${LIBNAME} libjadaCorrectionSolver_impl.so
+	ar vrcsP ${LIBPHISTNAME} ${LIBNAME} libjadaCorrectionSolver_impl.so
+
+libjadaCorrectionSolver_impl.so:
+	mpicxx -Wall -O3 -shared -fPIC -fopenmp ${CXX_FLAGS} -Wl,-soname,\
+	${SHARED_DIR}/fredwubs/hymls/src/libjadaCorrectionSolver_impl.so \
+	-o libjadaCorrectionSolver_impl.so \
+	evp/jadaCorrectionSolver_impl.C -ldl ${LIBS}
 
 %.o: %.C %.H
 	${CXX} ${CXX_FLAGS} -c $< ${INCLUDES} -o $@

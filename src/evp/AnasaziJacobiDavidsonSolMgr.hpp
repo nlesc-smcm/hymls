@@ -279,7 +279,7 @@ JacobiDavidsonSolMgr<ScalarType,MV,OP,PREC>::JacobiDavidsonSolMgr(
     bool failOnNaN = false;
     RCP<StatusTest<ScalarType,MV,OP> > resNormTest = Teuchos::rcp(
             new StatusTestResNorm<ScalarType,MV,OP>(tol,d_problem->getNEV(),
-                                    StatusTestResNorm<ScalarType,MV,OP>::RES_2NORM,scaleRes,failOnNaN) );
+                                    RES_2NORM,scaleRes,failOnNaN) );
     d_tester = Teuchos::rcp( new StatusTestWithOrdering<ScalarType,MV,OP>(resNormTest,d_sortMan,d_problem->getNEV()) );
 
     // Build output manager

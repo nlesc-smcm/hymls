@@ -272,6 +272,13 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
     }
 }
 
+template <class ScalarType>
+bool eigSort(Anasazi::Value<ScalarType> const &a, Anasazi::Value<ScalarType> const &b)
+{
+  return (a.realpart * a.realpart + a.imagpart * a.imagpart) <
+         (b.realpart * b.realpart + b.imagpart * b.imagpart);
+}
+
 //---------------------------------------------------------------------------//
 // Solve
 //---------------------------------------------------------------------------//
@@ -281,9 +288,6 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
   int iflag;
   Teuchos::RCP<MV> X = MVT::Clone(*d_problem->getInitVec(), d_problem->getNEV()+1);
   Teuchos::RCP<MV> v0 = MVT::CloneCopy(*d_problem->getInitVec());
-
-  HYMLS::MatrixUtils::Dump(*d_problem->getInitVec(), "xinpsminit.txt");
-  HYMLS::MatrixUtils::Dump(*v0, "xinpsm.txt");
 
   d_opts.v0 = v0.get();
   d_opts.arno = 0;
@@ -298,11 +302,15 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
     "PhistSolMgr::solve: phist_Dop_wrap_sparseMat returned nonzero error code "+Teuchos::toString(iflag));
   A_op->solver = d_prec;
 
-  Teuchos::RCP<extended_Dop_t> B_op = Teuchos::rcp(new extended_Dop_t());
-  phist_Dop_wrap_sparseMat((Dop_t *)B_op.get(), Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(d_problem->getM()).get(), &iflag);
-  TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
-    "PhistSolMgr::solve: phist_Dop_wrap_sparseMat returned nonzero error code "+Teuchos::toString(iflag));
-  B_op->solver = d_prec;
+  Teuchos::RCP<extended_Dop_t> B_op = Teuchos::null;
+  if (d_problem->getM() != Teuchos::null)
+    {
+    B_op = Teuchos::rcp(new extended_Dop_t());
+    phist_Dop_wrap_sparseMat((Dop_t *)B_op.get(), Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(d_problem->getM()).get(), &iflag);
+    TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
+      "PhistSolMgr::solve: phist_Dop_wrap_sparseMat returned nonzero error code "+Teuchos::toString(iflag));
+    B_op->solver = d_prec;
+  }
 
   // allocate memory for eigenvalues and residuals. We allocate
   // one extra entry because in the real case we may get that the
@@ -342,6 +350,8 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
     }
     i++;
   }
+
+  std::sort(sol.Evals.begin(), sol.Evals.end(), eigSort<ScalarType>);
 
   if (sol.numVecs)
     sol.Evecs = MVT::CloneCopy(*X, Teuchos::Range1D(0, sol.numVecs-1));
