@@ -98,34 +98,42 @@ class Parser:
             test_data = test_file.readlines()
             test_file.close()
 
+            if not i.endswith('out') and not i == 'integration_tests.txt' \
+               and not i == 'unit_tests.txt':
+                continue
+
             if i.endswith('out'):
                 if'16' not in i:
                     if i.endswith('testing.out'):
                         parsed_data = self.parse_fvm_data(test_data)
                         data.fvm_testing = parsed_data.fvm
-                        data.failed = data.failed or parsed_data.failed
                     else:
                         parsed_data = self.parse_fvm_data(test_data)
                         data.fvm = parsed_data.fvm
-                        data.failed = data.failed or parsed_data.failed
                 else:
                     if i.endswith('testing.out'):
                         parsed_data = self.parse_fvm_data(test_data)
                         data.fvm_testing_parallel = parsed_data.fvm
-                        data.failed = data.failed or parsed_data.failed
                     else:
                         parsed_data = self.parse_fvm_data(test_data)
                         data.fvm_parallel = parsed_data.fvm
-                        data.failed = data.failed or parsed_data.failed
             elif i == 'integration_tests.txt':
                 parsed_data = self.parse_integration_test_data(test_data)
                 data.integration_tests = parsed_data.integration_tests
                 data.integration_tests_parallel = parsed_data.integration_tests_parallel
-                data.failed = data.failed or parsed_data.failed
             elif i == 'unit_tests.txt':
                 parsed_data = self.parse_unit_test_data(test_data)
                 data.unit_tests = parsed_data.unit_tests
-                data.failed = data.failed or parsed_data.failed
+
+            data.failed = data.failed or parsed_data.failed
+
+            # Check for crashes
+            rets = re.findall('Returncode is (\d+)', ''.join(test_data))
+            if not rets:
+                data.failed = True
+            for ret in rets:
+                if ret != '0':
+                    data.failed = True
 
         return data
 
