@@ -357,7 +357,7 @@ namespace HYMLS {
 #endif
 
     reducedSchur_ = MatrixUtils::DropByValue(SchurMatrix_, 
-        HYMLS_SMALL_ENTRY);
+        HYMLS_SMALL_ENTRY, MatrixUtils::RelFullDiag);
 
     HYMLS_TEST(Label(),
             isFmatrix(*reducedSchur_),
@@ -961,10 +961,6 @@ int SchurPreconditioner::InitializeOT()
 #endif
     reducedSchur_ = MatrixUtils::DropByValue(reducedSchur_, HYMLS_SMALL_ENTRY,
                         MatrixUtils::RelDropDiag);
-
-    // I think this is required to make the matrix Ifpack-proof:
-    reducedSchur_ = MatrixUtils::RemoveColMap(reducedSchur_);
-    CHECK_ZERO(reducedSchur_->FillComplete(*vsumMap_,*vsumMap_));
   
     reducedSchur_->SetLabel(("Matrix (level "+Teuchos::toString(myLevel_+1)+")").c_str());
   

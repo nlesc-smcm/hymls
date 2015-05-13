@@ -1636,18 +1636,20 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
   if (droptol==0.0) return Teuchos::rcp_const_cast<Epetra_CrsMatrix>(A);
 
   Teuchos::RCP<Epetra_CrsMatrix> mat
-        = Teuchos::rcp(new Epetra_CrsMatrix(Copy, A->RowMap(), A->MaxNumEntries()));
-
-  // Diagonal of A in row and column map
+        = Teuchos::rcp(new Epetra_CrsMatrix(Copy, A->RowMap(), A->ColMap(), A->MaxNumEntries()+1));
+        
+  // diagonal of A in column map
   Teuchos::RCP<Epetra_Vector> diagA;
-  Teuchos::RCP<Epetra_Vector> colDiagA;
 
   // should the drop tol be scaled with anything?
-  bool rel = (type==Relative || type==RelDropDiag || type==RelZeroDiag);
+  bool rel = (type==Relative || type==RelDropDiag || type==RelZeroDiag ||  type==RelFullDiag);
   // if so, should an absolute dropping strategy be used on the diagonal?
-  bool relAbsDiag = (type==RelDropDiag || type==RelZeroDiag);
+  bool absDiag = (type==RelDropDiag || type==RelZeroDiag || type==RelFullDiag ||
+                  type==AbsZeroDiag || type==AbsFullDiag || type==Absolute);
   // should physical zeros be put on the diagonal where dropping occurs?
   bool zeroDiag = (type==RelZeroDiag || type==AbsZeroDiag);
+  // should physical zeros be put on the diagonal where dropping occurs?
+  bool fullDiag = (type==RelFullDiag || type==AbsFullDiag);
   // or should the diagonal entry be deleted?
   bool dropDiag = (type==RelDropDiag || type==Absolute);
 
@@ -1664,8 +1666,9 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
       }
     if (A->Importer()!=NULL) 
       {
-      colDiagA = Teuchos::rcp(new Epetra_Vector(A->ColMap()));
-      CHECK_ZERO(colDiagA->Import(*diagA, *A->Importer(), Insert));
+      Teuchos::RCP<Epetra_Vector> diagA_tmp = diagA;
+      diagA = Teuchos::rcp(new Epetra_Vector(A->ColMap()));
+      CHECK_ZERO(diagA->Import(*diagA_tmp, *A->Importer(), Insert));
       }
     else
       {
@@ -1674,7 +1677,6 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
         Tools::Error("your matrix is suspicious, row map != col map, but no importer...",
                 __FILE__,__LINE__);
         }
-      colDiagA = diagA;
       }
     }
 
@@ -1683,55 +1685,65 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
   int len;
   int *indices;
   double *values;
-  
-  int new_len;
-  int new_indices[A->MaxNumEntries()];
-  double new_values[A->MaxNumEntries()];
 
-  double scal=1.0;
-  double scal_i=1.0;
+  int new_len;
+  int *new_indices = new int[A->MaxNumEntries()+1];
+  double *new_values = new double[A->MaxNumEntries()+1];
+
+  int NumRows = A->NumMyRows();
+
+  double scal = 1.0;
+  double scal_i = 1.0;
 #pragma omp for schedule(static)
-  for (int i=0;i<A->NumMyRows();i++)
+  for (int i = 0; i < NumRows; i++)
     {
     CHECK_ZERO(A->ExtractMyRowView(i,len,values,indices));
 
-#ifdef TESTING
-    int lcid_i = colDiagA->Map().LID(A->GRID(i));
-    if (lcid_i<0) Tools::Error("matrix is missing a column",__FILE__,__LINE__);
-#endif
-
+    // this index trafo is required because diagA is based on the col map of A
+    int lcid_i = diagA->Map().LID(A->GRID(i));
     if (rel)
-      scal_i = std::abs((*diagA)[i]);
-
-    new_len=0;
-
-    // Put in the diagonal entry, also small entries if dropDiag is false
-    double diagVal = (*diagA)[i];
-    if (std::abs(diagVal) > droptol || !dropDiag)
       {
-      new_values[new_len] = diagVal;
-      new_indices[new_len] = A->GRID(i);
-      new_len++;
+#ifdef TESTING
+      if (lcid_i<0) Tools::Error("matrix is missing a column",__FILE__,__LINE__);
+#endif
+      scal_i = std::abs((*diagA)[lcid_i]);
       }
 
-    // Now put in the other entries
+    new_len = 0;
+
+    // If fullDiag we always want the diagonal entries
+    if (fullDiag)
+      {
+      double diagValue = (*diagA)[lcid_i];
+      new_values[new_len] = (std::abs(diagValue) > droptol) ? diagValue : 0.0;
+      new_indices[new_len] = A->GRID(i);
+      new_len++;
+    }
+
     for (int j = 0; j < len; j++)
       {
-      // The diagonal is already there
-      if (A->GCID(indices[j]) == A->GRID(i))
+      bool isDiag = (A->GCID(indices[j])==A->GRID(i));
+
+      // We already did this
+      if (isDiag && fullDiag)
         continue;
 
       scal = scal_i;
 
-      if (rel)
+      if (isDiag && absDiag)
+        {
+        // use absolute tol on diagonal
+        scal = 1.0;
+        }
+      else if (rel)
         {
         // for F-matrices with zeros on the diagonal, use tol*|ajj| instead
         // of tol*|aii|, this prevents loss of structural symmetry.
-        int lcid_j = colDiagA->Map().LID(A->GCID(indices[j]));
+        int lcid_j = diagA->Map().LID(A->GCID(indices[j]));
 #ifdef TESTING
         if (lcid_j<0) Tools::Error("diagonal entry not imported?",__FILE__,__LINE__);
 #endif
-        scal = std::max(scal_i, std::abs((*colDiagA)[lcid_j]));
+        scal = std::max(scal_i,std::abs((*diagA)[lcid_j]));
         }
 
       if (std::abs(values[j]) > scal*droptol)
@@ -1741,8 +1753,14 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
         new_indices[new_len] = A->GCID(indices[j]);
         new_len++;
         }
+      else if (isDiag && zeroDiag)
+        {
+        // put physical 0.0 in
+        new_values[new_len] = 0.0;
+        new_indices[new_len] = A->GCID(indices[j]);
+        new_len++;
+        }
       }//j
-
 #ifdef TESTING
     bool testFailed=false;
     for (int jj=0;jj<new_len;jj++)
@@ -1761,12 +1779,12 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
         {
         Tools::out() << A->GRID(i) << " "<<A->GCID(indices[jj]) << " " << values[jj] << std::endl;
         }
-      Tools::out() << "diagonal entry i: "<<(*diagA)[i]<<std::endl;
+      Tools::out() << "diagonal entry i: "<<(*diagA)[diagA->Map().LID(A->GRID(i))]<<std::endl;
       Tools::out() << "diagonal entries j: "<<std::endl;
       for (int jj=0;jj<len;jj++)
         {
         Tools::out() << A->GCID(indices[jj])<<" " <<A->GCID(indices[jj]) << " " << 
-                (*colDiagA)[colDiagA->Map().LID(A->GCID(indices[jj]))] << std::endl;
+                (*diagA)[diagA->Map().LID(A->GCID(indices[jj]))] << std::endl;
         }
       Tools::out() << "matrix row after dropping ("<<new_len<<" entries): "<<std::endl;
       for (int jj=0;jj<new_len;jj++)
@@ -1779,6 +1797,9 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
 #endif
     CHECK_ZERO(mat->InsertGlobalValues(A->GRID(i),new_len,new_values,new_indices));
     }
+
+  delete[] new_indices;
+  delete[] new_values;
 }
 
   DEBUG("calling FillComplete()");
@@ -1794,7 +1815,7 @@ double percent_dropped=100.0*(((double)nnz_dropped)/((double)old_nnz));
 
 Tools::Out("DropByValue ("+Teuchos::toString((float)droptol)+"):");
 Tools::out() << "DropType: "<<(int)type<<std::endl;
-Tools::out() << "condition: " << STR(rel) << " " << STR(relAbsDiag) << " " 
+Tools::out() << "condition: " << STR(rel) << " " << STR(absDiag) << " " 
              << STR(zeroDiag) << " "<< STR(dropDiag) << std::endl; 
 Tools::Out(" => dropped "+Teuchos::toString((float)percent_dropped)+"% of nonzeros");
 
@@ -2491,7 +2512,4 @@ int MatrixUtils::ExtractLocalBlock(const Epetra_RowMatrix& A, Epetra_CrsMatrix& 
   delete [] vals;
   return ierr;
   }
-    
-
-
 }

@@ -51,15 +51,19 @@ class MatrixUtils
   public:
   
   typedef enum {
-  Absolute,   // drop aij if abs(aij) <= tol
-  AbsZeroDiag,// like Absolute, but set diagonal entries with abs(aii)<tol to 0.0 rather 
-              // than discarding them
-  Relative, // drop aij if abs(aij) <= tol*max(|aii|,|ajj|). 
-            // This behavior should prevent asymmetric dropping in F-matrices,
-            // diagonal entries are never dropped (unless you set tol>=1).
+  Absolute,    // drop aij if abs(aij) <= tol.
+  AbsZeroDiag, // like Absolute, but set diagonal entries with abs(aii)<tol to 0.0 rather
+               // than discarding them.
+  AbsFullDiag, // like Absolute, but set diagonal entries with abs(aii)<tol to 0.0 rather
+               // than discarding them, even if they were not there in the first place.
+  Relative,    // drop aij if abs(aij) <= tol*max(|aii|,|ajj|).
+               // This behavior should prevent asymmetric dropping in F-matrices,
+               // diagonal entries are never dropped (unless you set tol>=1).
   RelDropDiag, // like Relative, but use absolute dropping criterion on diagonal,
-               // e.g. delete aii if |aii|<=tol
-  RelZeroDiag // like RelDropDiag, but put physical 0.0 in aii instead of deleting it.
+               // e.g. delete aii if |aii|<=tol.
+  RelZeroDiag, // like RelDropDiag, but put physical 0.0 in aii instead of deleting it.
+  RelFullDiag  // like RelDropDiag, but put physical 0.0 in aii instead of deleting it,
+               // even if they were not there in the first place.
   } DropType;
 
   typedef enum {

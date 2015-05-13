@@ -85,8 +85,8 @@ ${LIBNAME}: ${OBJ}
 ${LIBPHISTNAME}: ${LIBNAME} libjadaCorrectionSolver_impl.so
 	ar vrcsP ${LIBPHISTNAME} ${LIBNAME} libjadaCorrectionSolver_impl.so
 
-libjadaCorrectionSolver_impl.so:
-	mpicxx -Wall -O3 -shared -fPIC -fopenmp ${CXX_FLAGS} -Wl,-soname,\
+libjadaCorrectionSolver_impl.so: ${LIBNAME}
+	mpicxx -Wall -O3 -shared -fPIC ${CXX_FLAGS} -Wl,-soname,\
 	${SHARED_DIR}/fredwubs/hymls/src/libjadaCorrectionSolver_impl.so \
 	-o libjadaCorrectionSolver_impl.so \
 	evp/jadaCorrectionSolver_impl.C -ldl ${LIBS}
@@ -98,4 +98,4 @@ libjadaCorrectionSolver_impl.so:
 	${CXX} ${CXX_FLAGS} -c $< ${INCLUDES} -o $@
 
 clean:
-	-rm *.o ${LIBNAME} main main_direct main_eigs main_eigs_full
+	-rm *.o ${LIBNAME} ${LIBPHISTNAME} main main_direct main_eigs main_eigs_full libjadaCorrectionSolver_impl.so
