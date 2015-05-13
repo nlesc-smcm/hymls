@@ -147,7 +147,7 @@ int main(int argc, char* argv[])
       if (dim>2) var = var+"x"+nzs;
       HYMLS::Tools::out() << "\t\t- grid size "<<var<<std::endl;
 
-      ierr = runTest(comm,params);
+      ierr = runTest(comm, params);
       if (ierr != PASSED)
         {
         std::string msg=params->get("runTest output","no output available");
@@ -376,13 +376,16 @@ int runTest(Teuchos::RCP<const Epetra_Comm> comm,
 
   if (HYMLS::Tester::numFailedTests_ > 0) ierr = ierr | INTERNAL_TESTS_FAILED;
 
+  int global_ierr;
+  comm->MaxAll(&ierr, &global_ierr, 1);
+
   params->set("runTest output", message);
 
 #ifndef TESTING
   // reset to HYMLS output
   HYMLS::Tools::InitializeIO(comm);
 #endif
-  return ierr;
+  return global_ierr;
   }
 
 int testSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
