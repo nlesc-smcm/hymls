@@ -86,6 +86,7 @@ class Parser:
 
         # If we don't have timing data something went wrong
         if not parsed_data.fvm['timing']:
+            print 'No timing data'
             parsed_data.failed = True
 
         return parsed_data
@@ -129,10 +130,12 @@ class Parser:
 
             # Check for crashes
             rets = re.findall('Returncode is (\d+)', ''.join(test_data))
-            if not rets:
+            if not rets and not i.endswith('out'):
                 data.failed = True
+                print 'No return from test in', i
             for ret in rets:
                 if ret != '0':
+                    print 'Ret is', ret, 'for', i
                     data.failed = True
 
         return data
