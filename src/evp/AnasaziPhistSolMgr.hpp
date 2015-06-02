@@ -351,6 +351,8 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
     i++;
   }
 
+  sol.Evecs = X;
+
   std::sort(sol.Evals.begin(), sol.Evals.end(), eigSort<ScalarType>);
 
   if (sol.numVecs)

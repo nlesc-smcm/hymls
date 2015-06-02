@@ -9,12 +9,16 @@
 #include "Epetra_MultiVector.h"
 #include "Epetra_CrsMatrix.h"
 #include "Epetra_Import.h"
+#include "EpetraExt_MultiVectorIn.h"
 
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_XMLParameterListHelpers.hpp"
 #include "Teuchos_ParameterListAcceptorHelpers.hpp"
 #include "Teuchos_StandardCatchMacros.hpp"
+
+#include <BelosIMGSOrthoManager.hpp>
+
 #ifdef DEBUGGING
 #include <signal.h>
 #endif
@@ -177,7 +181,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     }
 
 // create start vector
-Teuchos::RCP<Epetra_Vector> x=Teuchos::rcp(new Epetra_Vector(*map));
+Teuchos::RCP<Epetra_MultiVector> x=Teuchos::rcp(new Epetra_Vector(*map));
 HYMLS::MatrixUtils::Random(*x);
 
   Teuchos::ParameterList& solver_params = params->sublist("Solver");
@@ -299,6 +303,24 @@ HYMLS::MatrixUtils::Random(*x);
   x->Dot(*v0, &result);
   x->Scale(1.0/sqrt(result));
 
+{
+  Epetra_MultiVector *vecout;
+  EpetraExt::MatrixMarketFileToMultiVector("EigenvectorsRe0.mtx", x->Map(), vecout);
+  x = Teuchos::rcp(vecout);
+
+  typedef Belos::IMGSOrthoManager<ST,MV,Epetra_Operator> orthoMan_t;
+  Teuchos::RCP<orthoMan_t> ortho = Teuchos::rcp(new orthoMan_t("hist/orthog/imgs", M));
+
+  Teuchos::RCP<const Teuchos::ParameterList> default_params = ortho->getValidParameters();
+  params->setParametersNotAlreadySet(*default_params);
+
+  ortho->setParameterList(params);
+  Teuchos::ArrayView<Teuchos::RCP<const Epetra_MultiVector > > V_array;
+  Teuchos::Array<Teuchos::RCP<Teuchos::SerialDenseMatrix<int, double> > > C_array;
+  Teuchos::RCP< Teuchos::SerialDenseMatrix<int, double> > mat = Teuchos::null;
+  ortho->projectAndNormalize(*x, Teuchos::null, C_array, mat, V_array);
+}
+
   HYMLS_TEST("main_eigs",isDivFree(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(K), *x, dof, dim),__FILE__,__LINE__);
 
   // Create the eigenproblem.
@@ -352,6 +374,8 @@ HYMLS::MatrixUtils::Random(*x);
               << std::endl;
       }
     HYMLS::Tools::out()<<"-----------------------------------------------------------"<<std::endl;
+
+    HYMLS::MatrixUtils::Dump(*eigSol.Evecs, "EigenvectorsRe500.txt");
     }
 
   REPORT_MEM("main","after HYMLS",0,0);

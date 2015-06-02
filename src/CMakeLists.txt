@@ -5,9 +5,12 @@ LIST(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
 
 if (CMAKE_C_COMPILER_ID STREQUAL "GNU")
   message(STATUS "Using GNU compiler flags")
-  set(CMAKE_C_FLAGS        "-O2 -g -DTESTING")
-  set(CMAKE_CXX_FLAGS      "-O2 -g -DTESTING")
-  set(CMAKE_Fortran_FLAGS  "-O2 -g -DTESTING")
+
+  if (NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_C_FLAGS        "${CMAKE_C_FLAGS} -O2 -g -DTESTING")
+    set(CMAKE_CXX_FLAGS      "${CMAKE_CXX_FLAGS} -O2 -g -DTESTING")
+    set(CMAKE_Fortran_FLAGS  "${CMAKE_Fortran_FLAGS} -O2 -g -DTESTING")
+  endif()
 
   set(CMAKE_C_FLAGS_RELEASE        "-O3 -ffast-math -march=native")
   set(CMAKE_CXX_FLAGS_RELEASE      "-O3 -ffast-math -march=native")
@@ -22,9 +25,12 @@ if (CMAKE_C_COMPILER_ID STREQUAL "GNU")
   set (CMAKE_Fortran_FLAGS_RELWITHDEBINFO "${CMAKE_Fortran_FLAGS_RELEASE} -g")
 elseif (CMAKE_C_COMPILER_ID STREQUAL "Intel")
   message(STATUS "Using Intel compiler flags")
-  set(CMAKE_C_FLAGS        "-O2 -g -mkl -DTESTING")
-  set(CMAKE_CXX_FLAGS      "-O2 -g -mkl -DTESTING")
-  set(CMAKE_Fortran_FLAGS  "-O2 -g -mkl -DTESTING")
+
+  if (NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_C_FLAGS        "${CMAKE_C_FLAGS} -O2 -g -mkl -DTESTING")
+    set(CMAKE_CXX_FLAGS      "${CMAKE_CXX_FLAGS} -O2 -g -mkl -DTESTING")
+    set(CMAKE_Fortran_FLAGS  "${CMAKE_Fortran_FLAGS} -O2 -g -mkl -DTESTING")
+  endif()
 
   set(CMAKE_C_FLAGS_RELEASE        "-O3 -mkl -ffast-math -march=native")
   set(CMAKE_CXX_FLAGS_RELEASE      "-O3 -mkl -ffast-math -march=native")
@@ -122,3 +128,9 @@ target_link_libraries(main_eigs_full hymls_eigs)
 
 add_executable(integration_tests integration_tests.C)
 target_link_libraries(integration_tests hymls_eigs)
+
+if (DEFINED ENV{PLAT})
+  # Install to the source directory for now because fvm expects this
+  set_target_properties(hymls PROPERTIES OUTPUT_NAME hymls_$ENV{PLAT})
+  install(TARGETS hymls ARCHIVE DESTINATION ${PROJECT_SOURCE_DIR} RENAME hymls_$ENV{PLAT})
+endif()

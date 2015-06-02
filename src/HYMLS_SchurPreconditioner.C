@@ -571,7 +571,7 @@ DEBVAR(*borderC_);
   Tools::Out("drop before going to next level");
 #endif
   Teuchos::RCP<Epetra_CrsMatrix> tmp = MatrixUtils::DropByValue(reducedSchur_,
-        HYMLS_SMALL_ENTRY, MatrixUtils::RelDropDiag);
+        HYMLS_SMALL_ENTRY, MatrixUtils::RelZeroDiag);
   *reducedSchur_ = *tmp; 
   tmp=Teuchos::null;
   
@@ -960,7 +960,7 @@ int SchurPreconditioner::InitializeOT()
     Tools::Out("drop because of next DD");
 #endif
     reducedSchur_ = MatrixUtils::DropByValue(reducedSchur_, HYMLS_SMALL_ENTRY,
-                        MatrixUtils::RelDropDiag);
+                        MatrixUtils::RelZeroDiag);
   
     reducedSchur_->SetLabel(("Matrix (level "+Teuchos::toString(myLevel_+1)+")").c_str());
   
@@ -1239,15 +1239,14 @@ int SchurPreconditioner::InitializeOT()
 
             // We iterated past the number in colvec[j] so it is not in colvec2
             if (colvec2[j2] > colvec[j])
-              {
-              Tools::Error("Pattern is different on row "+Teuchos::toString(grid)+ " column "+Teuchos::toString(cols[j]),__FILE__,__LINE__);
-              }
+              break;
             }
           // colvec[j] is not anywhere before the last number in colvec2
-          if (j2 == len2)
-            {
-            Tools::Error("Pattern is different on row "+Teuchos::toString(grid)+ " column "+Teuchos::toString(cols[j]),__FILE__,__LINE__);
-            }
+          if (j2 == len2 || colvec2[j2] > colvec[j])
+            Tools::Error("Pattern is different on row "
+              + Teuchos::toString(grid) + " column "
+              + Teuchos::toString(cols[j]) + " value "
+              + Teuchos::toString(values[j]), __FILE__, __LINE__);
           }
 
         delete [] cols2;
@@ -1324,6 +1323,7 @@ int SchurPreconditioner::InitializeOT()
 
     DEBUG("assemble transformed/dropped SC");
     CHECK_ZERO(matrix->GlobalAssemble(true));
+
 #ifdef STORE_MATRICES
     MatrixUtils::Dump(*matrix_,"SchurPreconditioner"+Teuchos::toString(myLevel_)+".txt");
 #endif
