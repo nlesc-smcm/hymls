@@ -38,10 +38,9 @@
 
 #include "AnasaziConfigDefs.hpp"
 #include "AnasaziTypes.hpp"
+#include "AnasaziMultiVecTraits.hpp"
 #include "AnasaziEigenproblem.hpp"
 #include "AnasaziSolverManager.hpp"
-
-#include "AnasaziJacobiDavidson.hpp"
 
 // Include this before phist
 #include "jadaCorrectionSolver_impl.H"
@@ -133,10 +132,6 @@ class PhistSolMgr : public SolverManager<ScalarType,MV,OP>
          *  routine until the problem has been solved (as decided by the StatusTest) or the solver manager decides to quit.
          */
         ReturnType solve();
-
-    public:
-
-        void getRestartState( JacobiDavidsonState<ScalarType,MV> &state );
 
     private:
 
@@ -312,6 +307,8 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
     B_op->solver = d_prec;
   }
 
+  d_prec->SetMassMatrix(Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(d_problem->getM()));
+
   // allocate memory for eigenvalues and residuals. We allocate
   // one extra entry because in the real case we may get that the
   // last EV to converge is a complex pair (requirement of JDQR)
@@ -364,16 +361,6 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
     return Unconverged;
 
   return Converged;
-}
-
-//---------------------------------------------------------------------------//
-// Update JacobiDavidson state for restarting
-//---------------------------------------------------------------------------//
-template <class ScalarType, class MV, class OP, class PREC>
-void PhistSolMgr<ScalarType,MV,OP,PREC>::getRestartState(
-        JacobiDavidsonState<ScalarType,MV> &state )
-{
-    return;
 }
 
 } // namespace Anasazi

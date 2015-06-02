@@ -1124,7 +1124,7 @@ int SchurPreconditioner::InitializeOT()
       }
 
     int len;
-    int maxlen = transformedA22->MaxNumEntries();
+    int maxlen = transformedA22->GlobalMaxNumEntries();
     int* cols = new int[maxlen];
     double* values = new double[maxlen];
 
@@ -1216,7 +1216,7 @@ int SchurPreconditioner::InitializeOT()
 #ifdef TESTING
         //check that the pattern didn't change
         int len2;
-        int maxlen2 = matrix_->MaxNumEntries();
+        int maxlen2 = matrix_->GlobalMaxNumEntries();
         int* cols2 = new int[maxlen2];
         double* values2 = new double[maxlen2];
         CHECK_ZERO(matrix_->ExtractGlobalRowCopy(grid,maxlen2,len2,values2,cols2));
@@ -1243,10 +1243,18 @@ int SchurPreconditioner::InitializeOT()
             }
           // colvec[j] is not anywhere before the last number in colvec2
           if (j2 == len2 || colvec2[j2] > colvec[j])
-            Tools::Error("Pattern is different on row "
-              + Teuchos::toString(grid) + " column "
-              + Teuchos::toString(cols[j]) + " value "
-              + Teuchos::toString(values[j]), __FILE__, __LINE__);
+            {
+            // Find the index of the value
+            for (int j3 = 0; j3 < len; j3++)
+              if (colvec[j] == cols[j3])
+                {
+                Tools::Warning("Pattern is different on row "
+                  + Teuchos::toString(grid) + " column "
+                  + Teuchos::toString(colvec[j]) + " value "
+                  + Teuchos::toString(values[j3]), __FILE__, __LINE__);
+                break;
+                }
+            }
           }
 
         delete [] cols2;

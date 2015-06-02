@@ -92,9 +92,7 @@ void SUBR(jadaCorrectionSolver_run)(TYPE(jadaCorrectionSolver_ptr) me,
 
   // total number of systems to solve
   int totalNumSys;
-  phist_Dmvec_num_vectors(t, &totalNumSys, iflag);
-  TEUCHOS_TEST_FOR_EXCEPTION(*iflag != 0, std::runtime_error,
-    "jadaCorrectionSolver_run: phist_Dmvec_num_vectors returned nonzero error code "+Teuchos::toString(*iflag));
+  PHIST_CHK_IERR(phist_Dmvec_num_vectors(t, &totalNumSys, iflag), *iflag);
 
   // We can only solve one system at the moment
   for (int i = 0; i < 1; i++)
@@ -124,13 +122,9 @@ void SUBR(jadaCorrectionSolver_run)(TYPE(jadaCorrectionSolver_ptr) me,
     }
 
     int ind = (resIndex == NULL ? i : resIndex[i]);
-    phist_Dmvec_view_block(t, &t_i, i, i+totalNumSys-1, iflag);
-    TEUCHOS_TEST_FOR_EXCEPTION(*iflag != 0, std::runtime_error,
-      "jadaCorrectionSolver_run: phist_Dmvec_view_block returned nonzero error code "+Teuchos::toString(*iflag));
+    PHIST_CHK_IERR(phist_Dmvec_view_block(t, &t_i, i, i+totalNumSys-1, iflag), *iflag);
 
-    phist_Dmvec_view_block((Dmvec_ptr_t)res, &r_i, ind, ind+totalNumSys-1, iflag);
-    TEUCHOS_TEST_FOR_EXCEPTION(*iflag != 0, std::runtime_error,
-      "jadaCorrectionSolver_run: phist_Dmvec_view_block returned nonzero error code "+Teuchos::toString(*iflag));
+    PHIST_CHK_IERR(phist_Dmvec_view_block((Dmvec_ptr_t)res, &r_i, ind, ind+totalNumSys-1, iflag), *iflag);
 
     if (!(map.SameAs(map0)))
     {
@@ -168,9 +162,7 @@ void SUBR(jadaCorrectionSolver_run)(TYPE(jadaCorrectionSolver_ptr) me,
 
   // normalize result vectors, TODO: should be done in updateSol/pgmres?
   _MT_ tmp[totalNumSys];
-  phist_Dmvec_normalize(t, tmp, iflag);
-  TEUCHOS_TEST_FOR_EXCEPTION(*iflag != 0, std::runtime_error,
-    "jadaCorrectionSolver_run: phist_Dmvec_normalize returned nonzero error code "+Teuchos::toString(*iflag));
+  PHIST_CHK_IERR(phist_Dmvec_normalize(t, tmp, iflag), *iflag);
 }
 
 void SUBR(computeResidual)(TYPE(const_op_ptr) B_op, TYPE(mvec_ptr) r_ptr,

@@ -31,10 +31,10 @@
 #include "AnasaziBlockKrylovSchurSolMgr.hpp"
 
 #ifdef HAVE_PHIST
-#include "evp/AnasaziPhistSolMgr.hpp"
+#include "AnasaziPhistSolMgr.hpp"
 #else
-#include "evp/AnasaziJacobiDavidsonSolMgr.hpp"
-#include "evp/AnasaziHymlsAdapter.hpp"
+#include "AnasaziJacobiDavidsonSolMgr.hpp"
+#include "AnasaziHymlsAdapter.hpp"
 #endif
 
 /*
@@ -132,10 +132,13 @@ bool status=true;
     std::string galeriLabel=driverList.get("Galeri Label","");
     Teuchos::ParameterList galeriList;
     if (driverList.isSublist("Galeri")) galeriList = driverList.sublist("Galeri");
- 
+
+    std::string startingBasisFile = driverList.get("Starting Basis", "None");
+
     // copy here rather than reference because the driver list will be removed 
     // alltogether...   
     bool read_problem=driverList.get("Read Linear System",false);
+    
     string datadir,file_format;
     bool have_massmatrix=false;
 
@@ -284,42 +287,48 @@ HYMLS::MatrixUtils::Random(*x);
   eigList.set("Verbosity",verbosity);
   eigList.set("Output Stream",HYMLS::Tools::out().getOStream());
 
-  Teuchos::RCP<MV> v0 = Teuchos::rcp(new Epetra_Vector(x->Map()));
-  HYMLS::MatrixUtils::Random(*v0);
-
-  for (int i = 0; i < v0->MyLength(); i++)
+  if (startingBasisFile != "None")
     {
-    if (v0->Map().GID(i) % dof == dim)
-      {
-      (*v0)[0][i] = 0.0;
-      }
+    // Use a provided starting basis
+    Epetra_MultiVector *vecout;
+    EpetraExt::MatrixMarketFileToMultiVector(startingBasisFile.c_str(), x->Map(), vecout);
+    x = Teuchos::rcp(vecout);
+
+    // Reorthogonalize because of round-off errors
+    typedef Belos::IMGSOrthoManager<ST, MV, Epetra_Operator> orthoMan_t;
+    Teuchos::RCP<orthoMan_t> ortho = Teuchos::rcp(new orthoMan_t("hist/orthog/imgs", M));
+
+    Teuchos::RCP<const Teuchos::ParameterList> default_params = ortho->getValidParameters();
+    params->setParametersNotAlreadySet(*default_params);
+
+    ortho->setParameterList(params);
+    Teuchos::ArrayView<Teuchos::RCP<const Epetra_MultiVector > > V_array;
+    Teuchos::Array<Teuchos::RCP<Teuchos::SerialDenseMatrix<int, double> > > C_array;
+    Teuchos::RCP< Teuchos::SerialDenseMatrix<int, double> > mat = Teuchos::null;
+    ortho->projectAndNormalize(*x, Teuchos::null, C_array, mat, V_array);
     }
+  else
+    {
+    // Use a random B-orthogonal starting vector
+    Teuchos::RCP<MV> v0 = Teuchos::rcp(new Epetra_Vector(x->Map()));
+    HYMLS::MatrixUtils::Random(*v0);
 
-  precond->ApplyInverse(*v0, *x);
+    for (int i = 0; i < v0->MyLength(); i++)
+      {
+      if (v0->Map().GID(i) % dof == dim)
+        {
+        (*v0)[0][i] = 0.0;
+        }
+      }
 
-  // Make x B-orthogonal
-  double result;
-  M->Multiply(false, *x, *v0);
-  x->Dot(*v0, &result);
-  x->Scale(1.0/sqrt(result));
+    precond->ApplyInverse(*v0, *x);
 
-{
-  Epetra_MultiVector *vecout;
-  EpetraExt::MatrixMarketFileToMultiVector("EigenvectorsRe0.mtx", x->Map(), vecout);
-  x = Teuchos::rcp(vecout);
-
-  typedef Belos::IMGSOrthoManager<ST,MV,Epetra_Operator> orthoMan_t;
-  Teuchos::RCP<orthoMan_t> ortho = Teuchos::rcp(new orthoMan_t("hist/orthog/imgs", M));
-
-  Teuchos::RCP<const Teuchos::ParameterList> default_params = ortho->getValidParameters();
-  params->setParametersNotAlreadySet(*default_params);
-
-  ortho->setParameterList(params);
-  Teuchos::ArrayView<Teuchos::RCP<const Epetra_MultiVector > > V_array;
-  Teuchos::Array<Teuchos::RCP<Teuchos::SerialDenseMatrix<int, double> > > C_array;
-  Teuchos::RCP< Teuchos::SerialDenseMatrix<int, double> > mat = Teuchos::null;
-  ortho->projectAndNormalize(*x, Teuchos::null, C_array, mat, V_array);
-}
+    // Make x B-orthogonal
+    double result;
+    M->Multiply(false, *x, *v0);
+    x->Dot(*v0, &result);
+    x->Scale(1.0/sqrt(result));
+    }
 
   HYMLS_TEST("main_eigs",isDivFree(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(K), *x, dof, dim),__FILE__,__LINE__);
 
@@ -375,15 +384,14 @@ HYMLS::MatrixUtils::Random(*x);
       }
     HYMLS::Tools::out()<<"-----------------------------------------------------------"<<std::endl;
 
-    HYMLS::MatrixUtils::Dump(*eigSol.Evecs, "EigenvectorsRe500.txt");
     }
 
   REPORT_MEM("main","after HYMLS",0,0);
 
   if (store_solution)
     {
-//    HYMLS::Tools::Out("store solution...");
-//    HYMLS::MatrixUtils::Dump(*x, "EigenSolution.txt",false);
+    HYMLS::Tools::Out("store solution...");
+    HYMLS::MatrixUtils::mmwrite("Eigenvectors.txt", *eigSol.Evecs);
     }
     
   if (print_final_list)
