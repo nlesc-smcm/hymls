@@ -282,6 +282,7 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
 {
   int iflag;
   Teuchos::RCP<MV> X = MVT::Clone(*d_problem->getInitVec(), d_problem->getNEV()+1);
+  Teuchos::RCP<MV> Q = MVT::Clone(*d_problem->getInitVec(), d_problem->getNEV()+1);
   Teuchos::RCP<MV> v0 = MVT::CloneCopy(*d_problem->getInitVec());
 
   d_opts.v0 = v0.get();
@@ -323,7 +324,7 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
 
   int num_eigs, num_iters;
 
-  phist_Djdqr((Dop_t *)A_op.get(), (Dop_t *)B_op.get(), X.get(), &evals[0], &resid[0], &is_cmplx[0],
+  phist_Djdqr((Dop_t *)A_op.get(), (Dop_t *)B_op.get(), X.get(), Q.get(), NULL, &evals[0], &resid[0], &is_cmplx[0],
         d_opts, &num_eigs, &num_iters, &iflag);
   TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
     "PhistSolMgr::solve: phist_Djdqr returned nonzero error code "+Teuchos::toString(iflag));
@@ -348,12 +349,13 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
     i++;
   }
 
-  sol.Evecs = X;
-
   std::sort(sol.Evals.begin(), sol.Evals.end(), eigSort<ScalarType>);
 
   if (sol.numVecs)
+  {
     sol.Evecs = MVT::CloneCopy(*X, Teuchos::Range1D(0, sol.numVecs-1));
+    sol.Espace = MVT::CloneCopy(*Q, Teuchos::Range1D(0, sol.numVecs-1));
+  }
   d_problem->setSolution(sol);
 
   // Return convergence status
