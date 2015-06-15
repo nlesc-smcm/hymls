@@ -145,6 +145,8 @@ class PhistSolMgr : public SolverManager<ScalarType,MV,OP>
 
         phist_jadaOpts_t                                d_opts;
 
+        bool borderedSolver;
+
 }; // class JacobiDavidsonSolMgr
 
 //---------------------------------------------------------------------------//
@@ -243,6 +245,15 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
         initType = "User";
     }
 
+    if (pl.isType<bool>("Bordered Solver"))
+    {
+        borderedSolver = pl.get<bool>("Bordered Solver");
+    }
+    else
+    {
+        borderedSolver = true;
+    }
+
     // Get sort type
     std::string which;
     if( pl.isType<std::string>("Which") )
@@ -297,6 +308,7 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
   TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
     "PhistSolMgr::solve: phist_Dop_wrap_sparseMat returned nonzero error code "+Teuchos::toString(iflag));
   A_op->solver = d_prec;
+  A_op->borderedSolver = borderedSolver;
 
   Teuchos::RCP<extended_Dop_t> B_op = Teuchos::null;
   if (d_problem->getM() != Teuchos::null)

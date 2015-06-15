@@ -2050,7 +2050,7 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
                Epetra_MultiVector& X,       Epetra_SerialDenseMatrix& S) const
   {
     HYMLS_LPROF(label_,"ApplyInverse (with border)");
-    if (borderV_==Teuchos::null) return ApplyInverse(B,X);
+    if (!HaveBorder()) return ApplyInverse(B,X);
     numApplyInverse_++;
     time_->ResetStartTime();
 

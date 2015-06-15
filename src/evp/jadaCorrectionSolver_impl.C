@@ -100,60 +100,78 @@ void SUBR(jadaCorrectionSolver_run)(TYPE(jadaCorrectionSolver_ptr) me,
     Teuchos::RCP<HYMLS::Solver> solver = ((extended_Dop_t const *)A_op)->solver;
     solver->SetTolerance(tol[i]);
     solver->setShift(1.0, -sigma[i]);
-    //~ solver->setNullSpace(Teuchos::rcp<const Epetra_MultiVector>((const Epetra_MultiVector *)Qtil, false));
-    //~ solver->SetupDeflation();
-
-    const Epetra_BlockMap &map = ((const Epetra_MultiVector *)Qtil)->Map();
-    const Epetra_BlockMap &map0 = solver->OperatorRangeMap();
-    if (!(map.SameAs(map0)))
-    {
-      // System is only the v-part, not the full system, so import the vectors
-      // on the v-part to the full system so we can use HYMLS on it.
-      const Epetra_Map &map0 = solver->OperatorRangeMap();
-      Epetra_Import import0(map0, ((const Epetra_MultiVector *)Qtil)->Map());
-      Epetra_MultiVector vec0(map0, ((const Epetra_MultiVector *)Qtil)->NumVectors());
-      vec0.PutScalar(0.0);
-      CHECK_ZERO(vec0.Import(*(const Epetra_MultiVector *)Qtil, import0, Insert));
-      CHECK_ZERO(solver->setProjectionVectors(Teuchos::rcp<const Epetra_MultiVector>(&vec0, false)));
-    }
-    else
-    {
-      CHECK_ZERO(solver->setProjectionVectors(Teuchos::rcp<const Epetra_MultiVector>((const Epetra_MultiVector *)Qtil, false)));
-    }
 
     int ind = (resIndex == NULL ? i : resIndex[i]);
     PHIST_CHK_IERR(phist_Dmvec_view_block(t, &t_i, i, i+totalNumSys-1, iflag), *iflag);
 
     PHIST_CHK_IERR(phist_Dmvec_view_block((Dmvec_ptr_t)res, &r_i, ind, ind+totalNumSys-1, iflag), *iflag);
 
+    const Epetra_MultiVector *Q_ptr = (const Epetra_MultiVector *)Qtil;
+    const Epetra_MultiVector *r_ptr = (const Epetra_MultiVector *)r_i;
+    Epetra_MultiVector *t_ptr = (Epetra_MultiVector *)t_i;
+
+    const Epetra_BlockMap &map = Q_ptr->Map();
+    const Epetra_BlockMap &map0 = solver->OperatorRangeMap();
+    if (!(map.SameAs(map0)))
+    {
+      // System is only the v-part, not the full system, so import the vectors
+      // on the v-part to the full system so we can use HYMLS on it.
+      const Epetra_Map &map0 = solver->OperatorRangeMap();
+      Epetra_Import import0(map0, Q_ptr->Map());
+      Epetra_MultiVector vec0(map0, Q_ptr->NumVectors());
+      vec0.PutScalar(0.0);
+      CHECK_ZERO(vec0.Import(*Q_ptr, import0, Insert));
+      if (((extended_Dop_t const *)A_op)->borderedSolver)
+      {
+        solver->setNullSpace(Teuchos::rcp<const Epetra_MultiVector>(&vec0, false));
+        solver->SetupDeflation();
+      }
+      else
+      {
+        CHECK_ZERO(solver->setProjectionVectors(Teuchos::rcp<const Epetra_MultiVector>(&vec0, false)));
+      }
+    }
+    else
+    {
+      if (((extended_Dop_t const *)A_op)->borderedSolver)
+      {
+        solver->setNullSpace(Teuchos::rcp<const Epetra_MultiVector>(Q_ptr, false));
+        solver->SetupDeflation();
+      }
+      else
+      {
+        CHECK_ZERO(solver->setProjectionVectors(Teuchos::rcp<const Epetra_MultiVector>(Q_ptr, false)));
+      }
+    }
+
     if (!(map.SameAs(map0)))
     {
       // v-part only, so import back an forth between the full system like above
       const Epetra_Map &map1 = solver->OperatorRangeMap();
-      Epetra_Import import1(map1, ((const Epetra_MultiVector *)r_i)->Map());
-      Epetra_MultiVector vec1(map1, ((const Epetra_MultiVector *)r_i)->NumVectors());
+      Epetra_Import import1(map1, (r_ptr)->Map());
+      Epetra_MultiVector vec1(map1, (r_ptr)->NumVectors());
       vec1.PutScalar(0.0);
-      CHECK_ZERO(vec1.Import(*(const Epetra_MultiVector *)r_i, import1, Insert));
+      CHECK_ZERO(vec1.Import(*r_ptr, import1, Insert));
 
       const Epetra_Map &map2 = solver->OperatorDomainMap();
-      Epetra_Import import2(map2, ((Epetra_MultiVector *)t_i)->Map());
-      Epetra_MultiVector vec2(map2, ((Epetra_MultiVector *)t_i)->NumVectors());
+      Epetra_Import import2(map2, t_ptr->Map());
+      Epetra_MultiVector vec2(map2, t_ptr->NumVectors());
       vec2.PutScalar(0.0);
-      CHECK_ZERO(vec2.Import(*(Epetra_MultiVector *)t_i, import2, Insert));
+      CHECK_ZERO(vec2.Import(*t_ptr, import2, Insert));
 
       solver->ApplyInverse(vec1, vec2);
 
-      Epetra_Import invImport2(((Epetra_MultiVector *)t_i)->Map(), map2);
-      CHECK_ZERO(((Epetra_MultiVector *)t_i)->Import(vec2, invImport2, Insert));
+      Epetra_Import invImport2(t_ptr->Map(), map2);
+      CHECK_ZERO(t_ptr->Import(vec2, invImport2, Insert));
     }
     else
     {
       // This is allowed to not converge, so don't do CHECK_ZERO
-      solver->ApplyInverse(*(const Epetra_MultiVector *)r_i, *(Epetra_MultiVector *)t_i);
+      solver->ApplyInverse(*r_ptr, *t_ptr);
     }
 
     if (solver->getNonconstParameterList()->sublist("Problem").get("Equations", "") == "Stokes-C")
-      HYMLS_TEST("jada",isDivFree(*(const Epetra_CrsMatrix *)A_op->A, *(const Epetra_MultiVector *)t_i, 4, 3),__FILE__,__LINE__);
+      HYMLS_TEST("jada",isDivFree(*(const Epetra_CrsMatrix *)A_op->A, *t_ptr, 4, 3),__FILE__,__LINE__);
 
   }
 

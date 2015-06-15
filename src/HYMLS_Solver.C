@@ -37,20 +37,20 @@
 
 namespace HYMLS {
 
-  // constructor
-  Solver::Solver(Teuchos::RCP<const Epetra_RowMatrix> K,
-      Teuchos::RCP<Epetra_Operator> P,
-      Teuchos::RCP<Teuchos::ParameterList> params,
-      int numRhs)
-      :
-        PLA("Solver"), comm_(Teuchos::rcp(&(K->Comm()),false)),
-        matrix_(K), operator_(K), precond_(P),
-        shiftA_(1.0), shiftB_(0.0),
-        massMatrix_(Teuchos::null), nullSpace_(Teuchos::null),
-        augmentedNullSpace_(Teuchos::null),
-        doBordering_(false), numEigs_(0),
-        useTranspose_(false), normInf_(-1.0), numIter_(0),
-        label_("HYMLS::Solver")
+// constructor
+Solver::Solver(Teuchos::RCP<const Epetra_RowMatrix> K,
+  Teuchos::RCP<Epetra_Operator> P,
+  Teuchos::RCP<Teuchos::ParameterList> params,
+  int numRhs)
+  :
+  PLA("Solver"), comm_(Teuchos::rcp(&(K->Comm()),false)),
+  matrix_(K), operator_(K), precond_(P),
+  shiftA_(1.0), shiftB_(0.0),
+  massMatrix_(Teuchos::null), nullSpace_(Teuchos::null),
+  augmentedNullSpace_(Teuchos::null),
+  doBordering_(false), numEigs_(0),
+  useTranspose_(false), normInf_(-1.0), numIter_(0),
+  label_("HYMLS::Solver")
   {
   HYMLS_PROF3(label_,"Constructor");
   setParameterList(params);
@@ -81,10 +81,10 @@ namespace HYMLS {
         __FILE__, __LINE__);
       }
     CHECK_ZERO(nullSpace_->PutScalar(0.0))
-    for (int i=dof-1;i<nullSpace_->MyLength();i+=dof)
-      {
-      (*nullSpace_)[0][i]=1.0;
-      }
+      for (int i=dof-1;i<nullSpace_->MyLength();i+=dof)
+        {
+        (*nullSpace_)[0][i]=1.0;
+        }
     }
   else if (nullSpaceType=="Checkerboard")
     {
@@ -127,7 +127,7 @@ namespace HYMLS {
   belosProblemPtr_=Teuchos::rcp(new belosProblemType_(operator_,belosSol_,belosRhs_));
   
   doBordering_ = ((nullSpaceType!="None") ||
-                  (PL().get("Deflated Subspace Dimension",0)>0));
+    (PL().get("Deflated Subspace Dimension",0)>0));
 
   this->SetPrecond(precond_);
 
@@ -136,10 +136,10 @@ namespace HYMLS {
 //  belosList.set("Output Style",::Belos::Brief);
   belosList.set("Output Style",1);
   belosList.set("Verbosity",::Belos::Errors+::Belos::Warnings
-                         +::Belos::IterationDetails
-                         +::Belos::StatusTestDetails
-                         +::Belos::FinalSummary
-                         +::Belos::TimingDetails);
+    +::Belos::IterationDetails
+    +::Belos::StatusTestDetails
+    +::Belos::FinalSummary
+    +::Belos::TimingDetails);
 
   belosList.set("Output Stream",Tools::out().getOStream());
 
@@ -155,18 +155,18 @@ namespace HYMLS {
     {
     Tools::Error("NOT IMPLEMENTED!",__FILE__,__LINE__);
 /*
-    belosSolverPtr_ = Teuchos::rcp(new 
-        ::Belos::PCPGSolMgr<ST,MV,OP>
-        (belosProblemPtr_,belosListPtr));
+  belosSolverPtr_ = Teuchos::rcp(new 
+  ::Belos::PCPGSolMgr<ST,MV,OP>
+  (belosProblemPtr_,belosListPtr));
 */
     }
   else if (solverType_=="GMRES")
     {
     belosSolverPtr_ = Teuchos::rcp(new 
-        ::Belos::BlockGmresSolMgr<ST,MV,OP>
-        (belosProblemPtr_,belosListPtr));
-        int blockSize=belosList.get("Block Size",1);
-        int numBlocks=belosList.get("Num Blocks",300);
+      ::Belos::BlockGmresSolMgr<ST,MV,OP>
+      (belosProblemPtr_,belosListPtr));
+    int blockSize=belosList.get("Block Size",1);
+    int numBlocks=belosList.get("Num Blocks",300);
     REPORT_MEM(label_,"GMRES (estimate)",numBlocks*blockSize*matrix_->NumMyRows(),0);
     }
   else
@@ -176,34 +176,34 @@ namespace HYMLS {
   }
 
 
-  // destructor
-  Solver::~Solver()
-    {
-    HYMLS_PROF3(label_,"Destructor");
-    }
+// destructor
+Solver::~Solver()
+  {
+  HYMLS_PROF3(label_,"Destructor");
+  }
 
-  void Solver::SetMatrix(Teuchos::RCP<const Epetra_RowMatrix> A)
+void Solver::SetMatrix(Teuchos::RCP<const Epetra_RowMatrix> A)
+  {
+  HYMLS_PROF3(label_,"SetMatrix");
+  matrix_ = A;
+  if (shiftB_!=0.0 || shiftA_!=1.0)
     {
-    HYMLS_PROF3(label_,"SetMatrix");
-    matrix_ = A;
-    if (shiftB_!=0.0 || shiftA_!=1.0)
-      {
-      Tools::Warning("SetMatrix called while operator used is shifted."
-                     "Discarding shifts.",__FILE__,__LINE__);
-      shiftB_=0.0;
-      shiftA_=1.0;
-      }
-    operator_=matrix_;
-    belosProblemPtr_->setOperator(operator_);
+    Tools::Warning("SetMatrix called while operator used is shifted."
+      "Discarding shifts.",__FILE__,__LINE__);
+    shiftB_=0.0;
+    shiftA_=1.0;
     }
+  operator_=matrix_;
+  belosProblemPtr_->setOperator(operator_);
+  }
 
-  void Solver::SetTolerance(double tol)
-    {
-    Teuchos::ParameterList& belosList = PL().sublist("Iterative Solver");
-    belosList.set("Convergence Tolerance", tol);
-    Teuchos::RCP<Teuchos::ParameterList> belosListPtr = rcp(&belosList, false);
-    belosSolverPtr_->setParameters(belosListPtr);
-    }
+void Solver::SetTolerance(double tol)
+  {
+  Teuchos::ParameterList& belosList = PL().sublist("Iterative Solver");
+  belosList.set("Convergence Tolerance", tol);
+  Teuchos::RCP<Teuchos::ParameterList> belosListPtr = rcp(&belosList, false);
+  belosSolverPtr_->setParameters(belosListPtr);
+  }
 
 void Solver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)
   {
@@ -226,28 +226,28 @@ void Solver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)
     }
   }
 
-  void Solver::SetMassMatrix(Teuchos::RCP<const Epetra_RowMatrix> mass)
+void Solver::SetMassMatrix(Teuchos::RCP<const Epetra_RowMatrix> mass)
+  {
+  if (mass==Teuchos::null) return;
+  HYMLS_PROF3(label_,"SetMassMatrix");
+  if (mass->RowMatrixRowMap().SameAs(matrix_->RowMatrixRowMap()))
     {
-    if (mass==Teuchos::null) return;
-    HYMLS_PROF3(label_,"SetMassMatrix");
-    if (mass->RowMatrixRowMap().SameAs(matrix_->RowMatrixRowMap()))
-      {
-      massMatrix_ = mass;
-      }
-    else
-      {
-      Tools::Error("Mass matrix must have same row map as solver",
-                __FILE__,__LINE__);
-      }
-    if (shiftB_!=0.0 || shiftA_!=1.0)
-      {
-      Tools::Warning("SetMassMatrix called while solving shifted system."
-                     "Discarding shifts.",__FILE__,__LINE__);
-      shiftB_=0.0;
-      shiftA_=1.0;
-      }
-    operator_=matrix_;
+    massMatrix_ = mass;
     }
+  else
+    {
+    Tools::Error("Mass matrix must have same row map as solver",
+      __FILE__,__LINE__);
+    }
+  if (shiftB_!=0.0 || shiftA_!=1.0)
+    {
+    Tools::Warning("SetMassMatrix called while solving shifted system."
+      "Discarding shifts.",__FILE__,__LINE__);
+    shiftB_=0.0;
+    shiftA_=1.0;
+    }
+  operator_=matrix_;
+  }
 
 void Solver::setShift(double shiftA, double shiftB)
   {
@@ -257,79 +257,79 @@ void Solver::setShift(double shiftA, double shiftB)
   belosProblemPtr_->setOperator(operator_);
   }
 
-  // Sets all parameters for the solver
-  void Solver::setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& List)
+// Sets all parameters for the solver
+void Solver::setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& List)
+  {
+  HYMLS_PROF3(label_,"SetParameterList");
+
+  setMyParamList(List);
+
+  //TODO: use validators everywhere
+
+  solverType_= PL().get("Krylov Method","GMRES");
+  startVec_=PL().get("Initial Vector","Random");
+  PL().get("Left or Right Preconditioning","Right");
+
+  numEigs_=PL().get("Deflated Subspace Dimension",numEigs_);
+  deflThres_=PL().get("Deflation Threshold",0.0);
+
+  // this is the place where we check for
+  // valid parameters for the iterative solver
+  if (validateParameters_)
     {
-    HYMLS_PROF3(label_,"SetParameterList");
-
-    setMyParamList(List);
-
-    //TODO: use validators everywhere
-
-    solverType_= PL().get("Krylov Method","GMRES");
-    startVec_=PL().get("Initial Vector","Random");
-    PL().get("Left or Right Preconditioning","Right");
-
-    numEigs_=PL().get("Deflated Subspace Dimension",numEigs_);
-    deflThres_=PL().get("Deflation Threshold",0.0);
-
-    // this is the place where we check for
-    // valid parameters for the iterative solver
-    if (validateParameters_)
-      {
-      this->getValidParameters();
-      PL().validateParameters(VPL());
-      }
-    DEBUG(PL());
+    this->getValidParameters();
+    PL().validateParameters(VPL());
     }
+  DEBUG(PL());
+  }
 
-  // Sets all parameters for the solver
-  Teuchos::RCP<const Teuchos::ParameterList> Solver::getValidParameters() const
-    {
-    if (validParams_!=Teuchos::null) return validParams_;
-    HYMLS_PROF3(label_,"getValidParameterList");
+// Sets all parameters for the solver
+Teuchos::RCP<const Teuchos::ParameterList> Solver::getValidParameters() const
+  {
+  if (validParams_!=Teuchos::null) return validParams_;
+  HYMLS_PROF3(label_,"getValidParameterList");
     
-    //TODO: use validators everywhere
+  //TODO: use validators everywhere
 
-    Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
-        solverValidator = Teuchos::rcp(
-                new Teuchos::StringToIntegralParameterEntryValidator<int>(
-                        Teuchos::tuple<std::string>( "GMRES", "CG" ),"Krylov Method"));
-    VPL().set("Krylov Method", "GMRES",
-        "Type of Krylov method to be used", solverValidator);
+  Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
+    solverValidator = Teuchos::rcp(
+      new Teuchos::StringToIntegralParameterEntryValidator<int>(
+        Teuchos::tuple<std::string>( "GMRES", "CG" ),"Krylov Method"));
+  VPL().set("Krylov Method", "GMRES",
+    "Type of Krylov method to be used", solverValidator);
 
-    Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
-        x0Validator = Teuchos::rcp(
-                new Teuchos::StringToIntegralParameterEntryValidator<int>(
-                        Teuchos::tuple<std::string>( "Zero", "Random", "Previous" ),"Initial Vector"));                                        
+  Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
+    x0Validator = Teuchos::rcp(
+      new Teuchos::StringToIntegralParameterEntryValidator<int>(
+        Teuchos::tuple<std::string>( "Zero", "Random", "Previous" ),"Initial Vector"));                                        
 
-    VPL().set("Initial Vector","Zero",
-        "How to construct the starting vector for the Krylov series", x0Validator);
+  VPL().set("Initial Vector","Zero",
+    "How to construct the starting vector for the Krylov series", x0Validator);
 
-    Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
-        lorValidator = Teuchos::rcp(
-                new Teuchos::StringToIntegralParameterEntryValidator<int>(
-                Teuchos::tuple<std::string>( "Left", "Right"),"Left or Right Preconditioning"));
+  Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
+    lorValidator = Teuchos::rcp(
+      new Teuchos::StringToIntegralParameterEntryValidator<int>(
+        Teuchos::tuple<std::string>( "Left", "Right"),"Left or Right Preconditioning"));
         
-    VPL().set("Left or Right Preconditioning", "Left",
-                            "wether to do left (P\\Ax=P\\b) or right (AP\\(Px)=b) preconditioning",
-                            lorValidator);
+  VPL().set("Left or Right Preconditioning", "Left",
+    "wether to do left (P\\Ax=P\\b) or right (AP\\(Px)=b) preconditioning",
+    lorValidator);
 
-    VPL().set("Deflated Subspace Dimension",0,"maximum number of eigenmodes to deflate");
+  VPL().set("Deflated Subspace Dimension",0,"maximum number of eigenmodes to deflate");
 
-    VPL().set("Deflation Threshold",1.0e-3,"An eigenmode is deflated if the eigenvalue is within [-eps 0]");
+  VPL().set("Deflation Threshold",1.0e-3,"An eigenmode is deflated if the eigenvalue is within [-eps 0]");
 
-    // these are temporarily added to the parameter list for developing the
-    // projection method and should be handled differently in the end.
-    VPL().set("Null Space","None","type of null vector, only for development in this list");
-    VPL().set("Pressure Variable",-1,"which is the pressure variable, only for development in this list");
-    VPL().set("Degrees of Freedom",-1,"dof/cell, only for development in this list");
+  // these are temporarily added to the parameter list for developing the
+  // projection method and should be handled differently in the end.
+  VPL().set("Null Space","None","type of null vector, only for development in this list");
+  VPL().set("Pressure Variable",-1,"which is the pressure variable, only for development in this list");
+  VPL().set("Degrees of Freedom",-1,"dof/cell, only for development in this list");
 
-    // Belos parameters should be specified in this list:
-    VPL().sublist("Iterative Solver",false,
-        "Parameter list for the Krylov method (passed to Belos)").disableRecursiveValidation();
-    return validParams_;
-    }
+  // Belos parameters should be specified in this list:
+  VPL().sublist("Iterative Solver",false,
+    "Parameter list for the Krylov method (passed to Belos)").disableRecursiveValidation();
+  return validParams_;
+  }
 
 
 Teuchos::RCP<MatrixUtils::Eigensolution> Solver::EigsPrec(int numEigs) const
@@ -370,35 +370,35 @@ Teuchos::RCP<MatrixUtils::Eigensolution> Solver::EigsPrec(int numEigs) const
     // calling this function, by calling SetMassMatrix() in both the solver
     // and the preconditioner.
     Tools::Warning("EigsPrec() called without mass matrix, is that what you want?",
-          __FILE__,__LINE__);
+      __FILE__,__LINE__);
     iop = Teuchos::rcp(new Epetra_InvOperator(op.get()));
     }
 
-    ////////////////////////////////////////////////////
-    // compute dominant eigenvalues of (P^{-1}, M).     
-    ////////////////////////////////////////////////////
-    bool status=true;
-    try {
+  ////////////////////////////////////////////////////
+  // compute dominant eigenvalues of (P^{-1}, M).     
+  ////////////////////////////////////////////////////
+  bool status=true;
+  try {
     Tools::Out("Compute max eigs of inv(P)");
     precEigs = MatrixUtils::Eigs
-            (iop, Teuchos::null, numEigs_,1.0e-8);
+      (iop, Teuchos::null, numEigs_,1.0e-8);
     } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status);
-    if (!status) Tools::Fatal("caught an exception",__FILE__,__LINE__);
+  if (!status) Tools::Fatal("caught an exception",__FILE__,__LINE__);
     
-    // I think this should never occur:
-    if (precEigs==Teuchos::null)
-      {
-      Tools::Error("null returned from Eigs routine?",__FILE__,__LINE__);
-      }
-
-    if (precEigs->numVecs<numEigs)
-      {
-      Tools::Warning("found "+Teuchos::toString(precEigs->numVecs)
-      +" eigenpairs in EigsPrec(), while you requested "+Teuchos::toString(numEigs),
-        __FILE__,__LINE__);
-      }
-    return precEigs;
+  // I think this should never occur:
+  if (precEigs==Teuchos::null)
+    {
+    Tools::Error("null returned from Eigs routine?",__FILE__,__LINE__);
     }
+
+  if (precEigs->numVecs<numEigs)
+    {
+    Tools::Warning("found "+Teuchos::toString(precEigs->numVecs)
+      +" eigenpairs in EigsPrec(), while you requested "+Teuchos::toString(numEigs),
+      __FILE__,__LINE__);
+    }
+  return precEigs;
+  }
 
 
 int Solver::setNullSpace(const Teuchos::RCP<const Epetra_MultiVector>& V)
@@ -448,18 +448,28 @@ int Solver::SetupDeflation(int maxEigs)
     {
     // we compute eigs of the operator [K N; N' 0] to make the operator nonsingular
     Teuchos::RCP<HYMLS::BorderedSolver> bprec
-        = Teuchos::rcp_dynamic_cast<BorderedSolver>(precond_);
+      = Teuchos::rcp_dynamic_cast<BorderedSolver>(precond_);
     if (bprec!=Teuchos::null)
       {
-      CHECK_ZERO(bprec->SetBorder(augmentedNullSpace_,augmentedNullSpace_));      
+      if (massMatrix_ != Teuchos::null)
+        {
+        Teuchos::RCP<Epetra_MultiVector> BV = Teuchos::rcp(
+          new Epetra_MultiVector(*augmentedNullSpace_));
+        CHECK_ZERO(massMatrix_->Apply(*augmentedNullSpace_, *BV));
+        CHECK_ZERO(bprec->SetBorder(BV,augmentedNullSpace_));
+        }
+      else
+        {
+        CHECK_ZERO(bprec->SetBorder(augmentedNullSpace_,augmentedNullSpace_));
+        }
       }
     else if (precond_!=Teuchos::null)
       {
       Tools::Error("feature not implemented",__FILE__,__LINE__);
       // should work in principle, but we can handle borders smarter
       /*
-      Tools::Out("add null space to preconditioner by LU");
-      op = Teuchos::rcp(new BorderedLU(precond_,augmentedNullSpace_,augmentedNullSpace_));
+        Tools::Out("add null space to preconditioner by LU");
+        op = Teuchos::rcp(new BorderedLU(precond_,augmentedNullSpace_,augmentedNullSpace_));
       */
       }
     }
@@ -472,35 +482,35 @@ int Solver::SetupDeflation(int maxEigs)
   if (numEigs_!=0)
     {
     Tools::Warning("Deflation is experimental functionality...",
-        __FILE__,__LINE__);
+      __FILE__,__LINE__);
     precEigs_ = this->EigsPrec(numEigs_);
     
     numEigs_=precEigs_->numVecs;
 
-  if (numEigs_==0) 
-    {
-    return 1;
-    }
+    if (numEigs_==0) 
+      {
+      return 1;
+      }
 
-  // neither should this happen:
-  if (precEigs_->Evecs==Teuchos::null)
-    {
-    Tools::Error("no eigenvectors have been returned.",__FILE__,__LINE__);
-    }
-  // ... or this:
-  if (precEigs_->Espace==Teuchos::null)
-    {
-    Tools::Error("no eigenvector basis has been returned.",__FILE__,__LINE__);
-    }
+    // neither should this happen:
+    if (precEigs_->Evecs==Teuchos::null)
+      {
+      Tools::Error("no eigenvectors have been returned.",__FILE__,__LINE__);
+      }
+    // ... or this:
+    if (precEigs_->Espace==Teuchos::null)
+      {
+      Tools::Error("no eigenvector basis has been returned.",__FILE__,__LINE__);
+      }
 
 #ifdef DEBUGGING
-  DEBUG("precEigs_->Evals = ...");
-  for (unsigned int i=0;i<precEigs_->Evals.size();i++)
-    {
-    DEBUG(precEigs_->Evals[i].realpart << "\t"<<precEigs_->Evals[i].imagpart);
-    }
-  HYMLS::MatrixUtils::Dump(*(precEigs_->Evecs),"EigenvectorsOfBorderedPrec.txt");
-  HYMLS::MatrixUtils::Dump(*(precEigs_->Espace),"EigenBasisOfBorderedPrec.txt");
+    DEBUG("precEigs_->Evals = ...");
+    for (unsigned int i=0;i<precEigs_->Evals.size();i++)
+      {
+      DEBUG(precEigs_->Evals[i].realpart << "\t"<<precEigs_->Evals[i].imagpart);
+      }
+    HYMLS::MatrixUtils::Dump(*(precEigs_->Evecs),"EigenvectorsOfBorderedPrec.txt");
+    HYMLS::MatrixUtils::Dump(*(precEigs_->Espace),"EigenBasisOfBorderedPrec.txt");
 
 #endif 
 
@@ -571,9 +581,9 @@ int Solver::SetupDeflation(int maxEigs)
       {
       re=1.0-lambda_r[i]; im = lambda_i[i];
 #ifdef TESTING
-        Tools::out() << "lambda(V'P\\SV)["<<i<<"]=";
-        Tools::out() << lambda_r[i] << " + i (" << lambda_i[i] << ")"<<std::endl;
-        DEBUG("lambda(V'P\\SV)["<<i<<"]="<<lambda_r[i] << " + i (" << lambda_i[i] << ")");
+      Tools::out() << "lambda(V'P\\SV)["<<i<<"]=";
+      Tools::out() << lambda_r[i] << " + i (" << lambda_i[i] << ")"<<std::endl;
+      DEBUG("lambda(V'P\\SV)["<<i<<"]="<<lambda_r[i] << " + i (" << lambda_i[i] << ")");
 #endif
       if ((re*re+im*im)>tol)
         {
@@ -655,7 +665,7 @@ int Solver::SetupDeflation(int maxEigs)
   // |V' O| |s| = |0| now to maintain orthogonality wrt V.    
   //                                                          
   Teuchos::RCP<HYMLS::BorderedSolver> borderedPrec =
-        Teuchos::rcp_dynamic_cast<HYMLS::BorderedSolver>(precond_);
+    Teuchos::rcp_dynamic_cast<HYMLS::BorderedSolver>(precond_);
     
   if (Teuchos::is_null(borderedPrec) && (precond_!=Teuchos::null))
     {
@@ -672,13 +682,17 @@ int Solver::SetupDeflation(int maxEigs)
       } // otherwise this was done above (only deflate a given null space)
     }
 
-#if 0
-//TODO - for JD I think we don't need to iterate orthogonal to V, the preconditioner
+// JT:   for JD I think we don't need to iterate orthogonal to V, the preconditioner
 //       should already take care of this. This has to be checked.
-Tools::Warning("In SetupDeflation: only using a bordered preconditioner right now",
-        __FILE__, __LINE__);
-return 0;
-#endif
+// Sven: If we precondition from the right, we're still not orthogonal to V AFAIK,
+//       so I projected the operator and now it seems to work
+  if (numEigs_ == 0)
+    {
+    Aorth_=Teuchos::rcp(new ProjectedOperator(operator_, V_, massMatrix_, true));
+    belosProblemPtr_->setOperator(Aorth_);
+    CHECK_TRUE(belosProblemPtr_->setProblem(belosSol_,belosRhs_));
+    return 0;
+    }
     
   Aorth_=Teuchos::rcp(new ProjectedOperator(operator_,V_,massMatrix_,true));
 
@@ -722,16 +736,16 @@ return 0;
   // but we need to provide an operator that can do A_orth.ApplyInverse by GMRES:
   bool status=true;
   try {
-  belosProblemPtr_->setOperator(Aorth_);
-  belosProblemPtr_->setLeftPrec(Teuchos::null);
-  belosProblemPtr_->setRightPrec(Teuchos::null);
-  CHECK_TRUE(belosProblemPtr_->setProblem(belosSol_,belosRhs_));
-  } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status);
+    belosProblemPtr_->setOperator(Aorth_);
+    belosProblemPtr_->setLeftPrec(Teuchos::null);
+    belosProblemPtr_->setRightPrec(Teuchos::null);
+    CHECK_TRUE(belosProblemPtr_->setProblem(belosSol_,belosRhs_));
+    } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status);
   if (status==false) Tools::Fatal("caught an exception updating Belos",__FILE__,__LINE__);
   Teuchos::ParameterList& belosList = PL().sublist("Iterative Solver");
     
   Teuchos::RCP<Teuchos::ParameterList> belosParamPtr = Teuchos::rcp(
-        new Teuchos::ParameterList(belosList));
+    new Teuchos::ParameterList(belosList));
         
   if (solverType_=="GMRES")
     {
@@ -751,7 +765,7 @@ return 0;
     {
     Tools::Error("not implemented",__FILE__,__LINE__);
     }
-try {
+  try {
     AorthSolver_ = Teuchos::rcp(new HYMLS::Belos::EpetraOperator
         (belosProblemPtr_,belosParamPtr,
         precond_,V_));
@@ -792,7 +806,7 @@ int Solver::setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V)
 
 // Applies the preconditioner to vector X, returns the result in Y.
 int Solver::ApplyInverse(const Epetra_MultiVector& B,
-                           Epetra_MultiVector& X) const
+  Epetra_MultiVector& X) const
   {
   HYMLS_PROF(label_,"ApplyInverse");
   int ierr=0;
@@ -812,19 +826,19 @@ int Solver::ApplyInverse(const Epetra_MultiVector& B,
       belosSol_=Teuchos::rcp(new Epetra_MultiVector(matrix_->OperatorDomainMap(),numRhs));
       }
 #ifdef TESTING
-  if (X.NumVectors()!=B.NumVectors())
-    {
-    Tools::Error("different number of input and output vectors",__FILE__,__LINE__);
-    } 
-  if (!(X.Map().SameAs(belosSol_->Map()) && 
+    if (X.NumVectors()!=B.NumVectors())
+      {
+      Tools::Error("different number of input and output vectors",__FILE__,__LINE__);
+      } 
+    if (!(X.Map().SameAs(belosSol_->Map()) && 
         B.Map().SameAs(belosRhs_->Map()) ))
-    {
-    Tools::Error("incompatible maps",__FILE__,__LINE__);
-    }
+      {
+      Tools::Error("incompatible maps",__FILE__,__LINE__);
+      }
 #endif
 
-   //TODO: avoid this copy operation
-   *belosRhs_ = B;
+    //TODO: avoid this copy operation
+    *belosRhs_ = B;
 
     if (startVec_=="Random")
       {
@@ -851,7 +865,7 @@ int Solver::ApplyInverse(const Epetra_MultiVector& B,
     bool status = true;
     try {
       ret = belosSolverPtr_->solve();
-    } TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, status);
+      } TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, status);
     if (!status) Tools::Warning("caught an exception", __FILE__, __LINE__);
 
     numIter_ = belosSolverPtr_->getNumIters();
@@ -881,100 +895,100 @@ int Solver::ApplyInverse(const Epetra_MultiVector& B,
 
 #ifdef TESTING
 
-Tools::Out("explicit residual test");
-Tools::out()<<"we were solving (a*A*x+b*B)*x=rhs\n" <<
-      "   with "<<X.NumVectors()<<" rhs\n" <<
-      "        a = "<<shiftA_<<"\n" <<
-      "        b = "<<shiftB_<<"\n";
-if (massMatrix_==Teuchos::null)
-Tools::out()<<
+  Tools::Out("explicit residual test");
+  Tools::out()<<"we were solving (a*A*x+b*B)*x=rhs\n" <<
+    "   with "<<X.NumVectors()<<" rhs\n" <<
+    "        a = "<<shiftA_<<"\n" <<
+    "        b = "<<shiftB_<<"\n";
+  if (massMatrix_==Teuchos::null)
+    Tools::out()<<
       "        B = I\n"; 
 // compute explicit residual
-int dim = PL("Problem").get<int>("Dimension");
-int dof = PL("Problem").get<int>("Degrees of Freedom");
+  int dim = PL("Problem").get<int>("Dimension");
+  int dof = PL("Problem").get<int>("Degrees of Freedom");
 
-Epetra_MultiVector resid(X.Map(),X.NumVectors());
-CHECK_ZERO(matrix_->Apply(X,resid));
-if (shiftB_!=0.0)
-  {
-  Epetra_MultiVector Bx=X;
+  Epetra_MultiVector resid(X.Map(),X.NumVectors());
+  CHECK_ZERO(matrix_->Apply(X,resid));
+  if (shiftB_!=0.0)
+    {
+    Epetra_MultiVector Bx=X;
   
-  if (massMatrix_!=Teuchos::null)
-    {
-    CHECK_ZERO(massMatrix_->Apply(X,Bx));
-    }
-  CHECK_ZERO(resid.Update(shiftB_,Bx,shiftA_));
-  }
-else if (shiftA_!=1.0)
-  {
-  CHECK_ZERO(resid.Scale(shiftA_));
-  }
-CHECK_ZERO(resid.Update(1.0,B,-1.0));
-double *resNorm,*rhsNorm,*resNormV,*resNormP;
-resNorm=new double[resid.NumVectors()];
-resNormV=new double[resid.NumVectors()];
-resNormP=new double[resid.NumVectors()];
-rhsNorm =new double[resid.NumVectors()];
-B.Norm2(rhsNorm);
-resid.Norm2(resNorm);
-
-if (dof>=dim)
-  {
-  Epetra_MultiVector residV=resid;
-  Epetra_MultiVector residP=resid;
-  for (int i=0;i<resid.MyLength();i+=dof)
-    {
-    for (int j=0;j<resid.NumVectors();j++)
+    if (massMatrix_!=Teuchos::null)
       {
-      for (int k=0;k<dim;k++)
-        {
-        residP[j][i+k]=0.0;
-        }
-      for (int k=dim+1;k<dof;k++)
-        {
-        residP[j][i+k]=0.0;
-        }
-      residV[j][i+dim]=0.0;
+      CHECK_ZERO(massMatrix_->Apply(X,Bx));
       }
-    }  
-  residV.Norm2(resNormV);
-  residP.Norm2(resNormP);
-  }
+    CHECK_ZERO(resid.Update(shiftB_,Bx,shiftA_));
+    }
+  else if (shiftA_!=1.0)
+    {
+    CHECK_ZERO(resid.Scale(shiftA_));
+    }
+  CHECK_ZERO(resid.Update(1.0,B,-1.0));
+  double *resNorm,*rhsNorm,*resNormV,*resNormP;
+  resNorm=new double[resid.NumVectors()];
+  resNormV=new double[resid.NumVectors()];
+  resNormP=new double[resid.NumVectors()];
+  rhsNorm =new double[resid.NumVectors()];
+  B.Norm2(rhsNorm);
+  resid.Norm2(resNorm);
 
-if (comm_->MyPID()==0)
-  {
-  Tools::out() << "Exp. res. norm(s): ";
-  for (int ii=0;ii<resid.NumVectors();ii++)
-    {
-    Tools::out() << resNorm[ii] << " ";
-    }
-  Tools::out() << std::endl;
-  Tools::out() << "Rhs norm(s): ";
-  for (int ii=0;ii<resid.NumVectors();ii++)
-    {
-    Tools::out() << rhsNorm[ii] << " ";
-    }
-  Tools::out() << std::endl;
   if (dof>=dim)
     {
-    Tools::out() << "Exp. res. norm(s) of V-part: ";
-    for (int ii=0;ii<resid.NumVectors();ii++)
+    Epetra_MultiVector residV=resid;
+    Epetra_MultiVector residP=resid;
+    for (int i=0;i<resid.MyLength();i+=dof)
       {
-      Tools::out() << resNormV[ii] << " ";
-      }
-    Tools::out() << std::endl;
-    Tools::out() << "Exp. res. norm(s) of P-part: ";
-    for (int ii=0;ii<resid.NumVectors();ii++)
-      {
-      Tools::out() << resNormP[ii] << " ";
-      }
-    Tools::out() << std::endl;
+      for (int j=0;j<resid.NumVectors();j++)
+        {
+        for (int k=0;k<dim;k++)
+          {
+          residP[j][i+k]=0.0;
+          }
+        for (int k=dim+1;k<dof;k++)
+          {
+          residP[j][i+k]=0.0;
+          }
+        residV[j][i+dim]=0.0;
+        }
+      }  
+    residV.Norm2(resNormV);
+    residP.Norm2(resNormP);
     }
-  }
-delete [] resNorm;
-delete [] rhsNorm;
-delete [] resNormV;
-delete [] resNormP;
+
+  if (comm_->MyPID()==0)
+    {
+    Tools::out() << "Exp. res. norm(s): ";
+    for (int ii=0;ii<resid.NumVectors();ii++)
+      {
+      Tools::out() << resNorm[ii] << " ";
+      }
+    Tools::out() << std::endl;
+    Tools::out() << "Rhs norm(s): ";
+    for (int ii=0;ii<resid.NumVectors();ii++)
+      {
+      Tools::out() << rhsNorm[ii] << " ";
+      }
+    Tools::out() << std::endl;
+    if (dof>=dim)
+      {
+      Tools::out() << "Exp. res. norm(s) of V-part: ";
+      for (int ii=0;ii<resid.NumVectors();ii++)
+        {
+        Tools::out() << resNormV[ii] << " ";
+        }
+      Tools::out() << std::endl;
+      Tools::out() << "Exp. res. norm(s) of P-part: ";
+      for (int ii=0;ii<resid.NumVectors();ii++)
+        {
+        Tools::out() << resNormP[ii] << " ";
+        }
+      Tools::out() << std::endl;
+      }
+    }
+  delete [] resNorm;
+  delete [] rhsNorm;
+  delete [] resNormV;
+  delete [] resNormP;
 #endif
 
 
@@ -982,4 +996,4 @@ delete [] resNormP;
   }
 
 
-}//namespace HYMLS
+  }//namespace HYMLS
