@@ -91,7 +91,7 @@ include_directories("${CMAKE_CURRENT_SOURCE_DIR}/evp")
 link_directories(${Trilinos_LIBRARY_DIRS})
 link_directories(${Trilinos_TPL_LIBRARY_DIRS})
 
-find_package(phist CONFIG)
+find_package(phist QUIET CONFIG)
 
 if (${phist_FOUND})
   add_definitions(-DHAVE_PHIST)
@@ -131,7 +131,11 @@ target_link_libraries(integration_tests hymls_eigs)
 
 install(TARGETS hymls ARCHIVE DESTINATION ${PROJECT_SOURCE_DIR})
 install(TARGETS hymls_eigs LIBRARY DESTINATION ${PROJECT_SOURCE_DIR})
-install(TARGETS hymls_jada LIBRARY DESTINATION ${PROJECT_SOURCE_DIR})
+
+if (${phist_FOUND})
+  install(TARGETS hymls_jada LIBRARY DESTINATION ${PROJECT_SOURCE_DIR})
+endif()
+
 if (DEFINED ENV{PLAT})
   # Install to the source directory for now because fvm expects this
   set_target_properties(hymls PROPERTIES OUTPUT_NAME hymls_$ENV{PLAT})
