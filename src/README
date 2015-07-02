@@ -1,0 +1,21 @@
+# Building HYMLS
+
+To build HYMLS, you can use cmake. This allows you to build HYMLS anywhere you like, not only in the src directory. So let's say we make a directory ~/build/hymls and hymls is located in ~/hymls/src. Then we can build with
+
+```
+cd ~/build/hymls
+cmake ~/hymls/src
+make
+```
+
+Note that HYMLS has to be built with an mpi compiler, and that Trilinos has to be in your PATH so cmake can find it. Those can be set in for instance .bashrc, but in case they are not, one can build with something like
+
+```
+cd ~/build/hymls
+CXX=mpicxx PATH=$PATH:$HOME/Trilinos cmake ~/hymls/src
+make
+```
+
+Instead of adding Trilinos to your path, you can also set it through TRILINOS_HOME.
+
+Building with PHIST is done in the same way. You just add it to your PATH. HYMLS will then automatically enable support for the PHIST JDQR solver, and build a libarry, hymls_jada, that can be used by other packages, for instance FVM.
