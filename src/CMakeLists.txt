@@ -130,11 +130,33 @@ target_link_libraries(hymls_main_eigs_full hymls_eigs)
 add_executable(hymls_integration_tests integration_tests.C)
 target_link_libraries(hymls_integration_tests hymls_eigs)
 
-install(TARGETS hymls_main RUNTIME DESTINATION bin)
-install(TARGETS hymls_main_eigs_full RUNTIME DESTINATION bin)
+install(TARGETS hymls_main EXPORT HYMLSTargets RUNTIME DESTINATION bin)
+install(TARGETS hymls_main_eigs_full EXPORT HYMLSTargets RUNTIME DESTINATION bin)
 
-install(TARGETS hymls ARCHIVE DESTINATION lib)
-install(TARGETS hymls_eigs LIBRARY DESTINATION lib)
+set(library_list)
+
+install(TARGETS hymls EXPORT HYMLSTargets ARCHIVE DESTINATION lib)
+list(APPEND library_list hymls)
+
+install(TARGETS hymls_eigs EXPORT HYMLSTargets LIBRARY DESTINATION lib)
+list(APPEND library_list hymls_eigs)
 if (${phist_FOUND})
-  install(TARGETS hymls_jada LIBRARY DESTINATION lib)
+  install(TARGETS hymls_jada EXPORT HYMLSTargets LIBRARY DESTINATION lib)
+  list(APPEND library_list hymls_jada)
 endif()
+
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+  "${CMAKE_CURRENT_BINARY_DIR}/HYMLS/HYMLSConfigVersion.cmake"
+  VERSION 0 COMPATIBILITY SameMajorVersion
+  )
+
+set(ConfigPackageLocation lib/cmake/HYMLS)
+configure_package_config_file("${PROJECT_SOURCE_DIR}/../cmake/HYMLSConfig.cmake.in"
+  "${PROJECT_BINARY_DIR}/HYMLSConfig.cmake" INSTALL_DESTINATION ${ConfigPackageLocation})
+
+install(EXPORT HYMLSTargets FILE HYMLSTargets.cmake DESTINATION ${ConfigPackageLocation})
+install(FILES "${PROJECT_BINARY_DIR}/HYMLSConfig.cmake"
+  "${CMAKE_CURRENT_BINARY_DIR}/HYMLS/HYMLSConfigVersion.cmake"
+  DESTINATION ${ConfigPackageLocation}
+  )
