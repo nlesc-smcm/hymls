@@ -94,6 +94,7 @@ link_directories(${Trilinos_TPL_LIBRARY_DIRS})
 find_package(phist QUIET CONFIG)
 
 if (${phist_FOUND})
+  message(STATUS "phist found in ${PHIST_INCLUDE_DIRS}")
   add_definitions(-DHAVE_PHIST)
   include_directories(${PHIST_INCLUDE_DIRS})
   link_directories(${PHIST_LIBRARY_DIRS})
