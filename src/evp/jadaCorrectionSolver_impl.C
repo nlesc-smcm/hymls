@@ -24,7 +24,7 @@
 
 //! create a jadaCorrectionSolver object
 void SUBR(jadaCorrectionSolver_create)(TYPE(jadaCorrectionSolver_ptr) *me, int blockedGMRESBlockDim, const_map_ptr_t map, 
-        linSolv_t method, int blockedGMRESMaxBase, bool useMINRES, int *iflag)
+        linSolv_t method, int blockedGMRESMaxBase, int *iflag)
 {
   PHIST_ENTER_FCN(__FUNCTION__);
   *iflag = 0;
@@ -35,7 +35,6 @@ void SUBR(jadaCorrectionSolver_create)(TYPE(jadaCorrectionSolver_ptr) *me, int b
     *me = new TYPE(jadaCorrectionSolver);
     (*me)->gmresBlockDim_ = blockedGMRESBlockDim;
     (*me)->blockedGMRESstates_  = NULL;
-    (*me)->useMINRES_ = useMINRES;
   }
   else if (method==CARP_CG)
   {
