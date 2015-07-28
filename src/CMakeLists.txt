@@ -120,23 +120,20 @@ if (${phist_FOUND})
 endif()
 target_link_libraries(hymls_eigs hymls)
 
-add_executable(main main.C)
-target_link_libraries(main hymls)
+add_executable(hymls_main main.C)
+target_link_libraries(hymls_main hymls)
 
-add_executable(main_eigs_full main_eigs_full.C)
-target_link_libraries(main_eigs_full hymls_eigs)
+add_executable(hymls_main_eigs_full main_eigs_full.C)
+target_link_libraries(hymls_main_eigs_full hymls_eigs)
 
-add_executable(integration_tests integration_tests.C)
-target_link_libraries(integration_tests hymls_eigs)
+add_executable(hymls_integration_tests integration_tests.C)
+target_link_libraries(hymls_integration_tests hymls_eigs)
 
-install(TARGETS hymls ARCHIVE DESTINATION ${PROJECT_SOURCE_DIR})
-install(TARGETS hymls_eigs LIBRARY DESTINATION ${PROJECT_SOURCE_DIR})
+install(TARGETS hymls_main RUNTIME DESTINATION bin)
+install(TARGETS hymls_main_eigs_full RUNTIME DESTINATION bin)
 
+install(TARGETS hymls ARCHIVE DESTINATION lib)
+install(TARGETS hymls_eigs LIBRARY DESTINATION lib)
 if (${phist_FOUND})
-  install(TARGETS hymls_jada LIBRARY DESTINATION ${PROJECT_SOURCE_DIR})
-endif()
-
-if (DEFINED ENV{PLAT})
-  # Install to the source directory for now because fvm expects this
-  set_target_properties(hymls PROPERTIES OUTPUT_NAME hymls_$ENV{PLAT})
+  install(TARGETS hymls_jada LIBRARY DESTINATION lib)
 endif()
