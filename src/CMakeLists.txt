@@ -76,6 +76,40 @@ set(SOURCES HYMLS_Solver
     GaleriExt_Periodic
     main_utils)
 
+# Headers incldue eachother, so for now just assume we want to install all
+# header files that have a source
+set(HEADERS)
+set(header_extensions ".h" ".H" ".hpp")
+foreach(i ${SOURCES})
+  foreach(j ${header_extensions})
+    if (EXISTS "${PROJECT_SOURCE_DIR}/${i}${j}")
+      list(APPEND HEADERS "${i}${j}")
+    endif()
+  endforeach()
+endforeach()
+unset(header_extensions)
+
+# Manually add headers without source file
+set(HEADERS ${HEADERS}
+  evp/AnasaziHymlsAdapter.hpp
+  evp/AnasaziJacobiDavidson.hpp
+  evp/AnasaziJacobiDavidsonSolMgr.hpp
+  evp/AnasaziPhistSolMgr.hpp
+  evp/AnasaziPreconditionerTraits.hpp
+  GaleriExt_Cross2DN.h
+  GaleriExt_Darcy2D.h
+  GaleriExt_Darcy3D.h
+  GaleriExt_Star3D.h
+  HYMLS_BaseNodeClassifier.H
+  HYMLS_BasePartitioner.H
+  HYMLS_BorderedSolver.H
+  HYMLS_Macros.H
+  HYMLS_no_debug.H
+  HYMLS_OrthogonalTransform.H
+  HYMLS_RestrictedOT.H
+  HYMLS_ShiftedOperator.H
+  )
+  
 include_directories(${PROJECT_SOURCE_DIR})
 
 if (DEFINED ENV{TRILINOS_HOME})
@@ -112,6 +146,7 @@ target_link_libraries(hymls ${Trilinos_TPL_LIBRARIES})
 add_library(hymls_eigs SHARED)
 if (${phist_FOUND})
   add_library(hymls_jada SHARED evp/jadaCorrectionSolver_impl)
+  list(APPEND HEADERS evp/jadaCorrectionSolver_impl.H)
   target_link_libraries(hymls_jada hymls)
   target_link_libraries(hymls_jada ${PHIST_LIBRARIES})
 
@@ -130,9 +165,11 @@ target_link_libraries(hymls_main_eigs_full hymls_eigs)
 add_executable(hymls_integration_tests integration_tests.C)
 target_link_libraries(hymls_integration_tests hymls_eigs)
 
+# Install executables
 install(TARGETS hymls_main EXPORT HYMLSTargets RUNTIME DESTINATION bin)
 install(TARGETS hymls_main_eigs_full EXPORT HYMLSTargets RUNTIME DESTINATION bin)
 
+# Install libraries
 set(library_list)
 
 install(TARGETS hymls EXPORT HYMLSTargets ARCHIVE DESTINATION lib)
@@ -140,10 +177,14 @@ list(APPEND library_list hymls)
 
 install(TARGETS hymls_eigs EXPORT HYMLSTargets LIBRARY DESTINATION lib)
 list(APPEND library_list hymls_eigs)
+
 if (${phist_FOUND})
   install(TARGETS hymls_jada EXPORT HYMLSTargets LIBRARY DESTINATION lib)
   list(APPEND library_list hymls_jada)
 endif()
+
+# Install headers
+install(FILES ${HEADERS} DESTINATION include)
 
 include(CMakePackageConfigHelpers)
 write_basic_package_version_file(
