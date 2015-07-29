@@ -6,13 +6,13 @@
  
 # Compute paths
 get_filename_component(HYMLS_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
-set(HYMLS_INCLUDE_DIRS "@CONF_INCLUDE_DIRS@")
 
 include("${HYMLS_CMAKE_DIR}/HYMLSTargets.cmake")
 
 @PACKAGE_INIT@
 
 set_and_check(HYMLS_INCLUDE_DIR "@PACKAGE_INCLUDE_INSTALL_DIR@")
+set(HYMLS_INCLUDE_DIRS "${HYMLS_INCLUDE_DIR}")
 
 # TODO: I want this to be less ugly. I'm looking for a function or variable that lists all libraries
 set(HYMLS_LIBRARIES "@library_list@")

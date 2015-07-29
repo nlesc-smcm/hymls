@@ -165,26 +165,30 @@ target_link_libraries(hymls_main_eigs_full hymls_eigs)
 add_executable(hymls_integration_tests integration_tests.C)
 target_link_libraries(hymls_integration_tests hymls_eigs)
 
+set(INCLUDE_INSTALL_DIR include)
+set(LIB_INSTALL_DIR lib)
+set(BIN_INSTALL_DIR bin)
+
 # Install executables
-install(TARGETS hymls_main EXPORT HYMLSTargets RUNTIME DESTINATION bin)
-install(TARGETS hymls_main_eigs_full EXPORT HYMLSTargets RUNTIME DESTINATION bin)
+install(TARGETS hymls_main EXPORT HYMLSTargets RUNTIME DESTINATION ${BIN_INSTALL_DIR})
+install(TARGETS hymls_main_eigs_full EXPORT HYMLSTargets RUNTIME DESTINATION ${BIN_INSTALL_DIR})
 
 # Install libraries
 set(library_list)
 
-install(TARGETS hymls EXPORT HYMLSTargets ARCHIVE DESTINATION lib)
+install(TARGETS hymls EXPORT HYMLSTargets ARCHIVE DESTINATION ${LIB_INSTALL_DIR})
 list(APPEND library_list hymls)
 
-install(TARGETS hymls_eigs EXPORT HYMLSTargets LIBRARY DESTINATION lib)
+install(TARGETS hymls_eigs EXPORT HYMLSTargets LIBRARY DESTINATION ${LIB_INSTALL_DIR})
 list(APPEND library_list hymls_eigs)
 
 if (${phist_FOUND})
-  install(TARGETS hymls_jada EXPORT HYMLSTargets LIBRARY DESTINATION lib)
+  install(TARGETS hymls_jada EXPORT HYMLSTargets LIBRARY DESTINATION ${LIB_INSTALL_DIR})
   list(APPEND library_list hymls_jada)
 endif()
 
 # Install headers
-install(FILES ${HEADERS} DESTINATION include)
+install(FILES ${HEADERS} DESTINATION ${INCLUDE_INSTALL_DIR})
 
 include(CMakePackageConfigHelpers)
 write_basic_package_version_file(
@@ -194,7 +198,8 @@ write_basic_package_version_file(
 
 set(ConfigPackageLocation lib/cmake/HYMLS)
 configure_package_config_file("${PROJECT_SOURCE_DIR}/../cmake/HYMLSConfig.cmake.in"
-  "${PROJECT_BINARY_DIR}/HYMLSConfig.cmake" INSTALL_DESTINATION ${ConfigPackageLocation})
+  "${PROJECT_BINARY_DIR}/HYMLSConfig.cmake" INSTALL_DESTINATION ${ConfigPackageLocation}
+  PATH_VARS INCLUDE_INSTALL_DIR)
 
 install(EXPORT HYMLSTargets FILE HYMLSTargets.cmake DESTINATION ${ConfigPackageLocation})
 install(FILES "${PROJECT_BINARY_DIR}/HYMLSConfig.cmake"
