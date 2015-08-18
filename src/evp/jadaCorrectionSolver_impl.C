@@ -182,8 +182,17 @@ void SUBR(computeResidual)(TYPE(const_op_ptr) B_op, TYPE(mvec_ptr) r_ptr,
   Teuchos::RCP<HYMLS::Solver> solver = Teuchos::null;
   if (B_op != NULL)
   {
-    hymls_wrapper_t* me= (hymls_wrapper_t*)B_op->A;
-    solver = me->solver;
+    hymls_wrapper_t* me= (hymls_wrapper_t*)B_op->aux;
+    if (me!=NULL)
+    {
+      solver = me->solver;
+    }
+    else
+    {
+      PHIST_SOUT(PHIST_ERROR,"in HYMLS overloaded computeResidual function, B_op->aux is "
+                             "NULL (should point to the customSolver struct hymls_wrapper_t \n");
+      *iflag=PHIST_BAD_CAST;
+    }
 
     // We only want to import vectors etc if we don't solve the full system but
     // only the v-part

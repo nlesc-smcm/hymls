@@ -327,12 +327,9 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
     phist_Dop_wrap_sparseMat(B_op.get(), B, &iflag);
     TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
       "PhistSolMgr::solve: phist_Dop_wrap_sparseMat returned nonzero error code "+Teuchos::toString(iflag));
-    // HACK: replace the matrix object by the hymls wrapper. The operator will still work because\
-    //       the first pointer in hymls_wrapper is the matrix. We need to do this right now because the
-    //       'overloaded' computeResidual function requires the HYMLS preconditioner. In the future, we
-    //       should equip phist with a mechanism to do this more elegantly.
-    B_op->A = new hymls_wrapper_t;
-    ((hymls_wrapper_t*)(B_op->A))->matrix=B;
+    //       Use the 'free' field aux in the B operator to pass the solver to ComputeResidual. We need to do 
+    //  this right now because there is no systematic way in hymls to provide an 'additional projection space'
+    B_op->aux=d_opts.customSolver;
     d_prec->SetMassMatrix(B_rcp);
   }
 
