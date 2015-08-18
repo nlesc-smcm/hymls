@@ -9,24 +9,32 @@
 #include "HYMLS_Solver.H"
 #include "phist_operator.h"
 #include "phist_enums.h"
+#include "phist_gen_d.h"
+#include "phist_void_aliases.h"
 
 //! wrapper to pass the hymls solver object to phist
-typedef struct hymls_wrapper_t {
+typedef struct hymls_wrapper_t 
+{
+  Epetra_CrsMatrix const* matrix; // to allow using this struct as a substitute B matrix.
+                                  // This is a still-to-be-fixed workaround so that we can
+                                  // override the residual computation in jdqr with something
+                                  // that requires not only the B matrix but also the preconditioner
+                                  // (only relevant for Navier-Stokes
 
   Teuchos::RCP<HYMLS::Solver> solver;
   bool borderedSolver;
   
-  } hymls_wrapper_t;
+} hymls_wrapper_t;
 
 //! simplified phist correction solver interface, only allows solving for a single shift at a time.
-void HYMLS_jadaCorrectionSolver_run1)(hymls_wrapper_t* me,
-                                    TYPE(const_op_ptr)    A_op,     TYPE(const_op_ptr)    B_op,
+void HYMLS_jadaCorrectionSolver_run1(void* me,
+                                    void const* A_op,     void const*    B_op,
                                     TYPE(const_mvec_ptr)  Qtil,     TYPE(const_mvec_ptr)  BQtil,
                                     double                sigma_r,  double                sigma_i,
                                     TYPE(const_mvec_ptr)  res,
                                     const double          tol,      int                   maxIter,
                                     TYPE(mvec_ptr)        t,
-                                    bool robust,                   bool abortAfterFirstConvergedInBlock,
+                                    int robust,
                                     int *                 iflag);
 
 

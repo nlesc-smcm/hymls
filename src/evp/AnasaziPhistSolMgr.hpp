@@ -278,7 +278,7 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
         d_opts.which = LM;
     }
 
-  d_wrapper = Teuchos::rcp(new hymls_wrapper());
+  Teuchos::RCP<hymls_wrapper_t> d_wrapper = Teuchos::rcp(new hymls_wrapper_t);
   d_wrapper->solver = d_prec;
   d_wrapper->borderedSolver = borderedSolver;
 
@@ -320,14 +320,22 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
 
   Teuchos::RCP<Dop_t> B_op = Teuchos::null;
   if (d_problem->getM() != Teuchos::null)
-    {
+  {
+    Teuchos::RCP<const Epetra_CrsMatrix> B_rcp=Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(d_problem->getM());
+    const Epetra_CrsMatrix* B=B_rcp.get();
     B_op = Teuchos::rcp(new Dop_t());
-    phist_Dop_wrap_sparseMat(B_op.get(), Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(d_problem->getM()).get(), &iflag);
+    phist_Dop_wrap_sparseMat(B_op.get(), B, &iflag);
     TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
       "PhistSolMgr::solve: phist_Dop_wrap_sparseMat returned nonzero error code "+Teuchos::toString(iflag));
+    // HACK: replace the matrix object by the hymls wrapper. The operator will still work because\
+    //       the first pointer in hymls_wrapper is the matrix. We need to do this right now because the
+    //       'overloaded' computeResidual function requires the HYMLS preconditioner. In the future, we
+    //       should equip phist with a mechanism to do this more elegantly.
+    B_op->A = new hymls_wrapper_t;
+    ((hymls_wrapper_t*)(B_op->A))->matrix=B;
+    d_prec->SetMassMatrix(B_rcp);
   }
 
-  d_prec->SetMassMatrix(Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(d_problem->getM()));
 
   // allocate memory for eigenvalues and residuals. We allocate
   // one extra entry because in the real case we may get that the

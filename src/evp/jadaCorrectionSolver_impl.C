@@ -38,21 +38,26 @@
 //! maxIter         maximal number of iterations after which individial systems should be aborted
 //! t               returns approximate solution vectors
 //! iflag            a value > 0 indicates the number of systems that have not converged to the desired tolerance
-void HYMLS_jadaCorrectionSolver_run1)(hymls_wrapper_t* me,
-                                    TYPE(const_op_ptr)    A_op,     TYPE(const_op_ptr)    B_op, 
+void HYMLS_jadaCorrectionSolver_run1(void* vme,
+                                    void const*           vA_op,    void const*           vB_op, 
                                     TYPE(const_mvec_ptr)  Qtil,     TYPE(const_mvec_ptr)  BQtil,
                                     double                sigma_r,  double                sigma_i, 
                                     TYPE(const_mvec_ptr)  res, 
                                     const double          tol,      int                   maxIter,
                                     TYPE(mvec_ptr)        t,
-                                    bool robust,                   bool abortAfterFirstConvergedInBlock,
+                                    int robust,
                                     int *                 iflag)
 {
   PHIST_ENTER_FCN(__FUNCTION__);
   *iflag = 0;
+  TYPE(const_op_ptr) A_op=(TYPE(const_op_ptr))vA_op;
+  TYPE(const_op_ptr) B_op=(TYPE(const_op_ptr))vB_op;
+  hymls_wrapper_t* me=(hymls_wrapper_t*)vme;
 
   PHIST_CHK_IERR(*iflag = (maxIter <= 0) ? -1 : 0, *iflag);
   
+  // note: we should probably solve a system with two rhs but with a real preconditioner here,
+  // as is done in phist
   if (sigma_i!=0.0) 
   {
     *iflag=-99; // not implemented
@@ -61,7 +66,7 @@ void HYMLS_jadaCorrectionSolver_run1)(hymls_wrapper_t* me,
 
   Teuchos::RCP<HYMLS::Solver> solver = me->solver;
   solver->SetTolerance(tol);
-  solver->setShift(1.0, -sigma);
+  solver->setShift(1.0, -sigma_r);
 
   const Epetra_MultiVector *Q_ptr = (const Epetra_MultiVector *)Qtil;
   const Epetra_MultiVector *r_ptr = (const Epetra_MultiVector *)res;
@@ -78,7 +83,7 @@ void HYMLS_jadaCorrectionSolver_run1)(hymls_wrapper_t* me,
     Epetra_MultiVector vec0(map0, Q_ptr->NumVectors());
     vec0.PutScalar(0.0);
     CHECK_ZERO(vec0.Import(*Q_ptr, import0, Insert));
-    if (((extended_Dop_t const *)A_op)->borderedSolver)
+    if (me->borderedSolver)
     {
       solver->setNullSpace(Teuchos::rcp<const Epetra_MultiVector>(&vec0, false));
       solver->SetupDeflation();
@@ -90,7 +95,7 @@ void HYMLS_jadaCorrectionSolver_run1)(hymls_wrapper_t* me,
   }
   else
   {
-    if (((extended_Dop_t const *)A_op)->borderedSolver)
+    if (me->borderedSolver)
     {
       solver->setNullSpace(Teuchos::rcp<const Epetra_MultiVector>(Q_ptr, false));
       solver->SetupDeflation();
@@ -131,14 +136,18 @@ void HYMLS_jadaCorrectionSolver_run1)(hymls_wrapper_t* me,
   HYMLS_TEST("jada",isDivFree(*(const Epetra_CrsMatrix *)A_op->A, *t_ptr, 4, 3),__FILE__,__LINE__);
 
 
-  SUBR(mvec_delete)(r_i,iflag);
-  SUBR(mvec_delete)(t_i,iflag);
-
   // normalize result vectors, TODO: should be done in updateSol/pgmres?
-  _MT_ tmp[totalNumSys];
-  PHIST_CHK_IERR(phist_Dmvec_normalize(t, tmp, iflag), *iflag);
+  _MT_ tmp;
+  PHIST_CHK_IERR(phist_Dmvec_normalize(t, &tmp, iflag), *iflag);
 }
 
+// we need to replace the residual computation in jdqr right now by re-implementing
+// it and using linker tricks (library order). The B_op has a pointer to a hymls_wrapper
+// as its A member, from which we can get both the mass matrix and the HYMLS solver.
+// In the future we need to consolidate the jdqr interface so that the user can do their
+// own residual calculation, or we should have the operators involved (A,B,Precond) have
+// the velocity map as range and domain map and allow an additional projector to implement
+// the divergence constraint. See phist issue 125)
 void SUBR(computeResidual)(TYPE(const_op_ptr) B_op, TYPE(mvec_ptr) r_ptr,
         TYPE(mvec_ptr) Au_ptr, TYPE(mvec_ptr) u_ptr, TYPE(mvec_ptr) rtil_ptr,
         TYPE(mvec_ptr) Qv, TYPE(mvec_ptr) tmp, TYPE(sdMat_ptr) Theta,
@@ -173,7 +182,8 @@ void SUBR(computeResidual)(TYPE(const_op_ptr) B_op, TYPE(mvec_ptr) r_ptr,
   Teuchos::RCP<HYMLS::Solver> solver = Teuchos::null;
   if (B_op != NULL)
   {
-    solver = ((extended_Dop_t const *)B_op)->solver;
+    hymls_wrapper_t* me= (hymls_wrapper_t*)B_op->A;
+    solver = me->solver;
 
     // We only want to import vectors etc if we don't solve the full system but
     // only the v-part
