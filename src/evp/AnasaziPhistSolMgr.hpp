@@ -143,7 +143,7 @@ class PhistSolMgr : public SolverManager<ScalarType,MV,OP>
         RCP< Eigenproblem<ScalarType,MV,OP> >           d_problem;
         RCP< PREC >                                     d_prec;
         // used to pass HYMLS object to phist
-        RCP<hymls_wrapper_t>                            d_wrap;
+        RCP<hymls_wrapper_t>                            d_wrapper;
         phist_jadaOpts_t                                d_opts;
 
         bool borderedSolver;
@@ -278,7 +278,7 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
         d_opts.which = LM;
     }
 
-  Teuchos::RCP<hymls_wrapper_t> d_wrapper = Teuchos::rcp(new hymls_wrapper_t);
+  d_wrapper = Teuchos::rcp(new hymls_wrapper_t);
   d_wrapper->solver = d_prec;
   d_wrapper->borderedSolver = borderedSolver;
 

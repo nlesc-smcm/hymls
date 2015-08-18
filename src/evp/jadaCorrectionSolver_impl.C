@@ -192,6 +192,7 @@ void SUBR(computeResidual)(TYPE(const_op_ptr) B_op, TYPE(mvec_ptr) r_ptr,
       PHIST_SOUT(PHIST_ERROR,"in HYMLS overloaded computeResidual function, B_op->aux is "
                              "NULL (should point to the customSolver struct hymls_wrapper_t \n");
       *iflag=PHIST_BAD_CAST;
+      return;
     }
 
     // We only want to import vectors etc if we don't solve the full system but

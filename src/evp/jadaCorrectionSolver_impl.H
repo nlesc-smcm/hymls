@@ -15,11 +15,6 @@
 //! wrapper to pass the hymls solver object to phist
 typedef struct hymls_wrapper_t 
 {
-  Epetra_CrsMatrix const* matrix; // to allow using this struct as a substitute B matrix.
-                                  // This is a still-to-be-fixed workaround so that we can
-                                  // override the residual computation in jdqr with something
-                                  // that requires not only the B matrix but also the preconditioner
-                                  // (only relevant for Navier-Stokes
 
   Teuchos::RCP<HYMLS::Solver> solver;
   bool borderedSolver;
