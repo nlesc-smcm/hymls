@@ -3,8 +3,8 @@
 #SBATCH -N 1 --tasks-per-node=8
 #SBATCH -J hymls_rev_test
 
-export PYTHONPATH=${HOME}/testing/fredwubs/hymls/python
-cd ${HOME}/testing/fredwubs/hymls/testSuite/rev_tests
+export PYTHONPATH=${HOME}/testing/hymls/python
+cd ${HOME}/testing/hymls/testSuite/rev_tests
 
 echo 'Testing'
 pwd

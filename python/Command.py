@@ -8,6 +8,19 @@ import datetime
 import os
 from collections import OrderedDict
 
+def git_command(command, suppress_errors=False):
+    p = None
+    if suppress_errors:
+        p = subprocess.Popen('git ' + command, stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE, shell=True)
+    else:
+        p = subprocess.Popen('git ' + command, stdout=subprocess.PIPE, shell=True)
+    (out, err) = p.communicate()
+    errno = p.poll()
+    if errno != 0 and not suppress_errors:
+        raise Exception('Command git ' + command + ' failed')
+    return out
+
 class Command(object):
     def __init__(self, cmd, env=None):
         self.cmd = cmd

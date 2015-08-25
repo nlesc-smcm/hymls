@@ -1,34 +1,73 @@
-import subprocess
 import os
 import shutil
 from optparse import OptionParser
 
-import threading
-import datetime
-
-from Command import *
+from Command import Command, ParallelCommand, git_command
 
 test_path = os.getcwd()
 log_name = ''
 global_rev = '0'
 
+class memoize(dict):
+    def __init__(self, func):
+        self.func = func
+
+    def __call__(self, *args):
+        return self[args]
+
+    def __missing__(self, key):
+        result = self[key] = self.func(*key)
+        return result
+
 def get_rev(path):
     prev_path = os.getcwd()
     os.chdir(path)
 
-    p = subprocess.Popen('git svn find-rev HEAD', stdout=subprocess.PIPE, shell=True)
-    (rev, err) = p.communicate()
-    if rev == '':
-        p = subprocess.Popen('git rev-parse HEAD', stdout=subprocess.PIPE, shell=True)
-        (rev, err) = p.communicate()
+    rev = git_command('rev-list --count HEAD')
+
     os.chdir(prev_path)
 
     print 'Revision', rev
 
     return rev.strip()
 
+@memoize
+def rev_to_hash(path, rev):
+    '''Returns the hash of the nth commit'''
+    if not rev.isdigit():
+        return rev
+
+    prev_path = os.getcwd()
+    os.chdir(path)
+
+    # Get the total amount of commits
+    num = git_command('rev-list --count HEAD')
+    rev = git_command('log --format="%H" -1 --skip=' + str(int(num)-int(rev)) + ' HEAD')
+
+    os.chdir(prev_path)
+
+    print 'Hash', rev
+
+    return rev.strip()
+
+@memoize
+def rev_to_svn_rev(path, rev):
+    prev_path = os.getcwd()
+    os.chdir(path)
+
+    h = rev_to_hash(path, rev)
+
+    rev = git_command('svn find-rev ' + h)
+
+    os.chdir(prev_path)
+
+    print 'svn revision', rev
+
+    return rev.strip()
+
 def get_trili_dir():
-    if not global_rev.isdigit():
+    rev = rev_to_svn_rev(test_path, global_rev)
+    if not rev.isdigit():
         return os.path.join(os.path.expanduser("~"), 'Trilinos/11.12')
     elif int(global_rev) > 1000:
         return os.path.join(os.path.expanduser("~"), 'Trilinos/11.12')
@@ -54,7 +93,7 @@ def log_set_name(name):
 def platform(testing=False):
     return 'PLAT=%s' % ('cartdefault' if not testing else 'carttesting')
 
-def shared_dir(fredwubs_path):
+def shared_dir(base_path):
     return 'SHARED_DIR='+os.path.join(os.path.expanduser("~"), 'testing/')
 
 def trilinos_home():
@@ -68,11 +107,11 @@ def library_path():
 def normal_path():
     path = os.environ.get('PATH', '')
     path = (':' + path if path else path)
-    return 'PATH='+os.path.join(os.path.expanduser("~"), 'local/bin')+path
+    return 'PATH='+os.path.join(os.path.expanduser("~"), 'local/bin') + ':' + get_trili_dir() + path
 
-def env_vars(fredwubs_path, testing=False):
+def env_vars(base_path, testing=False):
     envs = {}
-    for env in [platform(testing), shared_dir(fredwubs_path), trilinos_home(), library_path(), normal_path()]:
+    for env in [platform(testing), shared_dir(base_path), trilinos_home(), library_path(), normal_path()]:
         for i in env.split(' '):
             var = i.split('=')
             if len(var) == 2:
@@ -81,21 +120,76 @@ def env_vars(fredwubs_path, testing=False):
                 print 'Error with environment variable', i
     return envs
 
+def cmake_env_vars(base_path):
+    envs = {}
+    envs['CXX'] = 'ccache mpicxx'
+    path = os.environ.get('PATH', '')
+    path = (':' + path if path else path)
+    envs['PATH'] = os.path.join(base_path, 'install') + ':' + get_trili_dir() + path
+    envs['TRILINOS_HOME'] = get_trili_dir()
+    return envs
+
 def replace_if_not_replaced(text, old, new):
     if (new in text):
         return text
 
     return text.replace(old, new)
 
-def build(fredwubs_path, path, testing=False, target=None):
+def build(base_path, path, testing=False):
+    log("Starting HYMLS build process\n")
+
+    prev_path = os.getcwd()
+    os.chdir(os.path.join(base_path, path))
+
+    #Make a build dir
+    if os.path.exists('build'):
+        shutil.rmtree('build')
+    os.mkdir('build')
+    os.chdir('build')
+
+    #Run cmake
+    install_path = os.path.join(base_path, 'install')
+    command = 'cmake -DCMAKE_INSTALL_PREFIX="' + install_path + '"'
+    if not testing:
+        command += ' -DCMAKE_BUILD_TYPE=Release'
+    p = Command(command + ' .. ', env=cmake_env_vars(base_path))
+    p.run()
+
+    log("Cmake output:\n\n")
+    log(p.out)
+
+    log("Cmake errors:\n\n")
+    log(p.err)
+
+    p = Command('make -j 20', env=cmake_env_vars(base_path))
+    p.run()
+
+    log("Build output:\n\n")
+    log(p.out)
+
+    log("Build errors:\n\n")
+    log(p.err)
+
+    p = Command('make install', env=cmake_env_vars(base_path))
+    p.run()
+
+    log("Make install output:\n\n")
+    log(p.out)
+
+    log("Make install errors:\n\n")
+    log(p.err)
+
+    os.chdir(prev_path)
+
+def build_old(base_path, path, testing=False, target=None):
 
     log("Starting HYMLS build process\n")
 
     prev_path = os.getcwd()
-    src = os.path.join(fredwubs_path, path)
+    src = os.path.join(base_path, path)
     os.chdir(src)
 
-    p = Command('make clean', env=env_vars(fredwubs_path, testing))
+    p = Command('make clean', env=env_vars(base_path, testing))
     p.run()
 
     log("Clean output:\n\n")
@@ -130,7 +224,7 @@ def build(fredwubs_path, path, testing=False, target=None):
         os.remove('NOX_Epetra_LinearSystem_Belos.C')
 
     target = (target if target else '')
-    p = Command('make -j 20 '+target, env=env_vars(fredwubs_path, testing))
+    p = Command('make -j 20 '+target, env=env_vars(base_path, testing))
     p.run()
 
     log("Build output:\n\n")
@@ -141,14 +235,18 @@ def build(fredwubs_path, path, testing=False, target=None):
 
     os.chdir(prev_path)
 
-def integration_tests(fredwubs_path, procs=1):
+def integration_tests(base_path, procs=1):
     log("Starting integration tests\n")
 
     prev_path = os.getcwd()
-    path = os.path.join(fredwubs_path, 'hymls', 'testSuite', 'integration_tests')
+    path = os.path.join(base_path, 'hymls', 'testSuite', 'integration_tests')
     os.chdir(path)
 
-    p = ParallelCommand('../../src/integration_tests', env_vars(fredwubs_path), procs)
+    exe = os.path.join(base_path, 'hymls', 'build', 'src', 'hymls_integration_tests')
+    if not os.path.exists(exe):
+        exe = os.path.join(base_path, 'hymls', 'src', 'integration_tests')
+
+    p = ParallelCommand(exe, env_vars(base_path), procs)
     p.run()
 
     log("Test output:\n\n")
@@ -159,14 +257,14 @@ def integration_tests(fredwubs_path, procs=1):
 
     os.chdir(prev_path)
 
-def unit_tests(fredwubs_path):
+def unit_tests(base_path):
     log("Starting unit tests\n")
 
-    prev_path = os.getcwd()
-    path = os.path.join(fredwubs_path, 'hymls', 'testSuite', 'unit_tests')
-    os.chdir(path)
+    exe = os.path.join(base_path, 'hymls', 'build', 'testSuite', 'unit_tests', 'unit_tests')
+    if not os.path.exists(exe):
+        exe = os.path.join(base_path, 'hymls', 'testSuite', 'unit_tests', 'main')
 
-    p = ParallelCommand('./main', env=env_vars(fredwubs_path))
+    p = ParallelCommand(exe, env=env_vars(base_path))
     p.run()
 
     log("Test output:\n\n")
@@ -175,9 +273,7 @@ def unit_tests(fredwubs_path):
     log("Test errors:\n\n")
     log(p.err)
 
-    os.chdir(prev_path)
-
-def fvm_test(fredwubs_path, test_path, testing=False, procs=1):
+def fvm_test(base_path, test_path, testing=False, procs=1):
     log("Starting fvm test\n")
 
     prev_path = os.getcwd()
@@ -190,7 +286,7 @@ def fvm_test(fredwubs_path, test_path, testing=False, procs=1):
     levels = 3
     re_end = 0
 
-    p = Command('python runtest.py %d %d %d %d %d' % (nodes, procs, size, ssize, levels), env=env_vars(fredwubs_path, testing))
+    p = Command('python runtest.py %d %d %d %d %d' % (nodes, procs, size, ssize, levels), env=env_vars(base_path, testing))
     p.run()
 
     fname = 'FVM_LDCav_nn%02d_np%d_nx%d_sx%d_L%d_%d' % (nodes, procs, size, ssize, levels, re_end)
@@ -204,14 +300,21 @@ def fvm_test(fredwubs_path, test_path, testing=False, procs=1):
 
     os.chdir(prev_path)
 
-def build_hymls(fredwubs_path, testing=False):
-    build(fredwubs_path, 'hymls/src', testing, 'libhymls_'+('cartdefault' if not testing else 'carttesting')+'.a integration_tests')
+def build_hymls(base_path, testing=False, enable_cmake=True):
+    if enable_cmake:
+        build(base_path, 'hymls', testing)
+    else:
+        build_old(base_path, 'fredwubs/hymls/src', testing, 'libhymls_'+('cartdefault' if not testing else 'carttesting')+'.a integration_tests')
 
-def build_unit_tests(fredwubs_path, testing=False):
-    build(fredwubs_path, 'hymls/testSuite/unit_tests', testing)
+def build_unit_tests(base_path, testing=False, enable_cmake=True):
+    if not enable_cmake:
+        build(base_path, 'hymls/testSuite/unit_tests', testing)
 
-def build_fvm(fredwubs_path, testing=False):
-    build(fredwubs_path, 'fvm/src', testing)
+def build_fvm(base_path, testing=False, enable_cmake=True):
+    if enable_cmake:
+        build(base_path, 'fredwubs/fvm/src', testing)
+    else:
+        build_old(base_path, 'fredwubs/fvm/src', testing)
 
 def run(name, *args):
     # Rerun every test for now and instead append logs, because we run
@@ -225,7 +328,24 @@ def run(name, *args):
     globals()[name](*args)
 
 def set_commit(commit):
-    subprocess.call('git reset --hard '+commit, shell=True)
+    git_command('reset --hard '+commit)
+
+def sync_commits(hymls_path, fvm_path, commit):
+    '''Sync the hymls and fvm versions'''
+    prev_path = os.getcwd()
+
+    # Get the hymls commit time
+    os.chdir(hymls_path)
+
+    t = git_command('log --format="%at" -1 ' + commit)
+
+    #Set the fvm commit
+    os.chdir(fvm_path)
+    git_command('fetch', True)
+    git_command('svn fetch', True)
+    h = git_command('log -1 --format="%H" --before=' + t.strip())
+    git_command('reset --hard ' + h)
+    os.chdir(prev_path)
 
 def options():
     parser = OptionParser(usage="python test_rev.py [commit]")
@@ -235,18 +355,21 @@ def options():
 
 def main():
     global test_path, global_rev
-    fredwubs_path = os.path.join(os.path.expanduser("~"), 'testing/fredwubs')
-    running_path = os.getcwd()
-    os.chdir(fredwubs_path)
+    base_path = os.path.join(os.path.expanduser("~"), 'testing')
+    hymls_path = os.path.join(base_path, 'hymls')
+    fvm_path = os.path.join(base_path, 'fredwubs')
 
-    print 'Path is', fredwubs_path
+    running_path = os.getcwd()
+    os.chdir(hymls_path)
+
+    print 'Path is', base_path
 
     options()
 
     os.chdir(running_path)
-    rev = get_rev(fredwubs_path)
+    rev = get_rev(hymls_path)
     global_rev = rev
-    if not os.path.isdir(rev):
+    if rev and not os.path.isdir(rev):
         os.mkdir(rev)
     else:
         # We stop here because the tests were already performed.
@@ -254,27 +377,35 @@ def main():
         # see the "run" method
         return
 
+    sync_commits(hymls_path, fvm_path, rev_to_hash(hymls_path, rev))
+
     test_path = os.path.join(running_path, rev)
     os.chdir(test_path)
 
-    run('build_hymls', fredwubs_path)
+    enable_cmake = False
+    if rev_to_svn_rev(hymls_path, rev) == '':
+        enable_cmake = True
 
-    run('build_fvm', fredwubs_path)
-    run('fvm_test', fredwubs_path, test_path)
-    run('fvm_test', fredwubs_path, test_path, False, 16)
+    run('build_hymls', base_path, enable_cmake)
 
-    run('build_hymls', fredwubs_path, True)
+    run('build_fvm', base_path, enable_cmake)
+    run('fvm_test', base_path, test_path)
+    run('fvm_test', base_path, test_path, False, 16)
 
-    run('integration_tests', fredwubs_path)
-    run('integration_tests', fredwubs_path, 16)
+    run('build_hymls', base_path, True, enable_cmake)
 
-    if os.path.isfile(os.path.join(fredwubs_path, 'hymls/testSuite/unit_tests/Makefile')):
-        run('build_unit_tests', fredwubs_path)
-        run('unit_tests', fredwubs_path)
+    run('integration_tests', base_path)
+    run('integration_tests', base_path, 16)
 
-    run('build_fvm', fredwubs_path, True)
-    run('fvm_test', fredwubs_path, test_path, True)
-    run('fvm_test', fredwubs_path, test_path, True, 16)
+    if os.path.isfile(os.path.join(base_path, 'hymls/testSuite/unit_tests/Makefile')):
+        run('build_unit_tests', base_path)
+        run('unit_tests', base_path)
+    elif enable_cmake:
+        run('unit_tests', base_path)
+
+    run('build_fvm', base_path, True, enable_cmake)
+    run('fvm_test', base_path, test_path, True)
+    run('fvm_test', base_path, test_path, True, 16)
 
 if __name__ == '__main__':
     main()

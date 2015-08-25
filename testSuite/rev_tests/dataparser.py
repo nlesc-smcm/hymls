@@ -1,10 +1,8 @@
 import os
 import sys
-import matplotlib
 import matplotlib.pyplot as pyplot
-import copy
 import re
-import subprocess
+from Command import git_command
 
 def parse_float(value):
     try:
@@ -260,23 +258,14 @@ def main():
     parser.plot_failures()
 
 def find_previous_commit(commit):
-    if commit.isdigit() and len(commit) < 5:
-        p = subprocess.Popen('git svn find-rev r'+commit, stdout=subprocess.PIPE, shell=True)
-        (out, err) = p.communicate()
+    if not (commit.isdigit() and len(commit) < 5):
+        out = git_command('rev-list --count ' + commit)
         commit = out.strip()
 
-    p = subprocess.Popen('git log --pretty=oneline --format="%H" '+commit+'^ --', stdout=subprocess.PIPE, shell=True)
-    (out, err) = p.communicate()
-    commits = out.strip().split('\n')
     d = os.listdir('./')
-    for i in commits:
-        if i in d:
-            return i
-        p = subprocess.Popen('git svn find-rev '+i, stdout=subprocess.PIPE, shell=True)
-        (out, err) = p.communicate()
-        rev = out.strip()
-        if rev in d:
-            return rev
+    for i in xrange(int(commit)-1,0,-1):
+        if str(i) in d:
+            return str(i)
     return ''
 
 def compare(first, second=None):

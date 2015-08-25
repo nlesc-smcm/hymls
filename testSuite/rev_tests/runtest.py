@@ -1,12 +1,8 @@
-import subprocess
-import threading
 import os
 from optparse import OptionParser
 import sys
-import datetime
-import shutil
 
-from Command import *
+from Command import ParallelCommand
 
 def print_input(nodes, procs, size, levels, ssize, re_start, re_end, re_step, restart):
     text = '''<ParameterList name="Driven Cavity using LOCA/HYMLS"><!--{-->
@@ -417,7 +413,10 @@ def test_method(nodes, procs, size, levels, ssize, re_start, re_end, re_step, re
     else:
         print_input(nodes, procs, size, levels, ssize, re_start, re_end, re_step, False)
 
-    exe = os.path.join(os.path.expanduser('~/testing/fredwubs/fvm/src/LDCavCont')) + ' %s.xml &> %s.out' % (fname, fname)
+    exe = os.path.join(os.path.expanduser('~/testing/fredwubs/fvm/src/build/LDCavCont'))
+    if not os.path.exists(exe):
+        exe = os.path.join(os.path.expanduser('~/testing/fredwubs/fvm/src/LDCavCont'))
+    exe += ' %s.xml &> %s.out' % (fname, fname)
 
     c = ParallelCommand(exe, {'OMP_NUM_THREADS': '1'}, procs, nodes)
     ret, killed = c.run(10000)
