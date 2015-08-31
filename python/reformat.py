@@ -7,17 +7,18 @@ class StringReplacer(object):
     String = 1
     Comment = 2
     MultilineComment = 3
+    Index = 4
 
     def __init__(self, text, type):
         self.text = text
         self.type = type
 
     def replace(self, search, replace):
-        if self.type == self.Normal:
+        if self.type == self.Normal or self.type == self.Index:
             self.text = self.text.replace(search, replace)
 
     def regex_replace(self, search, replace):
-        if self.type == self.Normal:
+        if self.type == self.Normal or self.type == self.Index:
             self.text = re.sub(search, replace, self.text)
 
     def __str__(self):
@@ -78,11 +79,23 @@ def main():
                 line_part = ''
                 continue
 
+            if line_part.endswith('[') and line_type == StringReplacer.Normal:
+                line_parts.append(StringReplacer(line_part[:-1], line_type))
+                line_type = StringReplacer.Index
+                line_part = '['
+                continue
+
+            if line_part.endswith(']') and line_type == StringReplacer.Index:
+                line_parts.append(StringReplacer(line_part, line_type))
+                line_type = StringReplacer.Normal
+                line_part = ''
+                continue
+
         line_parts.append(StringReplacer(line_part, line_type))
 
         line = ''
         for line_part in line_parts:
-            if line_part.type != StringReplacer.Normal:
+            if line_part.type not in [StringReplacer.Normal, StringReplacer.Index]:
                 line += str(line_part)
                 continue
 
@@ -101,6 +114,11 @@ def main():
             for op2 in ['=', '<', '>', '/']:
                 for op1 in ['=', '+', '-', '*', '/', '<', '>']:
                     line_part.replace(op1+' '+op2, op1+op2)
+
+            # Remove spaces in indices
+            if (line_part.type == StringReplacer.Index):
+                for op in ops:
+                    line_part.replace(' '+op+' ', op)
 
             # != is different because we don't want spaces around !
             line_part.replace('! =', '!=')

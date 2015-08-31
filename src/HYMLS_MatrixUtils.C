@@ -396,7 +396,7 @@ Teuchos::RCP<Epetra_BlockMap> MatrixUtils::Gather(const Epetra_BlockMap& map, in
     const Epetra_MpiComm MpiComm = dynamic_cast < const Epetra_MpiComm& > (Comm);
     int *counts, *disps;
     counts = new int[Comm.NumProc()];
-    disps = new int[Comm.NumProc() + 1];
+    disps = new int[Comm.NumProc()+1];
     MPI_Gather(&NumMyElements, 1, MPI_INTEGER,
       counts, 1, MPI_INTEGER, root, MpiComm.GetMpiComm());
 
@@ -405,7 +405,7 @@ Teuchos::RCP<Epetra_BlockMap> MatrixUtils::Gather(const Epetra_BlockMap& map, in
       disps[0] = 0;
       for (int p = 0; p < Comm.NumProc(); p++)
         {
-        disps[p + 1] = disps[p] + counts[p];
+        disps[p+1] = disps[p] + counts[p];
         }
       }
 
@@ -484,14 +484,14 @@ Teuchos::RCP<Epetra_BlockMap> MatrixUtils::AllGather(const Epetra_BlockMap& map,
     const Epetra_MpiComm MpiComm = dynamic_cast < const Epetra_MpiComm& > (Comm);
     int *counts, *disps;
     counts = new int[Comm.NumProc()];
-    disps = new int[Comm.NumProc() + 1];
+    disps = new int[Comm.NumProc()+1];
     MPI_Allgather(&NumMyElements, 1, MPI_INTEGER,
       counts, 1, MPI_INTEGER, MpiComm.GetMpiComm());
 
     disps[0] = 0;
     for (int p = 0; p < Comm.NumProc(); p++)
       {
-      disps[p + 1] = disps[p] + counts[p];
+      disps[p+1] = disps[p] + counts[p];
       }
 
     MPI_Allgatherv(MyGlobalElements, NumMyElements, MPI_INTEGER,
@@ -553,7 +553,7 @@ Teuchos::RCP<Epetra_Map> MatrixUtils::Gather(const Epetra_Map& map, int root)
     const Epetra_MpiComm MpiComm = dynamic_cast < const Epetra_MpiComm& > (Comm);
     int *counts, *disps;
     counts = new int[Comm.NumProc()];
-    disps = new int[Comm.NumProc() + 1];
+    disps = new int[Comm.NumProc()+1];
     MPI_Gather(&NumMyElements, 1, MPI_INTEGER,
       counts, 1, MPI_INTEGER, root, MpiComm.GetMpiComm());
 
@@ -562,7 +562,7 @@ Teuchos::RCP<Epetra_Map> MatrixUtils::Gather(const Epetra_Map& map, int root)
       disps[0] = 0;
       for (int p = 0; p < Comm.NumProc(); p++)
         {
-        disps[p + 1] = disps[p] + counts[p];
+        disps[p+1] = disps[p] + counts[p];
         }
       }
 
@@ -627,14 +627,14 @@ Teuchos::RCP<Epetra_Map> MatrixUtils::AllGather(const Epetra_Map& map, bool reor
     const Epetra_MpiComm MpiComm = dynamic_cast < const Epetra_MpiComm& > (Comm);
     int *counts, *disps;
     counts = new int[Comm.NumProc()];
-    disps = new int[Comm.NumProc() + 1];
+    disps = new int[Comm.NumProc()+1];
     MPI_Allgather(&NumMyElements, 1, MPI_INTEGER,
       counts, 1, MPI_INTEGER, MpiComm.GetMpiComm());
 
     disps[0] = 0;
     for (int p = 0; p < Comm.NumProc(); p++)
       {
-      disps[p + 1] = disps[p] + counts[p];
+      disps[p+1] = disps[p] + counts[p];
       }
 
     MPI_Allgatherv(MyGlobalElements, NumMyElements, MPI_INTEGER,
@@ -763,7 +763,7 @@ Teuchos::RCP<Epetra_MultiVector> MatrixUtils::Scatter
 (const Epetra_MultiVector& vec, const Epetra_BlockMap& distmap)
   {
   HYMLS_PROF3(Label(), "Scatter (1)");
-  Teuchos::RCP<Epetra_MultiVector> dist_vec =  Teuchos::rcp(new Epetra_MultiVector(distmap, vec.NumVectors()));
+  Teuchos::RCP<Epetra_MultiVector> dist_vec = Teuchos::rcp(new Epetra_MultiVector(distmap, vec.NumVectors()));
   Teuchos::RCP<Epetra_Import> import = Teuchos::rcp(new Epetra_Import(vec.Map(), distmap));
   CHECK_ZERO(dist_vec->Export(vec, *import, Insert));
   return dist_vec;
@@ -943,7 +943,7 @@ void MatrixUtils::TriSolve(const Epetra_CrsMatrix& A, const Epetra_Vector& b, Ep
       {
       diag = begA[i];
       sum = 0.0;
-      for (int j = diag + 1; j < begA[i + 1]; j++)
+      for (int j = diag + 1; j < begA[i+1]; j++)
         {
 //        DEBUG(i << " " << jcoA[j] << " " << coA[j]);
         sum += coA[j]*x[jcoA[j]];
@@ -962,7 +962,7 @@ void MatrixUtils::TriSolve(const Epetra_CrsMatrix& A, const Epetra_Vector& b, Ep
     int diag;
     for (int i = 0; i < A.NumMyRows(); i++)
       {
-      diag = begA[i + 1] - 1;
+      diag = begA[i+1] - 1;
       sum = 0.0;
       for (int j = 0; j < diag; j++)
         {
@@ -1425,11 +1425,11 @@ Teuchos::RCP<MatrixUtils::Eigensolution> MatrixUtils::Eigs(
   // function we provide M\B as operator and solve a standard EVP.
   if (Teuchos::is_null(B) || true)
     {
-    MyProblem =  Teuchos::rcp( new Anasazi::BasicEigenproblem < ST, MV, OP > (A, ivec) );
+    MyProblem = Teuchos::rcp( new Anasazi::BasicEigenproblem < ST, MV, OP > (A, ivec) );
     }
   else
     {
-    MyProblem =  Teuchos::rcp( new Anasazi::BasicEigenproblem < ST, MV, OP > (A, B, ivec) );
+    MyProblem = Teuchos::rcp( new Anasazi::BasicEigenproblem < ST, MV, OP > (A, B, ivec) );
     }
 
   // Inform the eigenproblem that the operator A is symmetric
@@ -1510,7 +1510,7 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::ReadThcmMatrix(std::string prefix, c
   infofile >> nrows >> nnz;
   infofile.close();
 
-  int *begA = new int[nrows + 1];
+  int *begA = new int[nrows+1];
   int *jcoA = new int[nnz];
   double *coA = new double[nnz];
   int *indices = new int[nrows];
@@ -1522,7 +1522,7 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::ReadThcmMatrix(std::string prefix, c
   int *len = new int[nrows];
   for (int i = 0; i < nrows; i++)
     {
-    len[i] = begA[i + 1] - begA[i];
+    len[i] = begA[i+1] - begA[i];
     }
 
   Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(new Epetra_CrsMatrix(Copy, rowmap, colmap, len, true));
@@ -1532,11 +1532,11 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::ReadThcmMatrix(std::string prefix, c
     {
     int row = rowmap.GID(i);
     int index = begA[i]; // note that these arrays use 1 - based indexing
-    int numentries = begA[i + 1] - index;
-    for (int j = 0; j <  numentries ; j++)
+    int numentries = begA[i+1] - index;
+    for (int j = 0; j < numentries ; j++)
       {
-      indices[j] = colmap.GID(jcoA[index - 1 + j] - 1);
-      values[j] = coA[index - 1 + j];
+      indices[j] = colmap.GID(jcoA[index-1+j] - 1);
+      values[j] = coA[index-1+j];
       }
     CHECK_ZERO(A->InsertGlobalValues(row, numentries, values, indices));
     }
@@ -1670,8 +1670,8 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
     double *values;
 
     int new_len;
-    int *new_indices = new int[A->MaxNumEntries() + 1];
-    double *new_values = new double[A->MaxNumEntries() + 1];
+    int *new_indices = new int[A->MaxNumEntries()+1];
+    double *new_values = new double[A->MaxNumEntries()+1];
 
     int NumRows = A->NumMyRows();
 
@@ -2250,29 +2250,29 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
           if (gr1 == m) // formally eliminate V - node coupled to gr2
             {
             pid[gr2] = pid[gr1];
-            symperm[jj + 1] = map2->GID(gr2);
+            symperm[jj+1] = map2->GID(gr2);
             }
           else if (gr2 == m) // formally eliminate V - node coupled to gr1
             {
             pid[gr1] = pid[gr2];
-            symperm[jj + 1] = map2->GID(gr1);
+            symperm[jj+1] = map2->GID(gr1);
             }
           else if (cont[gr2] > cont[gr1])
             {
             pid[gr1] = pid[gr2];
-            symperm[jj + 1] = map2->GID(gr1);
+            symperm[jj+1] = map2->GID(gr1);
             cont[gr2] = cont[gr1] + cont[gr2] - 2;
             }
           else
             {
             pid[gr2] = pid[gr1];
-            symperm[jj + 1] = map2->GID(gr2);
+            symperm[jj+1] = map2->GID(gr2);
             cont[gr1] = cont[gr1] + cont[gr2] - 2;
             }
           // interchange the V - and P - rows to get a pivot
           // Of the form b 0 rather than a b
           //             a b             b 0.
-          perm[jj] = jj + 1; perm[jj + 1] = jj;
+          perm[jj] = jj + 1; perm[jj+1] = jj;
           jj = jj + 2;
           }
         else // V - node has no P - couplings (anymore)
@@ -2298,7 +2298,7 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
       {
       if (test[i])
         {
-        symperm[jj + kk] = Matrix.GRID(i);
+        symperm[jj+kk] = Matrix.GRID(i);
         kk++;
         }
       }
@@ -2360,7 +2360,7 @@ int MatrixUtils::AMD(const Epetra_CrsGraph& A, Teuchos::Array<int> & p)
     return - 3;
     }
   int len;
-  int* Ap = new int[n + 1];
+  int* Ap = new int[n+1];
   int* Ai;
   CHECK_ZERO(A.ExtractMyRowView(0, len, Ai ));
   Ap[0] = 0;
@@ -2368,7 +2368,7 @@ int MatrixUtils::AMD(const Epetra_CrsGraph& A, Teuchos::Array<int> & p)
   for ( int i = 0; i < n; i++)
     {
     CHECK_ZERO(A.ExtractMyRowView( i, len, tmp ));
-    Ap[i + 1] = Ap[i] + len ;
+    Ap[i+1] = Ap[i] + len ;
     }
 
   double *control = NULL;
@@ -2429,13 +2429,13 @@ int MatrixUtils::SortMatrixRow(int* indices, double* values, int len)
     int max = n - m;
     for (int j = 0; j < max; j++) {
       for (int k = j; k >= 0; k -= m) {
-        if (indices[k + m] >= indices[k])
+        if (indices[k+m] >= indices[k])
           break;
-        double dtemp = values[k + m];
-        values[k + m] = values[k];
+        double dtemp = values[k+m];
+        values[k+m] = values[k];
         values[k] = dtemp;
-        int itemp = indices[k + m];
-        indices[k + m] = indices[k];
+        int itemp = indices[k+m];
+        indices[k+m] = indices[k];
         indices[k] = itemp;
         }
       }
