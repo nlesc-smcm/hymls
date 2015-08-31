@@ -237,7 +237,7 @@ MatrixUtils::CreateSubMap(const Epetra_Map& map, int dof, const int *var, int nv
     {
     for (int j = 0; j < nvars; j++)
       {
-      MyGlobalElements[k] = map.GID(i*dof + (var[j]-1));
+      MyGlobalElements[k] = map.GID(i*dof + (var[j] - 1));
       k++;
       }
     }
@@ -939,7 +939,7 @@ void MatrixUtils::TriSolve(const Epetra_CrsMatrix& A, const Epetra_Vector& b, Ep
     CHECK_ZERO(A.ExtractCrsDataPointers(begA, jcoA, coA));
     double sum;
     int diag;
-    for (int i = A.NumMyRows()-1; i >= 0; i--)
+    for (int i = A.NumMyRows() - 1; i >= 0; i--)
       {
       diag = begA[i];
       sum = 0.0;
@@ -949,7 +949,7 @@ void MatrixUtils::TriSolve(const Epetra_CrsMatrix& A, const Epetra_Vector& b, Ep
         sum += coA[j]*x[jcoA[j]];
         }
 //      DEBUG("diag: " << i << " " << jcoA[diag] << " " << coA[diag]);
-      x[i] = (b[i]-sum) / coA[diag];
+      x[i] = (b[i] - sum) / coA[diag];
       }
     }
   else
@@ -962,7 +962,7 @@ void MatrixUtils::TriSolve(const Epetra_CrsMatrix& A, const Epetra_Vector& b, Ep
     int diag;
     for (int i = 0; i < A.NumMyRows(); i++)
       {
-      diag = begA[i + 1]-1;
+      diag = begA[i + 1] - 1;
       sum = 0.0;
       for (int j = 0; j < diag; j++)
         {
@@ -970,7 +970,7 @@ void MatrixUtils::TriSolve(const Epetra_CrsMatrix& A, const Epetra_Vector& b, Ep
         sum += coA[j]*x[jcoA[j]];
         }
 //      DEBUG("diag: " << i << " " << jcoA[diag] << " " << coA[diag]);
-      x[i] = (b[i]-sum) / coA[diag];
+      x[i] = (b[i] - sum) / coA[diag];
       }
     }
   }// TriSolve
@@ -1373,8 +1373,8 @@ Teuchos::RCP<MatrixUtils::Eigensolution> MatrixUtils::Eigs(
   int maxRestarts = 10;
 
   // Create a sort manager to pass into the block Krylov - Schur solver manager
-  // --> Make sure the reference - counted pointer is of type Anasazi::SortManager <>
-  // --> The block Krylov - Schur solver manager uses Anasazi::BasicSort <> by default,
+  // -->Make sure the reference - counted pointer is of type Anasazi::SortManager <>
+  // -->The block Krylov - Schur solver manager uses Anasazi::BasicSort <> by default,
   //      so you can also pass in the parameter "Which", instead of a sort manager.
 //  Teuchos::RCP<Anasazi::SortManager < ST> > MySort =
 //    Teuchos::rcp( new Anasazi::BasicSort<ST> ( which ) );
@@ -1522,7 +1522,7 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::ReadThcmMatrix(std::string prefix, c
   int *len = new int[nrows];
   for (int i = 0; i < nrows; i++)
     {
-    len[i] = begA[i + 1]-begA[i];
+    len[i] = begA[i + 1] - begA[i];
     }
 
   Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(new Epetra_CrsMatrix(Copy, rowmap, colmap, len, true));
@@ -1532,10 +1532,10 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::ReadThcmMatrix(std::string prefix, c
     {
     int row = rowmap.GID(i);
     int index = begA[i]; // note that these arrays use 1 - based indexing
-    int numentries = begA[i + 1]-index;
+    int numentries = begA[i + 1] - index;
     for (int j = 0; j <  numentries ; j++)
       {
-      indices[j] = colmap.GID(jcoA[index - 1 + j]-1);
+      indices[j] = colmap.GID(jcoA[index - 1 + j] - 1);
       values[j] = coA[index - 1 + j];
       }
     CHECK_ZERO(A->InsertGlobalValues(row, numentries, values, indices));
@@ -2261,13 +2261,13 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
             {
             pid[gr1] = pid[gr2];
             symperm[jj + 1] = map2->GID(gr1);
-            cont[gr2] = cont[gr1] + cont[gr2]-2;
+            cont[gr2] = cont[gr1] + cont[gr2] - 2;
             }
           else
             {
             pid[gr2] = pid[gr1];
             symperm[jj + 1] = map2->GID(gr2);
-            cont[gr1] = cont[gr1] + cont[gr2]-2;
+            cont[gr1] = cont[gr1] + cont[gr2] - 2;
             }
           // interchange the V - and P - rows to get a pivot
           // Of the form b 0 rather than a b

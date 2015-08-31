@@ -130,7 +130,7 @@ def main():
             line_part.replace('> ::', '>::')
 
             # -1 should not have spaces
-            line_part.regex_replace('(\W) - ', '\g<1>-')
+            line_part.regex_replace('([^\w\]\)]) - ', '\g<1>-')
             for op in ops:
                 if op != '-':
                     line_part.replace(op+'-', op+' -')
