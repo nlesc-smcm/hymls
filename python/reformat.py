@@ -100,7 +100,7 @@ def main():
                 continue
 
             # Put spaces around operators
-            ops = ['=', '+', '/', '-', '<', '>']
+            ops = ['=', '+', '/', '-', '<', '>', '%']
             for op in ops:
                 line_part.replace(op, ' '+op+' ')
                 line_part.replace('  '+op, ' '+op)

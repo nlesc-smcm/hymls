@@ -98,9 +98,9 @@ MatrixUtils::CreateMap(int nx, int ny, int nz,
     offZ = pidZ * nz / npZ;
 
     // distribute remaining points among first few cpu's
-    int remX = nx%npX;
-    int remY = ny%npY;
-    int remZ = nz%npZ;
+    int remX = nx % npX;
+    int remY = ny % npY;
+    int remZ = nz % npZ;
 
     if (pidX < remX) nXloc++;
     if (pidY < remY) nYloc++;
