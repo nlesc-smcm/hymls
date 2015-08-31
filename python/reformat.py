@@ -62,6 +62,7 @@ def main():
 
             if line_part.endswith('//'):
                 line_parts.append(StringReplacer(line_part[:-2], line_type))
+                line_type = StringReplacer.Comment
                 line_part = orig_line[pos-1:]
                 break
 
