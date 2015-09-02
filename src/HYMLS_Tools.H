@@ -353,8 +353,6 @@ static void SignalHandler(int signum)
   //! the mean time). 
   static void ReportMemUsage(std::string const &label, double bytes);
   
-  static void ReportTotalMemUsage(std::string const &label);
-  
   //! report memory usage
   static void PrintMemUsage(std::ostream& os);
     

@@ -5,9 +5,6 @@
 #include <cstdlib>
 #include <stack>
 
-//#include <dlfcn.h>
-#include <stdlib.h>
-
 using namespace Teuchos;
 
 //overwrite printf to make e.g. SuperLU_DIST write to our streams
@@ -43,19 +40,6 @@ int Tools::timerCounter_=0;
 std::stack<std::string> Tools::functionStack_;
 std::streambuf* Tools::rdbuf_bak = std::cout.rdbuf();
 
-unsigned long long (*getMem2)() = NULL;
-
-unsigned long long get_memory_usage_()
-  {
-  static bool once = false;
-  if (!once)
-    {
-    Tools::out() << "To enable memory profiling you need to LD_PRELOAD the malloc_impl library\n";
-    once = true;
-    }
-  return 0;
-  }
-
 //////////////////////////////////////////////////////////////////
 // Timing functionality                                         //
 //////////////////////////////////////////////////////////////////
@@ -63,28 +47,6 @@ unsigned long long get_memory_usage_()
 const char* Tools::Revision()
   {
   return HYMLS_REVISION;
-  }
-
-long long getMem()
-  { 
-  FILE* file = fopen("/proc/self/status", "r");
-  long long result = -1;
-  char line[128];
-
-  while (fgets(line, 128, file) != NULL)
-    {
-    if (strncmp(line, "VmRSS:", 6) == 0)
-      {
-      char *line_ptr = line;
-      result = strlen(line_ptr);
-      while (*line_ptr < '0' || *line_ptr > '9') line_ptr++;
-      line_ptr[result-3] = '\0';
-      result = atoi(line_ptr);
-      break;
-      }
-    }
-  fclose(file);
-  return result * 1024;
   }
 
 RCP<Epetra_Time> Tools::StartTiming(std::string const &fname)
@@ -198,30 +160,9 @@ Teuchos::ParameterList sortedList;
   os << "=========================================================================================="<<std::endl;
   }
 
-void Tools::ReportTotalMemUsage(std::string const &label)
-  {
-#if 0
-  if (!getMem2)
-    {
-    getMem2 = (unsigned long long (*)())dlsym(RTLD_DEFAULT, "get_memory_usage");
-    if (!getMem2)
-        getMem2 = get_memory_usage_;
-    }
-
-  std::ostringstream ss;
-  ss << label << " (total)";
-  memList_.set(ss.str(), static_cast<double>(getMem()));
-
-  std::ostringstream ss2;
-  ss2 << label << " (total 2)";
-  memList_.set(ss2.str(), static_cast<double>(getMem2()));
-#endif
-  }
-
 void Tools::ReportMemUsage(std::string const &label, double bytes)
   {
   memList_.set(label,bytes);
-  ReportTotalMemUsage(label);
   }
 
 void Tools::PrintMemUsage(std::ostream& os)
@@ -234,9 +175,8 @@ void Tools::PrintMemUsage(std::ostream& os)
     {
     label = i->first;
     unit = "B";
-    value=memList_.get(label,0.0);
-    if (label.find("(total)") == string::npos && label.find("(total 2)") == string::npos)
-      total += value;
+    value = memList_.get(label,0.0);
+    total += value;
     if (value > 1.0e3) {value*=1.0e-3; unit="kB";}
     if (value > 1.0e3) {value*=1.0e-3; unit="MB";}
     if (value > 1.0e3) {value*=1.0e-3; unit="GB";}
