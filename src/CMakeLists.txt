@@ -149,19 +149,6 @@ link_directories(${Trilinos_TPL_LIBRARY_DIRS})
 
 find_package(phist QUIET CONFIG)
 
-if (${phist_FOUND})
-  message(STATUS "phist found in ${PHIST_INCLUDE_DIRS}")
-  add_definitions(-DHAVE_PHIST)
-  include_directories(${PHIST_INCLUDE_DIRS})
-  link_directories(${PHIST_LIBRARY_DIRS})
-  # phist is typically compiled with OpenMP support, add the openmp flag to be able to link
-  if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
-  elseif (CMAKE_C_COMPILER_ID STREQUAL "Intel")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -openmp")  
-  endif()
-endif()
-
 # HYMLS version
 execute_process(COMMAND svnversion -n OUTPUT_VARIABLE rev)
 add_definitions(-DHYMLS_REVISION="${rev}")
@@ -170,7 +157,21 @@ add_library(hymls ${SOURCES})
 
 target_link_libraries(hymls ${Trilinos_LIBRARIES})
 target_link_libraries(hymls ${Trilinos_TPL_LIBRARIES})
-target_link_libraries(hymls ${MPI_LIBRARIES})
+target_link_libraries(hymls ${MPI_CXX_LIBRARIES})
+
+if (${phist_FOUND})
+  message(STATUS "phist found in ${PHIST_INCLUDE_DIRS}")
+  add_definitions(-DHAVE_PHIST)
+  include_directories(${PHIST_INCLUDE_DIRS})
+  link_directories(${PHIST_LIBRARY_DIRS})
+  # phist is typically compiled with OpenMP support, add the openmp flag to be able to link
+  if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
+    target_link_libraries(hymls gomp)
+  elseif (CMAKE_C_COMPILER_ID STREQUAL "Intel")
+    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -openmp")  
+  endif()
+endif()
 
 add_library(hymls_eigs SHARED)
 if (${phist_FOUND})

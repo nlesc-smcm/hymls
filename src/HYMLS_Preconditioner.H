@@ -429,9 +429,7 @@ protected:
   //! geometric info, used for storing the ordering in MATLAB for visualization
   int dim_,dof_,nx_,ny_,nz_;
 
-#ifdef TESTING
   mutable bool dumpVectors_;
-#endif
 
   //! max num threads to use for subdomain solve
   int numThreadsSD_;
