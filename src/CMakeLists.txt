@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 2.8)
 project(HYMLS CXX)
 
+list (APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/")
+
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   message(STATUS "Using GNU compiler flags")
 
@@ -44,6 +46,26 @@ elseif (CMAKE_C_COMPILER_ID STREQUAL "Intel")
 
   add_definitions(-DUSE_MKL)
 endif()
+
+find_package(MPI REQUIRED)
+if (${MPI_FOUND})
+  set (CMAKE_CXX_COMPILE_FLAGS ${CMAKE_CXX_COMPILE_FLAGS} ${MPI_CXX_COMPILE_FLAGS})
+  set (CMAKE_CXX_LINK_FLAGS ${CMAKE_CXX_LINK_FLAGS} ${MPI_CXX_LINK_FLAGS})
+  set (CMAKE_C_COMPILE_FLAGS ${CMAKE_C_COMPILE_FLAGS} ${MPI_C_COMPILE_FLAGS})
+  set (CMAKE_C_LINK_FLAGS ${CMAKE_C_LINK_FLAGS} ${MPI_C_LINK_FLAGS})
+  set (CMAKE_Fortran_COMPILE_FLAGS ${CMAKE_Fortran_COMPILE_FLAGS} ${MPI_Fortran_COMPILE_FLAGS})
+  set (CMAKE_Fortran_LINK_FLAGS ${CMAKE_Fortran_LINK_FLAGS} ${MPI_Fortran_LINK_FLAGS})
+# For now, just include everything
+  include_directories (${MPI_INCLUDE_PATH})
+  include_directories (${MPI_C_INCLUDE_PATH})
+  include_directories (${MPI_CXX_INCLUDE_PATH})
+  include_directories (${MPI_Fortran_INCLUDE_PATH})
+else()
+  message(WARNING "could not find MPI. Trying to compile anyway, presuming the compiler/linker knows where to find it.")
+endif()
+set(MPIEXEC "mpirun" CACHE STRING "")
+set(MPIEXEC_NUMPROC_FLAG "-np" CACHE STRING "")
+
 
 set(SOURCES HYMLS_Solver
     HYMLS_Preconditioner
@@ -132,6 +154,12 @@ if (${phist_FOUND})
   add_definitions(-DHAVE_PHIST)
   include_directories(${PHIST_INCLUDE_DIRS})
   link_directories(${PHIST_LIBRARY_DIRS})
+  # phist is typically compiled with OpenMP support, add the openmp flag to be able to link
+  if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
+  elseif (CMAKE_C_COMPILER_ID STREQUAL "Intel")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -openmp")  
+  endif()
 endif()
 
 # HYMLS version
@@ -142,6 +170,7 @@ add_library(hymls ${SOURCES})
 
 target_link_libraries(hymls ${Trilinos_LIBRARIES})
 target_link_libraries(hymls ${Trilinos_TPL_LIBRARIES})
+target_link_libraries(hymls ${MPI_LIBRARIES})
 
 add_library(hymls_eigs SHARED)
 if (${phist_FOUND})
