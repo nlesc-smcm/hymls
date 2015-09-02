@@ -5,7 +5,7 @@
 #include <cstdlib>
 #include <stack>
 
-#include <dlfcn.h>
+//#include <dlfcn.h>
 #include <stdlib.h>
 
 using namespace Teuchos;
@@ -200,7 +200,7 @@ Teuchos::ParameterList sortedList;
 
 void Tools::ReportTotalMemUsage(std::string const &label)
   {
-
+#if 0
   if (!getMem2)
     {
     getMem2 = (unsigned long long (*)())dlsym(RTLD_DEFAULT, "get_memory_usage");
@@ -215,7 +215,7 @@ void Tools::ReportTotalMemUsage(std::string const &label)
   std::ostringstream ss2;
   ss2 << label << " (total 2)";
   memList_.set(ss2.str(), static_cast<double>(getMem2()));
-
+#endif
   }
 
 void Tools::ReportMemUsage(std::string const &label, double bytes)
