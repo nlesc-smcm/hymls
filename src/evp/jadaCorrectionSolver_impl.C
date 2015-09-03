@@ -65,9 +65,18 @@ void HYMLS_jadaCorrectionSolver_run1(void* vme,
   }
 
   Teuchos::RCP<HYMLS::Solver> solver = me->solver;
+  if (solver==Teuchos::null){ *iflag=PHIST_BAD_CAST; return;}
+  bool status=true;
+  try {
   solver->SetTolerance(tol);
   solver->setShift(1.0, -sigma_r);
-
+  } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status);
+  if (!status)
+  {
+    *iflag=PHIST_CAUGHT_EXCEPTION; 
+    return;
+  }
+   
   const Epetra_MultiVector *Q_ptr = (const Epetra_MultiVector *)Qtil;
   const Epetra_MultiVector *r_ptr = (const Epetra_MultiVector *)res;
   Epetra_MultiVector *t_ptr = (Epetra_MultiVector *)t;
