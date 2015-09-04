@@ -6,11 +6,11 @@ The implementation of HYMLS was done based on the Epetra package in Trilinos. Fo
 
 # Building HYMLS
 
-To build HYMLS, you can use cmake. This allows you to build HYMLS anywhere you like, not only in the src directory. So let's say we make a directory ~/build/hymls and hymls is located in ~/hymls/src. Then we can build with
+To build HYMLS, you can use cmake. This allows you to build HYMLS anywhere you like, not only in the src directory. So let's say we make a directory ~/build/hymls and hymls is located in ~/hymls. Then we can build with
 
 ```
 cd ~/build/hymls
-cmake ~/hymls/src
+cmake ~/hymls
 make
 ```
 
@@ -18,10 +18,44 @@ Note that HYMLS has to be built with an mpi compiler, and that Trilinos has to b
 
 ```
 cd ~/build/hymls
-CXX=mpicxx PATH=$PATH:$HOME/Trilinos cmake ~/hymls/src
+PATH=$PATH:$HOME/Trilinos cmake ~/hymls
 make
 ```
 
 Instead of adding Trilinos to your path, you can also set it through TRILINOS_HOME.
 
-Building with PHIST is done in the same way. You just add it to your PATH. HYMLS will then automatically enable support for the PHIST JDQR solver, and build a libarry, hymls_jada, that can be used by other packages, for instance FVM.
+Building with PHIST is done in the same way. You just add it to your PATH. HYMLS will then automatically enable support for the PHIST JDQR solver, and build a library, hymls_jada, that can be used by other packages, for instance FVM.
+
+# Installing HYMLS
+
+HYMLS can be installed by calling
+
+```
+make install
+```
+
+from the build directory. It will be installed in the `CMAKE_INSTALL_PREFIX`. If you want to install HYMLS in `~/local`, the build process might be like this
+
+```
+cd ~/build/hymls
+PATH=$PATH:$HOME/Trilinos cmake -DCMAKE_INSTALL_PREFIX="${HOME}/local" ~/hymls
+make
+```
+
+After installing HYMLS, other packages should be able to find it through the cmake config.
+
+# Building the example
+
+The example can be seen as a separate project. After installing HYMLS, the example will be able to find it as long as the install prefix is in your path. So building it could go like
+
+```
+cd ~/build/example
+PATH=$PATH:${HOME}/local/bin:$HOME/Trilinos cmake ~/hymls/example
+make
+```
+
+and you can run it with
+
+```
+./main ~/hymls/example/params.xml
+```
