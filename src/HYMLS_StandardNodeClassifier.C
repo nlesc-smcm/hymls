@@ -285,7 +285,7 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
           // hole.
           int flow=partitioner_->flow(row,cj);
           bool one_is_a_p_node = (dof_==4)&&(MOD(row+1,dof_)==0||MOD(cj+1,dof_)==0);
-          if (flow==0 && !one_is_a_p_node)
+          if (dof==4 && flow==0 && !one_is_a_p_node)
             {
             int sd_i=partitioner_->GPID(sd);
             int sd_j=(*partitioner_)(cj);
