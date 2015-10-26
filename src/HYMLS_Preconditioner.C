@@ -58,18 +58,17 @@ namespace HYMLS {
       Teuchos::RCP<Teuchos::ParameterList> params,
       Teuchos::RCP<const OverlappingPartitioner> hid,
       int myLevel, Teuchos::RCP<Epetra_Vector> testVector)
-      : numInitialize_(0),numCompute_(0),numApplyInverse_(0),
-        flopsInitialize_(0.0),flopsCompute_(0.0),flopsApplyInverse_(0.0),
-        timeInitialize_(0.0),timeCompute_(0.0),timeApplyInverse_(0.0),
-        initialized_(false),computed_(false),
-        matrix_(K), comm_(Teuchos::rcp(&(K->Comm()),false)),
-        hid_(hid),
-        rangeMap_(Teuchos::rcp(&(K->RowMatrixRowMap()),false)),
-        normInf_(-1.0), useTranspose_(false), 
-        numThreadsSD_(-1),
-        myLevel_(myLevel), testVector_(testVector),
+      : PLA("Preconditioner"),
+        comm_(Teuchos::rcp(&(K->Comm()), false)), matrix_(K),
+        rangeMap_(Teuchos::rcp(&(K->RowMatrixRowMap()), false)),
+        hid_(hid), myLevel_(myLevel), testVector_(testVector),
+        useTranspose_(false), normInf_(-1.0),
         label_("Preconditioner"),
-        PLA("Preconditioner")
+        initialized_(false), computed_(false),
+        numInitialize_(0), numCompute_(0), numApplyInverse_(0),
+        flopsInitialize_(0.0), flopsCompute_(0.0), flopsApplyInverse_(0.0),
+        timeInitialize_(0.0), timeCompute_(0.0), timeApplyInverse_(0.0),
+        numThreadsSD_(-1)
     {
     HYMLS_LPROF3(label_,"Constructor");
     REPORT_SUM_MEM(label_,"Matrix",K->NumMyNonzeros(),K->NumMyNonzeros(),comm_);

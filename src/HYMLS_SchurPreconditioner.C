@@ -52,26 +52,26 @@ namespace HYMLS {
                 Teuchos::RCP<Teuchos::ParameterList> params,
                 int level,
                 Teuchos::RCP<Epetra_Vector> testVector)
-      : hid_(hid), comm_(Teuchos::rcp(&(SC->Comm()),false)),
-        map_(Teuchos::rcp(&(SC->OperatorDomainMap()),false)),
+      : PLA("Preconditioner"),
+        comm_(Teuchos::rcp(&(SC->Comm()),false)),
         SchurMatrix_(Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(SC)),
-        SchurComplement_(Teuchos::rcp_dynamic_cast<const HYMLS::SchurComplement>(SC)),
-        numInitialize_(0),numCompute_(0),numApplyInverse_(0),
-        flopsInitialize_(0.0),flopsCompute_(0.0),flopsApplyInverse_(0.0),
-        timeInitialize_(0.0),timeCompute_(0.0),timeApplyInverse_(0.0),
-        initialized_(false),computed_(false),
-        normInf_(-1.0), useTranspose_(false),
-        label_("SchurPreconditioner"),
-        myLevel_(level), variant_("Block Diagonal"),
-        denseSwitch_(99),
-        sparseMatrixOT_(Teuchos::null),
-        testVector_(testVector),
-        matrix_(Teuchos::null),
         tmpMatrix_(Teuchos::null),
+        SchurComplement_(Teuchos::rcp_dynamic_cast<const HYMLS::SchurComplement>(SC)),
+        myLevel_(level), amActive_(true),
+        variant_("Block Diagonal"),
+        denseSwitch_(99),
+        hid_(hid), map_(Teuchos::rcp(&(SC->OperatorDomainMap()),false)),
+        testVector_(testVector),
+        sparseMatrixOT_(Teuchos::null),
+        matrix_(Teuchos::null),
         nextLevelHID_(Teuchos::null),
         linearRhs_(Teuchos::null), linearSol_(Teuchos::null),
-        amActive_(true), haveBorder_(false),
-        PLA("Preconditioner")
+        useTranspose_(false), haveBorder_(false), normInf_(-1.0),
+        label_("SchurPreconditioner"),
+        initialized_(false),computed_(false),
+        numInitialize_(0),numCompute_(0),numApplyInverse_(0),
+        flopsInitialize_(0.0),flopsCompute_(0.0),flopsApplyInverse_(0.0),
+        timeInitialize_(0.0),timeCompute_(0.0),timeApplyInverse_(0.0)
     {
     HYMLS_LPROF3(label_,"Constructor (1)");
     time_=Teuchos::rcp(new Epetra_Time(*comm_));
@@ -757,7 +757,7 @@ int SchurPreconditioner::InitializeSeparatorGroups()
         int* indices;
         double* values;
         int len;
-        int type;
+        int type = -1;
         CHECK_ZERO(SchurMatrix_->ExtractMyRowView(lrid,len,values,indices));
         int pos=0;
         connectedPs[0]=-1;
@@ -996,10 +996,6 @@ int SchurPreconditioner::InitializeOT()
       CHECK_ZERO(nextTestVector->Import(transformedTestVector, *vsumImporter_, Insert));    
 
       // create another level of HYMLS::Preconditioner,
-      
-      int64_t dim_next = reducedSchur_->NumGlobalRows();
-      int64_t nnz_next = reducedSchur_->NumGlobalNonzeros();
-      
       if (myLevel_>=denseSwitch_-1)
         {
         nextLevelParams_->sublist("Preconditioner").set("Subdomain Solver Type","Dense");

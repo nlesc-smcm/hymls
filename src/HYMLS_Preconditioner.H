@@ -237,7 +237,7 @@ public:
   //! if a border has been added, apply [X S]' = [K V; W' C]\[Y T]'
   int ApplyInverse(const Epetra_MultiVector& Y, const Epetra_SerialDenseMatrix& T,
                          Epetra_MultiVector& X,       Epetra_SerialDenseMatrix& S) const;
-  //@}
+  //x@}
 
   //! reset matrix pointer. This should only be used if you are positive that the 
   //! ordering can be reused for this matrix, otherwise the Preconditioner has to 
@@ -252,10 +252,7 @@ public:
     }
   
 
-protected: 
-
-  //! level of this solver (1: finest)
-  int myLevel_;
+protected:
 
   //! communicator
   Teuchos::RCP<const Epetra_Comm> comm_;
@@ -280,6 +277,9 @@ protected:
 
   //! our own minimally overlapped and reordered partitioning:
   Teuchos::RCP<const OverlappingPartitioner> hid_;
+
+  //! level of this solver (1: finest)
+  int myLevel_;
   
   //! string to indicate wether we use a dense or sparse solver for the subdomains
   std::string sdSolverType_;

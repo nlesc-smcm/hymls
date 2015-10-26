@@ -33,19 +33,18 @@ namespace HYMLS {
 // of the SC or the whole thing as sparse or dense matrix.
 
   SchurComplement::SchurComplement(Teuchos::RCP<const Preconditioner> mother, int lev)
-       : mother_(mother),
-         label_("SchurComplement"),
+       : comm_(Teuchos::rcp(&(mother->Comm()),false)),
+         mother_(mother),
          myLevel_(lev),
-         comm_(Teuchos::rcp(&(mother->Comm()),false)),
-         useTranspose_(false), normInf_(-1.0),
          sparseMatrixRepresentation_(Teuchos::null),
+         useTranspose_(false), normInf_(-1.0),
+         label_("SchurComplement"),
          flopsApply_(0.0), flopsCompute_(0.0)
     {
     HYMLS_LPROF3(label_,"Constructor");
     isConstructed_=false;
     // we do a finite-element style assembly of the full matrix    
     const Epetra_Map& map = mother_->Map2();
-    const HierarchicalMap& hid = mother_->Partitioner();
     sparseMatrixRepresentation_ = Teuchos::rcp(new 
       Epetra_FECrsMatrix(Copy,map,mother_->Matrix().MaxNumEntries()));
     Scrs_=sparseMatrixRepresentation_;
@@ -120,11 +119,9 @@ namespace HYMLS {
   // construct complete Schur complement as a sparse matrix
   int SchurComplement::Construct()
     {
-    HYMLS_LPROF3(label_,"Construct (1)");
-    const Epetra_Map& map = mother_->Map2();
-    const OverlappingPartitioner& hid = mother_->Partitioner();
-    
-    isConstructed_=true;
+    HYMLS_LPROF3(label_, "Construct (1)");
+
+    isConstructed_ = true;
     CHECK_ZERO(this->Construct(sparseMatrixRepresentation_));
     Scrs_ = MatrixUtils::DropByValue(sparseMatrixRepresentation_,
         HYMLS_SMALL_ENTRY);
@@ -249,7 +246,6 @@ namespace HYMLS {
     const OverlappingPartitioner& hid=mother_->Partitioner();
     const Epetra_CrsMatrix& A12 = mother_->A12(sd);
     const Epetra_CrsMatrix& A21 = mother_->A21(sd);
-    const Epetra_CrsMatrix& A22 = mother_->A22();
     Ifpack_Container& A11 = mother_->SolverA11(sd);
 
     if (sd<0 || sd>hid.NumMySubdomains())

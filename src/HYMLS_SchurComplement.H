@@ -150,9 +150,6 @@ public:
   double ComputeFlops() const {return flopsCompute_;}
   
 protected: 
-
-  //!
-  int myLevel_;
   
   //! communicator
   Teuchos::RCP<const Epetra_Comm> comm_;
@@ -160,6 +157,9 @@ protected:
   //! calling class (our solver that does the domain decomposition,
   //! splits the matrix, factors A11 etc.)
   Teuchos::RCP<const Preconditioner> mother_;
+
+  //!
+  int myLevel_;
   
   //! spare matrix representation of the Schur-complement (computed when
   //! Construct() is called).
