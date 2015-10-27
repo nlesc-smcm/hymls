@@ -310,8 +310,8 @@ def compare(first, second=None):
                     if t > maxtime * 0.1 and (abs(t2) < 1e-8 or abs(t2 / t - 1) > 0.2):
                         # long name
                         short_tname = tname.replace('AssembleTransformAndDrop (first call)', 'AT&D')
-                        report += 'Warning: {:<50s} in {:s}: {:6.2f}s, was {:6.2f}s\n'.format(
-                            short_tname, name, t, subdata1.get(item, {}).get(tname, 0))
+                        warnings += 'Warning: {:<50s} in {:s}: {:6.2f}s, was {:6.2f}s\n'.format(
+                            short_tname, name, t2, t)
 
         # Make a report containing all relevant values
         report += '\n' + name + '\n'
