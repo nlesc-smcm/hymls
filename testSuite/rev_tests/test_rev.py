@@ -125,7 +125,7 @@ def cmake_env_vars(base_path):
     envs['CXX'] = 'ccache mpicxx'
     path = os.environ.get('PATH', '')
     path = (':' + path if path else path)
-    envs['PATH'] = os.path.join(base_path, 'install') + ':' + get_trili_dir() + path
+    envs['PATH'] = os.path.join(base_path, 'install', 'bin') + ':' + get_trili_dir() + path
     envs['TRILINOS_HOME'] = get_trili_dir()
     return envs
 
@@ -386,9 +386,9 @@ def main():
     if rev_to_svn_rev(hymls_path, rev) == '':
         enable_cmake = True
 
-    run('build_hymls', base_path, enable_cmake)
+    run('build_hymls', base_path, False, enable_cmake)
 
-    run('build_fvm', base_path, enable_cmake)
+    run('build_fvm', base_path, False, enable_cmake)
     run('fvm_test', base_path, test_path)
     run('fvm_test', base_path, test_path, False, 16)
 
@@ -398,7 +398,7 @@ def main():
     run('integration_tests', base_path, 16)
 
     if os.path.isfile(os.path.join(base_path, 'hymls/testSuite/unit_tests/Makefile')):
-        run('build_unit_tests', base_path)
+        run('build_unit_tests', base_path, True, enable_cmake)
         run('unit_tests', base_path)
     elif enable_cmake:
         run('unit_tests', base_path)

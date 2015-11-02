@@ -208,9 +208,6 @@ install(TARGETS hymls_main_eigs_full EXPORT HYMLSTargets RUNTIME DESTINATION ${B
 # Install libraries
 set(library_list)
 
-install(TARGETS hymls EXPORT HYMLSTargets ARCHIVE DESTINATION ${LIB_INSTALL_DIR})
-list(APPEND library_list hymls)
-
 install(TARGETS hymls_eigs EXPORT HYMLSTargets LIBRARY DESTINATION ${LIB_INSTALL_DIR})
 list(APPEND library_list hymls_eigs)
 
@@ -218,6 +215,9 @@ if (${phist_FOUND})
   install(TARGETS hymls_jada EXPORT HYMLSTargets LIBRARY DESTINATION ${LIB_INSTALL_DIR})
   list(APPEND library_list hymls_jada)
 endif()
+
+install(TARGETS hymls EXPORT HYMLSTargets ARCHIVE DESTINATION ${LIB_INSTALL_DIR})
+list(APPEND library_list hymls)
 
 # Install headers
 install(FILES ${HEADERS} DESTINATION ${INCLUDE_INSTALL_DIR})

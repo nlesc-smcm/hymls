@@ -17,7 +17,7 @@ class Householder : public OrthogonalTransform
   Householder(int lev=0);
   
   //!
-  ~Householder();
+  virtual ~Householder();
 
   //! compute X=H*X in place
   int Apply(Epetra_SerialDenseMatrix& X) const;
