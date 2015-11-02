@@ -149,7 +149,7 @@ include_directories("${CMAKE_CURRENT_SOURCE_DIR}/evp")
 link_directories(${Trilinos_LIBRARY_DIRS})
 link_directories(${Trilinos_TPL_LIBRARY_DIRS})
 
-find_package(phist QUIET CONFIG)
+#find_package(phist QUIET CONFIG)
 
 # HYMLS version
 execute_process(COMMAND svnversion -n OUTPUT_VARIABLE rev)

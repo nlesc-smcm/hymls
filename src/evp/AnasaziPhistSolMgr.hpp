@@ -52,6 +52,7 @@
 #include "phist_jadaOpts.h"
 #include "phist_orthog.h"
 
+#include "HYMLS_Solver.H"
 #include "HYMLS_Tester.H"
 #include "Epetra_Util.h"
 
