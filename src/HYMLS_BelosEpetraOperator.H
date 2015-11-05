@@ -160,10 +160,10 @@ protected:
   const Teuchos::RCP<const Epetra_Operator> P_;
   const Teuchos::RCP<const Epetra_MultiVector> V_;
 
+  mutable int numIter_;
   std::vector<char> Solver;
   bool initSolnVec_;
   std::string label_;
-  mutable int numIter_;
 };
 
 } //end namespace Belos

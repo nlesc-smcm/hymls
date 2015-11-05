@@ -20,7 +20,7 @@ HyperCube::HyperCube()
   std::string proc(procname);
   delete [] procname;
   DEBVAR(proc);
-  for (int i=0; i<proc.length();i++)
+  for (size_t i=0; i<proc.length();i++)
     {
     if (proc[i]<'0' || proc[i]>'9') proc[i]='0';
     }
@@ -66,8 +66,6 @@ HyperCube::HyperCube()
   Teuchos::Array<int> my_proc_counts(maxProcPerNode_);
   Teuchos::Array<int> proc_counts(maxProcPerNode_);
   Teuchos::Array<int> scan_proc(maxProcPerNode_);
-  
-  int remainder=0;
 
   my_proc_counts[rankOnNode_]=1;
   CHECK_ZERO(commWorld_->SumAll(&my_proc_counts[0],&proc_counts[0],maxProcPerNode_));  

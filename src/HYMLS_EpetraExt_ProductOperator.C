@@ -265,8 +265,7 @@ void ProductOperator::initializeTempVecs(bool applyInverse, int numVecs) const
 	const int num_Op = this->num_Op();
 	if( num_Op > 0 ) {
 		if( ( !UseTranspose_ && !applyInverse ) || ( UseTranspose_ && applyInverse )
-				&& range_vecs_.size()==0
-			)
+			&& (range_vecs_.size() == 0) )
 		{
 			//
 			// Forward Mat-vec
@@ -292,8 +291,7 @@ void ProductOperator::initializeTempVecs(bool applyInverse, int numVecs) const
 			}
 		}
 		else if( ( UseTranspose_ && !applyInverse ) || ( !UseTranspose_ && applyInverse )
-						 && domain_vecs_.size()==0
-			)
+			&& (domain_vecs_.size() == 0) )
 		{
 			//
 			// Adjoint Mat-vec

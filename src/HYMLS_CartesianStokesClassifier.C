@@ -256,9 +256,7 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"step 2");
                             Epetra_IntVector& p_update) const
   {
   HYMLS_PROF3(Label(),"DetectFCC");
-  
-  int MaxNumEntriesPerRow = G.MaxNumIndices();
-  
+
   int *cols;
   int len;
 
@@ -284,7 +282,6 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"step 2");
         for (int j=0;j<len;j++)
           {
           int gcid=G.GCID(cols[j]);
-          int var_j = partitioner_->VariableType(gcid);
           if (gcid!=row)
             {
             min_neighbor=std::min(min_neighbor,p_nodeType[p_map.LID(gcid)]);
@@ -374,11 +371,9 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"step 2");
   // if it does not connect to a type 5 V-node.            
   //                                                       
 
-  int MaxNumEntriesPerRow = G.MaxNumIndices();
-  
   int *cols;
   int len;
- 
+
   const Epetra_BlockMap& map = nodeType.Map();
   const Epetra_BlockMap& p_map = p_nodeType.Map();
   
@@ -419,7 +414,6 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"step 2");
         eliminate=true;
         DEBUG("V-Node "<<partitioner_->GID(sd,i));
         int lrow = G.LRID(row);
-        int sd_i = (*partitioner_)(row);
         CHECK_ZERO(G.ExtractMyRowView(lrow,len,cols));
         for (int j=0;j<len;j++)
           {

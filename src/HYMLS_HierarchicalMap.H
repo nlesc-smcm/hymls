@@ -285,9 +285,6 @@ public:
   
   //! indicates if any more changes can be made (FillComplete() has been called)
   bool Filled() const {return overlappingMap_!=Teuchos::null;}
-  
-  //! level ID
-  int myLevel_;
 
     
 private:
@@ -315,6 +312,9 @@ private:
   
   //! array of spawned maps
   mutable Teuchos::Array<Teuchos::Array<Teuchos::RCP<const Epetra_Map> > > spawnedMaps_;
+  
+  //! level ID
+  int myLevel_;
   
   //! protected constructor - does not allow any more changes
   //! (FillComplete() has been called), this is used for spawning

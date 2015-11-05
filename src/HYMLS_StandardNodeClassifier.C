@@ -47,16 +47,16 @@ namespace HYMLS {
         // gives the level we are, needed for printing 
         // nx,ny,nz give the global size of the  domain.
         std::string label) :
-                myLevel_(level),
-                // Stores level
-                partitioner_(P),
-                // sets a pointer, below this is now known as partitioner_
                 parallelGraph_(parG),
                 // sets a pointer, below it is known as parallelGraph_
-                nx_(nx),ny_(ny),nz_(nz),
-                //initializes nx_=nx etc
-                label_(label)
+                partitioner_(P),
+                // sets a pointer, below this is now known as partitioner_
+                label_(label),
                 //creates a std::string for printing purposes
+                myLevel_(level),
+                // Stores level
+                nx_(nx),ny_(ny),nz_(nz)
+                //initializes nx_=nx etc
     {
     HYMLS_LPROF3(Label(),"Constructor");
     dof_=partitioner_->DofPerNode(); // DOFs per grid cell (4 for u,v,w,p) 
@@ -182,7 +182,6 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
 
 
   int *cols;
-  int len;
   Teuchos::Array<int> retain(dof_);
   Teuchos::Array<int> retained(dof_);
 
@@ -213,7 +212,6 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
       {
       retained[var]=0;
       }
-    int sub=(*partitioner_)(partitioner_->GID(sd,0));// global subdomain ID
     for (int i=partitioner_->First(sd);i<partitioner_->First(sd+1);i++)
       //loop over all unknowns from one subdomain
       {
@@ -325,12 +323,10 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
                             Epetra_IntVector& nodeType) const
   {
   HYMLS_LPROF3(Label(),"UpdateNodeTypeVector");
-  
-  int MaxNumEntriesPerRow = G.MaxNumIndices();
-  
+
   int *cols;
   int len;
- 
+
   const Epetra_BlockMap& map = nodeType.Map();
   const Epetra_BlockMap& p_map = p_nodeType.Map();
 #ifdef TESTING
@@ -401,9 +397,7 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
                             Epetra_IntVector& nodeType) const
   {
   HYMLS_LPROF3(Label(),"DetectFCC");
-  
-  int MaxNumEntriesPerRow = G.MaxNumIndices();
-  
+
   int *cols;
   int len;
 
@@ -431,7 +425,6 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
         for (int j=0;j<len;j++)
           {
           int gcid=G.GCID(cols[j]); //gives column number in global matrix
-          int var_j = partitioner_->VariableType(gcid);
           if (gcid!=row)
             {
             min_neighbor=std::min(min_neighbor,p_nodeType[p_map.LID(gcid)]);
@@ -501,7 +494,7 @@ std::ostream& StandardNodeClassifier::PrintNodeTypeVector
     os << "[empty partition]"<<std::endl;
     return os; 
     }
-  int imin,jmin,kmin,vmin,imax,jmax,kmax,vmax;
+  int imin,jmin,kmin,imax,jmax,kmax;
   imin=nx_;imax=-1;jmin=ny_;jmax=-1;kmin=nz_;kmax=-1;
   for (int lid=0;lid<nT.MyLength();lid++)
     {
