@@ -1298,32 +1298,28 @@ int SchurPreconditioner::InitializeOT()
       CHECK_ZERO(SchurComplement_->Construct(sd, Sk, indices));
       CHECK_ZERO(Sk.Scale(-1.0));
 
-      int pos=0;
-      // loop over all separators of the subdomain sd
-      for (int grp=1;grp<hid_->NumGroups(sd);grp++)
-         {
-        // apply orthogonal transform from left and right to the separator
-        int len = hid_->NumElements(sd,grp);
-        sep.Resize(len);
-        v.Resize(len);
-        for (int j=0;j<len;j++)
-          {
-          int gid=hid_->GID(sd,grp,j);
-          // note here we convert a gid in indices to a lid in Sk
-          // using knowledge on how SchurComplement->Construct() 
-          // works. This is fast but not quite clean from a con- 
-          // ceptual point of view.
-          sep[j]=pos++;
-#ifdef TESTING
-          if (indices[sep[j]]!=hid_->GID(sd,grp,j))
-            {
-            Tools::Error("ordering not consistemt between classes",__FILE__,__LINE__);
-            }
-#endif          
-          v[j]=localTestVector[sepMap.LID(gid)];
-          }//j
-        RestrictedOT::Apply(Sk,sep,*OT,v);
-        }//grp
+      // Get the part of the testvector that belongs to the
+      // separators
+      v.Resize(indices.Length());
+      for (int i = 0; i < indices.Length(); i++)
+        {
+        int gid = indices[i];
+        v[i] = localTestVector[sepMap.LID(gid)];
+        }
+
+      int pos = 0;
+      // Loop over all separators of the subdomain sd
+      for (int grp = 1; grp < hid_->NumGroups(sd); grp++)
+        {
+        int len = hid_->NumElements(sd, grp);
+        Epetra_SerialDenseVector vView(View, &v[pos], len);
+
+        // Apply the orthogonal transformation for each group
+        // separately
+        RestrictedOT::Apply(Sk, pos, *OT, vView);
+
+        pos += len;
+        }
 
       CHECK_NONNEG(matrix->SumIntoGlobalValues(indices,Sk));
       }//sd
