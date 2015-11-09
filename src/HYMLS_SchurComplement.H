@@ -194,10 +194,6 @@ protected:
 
 protected:
 
-  //! creates the global indices associated with a partial Schur-complement for one
-  //! subdomain.
-  int Construct(int k, Epetra_IntSerialDenseVector & indices) const; 
-
   //! construct the partial Schur-complement A21*A11\A12 associated with local subdomain k
   //! as a dense matrix. This is a very small matrix as each subdomain
   //! only connects to few separators. The matrix has hid_->NumSeparatorNodes(sd)
@@ -221,7 +217,6 @@ protected:
 private:
 
   }; 
-
 
   }
 

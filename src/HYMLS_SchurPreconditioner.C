@@ -1290,16 +1290,18 @@ int SchurPreconditioner::InitializeOT()
       {
       // construct the local contribution of the SC
       // (for all separators around the subdomain) 
-      
-      // - get the global indices of the separators
-      CHECK_ZERO(SchurComplement_->Construct(sd, indices));
-      // construct the local A21*A11\A12
+
+      // Get the global indices of the separators
+      CHECK_ZERO(hid_->getSeparatorGIDs(sd, indices));
+
+      // Construct the local -A21*A11\A12
       CHECK_ZERO(SchurComplement_->Construct(sd, Sk, indices));
       CHECK_ZERO(Sk.Scale(-1.0));
+
       int pos=0;
       // loop over all separators of the subdomain sd
       for (int grp=1;grp<hid_->NumGroups(sd);grp++)
-        {
+         {
         // apply orthogonal transform from left and right to the separator
         int len = hid_->NumElements(sd,grp);
         sep.Resize(len);
@@ -1322,6 +1324,7 @@ int SchurPreconditioner::InitializeOT()
           }//j
         RestrictedOT::Apply(Sk,sep,*OT,v);
         }//grp
+
       CHECK_NONNEG(matrix->SumIntoGlobalValues(indices,Sk));
       }//sd
 

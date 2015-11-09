@@ -149,7 +149,7 @@ int SchurComplement::Construct(Teuchos::RCP<Epetra_FECrsMatrix> S) const
 
     for (int k = 0; k < hid.NumMySubdomains(); k++)
       {
-      CHECK_ZERO(this->Construct(k, indices));
+      CHECK_ZERO(hid.getSeparatorGIDs(k, indices));
       DEBVAR(k);
       DEBVAR(indices);
       if (indices.Length() != Sk.N())
@@ -178,8 +178,8 @@ int SchurComplement::Construct(Teuchos::RCP<Epetra_FECrsMatrix> S) const
   for (int k = 0; k < hid.NumMySubdomains(); k++)
     {
     // construct values for separators around subdomain k
-    CHECK_ZERO(this->Construct(k, indices));
-    CHECK_ZERO(this->Construct(k, Sk, indices, &flopsCompute_));
+    CHECK_ZERO(hid.getSeparatorGIDs(k, indices));
+    CHECK_ZERO(Construct(k, Sk, indices, &flopsCompute_));
 
     CHECK_ZERO(S->SumIntoGlobalValues(indices, Sk));
     }
@@ -190,41 +190,6 @@ int SchurComplement::Construct(Teuchos::RCP<Epetra_FECrsMatrix> S) const
       *S, -1.0));
   // finish construction by creating local IDs:
   CHECK_ZERO(S->FillComplete());
-  return 0;
-  }
-
-int SchurComplement::Construct(int sd, Epetra_IntSerialDenseVector &inds) const
-  {
-  HYMLS_LPROF3(label_, "Construct ISDV");
-  const OverlappingPartitioner &hid = mother_->Partitioner();
-
-  if (sd < 0 || sd > hid.NumMySubdomains())
-    {
-    Tools::Warning("Subdomain index out of range!", __FILE__, __LINE__);
-    return -1;
-    }
-
-  int nrows = hid.NumSeparatorElements(sd);
-
-  // resize input arrays if necessary
-  if (inds.Length() != nrows)
-    {
-    CHECK_ZERO(inds.Size(nrows));
-    }
-
-  // create vector with global indices
-  int pos = 0;
-
-  // loop over all groups except the first (first is interior elements),
-  // that is separator groups and retained elements
-  for (int grp = 1; grp < hid.NumGroups(sd); grp++)
-    {
-    // loop over all elements of each separator group
-    for (int j = 0; j < hid.NumElements(sd, grp); j++)
-      {
-      inds[pos++] = hid.GID(sd, grp, j);
-      }
-    }
   return 0;
   }
 

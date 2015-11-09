@@ -24,6 +24,7 @@
 #include "Epetra_Vector.h"
 #include "Epetra_IntVector.h"
 #include "Epetra_Import.h"
+#include "Epetra_IntSerialDenseVector.h"
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_StrUtils.hpp"
 #include "Epetra_Util.h"
@@ -909,7 +910,6 @@ std::ostream & operator<<(std::ostream& os, const HierarchicalMap& h)
   return h.Print(os);
   }
 
-
 //! given a list of GIDs, returns a list of subdomains to which they belong
 int HierarchicalMap::getSubdomainList(int num_gids, int* gids, int* sd) const
   {
@@ -939,6 +939,51 @@ int HierarchicalMap::getSubdomainList(int num_gids, int* gids, int* sd) const
   return 0;
   }
 
-      
-  
+//! given a subdomain, returns a list of GIDs that belong to the subdomain
+int HierarchicalMap::getSeparatorGIDs(int sd, int *gids) const
+  {
+  HYMLS_PROF3(label_, "getSubdomainGIDs");
+  if (sd < 0 || sd > NumMySubdomains())
+    {
+    Tools::Warning("Subdomain index out of range!", __FILE__, __LINE__);
+    return -1;
+    }
+
+  // create vector with global indices
+  int pos = 0;
+
+  // loop over all groups except the first (first is interior elements),
+  // that is separator groups and retained elements
+  for (int grp = 1; grp < NumGroups(sd); grp++)
+    {
+    // loop over all elements of each separator group
+    for (int j = 0; j < NumElements(sd, grp); j++)
+      {
+      gids[pos++] = GID(sd, grp, j);
+      }
+    }
+  return 0;
+  }
+
+//! given a subdomain, returns a list of GIDs that belong to the subdomain
+int HierarchicalMap::getSeparatorGIDs(int sd, Epetra_IntSerialDenseVector &gids) const
+  {
+  HYMLS_PROF3(label_, "getSubdomainGIDs");
+  if (sd < 0 || sd > NumMySubdomains())
+    {
+    Tools::Warning("Subdomain index out of range!", __FILE__, __LINE__);
+    return -1;
+    }
+
+  int nrows = NumSeparatorElements(sd);
+
+  // resize input arrays if necessary
+  if (gids.Length() != nrows)
+    {
+    CHECK_ZERO(gids.Size(nrows));
+    }
+
+  return getSeparatorGIDs(sd, gids.Values());
+  }
+
 }
