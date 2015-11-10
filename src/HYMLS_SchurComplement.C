@@ -258,26 +258,19 @@ int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
     CHECK_ZERO(A12.ExtractMyRowView(i, len[i], values[i], indices[i]));
     }
 
-  int pos = 0; // position in multi-vector (rhs of subdomain solver)
-
-  // now loop over all the separators around this subdomain
-  for (int grp = 1; grp < hid.NumGroups(sd); grp++)
+  // Loop over all GIDs of separators around this subdomain
+  for (int pos = 0; pos < nrows; pos++)
     {
-    // loop over all elements of each separator group
-    for (int j = 0; j < hid.NumElements(sd, grp); j++)
+    int gcid = inds[pos];
+    // loop over all rows in this subdomain
+    for (int i = 0; i < int_elems; i++)
       {
-      int gcid = hid.GID(sd, grp, j); // global ID of separator node (sd,grp,j)
-      // loop over all rows in this subdomain
-      for (int i = 0; i < int_elems; i++)
+      // loop over the matrix row and look for matching entries
+      for (int k = 0 ; k < len[i]; k++)
         {
-        // loop over the matrix row and look for matching entries
-        for (int k = 0 ; k < len[i]; k++)
-          {
-          if (gcid == A12.GCID(indices[i][k]))
-            A11.RHS(i, pos) = values[i][k];
-          }
+        if (gcid == A12.GCID(indices[i][k]))
+          A11.RHS(i, pos) = values[i][k];
         }
-      pos++;
       }
     }
 
