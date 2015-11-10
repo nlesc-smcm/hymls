@@ -76,6 +76,7 @@ namespace HYMLS {
 //==============================================================================
 SparseDirectSolver::SparseDirectSolver(Epetra_RowMatrix* Matrix_in) :
   Matrix_(Teuchos::rcp( Matrix_in, false )),
+  method_(KLU),
   label_("SparseDirectSolver"),
   IsEmpty_(false),
   IsInitialized_(false),
@@ -85,7 +86,6 @@ SparseDirectSolver::SparseDirectSolver(Epetra_RowMatrix* Matrix_in) :
   serialMatrix_(Teuchos::null),
   serialImport_(Teuchos::null),
   ownOrdering_(false), ownScaling_(false),
-  method_(KLU),
   pardiso_initialized_(false)
 {
 HYMLS_PROF3(label_,"Constructor");
@@ -231,8 +231,6 @@ HYMLS_PROF3(label_,"SetParameters");
 label_=List_.get("Label",label_);
 label_=label_+" ("+label2+")";
 
-int prl = List_.get("OutputLevel",0);
-
 if (method_==KLU)
   {
   klu_->Common_ = new klu_common();
@@ -241,6 +239,7 @@ if (method_==KLU)
 #ifdef HAVE_SUITESPARSE
 else if (method_==UMFPACK)
   {
+  int prl = List_.get("OutputLevel",0);
   umf_Info_.resize(UMFPACK_INFO);
   umf_Control_.resize(UMFPACK_CONTROL);
   umfpack_di_defaults( &umf_Control_[0] ) ; 
@@ -693,13 +692,12 @@ int SparseDirectSolver::FillReducingOrdering()
   {
   if (IsEmpty_||(MyPID_ != 0)) return 0;
   if (serialMatrix_==Teuchos::null) return -1;
-  int N = serialMatrix_->NumMyRows();
 
   Teuchos::RCP<const Epetra_CrsMatrix> serialCrsMatrix
         = Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(serialMatrix_);
   if (Teuchos::is_null(serialCrsMatrix))
     {
-    Tools::Error("need a CrsMatrix here",__FILE__,__LINE__);        
+    Tools::Error("need a CrsMatrix here",__FILE__,__LINE__);
     }
   CHECK_ZERO(HYMLS::MatrixUtils::FillReducingOrdering(*serialCrsMatrix,row_perm_,col_perm_));
 

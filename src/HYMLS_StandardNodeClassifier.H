@@ -37,7 +37,7 @@ public:
       std::string label="StandardNodeClassifier");
 
   //! destructor
-  ~StandardNodeClassifier();
+  virtual ~StandardNodeClassifier();
 
   //! called by constructor
   int BuildNodeTypeVector();

@@ -149,11 +149,11 @@ does not support transpose.
     //! original operator
     Teuchos::RCP<const Epetra_Operator> A_;
 
-    //! operator B, mass matrix
-    Teuchos::RCP<const Epetra_Operator> B_;
-    
     //! vector space
     Teuchos::RCP<const Epetra_MultiVector> V_;
+
+    //! operator B, mass matrix
+    Teuchos::RCP<const Epetra_Operator> B_;
 
     //! temporary vector for intermediate results
     mutable Teuchos::RCP<Epetra_MultiVector> tmpVector_;
@@ -161,18 +161,18 @@ does not support transpose.
     //! Dense solver and matrix for ApplyInverse
     mutable Teuchos::RCP<Epetra_SerialDenseSolver> HSolver_;
     mutable Teuchos::RCP<Epetra_SerialDenseMatrix> H_;
-    
-    //! optional left preconditioner
-    Teuchos::RCP<const Epetra_Operator> leftPrecond_;
-    
+
     //! do we represent V'AV or V_orth'AV_orth?
     bool useVorth_;
-    
+
+    //! optional left preconditioner
+    Teuchos::RCP<const Epetra_Operator> leftPrecond_;
+
     //! use transposed operator?
     bool useTranspose_;
-    
+
     };
-    
+
   }//namespace HYMLS
 
 

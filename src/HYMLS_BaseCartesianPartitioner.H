@@ -36,7 +36,7 @@ class BaseCartesianPartitioner : public BasePartitioner
         int nz=1, int dof=1, GaleriExt::PERIO_Flag perio=GaleriExt::NO_PERIO);
   
   //! destructor
-  ~BaseCartesianPartitioner();
+  virtual ~BaseCartesianPartitioner();
 
   //! set the graph of the problem to be used for determining wether there
   //! is an edge between two nodes. If no graph is set, heuristics are used,

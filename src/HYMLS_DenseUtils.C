@@ -118,7 +118,6 @@ int DenseUtils::ApplyOrth(const Epetra_MultiVector& V, const Epetra_MultiVector&
                            bool reverse)
   {
   HYMLS_PROF3(Label(),"ApplyOrth");
-  int ierr=0;
   if (W.Map().SameAs(V.Map())==false)
     {
     //input args not correctly shaped

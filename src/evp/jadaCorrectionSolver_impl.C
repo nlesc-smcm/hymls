@@ -51,7 +51,6 @@ void HYMLS_jadaCorrectionSolver_run1(void* vme,
   PHIST_ENTER_FCN(__FUNCTION__);
   *iflag = 0;
   TYPE(const_op_ptr) A_op=(TYPE(const_op_ptr))vA_op;
-  TYPE(const_op_ptr) B_op=(TYPE(const_op_ptr))vB_op;
   hymls_wrapper_t* me=(hymls_wrapper_t*)vme;
 
   PHIST_CHK_IERR(*iflag = (maxIter <= 0) ? -1 : 0, *iflag);

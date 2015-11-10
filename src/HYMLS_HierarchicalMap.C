@@ -43,9 +43,10 @@ namespace HYMLS {
         Teuchos::RCP<const Epetra_Map> baseMap, int numMySubdomains,
         std::string label, int level)
         : comm_(comm),
+          label_(label),
           baseMap_(baseMap),
           overlappingMap_(Teuchos::null),
-          myLevel_(level), label_(label)
+          myLevel_(level)
     {
     HYMLS_PROF3(label_,"Constructor");
     this->Reset(numMySubdomains);
@@ -59,11 +60,11 @@ namespace HYMLS {
         Teuchos::RCP<Teuchos::Array< Teuchos::Array<int> > > groupPointer,
         std::string label, int level)
   : comm_(comm),
+    label_(label),
     baseMap_(baseMap),
     overlappingMap_(overlappingMap),
     groupPointer_(groupPointer),
-    myLevel_(level),
-    label_(label)
+    myLevel_(level)
     {
     HYMLS_PROF3(label_,"HierarchicalMap Constructor");
     spawnedObjects_.resize(4); // can currently spawn Interior, Separator and 
@@ -870,7 +871,8 @@ HierarchicalMap::SpawnLocalSeparators
       {
       DEBUG("Spawn map for subdomain "<<sd);
       int* MyElements = overlappingMap_->MyGlobalElements();      
-      int offset,length;
+      int offset = -1;
+      int length = -1;
       if (strat==Interior)
         {
         DEBUG("interior map");

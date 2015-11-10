@@ -31,8 +31,9 @@ namespace HYMLS {
         (Teuchos::RCP<const Epetra_Map> map, int nx, int ny, int nz, int dof, 
         GaleriExt::PERIO_Flag perio)
         : BasePartitioner(), label_("BaseCartesianPartitioner"),
-                baseMap_(map), nx_(nx), ny_(ny),nz_(nz),dof_(dof),perio_(perio),
-                numLocalSubdomains_(-1),numGlobalSubdomains_(-1)
+          baseMap_(map), nx_(nx), ny_(ny), nz_(nz),
+          numLocalSubdomains_(-1), numGlobalSubdomains_(-1),
+          dof_(dof), perio_(perio)
         {
         HYMLS_PROF3(label_,"Constructor");
         active_=true; // by default, everyone is assumed to own a part of the domain.
@@ -156,7 +157,6 @@ DEBVAR(dk);
       
     // problem is periodic in at least one direction
 
-    int value;
     int I1,J1,K1,I2,J2,K2;
     int dI, dJ, dK;
     int dum;
@@ -320,16 +320,10 @@ DEBVAR(dk);
  
     int rank=comm_->MyPID();
     int rankI=-1,rankJ=-1,rankK=-1;
-    int ioff=-1,joff=-1,koff=-1;
 
     if (active_)
       {
       Tools::ind2sub(nprocx_,nprocy_,nprocz_,rank,rankI,rankJ,rankK);
-
-      ioff=rankI*npx_/nprocx_*sx_;
-      joff=rankJ*npy_/nprocy_*sy_;
-      koff=rankK*npz_/nprocz_*sz_;
-
       numLocalSubdomains_=my_npx*my_npy*my_npz;
       }
     else
@@ -344,7 +338,7 @@ DEBVAR(dk);
     DEBVAR(rank);
     DEBVAR(rankI);
     DEBVAR(rankJ);
-    DEBVAR(rankK);        
+    DEBVAR(rankK);
 
     sdMap_=CreateSubdomainMap(nprocs);
     DEBVAR(*sdMap_);
@@ -410,7 +404,7 @@ if (pos>numSends) Tools::Error("sanity check failed",__FILE__,__LINE__);
   DEBVAR(numRecvs);
   
   char* sbuf = reinterpret_cast<char*>(sendGIDs);
-  int numRecvChars=numRecvs*sizeof(int);
+  int numRecvChars = static_cast<int>(numRecvs * sizeof(int));
   char* rbuf = new char[numRecvChars];
   
   CHECK_ZERO(Distor->Do( sbuf,
@@ -421,11 +415,11 @@ if (pos>numSends) Tools::Error("sanity check failed",__FILE__,__LINE__);
   int *recvGIDs = reinterpret_cast<int*>(rbuf);
 
 #ifdef TESTING
-  if (numRecvs*sizeof(int)!=numRecvChars)
+  if (static_cast<int>(numRecvs * sizeof(int)) != numRecvChars)
     {
-    Tools::Error("sanity check failed",__FILE__,__LINE__);
-    }   
-#endif  
+    Tools::Error("sanity check failed", __FILE__, __LINE__);
+    }
+#endif
 
   int NumMyElements = numLocal + numRecvs;
   DEBVAR(NumMyElements);

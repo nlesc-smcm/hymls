@@ -25,7 +25,7 @@ void GetNeighboursCartesian2d(const int i, const int nx, const int ny,
                               PERIO_Flag perio) 
 {
   Galeri::GetNeighboursCartesian2d(i,nx,ny,left,right,lower,upper);
-  int ix, iy, ixx, iyy;
+  int ix, iy;
   ix = i % nx;
   iy = (i - ix) / nx;
 

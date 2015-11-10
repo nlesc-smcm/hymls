@@ -64,8 +64,8 @@ EpetraOperator::EpetraOperator( Teuchos::RCP< ::Belos::LinearProblem<double,Epet
                                 bool initSolnVec )
   : lp_(lp), 
     plist_(plist),
-    initSolnVec_(initSolnVec),
-    P_(P), V_(V), numIter_(0)
+    P_(P), V_(V), numIter_(0),
+    initSolnVec_(initSolnVec)
 {
   HYMLS_PROF3(label_,"Constructor");
   // Get the solver's name from the parameter list, use block Gmres by default.
