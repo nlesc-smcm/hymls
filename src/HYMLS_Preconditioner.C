@@ -12,6 +12,7 @@
 #include "HYMLS_SchurComplement.H"
 #include "HYMLS_SchurPreconditioner.H"
 #include "HYMLS_BorderedLU.H"
+#include "HYMLS_MatrixBlock.H"
 
 #include <Epetra_Time.h> 
 #include "Epetra_Comm.h"
@@ -387,11 +388,6 @@ HYMLS_TEST(Label(),isDDcorrect(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix
   // the process layout
   ProcTopo->setActive(myLevel_,active);
 */
-    localMap1_.resize(num_sd);
-    localMap2_.resize(num_sd);
-
-    localA12_.resize(num_sd);
-    localA21_.resize(num_sd);
 
     subdomainSolver_.resize(num_sd);
 
@@ -408,6 +404,7 @@ HYMLS_TEST(Label(),isDDcorrect(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix
 
   map1_ = interiorObject->GetMap();
   map2_ = sepObject->GetMap();
+
   
   // The rowMap object has first all the interior elements,
   // then all the local separator elements, and finally    
@@ -472,16 +469,6 @@ HYMLS_TEST(Label(),isDDcorrect(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix
                 
   delete [] AllMyElements;
 
-  DEBUG("spawn subdomain maps");
-#pragma omp parallel for schedule(static)
-  for (int sd=0;sd<hid_->NumMySubdomains();sd++)
-    {
-    localMap1_[sd] = hid_->SpawnMap(sd,HierarchicalMap::Interior);
-    DEBVAR(*localMap1_[sd]);
-    localMap2_[sd] = hid_->SpawnMap(sd,HierarchicalMap::Separators);
-    DEBVAR(*localMap2_[sd]);
-    }
-            
   int MaxNumEntriesPerRow=matrix_->MaxNumEntries();
 
   Teuchos::RCP<const Epetra_CrsMatrix> Acrs = Teuchos::null;
@@ -494,97 +481,49 @@ HYMLS_TEST(Label(),isDDcorrect(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix
     }
 
 #if defined(STORE_MATRICES) || defined(TESTING)
-MatrixUtils::Dump(*rangeMap_,"originalMap"+Teuchos::toString(myLevel_)+".txt");
-MatrixUtils::Dump(*rowMap_,"reorderedMap"+Teuchos::toString(myLevel_)+".txt");
-MatrixUtils::Dump(*map2_,"schurMap"+Teuchos::toString(myLevel_)+".txt");
+  MatrixUtils::Dump(*rangeMap_,"originalMap"+Teuchos::toString(myLevel_)+".txt");
+  MatrixUtils::Dump(*rowMap_,"reorderedMap"+Teuchos::toString(myLevel_)+".txt");
+  MatrixUtils::Dump(*map2_,"schurMap"+Teuchos::toString(myLevel_)+".txt");
 #endif
 
-    // this object can be used to create a vector view of the interior nodes:
-    interior_=Teuchos::rcp(new HYMLS::MultiVector_View(*rowMap_,*map1_));
+  // this object can be used to create a vector view of the interior nodes:
+  interior_=Teuchos::rcp(new HYMLS::MultiVector_View(*rowMap_,*map1_));
 
-    // create a view of the Schur-part of vectors. Note that EpetraExt's version
-    // doesn't work here because it assumes the submap to be the first part of 
-    // the original. This view does not include overlap between partitions,
-    // which is in rowMap behind the map2 (local separator) entries.
-    separators_=Teuchos::rcp(new HYMLS::MultiVector_View(*rowMap_,*map2_));
-
+  // create a view of the Schur-part of vectors. Note that EpetraExt's version
+  // doesn't work here because it assumes the submap to be the first part of 
+  // the original. This view does not include overlap between partitions,
+  // which is in rowMap behind the map2 (local separator) entries.
+  separators_=Teuchos::rcp(new HYMLS::MultiVector_View(*rowMap_,*map2_));
 
   DEBUG("Reorder global matrix");
   reorderedMatrix_=Teuchos::rcp(new Epetra_CrsMatrix(Copy,*rowMap_,MaxNumEntriesPerRow));
 
   CHECK_ZERO(reorderedMatrix_->Import(*Acrs,*importer_,Insert));
 
-try {
+  try {
     CHECK_ZERO(reorderedMatrix_->FillComplete());
     } catch (...) {HYMLS::Tools::Error("caught exception in FillComplete()",__FILE__,__LINE__);}
     
   REPORT_SUM_MEM(label_,"reordered matrix",reorderedMatrix_->NumMyNonzeros(),
-                                           reorderedMatrix_->NumMyNonzeros(),
-                                           comm_);
-    
-    //URGENT: here we collect all global indices on all procs, which is 
-    //      a memory bottleneck. I think we can use our separator info
-    //      to avoid this quite easily.
-    DEBUG("construct col-maps, importers and submatrices. Import");
-    colMap1_ = MatrixUtils::CreateColMap(*reorderedMatrix_,*map1_,*map1_);
-    colMap2_ = MatrixUtils::CreateColMap(*reorderedMatrix_,*map2_,*map2_);
+    reorderedMatrix_->NumMyNonzeros(),
+    comm_);
 
-    import1_ = Teuchos::rcp(new Epetra_Import(*map1_,*rowMap_));
-    import2_ = Teuchos::rcp(new Epetra_Import(*map2_,*rowMap_));
+  // Construct the matrix blocks we need for the Schur complement
+  A12_ = Teuchos::rcp(new MatrixBlock(reorderedMatrix_, hid_,
+      HierarchicalMap::Interior, HierarchicalMap::Separators));
+  A21_ = Teuchos::rcp(new MatrixBlock(reorderedMatrix_, hid_,
+      HierarchicalMap::Separators, HierarchicalMap::Interior));
+  A22_ = Teuchos::rcp(new MatrixBlock(reorderedMatrix_, hid_,
+      HierarchicalMap::Separators, HierarchicalMap::Separators));
 
-    // extract matrix parts per subdomain. This should
-    // all be local copy operations.
-    double nzCopy=0;
-#pragma omp parallel for schedule(static) reduction(+:nzCopy)
-    for (int sd=0;sd<hid_->NumMySubdomains();sd++)
-      {
-      localA12_[sd] = Teuchos::rcp(new
-          Epetra_CrsMatrix(Copy,*localMap1_[sd],*localMap2_[sd],MaxNumEntriesPerRow));
-
-      localA21_[sd] = Teuchos::rcp(new
-          Epetra_CrsMatrix(Copy,*localMap2_[sd],*localMap1_[sd],MaxNumEntriesPerRow));
-
-      CHECK_ZERO(MatrixUtils::ExtractLocalBlock(*reorderedMatrix_,*localA12_[sd]));
-      CHECK_ZERO(MatrixUtils::ExtractLocalBlock(*reorderedMatrix_,*localA21_[sd]));
-
-      CHECK_ZERO(localA12_[sd]->FillComplete(*localMap2_[sd],*localMap1_[sd]));
-      CHECK_ZERO(localA21_[sd]->FillComplete(*localMap1_[sd],*localMap2_[sd]));
-      
-      nzCopy += (double)(localA12_[sd]->NumMyNonzeros());
-      nzCopy += (double)(localA21_[sd]->NumMyNonzeros());
-      }
-
-//TODO: we presently construct both local blocks and global blocks.
-//      For the preconditioner, local blocks are useful. For i.e. 
-//      applying the operators, global blocks are easier and probably
-//      more efficient. Not sure, what the final implementation will be
-      A12_ = Teuchos::rcp(new
-          Epetra_CrsMatrix(Copy,*map1_,*colMap2_,MaxNumEntriesPerRow));
-
-      A21_ = Teuchos::rcp(new
-          Epetra_CrsMatrix(Copy,*map2_,*colMap1_,MaxNumEntriesPerRow));
-
-      A22_ = Teuchos::rcp(new
-          Epetra_CrsMatrix(Copy,*map2_,*colMap2_,MaxNumEntriesPerRow));
-
-      CHECK_ZERO(A12_->Import(*reorderedMatrix_,*import1_,Insert));
-      CHECK_ZERO(A21_->Import(*reorderedMatrix_,*import2_,Insert));
-      CHECK_ZERO(A22_->Import(*reorderedMatrix_,*import2_,Insert));
-
-      CHECK_ZERO(A12_->FillComplete(*map2_,*map1_));
-      CHECK_ZERO(A21_->FillComplete(*map1_,*map2_));
-      CHECK_ZERO(A22_->FillComplete(*map2_,*map2_));
-      
-      nzCopy+=(double)(A12_->NumMyNonzeros());
-      nzCopy+=(double)(A21_->NumMyNonzeros());
-      nzCopy+=(double)(A22_->NumMyNonzeros());
-
-      REPORT_SUM_MEM(label_,"copies of matrix parts",nzCopy,nzCopy,comm_);
+  // Also construct the subdomain blocks separately for A12 and A21
+  A12_->ComputeSubdomainBlocks();
+  A21_->ComputeSubdomainBlocks();
 
 #ifdef STORE_MATRICES
-MatrixUtils::Dump(*A12_, "Precond"+Teuchos::toString(myLevel_)+"_A12.txt");
-MatrixUtils::Dump(*A21_, "Precond"+Teuchos::toString(myLevel_)+"_A21.txt");
-MatrixUtils::Dump(*A22_, "Precond"+Teuchos::toString(myLevel_)+"_A22.txt");
+  MatrixUtils::Dump(*A12_->Block(), "Precond"+Teuchos::toString(myLevel_)+"_A12.txt");
+  MatrixUtils::Dump(*A21_->Block(), "Precond"+Teuchos::toString(myLevel_)+"_A21.txt");
+  MatrixUtils::Dump(*A22_->Block(), "Precond"+Teuchos::toString(myLevel_)+"_A22.txt");
 #endif
       
   DEBUG("initialize subdomain solvers...");
@@ -658,7 +597,8 @@ MatrixUtils::Dump(*A22_, "Precond"+Teuchos::toString(myLevel_)+"_A22.txt");
     {
     // construct the Schur-complement operator (no computations, just
     // pass in pointers of the LU's)
-    Schur_=Teuchos::rcp(new SchurComplement(Teuchos::rcp(this,false),myLevel_));
+      Schur_ = Teuchos::rcp(new SchurComplement(Teuchos::rcp(this,false),
+          A12_, A21_, A22_, myLevel_));
     }
 Tools::out() << "=============================="<<std::endl;
 Tools::out() << "LEVEL "<< myLevel_<<std::endl;
@@ -708,6 +648,7 @@ Tools::out() << "=============================="<<std::endl;
   Epetra_Vector tmpVec(*rowMap_);
   Teuchos::RCP<Epetra_Vector> testVector2
         = Teuchos::rcp(new Epetra_Vector(*map2_));
+  Teuchos::RCP<Epetra_Import> import2_ = Teuchos::rcp(new Epetra_Import(*map2_,*rowMap_));
   CHECK_ZERO(tmpVec.Import(*testVector_,*importer_,Insert));
   CHECK_ZERO(testVector2->Import(tmpVec,*import2_,Insert));
 
@@ -766,23 +707,9 @@ int Preconditioner::InitializeCompute()
     MatrixUtils::Dump(*Acrs,"originalMatrix"+Teuchos::toString(myLevel_)+".txt");
 #endif    
 
-#pragma omp parallel for schedule(static)
-  for (int sd=0;sd<hid_->NumMySubdomains();sd++)
-    {
-    CHECK_ZERO(localA12_[sd]->PutScalar(0.0));
-    CHECK_ZERO(localA21_[sd]->PutScalar(0.0));
-    
-    CHECK_ZERO(MatrixUtils::ExtractLocalBlock(*reorderedMatrix_,*localA12_[sd]));
-    CHECK_ZERO(MatrixUtils::ExtractLocalBlock(*reorderedMatrix_,*localA21_[sd]));
-    }
-    
-  CHECK_ZERO(A12_->PutScalar(0.0));
-  CHECK_ZERO(A21_->PutScalar(0.0));
-  CHECK_ZERO(A22_->PutScalar(0.0));
-
-  CHECK_ZERO(A12_->Import(*reorderedMatrix_,*import1_,Insert));
-  CHECK_ZERO(A21_->Import(*reorderedMatrix_,*import2_,Insert));
-  CHECK_ZERO(A22_->Import(*reorderedMatrix_,*import2_,Insert));
+    A12_->Recompute(reorderedMatrix_);
+    A21_->Recompute(reorderedMatrix_);
+    A22_->Recompute(reorderedMatrix_);
 
   // (2) re-initiailze the subdomain solvers. This seems to be
   //     required for the solver to work.
@@ -943,7 +870,7 @@ if (hid_->NumMySubdomains()>0)
       {
       // explicitly construct the SC and check wether it is an F-matrix
       Teuchos::RCP<Epetra_FECrsMatrix> TestSC =
-              Teuchos::rcp(new Epetra_FECrsMatrix(Copy, Map2(), Matrix().MaxNumEntries()));
+              Teuchos::rcp(new Epetra_FECrsMatrix(Copy, *map2_, Matrix().MaxNumEntries()));
       CHECK_ZERO(Schur_->Construct(TestSC));
 
 #ifdef STORE_MATRICES
@@ -1085,7 +1012,7 @@ if (dumpVectors_)
     CHECK_ZERO(ApplyInverseA11(*b, *x));
     
     DEBUG("apply A21...");    
-    CHECK_ZERO(ApplyA21(*x,*z,&flopsApplyInverse_));
+    CHECK_ZERO(A21_->Apply(*x,*z));
 
     if (schurRhs_->NumVectors()!=X.NumVectors())
       {
@@ -1137,7 +1064,7 @@ if (dumpVectors_)
   *x2=*schurSol_;
   // this gives z1
   DEBUG("Apply A12...");
-  CHECK_ZERO(ApplyA12(*x2, *z,&flopsApplyInverse_));
+  CHECK_ZERO(A12_->Apply(*x2, *z));
   // this gives y1, y2=0   
   DEBUG("solve subdomains...");
   CHECK_ZERO(ApplyInverseA11(*z, *y));
@@ -1453,196 +1380,6 @@ int Preconditioner::ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVe
     }
   return ierr;
   }
-
-
-  // apply Y=A12*X. This only works if the solver is computed. The input vector
-  // Y should be based on rowMap_ or map1_, X on rowMap_ or map2_.
-  int Preconditioner::ApplyA12(const Epetra_MultiVector& X, 
-                             Epetra_MultiVector& Y,
-                             double* flops) const
-    {
-  HYMLS_LPROF3(label_,"ApplyA12");
-
-    if (!IsComputed())
-      {
-      Tools::Warning("solver not computed!",__FILE__,__LINE__);
-      return -1;
-      }
-
-    HYMLS::MultiVector_View separators(X.Map(),*map2_);
-#ifdef BLOCK_IMPLEMENTATION
-    int lflops = 0;
-//#pragma omp parallel for schedule(static) reduction(+:lflops)
-    for (int sd=0;sd<hid_->NumMySubdomains();sd++)
-      {
-      HYMLS::MultiVector_View interior(Y.Map(),*localMap1_[sd]);
-      CHECK_ZERO(localA12_[sd]->Apply(*(separators(X)),*(interior(Y))));
-      lflops += 2*localA12_[sd]->NumGlobalNonzeros();
-      }
-    if (flops) *flops += lflops
-#else
-      HYMLS::MultiVector_View interior(Y.Map(),*map1_);
-      CHECK_ZERO(A12_->Apply(*separators(X),*interior(Y)));
-      if (flops) *flops+=2*A12_->NumGlobalNonzeros();
-#endif      
-    return 0;
-    }
-
-  // apply Y=A12*X. This only works if the solver is computed. The input vector
-  // Y should be based on rowMap_ or map2_, X on rowMap_ or map1_.
-  int Preconditioner::ApplyA12T(const Epetra_MultiVector& X, 
-                             Epetra_MultiVector& Y,
-                             double* flops) const
-  {
-  HYMLS_LPROF3(label_,"ApplyA12T");
-    if (!IsComputed())
-      {
-      Tools::Warning("solver not computed!",__FILE__,__LINE__);
-      return -1;
-      }
-
-    HYMLS::MultiVector_View interior(X.Map(),*map1_);
-    HYMLS::MultiVector_View separators(Y.Map(),*map2_);
-    CHECK_ZERO(A12_->Multiply(true,*interior(X),*separators(Y)));
-    if (flops) *flops+=2*A12_->NumGlobalNonzeros();
-  return 0;
-  }
-  // apply Y=A21*X. This only works if the solver is computed. The input vector
-  // X should be based on rowMap_ or map1_, and Y on rowMap_ or map2_.
-  int Preconditioner::ApplyA21(const Epetra_MultiVector& X, 
-                             Epetra_MultiVector& Y,
-                             double* flops) const
-    {
-    HYMLS_LPROF3(label_,"ApplyA21");    
-    
-    if (!IsComputed())
-      {
-      Tools::Warning("solver not computed!",__FILE__,__LINE__);
-      return -1;
-      }
-
-    HYMLS::MultiVector_View separators(Y.Map(),*map2_);
-
-#ifdef BLOCK_IMPLEMENTATION_this_is_disabled
-// this is hard to implement: each loc_tmp may own nodes belonging to 
-// other processors, but inside the loop we can't do collective calls.
-// We would have to construct a global overlapping vector first, fill it,
-// and them export it to the non-overlapping one. This code fragment doesn't work!!!
-//
-// remark - our rowMap object does contain overlap between partitions now so it should
-// be easy to get this to work as well (TODO)
-    Epetra_MultiVector tmp(*map2_, Y.NumVectors());
-    
-    CHECK_ZERO(separators(Y)->PutScalar(0.0))
-
-    int lflops = 0;
-//#pragma omp parallel for schedule(static) reduction(+:lflops)
-    for (int sd=0;sd<hid_->NumMySubdomains();sd++)
-      {
-      Epetra_MultiVector loc_tmp(*localMap2_[sd], Y.NumVectors());
-      //Epetra_Import import(*localMap2_[sd],*map2_);
-      Epetra_Import import(*map2_,*localMap2_[sd]);
-      HYMLS::MultiVector_View interior(X.Map(),*localMap1_[sd]);
-      // Here Trilinos assumes A21 is mostly empty and consequently
-      // zeros out the vector in each step. That's why we need a temporary
-      // vector (TODO: this is a hotfix, really, we should rethink the
-      // implementation).
-      CHECK_ZERO(localA21_[sd]->Apply(*(interior(X)),loc_tmp));
-      tmp.PutScalar(0.0);
-      CHECK_ZERO(tmp.Import(loc_tmp,import,Insert));
-      CHECK_ZERO(separators(Y)->Update(1.0,tmp,1.0));
-      //CHECK_ZERO(separators(Y)->Import(loc_tmp,import,Add));
-      /*
-      DEBVAR(import);
-      DEBVAR(*localA21_[sd]);
-      DEBVAR(loc_tmp);
-      DEBVAR(*interior(X));
-      DEBVAR(tmp);
-      */
-      lflops += 2*localA21_[sd]->NumGlobalNonzeros();
-      }
-    if (flops) *flops += lflops
-#else
-      HYMLS::MultiVector_View interior(X.Map(),*map1_);
-      CHECK_ZERO(A21_->Apply(*interior(X),*separators(Y)));
-      if (flops) *flops+=2*A21_->NumGlobalNonzeros();
-
-#endif      
-    return 0;
-    }
-
-  // apply Y=A21^T*X. This only works if the solver is computed. The input vector
-  // X should be based on rowMap_ or map2_, and Y on rowMap_ or map1_.
-  int Preconditioner::ApplyA21T(const Epetra_MultiVector& X, 
-                             Epetra_MultiVector& Y,
-                             double* flops) const
-    {
-    HYMLS_LPROF3(label_,"ApplyA21T");
-    if (!IsComputed())
-      {
-      Tools::Warning("solver not computed!",__FILE__,__LINE__);
-      return -1;
-      }
-
-    HYMLS::MultiVector_View separators(X.Map(),*map2_);
-    HYMLS::MultiVector_View interior(Y.Map(),*map1_);
-    
-    CHECK_ZERO(A21_->Multiply(true,*separators(X),*interior(Y)));
-    if (flops) *flops+=2*A21_->NumGlobalNonzeros();
-
-    return 0;
-    }
-
-  //! apply Y=A22*X. This only works if the solver is computed. The input vectors
-  //! can be based on rowMap_ or map2_ 
-  int Preconditioner::ApplyA22(const Epetra_MultiVector& X, 
-                             Epetra_MultiVector& Y,
-                             double *flops) const
-    {
-    HYMLS_LPROF3(label_,"ApplyA22");
-    if (!IsComputed())
-      {
-      Tools::Warning("solver not computed!",__FILE__,__LINE__);
-      return -1;
-      }
-    if (!(X.Map().SameAs(Y.Map())))
-      {
-      Tools::Warning("incompatible maps!",__FILE__,__LINE__);
-      return -2;
-      }
-
-    HYMLS::MultiVector_View separators(X.Map(),*map2_);
-
-    CHECK_ZERO(A22_->Apply(*separators(X),*separators(Y)));
-    if (flops) *flops+=2*A22_->NumGlobalNonzeros();
-    return 0;
-    }
-
-  //! apply Y=A22^T*X. This only works if the solver is computed. The input vectors
-  //! can be based on rowMap_ or map2_ 
-  int Preconditioner::ApplyA22T(const Epetra_MultiVector& X, 
-                             Epetra_MultiVector& Y,
-                             double *flops) const
-    {
-    HYMLS_LPROF3(label_,"ApplyA22T");
-    if (!IsComputed())
-      {
-      Tools::Warning("solver not computed!",__FILE__,__LINE__);
-      return -1;
-      }
-    if (!(X.Map().SameAs(Y.Map())))
-      {
-      Tools::Warning("incompatible maps!",__FILE__,__LINE__);
-      return -2;
-      }
-
-    HYMLS::MultiVector_View separators(X.Map(),*map2_);
-
-    CHECK_ZERO(A22_->Multiply(true,*separators(X),*separators(Y)));
-    if (flops) *flops+=2*A22_->NumGlobalNonzeros();
-    return 0;
-    }
-
 
 int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& list)
   {
@@ -1973,6 +1710,11 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
       CHECK_ZERO(borderW_->Import(*_W, *importer_, Insert));
       }
 
+    // TODO: Remove this and also map1_ etc. Those are now part
+    // of MatrixBlock
+    Teuchos::RCP<Epetra_Import> import1_ = Teuchos::rcp(new Epetra_Import(*map1_,*rowMap_));
+    Teuchos::RCP<Epetra_Import> import2_ = Teuchos::rcp(new Epetra_Import(*map2_,*rowMap_));
+
     borderC_ = _C;
     
     borderV1_ = Teuchos::rcp(new Epetra_MultiVector(*map1_,m));
@@ -1999,7 +1741,7 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
     borderQ1_= Teuchos::rcp(new Epetra_MultiVector(*map1_,m));
 
     CHECK_ZERO(ApplyInverseA11(*borderV1_,*borderQ1_));
-    CHECK_ZERO(ApplyA21(*borderQ1_, *borderSchurV_));
+    CHECK_ZERO(A21_->Apply(*borderQ1_, *borderSchurV_));
     CHECK_ZERO(borderSchurV_->Update(1.0,*borderV2_,-1.0));
 
     // borderSchurW is given by W2 - (A11\A12)'W1
@@ -2009,7 +1751,11 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
     //       seemed to be easier to do quickly.
     Epetra_MultiVector w1tmp(*map1_,m);
     CHECK_ZERO(this->ApplyInverseA11T(*borderW1_,w1tmp));
-    CHECK_ZERO(this->ApplyA12T(w1tmp,*borderSchurW_));
+
+    A12_->SetUseTranspose(true);
+    CHECK_ZERO(A12_->Apply(w1tmp,*borderSchurW_));
+    A12_->SetUseTranspose(false);
+
     CHECK_ZERO(borderSchurW_->Update(1.0,*borderW2_,-1.0));
     
     borderSchurC_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(m,m));
@@ -2119,7 +1865,7 @@ if (dumpVectors_)
     
     DEBUG("apply A21...");    
     //CHECK_ZERO(ApplyA21(*x,z2,&flopsApplyInverse_));
-    CHECK_ZERO(ApplyA21(*x,*z,&flopsApplyInverse_));
+    CHECK_ZERO(A21_->Apply(*x,*z));
 
     if (schurRhs_->NumVectors()!=X.NumVectors())
       {
@@ -2169,7 +1915,7 @@ if (dumpVectors_)
   *x2=*schurSol_;
   // this gives z1
   DEBUG("Apply A12...");
-  CHECK_ZERO(ApplyA12(*x2, *z,&flopsApplyInverse_));
+  CHECK_ZERO(A12_->Apply(*x2, *z));
   // this gives y1, y2=0   
   DEBUG("solve subdomains...");
   CHECK_ZERO(ApplyInverseA11(*z, *y));

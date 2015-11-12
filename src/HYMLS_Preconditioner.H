@@ -18,6 +18,7 @@
 #include "HYMLS_PLA.H"
 
 #include "HYMLS_BorderedSolver.H"
+#include "HYMLS_MatrixBlock.H"
 
 // forward declarations
 class Epetra_Comm;
@@ -197,11 +198,11 @@ public:
   //! communicator
   const Epetra_Comm & Comm() const {return *comm_;}
   
-    //! Returns the Epetra_Map object associated with the domain of this operator.
-    const Epetra_Map & OperatorDomainMap() const {return *rangeMap_;}
+  //! Returns the Epetra_Map object associated with the domain of this operator.
+  const Epetra_Map & OperatorDomainMap() const {return *rangeMap_;}
 
-    //! Returns the Epetra_Map object associated with the range of this operator.
-    const Epetra_Map & OperatorRangeMap() const {return *rangeMap_;}
+  //! Returns the Epetra_Map object associated with the range of this operator.
+  const Epetra_Map & OperatorRangeMap() const {return *rangeMap_;}
   
   //@}
   
@@ -298,40 +299,7 @@ protected:
   //! 1: associated with interior variables
   //! 2: associated with separator variables, but non-overlapping
   //! The range and domain of these operators are the rowMap_.
-  Teuchos::RCP<Epetra_CrsMatrix> A12_, A21_, A22_;
-
-  //! A12-parts of matrix in separate blocks. The row maps of 
-  //! these operators are disjunct, so (A12*x2)_i = A12_i x2
-  Teuchos::Array<Teuchos::RCP<Epetra_CrsMatrix> > localA12_;
-
-  //! A21-part of matrix in separate blocks. The column maps
-  //! of these operators are disjunct, so 
-  // A21*x1 = sum_i(A21_i x1), computed on an overlapping row
-  // map so values shared by several procs are reproduced on 
-  // all partitions owning the separator node.
-  Teuchos::Array<Teuchos::RCP<Epetra_CrsMatrix> > localA21_;
-
-  //! map with _all_ interior elements
-  Teuchos::RCP<const Epetra_Map> map1_;
-
-  //! map for all interior variables in subdomain i (i.e. those not in S)
-  //! these maps are based on the serialComm, so localMap1_[i] on procs j and k
-  //! have nothing to do with each other.
-  Teuchos::Array<Teuchos::RCP<const Epetra_Map> > localMap1_;
-
-  //! map defining the rows/columns of the Schur complement (separator nodes)
-  Teuchos::RCP<const Epetra_Map> map2_;
-
-  //! column maps
-  Teuchos::RCP<Epetra_Map> colMap1_,colMap2_;
-
-  //! map for all separator variables around subdomain i (i.e. those in S)
-  //! these maps are based on the serialComm, so localMap2_[i] on procs j and k
-  //! have nothing to do with each other.
-  Teuchos::Array<Teuchos::RCP<const Epetra_Map> > localMap2_;
-
-  //! importers for global parts
-  Teuchos::RCP<Epetra_Import> import1_, import2_;
+  Teuchos::RCP<MatrixBlock> A12_, A21_, A22_;
 
   //! right-hand side vector for Schur complement
   mutable Teuchos::RCP<Epetra_MultiVector> schurRhs_;
@@ -375,6 +343,12 @@ protected:
   
   //! lower right block of bordered Schur system
   Teuchos::RCP<Epetra_SerialDenseMatrix> borderSchurC_;
+
+  //! map with _all_ interior elements
+  Teuchos::RCP<const Epetra_Map> map1_;
+
+  //! map defining the rows/columns of the Schur complement (separator nodes)
+  Teuchos::RCP<const Epetra_Map> map2_;
   
   //@}
   
@@ -446,51 +420,9 @@ protected:
   //! apply X=A11^T\B. This only works if the solver is computed. The input vectors  
   //! should be based on RowMap(), but only interior variables (Map1(:)) are touched..
   int ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVector& X) const;
-
-  //! apply Y=A12*X. This only works if the solver is computed. The input vector
-  //! X can be based on RowMap() or Map2(), Y should be based on RowMap() or Map1().
-  int ApplyA12(const Epetra_MultiVector& X, Epetra_MultiVector& Y,
-               double *flops_count=NULL) const;
-
-  //! apply Y=A12^T*X. This only works if the solver is computed. The input vector
-  //! X can be based on RowMap() or Map1(), Y should be based on RowMap() or Map2().
-  int ApplyA12T(const Epetra_MultiVector& X, Epetra_MultiVector& Y,
-               double *flops_count=NULL) const;
-
-  //! apply Y=A21*X. This only works if the solver is computed. The input vector
-  //! Y can be based on RowMap() or Map1(), X should be based on RowMap() or Map2().
-  int ApplyA21(const Epetra_MultiVector& X, Epetra_MultiVector& Y,
-               double* flops_count=NULL) const;
-
-  //! apply Y=A21^T*X. This only works if the solver is computed. The input vector
-  //! Y can be based on RowMap() or Map2(), X should be based on RowMap() or Map1().
-  int ApplyA21T(const Epetra_MultiVector& X, Epetra_MultiVector& Y,
-               double* flops_count=NULL) const;
-
-  //! apply Y=A22*X. This only works if the solver is computed. The input vectors  
-  //! can be based on RowMap() or Map2(). Both vectors must use the same map.
-  int ApplyA22(const Epetra_MultiVector& X, Epetra_MultiVector& Y,
-               double* flops_count=NULL) const;
-
-  //! apply Y=A22^T*X. This only works if the solver is computed. The input vectors  
-  //! can be based on RowMap() or Map2(). Both vectors must use the same map.
-  int ApplyA22T(const Epetra_MultiVector& X, Epetra_MultiVector& Y,
-               double* flops_count=NULL) const;
   
   //! map for all variables (same as OperatorRangeMap() and OperatorDomainMap())
   const Epetra_Map& RowMap() const {return *rowMap_;}
-
-  //! get interior map for all subdomains
-  const Epetra_Map& Map1() const {return *map1_;}
-
-  //! get interior map for subdomain sd
-  const Epetra_Map& Map1(int sd) const {return *(localMap1_[sd]);}
-
-  //! get map for all separators
-  const Epetra_Map& Map2() const {return *map2_;}
-
-  //! get separator map for one particular subdomain
-  const Epetra_Map& Map2(int sd) const {return *(localMap2_[sd]);}
   
   //! get the decomposition object
   const HYMLS::OverlappingPartitioner& Partitioner() const {return *hid_;}
@@ -499,19 +431,19 @@ protected:
   Ifpack_Container& SolverA11(int sd) const {return *subdomainSolver_[sd];}
   
   //! get a submatrix A12
-  const Epetra_CrsMatrix& A12(int sd) const {return *localA12_[sd];}
+  const Epetra_CrsMatrix& A12(int sd) const {return *A12_->SubBlock(sd);}
 
   //! get a submatrix A21
-  const Epetra_CrsMatrix& A21(int sd) const {return *localA21_[sd];}
+  const Epetra_CrsMatrix& A21(int sd) const {return *A21_->SubBlock(sd);}
 
   //! get entire matrix A21
-  const Epetra_CrsMatrix& A21() const {return *A21_;}
+  const Epetra_CrsMatrix& A21() const {return *A21_->Block();}
 
   //! get entire matrix A12
-  const Epetra_CrsMatrix& A12() const {return *A12_;}
+  const Epetra_CrsMatrix& A12() const {return *A12_->Block();}
 
   //! get entire matrix A22
-  const Epetra_CrsMatrix& A22() const {return *A22_;}
+  const Epetra_CrsMatrix& A22() const {return *A22_->Block();}
   
  private:
  

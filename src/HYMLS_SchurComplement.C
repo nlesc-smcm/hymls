@@ -32,9 +32,14 @@ namespace HYMLS {
 // Also provides functionality to explicitly construct parts
 // of the SC or the whole thing as sparse or dense matrix.
 
-SchurComplement::SchurComplement(Teuchos::RCP<const Preconditioner> mother, int lev)
+SchurComplement::SchurComplement(Teuchos::RCP<const Preconditioner> mother,
+  Teuchos::RCP<const MatrixBlock> A12,
+  Teuchos::RCP<const MatrixBlock> A21,
+  Teuchos::RCP<const MatrixBlock> A22,
+  int lev)
   : comm_(Teuchos::rcp(&(mother->Comm()), false)),
     mother_(mother),
+    A12_(A12), A21_(A21), A22_(A22),
     myLevel_(lev),
     sparseMatrixRepresentation_(Teuchos::null),
     useTranspose_(false), normInf_(-1.0),
@@ -44,7 +49,7 @@ SchurComplement::SchurComplement(Teuchos::RCP<const Preconditioner> mother, int 
   HYMLS_LPROF3(label_, "Constructor");
   isConstructed_ = false;
   // we do a finite-element style assembly of the full matrix
-  const Epetra_Map &map = mother_->Map2();
+  const Epetra_Map &map = A22_->Map();
   sparseMatrixRepresentation_ = Teuchos::rcp(new
     Epetra_FECrsMatrix(Copy, map, mother_->Matrix().MaxNumEntries()));
   Scrs_ = sparseMatrixRepresentation_;
@@ -81,18 +86,18 @@ int SchurComplement::Apply(const Epetra_MultiVector &X,
     Tools::Error("distributed SC currently disabled", __FILE__, __LINE__);
 #if 0
     // The Schur-complement is given by A22-A21*A11\A12
-    CHECK_ZERO(mother_->ApplyA22(X, Y, &flopsApply_));
+    CHECK_ZERO(A22_->Apply(X, Y));
 
     // 2) compute y2 = A21*A11\A12*X
-    Epetra_MultiVector Y1(mother_->RowMap(), Y.NumVectors());
-    Epetra_MultiVector Z1(mother_->RowMap(), Y.NumVectors());
-    Epetra_MultiVector Y2(mother_->Map2(), Y.NumVectors());
+    Epetra_MultiVector Y1(A22_->Matrix()->RowMap(), Y.NumVectors());
+    Epetra_MultiVector Z1(A22_->Matrix()->RowMap(), Y.NumVectors());
+    Epetra_MultiVector Y2(A22_->Map(), Y.NumVectors());
 
-    CHECK_ZERO(mother_->ApplyA12(X, Y1, &flopsApply_));
+    CHECK_ZERO(A12_->Apply(X, Y1));
 
     CHECK_ZERO(mother_->ApplyInverseA11(Y1, Z1));
 
-    CHECK_ZERO(mother_->ApplyA21(Z1, Y2, &flopsApply_));
+    CHECK_ZERO(A21_->Apply(Z1, Y2));
 
     // 3) compute Y = Y-Y2
     CHECK_ZERO(Y.Update(-1.0, Y2, 1.0));
@@ -133,7 +138,7 @@ int SchurComplement::Construct(Teuchos::RCP<Epetra_FECrsMatrix> S) const
   Epetra_IntSerialDenseVector indices;
   Epetra_SerialDenseMatrix Sk;
 
-  const Epetra_Map &map = mother_->Map2();
+  const Epetra_Map &map = A22_->Map();
   const OverlappingPartitioner &hid = mother_->Partitioner();
 
   if (map.NumGlobalElements() == 0) return 0; // empty SC
@@ -186,7 +191,7 @@ int SchurComplement::Construct(Teuchos::RCP<Epetra_FECrsMatrix> S) const
   DEBUG("SchurComplement - GlobalAssembly");
   CHECK_ZERO(S->GlobalAssemble(false));
   //DEBVAR(mother_->A22());
-  CHECK_ZERO(EpetraExt::MatrixMatrix::Add(mother_->A22(), false, 1.0,
+  CHECK_ZERO(EpetraExt::MatrixMatrix::Add(*A22_->Block(), false, 1.0,
       *S, -1.0));
   // finish construction by creating local IDs:
   CHECK_ZERO(S->FillComplete());
@@ -202,8 +207,8 @@ int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
   double flops = 0;
 #endif
   const OverlappingPartitioner &hid = mother_->Partitioner();
-  const Epetra_CrsMatrix &A12 = mother_->A12(sd);
-  const Epetra_CrsMatrix &A21 = mother_->A21(sd);
+  const Epetra_CrsMatrix &A12 = *A12_->SubBlock(sd);
+  const Epetra_CrsMatrix &A21 = *A21_->SubBlock(sd);
   Ifpack_Container &A11 = mother_->SolverA11(sd);
 
   if (sd < 0 || sd > hid.NumMySubdomains())
@@ -235,7 +240,7 @@ int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
     {
     CHECK_ZERO(Sk.Shape(nrows, nrows));
     }
-
+  
   if (A11.NumRows() == 0)
     {
     return 0; // has only an A22-contribution (no interior elements)
@@ -287,8 +292,8 @@ int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
 #endif
 
   // get the solution, B=A11\A12, as a MultiVector in the domain map of operator A21
-  Epetra_MultiVector B(mother_->Map1(sd), nrows);
-  Epetra_MultiVector Aloc(mother_->Map2(sd), B.NumVectors());
+  Epetra_MultiVector B(A12.RowMap(), nrows);
+  Epetra_MultiVector Aloc(A21.RowMap(), B.NumVectors());
   for (int j = 0; j < B.MyLength(); j++)
     {
     for (int k = 0; k < nrows; k++)
@@ -312,7 +317,7 @@ int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
 //    DEBUG("Copy into Sk matrix");
   for (int i = 0; i < nrows; i++)
     {
-    int lrid = mother_->Map2(sd).LID(inds[i]);
+    int lrid = A21.RowMap().LID(inds[i]);
     for (int j = 0; j < nrows; j++)
       {
       Sk(i, j) = Aloc[j][lrid];

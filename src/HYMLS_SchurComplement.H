@@ -49,6 +49,9 @@ public:
   //! label right, the mother defines A11, A12, A21 and A22
   //! so that this class represents A22 - A21 A11\A12
   SchurComplement(Teuchos::RCP<const Preconditioner> mother,
+    Teuchos::RCP<const MatrixBlock> A12,
+    Teuchos::RCP<const MatrixBlock> A21,
+    Teuchos::RCP<const MatrixBlock> A22,
     int lev = 0);
 
   //! destructor
@@ -88,10 +91,10 @@ public:
   const Epetra_Comm &Comm() const {return *comm_; }
 
   //! Returns the Epetra_Map object associated with the domain of this operator.
-  const Epetra_Map &OperatorDomainMap() const {return mother_->Map2(); }
+  const Epetra_Map &OperatorDomainMap() const {return A22_->Map(); }
 
   //! Returns the Epetra_Map object associated with the range of this operator.
-  const Epetra_Map &OperatorRangeMap() const {return mother_->Map2(); }
+  const Epetra_Map &OperatorRangeMap() const {return A22_->Map(); }
 
   //@}
 
@@ -158,6 +161,9 @@ protected:
   //! splits the matrix, factors A11 etc.)
   Teuchos::RCP<const Preconditioner> mother_;
 
+  //! Matrix blocks of the original matrix
+  Teuchos::RCP<const MatrixBlock> A12_, A21_, A22_;
+
   //!
   int myLevel_;
 
@@ -209,7 +215,7 @@ protected:
 
 
   //! to allow the preconditioner access to parts of the unassembled Schur complement:
-  const Epetra_CrsMatrix &A22() const {return mother_->A22(); }
+  const Epetra_CrsMatrix &A22() const {return *A22_->Block(); }
 
   //! get the OverlappingPartitioner object
   const OverlappingPartitioner &Partitioner() const {return mother_->Partitioner(); }
