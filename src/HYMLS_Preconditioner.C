@@ -8,7 +8,6 @@
 #include "HYMLS_DenseUtils.H"
 #include "HYMLS_OverlappingPartitioner.H"
 
-#include "HYMLS_SparseDirectSolver.H"
 #include "HYMLS_SchurComplement.H"
 #include "HYMLS_SchurPreconditioner.H"
 #include "HYMLS_BorderedLU.H"
@@ -32,9 +31,6 @@
 #include "Epetra_FECrsMatrix.h"
 #endif
 
-#include "Ifpack_SparseContainer.h"
-#include "Ifpack_DenseContainer.h"
-#include "Ifpack_Amesos.h"
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_StandardParameterEntryValidators.hpp"
@@ -139,8 +135,8 @@ namespace HYMLS {
 
     scaleSchur_=PL().get("Scale Schur-Complement",false);
 
-    sdSolverType_=PL().get("Subdomain Solver Type","Sparse");
-    numThreadsSD_=PL().get("Subdomain Solver Num Threads",numThreadsSD_);
+    sdSolverType_ = PL().get("Subdomain Solver Type", "Sparse");
+    numThreadsSD_ = PL().get("Subdomain Solver Num Threads", numThreadsSD_);
 
     // the entire "Problem" list used by the overlapping partiitioner
     // is fairly complex, but we implement a set of default cases like
@@ -368,10 +364,6 @@ HYMLS_TEST(Label(),isDDcorrect(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix
   // the Compute() phase.
 #endif
 
-    // create all arrays we need
-    DEBUG("allocate memory for blocks");
-    int num_sd=hid_->NumMySubdomains();
-
     // this is an idea to make the "HyperCube" object
     // statically available and using it to query things
     // like "idle CPU cores on node" dynamically
@@ -388,8 +380,6 @@ HYMLS_TEST(Label(),isDDcorrect(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix
   // the process layout
   ProcTopo->setActive(myLevel_,active);
 */
-
-    subdomainSolver_.resize(num_sd);
 
     // construct maps for the 1- (subdomain-) and 2- (separator-)blocks
     DEBUG("Precond: construct maps");
@@ -509,12 +499,19 @@ HYMLS_TEST(Label(),isDDcorrect(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix
     comm_);
 
   // Construct the matrix blocks we need for the Schur complement
+  A11_ = Teuchos::rcp(new MatrixBlock(reorderedMatrix_, hid_,
+      HierarchicalMap::Interior, HierarchicalMap::Interior, myLevel_));
   A12_ = Teuchos::rcp(new MatrixBlock(reorderedMatrix_, hid_,
-      HierarchicalMap::Interior, HierarchicalMap::Separators));
+      HierarchicalMap::Interior, HierarchicalMap::Separators, myLevel_));
   A21_ = Teuchos::rcp(new MatrixBlock(reorderedMatrix_, hid_,
-      HierarchicalMap::Separators, HierarchicalMap::Interior));
+      HierarchicalMap::Separators, HierarchicalMap::Interior, myLevel_));
   A22_ = Teuchos::rcp(new MatrixBlock(reorderedMatrix_, hid_,
-      HierarchicalMap::Separators, HierarchicalMap::Separators));
+      HierarchicalMap::Separators, HierarchicalMap::Separators, myLevel_));
+
+  // Compute the A12, A21, A22 blocks
+  A12_->Compute();
+  A21_->Compute();
+  A22_->Compute();
 
   // Also construct the subdomain blocks separately for A12 and A21
   A12_->ComputeSubdomainBlocks();
@@ -525,72 +522,13 @@ HYMLS_TEST(Label(),isDDcorrect(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix
   MatrixUtils::Dump(*A21_->Block(), "Precond"+Teuchos::toString(myLevel_)+"_A21.txt");
   MatrixUtils::Dump(*A22_->Block(), "Precond"+Teuchos::toString(myLevel_)+"_A22.txt");
 #endif
-      
-  DEBUG("initialize subdomain solvers...");
-    
-  Teuchos::ParameterList sd_list = PL().sublist("Sparse Solver");
 
-  PEC_INIT;
-#pragma omp parallel for schedule(static)
-  for (int sd=0;sd<hid_->NumMySubdomains();sd++)
-    {
-#pragma omp flush(PEC)
-    PEC_PROTECT;
-    const int nrows = hid_->NumInteriorElements(sd);
-    
-    if (sdSolverType_=="Dense")
-      {
-      subdomainSolver_[sd] = 
-        Teuchos::rcp( new Ifpack_DenseContainer(nrows) );
-      }
-    else if (sdSolverType_=="Sparse")
-      {
-      subdomainSolver_[sd] = 
-        Teuchos::rcp( new Ifpack_SparseContainer<SparseDirectSolver>(nrows) );
-      }
-    else
-      {
-      PEC_CATCH(Tools::Error("invalid 'Subdomain Solver Type' in 'Solver' sublist",
-        __FILE__,__LINE__));
-      }
+  Teuchos::RCP<Teuchos::ParameterList> sd_list = Teuchos::rcp(new
+    Teuchos::ParameterList(PL().sublist("Sparse Solver")));
 
-#pragma omp critical (HYMLS_SetParams)
-{
-    // copy parameter list
-    Teuchos::ParameterList tmp_sd_list = sd_list;
-#if TIMING_LEVEL>2
-    tmp_sd_list.set("Label","direct solver (lev "+Teuchos::toString(myLevel_)+", sd "+Teuchos::toString(sd)+")");
-#else
-    tmp_sd_list.set("Label","direct solver (lev "+Teuchos::toString(myLevel_)+")");
-#endif
-    PEC_IFPACK_CHK_ERR2(subdomainSolver_[sd]->SetParameters(tmp_sd_list));
-}
-    PEC_PROTECT;
+  // Initialize the subdomain solvers for the A11 block
+  A11_->InitializeSubdomainSolvers(sdSolverType_, sd_list, numThreadsSD_);
 
-#ifdef TESTING
-      bool status=true;
-      try {
-#endif
-    subdomainSolver_[sd]->Initialize();
-#ifdef TESTING
-      } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status);
-    if (status==false)
-      {
-      Tools::Fatal("caught an exception in subdomain solver init of sd="+
-        Teuchos::toString(sd)+" on partition "+Teuchos::toString(comm_->MyPID()),
-                __FILE__,__LINE__);
-      }
-#endif    
-
-    // flops in Initialize() will be computed on-the-fly in method InitializeFlops().
-    // set "global" ID of each partitioner row
-    for (int j = 0 ; j < nrows ; j++) 
-      {
-      const int LRID = rowMap_->LID(hid_->GID(sd,0,j));
-      subdomainSolver_[sd]->ID(j) = LRID;
-      }
-    }
-  PEC_HANDLE_ERRORS;
   DEBUG("Create Schur-complement");  
 
   if (Schur_==Teuchos::null)
@@ -609,23 +547,6 @@ if (sdSolverType_=="Dense")
     Tools::out() << "*** USING DENSE SUBDOMAIN SOLVERS ***"<<std::endl;
   }
   
-  /*
-  int active_ranks=HYMLS::ProcTopo->getNumActive(myLevel_);
-  if (active_ranks==comm_->NumProc())
-    {
-    Tools::out() << "ALL MPI RANKS ACTIVE"<<std::endl;
-    }
-  else
-    {
-    Tools::out() << "NUMBER OF ACTIVE RANKS: "<<active_ranks<<std::endl;
-    }
-  */
-  /*
-  int ranks_on_node=HYMLS::ProcTopo->numActiveProcsOnNode(myLevel_);
-  int total_ranks_on_node=HYMLS::ProcTopo->numActiveProcsOnNode(0);
-  // figure out how many threads we can use here
-  numThreadsSD_=std::max(1,(int)(total_ranks_on_node/ranks_on_node));
-  */
 Tools::out() << "=============================="<<std::endl;
 
   // we use a constant vector to generate the orthogonal transformation 
@@ -707,28 +628,10 @@ int Preconditioner::InitializeCompute()
     MatrixUtils::Dump(*Acrs,"originalMatrix"+Teuchos::toString(myLevel_)+".txt");
 #endif    
 
-    A12_->Recompute(reorderedMatrix_);
-    A21_->Recompute(reorderedMatrix_);
-    A22_->Recompute(reorderedMatrix_);
-
-  // (2) re-initiailze the subdomain solvers. This seems to be
-  //     required for the solver to work.
-  DEBUG("initialize subdomain solvers...");
-
-#pragma omp parallel for schedule(static)
-  for (int sd=0;sd<hid_->NumMySubdomains();sd++)
-    {
-    CHECK_ZERO(subdomainSolver_[sd]->Initialize());
-    if (sdSolverType_=="Dense")
-      {
-      // Initialize destroys the indices for the Ifpack_DenseContainer :(
-      for (int j=0;j<subdomainSolver_[sd]->NumRows();j++)
-        {
-        const int LRID = rowMap_->LID(hid_->GID(sd,0,j));
-        subdomainSolver_[sd]->ID(j) = LRID;
-        }
-      }
-    }
+  A11_->Recompute(reorderedMatrix_);
+  A12_->Recompute(reorderedMatrix_);
+  A21_->Recompute(reorderedMatrix_);
+  A22_->Recompute(reorderedMatrix_);
   return 0;
   }
 
@@ -751,119 +654,9 @@ int Preconditioner::InitializeCompute()
 
 InitializeCompute();
 {
-HYMLS_LPROF(label_,"subdomain factorization");
-double nnz=0; // count number of stored nonzeros in factors
-double nrow=0;
 
-int reset_numThreads=-1;
+A11_->ComputeSubdomainSolvers();
 
-if (numThreadsSD_>0)
-  {
-  //TODO - get #threads dynamically from processor topology
-  //      (see ProcTopo sketch above)
-#ifdef USE_MKL
-  //reset_numThreads=1;
-  mkl_set_num_threads(numThreadsSD_);
-#endif
-#ifdef USE_OPENMP
-#pragma omp parallel single
-//  reset_numThreads=omp_num_threads();
-  omp_set_num_threads(numThreadsSD_);
-#endif
-  }
-
-//  PEC_INIT;
-//#pragma omp parallel for schedule(static) reduction(+:nnz,nrow)
-  for (int sd=0;sd<hid_->NumMySubdomains();sd++)
-    {
-//#pragma omp flush (PEC)
-//    PEC_PROTECT;
-    if (subdomainSolver_[sd]->NumRows()>0)
-      {
-      // compute subdomain factorization
-#ifdef TESTING
-      bool status=true;
-      try {
-#endif
-//      PEC_CATCH(PEC_IFPACK_CHK_ERR(subdomainSolver_[sd]->Compute(*reorderedMatrix_)));
-        CHECK_ZERO(subdomainSolver_[sd]->Compute(*reorderedMatrix_));
-#ifdef TESTING
-      } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status);
-    if (status==false)
-      {
-      Tools::Fatal("caught an exception in subdomain factorization of sd="+
-        Teuchos::toString(sd)+" on partition "+Teuchos::toString(comm_->MyPID()),
-                __FILE__,__LINE__);
-      }
-#endif    
-#ifndef NO_MEMORY_TRACING
-#ifndef USE_AMESOS
-      if (sdSolverType_=="Sparse")
-        {
-        Teuchos::RCP<Ifpack_SparseContainer<SparseDirectSolver> > container =
-          Teuchos::rcp_dynamic_cast<Ifpack_SparseContainer<SparseDirectSolver> >(subdomainSolver_[sd]);
-        nnz+=container->Inverse()->NumGlobalNonzerosA();      
-        nnz+=container->Inverse()->NumGlobalNonzerosLU();      
-        nrow+=container->NumRows();
-        }
-      else
-        {
-        int nr=subdomainSolver_[sd]->NumRows();
-        nnz+=nr*nr;
-        nrow+=nr;
-        }
-      
-#endif      
-#endif
-#ifdef STORE_SUBDOMAIN_MATRICES
-if (sdSolverType_=="Sparse")
-{
-      Teuchos::RCP<Ifpack_SparseContainer<SparseDirectSolver> > cont =
-        Teuchos::rcp_dynamic_cast<Ifpack_SparseContainer<SparseDirectSolver> >(subdomainSolver_[sd]); 
-     if (cont!=Teuchos::null)
-       {
-       Tools::Warning("STORE_SUBDOMAIN_MATRICES is defined, this produces lots of output"
-                       " and makes the code VERY slow",__FILE__,__LINE__);
-       const Epetra_RowMatrix& Asd = cont->Inverse()->Matrix();
-       std::string filename = "SubdomainMatrix_P"+Teuchos::toString(comm_->MyPID())+
-                                             "_L"+Teuchos::toString(myLevel_)+
-                                             "_SD"+Teuchos::toString(sd)+".txt"; 
-       std::ofstream ofs(filename.c_str());
-       MatrixUtils::PrintRowMatrix(Asd,ofs);
-       ofs.close();
-       }
-}
-#endif      
-      }
-    }
-//  PEC_HANDLE_ERRORS;
-
-if (reset_numThreads>0)
-  {
-#ifdef USE_MKL
-  mkl_set_num_threads(reset_numThreads);
-#endif
-#ifdef USE_OPENMP
-  omp_set_num_threads(reset_numThreads);
-#endif
-  }
-
-
-REPORT_SUM_MEM(label_,"subdomain solvers",nnz,nnz,comm_);
-
-#ifdef STORE_SD_LU
-if (hid_->NumMySubdomains()>0)
-  {
-  if (subdomainSolver_[0]->NumRows()>0)
-    {
-    Teuchos::RCP<Ifpack_SparseContainer<SparseDirectSolver> > container =
-      Teuchos::rcp_dynamic_cast<Ifpack_SparseContainer<SparseDirectSolver> >(subdomainSolver_[0]); 
-    std::string 
-     label="sdlu_L"+Teuchos::toString(myLevel_)+"_0_p"+Teuchos::toString(comm_->MyPID());
-    container->Inverse()->DumpSolverStatus(label,false,Teuchos::null,Teuchos::null);
-    }
-  }
-#endif
 #ifdef TESTING
     Tools::out() << "Preconditioner level " << myLevel_ << ", doFmatTests=" << Tester::doFmatTests_ << std::endl;
     if (Tester::doFmatTests_)
@@ -1009,7 +802,7 @@ if (dumpVectors_)
     CHECK_ZERO(b->Import(B,*importer_,Insert)); 
      
     DEBUG("solve subdomains...");
-    CHECK_ZERO(ApplyInverseA11(*b, *x));
+    CHECK_ZERO(A11_->ApplyInverse(*b, *x));
     
     DEBUG("apply A21...");    
     CHECK_ZERO(A21_->Apply(*x,*z));
@@ -1067,7 +860,7 @@ if (dumpVectors_)
   CHECK_ZERO(A12_->Apply(*x2, *z));
   // this gives y1, y2=0   
   DEBUG("solve subdomains...");
-  CHECK_ZERO(ApplyInverseA11(*z, *y));
+  CHECK_ZERO(A11_->ApplyInverse(*z, *y));
   // this gives the final result [x1-y1; x2]
   CHECK_ZERO(x->Update(-1.0,*y,1.0));
   flopsApplyInverse_+=numvec*veclen;
@@ -1122,58 +915,63 @@ if (dumpVectors_)
     // called. This is becase I also have to add the contribution from each
     // container.
     double total = flopsInitialize_;
-#pragma omp parallel for schedule(static) reduction(+:total)
-    for (int i = 0 ; i < subdomainSolver_.size() ; i++)
+
+    if (A11_ != Teuchos::null)
       {
-      if (subdomainSolver_[i]!=Teuchos::null)
-        {
-        total += subdomainSolver_[i]->InitializeFlops();
-        }
+      total += A11_->InitializeFlops();
+      total += A12_->InitializeFlops();
+      total += A21_->InitializeFlops();
+      total += A22_->InitializeFlops();
       }
+
     if (schurPrec_!=Teuchos::null)
       {
-      total+=schurPrec_->InitializeFlops();      
+      total += schurPrec_->InitializeFlops();      
       }
-    return(total);
+    return total;
     }
 
   double Preconditioner::ComputeFlops() const
     {
     double total = flopsCompute_;
-    if (Schur_!=Teuchos::null)
+
+    if (Schur_ != Teuchos::null)
       {
       total += Schur_->ComputeFlops();
       }
-#pragma omp parallel for schedule(static) reduction(+:total)
-    for (int i = 0 ; i < subdomainSolver_.size() ; i++)
+
+    if (A11_ != Teuchos::null)
       {
-      if (subdomainSolver_[i]!=Teuchos::null)
-        {
-        total += subdomainSolver_[i]->ComputeFlops();
-        }
+      total += A11_->ComputeFlops();
+      total += A12_->ComputeFlops();
+      total += A21_->ComputeFlops();
+      total += A22_->ComputeFlops();
       }
-    if (schurPrec_!=Teuchos::null)
+
+    if (schurPrec_ != Teuchos::null)
       {
-      total +=schurPrec_->ComputeFlops();
+      total += schurPrec_->ComputeFlops();
       }
-    return(total);
+    return total;
     }
 
   double Preconditioner::ApplyInverseFlops() const
     {
     double total = flopsApplyInverse_;
+
     if (Schur_!=Teuchos::null)
       {
-      total+=Schur_->ApplyFlops();
+      total += Schur_->ApplyFlops();
       }
-#pragma omp parallel for schedule(static) reduction(+:total)
-    for (int i = 0 ; i < subdomainSolver_.size() ; i++) 
+
+    if (A11_ != Teuchos::null)
       {
-      if (subdomainSolver_[i]!=Teuchos::null)
-        {
-        total += subdomainSolver_[i]->ApplyInverseFlops();
-        }
+      total += A11_->ApplyInverseFlops();
+      total += A12_->ApplyFlops();
+      total += A21_->ApplyFlops();
+      total += A22_->ApplyFlops();
       }
+
     if (schurPrec_!=Teuchos::null)
       {
       total +=schurPrec_->ApplyInverseFlops();
@@ -1251,135 +1049,6 @@ if (dumpVectors_)
       }
     return os;
     }
-
-// solve a block diagonal system with A11. Vectors are based on rowMap_
-int Preconditioner::ApplyInverseA11(const Epetra_MultiVector& B, Epetra_MultiVector& X) const
-  {
-  if (!IsComputed())
-    {
-    Tools::Warning("solver not computed!",__FILE__,__LINE__);
-    return -1;
-    }
-
-  HYMLS_LPROF(label_,"subdomain solve");
-
-if (numThreadsSD_>0)
-  {
-  //TODO - get #threads dynamically from processor topology
-  //      (see ProcTopo sketch above)
-#ifdef USE_MKL
-  mkl_set_num_threads(numThreadsSD_);
-#endif
-#ifdef USE_OPENMP
-  omp_set_num_threads(numThreadsSD_);
-#endif
-  }
-
-  PEC_INIT;
-#pragma omp parallel
-{
-  // assume that all block solvers have the same number of vectors...
-  if (subdomainSolver_.size()>0)
-    {
-    if (subdomainSolver_[0]->NumVectors()!=X.NumVectors())
-      {
-#pragma omp  for schedule(static)
-      for (int sd = 0 ; sd < subdomainSolver_.size() ; sd++)
-        {
-#pragma omp flush(PEC)
-        PEC_PROTECT;
-        PEC_CATCH(CHECK_ZERO(subdomainSolver_[sd]->SetNumVectors(X.NumVectors())));
-        }
-      }
-    }
-  // step 1: solve subdomain problems for temporary vector y
-#pragma omp for schedule(static)
-  for (int sd = 0 ; sd < subdomainSolver_.size() ; sd++)
-    {
-#pragma omp flush(PEC)
-    PEC_PROTECT;
-    const int rows = subdomainSolver_[sd]->NumRows();
-
-    // copy IDs to be able to walk through the vectors columnwise
-    int IDlist[rows];
-    for (int j = 0 ; j < rows ; j++)
-      IDlist[j] = subdomainSolver_[sd]->ID(j);
-
-    // extract RHS from X
-    for (int k = 0 ; k < B.NumVectors() ; k++)
-      {
-      const double *Bvec = B[k];
-      for (int j = 0 ; j < rows ; j++)
-        {
-        subdomainSolver_[sd]->RHS(j,k) = Bvec[IDlist[j]];
-        }
-      }
-
-    // apply the inverse of each block. NOTE: flops occurred
-    // in ApplyInverse() of each block are summed up in method
-    // ApplyInverseFlops().
-    if (subdomainSolver_[sd]->NumRows()>0)
-      {
-      PEC_IFPACK_CHK_ERR(subdomainSolver_[sd]->ApplyInverse());
-      }
-    // copy back into solution vector Y
-    for (int k = 0 ; k < X.NumVectors() ; k++)
-      {
-      double *Xvec = X[k];
-      for (int j = 0 ; j < rows ; j++)
-        {
-        Xvec[IDlist[j]] = subdomainSolver_[sd]->LHS(j,k);
-        }
-      }
-    }
-}
-  PEC_HANDLE_ERRORS;
-  return 0;
-  }
-
-// solve a block diagonal system with A11^T. Vectors are based on rowMap_
-int Preconditioner::ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVector& X) const
-  {
-  HYMLS_LPROF3(label_,"ApplyInverseA11T");
-  int ierr=0;
-  const int nsd=subdomainSolver_.size();
-  Teuchos::Array<bool> prevtrans(nsd); // remember if the solvers were already transposed
-  Teuchos::RCP<const Ifpack_SparseContainer<SparseDirectSolver> > sparseLU=Teuchos::null;
-
-  for (int sd=0;sd<nsd;sd++)
-    {
-    sparseLU=Teuchos::rcp_dynamic_cast
-        <const Ifpack_SparseContainer<SparseDirectSolver> >(subdomainSolver_[sd]);
-    if (sparseLU!=Teuchos::null)
-      {
-      prevtrans[sd]=sparseLU->Inverse()->UseTranspose();
-      CHECK_ZERO(Teuchos::rcp_const_cast<SparseDirectSolver>(sparseLU->Inverse())->SetUseTranspose(true));
-      }
-    else
-      {
-      Tools::Error("Transpose not implemented for dense subdomain solver!",__FILE__,__LINE__);
-      }
-    sparseLU=Teuchos::null;
-    }
-
-  ierr = this->ApplyInverseA11(B,X);
-
-  for (int sd=0;sd<nsd;sd++)
-    {
-    sparseLU=Teuchos::rcp_dynamic_cast
-        <const Ifpack_SparseContainer<SparseDirectSolver> >(subdomainSolver_[sd]);
-    if (sparseLU!=Teuchos::null)
-      {
-      CHECK_ZERO(Teuchos::rcp_const_cast<SparseDirectSolver>(sparseLU->Inverse())->SetUseTranspose(prevtrans[sd]));
-      }
-    else
-      {
-      Tools::Error("Transpose not implemented for dense subdomain solver!",__FILE__,__LINE__);
-      }
-    sparseLU=Teuchos::null;
-    }
-  return ierr;
-  }
 
 int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& list)
   {
@@ -1740,7 +1409,7 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
     borderSchurV_ = Teuchos::rcp(new Epetra_MultiVector(*map2_,m));
     borderQ1_= Teuchos::rcp(new Epetra_MultiVector(*map1_,m));
 
-    CHECK_ZERO(ApplyInverseA11(*borderV1_,*borderQ1_));
+    CHECK_ZERO(A11_->ApplyInverse(*borderV1_,*borderQ1_));
     CHECK_ZERO(A21_->Apply(*borderQ1_, *borderSchurV_));
     CHECK_ZERO(borderSchurV_->Update(1.0,*borderV2_,-1.0));
 
@@ -1750,7 +1419,9 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
     //       sure which is the more efficient implementation, but this
     //       seemed to be easier to do quickly.
     Epetra_MultiVector w1tmp(*map1_,m);
-    CHECK_ZERO(this->ApplyInverseA11T(*borderW1_,w1tmp));
+    A11_->SetUseTranspose(true);
+    CHECK_ZERO(A11_->ApplyInverse(*borderW1_, w1tmp));
+    A11_->SetUseTranspose(false);
 
     A12_->SetUseTranspose(true);
     CHECK_ZERO(A12_->Apply(w1tmp,*borderSchurW_));
@@ -1861,7 +1532,7 @@ if (dumpVectors_)
   
     
     DEBUG("solve subdomains...");
-    CHECK_ZERO(ApplyInverseA11(*b, *x));
+    CHECK_ZERO(A11_->ApplyInverse(*b, *x));
     
     DEBUG("apply A21...");    
     //CHECK_ZERO(ApplyA21(*x,z2,&flopsApplyInverse_));
@@ -1918,7 +1589,7 @@ if (dumpVectors_)
   CHECK_ZERO(A12_->Apply(*x2, *z));
   // this gives y1, y2=0   
   DEBUG("solve subdomains...");
-  CHECK_ZERO(ApplyInverseA11(*z, *y));
+  CHECK_ZERO(A11_->ApplyInverse(*z, *y));
   // this gives the final result [x1-y1; x2]
   CHECK_ZERO(x->Update(-1.0,*y,1.0));
   flopsApplyInverse_+=numvec*veclen;

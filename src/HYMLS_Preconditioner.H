@@ -285,9 +285,6 @@ protected:
   //! string to indicate wether we use a dense or sparse solver for the subdomains
   std::string sdSolverType_;
 
-  //! we use Ifpack conainers for solving the subdomain problems
-  Teuchos::Array<Teuchos::RCP<Ifpack_Container> > subdomainSolver_;
-  
   //! operator representation of our Schur-complement
   mutable Teuchos::RCP<SchurComplement> Schur_;
   
@@ -295,11 +292,11 @@ protected:
   bool scaleSchur_;
   Teuchos::RCP<Epetra_Vector> schurScaLeft_, schurScaRight_;
 
-  //! A12, A21 and A22-part of matrix
+  //! A11, A12, A21 and A22-part of matrix
   //! 1: associated with interior variables
   //! 2: associated with separator variables, but non-overlapping
   //! The range and domain of these operators are the rowMap_.
-  Teuchos::RCP<MatrixBlock> A12_, A21_, A22_;
+  Teuchos::RCP<MatrixBlock> A11_, A12_, A21_, A22_;
 
   //! right-hand side vector for Schur complement
   mutable Teuchos::RCP<Epetra_MultiVector> schurRhs_;
@@ -428,7 +425,7 @@ protected:
   const HYMLS::OverlappingPartitioner& Partitioner() const {return *hid_;}
 
   //! get solver for a diagonal block of A11
-  Ifpack_Container& SolverA11(int sd) const {return *subdomainSolver_[sd];}
+  Ifpack_Container& SolverA11(int sd) const {return *A11_->SubdomainSolver(sd);}
   
   //! get a submatrix A12
   const Epetra_CrsMatrix& A12(int sd) const {return *A12_->SubBlock(sd);}

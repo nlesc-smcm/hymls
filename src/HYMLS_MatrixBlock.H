@@ -11,7 +11,10 @@ class Epetra_Import;
 class Epetra_BlockMap;
 class Epetra_CrsMatrix;
 
-namespace HYMLS {
+class Ifpack_Container;
+
+namespace HYMLS
+  {
 
 class OverlappingPartitioner;
 
@@ -21,13 +24,23 @@ public:
   MatrixBlock(Teuchos::RCP<const Epetra_CrsMatrix> matrix,
     Teuchos::RCP<const OverlappingPartitioner> hid,
     HierarchicalMap::SpawnStrategy rowStrategy,
-    HierarchicalMap::SpawnStrategy colStrategy);
+    HierarchicalMap::SpawnStrategy colStrategy,
+    int level);
+
+  int Compute();
 
   int ComputeSubdomainBlocks();
+
+  int InitializeSubdomainSolvers(std::string const &solverType,
+  Teuchos::RCP<Teuchos::ParameterList>, int numThreads);
+
+  int ComputeSubdomainSolvers();
 
   int Recompute(Teuchos::RCP<const Epetra_CrsMatrix> matrix);
 
   int Apply(const Epetra_MultiVector& X, Epetra_MultiVector& Y);
+
+  int ApplyInverse(const Epetra_MultiVector& B, Epetra_MultiVector& X);
 
   int SetUseTranspose(bool useTranspose);
 
@@ -37,7 +50,17 @@ public:
 
   Teuchos::RCP<const Epetra_CrsMatrix> SubBlock(int sd) const;
 
+  Teuchos::RCP<Ifpack_Container> SubdomainSolver(int sd) const;
+
   const Epetra_Map &Map() const {return *rangeMap_;};
+
+  double InitializeFlops() const;
+
+  double ComputeFlops() const;
+
+  double ApplyFlops() const;
+
+  double ApplyInverseFlops() const;
 
 protected:
   Teuchos::RCP<const Epetra_CrsMatrix> matrix_;
@@ -60,9 +83,24 @@ protected:
 
   Teuchos::RCP<Epetra_CrsMatrix> block_;
 
+  //! Ifpack conainers for solving the subdomain problems
+  Teuchos::Array<Teuchos::RCP<Ifpack_Container> > subdomainSolvers_;
+
   Teuchos::Array<Teuchos::RCP<Epetra_CrsMatrix> > subBlocks_;
 
   bool useTranspose_;
+
+  double initializeFlops_;
+
+  double computeFlops_;
+
+  double applyFlops_;
+
+  double applyInverseFlops_;
+
+  int numThreads_;
+
+  int myLevel_;
   };
   }
 
