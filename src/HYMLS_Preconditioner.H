@@ -410,37 +410,12 @@ public:
 #else
 protected:
 #endif
-  //! apply X=A11\B. This only works if the solver is computed. The input vectors  
-  //! should be based on RowMap(), but only interior variables (Map1(:)) are touched..
-  int ApplyInverseA11(const Epetra_MultiVector& B, Epetra_MultiVector& X) const;
 
-  //! apply X=A11^T\B. This only works if the solver is computed. The input vectors  
-  //! should be based on RowMap(), but only interior variables (Map1(:)) are touched..
-  int ApplyInverseA11T(const Epetra_MultiVector& B, Epetra_MultiVector& X) const;
-  
   //! map for all variables (same as OperatorRangeMap() and OperatorDomainMap())
   const Epetra_Map& RowMap() const {return *rowMap_;}
   
   //! get the decomposition object
   const HYMLS::OverlappingPartitioner& Partitioner() const {return *hid_;}
-
-  //! get solver for a diagonal block of A11
-  Ifpack_Container& SolverA11(int sd) const {return *A11_->SubdomainSolver(sd);}
-  
-  //! get a submatrix A12
-  const Epetra_CrsMatrix& A12(int sd) const {return *A12_->SubBlock(sd);}
-
-  //! get a submatrix A21
-  const Epetra_CrsMatrix& A21(int sd) const {return *A21_->SubBlock(sd);}
-
-  //! get entire matrix A21
-  const Epetra_CrsMatrix& A21() const {return *A21_->Block();}
-
-  //! get entire matrix A12
-  const Epetra_CrsMatrix& A12() const {return *A12_->Block();}
-
-  //! get entire matrix A22
-  const Epetra_CrsMatrix& A22() const {return *A22_->Block();}
   
  private:
  
