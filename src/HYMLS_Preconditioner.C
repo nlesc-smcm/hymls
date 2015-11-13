@@ -536,7 +536,7 @@ HYMLS_TEST(Label(),isDDcorrect(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix
     // construct the Schur-complement operator (no computations, just
     // pass in pointers of the LU's)
       Schur_ = Teuchos::rcp(new SchurComplement(Teuchos::rcp(this,false),
-          A12_, A21_, A22_, myLevel_));
+          A11_, A12_, A21_, A22_, myLevel_));
     }
 Tools::out() << "=============================="<<std::endl;
 Tools::out() << "LEVEL "<< myLevel_<<std::endl;

@@ -33,13 +33,14 @@ namespace HYMLS {
 // of the SC or the whole thing as sparse or dense matrix.
 
 SchurComplement::SchurComplement(Teuchos::RCP<const Preconditioner> mother,
+  Teuchos::RCP<const MatrixBlock> A11,
   Teuchos::RCP<const MatrixBlock> A12,
   Teuchos::RCP<const MatrixBlock> A21,
   Teuchos::RCP<const MatrixBlock> A22,
   int lev)
   : comm_(Teuchos::rcp(&(mother->Comm()), false)),
     mother_(mother),
-    A12_(A12), A21_(A21), A22_(A22),
+    A11_(A11), A12_(A12), A21_(A21), A22_(A22),
     myLevel_(lev),
     sparseMatrixRepresentation_(Teuchos::null),
     useTranspose_(false), normInf_(-1.0),
@@ -95,7 +96,7 @@ int SchurComplement::Apply(const Epetra_MultiVector &X,
 
     CHECK_ZERO(A12_->Apply(X, Y1));
 
-    CHECK_ZERO(mother_->ApplyInverseA11(Y1, Z1));
+    CHECK_ZERO(A11_->ApplyInverse(Y1, Z1));
 
     CHECK_ZERO(A21_->Apply(Z1, Y2));
 
@@ -209,7 +210,7 @@ int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
   const OverlappingPartitioner &hid = mother_->Partitioner();
   const Epetra_CrsMatrix &A12 = *A12_->SubBlock(sd);
   const Epetra_CrsMatrix &A21 = *A21_->SubBlock(sd);
-  Ifpack_Container &A11 = mother_->SolverA11(sd);
+  Ifpack_Container &A11 = *A11_->SubdomainSolver(sd);
 
   if (sd < 0 || sd > hid.NumMySubdomains())
     {

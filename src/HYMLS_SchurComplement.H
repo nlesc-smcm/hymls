@@ -49,6 +49,7 @@ public:
   //! label right, the mother defines A11, A12, A21 and A22
   //! so that this class represents A22 - A21 A11\A12
   SchurComplement(Teuchos::RCP<const Preconditioner> mother,
+    Teuchos::RCP<const MatrixBlock> A11,
     Teuchos::RCP<const MatrixBlock> A12,
     Teuchos::RCP<const MatrixBlock> A21,
     Teuchos::RCP<const MatrixBlock> A22,
@@ -162,7 +163,7 @@ protected:
   Teuchos::RCP<const Preconditioner> mother_;
 
   //! Matrix blocks of the original matrix
-  Teuchos::RCP<const MatrixBlock> A12_, A21_, A22_;
+  Teuchos::RCP<const MatrixBlock> A11_, A12_, A21_, A22_;
 
   //!
   int myLevel_;
