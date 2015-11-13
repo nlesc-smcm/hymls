@@ -92,10 +92,10 @@ public:
   const Epetra_Comm &Comm() const {return A22_->Matrix()->Comm(); }
 
   //! Returns the Epetra_Map object associated with the domain of this operator.
-  const Epetra_Map &OperatorDomainMap() const {return A22_->Map(); }
+  const Epetra_Map &OperatorDomainMap() const {return A22_->DomainMap(); }
 
   //! Returns the Epetra_Map object associated with the range of this operator.
-  const Epetra_Map &OperatorRangeMap() const {return A22_->Map(); }
+  const Epetra_Map &OperatorRangeMap() const {return A22_->RangeMap(); }
 
   //@}
 

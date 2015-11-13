@@ -384,8 +384,6 @@ HYMLS_TEST(Label(),isDDcorrect(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix
     // construct maps for the 1- (subdomain-) and 2- (separator-)blocks
     DEBUG("Precond: construct maps");
 
-    Teuchos::RCP<const Epetra_Map> repartMap = hid_->GetMap();
-
     Teuchos::RCP<const HierarchicalMap> interiorObject = 
         hid_->Spawn(HierarchicalMap::Interior);
 
@@ -413,6 +411,7 @@ HYMLS_TEST(Label(),isDDcorrect(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix
   int *AllMyElements=new int[numElts];
 
 #ifdef TESTING
+  Teuchos::RCP<const Epetra_Map> repartMap = hid_->GetMap();
   if (repartMap->NumMyElements()!=(map1_->NumMyElements()+map2_->NumMyElements()))
     {
     std::ofstream ofs("hid_data.m",std::ios::app);

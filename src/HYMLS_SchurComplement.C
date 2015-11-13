@@ -48,7 +48,7 @@ SchurComplement::SchurComplement(
   HYMLS_LPROF3(label_, "Constructor");
   isConstructed_ = false;
   // we do a finite-element style assembly of the full matrix
-  const Epetra_Map &map = A22_->Map();
+  const Epetra_Map &map = A22_->RowMap();
   sparseMatrixRepresentation_ = Teuchos::rcp(new
     Epetra_FECrsMatrix(Copy, map, A22_->Matrix()->MaxNumEntries()));
   Scrs_ = sparseMatrixRepresentation_;
@@ -87,9 +87,9 @@ int SchurComplement::Apply(const Epetra_MultiVector &X,
     CHECK_ZERO(A22_->Apply(X, Y));
 
     // 2) compute y2 = A21*A11\A12*X
-    Epetra_MultiVector Y1(A22_->Matrix()->RowMap(), Y.NumVectors());
-    Epetra_MultiVector Z1(A22_->Matrix()->RowMap(), Y.NumVectors());
-    Epetra_MultiVector Y2(A22_->Map(), Y.NumVectors());
+    Epetra_MultiVector Y1(A11_->RowMap(), Y.NumVectors());
+    Epetra_MultiVector Z1(A11_->RowMap(), Y.NumVectors());
+    Epetra_MultiVector Y2(A22_->RowMap(), Y.NumVectors());
 
     CHECK_ZERO(A12_->Apply(X, Y1));
 
@@ -136,7 +136,7 @@ int SchurComplement::Construct(Teuchos::RCP<Epetra_FECrsMatrix> S) const
   Epetra_IntSerialDenseVector indices;
   Epetra_SerialDenseMatrix Sk;
 
-  const Epetra_Map &map = A22_->Map();
+  const Epetra_Map &map = A22_->RowMap();
   const OverlappingPartitioner &hid = A22_->Partitioner();
 
   if (map.NumGlobalElements() == 0) return 0; // empty SC
