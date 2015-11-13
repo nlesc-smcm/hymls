@@ -5,8 +5,8 @@
 #include "Epetra_Time.h"
 
 #include "HYMLS_Tools.H"
-#include "HYMLS_Preconditioner.H"
 #include "HYMLS_SchurPreconditioner.H"
+#include "HYMLS_MatrixBlock.H"
 
 // forward declarations
 
@@ -48,7 +48,7 @@ public:
   //! constructor. The level parameter is just to get the
   //! label right, the mother defines A11, A12, A21 and A22
   //! so that this class represents A22 - A21 A11\A12
-  SchurComplement(Teuchos::RCP<const Preconditioner> mother,
+  SchurComplement(
     Teuchos::RCP<const MatrixBlock> A11,
     Teuchos::RCP<const MatrixBlock> A12,
     Teuchos::RCP<const MatrixBlock> A21,
@@ -89,7 +89,7 @@ public:
   bool UseTranspose() const {return useTranspose_; }
 
   //! communicator
-  const Epetra_Comm &Comm() const {return *comm_; }
+  const Epetra_Comm &Comm() const {return A22_->Matrix()->Comm(); }
 
   //! Returns the Epetra_Map object associated with the domain of this operator.
   const Epetra_Map &OperatorDomainMap() const {return A22_->Map(); }
@@ -155,13 +155,6 @@ public:
 
 protected:
 
-  //! communicator
-  Teuchos::RCP<const Epetra_Comm> comm_; 
-
-  //! calling class (our solver that does the domain decomposition,
-  //! splits the matrix, factors A11 etc.)
-  Teuchos::RCP<const Preconditioner> mother_;
-
   //! Matrix blocks of the original matrix
   Teuchos::RCP<const MatrixBlock> A11_, A12_, A21_, A22_;
 
@@ -219,7 +212,7 @@ protected:
   const Epetra_CrsMatrix &A22() const {return *A22_->Block(); }
 
   //! get the OverlappingPartitioner object
-  const OverlappingPartitioner &Partitioner() const {return mother_->Partitioner(); }
+  const OverlappingPartitioner &Partitioner() const {return A22_->Partitioner(); }
 
 private:
 

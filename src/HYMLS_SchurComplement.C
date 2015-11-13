@@ -32,15 +32,13 @@ namespace HYMLS {
 // Also provides functionality to explicitly construct parts
 // of the SC or the whole thing as sparse or dense matrix.
 
-SchurComplement::SchurComplement(Teuchos::RCP<const Preconditioner> mother,
+SchurComplement::SchurComplement(
   Teuchos::RCP<const MatrixBlock> A11,
   Teuchos::RCP<const MatrixBlock> A12,
   Teuchos::RCP<const MatrixBlock> A21,
   Teuchos::RCP<const MatrixBlock> A22,
   int lev)
-  : comm_(Teuchos::rcp(&(mother->Comm()), false)),
-    mother_(mother),
-    A11_(A11), A12_(A12), A21_(A21), A22_(A22),
+  : A11_(A11), A12_(A12), A21_(A21), A22_(A22),
     myLevel_(lev),
     sparseMatrixRepresentation_(Teuchos::null),
     useTranspose_(false), normInf_(-1.0),
@@ -52,7 +50,7 @@ SchurComplement::SchurComplement(Teuchos::RCP<const Preconditioner> mother,
   // we do a finite-element style assembly of the full matrix
   const Epetra_Map &map = A22_->Map();
   sparseMatrixRepresentation_ = Teuchos::rcp(new
-    Epetra_FECrsMatrix(Copy, map, mother_->Matrix().MaxNumEntries()));
+    Epetra_FECrsMatrix(Copy, map, A22_->Matrix()->MaxNumEntries()));
   Scrs_ = sparseMatrixRepresentation_;
   sca_left_ = Teuchos::rcp(new Epetra_Vector(map));
   sca_right_ = Teuchos::rcp(new Epetra_Vector(map));
@@ -66,8 +64,7 @@ SchurComplement::~SchurComplement()
   HYMLS_LPROF3(label_, "Destructor");
   }
 
-// Applies the operator. Here X and Y are based on the map
-// mother_->Map2().
+// Applies the operator. Here X and Y are based on the rowmap of A22
 int SchurComplement::Apply(const Epetra_MultiVector &X,
   Epetra_MultiVector &Y) const
   {
@@ -140,7 +137,7 @@ int SchurComplement::Construct(Teuchos::RCP<Epetra_FECrsMatrix> S) const
   Epetra_SerialDenseMatrix Sk;
 
   const Epetra_Map &map = A22_->Map();
-  const OverlappingPartitioner &hid = mother_->Partitioner();
+  const OverlappingPartitioner &hid = A22_->Partitioner();
 
   if (map.NumGlobalElements() == 0) return 0; // empty SC
 
@@ -191,7 +188,6 @@ int SchurComplement::Construct(Teuchos::RCP<Epetra_FECrsMatrix> S) const
     }
   DEBUG("SchurComplement - GlobalAssembly");
   CHECK_ZERO(S->GlobalAssemble(false));
-  //DEBVAR(mother_->A22());
   CHECK_ZERO(EpetraExt::MatrixMatrix::Add(*A22_->Block(), false, 1.0,
       *S, -1.0));
   // finish construction by creating local IDs:
@@ -207,7 +203,7 @@ int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
 #ifdef FLOPS_COUNT
   double flops = 0;
 #endif
-  const OverlappingPartitioner &hid = mother_->Partitioner();
+  const OverlappingPartitioner &hid = A22_->Partitioner();
   const Epetra_CrsMatrix &A12 = *A12_->SubBlock(sd);
   const Epetra_CrsMatrix &A21 = *A21_->SubBlock(sd);
   Ifpack_Container &A11 = *A11_->SubdomainSolver(sd);
@@ -343,7 +339,7 @@ Teuchos::RCP<Epetra_Vector> SchurComplement::ConstructLeftScaling(int p_variable
   int len;
   bool has_pcol;
   double diag;
-  const OverlappingPartitioner &hid = mother_->Partitioner();
+  const OverlappingPartitioner &hid = A22_->Partitioner();
   const BasePartitioner &BP = hid.Partitioner();
   if (!IsConstructed())
     {

@@ -54,6 +54,8 @@ public:
 
   const Epetra_Map &Map() const {return *rangeMap_;};
 
+  const OverlappingPartitioner &Partitioner() const {return *hid_; }
+
   double InitializeFlops() const;
 
   double ComputeFlops() const;
