@@ -274,7 +274,7 @@ int MatrixBlock::ComputeSubdomainSolvers()
 #ifdef STORE_SD_LU
   if (hid_->NumMySubdomains() > 0)
     {
-    if (subdomainSolvers_[0]->NumRows()>0)
+    if (subdomainSolvers_[0]->NumRows() > 0)
       {
       Teuchos::RCP<Ifpack_SparseContainer<SparseDirectSolver> > container =
         Teuchos::rcp_dynamic_cast<Ifpack_SparseContainer<SparseDirectSolver> >(
@@ -364,9 +364,9 @@ int MatrixBlock::Apply(const Epetra_MultiVector& X, Epetra_MultiVector& Y)
 
 int MatrixBlock::ApplyInverse(const Epetra_MultiVector& B, Epetra_MultiVector& X)
   {
-  if (!subdomainSolvers_.size())
+  if (!subdomainSolvers_.size() && hid_->NumMySubdomains() > 0)
     {
-    Tools::Warning("Matrix block is not computed!", __FILE__, __LINE__);
+    Tools::Warning("Subdomain Solvers have not been computed!", __FILE__, __LINE__);
     return -1;
     }
 

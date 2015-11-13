@@ -654,7 +654,7 @@ int Preconditioner::InitializeCompute()
 
 InitializeCompute();
 {
-
+HYMLS_LPROF(label_,"subdomain factorization");
 A11_->ComputeSubdomainSolvers();
 
 #ifdef TESTING
