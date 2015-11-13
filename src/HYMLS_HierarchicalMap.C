@@ -954,10 +954,12 @@ int HierarchicalMap::getSeparatorGIDs(int sd, int *gids) const
 
   // loop over all groups except the first (first is interior elements),
   // that is separator groups and retained elements
-  for (int grp = 1; grp < NumGroups(sd); grp++)
+  int numGroups = NumGroups(sd);
+  for (int grp = 1; grp < numGroups; grp++)
     {
     // loop over all elements of each separator group
-    for (int j = 0; j < NumElements(sd, grp); j++)
+    int numElements = NumElements(sd, grp);
+    for (int j = 0; j < numElements; j++)
       {
       gids[pos++] = GID(sd, grp, j);
       }
