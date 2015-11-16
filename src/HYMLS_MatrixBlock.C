@@ -453,7 +453,11 @@ int MatrixBlock::ApplyInverse(const Epetra_MultiVector& B, Epetra_MultiVector& X
 int MatrixBlock::SetUseTranspose(bool useTranspose)
   {
   useTranspose_ = useTranspose;
-  block_->SetUseTranspose(useTranspose);
+
+  if (block_ != Teuchos::null)
+    {
+    block_->SetUseTranspose(useTranspose);
+    }
 
   // Set transpose for the subdomain solvers
   Teuchos::RCP<const Ifpack_SparseContainer<SparseDirectSolver> > sparseLU = Teuchos::null;
