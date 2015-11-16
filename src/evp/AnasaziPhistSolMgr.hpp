@@ -284,9 +284,10 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
   d_wrapper->borderedSolver = borderedSolver;
 
   // tell phist to use a custom solver provided in d_opts->custom_solver;
-  d_opts.innerSolvType=USER_DEFINED;
-  d_opts.customSolver=(void*)d_wrapper.get();
-  d_opts.customSolver_run1=HYMLS_jadaCorrectionSolver_run1;
+  d_opts.innerSolvType = USER_DEFINED;
+  d_opts.customSolver = (void*)d_wrapper.get();
+  d_opts.customSolver_run = HYMLS_jadaCorrectionSolver_run;
+  d_opts.customSolver_run1 = HYMLS_jadaCorrectionSolver_run1;
 }
 
 template <class ScalarType>

@@ -22,31 +22,15 @@
 
 #include "phist_gen_d.h"
 
-
-//! calculate approximate solutions to given set of jacobi-davidson correction equations
-//!
-//! arguments:
-//! jdCorrSolver    the jadaCorrectionSolver object
-//! A_op            matrix A passed to jadaOp_create
-//! B_op            matrix B passed to jadaOp_create
-//! Qtil            projection vectors V passed to jadaOp_create
-//! BQtil           projection vectors BV passed to jadaOp_create
-//! sigma           (pos.!) shifts, -sigma[i], i in {1, ..., nvec} is passed to the jadaOp
-//! res             JD residuals, e.g. rhs of the correction equations
-//! resIndex        if not NULL, specifies permutation of the residual array to avoid unnecessary copying in the jada-algorithm
-//! tol             desired accuracy (gmres residual tolerance) of the individual systems
-//! maxIter         maximal number of iterations after which individial systems should be aborted
-//! t               returns approximate solution vectors
-//! iflag            a value > 0 indicates the number of systems that have not converged to the desired tolerance
 void HYMLS_jadaCorrectionSolver_run1(void* vme,
-                                    void const*           vA_op,    void const*           vB_op, 
-                                    TYPE(const_mvec_ptr)  Qtil,     TYPE(const_mvec_ptr)  BQtil,
-                                    double                sigma_r,  double                sigma_i, 
-                                    TYPE(const_mvec_ptr)  res, 
-                                    const double          tol,      int                   maxIter,
-                                    TYPE(mvec_ptr)        t,
-                                    int robust,
-                                    int *                 iflag)
+  void const* vA_op, void const* vB_op, 
+  TYPE(const_mvec_ptr) Qtil, TYPE(const_mvec_ptr) BQtil,
+  double sigma_r, double sigma_i,
+  TYPE(const_mvec_ptr) res,
+  const double tol, int maxIter,
+  TYPE(mvec_ptr) t,
+  int robust,
+  int *iflag)
 {
   PHIST_ENTER_FCN(__FUNCTION__);
   *iflag = 0;
@@ -59,6 +43,8 @@ void HYMLS_jadaCorrectionSolver_run1(void* vme,
   // as is done in phist
   if (sigma_i!=0.0) 
   {
+    HYMLS::Tools::Warning("jadaCorrectionSolver with complex shifts not implemented",
+                          __FILE__, __LINE__);
     *iflag=-99; // not implemented
     return;
   }
@@ -143,10 +129,56 @@ void HYMLS_jadaCorrectionSolver_run1(void* vme,
   if (solver->getNonconstParameterList()->sublist("Problem").get("Equations", "") == "Stokes-C")
   HYMLS_TEST("jada",isDivFree(*(const Epetra_CrsMatrix *)A_op->A, *t_ptr, 4, 3),__FILE__,__LINE__);
 
-
   // normalize result vectors, TODO: should be done in updateSol/pgmres?
   _MT_ tmp;
   PHIST_CHK_IERR(phist_Dmvec_normalize(t, &tmp, iflag), *iflag);
+}
+
+void HYMLS_jadaCorrectionSolver_run(void* vme,
+  void const* vA_op, void const* vB_op, 
+  TYPE(const_mvec_ptr) Qtil, TYPE(const_mvec_ptr) BQtil,
+  const double *sigma_r, const double *sigma_i, 
+  TYPE(const_mvec_ptr) res, const int resIndex[],
+  const double *tol, int maxIter,
+  TYPE(mvec_ptr) t,
+  int robust, int abortAfterFirstConvergedInBlock,
+  int *iflag)
+{
+  PHIST_ENTER_FCN(__FUNCTION__);
+
+  int numSys;
+  PHIST_CHK_IERR(SUBR(mvec_num_vectors)(t,&numSys,iflag),*iflag);
+  if (numSys > 2)
+  {
+    HYMLS::Tools::Warning("jadaCorrectionSolver with more than RHS not implemented",
+                          __FILE__, __LINE__);
+    *iflag = -99; // not implemented
+    return;
+  }
+
+  if (numSys > 1)
+  {
+    if (sigma_i[0] != 0.0 && sigma_i[1] != 0.0) 
+    {
+      HYMLS::Tools::Warning("jadaCorrectionSolver with complex shifts not implemented",
+                            __FILE__, __LINE__);
+      *iflag = -99; // not implemented
+      return;
+    }
+
+    if (std::abs(sigma_r[0] - sigma_i[1]) > 1e-14) 
+    {
+      HYMLS::Tools::Warning("jadaCorrectionSolver with unequal shifts not implemented",
+                            __FILE__, __LINE__);
+      *iflag = -99; // not implemented
+      return;
+    }
+  }
+
+  PHIST_CHK_IERR(HYMLS_jadaCorrectionSolver_run1(
+                   vme, vA_op, vB_op, Qtil, BQtil,
+                   *sigma_r, *sigma_i, res, *tol,
+                   maxIter, t, robust, iflag), *iflag);
 }
 
 // we need to replace the residual computation in jdqr right now by re-implementing

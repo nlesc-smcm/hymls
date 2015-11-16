@@ -14,23 +14,33 @@
 
 //! wrapper to pass the hymls solver object to phist
 typedef struct hymls_wrapper_t 
-{
+  {
 
   Teuchos::RCP<HYMLS::Solver> solver;
   bool borderedSolver;
   
-} hymls_wrapper_t;
+  } hymls_wrapper_t;
+
+void HYMLS_jadaCorrectionSolver_run(void* vme,
+  void const* vA_op, void const* vB_op, 
+  TYPE(const_mvec_ptr) Qtil, TYPE(const_mvec_ptr) BQtil,
+  const double *sigma_r, const double *sigma_i, 
+  TYPE(const_mvec_ptr) res, const int resIndex[],
+  const double *tol, int maxIter,
+  TYPE(mvec_ptr) t,
+  int robust, int abortAfterFirstConvergedInBlock,
+  int *iflag);
 
 //! simplified phist correction solver interface, only allows solving for a single shift at a time.
-void HYMLS_jadaCorrectionSolver_run1(void* me,
-                                    void const* A_op,     void const*    B_op,
-                                    TYPE(const_mvec_ptr)  Qtil,     TYPE(const_mvec_ptr)  BQtil,
-                                    double                sigma_r,  double                sigma_i,
-                                    TYPE(const_mvec_ptr)  res,
-                                    const double          tol,      int                   maxIter,
-                                    TYPE(mvec_ptr)        t,
-                                    int robust,
-                                    int *                 iflag);
+void HYMLS_jadaCorrectionSolver_run1(void* vme,
+  void const* vA_op, void const* vB_op, 
+  TYPE(const_mvec_ptr) Qtil, TYPE(const_mvec_ptr) BQtil,
+  double sigma_r, double sigma_i,
+  TYPE(const_mvec_ptr) res,
+  const double tol, int maxIter,
+  TYPE(mvec_ptr) t,
+  int robust,
+  int *iflag);
 
 
 #endif
