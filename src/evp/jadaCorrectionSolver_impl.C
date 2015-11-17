@@ -166,7 +166,7 @@ void HYMLS_jadaCorrectionSolver_run(void* vme,
       return;
     }
 
-    if (std::abs(sigma_r[0] - sigma_i[1]) > 1e-14) 
+    if (std::abs(sigma_r[0] - sigma_r[1]) > 1e-14) 
     {
       HYMLS::Tools::Warning("jadaCorrectionSolver with unequal shifts not implemented",
                             __FILE__, __LINE__);
