@@ -102,7 +102,7 @@ namespace HYMLS {
      {
      setMyParamList(Teuchos::rcp(&List, false));
      }
-   else if (List_.get()!=&List);
+   else if (List_.get()!=&List)
      {
      List_->setParameters(List);
      }

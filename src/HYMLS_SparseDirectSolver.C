@@ -457,6 +457,7 @@ Apply(const Epetra_MultiVector& X, Epetra_MultiVector& Y) const
   // check for maps? check UseTranspose_?
   return(-99); // not implemented
   CHECK_ZERO(Matrix_->Apply(X,Y));
+  return 0;
 }
 
 //==============================================================================
