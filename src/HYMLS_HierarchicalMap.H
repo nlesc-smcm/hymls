@@ -12,7 +12,7 @@ class Epetra_RowMatrix;
 class Epetra_Import;
 class Epetra_CrsGraph;
 class Epetra_CrsMatrix;
-class Epetra_IntSerialDenseVector;
+
 
 namespace Teuchos 
   {
@@ -143,12 +143,6 @@ public:
     {
     return overlappingMap_->GID(this->LID(sd,grp,j));
     }
-
-  //! given a subdomain, returns a list of GIDs that belong to the subdomain
-  int getSeparatorGIDs(int sd, int *gids) const;
-
-  //! given a subdomain, returns a list of GIDs that belong to the subdomain
-  int getSeparatorGIDs(int sd, Epetra_IntSerialDenseVector &inds) const;
   
   //@}
 
@@ -267,7 +261,7 @@ public:
   
   //! given a list of GIDs, returns a list of subdomains to which they belong
   int getSubdomainList(int num_gids, int* gids, int* sd) const;
-
+  
   //! add a new subdomain, returns the id of the subdomain. FillComplete()
   //! should not have been called. The optional argument can be used to 
   //! force the subdomain ID to be at least a certain value.

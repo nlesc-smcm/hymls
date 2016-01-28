@@ -96,7 +96,6 @@ set(SOURCES HYMLS_Solver
     HYMLS_Tester
     HYMLS_PLA
     HYMLS_Exception
-    HYMLS_MatrixBlock
     NOX_Epetra_LinearSystem_Hymls
     GaleriExt_Periodic
     main_utils)
@@ -133,7 +132,6 @@ set(HEADERS ${HEADERS}
   HYMLS_OrthogonalTransform.H
   HYMLS_RestrictedOT.H
   HYMLS_ShiftedOperator.H
-  HYMLS_MatrixBlock.H
   )
   
 include_directories(${PROJECT_SOURCE_DIR})
