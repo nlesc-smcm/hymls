@@ -691,9 +691,10 @@ int Solver::SetupDeflation(int maxEigs)
     Aorth_=Teuchos::rcp(new ProjectedOperator(operator_, V_, massMatrix_, true));
     belosProblemPtr_->setOperator(Aorth_);
     CHECK_TRUE(belosProblemPtr_->setProblem(belosSol_,belosRhs_));
+    CHECK_ZERO(Teuchos::rcp_dynamic_cast<HYMLS::ProjectedOperator>(Aorth_)->SetLeftPrecond(precond_));
     return 0;
     }
-    
+
   Aorth_=Teuchos::rcp(new ProjectedOperator(operator_,V_,massMatrix_,true));
 
   CHECK_ZERO(Teuchos::rcp_dynamic_cast<HYMLS::ProjectedOperator>(Aorth_)->SetLeftPrecond(precond_));
