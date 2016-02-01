@@ -509,7 +509,7 @@ int testSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
         HYMLS::Tools::out()<<std::setw(8)<<std::setprecision(8)<<std::scientific;
         HYMLS::Tools::out()<<Teuchos::toString(resNorm[k]/rhsNorm[k])<<" \t "<<Teuchos::toString(errNorm[k]/rhsNorm[k])<<" \n";
         maxRes = std::max(maxRes,resNorm[k]/rhsNorm[k]);
-        maxErr = std::max(maxRes,errNorm[k]/rhsNorm[k]);
+        maxErr = std::max(maxErr,errNorm[k]/rhsNorm[k]);
         }
 
       delete[] rhsNorm;

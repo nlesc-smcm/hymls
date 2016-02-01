@@ -209,7 +209,8 @@ void Solver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)
   {
   HYMLS_PROF3(label_,"SetPrecond");
   precond_=P;
-  if (precond_==Teuchos::null || doBordering_) return;
+  if (precond_==Teuchos::null) return;
+  // if (precond_==Teuchos::null || doBordering_) return;
   belosPrecPtr_=Teuchos::rcp(new belosPrecType_(precond_));
   string lor = PL().get("Left or Right Preconditioning","Right");
   if (lor=="Left")
@@ -676,28 +677,24 @@ int Solver::SetupDeflation(int maxEigs)
     int nulDim = augmentedNullSpace_==Teuchos::null? 0: augmentedNullSpace_->NumVectors();
     if (numDeflated_>nulDim)
       {
+      Teuchos::RCP<Epetra_MultiVector> BV = Teuchos::rcp(
+        new Epetra_MultiVector(*V_));
+      CHECK_ZERO(massMatrix_->Apply(*V_, *BV));
       Teuchos::RCP<Epetra_SerialDenseMatrix> C = Teuchos::rcp(new
-        Epetra_SerialDenseMatrix(numDeflated_,numDeflated_));
-      CHECK_ZERO(borderedPrec->SetBorder(V_,V_,C));
+        Epetra_SerialDenseMatrix(numDeflated_, numDeflated_));
+      CHECK_ZERO(borderedPrec->SetBorder(BV, V_, C));
       } // otherwise this was done above (only deflate a given null space)
     }
 
-// JT:   for JD I think we don't need to iterate orthogonal to V, the preconditioner
-//       should already take care of this. This has to be checked.
-// Sven: If we precondition from the right, we're still not orthogonal to V AFAIK,
-//       so I projected the operator and now it seems to work
-  if (numEigs_ == 0)
-    {
-    Aorth_=Teuchos::rcp(new ProjectedOperator(operator_, V_, massMatrix_, true));
-    belosProblemPtr_->setOperator(Aorth_);
-    CHECK_TRUE(belosProblemPtr_->setProblem(belosSol_,belosRhs_));
-    CHECK_ZERO(Teuchos::rcp_dynamic_cast<HYMLS::ProjectedOperator>(Aorth_)->SetLeftPrecond(precond_));
-    return 0;
-    }
-
   Aorth_=Teuchos::rcp(new ProjectedOperator(operator_,V_,massMatrix_,true));
+  belosProblemPtr_->setOperator(Aorth_);
 
-  CHECK_ZERO(Teuchos::rcp_dynamic_cast<HYMLS::ProjectedOperator>(Aorth_)->SetLeftPrecond(precond_));
+  // FIXME: No clue what we should do with the code below this. I disabled it for now
+
+  return 0;
+
+  // TODO: Implement right preconditioning because at the moment only left preconditioning works
+  // CHECK_ZERO(Teuchos::rcp_dynamic_cast<HYMLS::ProjectedOperator>(Aorth_)->SetLeftPrecond(precond_));
 
   /////////////////////////////////////////////////////////////////////////////////
   // construct the global LU factorization of the bordered system
@@ -708,26 +705,18 @@ int Solver::SetupDeflation(int maxEigs)
 
   // compute V'KV_orth (K is not symmetric, so we
   // actually compute borderW_' = V_orthK'V. V_orth=I-VV' is symmetric)
-  CHECK_ZERO(matrix_->Multiply(true,*V_,*KV));
-  if (shiftA_!=1.0)
-    {
-    CHECK_ZERO(KV->Scale(shiftA_));
-    }
-  if (shiftB_!=0.0)
-    {
-    Epetra_MultiVector BV=*V_;
-    if (massMatrix_!=Teuchos::null)
-      {
-      CHECK_ZERO(massMatrix_->Multiply(true,*V_,BV));
-      }    
-    CHECK_ZERO(KV->Update(shiftB_,BV,1.0));
-    }
+  Teuchos::RCP<Epetra_Operator> op =
+    Teuchos::rcp_const_cast<Epetra_Operator>(operator_);
+  bool trans = op->UseTranspose();
+  op->SetUseTranspose(!trans);
+  CHECK_ZERO(op->Apply(*V_,*KV));
+  op->SetUseTranspose(trans);
   borderW_=Teuchos::rcp(new Epetra_MultiVector(V_->Map(),numDeflated_));
   CHECK_ZERO(DenseUtils::ApplyOrth(*V_,*KV,*borderW_));
 
   // compute V_orth'KV
   CHECK_ZERO(operator_->Apply(*V_,*KV));
-  borderV_=Teuchos::rcp(new Epetra_MultiVector(V_->Map(),numDeflated_));    
+  borderV_=Teuchos::rcp(new Epetra_MultiVector(V_->Map(),numDeflated_));
   CHECK_ZERO(DenseUtils::ApplyOrth(*V_,*KV,*borderV_));
   // compute C=V'KV
   borderC_=Teuchos::rcp(new Epetra_SerialDenseMatrix(numDeflated_,numDeflated_));
@@ -811,57 +800,71 @@ int Solver::ApplyInverse(const Epetra_MultiVector& B,
   {
   HYMLS_PROF(label_,"ApplyInverse");
   int ierr=0;
-  if (LU_!=Teuchos::null)
+  if (X.NumVectors()!=belosRhs_->NumVectors())
+    {
+    int numRhs=X.NumVectors();
+    belosRhs_=Teuchos::rcp(new Epetra_MultiVector(matrix_->OperatorRangeMap(),numRhs));
+    belosSol_=Teuchos::rcp(new Epetra_MultiVector(matrix_->OperatorDomainMap(),numRhs));
+    }
+#ifdef TESTING
+  if (X.NumVectors()!=B.NumVectors())
+    {
+    Tools::Error("different number of input and output vectors",__FILE__,__LINE__);
+    }
+  if (!(X.Map().SameAs(belosSol_->Map()) &&
+      B.Map().SameAs(belosRhs_->Map()) ))
+    {
+    Tools::Error("incompatible maps",__FILE__,__LINE__);
+    }
+#endif
+
+  //TODO: avoid this copy operation
+  *belosRhs_ = B;
+
+  if (startVec_=="Random")
+    {
+#ifdef DEBUGGING
+    int seed=42;
+    MatrixUtils::Random(*belosSol_, seed);
+#else
+    MatrixUtils::Random(*belosSol_);
+#endif
+    }
+  else if (startVec_=="Zero")
+    {
+    // set initial vector to 0
+    CHECK_ZERO(belosSol_->PutScalar(0.0));
+    }
+  else
+    {
+    *belosSol_=X;
+    }
+
+  // Make the initial guess orthogonal to the V_ space
+  if (V_ != Teuchos::null)
+    {
+    CHECK_ZERO(DenseUtils::ApplyOrth(*V_, *belosSol_, X));
+    *belosSol_ = X;
+    }
+
+  CHECK_TRUE(belosProblemPtr_->setProblem(belosSol_, belosRhs_));
+
+  if (LU_ != Teuchos::null)
     {
     DEBUG("Solver: Bordered Solve");
-    // bordered solve
-    ierr=LU_->ApplyInverse(B,X);
+    // bordered solve. We use belosSol_ here because it contains
+    // the initial guess. Not used at the moment
+
+    // ierr=LU_->ApplyInverse(B, X);
+    ierr=LU_->ApplyInverse(*belosRhs_, *belosSol_);
+
+    //TODO: avoid this copy operation
+    X = *belosSol_;
+
     numIter_ = AorthSolver_->getNumIters();
     }
   else
     {
-    if (X.NumVectors()!=belosRhs_->NumVectors())
-      {
-      int numRhs=X.NumVectors();
-      belosRhs_=Teuchos::rcp(new Epetra_MultiVector(matrix_->OperatorRangeMap(),numRhs));
-      belosSol_=Teuchos::rcp(new Epetra_MultiVector(matrix_->OperatorDomainMap(),numRhs));
-      }
-#ifdef TESTING
-    if (X.NumVectors()!=B.NumVectors())
-      {
-      Tools::Error("different number of input and output vectors",__FILE__,__LINE__);
-      } 
-    if (!(X.Map().SameAs(belosSol_->Map()) && 
-        B.Map().SameAs(belosRhs_->Map()) ))
-      {
-      Tools::Error("incompatible maps",__FILE__,__LINE__);
-      }
-#endif
-
-    //TODO: avoid this copy operation
-    *belosRhs_ = B;
-
-    if (startVec_=="Random")
-      {
-#ifdef DEBUGGING
-      int seed=42;
-      MatrixUtils::Random(*belosSol_, seed);
-#else
-      MatrixUtils::Random(*belosSol_);
-#endif      
-      }
-    else if (startVec_=="Zero")
-      {
-      // set initial vector to 0
-      CHECK_ZERO(belosSol_->PutScalar(0.0));
-      }
-    else
-      {
-      *belosSol_=X;
-      }
-
-    CHECK_TRUE(belosProblemPtr_->setProblem(belosSol_, belosRhs_));
-
     ::Belos::ReturnType ret = ::Belos::Unconverged;
     bool status = true;
     try {
