@@ -469,7 +469,7 @@ int MatrixBlock::SetUseTranspose(bool useTranspose)
     if (sparseLU != Teuchos::null)
       {
       CHECK_ZERO(Teuchos::rcp_const_cast<SparseDirectSolver>(
-          sparseLU->Inverse())->SetUseTranspose(true));
+          sparseLU->Inverse())->SetUseTranspose(useTranspose));
       }
     else
       {
