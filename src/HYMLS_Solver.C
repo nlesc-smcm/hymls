@@ -61,69 +61,71 @@ Solver::Solver(Teuchos::RCP<const Epetra_RowMatrix> K,
   // try to construct the nullspace for the operator, right now we only implement
   // this for the Stokes-C case (constant pressure as single vector), otherwise we
   // assume the matrix is nonsingular (i.e. leave nullSpace==null).
-  string nullSpaceType=PL().get("Null Space","None");
-  if (nullSpaceType=="Constant")
+  string nullSpaceType = PL().get("Null Space","None");
+  Teuchos::RCP<Epetra_MultiVector> nullSpace = Teuchos::null;
+  if (nullSpaceType == "Constant")
     {
-    nullSpace_ = Teuchos::rcp(new Epetra_Vector(matrix_->OperatorDomainMap()));
-    CHECK_ZERO(nullSpace_->PutScalar(1.0));
+    nullSpace = Teuchos::rcp(new Epetra_Vector(matrix_->OperatorDomainMap()));
+    CHECK_ZERO(nullSpace->PutScalar(1.0));
     }
-  else if (nullSpaceType=="Constant P")
+  else if (nullSpaceType == "Constant P")
     {
     // NOTE: we assume u/v/w/p[/T] ordering here, it works for 2D and 3D as long
     // as var[dim]=P
-    nullSpace_ = Teuchos::rcp(new Epetra_Vector(matrix_->OperatorDomainMap()));
-    int pvar = PL("Problem").get("Dimension",-1);
-    int dof = PL("Problem").get("Degrees of Freedom",-1);
+    nullSpace = Teuchos::rcp(new Epetra_Vector(matrix_->OperatorDomainMap()));
+    int pvar = PL("Problem").get("Dimension", -1);
+    int dof = PL("Problem").get("Degrees of Freedom", -1);
     // TODO: this is all a bit ad-hoc
-    if (pvar==-1||dof==-1)
+    if (pvar == -1 || dof == -1)
       {
       Tools::Error("'Dimension' or 'Degrees of Freedom' not set in 'Problem' sublist",
         __FILE__, __LINE__);
       }
-    CHECK_ZERO(nullSpace_->PutScalar(0.0))
-      for (int i=dof-1;i<nullSpace_->MyLength();i+=dof)
+    CHECK_ZERO(nullSpace->PutScalar(0.0))
+      for (int i = dof - 1; i < nullSpace->MyLength(); i+= dof)
         {
-        (*nullSpace_)[0][i]=1.0;
+        (*nullSpace)[0][i] = 1.0;
         }
     }
-  else if (nullSpaceType=="Checkerboard")
+  else if (nullSpaceType == "Checkerboard")
     {
-    nullSpace_ = Teuchos::rcp(new Epetra_MultiVector(matrix_->OperatorDomainMap(),3));
-    int dof = PL("Problem").get("Degrees of Freedom",-1);
-    int dim = PL("Problem").get("Dimension",-1);
-    int nx = PL("Problem").get("nx",1);
-    int ny = PL("Problem").get("ny",nx);
-    int nz = PL("Problem").get("nz",dim>2?nx:1);
-    for (int lid=0;lid<nullSpace_->MyLength();lid++)
+    nullSpace = Teuchos::rcp(new Epetra_MultiVector(matrix_->OperatorDomainMap(), 3));
+    int dof = PL("Problem").get("Degrees of Freedom", -1);
+    int dim = PL("Problem").get("Dimension", -1);
+    int nx = PL("Problem").get("nx", 1);
+    int ny = PL("Problem").get("ny", nx);
+    int nz = PL("Problem").get("nz", dim > 2 ? nx : 1);
+    for (int lid = 0; lid < nullSpace->MyLength(); lid++)
       {
-      int gid=nullSpace_->Map().GID(lid);
+      int gid=nullSpace->Map().GID(lid);
       int i,j,k,v;
       HYMLS::Tools::ind2sub(nx, ny, nz, dof, gid, i, j, k, v);
       double val1 =  (double)(MOD(i+j+k,2));
       double val2 =  1.0-val1;
-      (*nullSpace_)[0][lid]=val1;
-      (*nullSpace_)[1][lid]=val2;
-      (*nullSpace_)[2][lid]=1.0;
+      (*nullSpace)[0][lid]=val1;
+      (*nullSpace)[1][lid]=val2;
+      (*nullSpace)[2][lid]=1.0;
       }
     }    
-  else if (nullSpaceType!="None")
+  else if (nullSpaceType != "None")
     {
-    Tools::Error("'Null Space'='"+nullSpaceType+"' not implemented",__FILE__,__LINE__);
+    Tools::Error("'Null Space'='"+nullSpaceType+"' not implemented",
+      __FILE__, __LINE__);
     }
-  if (nullSpace_!=Teuchos::null)
+
+  if (nullSpace != Teuchos::null)
     {
-    int k = nullSpace_->NumVectors();
+    int k = nullSpace->NumVectors();
     double *nrm2 = new double[k];
-    CHECK_ZERO(nullSpace_->Norm2(nrm2));
+    CHECK_ZERO(nullSpace->Norm2(nrm2));
     for (int i=0;i<k;i++)
       {
-      CHECK_ZERO((*nullSpace_)(i)->Scale(1.0/nrm2[i]));
+      CHECK_ZERO((*nullSpace)(i)->Scale(1.0/nrm2[i]));
       }
     delete [] nrm2;
+
+    nullSpace_ = nullSpace;
     }
-    
-  V_=nullSpace_;
-  W_=nullSpace_;
 
   belosProblemPtr_=Teuchos::rcp(new belosProblemType_(operator_,belosSol_,belosRhs_));
   
@@ -173,7 +175,7 @@ Solver::Solver(Teuchos::RCP<const Epetra_RowMatrix> K,
   else
     {
     Tools::Error("Currently only 'GMRES' is supported as 'Belos Solver'",__FILE__,__LINE__);
-    }  
+    }
   }
 
 
@@ -403,17 +405,34 @@ Teuchos::RCP<MatrixUtils::Eigensolution> Solver::EigsPrec(int numEigs) const
   }
 
 
-int Solver::setNullSpace(Teuchos::RCP<Epetra_MultiVector>& V)
+int Solver::setNullSpace(Teuchos::RCP<const Epetra_MultiVector> const &V)
   {
-  if (!nullSpace_.is_null())
+  if (!nullSpace_.is_null() && !V.is_null())
     {
-      Tools::Warning("Nullspace was already set before calling setNullSpace",
+      Tools::Warning("The null space was already set before calling setNullSpace",
+        __FILE__, __LINE__);
+    }
+  else if (!V_.is_null())
+    {
+      Tools::Warning("The null space was set after a border was already present."
+      " Please set the border after setting the null space",
         __FILE__, __LINE__);
     }
 
+  // Reset the null space when the preconditioner is changed for instance
+  if (V.is_null())
+    {
+    Teuchos::RCP<const Epetra_MultiVector> nullSpace = nullSpace_;
+    nullSpace_ = Teuchos::null;
+    CHECK_ZERO(SetBorder(nullSpace, nullSpace));
+    nullSpace_ = nullSpace;
+
+    return 0;
+    }
+
+  nullSpace_ = Teuchos::null;
+  CHECK_ZERO(SetBorder(V, V));
   nullSpace_ = V;
-  V_ = V;
-  W_ = V;
 
   return 0;
   }
@@ -421,6 +440,11 @@ int Solver::setNullSpace(Teuchos::RCP<Epetra_MultiVector>& V)
 int Solver::SetBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
   Teuchos::RCP<const Epetra_MultiVector> const &W)
   {
+  if (V.is_null())
+    {
+    return 0;
+    }
+
   if (nullSpace_.is_null())
     {
     V_ = V;
@@ -429,38 +453,39 @@ int Solver::SetBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
       {
       W_ = V;
       }
-    return 0;
-    }
-
-  // Expand the nullspace with the border that was added here
-  int dim0 = nullSpace_->NumVectors();
-  int dim1 = V->NumVectors();
-
-  V_ = Teuchos::rcp(new Epetra_MultiVector(OperatorRangeMap(), dim0 + dim1));
-
-  Epetra_MultiVector V0(View, *V_, 0, dim0);
-  Epetra_MultiVector V1(View, *V_, dim0, dim1);
-  V0 = *nullSpace_;
-  V1 = *V;
-
-  if (!W.is_null())
-    {
-    if (W->NumVectors() != dim1)
-      {
-      Tools::Error("Borders have unequal dimensions",
-        __FILE__, __LINE__);
-      }
-
-    W_ = Teuchos::rcp(new Epetra_MultiVector(OperatorRangeMap(), dim0 + dim1));
-
-    Epetra_MultiVector W0(View, *W_, 0, dim0);
-    Epetra_MultiVector W1(View, *W_, dim0, dim1);
-    W0 = *nullSpace_;
-    W1 = *W;
     }
   else
     {
-    W_ = V_;
+    // Expand the nullspace with the border that was added here
+    int dim0 = nullSpace_->NumVectors();
+    int dim1 = V->NumVectors();
+
+    V_ = Teuchos::rcp(new Epetra_MultiVector(OperatorRangeMap(), dim0 + dim1));
+
+    Epetra_MultiVector V0(View, *V_, 0, dim0);
+    Epetra_MultiVector V1(View, *V_, dim0, dim1);
+    V0 = *nullSpace_;
+    V1 = *V;
+
+    if (!W.is_null())
+      {
+      if (W->NumVectors() != dim1)
+        {
+        Tools::Error("Borders have unequal dimensions",
+          __FILE__, __LINE__);
+        }
+
+      W_ = Teuchos::rcp(new Epetra_MultiVector(OperatorRangeMap(), dim0 + dim1));
+
+      Epetra_MultiVector W0(View, *W_, 0, dim0);
+      Epetra_MultiVector W1(View, *W_, dim0, dim1);
+      W0 = *nullSpace_;
+      W1 = *W;
+      }
+    else
+      {
+      W_ = V_;
+      }
     }
 
   // Set the border for the matrix and the preconditioner
@@ -828,7 +853,13 @@ int Solver::ApplyInverse(const Epetra_MultiVector& B,
   Epetra_MultiVector& X) const
   {
   HYMLS_PROF(label_,"ApplyInverse");
-  int ierr=0;
+  int ierr = 0;
+  if (!nullSpace_.is_null() && V_.is_null())
+    {
+      Tools::Error("You need to call setNullSpace on the solver after "
+        "the preconditioner has been computed", __FILE__, __LINE__);
+    }
+
   if (X.NumVectors()!=belosRhs_->NumVectors())
     {
     int numRhs=X.NumVectors();

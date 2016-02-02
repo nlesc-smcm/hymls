@@ -189,10 +189,6 @@ HYMLS::MatrixUtils::Random(*x);
 
   Teuchos::ParameterList& solver_params = params->sublist("Solver");
   bool do_deflation = (solver_params.get("Deflated Subspace Dimension",0)>0);
-  if (solver_params.get("Null Space","None")!="None")
-    {
-    do_deflation=true;
-    }
 
   int dof = 1;
   if (eqn=="Stokes-C")
@@ -255,7 +251,7 @@ HYMLS::MatrixUtils::Random(*x);
   Teuchos::RCP<HYMLS::Solver> solver = Teuchos::rcp(new HYMLS::Solver(K, precond, params,1));
 
   // get the null space (if any), as specified in the xml-file
-  Teuchos::RCP<Epetra_MultiVector> Nul = solver->getNullSpace();
+  Teuchos::RCP<const Epetra_MultiVector> Nul = solver->getNullSpace();
 
   REPORT_MEM("main","before HYMLS",0,0);
   
@@ -274,6 +270,10 @@ HYMLS::MatrixUtils::Random(*x);
     {
     //~ solver->SetMassMatrix(M);
     CHECK_ZERO(solver->SetupDeflation());
+    }
+  else
+    {
+    CHECK_ZERO(solver->setNullSpace());
     }
 
   // Set verbosity level

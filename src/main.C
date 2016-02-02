@@ -192,42 +192,35 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
 
   Teuchos::ParameterList& solver_params = params->sublist("Solver");
   bool do_deflation = (solver_params.get("Deflated Subspace Dimension",0)>0);
-  if (solver_params.get("Null Space","None")!="None")
+  
+  HYMLS::Tools::Out("Create dummy mass matrix");
+  Teuchos::RCP<Epetra_CrsMatrix> M = Teuchos::rcp(new Epetra_CrsMatrix(Copy,*map,1,true));
+  int gid;
+  double val1=1.0/(nx*ny*nz);
+  double val0=0.0;
+  if (eqn=="Stokes-C")
     {
-    do_deflation=true;
-    }
-  Teuchos::RCP<Epetra_CrsMatrix> M = Teuchos::null;
-  if (do_deflation) // need a mass matrix
-    {
-    HYMLS::Tools::Out("Create dummy mass matrix");
-    M=Teuchos::rcp(new Epetra_CrsMatrix(Copy,*map,1,true));
-    int gid;
-    double val1=1.0/(nx*ny*nz);
-    double val0=0.0;
-    if (eqn=="Stokes-C")
+    int dof=dim+1;
+    for (int i=0;i<M->NumMyRows();i+=dof)
       {
-      int dof=dim+1;
-      for (int i=0;i<M->NumMyRows();i+=dof)
+      for (int j=i;j<i+dof-1;j++)
         {
-        for (int j=i;j<i+dof-1;j++)
-          {
-          gid = map->GID(j);
-          CHECK_ZERO(M->InsertGlobalValues(gid,1,&val1,&gid));
-          }
-        gid = map->GID(i+dof-1);
-        CHECK_ZERO(M->InsertGlobalValues(gid,1,&val0,&gid));
-        }
-      }
-    else
-      {
-      for (int i=0;i<M->NumMyRows();i++)
-        {
-        gid = map->GID(i);
+        gid = map->GID(j);
         CHECK_ZERO(M->InsertGlobalValues(gid,1,&val1,&gid));
         }
+      gid = map->GID(i+dof-1);
+      CHECK_ZERO(M->InsertGlobalValues(gid,1,&val0,&gid));
       }
-    CHECK_ZERO(M->FillComplete());
     }
+  else
+    {
+    for (int i=0;i<M->NumMyRows();i++)
+      {
+      gid = map->GID(i);
+      CHECK_ZERO(M->InsertGlobalValues(gid,1,&val1,&gid));
+      }
+    }
+  CHECK_ZERO(M->FillComplete());
 
   if (eqn=="Stokes-C")
     {
@@ -277,7 +270,9 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
   Teuchos::RCP<HYMLS::Solver> solver = Teuchos::rcp(new HYMLS::Solver(K, precond, params,numRhs));
 
   // get the null space (if any), as specified in the xml-file
-  Teuchos::RCP<Epetra_MultiVector> Nul = solver->getNullSpace();
+  Teuchos::RCP<const Epetra_MultiVector> Nul = solver->getNullSpace();
+
+  solver->SetMassMatrix(M);
 
   REPORT_MEM("main","before HYMLS",0,0);
   
@@ -307,11 +302,13 @@ for (int f=0;f<numComputes;f++)
     CHECK_ZERO(precond->Compute());
     HYMLS::Tools::StopTiming("main: Compute Preconditioner",true);
     }
-
   if (do_deflation)
     {
-    solver->SetMassMatrix(M);
     CHECK_ZERO(solver->SetupDeflation());
+    }
+  else
+    {
+    CHECK_ZERO(solver->setNullSpace());
     }
 
  // std::cout << *solver << std::endl;

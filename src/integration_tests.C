@@ -419,10 +419,9 @@ int testSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
   Teuchos::RCP<Epetra_MultiVector> x = Teuchos::rcp(new Epetra_MultiVector(map, numRhs));
 
   bool doDeflation = false;
-  Teuchos::RCP<Epetra_MultiVector> Nul = Teuchos::null;
+  Teuchos::RCP<const Epetra_MultiVector> Nul = Teuchos::null;
   if (params->sublist("Solver").get("Null Space", "None") != "None")
     {
-    doDeflation = true;
     Nul = solver->getNullSpace();
     }
 
@@ -437,6 +436,10 @@ int testSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
     if (doDeflation)
       {
       CHECK_ZERO(solver->SetupDeflation());
+      }
+    else
+      {
+      CHECK_ZERO(solver->setNullSpace());
       }
 
     int xseed=-1;

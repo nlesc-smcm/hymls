@@ -164,12 +164,12 @@ public:
   inline int getNumIter() const {return numIter_;}
   
   //! get the null space (or approximate null space) of the operator
-  Teuchos::RCP<Epetra_MultiVector> getNullSpace() {return nullSpace_;}
+  Teuchos::RCP<const Epetra_MultiVector> getNullSpace() {return nullSpace_;}
   
   //! set  the (approximate) null space. The given vectors are added
   //! to the constant (exact) null space defined by the "Null Space"
   //! entry in the parameter list.
-  int setNullSpace(Teuchos::RCP<Epetra_MultiVector>& V);
+  int setNullSpace(Teuchos::RCP<const Epetra_MultiVector> const &V = Teuchos::null);
 
   //! Set the border of the matrix or expand the null space with this
   //! border when a null space is present
@@ -235,7 +235,7 @@ Teuchos::RCP<const Epetra_RowMatrix> massMatrix_;
 //! default null space to be removed from matrix before deflation (the parameter
 //! "Solver"->"Null Space" can be used to construct this, e.g. set it to "Constant P"
 //! for Stokes-C etc.), or the method setNullSpace can be used
-Teuchos::RCP<Epetra_MultiVector> nullSpace_;
+Teuchos::RCP<const Epetra_MultiVector> nullSpace_;
 
 //! true if there is a border (e.g. a nullspace or some eigenmodes to be
 //! deflated).
