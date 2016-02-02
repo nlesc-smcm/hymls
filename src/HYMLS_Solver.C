@@ -509,8 +509,10 @@ int Solver::SetupDeflation(int maxEigs)
   // If there is a null-space, deflate it.
   // If no NS and no additional vectors asked for -
   // nothing to be done.
-  if (numEigs_==0 && V_==Teuchos::null) return 0;
+  if (numEigs_==0 && nullSpace_ == Teuchos::null) return 0;
   HYMLS_PROF(label_,"SetupDeflation");
+
+  setNullSpace();
 
   Teuchos::RCP<Epetra_MultiVector> KV;
         

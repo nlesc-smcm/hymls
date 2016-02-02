@@ -571,7 +571,7 @@ DEBVAR(*borderC_);
   Tools::Out("drop before going to next level");
 #endif
   Teuchos::RCP<Epetra_CrsMatrix> tmp = MatrixUtils::DropByValue(reducedSchur_,
-        HYMLS_SMALL_ENTRY, MatrixUtils::RelZeroDiag);
+        HYMLS_SMALL_ENTRY, MatrixUtils::RelDropDiag);
   *reducedSchur_ = *tmp; 
   tmp=Teuchos::null;
   
@@ -960,7 +960,7 @@ int SchurPreconditioner::InitializeOT()
     Tools::Out("drop because of next DD");
 #endif
     reducedSchur_ = MatrixUtils::DropByValue(reducedSchur_, HYMLS_SMALL_ENTRY,
-                        MatrixUtils::RelZeroDiag);
+                        MatrixUtils::RelDropDiag);
   
     reducedSchur_->SetLabel(("Matrix (level "+Teuchos::toString(myLevel_+1)+")").c_str());
   
