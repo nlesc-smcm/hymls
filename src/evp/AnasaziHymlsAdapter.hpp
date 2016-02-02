@@ -30,12 +30,13 @@ namespace Anasazi {
     {
       // I'm experimenting with what to do here
 
-#define VARIANT_B
+#define VARIANT_A
 #ifdef VARIANT_A
       // this function sets V as border in the ILU preconditioner
       // and replaces (A-sigma*I) by (I-VV')(A-sigma*I):
       CHECK_ZERO(Op.setProjectionVectors(Q));
-#elif defined(VARIANT_B)      
+#elif defined(VARIANT_B)
+      // FIXME: DOES NOT WORK ANYMORE SINCE CHANGED setNullSpace
       // this function adds V to the border, which may contain an exact null space
       // already (as for Navier-Stokes)
       CHECK_ZERO(Op.setNullSpace(Q));

@@ -35,6 +35,7 @@ void HYMLS_jadaCorrectionSolver_run1(void* vme,
   PHIST_ENTER_FCN(__FUNCTION__);
   *iflag = 0;
   TYPE(const_op_ptr) A_op=(TYPE(const_op_ptr))vA_op;
+  TYPE(const_op_ptr) B_op=(TYPE(const_op_ptr))vB_op;
   hymls_wrapper_t* me=(hymls_wrapper_t*)vme;
 
   PHIST_CHK_IERR(*iflag = (maxIter <= 0) ? -1 : 0, *iflag);
@@ -62,9 +63,26 @@ void HYMLS_jadaCorrectionSolver_run1(void* vme,
     return;
   }
    
+  Teuchos::RCP<const Epetra_MultiVector> BQ;
   const Epetra_MultiVector *Q_ptr = (const Epetra_MultiVector *)Qtil;
+  const Epetra_MultiVector *BQ_ptr = (const Epetra_MultiVector *)BQtil;
   const Epetra_MultiVector *r_ptr = (const Epetra_MultiVector *)res;
   Epetra_MultiVector *t_ptr = (Epetra_MultiVector *)t;
+
+  if (BQtil == NULL)
+    {
+    if (B_op == NULL)
+      {
+      BQ_ptr = Q_ptr;
+      }
+    else
+      {
+      BQ = Teuchos::rcp(new Epetra_MultiVector(*Q_ptr));
+      BQ_ptr = BQ.get();
+      PHIST_CHK_IERR(B_op->apply(1.0, B_op->A, Qtil, 0.0,
+          (TYPE(mvec_ptr))BQ_ptr, iflag), *iflag);
+      }
+    }
 
   const Epetra_BlockMap &map = Q_ptr->Map();
   const Epetra_BlockMap &map0 = solver->OperatorRangeMap();
@@ -72,14 +90,19 @@ void HYMLS_jadaCorrectionSolver_run1(void* vme,
   {
     // System is only the v-part, not the full system, so import the vectors
     // on the v-part to the full system so we can use HYMLS on it.
-    const Epetra_Map &map0 = solver->OperatorRangeMap();
     Epetra_Import import0(map0, Q_ptr->Map());
+
     Epetra_MultiVector vec0(map0, Q_ptr->NumVectors());
     vec0.PutScalar(0.0);
     CHECK_ZERO(vec0.Import(*Q_ptr, import0, Insert));
+
+    Epetra_MultiVector vec1(map0, BQ_ptr->NumVectors());
+    vec1.PutScalar(0.0);
+    CHECK_ZERO(vec1.Import(*Q_ptr, import0, Insert));
     if (me->borderedSolver)
     {
-      solver->setNullSpace(Teuchos::rcp<const Epetra_MultiVector>(&vec0, false));
+      solver->SetBorder(Teuchos::rcp<const Epetra_MultiVector>(&vec1, false),
+        Teuchos::rcp<const Epetra_MultiVector>(&vec0, false));
       solver->SetupDeflation();
     }
     else
@@ -91,8 +114,8 @@ void HYMLS_jadaCorrectionSolver_run1(void* vme,
   {
     if (me->borderedSolver)
     {
-      solver->setNullSpace(Teuchos::rcp<const Epetra_MultiVector>(Q_ptr, false));
-      solver->SetupDeflation();
+      solver->SetBorder(Teuchos::rcp<const Epetra_MultiVector>(BQ_ptr, false),
+        Teuchos::rcp<const Epetra_MultiVector>(Q_ptr, false));
     }
     else
     {

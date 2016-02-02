@@ -169,7 +169,12 @@ public:
   //! set  the (approximate) null space. The given vectors are added
   //! to the constant (exact) null space defined by the "Null Space"
   //! entry in the parameter list.
-  int setNullSpace(const Teuchos::RCP<const Epetra_MultiVector>& V);
+  int setNullSpace(Teuchos::RCP<Epetra_MultiVector>& V);
+
+  //! Set the border of the matrix or expand the null space with this
+  //! border when a null space is present
+  int SetBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
+    Teuchos::RCP<const Epetra_MultiVector> const &W);
 
   //! use same preconditioner but operator (I-VV')A
   int setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V);
@@ -229,11 +234,8 @@ Teuchos::RCP<const Epetra_RowMatrix> massMatrix_;
 
 //! default null space to be removed from matrix before deflation (the parameter
 //! "Solver"->"Null Space" can be used to construct this, e.g. set it to "Constant P"
-//! for Stokes-C etc.)
+//! for Stokes-C etc.), or the method setNullSpace can be used
 Teuchos::RCP<Epetra_MultiVector> nullSpace_;
-
-//! nullSpace augmented with user-defined vectors by "setNullSpace()".
-Teuchos::RCP<Epetra_MultiVector> augmentedNullSpace_;
 
 //! true if there is a border (e.g. a nullspace or some eigenmodes to be
 //! deflated).
@@ -253,8 +255,8 @@ double deflThres_;
 //! eigen-pairs of the preconditioner
 Teuchos::RCP<MatrixUtils::Eigensolution> precEigs_;
 
-//! basis for the eigenspace to be deflated
-Teuchos::RCP<Epetra_MultiVector> V_;
+//! Borders of the matrix, which might be the eigenspace
+  Teuchos::RCP<const Epetra_MultiVector> V_, W_;
 
 //! V_orth'AV and V'AV_orth (border of the block system)
 //! borderV_ = V_orth'AV, borderW_ = (V'AV_orth)'.
