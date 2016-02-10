@@ -315,20 +315,20 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
   //~ d_opts.initialShift=-51.0;
 
   // create operator wrapper for computing Y=A*X using a CRS matrix
-  Teuchos::RCP<Dop_t> A_op = Teuchos::rcp(new Dop_t);
-  phist_Dop_wrap_sparseMat(A_op.get(), Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(d_problem->getOperator()).get(), &iflag);
+  Teuchos::RCP<DlinearOp_t> A_op = Teuchos::rcp(new DlinearOp_t);
+  phist_DlinearOp_wrap_sparseMat(A_op.get(), Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(d_problem->getOperator()).get(), &iflag);
   TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
-    "PhistSolMgr::solve: phist_Dop_wrap_sparseMat returned nonzero error code "+Teuchos::toString(iflag));
+    "PhistSolMgr::solve: phist_DlinearOp_wrap_sparseMat returned nonzero error code "+Teuchos::toString(iflag));
 
-  Teuchos::RCP<Dop_t> B_op = Teuchos::null;
+  Teuchos::RCP<DlinearOp_t> B_op = Teuchos::null;
   if (d_problem->getM() != Teuchos::null)
   {
     Teuchos::RCP<const Epetra_CrsMatrix> B_rcp=Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(d_problem->getM());
     const Epetra_CrsMatrix* B=B_rcp.get();
-    B_op = Teuchos::rcp(new Dop_t());
-    phist_Dop_wrap_sparseMat(B_op.get(), B, &iflag);
+    B_op = Teuchos::rcp(new DlinearOp_t());
+    phist_DlinearOp_wrap_sparseMat(B_op.get(), B, &iflag);
     TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
-      "PhistSolMgr::solve: phist_Dop_wrap_sparseMat returned nonzero error code "+Teuchos::toString(iflag));
+      "PhistSolMgr::solve: phist_DlinearOp_wrap_sparseMat returned nonzero error code "+Teuchos::toString(iflag));
     //       Use the 'free' field aux in the B operator to pass the solver to ComputeResidual. We need to do 
     //  this right now because there is no systematic way in hymls to provide an 'additional projection space'
     B_op->aux=d_opts.customSolver;

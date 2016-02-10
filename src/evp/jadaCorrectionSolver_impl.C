@@ -34,8 +34,8 @@ void HYMLS_jadaCorrectionSolver_run1(void* vme,
 {
   PHIST_ENTER_FCN(__FUNCTION__);
   *iflag = 0;
-  TYPE(const_op_ptr) A_op=(TYPE(const_op_ptr))vA_op;
-  TYPE(const_op_ptr) B_op=(TYPE(const_op_ptr))vB_op;
+  TYPE(const_linearOp_ptr) A_op=(TYPE(const_linearOp_ptr))vA_op;
+  TYPE(const_linearOp_ptr) B_op=(TYPE(const_linearOp_ptr))vB_op;
   hymls_wrapper_t* me=(hymls_wrapper_t*)vme;
 
   PHIST_CHK_IERR(*iflag = (maxIter <= 0) ? -1 : 0, *iflag);
@@ -211,7 +211,7 @@ void HYMLS_jadaCorrectionSolver_run(void* vme,
 // own residual calculation, or we should have the operators involved (A,B,Precond) have
 // the velocity map as range and domain map and allow an additional projector to implement
 // the divergence constraint. See phist issue 125)
-void SUBR(computeResidual)(TYPE(const_op_ptr) B_op, TYPE(mvec_ptr) r_ptr,
+void SUBR(computeResidual)(TYPE(const_linearOp_ptr) B_op, TYPE(mvec_ptr) r_ptr,
         TYPE(mvec_ptr) Au_ptr, TYPE(mvec_ptr) u_ptr, TYPE(mvec_ptr) rtil_ptr,
         TYPE(mvec_ptr) Qv, TYPE(mvec_ptr) tmp, TYPE(sdMat_ptr) Theta,
         TYPE(sdMat_ptr) atil, TYPE(sdMat_ptr) *atilv, _MT_ *resid,
