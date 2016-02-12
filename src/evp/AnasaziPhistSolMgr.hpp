@@ -265,18 +265,11 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
                                     std::invalid_argument,
                                     "Which must be one of LM,SM,LR,SR." );
         // Convert to eigSort_t
-        if (which == "LM")
-            d_opts.which = LM;
-        if (which == "SM")
-            d_opts.which = SM;
-        if (which == "LR")
-            d_opts.which = LR;
-        if (which == "SR")
-            d_opts.which = SR;
+        d_opts.which=str2eigSort(which.c_str());
     }
     else
     {
-        d_opts.which = LM;
+        d_opts.which = phist_LM;
     }
 
   d_wrapper = Teuchos::rcp(new hymls_wrapper_t);
