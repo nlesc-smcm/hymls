@@ -169,13 +169,16 @@ if (${phist_FOUND})
   add_definitions(-DHAVE_PHIST)
   include_directories(${PHIST_INCLUDE_DIRS})
   link_directories(${PHIST_LIBRARY_DIRS})
-  # phist is typically compiled with OpenMP support, add the openmp flag to be able to link
-  if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
-    target_link_libraries(hymls gomp)
-  elseif (CMAKE_C_COMPILER_ID STREQUAL "Intel")
-    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -openmp")  
-  endif()
+endif()
+
+# phist is typically compiled with OpenMP support, add the openmp flag to be able to link.
+# And even if we compile without, I think our Trilinos or MPI installation require it, so
+# set -fopenmp if this is the GNU compiler.
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
+  target_link_libraries(hymls gomp)
+elseif (CMAKE_C_COMPILER_ID STREQUAL "Intel")
+  #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -openmp")  
 endif()
 
 add_library(hymls_eigs SHARED)
