@@ -147,7 +147,8 @@ bool status=true;
     int nx=probl_params.get("nx",32);
     int ny=probl_params.get("ny",nx);
     int nz=probl_params.get("nz",dim>2?nx:1);
-    
+    int dof=probl_params.get("Degrees of Freedom",2);
+  
     std::string eqn=probl_params.get("Equations","Laplace");
 
     map = HYMLS::MainUtils::create_map(*comm,probl_params); 
@@ -165,6 +166,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     K=HYMLS::MainUtils::create_matrix(*map,probl_params,
         galeriLabel, galeriList);
     }
+   HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap-2.txt");
 
     cout << "Hello-1" << endl;
   // create a random exact solution
@@ -218,10 +220,13 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
   Teuchos::ParameterList& solver_params = params->sublist("Solver");
   //bool do_deflation = (solver_params.get("Deflated Subspace Dimension",0)>0);
   bool do_deflation = false;
-  cout << "do_def" << do_deflation <<endl;
-   
+    
+  HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap-2.txt");
+ 
   HYMLS::Tools::Out("Create dummy mass matrix");
-  Teuchos::RCP<Epetra_CrsMatrix> M = Teuchos::rcp(new Epetra_CrsMatrix(Copy,*map,1,true));
+  Teuchos::RCP<Epetra_CrsMatrix> M = Teuchos::null;
+  M= Teuchos::rcp(new Epetra_CrsMatrix(Copy,*map,1,true));
+  cout << "mass matrix-0" << endl;
   int gid;
   double val1=1.0/(nx*ny*nz);
   double val0=0.0;
@@ -243,6 +248,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     {
     for (int i=0;i<M->NumMyRows();i++)
       {
+      cout << "mass matrix" << endl;
       gid = map->GID(i);
       CHECK_ZERO(M->InsertGlobalValues(gid,1,&val1,&gid));
       }

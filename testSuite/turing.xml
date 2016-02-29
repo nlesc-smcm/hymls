@@ -18,7 +18,7 @@
     <Parameter name="Store Matrix" type="bool" value="0"/>
     <ParameterList name="Eigenvalues">
       <Parameter name="Which" type="string" value="SM"/>
-      <Parameter name="How Many" type="int" value="10"/>
+      <Parameter name="How Many" type="int" value="6"/>
       <Parameter name="Convergence Tolerance" type="double" value="1.0e-5"/>
       <Parameter name="Test Space" type="string" value="V"/>
       <Parameter name="Block Size" type="int" value="2"/>
@@ -29,25 +29,26 @@
 
     <Parameter name="Read Linear System" type="bool" value="1"/>
     <Parameter name="Data Directory" type="string" 
-    value="data/DrivenCavity/32x32x32/Re0"/>
+    value="data/Turing"/>
     <Parameter name="File Format" type="string" value="MatrixMarket"/>
-    <Parameter name="Exact Solution Available" type="bool" value="1"/>
-    <Parameter name="Mass Matrix Available" type="bool" value="1"/>
+    <Parameter name="Exact Solution Available" type="bool" value="0"/>
+    <Parameter name="Mass Matrix Available" type="bool" value="0"/>
     
     <Parameter name="Store Final Parameter List" type="bool" value="1"/>
   </ParameterList>
 
   <ParameterList name="Problem"><!--{-->
 
-    <Parameter name="Equations" type="string" value="Stokes-C"/>
-    <Parameter name="Dimension" type="int" value="3"/>
+    <Parameter name="Equations" type="string" value="Laplace"/>
+    <Parameter name="Dimension" type="int" value="2"/>
     
     <Parameter name="Complex Arithmetic" type="bool" value="0"/>
     
     <Parameter name="nx" type="int" value="32"/>
     <Parameter name="ny" type="int" value="32"/>
-    <Parameter name="nz" type="int" value="32"/>
-    
+    <Parameter name="nz" type="int" value="1"/>
+    <Parameter name="Degrees of Freedom" type="int" value="2"/>   
+ 
   </ParameterList><!--}-->
   
   <ParameterList name="Solver">

@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 2.8)
 project(HYMLS CXX)
 
 list (APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/")
+set (CMAKE_CXX_STANDARD 11)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   message(STATUS "Using GNU compiler flags")
@@ -151,7 +152,7 @@ include_directories("${CMAKE_CURRENT_SOURCE_DIR}/evp")
 link_directories(${Trilinos_LIBRARY_DIRS})
 link_directories(${Trilinos_TPL_LIBRARY_DIRS})
 
-find_package(phist QUIET CONFIG)
+# find_package(phist QUIET CONFIG)
 
 # HYMLS version
 execute_process(COMMAND svnversion -n OUTPUT_VARIABLE rev)
