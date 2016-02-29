@@ -123,6 +123,7 @@ bool status=true;
     string datadir,file_format;
     bool have_rhs=false;
     bool have_exact_sol=false;
+    int dim0=0; // if the problem is read from a file, a null space can be read, too, with dim0 columns.
 
     if (read_problem)
       {
@@ -135,7 +136,9 @@ bool status=true;
       file_format = driverList.get("File Format","MatrixMarket");
       have_rhs = driverList.get("RHS Available",false);
       have_exact_sol = driverList.get("Exact Solution Available",false);
+      dim0=driverList.get("Null Space Dimension",0);
       }
+
 
     driverList.unused(std::cerr);
     params->remove("Driver");
@@ -168,7 +171,6 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     }
    HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap-2.txt");
 
-    cout << "Hello-1" << endl;
   // create a random exact solution
   Teuchos::RCP<Epetra_MultiVector> x_ex = Teuchos::rcp(new Epetra_MultiVector(*map,numRhs));
 
@@ -178,22 +180,16 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
   // approximate solution
   Teuchos::RCP<Epetra_MultiVector> x = Teuchos::rcp(new Epetra_MultiVector(*map,numRhs));
 
-  // read nullspace from outside
- Teuchos::RCP<Epetra_MultiVector> nullSpace=Teuchos::rcp(new Epetra_Vector(*map,2));
-// std::string nullspace = "turing/nullS.mtx";
-
- //HYMLS::MatrixUtils::mmread(nullspace,*nullSpace);
- //HYMLS::MatrixUtils::Dump(*nullSpace,"nullSpace.mtx");
- for (int i=2*nx*ny-2*nx+1;i<nullSpace->MyLength();i=i+2)
+  // read nullspace from a file if requiested
+  Teuchos::RCP<Epetra_MultiVector> nullSpace=Teuchos::null;
+  if (read_problem)
   {
-    (*nullSpace)[0][i]=1.0; // set the velocity v of (u,v) on the top line be one  
+    nullSpace=Teuchos::rcp(new Epetra_MultiVector(*map,dim0));
+    HYMLS::Tools::Out("Try to read null space from a file");
+    HYMLS::MatrixUtils::mmread(datadir+"nullSpace.mtx",*nullSpace);
   }
 
-  for (int i=1;i<nullSpace->MyLength();i=i+nx)
-  {
-    (*nullSpace)[1][i]=1.0; // set the velocity v of (u,v) on the right line be one  
-  }
-  cout << "Hello-2" << endl;
+  //HYMLS::MatrixUtils::Dump(*nullSpace,"nullSpace.mtx");
   
   if (read_problem)
     {
@@ -207,15 +203,10 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
       }
     else
       {
-      cout << "Hello-rhs" << endl;
-
       //b=Teuchos::rcp(new Epetra_Vector(*map));
-       HYMLS::MatrixUtils::Random(*b);
-      cout << "Hello-rhs-2" << endl;
-
+      HYMLS::MatrixUtils::Random(*b);
       }
     }
-   cout << "Hello-3" << endl;
 
   Teuchos::ParameterList& solver_params = params->sublist("Solver");
   //bool do_deflation = (solver_params.get("Deflated Subspace Dimension",0)>0);
@@ -226,7 +217,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
   HYMLS::Tools::Out("Create dummy mass matrix");
   Teuchos::RCP<Epetra_CrsMatrix> M = Teuchos::null;
   M= Teuchos::rcp(new Epetra_CrsMatrix(Copy,*map,1,true));
-  cout << "mass matrix-0" << endl;
+
   int gid;
   double val1=1.0/(nx*ny*nz);
   double val0=0.0;
@@ -248,13 +239,11 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     {
     for (int i=0;i<M->NumMyRows();i++)
       {
-      cout << "mass matrix" << endl;
       gid = map->GID(i);
       CHECK_ZERO(M->InsertGlobalValues(gid,1,&val1,&gid));
       }
     }
   CHECK_ZERO(M->FillComplete());
-  cout << "Hello-2" << endl;
 
   if (eqn=="Stokes-C")
     {
