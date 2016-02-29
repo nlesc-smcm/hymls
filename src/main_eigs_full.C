@@ -88,6 +88,7 @@ bool status=true;
   std::string param_file;
   Teuchos::Array<std::string> extra_files;
 
+
   if (argc<2)
     {
     HYMLS::Tools::Out("USAGE: main_eigs <parameter_filename>");
@@ -106,13 +107,16 @@ bool status=true;
       }
     }
 
+  cout << "Hello-1"<< endl;
 
   Teuchos::RCP<Epetra_Map> map;
   Teuchos::RCP<Epetra_CrsMatrix> K;
 
   Teuchos::RCP<Teuchos::ParameterList> params = 
         Teuchos::getParametersFromXmlFile(param_file);
-        
+   
+  cout << "Hello-2"<< endl;
+     
   for (int i=0;i<extra_files.size();i++)
     {
     Teuchos::updateParametersFromXmlFile(extra_files[i],params.ptr());
@@ -164,16 +168,19 @@ bool status=true;
     int nx=probl_params.get("nx",32);
     int ny=probl_params.get("ny",nx);
     int nz=probl_params.get("nz",dim>2?nx:1);
-    
+    int dof=probl_params.get("Degrees of Freedom",2);   
+ 
     std::string eqn=probl_params.get("Equations","Laplace");
 
     map = HYMLS::MainUtils::create_map(*comm,probl_params); 
-#ifdef STORE_MATRICES
+//#ifdef STORE_MATRICES
 HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
-#endif
+//#endif
   if (read_problem)
     {
-    K=HYMLS::MainUtils::read_matrix(datadir,file_format,map);
+     cout << "Hello-3"<< endl;
+     K=HYMLS::MainUtils::read_matrix(datadir,file_format,map);
+     cout << "Hello-4"<< endl;
     }
   else
     {
@@ -187,10 +194,30 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
 Teuchos::RCP<Epetra_MultiVector> x=Teuchos::rcp(new Epetra_Vector(*map));
 HYMLS::MatrixUtils::Random(*x);
 
+// read nullspace from outside
+ Teuchos::RCP<Epetra_MultiVector> nullSpace=Teuchos::rcp(new Epetra_Vector(*map,2));
+// std::string nullspace = "turing/nullS.mtx";
+
+ //HYMLS::MatrixUtils::mmread(nullspace,*nullSpace);
+ //HYMLS::MatrixUtils::Dump(*nullSpace,"nullSpace.mtx");
+ for (int i=2*nx*ny-2*nx+1;i<nullSpace->MyLength();i=i+2)
+  {
+    (*nullSpace)[0][i]=1.0; // set the velocity v of (u,v) on the top line be one  
+  }
+
+  for (int i=1;i<nullSpace->MyLength();i=i+nx)
+  {
+    (*nullSpace)[1][i]=1.0; // set the velocity v of (u,v) on the right line be one  
+  }
+
+
   Teuchos::ParameterList& solver_params = params->sublist("Solver");
   bool do_deflation = (solver_params.get("Deflated Subspace Dimension",0)>0);
 
-  int dof = 1;
+  cout << "Hello-5"<< endl;
+  cout << "dof=" << dof <<endl;
+  //int dof = 1;
+//  int dof = 2; //for turing system Weiyan
   if (eqn=="Stokes-C")
     {
     dof=dim+1;
@@ -208,7 +235,9 @@ HYMLS::MatrixUtils::Random(*x);
       HYMLS::Tools::Out("Create dummy mass matrix");
       M=Teuchos::rcp(new Epetra_CrsMatrix(Copy,*map,1,true));
       int gid;
-      double val1=1.0/(nx*ny*nz);
+//      double val1=1.0/(nx*ny*nz);
+      double val1=1.0; //for turing problem Weiyan 
+
       double val0=0.0;
       if (eqn=="Stokes-C")
         {
@@ -239,13 +268,19 @@ HYMLS::MatrixUtils::Random(*x);
 
   if (precond!=Teuchos::null)
     {
+     cout << "Hello-6"<< endl;
+
     HYMLS::Tools::Out("Initialize Preconditioner...");
     HYMLS::Tools::StartTiming ("main: Initialize Preconditioner");
     REPORT_MEM("main","before Initialize",0,0);
+    cout << "dof=" << dof <<endl;
+
     CHECK_ZERO(precond->Initialize());
     REPORT_MEM("main","after Initialize",0,0);
     HYMLS::Tools::StopTiming("main: Initialize Preconditioner",true);
     }
+  
+  cout << "dof=" << dof <<endl;
 
   HYMLS::Tools::Out("Create Solver");
   Teuchos::RCP<HYMLS::Solver> solver = Teuchos::rcp(new HYMLS::Solver(K, precond, params,1));
@@ -273,7 +308,7 @@ HYMLS::MatrixUtils::Random(*x);
     }
   else
     {
-    CHECK_ZERO(solver->setNullSpace());
+    CHECK_ZERO(solver->setNullSpace(nullSpace));
     }
 
   // Set verbosity level
@@ -315,7 +350,7 @@ HYMLS::MatrixUtils::Random(*x);
 
     for (int i = 0; i < v0->MyLength(); i++)
       {
-      if (v0->Map().GID(i) % dof == dim)
+      if (v0->Map().GID(i) % dof == dim-1)
         {
         (*v0)[0][i] = 0.0;
         }
@@ -354,10 +389,10 @@ HYMLS::MatrixUtils::Random(*x);
   DEBUG("solve eigenproblem");
   returnCode = jada.solve();
   if (returnCode != Anasazi::Converged)
-    {
+
     HYMLS::Tools::Warning("Anasazi::EigensolverMgr::solve() returned unconverged.",
         __FILE__,__LINE__);
-    }
+    
 
   DEBUG("post-process returned solution");
 
@@ -414,7 +449,7 @@ HYMLS::MatrixUtils::Random(*x);
     }
   
   
-    } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr, status);
+    }TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr, status);
   if (!status) HYMLS::Tools::Fatal("Caught an exception",__FILE__,__LINE__);
 
   HYMLS::Tools::PrintTiming(HYMLS::Tools::out());

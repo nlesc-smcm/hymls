@@ -121,7 +121,7 @@ bool status=true;
     // alltogether...   
     bool read_problem=driverList.get("Read Linear System",false);
     string datadir,file_format;
-    bool have_rhs=true;
+    bool have_rhs=false;
     bool have_exact_sol=false;
 
     if (read_problem)
@@ -133,7 +133,7 @@ bool status=true;
                 __FILE__,__LINE__);
         }                
       file_format = driverList.get("File Format","MatrixMarket");
-      have_rhs = driverList.get("RHS Available",true);
+      have_rhs = driverList.get("RHS Available",false);
       have_exact_sol = driverList.get("Exact Solution Available",false);
       }
 
@@ -151,9 +151,9 @@ bool status=true;
     std::string eqn=probl_params.get("Equations","Laplace");
 
     map = HYMLS::MainUtils::create_map(*comm,probl_params); 
-#ifdef STORE_MATRICES
+//#ifdef STORE_MATRICES
 HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
-#endif
+//#endif
   if (read_problem)
     {
     K=HYMLS::MainUtils::read_matrix(datadir,file_format,map);
@@ -165,6 +165,8 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     K=HYMLS::MainUtils::create_matrix(*map,probl_params,
         galeriLabel, galeriList);
     }
+
+    cout << "Hello-1" << endl;
   // create a random exact solution
   Teuchos::RCP<Epetra_MultiVector> x_ex = Teuchos::rcp(new Epetra_MultiVector(*map,numRhs));
 
@@ -173,6 +175,23 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
 
   // approximate solution
   Teuchos::RCP<Epetra_MultiVector> x = Teuchos::rcp(new Epetra_MultiVector(*map,numRhs));
+
+  // read nullspace from outside
+ Teuchos::RCP<Epetra_MultiVector> nullSpace=Teuchos::rcp(new Epetra_Vector(*map,2));
+// std::string nullspace = "turing/nullS.mtx";
+
+ //HYMLS::MatrixUtils::mmread(nullspace,*nullSpace);
+ //HYMLS::MatrixUtils::Dump(*nullSpace,"nullSpace.mtx");
+ for (int i=2*nx*ny-2*nx+1;i<nullSpace->MyLength();i=i+2)
+  {
+    (*nullSpace)[0][i]=1.0; // set the velocity v of (u,v) on the top line be one  
+  }
+
+  for (int i=1;i<nullSpace->MyLength();i=i+nx)
+  {
+    (*nullSpace)[1][i]=1.0; // set the velocity v of (u,v) on the right line be one  
+  }
+  cout << "Hello-2" << endl;
   
   if (read_problem)
     {
@@ -186,13 +205,21 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
       }
     else
       {
-      b=Teuchos::rcp(new Epetra_Vector(*map));
+      cout << "Hello-rhs" << endl;
+
+      //b=Teuchos::rcp(new Epetra_Vector(*map));
+       HYMLS::MatrixUtils::Random(*b);
+      cout << "Hello-rhs-2" << endl;
+
       }
     }
+   cout << "Hello-3" << endl;
 
   Teuchos::ParameterList& solver_params = params->sublist("Solver");
-  bool do_deflation = (solver_params.get("Deflated Subspace Dimension",0)>0);
-  
+  //bool do_deflation = (solver_params.get("Deflated Subspace Dimension",0)>0);
+  bool do_deflation = false;
+  cout << "do_def" << do_deflation <<endl;
+   
   HYMLS::Tools::Out("Create dummy mass matrix");
   Teuchos::RCP<Epetra_CrsMatrix> M = Teuchos::rcp(new Epetra_CrsMatrix(Copy,*map,1,true));
   int gid;
@@ -221,6 +248,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
       }
     }
   CHECK_ZERO(M->FillComplete());
+  cout << "Hello-2" << endl;
 
   if (eqn=="Stokes-C")
     {
@@ -308,7 +336,7 @@ for (int f=0;f<numComputes;f++)
     }
   else
     {
-    CHECK_ZERO(solver->setNullSpace());
+    CHECK_ZERO(solver->setNullSpace(nullSpace));
     }
 
  // std::cout << *solver << std::endl;
