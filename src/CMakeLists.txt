@@ -4,6 +4,9 @@ project(HYMLS CXX)
 list (APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/")
 set (CMAKE_CXX_STANDARD 11)
 
+option(HYMLS_STORE_MATRICES "dump all matrices, maps etc. encountered (huge overhead)" OFF)
+option(HYMLS_DEBUGGING "turns on verbose debugging output" OFF)
+
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   message(STATUS "Using GNU compiler flags")
 
@@ -17,9 +20,9 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   set(CMAKE_CXX_FLAGS_RELEASE      "-O3 -ffast-math -march=native")
   set(CMAKE_Fortran_FLAGS_RELEASE  "-O3 -ffast-math -march=native")
 
-  set (CMAKE_C_FLAGS_DEBUG       "-O0 -g -DTESTING -DDEBUGGING")
-  set (CMAKE_CXX_FLAGS_DEBUG     "-O0 -g -DTESTING -DDEBUGGING")
-  set (CMAKE_Fortran_FLAGS_DEBUG "-O0 -g -DTESTING -DDEBUGGING")
+  set (CMAKE_C_FLAGS_DEBUG       "-O0 -g")
+  set (CMAKE_CXX_FLAGS_DEBUG     "-O0 -g")
+  set (CMAKE_Fortran_FLAGS_DEBUG "-O0 -g")
 
   set (CMAKE_C_FLAGS_RELWITHDEBINFO       "${CMAKE_C_FLAGS_RELEASE}       -g")
   set (CMAKE_CXX_FLAGS_RELWITHDEBINFO     "${CMAKE_CXX_FLAGS_RELEASE}     -g")
@@ -28,18 +31,18 @@ elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
   message(STATUS "Using Intel compiler flags")
 
   if (NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_C_FLAGS        "${CMAKE_C_FLAGS} -O2 -g -mkl -DTESTING")
-    set(CMAKE_CXX_FLAGS      "${CMAKE_CXX_FLAGS} -O2 -g -mkl -DTESTING")
-    set(CMAKE_Fortran_FLAGS  "${CMAKE_Fortran_FLAGS} -O2 -g -mkl -DTESTING")
+    set(CMAKE_C_FLAGS        "${CMAKE_C_FLAGS} -O2 -g -mkl")
+    set(CMAKE_CXX_FLAGS      "${CMAKE_CXX_FLAGS} -O2 -g -mkl")
+    set(CMAKE_Fortran_FLAGS  "${CMAKE_Fortran_FLAGS} -O2 -g -mkl")
   endif()
 
   set(CMAKE_C_FLAGS_RELEASE        "-O3 -mkl -ffast-math -march=native")
   set(CMAKE_CXX_FLAGS_RELEASE      "-O3 -mkl -ffast-math -march=native")
   set(CMAKE_Fortran_FLAGS_RELEASE  "-O3 -mkl -ffast-math -march=native")
 
-  set (CMAKE_C_FLAGS_DEBUG       "-O0 -g -mkl -DTESTING -DDEBUGGING")
-  set (CMAKE_CXX_FLAGS_DEBUG     "-O0 -g -mkl -DTESTING -DDEBUGGING")
-  set (CMAKE_Fortran_FLAGS_DEBUG "-O0 -g -mkl -DTESTING -DDEBUGGING")
+  set (CMAKE_C_FLAGS_DEBUG       "-O0 -g -mkl")
+  set (CMAKE_CXX_FLAGS_DEBUG     "-O0 -g -mkl")
+  set (CMAKE_Fortran_FLAGS_DEBUG "-O0 -g -mkl")
 
   set (CMAKE_C_FLAGS_RELWITHDEBINFO       "${CMAKE_C_FLAGS_RELEASE}       -g")
   set (CMAKE_CXX_FLAGS_RELWITHDEBINFO     "${CMAKE_CXX_FLAGS_RELEASE}     -g")
@@ -155,8 +158,25 @@ link_directories(${Trilinos_TPL_LIBRARY_DIRS})
 # find_package(phist QUIET CONFIG)
 
 # HYMLS version
-execute_process(COMMAND svnversion -n OUTPUT_VARIABLE rev)
+execute_process(COMMAND git rev-parse --short --sq HEAD OUTPUT_VARIABLE rev)
 add_definitions(-DHYMLS_REVISION="${rev}")
+
+if (CMAKE_BUILD_TYPE MATCHES "Debug")
+
+  message(STATUS "enabling TESTING")
+  add_definitions(-DTESTING)
+
+  if (HYMLS_STORE_MATRICES)
+    message(STATUS "enabling STORE_MATRICES output")
+    add_definitions(-DSTORE_MATRICES)
+  endif()
+
+  if (HYMLS_DEBUGGING)
+    message(STATUS "enabling DEBUGGING output")
+    add_definitions(-DDEBUGGING)
+  endif()
+
+endif()
 
 add_library(hymls ${SOURCES})
 
