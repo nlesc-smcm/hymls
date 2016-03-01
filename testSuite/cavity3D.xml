@@ -16,7 +16,7 @@
     
     <Parameter name="Read Linear System" type="bool" value="1"/>
     <Parameter name="Data Directory" type="string" 
-    value="data/DrivenCavity/32x32x32/Re0"/>
+    value="${PROJECT_SOURCE_DIR}/testSuite/data/DrivenCavity/32x32x32/Re0"/>
     <Parameter name="File Format" type="string" value="MatrixMarket"/>
     <Parameter name="Exact Solution Available" type="bool" value="1"/>
     
