@@ -150,7 +150,7 @@ bool status=true;
     int nx=probl_params.get("nx",32);
     int ny=probl_params.get("ny",nx);
     int nz=probl_params.get("nz",dim>2?nx:1);
-    int dof=probl_params.get("Degrees of Freedom",2);
+    int dof=probl_params.get("Degrees of Freedom",1);
   
     std::string eqn=probl_params.get("Equations","Laplace");
 
@@ -184,15 +184,19 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
   Teuchos::RCP<Epetra_MultiVector> nullSpace=Teuchos::null;
   if (read_problem)
   {
-    nullSpace=Teuchos::rcp(new Epetra_MultiVector(*map,dim0));
-    HYMLS::Tools::Out("Try to read null space from a file");
-    HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap-2.txt");
-    cout << "dim0=" << dim0 <<endl;
-    HYMLS::MatrixUtils::mmread(datadir+"nullSpace.mtx",*nullSpace);
+    if (dim0>0)
+    {
+      nullSpace=Teuchos::rcp(new Epetra_MultiVector(*map,dim0));
+      HYMLS::Tools::Out("Try to read null space from a file");
+      HYMLS::MatrixUtils::mmread(datadir+"nullSpace.mtx",*nullSpace);
+    }
   }
-
-  //HYMLS::MatrixUtils::Dump(*nullSpace,"nullSpace.mtx");
-  
+#ifdef STORE_MATRICES
+  if (nullSpace!=Teuchos::null)
+  {
+    HYMLS::MatrixUtils::Dump(*nullSpace,"nullSpace.mtx");
+  }
+#endif  
   if (read_problem)
     {
     if (have_exact_sol)
@@ -331,7 +335,7 @@ for (int f=0;f<numComputes;f++)
     {
     CHECK_ZERO(solver->SetupDeflation());
     }
-  else
+  else if (nullSpace!=Teuchos::null)
     {
     CHECK_ZERO(solver->setNullSpace(nullSpace));
     }
