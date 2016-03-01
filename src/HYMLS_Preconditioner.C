@@ -167,7 +167,13 @@ namespace HYMLS {
         probList_.remove("Complex Arithmetic");
         }
       }
-
+    if (probList_.isParameter("Degrees of Freedom")==false)
+    {
+      HYMLS::Tools::Error("At this point, the 'Problem' sublist must contain 'Degrees of Freedom'\n"
+                          "If you do not set 'Equations', you have to set a (among others) this one.\n",
+        __FILE__,__LINE__);
+    }
+DEBVAR(probList_);
     dof_=probList_.get("Degrees of Freedom",1);
 
 #ifdef TESTING
@@ -345,6 +351,7 @@ namespace HYMLS {
     time_->ResetStartTime();
     if (hid_==Teuchos::null)
       {
+      DEBVAR(*getMyNonconstParamList());
       // this is the partitioning step:
       // - partition domain into small subdomains
       // - find separators

@@ -151,9 +151,12 @@ bool status=true;
     int nx=probl_params.get("nx",32);
     int ny=probl_params.get("ny",nx);
     int nz=probl_params.get("nz",dim>2?nx:1);
-    int dof=probl_params.get("Degrees of Freedom",1);
   
-    std::string eqn=probl_params.get("Equations","Laplace");
+    std::string eqn="not-set";
+    if (probl_params.isParameter("Equations"))
+      {
+      eqn=probl_params.get("Equations","Laplace");
+      }
 
     map = HYMLS::MainUtils::create_map(*comm,probl_params); 
 //#ifdef STORE_MATRICES
@@ -222,7 +225,6 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
       }
     }
 
-  Teuchos::ParameterList& solver_params = params->sublist("Solver");
   //bool do_deflation = (solver_params.get("Deflated Subspace Dimension",0)>0);
   bool do_deflation = false;
     

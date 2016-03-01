@@ -126,7 +126,7 @@ void OverlappingPartitioner::setParameterList
         (const Teuchos::RCP<Teuchos::ParameterList>& params)
   {
   HYMLS_PROF3(Label(),"setParameterList");
-
+  
   setMyParamList(params);
 
   dim_=PL().get("Dimension",2);
