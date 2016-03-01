@@ -133,9 +133,6 @@ void OverlappingPartitioner::setParameterList
 
   dof_=PL().get("Degrees of Freedom",1);
 
-  dof_=2; // why it is always 1 no matter what value set in .xml Degrees of freedom ---Weiyan Feb 24,2016
-  cout << "dof in partitioner=" << dof_ <<endl;
-
   perio_=PL().get("Periodicity",GaleriExt::NO_PERIO);
 
   variableType_.resize(dof_);
