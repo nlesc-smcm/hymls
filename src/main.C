@@ -123,6 +123,7 @@ bool status=true;
     string datadir,file_format;
     bool have_rhs=false;
     bool have_exact_sol=false;
+    std::string nullSpaceType=driverList.get("Null Space Type","None");
     int dim0=0; // if the problem is read from a file, a null space can be read, too, with dim0 columns.
 
     if (read_problem)
@@ -136,7 +137,7 @@ bool status=true;
       file_format = driverList.get("File Format","MatrixMarket");
       have_rhs = driverList.get("RHS Available",false);
       have_exact_sol = driverList.get("Exact Solution Available",false);
-      dim0=driverList.get("Null Space Dimension",0);
+      if (nullSpaceType=="File") dim0=driverList.get("Null Space Dimension",0);
       }
 
 
@@ -184,13 +185,20 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
   Teuchos::RCP<Epetra_MultiVector> nullSpace=Teuchos::null;
   if (read_problem)
   {
-    if (dim0>0)
+    if (nullSpaceType=="File")
     {
       nullSpace=Teuchos::rcp(new Epetra_MultiVector(*map,dim0));
-      HYMLS::Tools::Out("Try to read null space from a file");
-      HYMLS::MatrixUtils::mmread(datadir+"nullSpace.mtx",*nullSpace);
+      std::string nullSpace_file=datadir+"/nullSpace.mtx";
+      HYMLS::Tools::Out("Try to read null space from file '"+nullSpace_file+"'");
+      HYMLS::MatrixUtils::mmread(nullSpace_file,*nullSpace);
     }
   }
+  // if the nullspace was not read from a file, it may be constructed if the 
+  // user puts a hint like "Null Space Type"=="Constant" etc. in the file
+  if (nullSpaceType!="File")
+    {
+    nullSpace=HYMLS::MainUtils::create_nullspace(*K, nullSpaceType, probl_params);
+    }
 #ifdef STORE_MATRICES
   if (nullSpace!=Teuchos::null)
   {

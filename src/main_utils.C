@@ -288,6 +288,75 @@ Teuchos::RCP<Epetra_CrsMatrix> create_matrix(const Epetra_Map& map,
   return matrix;
   }
 
+  // try to construct the nullspace for the operator, right now we only implement
+  Teuchos::RCP<Epetra_MultiVector> create_nullspace(const Epetra_CrsMatrix& A,
+                                                    const std::string& nullSpaceType,
+                                                          Teuchos::ParameterList& probl_params)
+  {
+  Teuchos::RCP<Epetra_MultiVector> nullSpace = Teuchos::null;
+  if (nullSpaceType == "Constant")
+    {
+    nullSpace = Teuchos::rcp(new Epetra_Vector(A.OperatorDomainMap()));
+    CHECK_ZERO(nullSpace->PutScalar(1.0));
+    }
+  else if (nullSpaceType == "Constant P")
+    {
+    // NOTE: we assume u/v/w/p[/T] ordering here, it works for 2D and 3D as long
+    // as var[dim]=P
+    nullSpace = Teuchos::rcp(new Epetra_Vector(A.OperatorDomainMap()));
+    int pvar = probl_params.get("Dimension", -1);
+    int dof = probl_params.get("Degrees of Freedom", -1);
+    // TODO: this is all a bit ad-hoc
+    if (pvar == -1 || dof == -1)
+      {
+      Tools::Error("'Dimension' or 'Degrees of Freedom' not set in 'Problem' sublist",
+        __FILE__, __LINE__);
+      }
+    CHECK_ZERO(nullSpace->PutScalar(0.0))
+      for (int i = dof - 1; i < nullSpace->MyLength(); i+= dof)
+        {
+        (*nullSpace)[0][i] = 1.0;
+        }
+    }
+  else if (nullSpaceType == "Checkerboard")
+    {
+    nullSpace = Teuchos::rcp(new Epetra_MultiVector(A.OperatorDomainMap(), 3));
+    int dof = probl_params.get("Degrees of Freedom", -1);
+    int dim = probl_params.get("Dimension", -1);
+    int nx = probl_params.get("nx", 1);
+    int ny = probl_params.get("ny", nx);
+    int nz = probl_params.get("nz", dim > 2 ? nx : 1);
+    for (int lid = 0; lid < nullSpace->MyLength(); lid++)
+      {
+      int gid=nullSpace->Map().GID(lid);
+      int i,j,k,v;
+      HYMLS::Tools::ind2sub(nx, ny, nz, dof, gid, i, j, k, v);
+      double val1 =  (double)(MOD(i+j+k,2));
+      double val2 =  1.0-val1;
+      (*nullSpace)[0][lid]=val1;
+      (*nullSpace)[1][lid]=val2;
+      (*nullSpace)[2][lid]=1.0;
+      }
+    }    
+  else if (nullSpaceType != "None")
+    {
+    Tools::Error("'Null Space'='"+nullSpaceType+"' not implemented",
+      __FILE__, __LINE__);
+    }
+
+  // normalize each column
+  int k = nullSpace->NumVectors();
+  double *nrm2 = new double[k];
+  CHECK_ZERO(nullSpace->Norm2(nrm2));
+  for (int i=0;i<k;i++)
+    {
+    CHECK_ZERO((*nullSpace)(i)->Scale(1.0/nrm2[i]));
+    }
+  delete [] nrm2;
+  return nullSpace;
+  }
+
+
 int MakeSystemConsistent(const Epetra_CrsMatrix& A,
                                Epetra_MultiVector& x_ex,
                                Epetra_MultiVector& b,

@@ -19,6 +19,9 @@
     value="${PROJECT_SOURCE_DIR}/testSuite/data/DrivenCavity/32x32x32/Re0"/>
     <Parameter name="File Format" type="string" value="MatrixMarket"/>
     <Parameter name="Exact Solution Available" type="bool" value="1"/>
+
+    <!-- fix pressure level by adding a border -->
+    <Parameter name="Null Space Type" type="string" value="Constant P"/>
     
     <Parameter name="Store Final Parameter List" type="bool" value="1"/>
   
@@ -41,9 +44,6 @@
     <!-- "CG", "GMRES", "PCPG" (only GMRES actually supported by our solver right now) -->
     <Parameter name="Krylov Method" type="string" value="GMRES"/>
 
-    <!-- fix pressure level by adding a border -->
-    <Parameter name="Null Space" type="string" value="Constant P"/>
-    
     <!-- parameters for the iterative solver (Belos) -->
     <ParameterList name="Iterative Solver">
       <Parameter name="Maximum Iterations" type="int" value="250"/>
