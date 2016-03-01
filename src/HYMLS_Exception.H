@@ -17,9 +17,18 @@ class Exception : public std::exception
   
   public:
   
-  //!
+  //! constructor with message, file name and line number
   Exception(std::string msg, std::string file, int line) throw();
 
+  //! copy constructor
+  Exception(const Exception& e)=default;
+
+  //! assignment operator
+  Exception& operator=(const Exception& e)=default;
+
+  //! move constructor
+  Exception(Exception&& e)=default;
+  
   //!
   const char* what() const throw();
 

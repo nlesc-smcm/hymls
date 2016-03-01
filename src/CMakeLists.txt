@@ -6,6 +6,7 @@ set (CMAKE_CXX_STANDARD 11)
 
 option(HYMLS_STORE_MATRICES "dump all matrices, maps etc. encountered (huge overhead)" OFF)
 option(HYMLS_DEBUGGING "turns on verbose debugging output" OFF)
+option(HYMLS_FUNCTION_TRACING "turns on very verbose output on every function entered/left" OFF)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   message(STATUS "Using GNU compiler flags")
@@ -174,6 +175,10 @@ if (CMAKE_BUILD_TYPE MATCHES "Debug")
   if (HYMLS_DEBUGGING)
     message(STATUS "enabling DEBUGGING output")
     add_definitions(-DDEBUGGING)
+  endif()
+  if (HYMLS_FUNCTION_TRACING)
+    message(STATUS "enabling FUNCTION_TRACING output")
+    add_definitions(-DFUNCTION_TRACING)
   endif()
 
 endif()
