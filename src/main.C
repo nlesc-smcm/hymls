@@ -169,7 +169,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     K=HYMLS::MainUtils::create_matrix(*map,probl_params,
         galeriLabel, galeriList);
     }
-   HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap-2.txt");
+ 
 
   // create a random exact solution
   Teuchos::RCP<Epetra_MultiVector> x_ex = Teuchos::rcp(new Epetra_MultiVector(*map,numRhs));
@@ -186,6 +186,8 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
   {
     nullSpace=Teuchos::rcp(new Epetra_MultiVector(*map,dim0));
     HYMLS::Tools::Out("Try to read null space from a file");
+    HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap-2.txt");
+    cout << "dim0=" << dim0 <<endl;
     HYMLS::MatrixUtils::mmread(datadir+"nullSpace.mtx",*nullSpace);
   }
 
