@@ -83,9 +83,9 @@
 
     <!-- parameters for the iterative solver (Belos) -->
     <ParameterList name="Iterative Solver">
-      <Parameter name="Maximum Iterations" type="int" value="100"/>
-      <Parameter name="Maximum Restarts" type="int" value="15"/>
-      <Parameter name="Num Blocks" type="int" value="100"/>
+      <Parameter name="Maximum Iterations" type="int" value="1000"/>
+      <Parameter name="Maximum Restarts" type="int" value="20"/>
+      <Parameter name="Num Blocks" type="int" value="50"/>
       <Parameter name="Flexible Gmres" type="bool" value="0"/>
       <Parameter name="Explicit Residual Test" type="bool" value="false"/>
       <Parameter name="Convergence Tolerance" type="double" value="1.0e-10"/>

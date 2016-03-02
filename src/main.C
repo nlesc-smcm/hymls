@@ -338,13 +338,15 @@ for (int f=0;f<numComputes;f++)
     CHECK_ZERO(precond->Compute());
     HYMLS::Tools::StopTiming("main: Compute Preconditioner",true);
     }
+
+  if (nullSpace!=Teuchos::null)
+    {
+    CHECK_ZERO(solver->setNullSpace(nullSpace));
+    }
+
   if (do_deflation)
     {
     CHECK_ZERO(solver->SetupDeflation());
-    }
-  else if (nullSpace!=Teuchos::null)
-    {
-    CHECK_ZERO(solver->setNullSpace(nullSpace));
     }
 
  // std::cout << *solver << std::endl;
