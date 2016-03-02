@@ -16,7 +16,11 @@
   
     <Parameter name="Store Solution" type="bool" value="0"/>
     <Parameter name="Store Matrix" type="bool" value="0"/>
-    
+
+    <!-- Null space is a constant vector. By setting this option, we -->
+    <!-- ask HYMLS to deflate it.                                    -->
+    <Parameter name="Null Space Type" type="string" value="Constant"/>
+      
     <Parameter name="Galeri Label" type="string" value="Laplace Neumann"/>
   
   </ParameterList>
@@ -35,10 +39,6 @@
   </ParameterList><!--}-->
   
   <ParameterList name="Solver">
-  
-    <!-- Null space is a constant vector. By setting this option, we -->
-    <!-- ask HYMLS to deflate it.                                    -->
-    <Parameter name="Null Space" type="string" value="Constant"/>
   
     <!-- "CG", "GMRES", "PCPG" (only GMRES actually supported by our solver right now) -->
     <Parameter name="Krylov Method" type="string" value="GMRES"/>

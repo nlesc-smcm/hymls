@@ -17,10 +17,13 @@
     
     <Parameter name="Read Linear System" type="bool" value="1"/>
     <Parameter name="Data Directory" type="string" 
-    value="data/Graphene/128x64"/>
+    value="${PROJECT_SOURCE_DIR}/testSuite/data/Graphene/128x64"/>
     <Parameter name="File Format" type="string" value="MatrixMarket"/>
     <Parameter name="RHS Available" type="bool" value="0"/>
     <Parameter name="Exact Solution Available" type="bool" value="0"/>
+
+    <!-- removes two modes to make the problem nonsingular -->
+    <Parameter name="Null Space Type" type="string" value="Checkerboard"/>
     
     <Parameter name="Store Final Parameter List" type="bool" value="1"/>
   
@@ -45,7 +48,6 @@
     
     <!-- "CG", "GMRES", "PCPG" (only GMRES actually supported by our solver right now) -->
     <Parameter name="Krylov Method" type="string" value="GMRES"/>
-    <Parameter name="Null Space" type="string" value="Checkerboard"/>
     
     <!-- parameters for the iterative solver (Belos) -->
     <ParameterList name="Iterative Solver">

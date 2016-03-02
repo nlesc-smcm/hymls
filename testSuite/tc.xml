@@ -15,7 +15,8 @@
     <Parameter name="Store Matrix" type="bool" value="0"/>
     
     <Parameter name="Read Linear System" type="bool" value="1"/>
-    <Parameter name="Data Directory" type="string" value="data/TaylorCouette/64x64x16"/>
+    <Parameter name="Data Directory" type="string" 
+    value="${PROJECT_SOURCE_DIR}/testSuite/data/TaylorCouette/64x64x16"/>
     <Parameter name="File Format" type="string" value="MatrixMarket"/>
     <Parameter name="Exact Solution Available" type="bool" value="0"/>
   

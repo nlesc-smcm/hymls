@@ -34,6 +34,12 @@ Teuchos::RCP<Epetra_CrsMatrix> create_matrix(const Epetra_Map& map,
                                 Teuchos::ParameterList& probl_params,
                                 std::string galeriLabel, Teuchos::ParameterList& galeriList);
 
+// given the "Problem" sublist, constructs a null space, for instance:
+// "Null Space Type"="Constant", "Constant P" etc.
+Teuchos::RCP<Epetra_MultiVector> create_nullspace(const Epetra_CrsMatrix& A, 
+                                                        const std::string& nullSpaceType,
+                                                        Teuchos::ParameterList& probl_params);
+
 int MakeSystemConsistent(const Epetra_CrsMatrix& A,
                                Epetra_MultiVector& x_ex,
                                Epetra_MultiVector& b,

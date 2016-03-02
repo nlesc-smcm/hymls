@@ -152,11 +152,11 @@ Teuchos::print_stack_on_segfault();
       throw HYMLS::Exception(msg,(std::string)file,line);
       }
       
-    static void Fatal(std::string msg, const char* file, int line)
+    static void Fatal(std::string msg, const char* file, int line, bool printStack=false)
       {
-      printFunctionStack(std::cerr);
-      PrintMemUsage(std::cerr);
-      std::cerr << std::endl;
+      if (printStack) printFunctionStack(std::cerr);
+      //PrintMemUsage(std::cerr);
+      //std::cerr << std::endl;
       std::cerr << "Fatal Error: "<<msg<<std::endl;
       std::cerr << "(in "<<file<<", line "<<line<<")"<<std::endl;
       DEBUG(std::flush);
