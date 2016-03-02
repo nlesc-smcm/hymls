@@ -308,9 +308,6 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
   HYMLS::Tools::Out("Create Solver");
   Teuchos::RCP<HYMLS::Solver> solver = Teuchos::rcp(new HYMLS::Solver(K, precond, params,numRhs));
 
-  // get the null space (if any), as specified in the xml-file
-  Teuchos::RCP<const Epetra_MultiVector> Nul = solver->getNullSpace();
-
   solver->SetMassMatrix(M);
 
   REPORT_MEM("main","before HYMLS",0,0);
@@ -370,14 +367,14 @@ for (int f=0;f<numComputes;f++)
         // make sure the div equation is Div U = 0 and the RHS is consistent
         CHECK_ZERO(HYMLS::MainUtils::MakeSystemConsistent(*K,*x_ex,*b,driverList));
         }
-      if (Nul!=Teuchos::null)
+      if (nullSpace!=Teuchos::null)
         {
         double alpha;
         double vnrm2;
-        CHECK_ZERO(x_ex->Dot(*Nul,&alpha));
-        CHECK_ZERO(Nul->Norm2(&vnrm2));
+        CHECK_ZERO(x_ex->Dot(*nullSpace,&alpha));
+        CHECK_ZERO(nullSpace->Norm2(&vnrm2));
         alpha/=(vnrm2*vnrm2);
-        CHECK_ZERO(x_ex->Update(-alpha,*Nul,1.0));
+        CHECK_ZERO(x_ex->Update(-alpha,*nullSpace,1.0));
         }
       CHECK_ZERO(K->Multiply(false,*x_ex,*b));
       }
