@@ -101,7 +101,7 @@ void HYMLS_jadaCorrectionSolver_run1(void* vme,
     CHECK_ZERO(vec1.Import(*Q_ptr, import0, Insert));
     if (me->borderedSolver)
     {
-      solver->SetBorder(Teuchos::rcp<const Epetra_MultiVector>(&vec1, false),
+      solver->addBorder(Teuchos::rcp<const Epetra_MultiVector>(&vec1, false),
         Teuchos::rcp<const Epetra_MultiVector>(&vec0, false));
       solver->SetupDeflation();
     }
@@ -114,7 +114,7 @@ void HYMLS_jadaCorrectionSolver_run1(void* vme,
   {
     if (me->borderedSolver)
     {
-      solver->SetBorder(Teuchos::rcp<const Epetra_MultiVector>(BQ_ptr, false),
+      solver->addBorder(Teuchos::rcp<const Epetra_MultiVector>(BQ_ptr, false),
         Teuchos::rcp<const Epetra_MultiVector>(Q_ptr, false));
     }
     else

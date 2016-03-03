@@ -1320,12 +1320,12 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
 //////////////////////////////////
 
   // add a border to the preconditioner
-  int Preconditioner::SetBorder(
+  int Preconditioner::addBorder(
                Teuchos::RCP<const Epetra_MultiVector> V, 
                Teuchos::RCP<const Epetra_MultiVector> W,
                Teuchos::RCP<const Epetra_SerialDenseMatrix> C)
     {
-    HYMLS_LPROF2(label_,"SetBorder");
+    HYMLS_LPROF2(label_,"addBorder");
 
     Teuchos::RCP<const Epetra_MultiVector> _V=V;
     Teuchos::RCP<const Epetra_MultiVector> _W=W;
@@ -1337,12 +1337,12 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
       // by adding some of these computations to Compute(),
       // but I think it is OK to compute the prec first and
       // set the bordering afterwards.
-      Tools::Error("SetBorder: requires preconditioner to be computed",
+      Tools::Error("addBorder: requires preconditioner to be computed",
         __FILE__,__LINE__);
       }
     if (_V==Teuchos::null)
       {
-      Tools::Error("SetBorder: V can't be null",__FILE__,__LINE__);
+      Tools::Error("addBorder: V can't be null",__FILE__,__LINE__);
       }
     int m = _V->NumVectors();
     DEBVAR(m);
@@ -1454,7 +1454,7 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
       Tools::Error("cannot handle bordered Schur problem",__FILE__,__LINE__);
       }
     DEBVAR(borderSchurV_->MyLength());
-    CHECK_ZERO(borderedSchurSolver->SetBorder(borderSchurV_,borderSchurW_,borderSchurC_));
+    CHECK_ZERO(borderedSchurSolver->addBorder(borderSchurV_,borderSchurW_,borderSchurC_));
     return 0;
     }
 

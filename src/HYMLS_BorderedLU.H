@@ -69,7 +69,7 @@ namespace HYMLS
     //! to be set (one could think of a more general interface that   
     //! allows adding several borders, i.e. for doing pseudo-arclength
     //! continuation with a projected preconditioner).                
-    int SetBorder(Teuchos::RCP<const Epetra_MultiVector> V,
+    int addBorder(Teuchos::RCP<const Epetra_MultiVector> V,
                   Teuchos::RCP<const Epetra_MultiVector> W,
                   Teuchos::RCP<const Epetra_SerialDenseMatrix> C);
 

@@ -352,20 +352,20 @@ int Solver::setNullSpace(Teuchos::RCP<const Epetra_MultiVector> const &V)
     {
     Teuchos::RCP<const Epetra_MultiVector> nullSpace = nullSpace_;
     nullSpace_ = Teuchos::null;
-    CHECK_ZERO(SetBorder(nullSpace, nullSpace));
+    CHECK_ZERO(addBorder(nullSpace, nullSpace));
     nullSpace_ = nullSpace;
 
     return 0;
     }
 
   nullSpace_ = Teuchos::null;
-  CHECK_ZERO(SetBorder(V, V));
+  CHECK_ZERO(addBorder(V, V));
   nullSpace_ = V;
 
   return 0;
   }
 
-int Solver::SetBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
+int Solver::addBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
   Teuchos::RCP<const Epetra_MultiVector> const &W)
   {
   if (V.is_null())
@@ -421,7 +421,7 @@ int Solver::SetBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
     = Teuchos::rcp_dynamic_cast<BorderedSolver>(precond_);
   if (bprec!=Teuchos::null)
     {
-    CHECK_ZERO(bprec->SetBorder(V_, W_));
+    CHECK_ZERO(bprec->addBorder(V_, W_));
     }
   Aorth_ = Teuchos::rcp(new ProjectedOperator(operator_, V_, massMatrix_, true));
   belosProblemPtr_->setOperator(Aorth_);
@@ -452,7 +452,7 @@ int Solver::SetupDeflation(int maxEigs)
       = Teuchos::rcp_dynamic_cast<BorderedSolver>(precond_);
     if (bprec!=Teuchos::null)
       {
-      CHECK_ZERO(bprec->SetBorder(V_,W_));
+      CHECK_ZERO(bprec->addBorder(V_,W_));
       }
     else if (precond_!=Teuchos::null)
       {
@@ -671,7 +671,7 @@ int Solver::SetupDeflation(int maxEigs)
       {
       Teuchos::RCP<Epetra_SerialDenseMatrix> C = Teuchos::rcp(new
         Epetra_SerialDenseMatrix(numDeflated_, numDeflated_));
-      CHECK_ZERO(borderedPrec->SetBorder(V_, W_, C));
+      CHECK_ZERO(borderedPrec->addBorder(V_, W_, C));
       } // otherwise this was done above (only deflate a given null space)
     }
 

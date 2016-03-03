@@ -173,7 +173,7 @@ public:
 
   //! Set the border of the matrix or expand the null space with this
   //! border when a null space is present
-  int SetBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
+  int addBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
     Teuchos::RCP<const Epetra_MultiVector> const &W);
 
   //! use same preconditioner but operator (I-VV')A

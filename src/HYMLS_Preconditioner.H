@@ -224,7 +224,7 @@ public:
   
   //! add a border to the preconditioner. So instead of solving
   //! Px=y we then solve Px+Vs=y, W'x+Cs=0.
-  int SetBorder(Teuchos::RCP<const Epetra_MultiVector> V,
+  int addBorder(Teuchos::RCP<const Epetra_MultiVector> V,
                 Teuchos::RCP<const Epetra_MultiVector> W=Teuchos::null,
                 Teuchos::RCP<const Epetra_SerialDenseMatrix> C=Teuchos::null);
 
@@ -323,13 +323,13 @@ protected:
   //! \name data structures for solving a 'bordered' system
   //@{
 
-  //! bordering: if SetBorder has been called, we solve [P V; W' C] [x; s] = [b; O].
+  //! bordering: if addBorder has been called, we solve [P V; W' C] [x; s] = [b; O].
   Teuchos::RCP<Epetra_MultiVector> borderV_, borderW_;
   
   //! bordering: block C
   Teuchos::RCP<const Epetra_SerialDenseMatrix> borderC_;
   
-  //! bordering: if SetBorder has been called, we solve [K V; W' C] [x; s] = [b; O].
+  //! bordering: if addBorder has been called, we solve [K V; W' C] [x; s] = [b; O].
   Teuchos::RCP<Epetra_MultiVector> borderV1_, borderV2_, borderW1_, borderW2_;
 
   //! A11\V1
