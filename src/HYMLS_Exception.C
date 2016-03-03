@@ -32,11 +32,6 @@ Exception::Exception(Exception&& e)
     file_=e.file_;
     line_=e.line_;
     functionStack_=e.functionStack_;
-  }
-#endif
-
-  const char* Exception::what() const throw()
-    {
     std::stringstream ss;
 
     ss << "#### HYMLS EXCEPTION ####\n";
@@ -48,9 +43,13 @@ Exception::Exception(Exception&& e)
 
     // deliberately create a memory leak because I
     // don't get the output otherwise (?)
-    std::string* str=new std::string(ss.str());
-    const char* output = str->c_str();
-    return output;
+    message_=ss.str();
+  }
+#endif
+
+  const char* Exception::what() const throw()
+    {
+    return message_.c_str();
     }
 
   Exception::~Exception() throw() {}

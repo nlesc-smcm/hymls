@@ -152,32 +152,51 @@ public:
 
   void SetTolerance(double tol);
 
-  //! computes the modes closest to 0 and sets up the solver's deflation
-  //! capabilities. If maxEigs==-2, the value "Deflated Subspace Dimension"
-  //! from the "Solver" sublist is used.
-  //!
-  //! If maxEigs==0, this function adds the null space as a border of the
-  //! preconditioner to make it non-singular.
-  int SetupDeflation(int maxEigs=-2);
-  
   //! get number of iterations performed in last ApplyInverse() call
   inline int getNumIter() const {return numIter_;}
   
   //! get the null space (or approximate null space) of the operator
   Teuchos::RCP<const Epetra_MultiVector> getNullSpace() {return nullSpace_;}
   
-  //! set  the (approximate) null space. The given vectors are added
-  //! to the constant (exact) null space defined by the "Null Space"
-  //! entry in the parameter list.
+  //! For singular problems with a known null space, add the null space
+  //! as a border so that in fact the linear system
+  //!
+  //! |A   V0||x |   |b|
+  //! |V0'  0||x0| = |0|
+  //!
+  //! is being solved. This means that the solution will be perpendicular to V0
+  //! If the function is called repeatedly, the 'old' vectors are replaced.
   int setNullSpace(Teuchos::RCP<const Epetra_MultiVector> const &V = Teuchos::null);
 
   //! Set the border of the matrix or expand the null space with this
+
   //! border when a null space is present
   int addBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
+
+  //! border when a null space is present. If setNullSpace has not been
+  //! called, this function is equivalent to setNullSpace.
+  //! If the function is called repeatedly, the vectors added by setNullSpace are preserved
+  //! but those added by a previous call to SetBorder are overwritten.
+  //!
+  //! \todo rename this function addBorder and clarify who takes care of adding the border to
+  //! the preconditioner: HYMLS::Solver or NOX::Epetra::LinearSystemHymls.
+
+
     Teuchos::RCP<const Epetra_MultiVector> const &W);
 
   //! use same preconditioner but operator (I-VV')A
   int setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V);
+
+  //! computes the modes closest to 0 and sets up the solver's deflation
+  //! capabilities. If maxEigs==-2, the value "Deflated Subspace Dimension"
+  //! from the "Solver" sublist is used.
+  //!
+  //! If maxEigs==0, this function adds the null space as a border of the
+  //! preconditioner to make it non-singular.
+  //!
+  //! \todo see todo in addBorder
+  int SetupDeflation(int maxEigs=-2);
+  
 
 protected: 
 

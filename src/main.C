@@ -198,7 +198,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
   }
   // if the nullspace was not read from a file, it may be constructed if the 
   // user puts a hint like "Null Space Type"=="Constant" etc. in the file
-  if (nullSpaceType!="File")
+  if (nullSpaceType!="File" && nullSpaceType!="None")
     {
     nullSpace=HYMLS::MainUtils::create_nullspace(*K, nullSpaceType, probl_params);
     }
@@ -308,9 +308,6 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
   HYMLS::Tools::Out("Create Solver");
   Teuchos::RCP<HYMLS::Solver> solver = Teuchos::rcp(new HYMLS::Solver(K, precond, params,numRhs));
 
-  // get the null space (if any), as specified in the xml-file
-  Teuchos::RCP<const Epetra_MultiVector> Nul = solver->getNullSpace();
-
   solver->SetMassMatrix(M);
 
   REPORT_MEM("main","before HYMLS",0,0);
@@ -341,13 +338,15 @@ for (int f=0;f<numComputes;f++)
     CHECK_ZERO(precond->Compute());
     HYMLS::Tools::StopTiming("main: Compute Preconditioner",true);
     }
+
+  if (nullSpace!=Teuchos::null)
+    {
+    CHECK_ZERO(solver->setNullSpace(nullSpace));
+    }
+
   if (do_deflation)
     {
     CHECK_ZERO(solver->SetupDeflation());
-    }
-  else if (nullSpace!=Teuchos::null)
-    {
-    CHECK_ZERO(solver->setNullSpace(nullSpace));
     }
 
  // std::cout << *solver << std::endl;
@@ -370,14 +369,15 @@ for (int f=0;f<numComputes;f++)
         // make sure the div equation is Div U = 0 and the RHS is consistent
         CHECK_ZERO(HYMLS::MainUtils::MakeSystemConsistent(*K,*x_ex,*b,driverList));
         }
-      if (Nul!=Teuchos::null)
+      // project out the null space from x_ex, x_ex <- x_ex - V0*(V0'x_ex)
+      if (nullSpace!=Teuchos::null)
         {
-        double alpha;
-        double vnrm2;
-        CHECK_ZERO(x_ex->Dot(*Nul,&alpha));
-        CHECK_ZERO(Nul->Norm2(&vnrm2));
-        alpha/=(vnrm2*vnrm2);
-        CHECK_ZERO(x_ex->Update(-alpha,*Nul,1.0));
+        Epetra_SerialComm serialComm;
+        Epetra_LocalMap localMap(dim0,0,*comm);
+        Teuchos::RCP<Epetra_MultiVector> M = Teuchos::rcp(new Epetra_MultiVector(localMap,1),true);
+                            
+        CHECK_ZERO(M->Multiply('T','N',1.0,*nullSpace,*x_ex,0.0));
+        CHECK_ZERO(x_ex->Multiply('N','N',-1.0,*nullSpace,*M,1.0));
         }
       CHECK_ZERO(K->Multiply(false,*x_ex,*b));
       }

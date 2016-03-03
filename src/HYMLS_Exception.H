@@ -45,6 +45,8 @@ class Exception : public std::exception
   int line_;
   //!
   std::string functionStack_;
+  //!
+  std::string message_;
   };
 
 }
