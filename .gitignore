@@ -160,6 +160,8 @@ sympy-plots-for-*.tex/
 # Tmp files
 *~
 *.txt
+*.swp
+*.swo
 
 # Documentation
 hymls/doc/*
