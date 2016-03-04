@@ -49,7 +49,8 @@ Exception::Exception(Exception&& e)
 
   const char* Exception::what() const throw()
     {
-    return message_.c_str();
+    std::string* memory_leak=new std::string(message_);
+    return memory_leak->c_str();
     }
 
   Exception::~Exception() throw() {}
