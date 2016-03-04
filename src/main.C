@@ -201,6 +201,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
   if (nullSpaceType!="File" && nullSpaceType!="None")
     {
     nullSpace=HYMLS::MainUtils::create_nullspace(*K, nullSpaceType, probl_params);
+    dim0=nullSpace->NumVectors();
     }
 #ifdef STORE_MATRICES
   if (nullSpace!=Teuchos::null)
