@@ -10,9 +10,22 @@ namespace HYMLS {
     DEBVAR(msg);
     DEBVAR(file);
     DEBVAR(line);
+    {
     std::stringstream ss;
     Tools::printFunctionStack(ss);
     functionStack_=ss.str();
+    }
+    {
+    std::stringstream ss;
+    ss << "#### HYMLS EXCEPTION ####\n";
+    ss << "Error: "<<msg_<<"\n";
+    ss << "(in "<<file_<<", line "<<line_<<")\n\n";
+    ss << functionStack_ << "\n";
+    ss << std::endl;
+    ss << "#########################\n";
+    message_=ss.str();
+    }
+
     }
 
 #if 0
@@ -49,8 +62,9 @@ Exception::Exception(Exception&& e)
 
   const char* Exception::what() const throw()
     {
-    std::string* memory_leak=new std::string(message_);
-    return memory_leak->c_str();
+//    std::string* memory_leak=new std::string(message_);
+//    return memory_leak->c_str();
+    return message_.c_str();
     }
 
   Exception::~Exception() throw() {}
