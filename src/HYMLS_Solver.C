@@ -251,12 +251,6 @@ Teuchos::RCP<const Teuchos::ParameterList> Solver::getValidParameters() const
 
   VPL().set("Deflation Threshold",1.0e-3,"An eigenmode is deflated if the eigenvalue is within [-eps 0]");
 
-  // these are temporarily added to the parameter list for developing the
-  // projection method and should be handled differently in the end.
-  VPL().set("Null Space","None","type of null vector, only for development in this list");
-  VPL().set("Pressure Variable",-1,"which is the pressure variable, only for development in this list");
-  VPL().set("Degrees of Freedom",-1,"dof/cell, only for development in this list");
-
   // Belos parameters should be specified in this list:
   VPL().sublist("Iterative Solver",false,
     "Parameter list for the Krylov method (passed to Belos)").disableRecursiveValidation();
