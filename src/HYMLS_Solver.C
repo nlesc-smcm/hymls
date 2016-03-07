@@ -143,7 +143,7 @@ void Solver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)
   if (precond_==Teuchos::null) return;
 
   belosPrecPtr_=Teuchos::rcp(new belosPrecType_(precond_));
-  string lor = PL().get("Left or Right Preconditioning","Right");
+  string lor = PL().get("Left or Right Preconditioning",lor_default_);
   if (lor=="Left")
     {
     belosProblemPtr_->setLeftPrec(belosPrecPtr_);
@@ -200,7 +200,7 @@ void Solver::setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& List)
 
   solverType_= PL().get("Krylov Method","GMRES");
   startVec_=PL().get("Initial Vector","Random");
-  PL().get("Left or Right Preconditioning","Right");
+  PL().get("Left or Right Preconditioning",lor_default_);
 
   numEigs_=PL().get("Deflated Subspace Dimension",numEigs_);
   deflThres_=PL().get("Deflation Threshold",0.0);
@@ -243,7 +243,7 @@ Teuchos::RCP<const Teuchos::ParameterList> Solver::getValidParameters() const
       new Teuchos::StringToIntegralParameterEntryValidator<int>(
         Teuchos::tuple<std::string>( "Left", "Right"),"Left or Right Preconditioning"));
         
-  VPL().set("Left or Right Preconditioning", "Left",
+  VPL().set("Left or Right Preconditioning", lor_default_,
     "wether to do left (P\\Ax=P\\b) or right (AP\\(Px)=b) preconditioning",
     lorValidator);
 
@@ -757,7 +757,7 @@ int Solver::setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V)
     Teuchos::RCP<ProjectedOperator> newPrec = Teuchos::rcp(new ProjectedOperator(precond_, V, massMatrix_, true));
 
     belosPrecPtr_=Teuchos::rcp(new belosPrecType_(newPrec));
-    string lor = PL().get("Left or Right Preconditioning","Right");
+    string lor = PL().get("Left or Right Preconditioning",lor_default_);
     if (lor=="Left")
       {
       belosProblemPtr_->setLeftPrec(belosPrecPtr_);
