@@ -309,7 +309,7 @@ Teuchos::RCP<BorderedLU> LU_;
   mutable Teuchos::RCP<const Epetra_Operator> op_array_[2];
   
   //! default value for the "Left or Right Preconditioning" parameter
-  static const std::string lor_default_="Right";
+  const std::string lor_default_="Right";
   
   };
 
