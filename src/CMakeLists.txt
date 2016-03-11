@@ -17,6 +17,8 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CMAKE_Fortran_FLAGS  "${CMAKE_Fortran_FLAGS} -O2 -g -DTESTING -Wall -Wno-unknown-pragmas")
   endif()
 
+  set(BUILD_SHARED_LIBS ON)
+
   set(CMAKE_C_FLAGS_RELEASE        "-O3 -ffast-math -march=native")
   set(CMAKE_CXX_FLAGS_RELEASE      "-O3 -ffast-math -march=native")
   set(CMAKE_Fortran_FLAGS_RELEASE  "-O3 -ffast-math -march=native")
@@ -74,7 +76,7 @@ set(MPIEXEC "mpirun" CACHE STRING "")
 set(MPIEXEC_NUMPROC_FLAG "-np" CACHE STRING "")
 
 
-set(SOURCES HYMLS_Solver
+set(HYMLS_SOURCE HYMLS_Solver
     HYMLS_Preconditioner
     HYMLS_SchurComplement
     HYMLS_SchurPreconditioner
@@ -106,11 +108,13 @@ set(SOURCES HYMLS_Solver
     GaleriExt_Periodic
     main_utils)
 
+set(HYMLS_EIGS_SOURCE evp/dummy.cpp)
+
 # Headers incldue eachother, so for now just assume we want to install all
 # header files that have a source
 set(HEADERS)
 set(header_extensions ".h" ".H" ".hpp")
-foreach(i ${SOURCES})
+foreach(i ${HYMLS_SOURCE})
   foreach(j ${header_extensions})
     if (EXISTS "${PROJECT_SOURCE_DIR}/${i}${j}")
       list(APPEND HEADERS "${i}${j}")
@@ -183,7 +187,7 @@ if (CMAKE_BUILD_TYPE MATCHES "Debug")
 
 endif()
 
-add_library(hymls ${SOURCES})
+add_library(hymls ${HYMLS_SOURCE})
 
 target_link_libraries(hymls ${Trilinos_LIBRARIES})
 target_link_libraries(hymls ${Trilinos_TPL_LIBRARIES})
@@ -206,14 +210,14 @@ elseif (CMAKE_C_COMPILER_ID STREQUAL "Intel")
   #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -openmp")  
 endif()
 
-add_library(hymls_eigs SHARED)
+add_library(hymls_eigs ${HYMLS_EIGS_SOURCE})
 if (${phist_FOUND})
-  add_library(hymls_jada SHARED evp/jadaCorrectionSolver_impl)
+  add_library(hymls_jada evp/jadaCorrectionSolver_impl)
   list(APPEND HEADERS evp/jadaCorrectionSolver_impl.H)
   target_link_libraries(hymls_jada hymls)
   target_link_libraries(hymls_jada ${PHIST_LIBRARIES})
 
-  set_target_properties(hymls PROPERTIES COMPILE_FLAGS "-fPIC")
+#  set_target_properties(hymls PROPERTIES COMPILE_FLAGS "-fPIC")
 
   target_link_libraries(hymls_eigs hymls_jada)
 endif()
@@ -247,7 +251,7 @@ if (${phist_FOUND})
   list(APPEND library_list hymls_jada)
 endif()
 
-install(TARGETS hymls EXPORT HYMLSTargets ARCHIVE DESTINATION ${LIB_INSTALL_DIR})
+install(TARGETS hymls EXPORT HYMLSTargets LIBRARY DESTINATION ${LIB_INSTALL_DIR})
 list(APPEND library_list hymls)
 
 # Install headers
@@ -269,3 +273,4 @@ install(FILES "${PROJECT_BINARY_DIR}/HYMLSConfig.cmake"
   "${CMAKE_CURRENT_BINARY_DIR}/HYMLS/HYMLSConfigVersion.cmake"
   DESTINATION ${ConfigPackageLocation}
   )
+
