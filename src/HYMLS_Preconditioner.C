@@ -27,7 +27,7 @@
 
 #include "HYMLS_Tester.H"
 
-#ifdef TESTING
+#ifdef HYMLS_TESTING
 #include "Epetra_FECrsMatrix.h"
 #endif
 
@@ -42,7 +42,7 @@
 
 #include "GaleriExt_Periodic.h"
 
-#ifdef USE_MKL
+#ifdef HYMLS_USE_MKL
 #include <mkl.h>
 #endif
 
@@ -74,7 +74,7 @@ namespace HYMLS {
     time_=Teuchos::rcp(new Epetra_Time(K->Comm()));
 
     setParameterList(params);
-#ifdef DEBUGGING
+#ifdef HYMLS_DEBUGGING
     dumpVectors_=true;
 #endif
     }
@@ -126,7 +126,7 @@ namespace HYMLS {
       nz_=1;
       }
 
-#ifdef TESTING
+#ifdef HYMLS_TESTING
     Tester::nx_=nx_;
     Tester::ny_=ny_;
     Tester::nz_=nz_;
@@ -173,10 +173,10 @@ namespace HYMLS {
                           "If you do not set 'Equations', you have to set a (among others) this one.\n",
         __FILE__,__LINE__);
     }
-DEBVAR(probList_);
+HYMLS_DEBVAR(probList_);
     dof_=probList_.get("Degrees of Freedom",1);
 
-#ifdef TESTING
+#ifdef HYMLS_TESTING
       Tester::dof_=dof_;
       if (probList_.get("Test F-Matrix Properties",false))
         {
@@ -206,7 +206,7 @@ DEBVAR(probList_);
       this->getValidParameters();
       PL().validateParameters(VPL());
       }
-    DEBVAR(PL());
+    HYMLS_DEBVAR(PL());
     }
 
   //
@@ -351,7 +351,7 @@ DEBVAR(probList_);
     time_->ResetStartTime();
     if (hid_==Teuchos::null)
       {
-      DEBVAR(*getMyNonconstParamList());
+      HYMLS_DEBVAR(*getMyNonconstParamList());
       // this is the partitioning step:
       // - partition domain into small subdomains
       // - find separators
@@ -363,7 +363,7 @@ DEBVAR(probList_);
 HYMLS_TEST(Label(),isDDcorrect(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_),
         *hid_),__FILE__,__LINE__);
 
-#ifdef TESTING
+#ifdef HYMLS_TESTING
   this->Visualize("hid_data_deb.m",false);
   // schur preconditioner will do the same thing,
   // so the hid_data_deb.m file is always written,
@@ -389,7 +389,7 @@ HYMLS_TEST(Label(),isDDcorrect(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix
 */
 
     // construct maps for the 1- (subdomain-) and 2- (separator-)blocks
-    DEBUG("Precond: construct maps");
+    HYMLS_DEBUG("Precond: construct maps");
 
     Teuchos::RCP<const HierarchicalMap> interiorObject = 
         hid_->Spawn(HierarchicalMap::Interior);
@@ -417,17 +417,17 @@ HYMLS_TEST(Label(),isDDcorrect(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix
 
   int *AllMyElements=new int[numElts];
 
-#ifdef TESTING
+#ifdef HYMLS_TESTING
   Teuchos::RCP<const Epetra_Map> repartMap = hid_->GetMap();
   if (repartMap->NumMyElements()!=(map1_->NumMyElements()+map2_->NumMyElements()))
     {
     std::ofstream ofs("hid_data.m",std::ios::app);
     ofs << *hid_<<std::endl;
     ofs.close();
-    DEBVAR(*map1_);
-    DEBVAR(*map2_);
-    DEBVAR(*repartMap);
-    DEBUG(std::flush);
+    HYMLS_DEBVAR(*map1_);
+    HYMLS_DEBVAR(*map2_);
+    HYMLS_DEBVAR(*repartMap);
+    HYMLS_DEBUG(std::flush);
     Tools::Error("inconsistent maps found",__FILE__,__LINE__);
     }
 #endif
@@ -457,7 +457,7 @@ HYMLS_TEST(Label(),isDDcorrect(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix
       }
     }    
 
-  DEBUG("build rowMap");
+  HYMLS_DEBUG("build rowMap");
   rowMap_ = Teuchos::rcp(new Epetra_Map(-1,numElts,AllMyElements,
                 rangeMap_->IndexBase(), *comm_));
 
@@ -476,7 +476,7 @@ HYMLS_TEST(Label(),isDDcorrect(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix
     Tools::Error("Currently requires an Epetra_CrsMatrix!",__FILE__,__LINE__);
     }
 
-#if defined(STORE_MATRICES) || defined(TESTING)
+#if defined(HYMLS_STORE_MATRICES) || defined(HYMLS_TESTING)
   MatrixUtils::Dump(*rangeMap_,"originalMap"+Teuchos::toString(myLevel_)+".txt");
   MatrixUtils::Dump(*rowMap_,"reorderedMap"+Teuchos::toString(myLevel_)+".txt");
   MatrixUtils::Dump(*map2_,"schurMap"+Teuchos::toString(myLevel_)+".txt");
@@ -491,7 +491,7 @@ HYMLS_TEST(Label(),isDDcorrect(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix
   // which is in rowMap behind the map2 (local separator) entries.
   separators_=Teuchos::rcp(new HYMLS::MultiVector_View(*rowMap_,*map2_));
 
-  DEBUG("Reorder global matrix");
+  HYMLS_DEBUG("Reorder global matrix");
   reorderedMatrix_=Teuchos::rcp(new Epetra_CrsMatrix(Copy,*rowMap_,MaxNumEntriesPerRow));
 
   CHECK_ZERO(reorderedMatrix_->Import(*Acrs,*importer_,Insert));
@@ -523,7 +523,7 @@ HYMLS_TEST(Label(),isDDcorrect(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix
   A12_->ComputeSubdomainBlocks();
   A21_->ComputeSubdomainBlocks();
 
-#ifdef STORE_MATRICES
+#ifdef HYMLS_STORE_MATRICES
   MatrixUtils::Dump(*A12_->Block(), "Precond"+Teuchos::toString(myLevel_)+"_A12.txt");
   MatrixUtils::Dump(*A21_->Block(), "Precond"+Teuchos::toString(myLevel_)+"_A21.txt");
   MatrixUtils::Dump(*A22_->Block(), "Precond"+Teuchos::toString(myLevel_)+"_A22.txt");
@@ -535,7 +535,7 @@ HYMLS_TEST(Label(),isDDcorrect(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix
   // Initialize the subdomain solvers for the A11 block
   A11_->InitializeSubdomainSolvers(sdSolverType_, sd_list, numThreadsSD_);
 
-  DEBUG("Create Schur-complement");  
+  HYMLS_DEBUG("Create Schur-complement");  
 
   if (Schur_==Teuchos::null)
     {
@@ -595,7 +595,7 @@ Tools::out() << "=============================="<<std::endl;
 
   if (schurPrec_==Teuchos::null)
     {
-    DEBUG("Construct schur-preconditioner");
+    HYMLS_DEBUG("Construct schur-preconditioner");
     schurPrec_=Teuchos::rcp(new SchurPreconditioner(Schur_,hid_,
               getMyNonconstParamList(), myLevel_, testVector2));
     }
@@ -630,7 +630,7 @@ int Preconditioner::InitializeCompute()
     CHECK_ZERO(reorderedMatrix_->Import(*Acrs,*importer_,Insert));
     
 
-#ifdef STORE_MATRICES
+#ifdef HYMLS_STORE_MATRICES
     MatrixUtils::Dump(*Acrs,"originalMatrix"+Teuchos::toString(myLevel_)+".txt");
 #endif    
 
@@ -663,7 +663,7 @@ InitializeCompute();
 HYMLS_LPROF(label_,"subdomain factorization");
 A11_->ComputeSubdomainSolvers();
 
-#ifdef TESTING
+#ifdef HYMLS_TESTING
     Tools::out() << "Preconditioner level " << myLevel_ << ", doFmatTests=" << Tester::doFmatTests_ << std::endl;
     if (Tester::doFmatTests_)
       {
@@ -672,7 +672,7 @@ A11_->ComputeSubdomainSolvers();
               Teuchos::rcp(new Epetra_FECrsMatrix(Copy, *map2_, Matrix().MaxNumEntries()));
       CHECK_ZERO(Schur_->Construct(TestSC));
 
-#ifdef STORE_MATRICES
+#ifdef HYMLS_STORE_MATRICES
       HYMLS::MatrixUtils::Dump(*TestSC, "SchurComplement" + Teuchos::toString(myLevel_) + "_noDrop.txt");
 #endif
 
@@ -685,7 +685,7 @@ A11_->ComputeSubdomainSolvers();
 
       HYMLS_TEST(Label(), isFmatrix(*TestSC_crs, dof_, dim_), __FILE__, __LINE__);
 
-#ifdef STORE_MATRICES
+#ifdef HYMLS_STORE_MATRICES
       HYMLS::MatrixUtils::Dump(*TestSC_crs, "SchurComplement" + Teuchos::toString(myLevel_) + ".txt");
 #endif
       }
@@ -710,7 +710,7 @@ A11_->ComputeSubdomainSolvers();
     schurScaLeft_=Schur_->ConstructLeftScaling(pvar);
     schurScaRight_=Schur_->ConstructRightScaling();
     
-#ifdef STORE_MATRICES
+#ifdef HYMLS_STORE_MATRICES
     MatrixUtils::Dump(*schurScaLeft_,"SchurScaLeft"+Teuchos::toString(myLevel_)+".txt");
     MatrixUtils::Dump(*schurScaRight_,"SchurScaRight"+Teuchos::toString(myLevel_)+".txt");
 #endif    
@@ -746,7 +746,7 @@ REPORT_SUM_MEM(label_,"before schurprec",0,0, comm_);
     numApplyInverse_++;
     time_->ResetStartTime();
 
-#ifdef DEBUGGING
+#ifdef HYMLS_DEBUGGING
 if (dumpVectors_)
   {
   MatrixUtils::Dump(B, "Preconditioner"+Teuchos::toString(myLevel_)+"_Rhs.txt");
@@ -807,10 +807,10 @@ if (dumpVectors_)
     // would be enough and no communication required. 
     CHECK_ZERO(b->Import(B,*importer_,Insert)); 
      
-    DEBUG("solve subdomains...");
+    HYMLS_DEBUG("solve subdomains...");
     CHECK_ZERO(A11_->ApplyInverse(*b, *x));
     
-    DEBUG("apply A21...");    
+    HYMLS_DEBUG("apply A21...");    
     CHECK_ZERO(A21_->Apply(*x,*z));
 
     if (schurRhs_->NumVectors()!=X.NumVectors())
@@ -847,7 +847,7 @@ if (dumpVectors_)
     else
       {
       CHECK_ZERO(borderedSchurSolver->ApplyInverse(*schurRhs_,q,*schurSol_,s));  
-      DEBUG("successfully applied bordered Schur precond");
+      HYMLS_DEBUG("successfully applied bordered Schur precond");
       }
     }
   else
@@ -862,16 +862,16 @@ if (dumpVectors_)
   //TODO: avoid this copy operation
   *x2=*schurSol_;
   // this gives z1
-  DEBUG("Apply A12...");
+  HYMLS_DEBUG("Apply A12...");
   CHECK_ZERO(A12_->Apply(*x2, *z));
   // this gives y1, y2=0   
-  DEBUG("solve subdomains...");
+  HYMLS_DEBUG("solve subdomains...");
   CHECK_ZERO(A11_->ApplyInverse(*z, *y));
   // this gives the final result [x1-y1; x2]
   CHECK_ZERO(x->Update(-1.0,*y,1.0));
   flopsApplyInverse_+=numvec*veclen;
 
-#ifdef DEBUGGING
+#ifdef HYMLS_DEBUGGING
 if (dumpVectors_)
   {
   MatrixUtils::Dump(*z1,"Preconditioner"+Teuchos::toString(myLevel_)+"_Z1.txt");
@@ -888,7 +888,7 @@ if (dumpVectors_)
     CHECK_ZERO(x1->Multiply('N','N',-1.0,*borderQ1_,*ss,1.0));
     }   
 
-  DEBUG("export solution.");
+  HYMLS_DEBUG("export solution.");
   
   //'Zero' would disable repartitioning here (some
   // ranks may have a part of the vector but not  
@@ -899,7 +899,7 @@ if (dumpVectors_)
   CHECK_ZERO(X.PutScalar(0.0));
   CHECK_ZERO(X.Export(*x,*importer_,Add)); 
 
-#ifdef DEBUGGING
+#ifdef HYMLS_DEBUGGING
   if (dumpVectors_)
     {
     MatrixUtils::Dump(X, "Preconditioner"+Teuchos::toString(myLevel_)+"_Sol.txt");
@@ -1150,7 +1150,7 @@ int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& lis
       precList.set("Fix GID 1",factor*dim_);
       if (is_complex) precList.set("Fix GID 2",2*dim_+1);
       }      
-#ifdef TESTING
+#ifdef HYMLS_TESTING
     probList.set("Test F-Matrix Properties",true);
 #endif
     }
@@ -1209,7 +1209,7 @@ int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& lis
       precList.set("Fix GID 1",factor*(dim_));
       if (is_complex) precList.set("Fix GID 2",2*(dim_)+1);
       }
-#ifdef TESTING
+#ifdef HYMLS_TESTING
     probList.set("Test F-Matrix Properties",true);
 #endif
     }
@@ -1303,7 +1303,7 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
   comm_->Barrier();
   ofs << *hid_<<std::endl;
   ofs.close();
-#ifdef STORE_MATRICES  
+#ifdef HYMLS_STORE_MATRICES  
 //  hid_->DumpGraph(); //that's the same as of the original matrix right now
   Teuchos::RCP<const Epetra_CrsMatrix> A = Teuchos::rcp_dynamic_cast
         <const Epetra_CrsMatrix>(matrix_);
@@ -1345,15 +1345,15 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
       Tools::Error("addBorder: V can't be null",__FILE__,__LINE__);
       }
     int m = _V->NumVectors();
-    DEBVAR(m);
+    HYMLS_DEBVAR(m);
     if (_W==Teuchos::null)
       {
-      DEBUG("Using W=V");
+      HYMLS_DEBUG("Using W=V");
       _W=_V;
       }
     if (_C==Teuchos::null)
       {
-      DEBUG("Using C=0");
+      HYMLS_DEBUG("Using C=0");
       _C=Teuchos::rcp(new Epetra_SerialDenseMatrix(m,m));
       }
     
@@ -1453,7 +1453,7 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
       {
       Tools::Error("cannot handle bordered Schur problem",__FILE__,__LINE__);
       }
-    DEBVAR(borderSchurV_->MyLength());
+    HYMLS_DEBVAR(borderSchurV_->MyLength());
     CHECK_ZERO(borderedSchurSolver->addBorder(borderSchurV_,borderSchurW_,borderSchurC_));
     return 0;
     }
@@ -1476,7 +1476,7 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
     numApplyInverse_++;
     time_->ResetStartTime();
 
-#ifdef DEBUGGING
+#ifdef HYMLS_DEBUGGING
 if (dumpVectors_)
   {
   MatrixUtils::Dump(B, "BorderedPreconditioner"+Teuchos::toString(myLevel_)+"_Rhs.txt");
@@ -1537,10 +1537,10 @@ if (dumpVectors_)
     CHECK_ZERO(b->Import(B,*importer_,Insert)); 
   
     
-    DEBUG("solve subdomains...");
+    HYMLS_DEBUG("solve subdomains...");
     CHECK_ZERO(A11_->ApplyInverse(*b, *x));
     
-    DEBUG("apply A21...");    
+    HYMLS_DEBUG("apply A21...");    
     //CHECK_ZERO(ApplyA21(*x,z2,&flopsApplyInverse_));
     CHECK_ZERO(A21_->Apply(*x,*z));
 
@@ -1580,7 +1580,7 @@ if (dumpVectors_)
   else
     {
     CHECK_ZERO(borderedSchurSolver->ApplyInverse(*schurRhs_,q,*schurSol_,S));  
-    DEBUG("successfully applied bordered Schur precond");
+    HYMLS_DEBUG("successfully applied bordered Schur precond");
     }
 
   // unscale rhs with schurScaRight_
@@ -1591,10 +1591,10 @@ if (dumpVectors_)
     
   *x2=*schurSol_;
   // this gives z1
-  DEBUG("Apply A12...");
+  HYMLS_DEBUG("Apply A12...");
   CHECK_ZERO(A12_->Apply(*x2, *z));
   // this gives y1, y2=0   
-  DEBUG("solve subdomains...");
+  HYMLS_DEBUG("solve subdomains...");
   CHECK_ZERO(A11_->ApplyInverse(*z, *y));
   // this gives the final result [x1-y1; x2]
   CHECK_ZERO(x->Update(-1.0,*y,1.0));
@@ -1603,7 +1603,7 @@ if (dumpVectors_)
   Teuchos::RCP<Epetra_MultiVector> ss = DenseUtils::CreateView(S);
   CHECK_ZERO(x1->Multiply('N','N',-1.0,*borderQ1_,*ss,1.0));
 
-#ifdef DEBUGGING
+#ifdef HYMLS_DEBUGGING
 if (dumpVectors_)
   {
   MatrixUtils::Dump(*z1,"Preconditioner"+Teuchos::toString(myLevel_)+"_Z1.txt");
@@ -1614,7 +1614,7 @@ if (dumpVectors_)
 
 
   
-  DEBUG("export solution.");
+  HYMLS_DEBUG("export solution.");
   
   //'Zero' would disable repartitioning here (some
   // ranks may have a part of the vector but not  
@@ -1625,7 +1625,7 @@ if (dumpVectors_)
   CHECK_ZERO(X.PutScalar(0.0));
   CHECK_ZERO(X.Export(*x,*importer_,Add)); 
 
-#ifdef DEBUGGING
+#ifdef HYMLS_DEBUGGING
   if (dumpVectors_)
     {
     MatrixUtils::Dump(X, "Preconditioner"+Teuchos::toString(myLevel_)+"_Sol.txt");

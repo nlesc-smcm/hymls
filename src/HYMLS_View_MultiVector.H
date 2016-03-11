@@ -1,6 +1,8 @@
 #ifndef HYMLS_MULTIVECTOR_VIEW_H
 #define HYMLS_MULTIVECTOR_VIEW_H
 
+#include "HYMLS_config.h"
+
 #include "Epetra_BlockMap.h"
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_Array.hpp"

@@ -1,6 +1,9 @@
 #ifndef HYMLS_SOLVER_H
 #define HYMLS_SOLVER_H
 
+#include "HYMLS_config.h"
+#include "HYMLS_Macros.H"
+
 #include "Teuchos_RCP.hpp"
 #include "Epetra_Operator.h"
 #include "Ifpack_Preconditioner.h"

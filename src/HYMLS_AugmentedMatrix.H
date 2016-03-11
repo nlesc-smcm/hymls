@@ -1,6 +1,7 @@
 #ifndef HYMLS_AUGMENTED_MATRIX_H
 #define HYMLS_AUGMENTED_MATRIX_H
 
+#include "HYMLS_config.h"
 #include "Epetra_RowMatrix.h"
 #include "Epetra_Map.h"
 #include "Teuchos_RCP.hpp"

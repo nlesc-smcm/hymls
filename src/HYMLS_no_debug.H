@@ -2,25 +2,27 @@
 // in a .C file to disable debugging output for this  
 // one file.
 
-#ifdef DEBUGGING
-#undef DEBUGGING
+#include "HYMLS_config.h"
+
+#ifdef HYMLS_DEBUGGING
+#undef HYMLS_DEBUGGING
 #endif
 
-#ifdef FUNCTION_TRACING
-#undef FUNCTION_TRACING
+#ifdef HYMLS_FUNCTION_TRACING
+#undef HYMLS_FUNCTION_TRACING
 #endif
 
-#ifdef DEBUG
-#undef DEBUG
+#ifdef HYMLS_DEBUG
+#undef HYMLS_DEBUG
 #endif
-#define DEBUG(s) 
+#define HYMLS_DEBUG(s) 
 
-#ifdef DEBVAR
-#undef DEBVAR
+#ifdef HYMLS_DEBVAR
+#undef HYMLS_DEBVAR
 #endif
-#define DEBVAR(s)
+#define HYMLS_DEBVAR(s)
 
-#ifdef TIMING_LEVEL
-#undef TIMING_LEVEL
+#ifdef HYMLS_TIMING_LEVEL
+#undef HYMLS_TIMING_LEVEL
 #endif
-#define TIMING_LEVEL 2
+#define HYMLS_TIMING_LEVEL 2

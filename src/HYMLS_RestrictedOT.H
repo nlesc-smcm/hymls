@@ -1,6 +1,8 @@
 #ifndef HYMLS_RESTRICTED_OT_H
 #define HYMLS_RESTRICTED_OT_H
 
+#include "HYMLS_config.h"
+
 #include "HYMLS_Tools.H"
 #include "HYMLS_OrthogonalTransform.H"
 #include "Epetra_SerialDenseVector.h"

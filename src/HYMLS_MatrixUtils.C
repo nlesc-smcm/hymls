@@ -134,18 +134,18 @@ MatrixUtils::CreateMap(int i0, int i1, int j0, int j1, int k0, int k1,
   HYMLS_PROF3(Label(), "CreateMap (2)");
   Teuchos::RCP<Epetra_Map> result = Teuchos::null;
 
-  DEBUG("MatrixUtils::CreateMap ");
-  DEBUG("[" << i0 << ".." << i1 << "]");
-  DEBUG("[" << j0 << ".." << j1 << "]");
-  DEBUG("[" << k0 << ".." << k1 << "]");
+  HYMLS_DEBUG("MatrixUtils::CreateMap ");
+  HYMLS_DEBUG("[" << i0 << ".." << i1 << "]");
+  HYMLS_DEBUG("[" << j0 << ".." << j1 << "]");
+  HYMLS_DEBUG("[" << k0 << ".." << k1 << "]");
 
   int n = std::max(i1 - i0 + 1, 0); int N = I1 - I0 + 1;
   int m = std::max(j1 - j0 + 1, 0); int M = J1 - J0 + 1;
   int l = std::max(k1 - k0 + 1, 0); int L = K1 - K0 + 1;
 
-  DEBVAR(N);
-  DEBVAR(M);
-  DEBVAR(L);
+  HYMLS_DEBVAR(N);
+  HYMLS_DEBVAR(M);
+  HYMLS_DEBVAR(L);
 
   int NumMyElements = n*m*l*dof;
   int NumGlobalElements = -1; // note that there may be overlap
@@ -173,7 +173,7 @@ Teuchos::RCP<Epetra_Map> MatrixUtils::ExtractRange(const Epetra_Map& M, int i1, 
 
   int n = M.MaxAllGID();
 
-#ifdef TESTING
+#ifdef HYMLS_TESTING
   if (i1 < 0||i1 > n) Tools::Error("CreateSubMap: lower bound out of range!", __FILE__, __LINE__);
   if (i2 < 0||i2 > n) Tools::Error("CreateSubMap: upper bound out of range!", __FILE__, __LINE__);
   if (i2 < i1) Tools::Error("CreateSubMap: invalid interval bounds!", __FILE__, __LINE__);
@@ -364,10 +364,10 @@ Teuchos::RCP<Epetra_BlockMap> MatrixUtils::Gather(const Epetra_BlockMap& map, in
   {
   HYMLS_PROF3(Label(), "Gather (1)");
   int ElementSize = map.ElementSize();
-#ifdef TESTING
+#ifdef HYMLS_TESTING
   if (ElementSize != 1)
     {
-    DEBVAR(ElementSize);
+    HYMLS_DEBVAR(ElementSize);
     Tools::Warning("this is possibly not implemented correctly!",
       __FILE__, __LINE__);
     ElementSize = 1;
@@ -462,7 +462,7 @@ Teuchos::RCP<Epetra_BlockMap> MatrixUtils::AllGather(const Epetra_BlockMap& map,
   int NumGlobalElements = map.NumGlobalElements();
   const Epetra_Comm& Comm = map.Comm();
 
-#ifdef TESTING
+#ifdef HYMLS_TESTING
   if (ElementSize > 1)
     {
     Tools::Warning("this is possibly not implemented correctly!",
@@ -827,7 +827,7 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::ReplaceColMap(Teuchos::RCP<Epetra_Cr
     {
     grid = A->GRID(i);
     CHECK_ZERO(A->ExtractGlobalRowCopy(grid, maxlen, len, val, ind));
-#ifdef DEBUGGING
+#ifdef HYMLS_DEBUGGING
 //      (*debug) << "row " << grid << ": ";
 //      for (int j = 0; j < len; j++) (*debug) << ind[j] << " ";
 //      (*debug) << std::endl;
@@ -879,10 +879,10 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::ReplaceBothMaps(Teuchos::RCP<Epetra_
   const Epetra_Map& newcolmap)
   {
   HYMLS_PROF3(Label(), "ReplaceBothMaps");
-  DEBVAR(A->RowMap());
-  DEBVAR(newmap);
-  DEBVAR(A->ColMap());
-  DEBVAR(newcolmap);
+  HYMLS_DEBVAR(A->RowMap());
+  HYMLS_DEBVAR(newmap);
+  HYMLS_DEBVAR(A->ColMap());
+  HYMLS_DEBVAR(newcolmap);
   int maxlen = A->MaxNumEntries();
   int len;
   int *ind = new int[maxlen];
@@ -903,7 +903,7 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::ReplaceBothMaps(Teuchos::RCP<Epetra_
     for (int j = 0; j < len; j++)
       {
       int newind = newcolmap.GID(A->LCID(ind[j]));
-//        DEBUG(i << " (" << rowA << "->" << rowNew << "), " << A->LCID(ind[j]) << "(" << ind[j] << "->" << newind << ")");
+//        HYMLS_DEBUG(i << " (" << rowA << "->" << rowNew << "), " << A->LCID(ind[j]) << "(" << ind[j] << "->" << newind << ")");
       ind[j] = newind;
       }
     CHECK_ZERO(tmpmat->InsertGlobalValues(rowNew, len, val, ind));
@@ -920,7 +920,7 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::ReplaceBothMaps(Teuchos::RCP<Epetra_
 void MatrixUtils::TriSolve(const Epetra_CrsMatrix& A, const Epetra_Vector& b, Epetra_Vector& x)
   {
   HYMLS_PROF3(Label(), "TriSolve");
-#ifdef TESTING
+#ifdef HYMLS_TESTING
   if (!(A.UpperTriangular()||A.LowerTriangular()))
     Tools::Error("Matrix doesn't look (block-)triangular enough for TriSolve...", __FILE__, __LINE__);
   if (!A.StorageOptimized())
@@ -933,7 +933,7 @@ void MatrixUtils::TriSolve(const Epetra_CrsMatrix& A, const Epetra_Vector& b, Ep
 
   if (A.UpperTriangular())
     {
-    DEBUG("Upper Tri Solve with " << A.Label() << "...");
+    HYMLS_DEBUG("Upper Tri Solve with " << A.Label() << "...");
     int *begA, *jcoA;
     double *coA;
     CHECK_ZERO(A.ExtractCrsDataPointers(begA, jcoA, coA));
@@ -945,16 +945,16 @@ void MatrixUtils::TriSolve(const Epetra_CrsMatrix& A, const Epetra_Vector& b, Ep
       sum = 0.0;
       for (int j = diag + 1; j < begA[i+1]; j++)
         {
-//        DEBUG(i << " " << jcoA[j] << " " << coA[j]);
+//        HYMLS_DEBUG(i << " " << jcoA[j] << " " << coA[j]);
         sum += coA[j]*x[jcoA[j]];
         }
-//      DEBUG("diag: " << i << " " << jcoA[diag] << " " << coA[diag]);
+//      HYMLS_DEBUG("diag: " << i << " " << jcoA[diag] << " " << coA[diag]);
       x[i] = (b[i] - sum) / coA[diag];
       }
     }
   else
     {
-    DEBUG("Lower Tri Solve with" << A.Label() << "...");
+    HYMLS_DEBUG("Lower Tri Solve with" << A.Label() << "...");
     int *begA, *jcoA;
     double *coA;
     CHECK_ZERO(A.ExtractCrsDataPointers(begA, jcoA, coA));
@@ -966,10 +966,10 @@ void MatrixUtils::TriSolve(const Epetra_CrsMatrix& A, const Epetra_Vector& b, Ep
       sum = 0.0;
       for (int j = 0; j < diag; j++)
         {
-//        DEBUG(i << " " << jcoA[j] << " " << coA[j]);
+//        HYMLS_DEBUG(i << " " << jcoA[j] << " " << coA[j]);
         sum += coA[j]*x[jcoA[j]];
         }
-//      DEBUG("diag: " << i << " " << jcoA[diag] << " " << coA[diag]);
+//      HYMLS_DEBUG("diag: " << i << " " << jcoA[diag] << " " << coA[diag]);
       x[i] = (b[i] - sum) / coA[diag];
       }
     }
@@ -999,7 +999,7 @@ void MatrixUtils::Dump(const Epetra_CrsMatrix& A, const std::string& filename,
   bool reindex, PrintMethod how)
   {
   HYMLS_PROF3(Label(), "Dump (1)");
-  DEBUG("Matrix with label " << A.Label() << " is written to file " << filename);
+  HYMLS_DEBUG("Matrix with label " << A.Label() << " is written to file " << filename);
 
   if (reindex)
     {
@@ -1046,7 +1046,7 @@ void MatrixUtils::DumpHDF(const Epetra_CrsMatrix& A,
 #else
   bool verbose = true;
   bool success;
-  DEBUG("Matrix with label " << A.Label() << " is written to HDF5 file " << filename << ", group " << groupname);
+  HYMLS_DEBUG("Matrix with label " << A.Label() << " is written to HDF5 file " << filename << ", group " << groupname);
   RCP<EpetraExt::HDF5> hdf5 = Teuchos::rcp(new EpetraExt::HDF5(A.Comm()));
   try {
     if (new_file)
@@ -1080,7 +1080,7 @@ void MatrixUtils::Dump(const Epetra_MultiVector& x, const std::string& filename,
     }
   else
     {
-    DEBUG("Vector with label " << x.Label() << " is written to file " << filename);
+    HYMLS_DEBUG("Vector with label " << x.Label() << " is written to file " << filename);
     if (how == MATRIXMARKET)
       {
       EpetraExt::MultiVectorToMatrixMarketFile(filename.c_str(), x);
@@ -1107,7 +1107,7 @@ void MatrixUtils::Dump(const Epetra_MultiVector& x, const std::string& filename,
 void MatrixUtils::Dump(const Epetra_IntVector& x, const std::string& filename)
   {
   HYMLS_PROF3(Label(), "Dump (3)");
-  DEBUG("Vector with label " << x.Label() << " is written to file " << filename);
+  HYMLS_DEBUG("Vector with label " << x.Label() << " is written to file " << filename);
 
   // EpetraExt::VectorToMatrixMarketFile(filename.c_str(), x);
 
@@ -1171,7 +1171,7 @@ void MatrixUtils::DumpHDF(const Epetra_MultiVector& x,
 #else
   bool verbose = true;
   bool success;
-  DEBUG("Vector with label " << x.Label() << " is written to HDF5 file " << filename << ", group   " << groupname);
+  HYMLS_DEBUG("Vector with label " << x.Label() << " is written to HDF5 file " << filename << ", group   " << groupname);
   RCP<EpetraExt::HDF5> hdf5 = Teuchos::rcp(new EpetraExt::HDF5(x.Comm()));
   try {
     if (new_file)
@@ -1194,7 +1194,7 @@ void MatrixUtils::DumpHDF(const Epetra_MultiVector& x,
 void MatrixUtils::Dump(const Epetra_Map& M, const std::string& filename, PrintMethod how)
   {
   HYMLS_PROF3(Label(), "Dump (4)");
-  DEBUG("Map with label " << M.Label() << " is written to file " << filename);
+  HYMLS_DEBUG("Map with label " << M.Label() << " is written to file " << filename);
   if (how == MATRIXMARKET)
     {
     EpetraExt::BlockMapToMatrixMarketFile(filename.c_str(), M);
@@ -1220,7 +1220,7 @@ void MatrixUtils::Dump(const Epetra_Map& M, const std::string& filename, PrintMe
 void MatrixUtils::PrintRowMatrix(const Epetra_RowMatrix& A, std::ostream& os)
   {
   HYMLS_PROF3(Label(), "PrintRowMatrix");
-  DEBUG("Print Row Matrix: " << A.Label());
+  HYMLS_DEBUG("Print Row Matrix: " << A.Label());
   int nrows = A.NumMyRows();
   int ncols = A.NumMyCols();
   int nnz = A.NumMyNonzeros();
@@ -1262,16 +1262,16 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::TripleProduct(bool transA, const Epe
   // temp matrix
   Teuchos::RCP<Epetra_CrsMatrix> AB = Teuchos::rcp(new Epetra_CrsMatrix(Copy, A.RowMap(), A.MaxNumEntries()) );
 
-  DEBUG("compute A*B...");
+  HYMLS_DEBUG("compute A*B...");
   CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(A, transA, B, transB, *AB));
 
   // result matrix
   Teuchos::RCP<Epetra_CrsMatrix> ABC = Teuchos::rcp(new Epetra_CrsMatrix(Copy, AB->RowMap(), AB->MaxNumEntries()) );
 
-  DEBUG("compute ABC...");
+  HYMLS_DEBUG("compute ABC...");
   CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(*AB, false, C, transC, *ABC));
 
-  DEBUG("done!");
+  HYMLS_DEBUG("done!");
   return ABC;
   }
 
@@ -1284,14 +1284,14 @@ void MatrixUtils::TripleProduct(Teuchos::RCP<Epetra_CrsMatrix> ABC, bool transA,
   // temp matrix
   Teuchos::RCP<Epetra_CrsMatrix> AB = Teuchos::rcp(new Epetra_CrsMatrix(Copy, ABC->Graph()) );
 
-  DEBUG("compute A*B...");
+  HYMLS_DEBUG("compute A*B...");
   CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(A, transA, B, transB, *AB));
 
 
-  DEBUG("compute ABC...");
+  HYMLS_DEBUG("compute ABC...");
   CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(*AB, false, C, transC, *ABC));
 
-  DEBUG("done!");
+  HYMLS_DEBUG("done!");
   }
 
 Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::MatrixProduct(bool transA, const Epetra_CrsMatrix& A,
@@ -1300,23 +1300,23 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::MatrixProduct(bool transA, const Epe
 
   Teuchos::RCP<Epetra_CrsMatrix> AB = Teuchos::rcp(new Epetra_CrsMatrix(Copy, A.RowMap(), A.MaxNumEntries()) );
 
-  DEBUG("compute A*B...");
-  DEBVAR(transA);
-  DEBVAR(A.NumGlobalRows());
-  DEBVAR(A.NumGlobalCols());
-  DEBVAR(transB);
-  DEBVAR(B.NumGlobalRows());
-  DEBVAR(B.NumGlobalCols());
+  HYMLS_DEBUG("compute A*B...");
+  HYMLS_DEBVAR(transA);
+  HYMLS_DEBVAR(A.NumGlobalRows());
+  HYMLS_DEBVAR(A.NumGlobalCols());
+  HYMLS_DEBVAR(transB);
+  HYMLS_DEBVAR(B.NumGlobalRows());
+  HYMLS_DEBVAR(B.NumGlobalCols());
 
 
-#ifdef TESTING
+#ifdef HYMLS_TESTING
   if (!A.Filled()) Tools::Error("Matrix A not filled!", __FILE__, __LINE__);
   if (!B.Filled()) Tools::Error("Matrix B not filled!", __FILE__, __LINE__);
 #endif
 
   CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(A, transA, B, transB, *AB));
 
-  DEBUG("done!");
+  HYMLS_DEBUG("done!");
   return AB;
   }
 
@@ -1324,15 +1324,15 @@ void MatrixUtils::MatrixProduct(Teuchos::RCP<Epetra_CrsMatrix> AB, bool transA, 
   bool transB, const Epetra_CrsMatrix& B)
   {
   HYMLS_PROF3(Label(), "MatrixProduct");
-  DEBVAR(transA);
-  DEBVAR(A.NumGlobalRows());
-  DEBVAR(A.NumGlobalCols());
-  DEBVAR(transB);
-  DEBVAR(B.NumGlobalRows());
-  DEBVAR(B.NumGlobalCols());
+  HYMLS_DEBVAR(transA);
+  HYMLS_DEBVAR(A.NumGlobalRows());
+  HYMLS_DEBVAR(A.NumGlobalCols());
+  HYMLS_DEBVAR(transB);
+  HYMLS_DEBVAR(B.NumGlobalRows());
+  HYMLS_DEBVAR(B.NumGlobalCols());
   CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(A, transA, B, transB, *AB));
 
-  DEBUG("done!");
+  HYMLS_DEBUG("done!");
   }
 
 
@@ -1358,10 +1358,10 @@ Teuchos::RCP<MatrixUtils::Eigensolution> MatrixUtils::Eigs(
 
   bool verbose = true;
   bool debug = false;
-#ifdef TESTING
+#ifdef HYMLS_TESTING
   verbose = true;
 #endif
-#ifdef DEBUGGING
+#ifdef HYMLS_DEBUGGING
   debug = true;
 #endif
 
@@ -1405,7 +1405,7 @@ Teuchos::RCP<MatrixUtils::Eigensolution> MatrixUtils::Eigs(
 
   // Create an Epetra_MultiVector for an initial vector to start the solver.
   // Note:  This needs to have the same number of columns as the blocksize.
-  DEBUG("create random starting vector for Anasazi");
+  HYMLS_DEBUG("create random starting vector for Anasazi");
   Teuchos::RCP<Epetra_MultiVector> ivec =
     Teuchos::rcp( new Epetra_MultiVector(A->OperatorRangeMap(), blockSize) );
   MatrixUtils::Random(*ivec);
@@ -1413,11 +1413,11 @@ Teuchos::RCP<MatrixUtils::Eigensolution> MatrixUtils::Eigs(
   Epetra_MultiVector tmp = *ivec;
   if (!Teuchos::is_null(B))
     {
-    DEBUG("multiply it by the mass-matrix...");
+    HYMLS_DEBUG("multiply it by the mass-matrix...");
     CHECK_ZERO(B->Apply(tmp, *ivec));
     }
   // Create the eigenproblem.
-  DEBUG("create eigen-problem");
+  HYMLS_DEBUG("create eigen-problem");
   Teuchos::RCP < Anasazi::BasicEigenproblem < ST, MV, OP > > MyProblem;
 
   // as of Trilinos 10.12 it doesn't seem to make any difference if we
@@ -1436,11 +1436,11 @@ Teuchos::RCP<MatrixUtils::Eigensolution> MatrixUtils::Eigs(
   MyProblem->setHermitian(false);
 
   // Set the number of eigenvalues requested
-  DEBVAR(howMany);
+  HYMLS_DEBVAR(howMany);
   MyProblem->setNEV( howMany );
 
   // Inform the eigenproblem that you are finishing passing it information
-  DEBUG("call setProblem");
+  HYMLS_DEBUG("call setProblem");
   boolret = MyProblem->setProblem();
   if (boolret != true)
     {
@@ -1449,12 +1449,12 @@ Teuchos::RCP<MatrixUtils::Eigensolution> MatrixUtils::Eigs(
     }
 
   // Initialize the Block Arnoldi solver
-  DEBUG("create BKS eigensolver");
+  HYMLS_DEBUG("create BKS eigensolver");
   Anasazi::BlockKrylovSchurSolMgr < ST, MV, OP > MySolverMgr(MyProblem, MyPL);
 
   // Solve the problem to the specified tolerances or length
   Anasazi::ReturnType returnCode;
-  DEBUG("solve eigenproblem");
+  HYMLS_DEBUG("solve eigenproblem");
   returnCode = MySolverMgr.solve();
   if (returnCode != Anasazi::Converged)
     {
@@ -1462,7 +1462,7 @@ Teuchos::RCP<MatrixUtils::Eigensolution> MatrixUtils::Eigs(
       __FILE__, __LINE__);
     }
 
-  DEBUG("post-process returned solution");
+  HYMLS_DEBUG("post-process returned solution");
   // Get the Ritz values from the eigensolver
   std::vector<Anasazi::Value < double> > ritzValues = MySolverMgr.getRitzValues();
 
@@ -1503,7 +1503,7 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::ReadThcmMatrix(std::string prefix, c
     Tools::Error("Fortran Matrix input is not possible in parallel case!", __FILE__, __LINE__);
     }
 
-  DEBUG("Read THCM Matrix with label " << prefix);
+  HYMLS_DEBUG("Read THCM Matrix with label " << prefix);
   std::string infofilename = prefix + ".info";
   std::ifstream infofile(infofilename.c_str());
   int nnz, nrows;
@@ -1686,7 +1686,7 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
       int lcid_i = diagA->Map().LID(A->GRID(i));
       if (rel)
         {
-#ifdef TESTING
+#ifdef HYMLS_TESTING
         if (lcid_i < 0) Tools::Error("matrix is missing a column", __FILE__, __LINE__);
 #endif
         scal_i = std::abs((*diagA)[lcid_i]);
@@ -1723,7 +1723,7 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
           // for F - matrices with zeros on the diagonal, use tol*|ajj| instead
           // of tol*|aii|, this prevents loss of structural symmetry.
           int lcid_j = diagA->Map().LID(A->GCID(indices[j]));
-#ifdef TESTING
+#ifdef HYMLS_TESTING
           if (lcid_j < 0) Tools::Error("diagonal entry not imported?", __FILE__, __LINE__);
 #endif
           scal = std::max(scal_i, std::abs((*diagA)[lcid_j]));
@@ -1744,7 +1744,7 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
           new_len++;
           }
         }// j
-#ifdef TESTING
+#ifdef HYMLS_TESTING
       bool testFailed = false;
       for (int jj = 0; jj < new_len; jj++)
         {
@@ -1785,10 +1785,10 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
     delete[] new_values;
     }
 
-  DEBUG("calling FillComplete()");
+  HYMLS_DEBUG("calling FillComplete()");
   CHECK_ZERO(mat->FillComplete());
 
-#ifdef TESTING
+#ifdef HYMLS_TESTING
   int old_nnz = A->NumGlobalNonzeros();
   int new_nnz = mat->NumGlobalNonzeros();
   int nnz_dropped = old_nnz - new_nnz;
@@ -1901,7 +1901,7 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
   if (!Matrix.Filled()) Tools::Error("matrix not filled", __FILE__, __LINE__);
 
   bool parallel = (Matrix.Comm().NumProc() > 1);
-  DEBVAR(parallel);
+  HYMLS_DEBVAR(parallel);
 
   int N = Matrix.NumMyRows();
   int n = 0; // number of V - nodes
@@ -1921,20 +1921,20 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
   for (int i = 0; i < Matrix.NumMyRows(); i++)
     {
     int row = Matrix.GRID(i);
-    DEBVAR(row);
+    HYMLS_DEBVAR(row);
     CHECK_ZERO(Matrix.ExtractMyRowView(i, len, val, col));
     int j;
     bool no_diag = true;
     for (j = 0; j < len; j++)
       {
-      DEBVAR(Matrix.GCID(col[j]));
+      HYMLS_DEBVAR(Matrix.GCID(col[j]));
       if (Matrix.GCID(col[j]) == row)
         {
         no_diag = (std::abs(val[j]) == 0.0);
         break;
         }
       }
-    DEBVAR(no_diag);
+    HYMLS_DEBVAR(no_diag);
     if (no_diag)
       {
       elts2[m++] = row;
@@ -1945,12 +1945,12 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
       }
     }
 
-  DEBVAR(N);
-  DEBVAR(n);
-  DEBVAR(m);
+  HYMLS_DEBVAR(N);
+  HYMLS_DEBVAR(n);
+  HYMLS_DEBVAR(m);
 
   bool indefinite = (m > 0);
-  DEBVAR(indefinite);
+  HYMLS_DEBVAR(indefinite);
 
   bool fmatrix = false;
 
@@ -1995,7 +1995,7 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
     CHECK_ZERO(Bt.FillComplete(*map1, *map2));
 
     fmatrix = (B.MaxNumEntries() == 2);
-    DEBVAR(fmatrix);
+    HYMLS_DEBVAR(fmatrix);
 
     if (!fmatrix)
       {
@@ -2031,7 +2031,7 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
       __FILE__, __LINE__);
     }
 
-#ifdef DEBUGGING
+#ifdef HYMLS_DEBUGGING
   std::ofstream deb;
   if (dump)
     {
@@ -2097,7 +2097,7 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
     CHECK_ZERO(AMD(tmpMatrix->Graph(), q));
 #else
     // use Zoltan (also works in parallel but requires (Par)METIS
-    DEBUG("zoltan ordering step");
+    HYMLS_DEBUG("zoltan ordering step");
 
     // compute fill - reducing ordering of A + BB' using Isorropia->Zoltan->Metis
     // (complicated somehow, but right now that's the only method directly available for
@@ -2162,7 +2162,7 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
     }
   else
     {
-    DEBUG("adjust ordering to include P-nodes");
+    HYMLS_DEBUG("adjust ordering to include P-nodes");
     Teuchos::Array<int> symperm(N);
     Teuchos::Array<int> perm(N);
 
@@ -2210,7 +2210,7 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
     // row perm to get all diagonal entries nonzero
     for (int i = 0; i < N; i++) perm[i] = i;
 
-#ifdef DEBUGGING
+#ifdef HYMLS_DEBUGGING
     if (dump)
       {
       deb << "N=" << N << std::endl;
@@ -2239,7 +2239,7 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
         // to which P - nodes does this V - node couple?
         gr1 = Gr[qi][0]; // first pressure node
         gr2 = Gr[qi][1]; // second pressure node
-//      DEBUG(i << ": " << qi << "[" << gr1 << " " << gr2 << "]");
+//      HYMLS_DEBUG(i << ": " << qi << "[" << gr1 << " " << gr2 << "]");
         // go through all the P - nodes that 'have been eliminated'
         // (e.g. put in the ordering) and find the first not yet
         // eliminated
@@ -2285,8 +2285,8 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
       __FILE__, __LINE__);
 
 
-#ifdef DEBUGGING
-    DEBUG("temporary symperm:");
+#ifdef HYMLS_DEBUGGING
+    HYMLS_DEBUG("temporary symperm:");
     for (int i = 0; i < jj; i++) Tools::deb() << symperm[i] << " ";
 #endif
     // test = ones(1, m + n); test(p) = 0; p(j:n + m) = find(test);
@@ -2303,8 +2303,8 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
         }
       }
 
-#ifdef DEBUGGING
-    DEBUG("final symperm:");
+#ifdef HYMLS_DEBUGGING
+    HYMLS_DEBUG("final symperm:");
     for (int i = 0; i < N; i++) Tools::deb() << symperm[i] << " ";
 #endif
 
@@ -2314,7 +2314,7 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
       rowperm[i] = symperm[perm[i]];
       }
     }
-#ifdef DEBUGGING
+#ifdef HYMLS_DEBUGGING
   if (dump)
     {
     deb << "% initial ordering of v-nodes\n";
@@ -2390,10 +2390,10 @@ MatrixUtils::CreateMap(int i0, int i1, int j0, int j1, int k0, int k1,
   {
   Teuchos::RCP<Epetra_Map> result = Teuchos::null;
 
-  DEBUG("MatrixUtils::CreateMap ");
-  DEBUG("[" << i0 << ".." << i1 << "]");
-  DEBUG("[" << j0 << ".." << j1 << "]");
-  DEBUG("[" << k0 << ".." << k1 << "]");
+  HYMLS_DEBUG("MatrixUtils::CreateMap ");
+  HYMLS_DEBUG("[" << i0 << ".." << i1 << "]");
+  HYMLS_DEBUG("[" << j0 << ".." << j1 << "]");
+  HYMLS_DEBUG("[" << k0 << ".." << k1 << "]");
 
   int n = i1 - i0 + 1; int N = I1 - I0 + 1;
   int m = j1 - j0 + 1; int M = J1 - J0 + 1;
@@ -2401,9 +2401,9 @@ MatrixUtils::CreateMap(int i0, int i1, int j0, int j1, int k0, int k1,
 
   (void)L; // Suppress compiler warning
 
-  DEBVAR(M);
-  DEBVAR(N);
-  DEBVAR(L);
+  HYMLS_DEBVAR(M);
+  HYMLS_DEBVAR(N);
+  HYMLS_DEBVAR(L);
 
   int NumMyElements = n*m*l;
   int NumGlobalElements = -1; // note that there may be overlap
@@ -2463,17 +2463,17 @@ int MatrixUtils::ExtractLocalBlock(const Epetra_RowMatrix& A, Epetra_CrsMatrix& 
   for (int i = 0; i < A_loc.NumMyRows(); i++)
     {
     int iA = A.RowMatrixRowMap().LID(A_loc.GRID(i));
-//    DEBUG("")
-//    DEBUG("row " << i << " " << iA << " " << A_loc.GRID(i));
+//    HYMLS_DEBUG("")
+//    HYMLS_DEBUG("row " << i << " " << iA << " " << A_loc.GRID(i));
     if (iA < 0) return - 1;
     CHECK_ZERO(A.ExtractMyRowCopy(iA, maxLen, len, vals, inds));
-//    DEBVAR(len);
+//    HYMLS_DEBVAR(len);
     int new_len = 0;
     for (int j = 0; j < len; j++)
       {
       int gcid = A.RowMatrixColMap().GID(inds[j]);
       int lcid = A_loc.LCID(gcid);
-      //    DEBUG("\t" << lcid << " " << gcid);
+      //    HYMLS_DEBUG("\t" << lcid << " " << gcid);
       if (lcid >= 0)
         {
         inds[new_len] = lcid;
@@ -2481,7 +2481,7 @@ int MatrixUtils::ExtractLocalBlock(const Epetra_RowMatrix& A, Epetra_CrsMatrix& 
         new_len++;
         }
       }
-    //  DEBVAR(new_len);
+    //  HYMLS_DEBVAR(new_len);
     if (A_loc.Filled())
       {
       CHECK_NONNEG(A_loc.ReplaceMyValues(i, new_len, vals, inds));

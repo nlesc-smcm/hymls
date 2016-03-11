@@ -14,7 +14,7 @@
 #include "Teuchos_XMLParameterListHelpers.hpp"
 #include "Teuchos_ParameterListAcceptorHelpers.hpp"
 #include "Teuchos_StandardCatchMacros.hpp"
-#ifdef DEBUGGING
+#ifdef HYMLS_DEBUGGING
 #include <signal.h>
 #endif
 
@@ -36,12 +36,12 @@ int main(int argc, char* argv[])
   {
   MPI_Init(&argc, &argv);
 
-#ifdef DEBUGGING
+#ifdef HYMLS_DEBUGGING
   signal(SIGINT,HYMLS::Tools::SignalHandler);
   signal(SIGSEGV,HYMLS::Tools::SignalHandler);
 #endif
 
-// random number initialization (if TESTING is defined
+// random number initialization (if HYMLS_TESTING is defined
 // we provide our own seed when creating vectors below)
 std::srand ( std::time(NULL) );
 
@@ -159,7 +159,7 @@ bool status=true;
       }
 
     map = HYMLS::MainUtils::create_map(*comm,probl_params); 
-//#ifdef STORE_MATRICES
+//#ifdef HYMLS_STORE_MATRICES
 HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
 //#endif
   if (read_problem)
@@ -203,7 +203,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     nullSpace=HYMLS::MainUtils::create_nullspace(*K, nullSpaceType, probl_params);
     dim0=nullSpace->NumVectors();
     }
-#ifdef STORE_MATRICES
+#ifdef HYMLS_STORE_MATRICES
   if (nullSpace!=Teuchos::null)
   {
     HYMLS::MatrixUtils::Dump(*nullSpace,"nullSpace.mtx");
@@ -405,8 +405,8 @@ for (int f=0;f<numComputes;f++)
           }
         }
       }
-DEBVAR(*x);
-DEBVAR(*b);
+HYMLS_DEBVAR(*x);
+HYMLS_DEBVAR(*b);
     HYMLS::Tools::Out("Compute residual.");
   
     // compute residual and error vectors

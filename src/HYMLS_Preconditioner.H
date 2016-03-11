@@ -1,6 +1,8 @@
 #ifndef HYMLS_PRECONDITIONER_H
 #define HYMLS_PRECONDITIONER_H
 
+#include "HYMLS_config.h"
+
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_Array.hpp"
 
@@ -405,7 +407,7 @@ protected:
   //! max num threads to use for subdomain solve
   int numThreadsSD_;
 
-#ifdef DEBUGGING
+#ifdef HYMLS_DEBUGGING
 public:
 #else
 protected:

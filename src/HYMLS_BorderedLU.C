@@ -87,20 +87,20 @@ HYMLS::BorderedLU::~BorderedLU()
   CHECK_ZERO(A_->ApplyInverse(Y,X));
   if (V_==Teuchos::null)
     {
-    DEBUG("no border set");
+    HYMLS_DEBUG("no border set");
     return 1; // border not set
     }
   int m = V_->NumVectors();
-  DEBVAR(m);
+  HYMLS_DEBVAR(m);
   int k = Y.NumVectors();
-  DEBVAR(k);
+  HYMLS_DEBVAR(k);
   // W'x
   Epetra_SerialDenseMatrix B(m, k);
   CHECK_ZERO(DenseUtils::MatMul(*W_,X,B));
   B.Scale(-1.0);
   B+=T;
   // s = (C-W'S\V) \ (T-W'y)
-  DEBUG("solve tiny system");
+  HYMLS_DEBUG("solve tiny system");
   CHECK_ZERO(SVD_.SetVectors(S,B));
 //  CHECK_ZERO(SVD_.Solve());
 int ierr=SVD_.Solve();
@@ -144,7 +144,7 @@ int BorderedLU::Compute()
   Q_ = Teuchos::rcp(new Epetra_MultiVector(V_->Map(),m));
   CHECK_ZERO(A_->ApplyInverse(*V_,*Q_));
   
-#ifdef STORE_MATRICES
+#ifdef HYMLS_STORE_MATRICES
   HYMLS::MatrixUtils::Dump(*V_,"BorderedLU_V.txt");
   HYMLS::MatrixUtils::Dump(*Q_,"BorderedLU_Q.txt");
 #endif  
@@ -155,7 +155,7 @@ int BorderedLU::Compute()
   CHECK_ZERO(S_->Scale(-1.0));
   *S_ += *C_;
 
-DEBVAR(*S_);
+HYMLS_DEBVAR(*S_);
 
   // factor it using LAPACK
   SVD_.SetMatrix(*S_);

@@ -94,14 +94,14 @@ int MatrixBlock::ComputeSubdomainBlocks()
   for (int sd = 0; sd < num_sd; sd++)
     {
     // subRangeMap_[sd] = hid_->SpawnMap(sd, rowStrategy);
-    // DEBVAR(*subRangeMap_[sd]);
+    // HYMLS_DEBVAR(*subRangeMap_[sd]);
     // subDomainMap_[sd] = hid_->SpawnMap(sd, colStrategy);
-    // DEBVAR(*subDomainMap_[sd]);
+    // HYMLS_DEBVAR(*subDomainMap_[sd]);
 
     Teuchos::RCP<const Epetra_Map> subRangeMap = hid_->SpawnMap(sd, rowStrategy_);
-    DEBVAR(*subRangeMap);
+    HYMLS_DEBVAR(*subRangeMap);
     Teuchos::RCP<const Epetra_Map> subDomainMap = hid_->SpawnMap(sd, colStrategy_);
-    DEBVAR(*subDomainMap);
+    HYMLS_DEBVAR(*subDomainMap);
 
     int MaxNumEntriesPerRow = matrix_->MaxNumEntries();
     subBlocks_[sd] = Teuchos::rcp(new
@@ -124,7 +124,7 @@ int MatrixBlock::InitializeSubdomainSolvers(std::string const &solverType,
   {
   HYMLS_LPROF3(label_, "InitializeSubdomainSolvers");
 
-  DEBUG("initialize subdomain solvers...");
+  HYMLS_DEBUG("initialize subdomain solvers...");
 
   numThreads_ = numThreads;
 
@@ -170,14 +170,14 @@ int MatrixBlock::InitializeSubdomainSolvers(std::string const &solverType,
       }
     PEC_PROTECT;
 
-#ifdef TESTING
+#ifdef HYMLS_TESTING
     bool status = true;
     try {
 #endif
 
       subdomainSolvers_[sd]->Initialize();
 
-#ifdef TESTING
+#ifdef HYMLS_TESTING
       } TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, status);
     if (!status)
       {
@@ -204,7 +204,7 @@ int MatrixBlock::ComputeSubdomainSolvers()
   {
   HYMLS_LPROF3(label_, "ComputeSubdomainSolvers");
 
-  DEBUG("compute subdomain solvers...");
+  HYMLS_DEBUG("compute subdomain solvers...");
 
   int nnz = 0;
 
@@ -215,14 +215,14 @@ int MatrixBlock::ComputeSubdomainSolvers()
     if (subdomainSolvers_[sd]->NumRows() > 0)
       {
       // compute subdomain factorization
-#ifdef TESTING
+#ifdef HYMLS_TESTING
       bool status = true;
       try {
 #endif
 
         CHECK_ZERO(subdomainSolvers_[sd]->Compute(*matrix_));
 
-#ifdef TESTING
+#ifdef HYMLS_TESTING
         } TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, status);
       if (!status)
         {
@@ -377,7 +377,7 @@ int MatrixBlock::ApplyInverse(const Epetra_MultiVector& B, Epetra_MultiVector& X
     {
     //TODO - get #threads dynamically from processor topology
     //      (see ProcTopo sketch above)
-#ifdef USE_MKL
+#ifdef HYMLS_USE_MKL
     mkl_set_num_threads(numThreads_);
 #endif
 #ifdef USE_OPENMP

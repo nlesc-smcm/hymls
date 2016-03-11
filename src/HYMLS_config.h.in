@@ -1,0 +1,25 @@
+#ifndef HYMLS_CONFIG_H
+#define HYMLS_CONFIG_H
+
+/* string to identify the version of HYMLS which is running */
+#define HYMLS_REVISION ${HYMLS_REVISION}
+
+/* enable run time tests which may be expensive but do not produce too much output */
+#cmakedefine HYMLS_TESTING
+
+/* produce debugging output files which may become very large */
+#cmakedefine HYMLS_DEBUGGING
+
+/* dump matrices and vectors that occur during a run, may produce extremely large data files */
+#cmakedefine HYMLS_STORE_MATRICES
+
+/* report each function that is entered/left, very large output files */
+#cmakedefine HYMLS_FUNCTION_TRACING
+
+/* determines which functions are to be timed/traced (0: none >5 all) */
+#define HYMLS_TIMING_LEVEL ${HYMLS_TIMING_LEVEL}
+
+/* wether to use ML ParDiSo */
+#cmakedefine HYMLS_USE_MKL
+
+#endif

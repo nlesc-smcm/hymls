@@ -1,6 +1,8 @@
 #ifndef HYMLS_TESTER_H
 #define HYMLS_TESTER_H
 
+#include "HYMLS_config.h"
+
 #include <iostream>
 #include "Teuchos_ScalarTraits.hpp"
 #include "Teuchos_RCP.hpp"
@@ -11,7 +13,7 @@ class Epetra_CrsGraph;
 class Epetra_IntVector;
 class Epetra_MultiVector;
 
-#ifdef TESTING
+#ifdef HYMLS_TESTING
 #define HYMLS_TEST(CALLER,FCN,FILE,LINE) \
 {bool status=true; \
 try { \
@@ -47,7 +49,7 @@ class OverlappingPartitioner;
 //! be used to assert certain properties of matrices and other
 //! data structures during run time. To maintain efficiency, these 
 //! functions should always be called using the HYMLS_TEST() macro,
-//! which does nothing unless -DTESTING is defined.
+//! which does nothing unless -DHYMLS_TESTING is defined.
 class Tester
   {
 

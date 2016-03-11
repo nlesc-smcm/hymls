@@ -7,6 +7,8 @@
 #ifndef MATRIX_UTILS_H
 #define MATRIX_UTILS_H
 
+#include "HYMLS_config.h"
+
 #include "HYMLS_Macros.H"
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_Array.hpp"

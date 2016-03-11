@@ -1,6 +1,8 @@
 #ifndef HYMLS_CARTESIAN_PARTITONER_H
 #define HYMLS_CARTESIAN_PARTITONER_H
 
+#include "HYMLS_config.h"
+
 #include <iostream>
 #include "HYMLS_Tools.H"
 #include "Teuchos_RCP.hpp"
@@ -37,7 +39,7 @@ class CartesianPartitioner : public BaseCartesianPartitioner
   //! get non-overlapping subdomain id 
   inline int operator()(int i, int j, int k) const
     {
-#ifdef TESTING    
+#ifdef HYMLS_TESTING    
     if (!Partitioned())
       {
       Tools::Error("Partition() not yet called!",__FILE__,__LINE__);
@@ -48,7 +50,7 @@ class CartesianPartitioner : public BaseCartesianPartitioner
     int kk = k / sz_;
 
     int ind = Tools::sub2ind(npx_,npy_,npz_,ii,jj,kk);
-    //DEBUG("Partition ID["<<i<<","<<j<<","<<k<<"] = "<<ind);
+    //HYMLS_DEBUG("Partition ID["<<i<<","<<j<<","<<k<<"] = "<<ind);
     return ind;
     }
 

@@ -1,5 +1,4 @@
 //#define BLOCK_IMPLEMENTATION 1
-#include "HYMLS_no_debug.H"
 #include "HYMLS_Solver.H"
 
 #include "HYMLS_Tools.H"
@@ -34,6 +33,9 @@
 
 #include "Teuchos_StandardParameterEntryValidators.hpp"
 #include "Teuchos_StandardCatchMacros.hpp"
+
+#include "HYMLS_no_debug.H"
+
 
 namespace HYMLS {
 
@@ -212,7 +214,7 @@ void Solver::setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& List)
     this->getValidParameters();
     PL().validateParameters(VPL());
     }
-  DEBUG(PL());
+  HYMLS_DEBUG(PL());
   }
 
 // Sets all parameters for the solver
@@ -488,11 +490,11 @@ int Solver::SetupDeflation(int maxEigs)
       Tools::Error("no eigenvector basis has been returned.",__FILE__,__LINE__);
       }
 
-#ifdef DEBUGGING
-    DEBUG("precEigs_->Evals = ...");
+#ifdef HYMLS_DEBUGGING
+    HYMLS_DEBUG("precEigs_->Evals = ...");
     for (unsigned int i=0;i<precEigs_->Evals.size();i++)
       {
-      DEBUG(precEigs_->Evals[i].realpart << "\t"<<precEigs_->Evals[i].imagpart);
+      HYMLS_DEBUG(precEigs_->Evals[i].realpart << "\t"<<precEigs_->Evals[i].imagpart);
       }
     HYMLS::MatrixUtils::Dump(*(precEigs_->Evecs),"EigenvectorsOfBorderedPrec.txt");
     HYMLS::MatrixUtils::Dump(*(precEigs_->Espace),"EigenBasisOfBorderedPrec.txt");
@@ -518,7 +520,7 @@ int Solver::SetupDeflation(int maxEigs)
     Epetra_SerialDenseVector lambda_i(n);
     DenseUtils::Eig(C,lambda_r,lambda_i,EVR,EVL);
     double lambda_max=-1.0e100;
-#ifdef TESTING
+#ifdef HYMLS_TESTING
     Tools::out()<<std::scientific;
     Tools::Out("eigenvalue estimates near zero:");
     Tools::Out("===============================");
@@ -555,8 +557,8 @@ int Solver::SetupDeflation(int maxEigs)
     // compute all eigenvalues of this operator
     DenseUtils::Eig(C,lambda_r,lambda_i,EVR,EVL);
 
-    DEBUG("V'inv(P)KV, should be close to identity if preconditioner is good:");
-    DEBVAR(C);
+    HYMLS_DEBUG("V'inv(P)KV, should be close to identity if preconditioner is good:");
+    HYMLS_DEBVAR(C);
 
     // keep those that are further away from 1 then the "Deflation Threshold"
     std::vector<bool> keep(n);
@@ -565,21 +567,21 @@ int Solver::SetupDeflation(int maxEigs)
     for (int i=0;i<n;i++)
       {
       re=1.0-lambda_r[i]; im = lambda_i[i];
-#ifdef TESTING
+#ifdef HYMLS_TESTING
       Tools::out() << "lambda(V'P\\SV)["<<i<<"]=";
       Tools::out() << lambda_r[i] << " + i (" << lambda_i[i] << ")"<<std::endl;
-      DEBUG("lambda(V'P\\SV)["<<i<<"]="<<lambda_r[i] << " + i (" << lambda_i[i] << ")");
+      HYMLS_DEBUG("lambda(V'P\\SV)["<<i<<"]="<<lambda_r[i] << " + i (" << lambda_i[i] << ")");
 #endif
       if ((re*re+im*im)>tol)
         {
         Tools::out() << "deflating eigenmode "<<i<<": lambda(V'P\\SV)=";
         Tools::out() << lambda_r[i] << " + i (" << lambda_i[i] << ")"<<std::endl;
         keep[i]=true;
-        DEBUG("deflated");
+        HYMLS_DEBUG("deflated");
         }
       else
         {
-        DEBUG("not deflated");
+        HYMLS_DEBUG("not deflated");
         numDeflated_--;
         keep[i]=false;
         }
@@ -636,7 +638,7 @@ int Solver::SetupDeflation(int maxEigs)
     numDeflated_=V_->NumVectors();
     }
 
-#ifdef STORE_MATRICES
+#ifdef HYMLS_STORE_MATRICES
   MatrixUtils::Dump(*V_,"DeflationVectors.txt");
 #endif
 
@@ -790,7 +792,7 @@ int Solver::ApplyInverse(const Epetra_MultiVector& B,
     belosRhs_=Teuchos::rcp(new Epetra_MultiVector(matrix_->OperatorRangeMap(),numRhs));
     belosSol_=Teuchos::rcp(new Epetra_MultiVector(matrix_->OperatorDomainMap(),numRhs));
     }
-#ifdef TESTING
+#ifdef HYMLS_TESTING
   if (X.NumVectors()!=B.NumVectors())
     {
     Tools::Error("different number of input and output vectors",__FILE__,__LINE__);
@@ -807,7 +809,7 @@ int Solver::ApplyInverse(const Epetra_MultiVector& B,
 
   if (startVec_=="Random")
     {
-#ifdef DEBUGGING
+#ifdef HYMLS_DEBUGGING
     int seed=42;
     MatrixUtils::Random(*belosSol_, seed);
 #else
@@ -835,7 +837,7 @@ int Solver::ApplyInverse(const Epetra_MultiVector& B,
 
   if (LU_ != Teuchos::null)
     {
-    DEBUG("Solver: Bordered Solve");
+    HYMLS_DEBUG("Solver: Bordered Solve");
     // bordered solve. We use belosSol_ here because it contains
     // the initial guess. Not used at the moment
 
@@ -864,7 +866,7 @@ int Solver::ApplyInverse(const Epetra_MultiVector& B,
     if (ret != ::Belos::Converged)
       {
       HYMLS::Tools::Warning("Belos returned "+::Belos::convertReturnTypeToString(ret)+"'!",__FILE__,__LINE__);    
-#ifdef TESTING
+#ifdef HYMLS_TESTING
       Teuchos::RCP<const Epetra_CrsMatrix> Acrs =
         Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_);
       MatrixUtils::Dump(*Acrs,"FailedMatrix.txt");
@@ -881,7 +883,7 @@ int Solver::ApplyInverse(const Epetra_MultiVector& B,
     Tools::Out("");
     }
 
-#ifdef TESTING
+#ifdef HYMLS_TESTING
 
   Tools::Out("explicit residual test");
   Tools::out()<<"we were solving (a*A*x+b*B)*x=rhs\n" <<

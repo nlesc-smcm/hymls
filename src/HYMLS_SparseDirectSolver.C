@@ -507,7 +507,7 @@ ApplyInverse(const Epetra_MultiVector& X, Epetra_MultiVector& Y) const
     return -99; // not implemented
     }
   
-#ifdef TESTING
+#ifdef HYMLS_TESTING
 Epetra_MultiVector R(X);
 CHECK_ZERO(Matrix_->Multiply(UseTranspose_,Y,R));
 CHECK_ZERO(R.Update(-1.0,X,1.0));
@@ -905,7 +905,7 @@ HYMLS_PROF3(label_,"UmfpackSymbolic");
                              &umf_Symbolic_, &umf_Control_[0], &umf_Info_[0]);
   if (status)
     {
-#ifdef TESTING
+#ifdef HYMLS_TESTING
     if (N<=256)
       {
       std::cout << "umfpack matrix: "<<std::endl;
@@ -941,10 +941,10 @@ if (status)
   }
  Condest_=umf_Info_[UMFPACK_RCOND];
  double rcond = Condest_;
-#ifdef TESTING
+#ifdef HYMLS_TESTING
     if (rcond>0.0)
       {
-      DEBVAR(rcond);
+      HYMLS_DEBVAR(rcond);
       if (rcond<1.0e-14)
         { 
         Tools::Warning("singular matrix encountered!\n"

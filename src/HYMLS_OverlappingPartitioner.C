@@ -43,9 +43,9 @@
 #include "Teuchos_StandardCatchMacros.hpp"
 
 //#undef DEBUG
-//#define DEBUG(s) std::cerr << s << std::endl;
-//#undef DEBVAR
-//#define DEBVAR(s) std::cerr << #s << " = "<< s << std::endl;
+//#define HYMLS_DEBUG(s) std::cerr << s << std::endl;
+//#undef HYMLS_DEBVAR
+//#define HYMLS_DEBVAR(s) std::cerr << #s << " = "<< s << std::endl;
 
 typedef Teuchos::Array<int>::iterator int_i;
 
@@ -70,7 +70,7 @@ namespace HYMLS {
     setParameterList(params);
 
     // check that this is an F-matrix. Note that the actual test is quite expensive,
-    // but it is only performed if -DTESTING is defined.
+    // but it is only performed if -DHYMLS_TESTING is defined.
     Teuchos::RCP<const Epetra_CrsMatrix> Kcrs =
         Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(K);
     if (Kcrs!=Teuchos::null)
@@ -101,17 +101,17 @@ namespace HYMLS {
       cartPart->SetPressureVariable(pvar_);
       }
 
-    //DEBVAR(*p_graph_);
+    //HYMLS_DEBVAR(*p_graph_);
     int nzgraph = p_graph_->NumMyNonzeros();
     REPORT_SUM_MEM(Label(),"graph with overlap",0,nzgraph,GetComm());
 
-#ifdef STORE_MATRICES
+#ifdef HYMLS_STORE_MATRICES
   this->DumpGraph();
 #endif
     CHECK_ZERO(this->DetectSeparators());
-    DEBVAR(*this);
+    HYMLS_DEBVAR(*this);
     CHECK_ZERO(this->GroupSeparators());
-    DEBVAR(*this);
+    HYMLS_DEBVAR(*this);
     return;
     }
 
@@ -148,7 +148,7 @@ void OverlappingPartitioner::setParameterList
   pvar_=-1; int pcount=0;
   for (int i=0;i<dof_;i++)
     {
-    DEBVAR(variableType_[i]);
+    HYMLS_DEBVAR(variableType_[i]);
     if (retainIsolated_[i]) {pvar_=i; pcount++;}
     }
   if (pcount>1)
@@ -202,15 +202,15 @@ void OverlappingPartitioner::setParameterList
       this->getValidParameters();
       PL().validateParameters(VPL());
       }
-  DEBVAR(PL());
+  HYMLS_DEBVAR(PL());
   }
 
 Teuchos::RCP<const Teuchos::ParameterList> OverlappingPartitioner::getValidParameters() const
   {
   if (validParams_!=Teuchos::null) return validParams_;
   HYMLS_PROF3(Label(),"getValidParameters");
-#ifdef TESTING
-  VPL().set("Test F-Matrix Properties",false,"do special tests for F-matrices in TESTING mode.");
+#ifdef HYMLS_TESTING
+  VPL().set("Test F-Matrix Properties",false,"do special tests for F-matrices in HYMLS_TESTING mode.");
 #endif
   VPL().set("Dimension",2,"physical dimension of the problem");
   VPL().set("Degrees of Freedom",1,"number of unknowns per node");
@@ -276,7 +276,7 @@ int OverlappingPartitioner::Partition()
     }
 
   Teuchos::ParameterList& solverParams=PL("Preconditioner");
-  DEBVAR(PL("Preconditioner"));
+  HYMLS_DEBVAR(PL("Preconditioner"));
   int npx,npy,npz;
   int sx=-1;
   int sy,sz;
@@ -343,12 +343,12 @@ int OverlappingPartitioner::Partition()
   //   of a subdomain are contiguous in the partitioner's map.
   SetMap(partitioner_->GetMap());
 
-#ifdef DEBUGGING__disabled_
-DEBUG("Partition numbers:");
+#ifdef HYMLS_DEBUGGING__disabled_
+HYMLS_DEBUG("Partition numbers:");
 for (int i=0;i<Map().NumMyElements();i++)
   {
   int gid=Map().GID(i);
-  DEBUG(gid << " " << (*partitioner_)(gid));
+  HYMLS_DEBUG(gid << " " << (*partitioner_)(gid));
   }
 #endif
 
@@ -382,9 +382,9 @@ int OverlappingPartitioner::DetectSeparators()
     classifier_=Teuchos::rcp(new CartesianStokesClassifier
         (p_graph_,partitioner_,variableType_,retainIsolated_,
         perio_,dim_,Level(),nx_,ny_,nz_));
-#ifdef TESTING
+#ifdef HYMLS_TESTING
     // for comparison purposes - create the standard object so it
-    // writes its nodeType vector to file in TESTING mode
+    // writes its nodeType vector to file in HYMLS_TESTING mode
     Teuchos::RCP<StandardNodeClassifier> tmp=Teuchos::rcp(new StandardNodeClassifier
         (p_graph_,partitioner_,variableType_,retainIsolated_,
         Level(),nx_,ny_,nz_));
@@ -429,10 +429,10 @@ int OverlappingPartitioner::DetectSeparators()
     CHECK_ZERO(this->BuildNodeLists(sd,*p_graph_, *nodeType_, *p_nodeType_,
               interior_nodes, separator_nodes, retained_nodes));
 
-    DEBVAR(sd);
-    DEBVAR(interior_nodes);
-    DEBVAR(separator_nodes);
-    DEBVAR(retained_nodes);
+    HYMLS_DEBVAR(sd);
+    HYMLS_DEBVAR(interior_nodes);
+    HYMLS_DEBVAR(separator_nodes);
+    HYMLS_DEBVAR(retained_nodes);
 
     // in this function we just form three groups per subdomain:
     // interior, separator or retained. In GroupSeparators() this
@@ -475,12 +475,12 @@ int OverlappingPartitioner::DetectSeparators()
     }
 
   int sd_i = partitioner_->GPID(sd);
-  DEBVAR(sd);
-  DEBVAR(sd_i);
+  HYMLS_DEBVAR(sd);
+  HYMLS_DEBVAR(sd_i);
 
   const Epetra_BlockMap& p_map = p_nodeType.Map();
 
-#ifdef TESTING
+#ifdef HYMLS_TESTING
   if (!partitioner_->Map().SameAs(nodeType.Map()))
     {
     Tools::Error("nodeType must be based on partitioner's map",
@@ -501,7 +501,7 @@ int OverlappingPartitioner::DetectSeparators()
         int nt_j = (*p_nodeType_)[p_map.LID(cols[j])];
         if ((sd_j!=sd_i)&&nt_j>0)
           {
-          DEBUG("include "<<cols[j]<<" from "<<row);
+          HYMLS_DEBUG("include "<<cols[j]<<" from "<<row);
           if (nt_j>=4)
             {
             retained.append(cols[j]);
@@ -587,7 +587,7 @@ int OverlappingPartitioner::GroupSeparators()
 
   this->Reset(partitioner_->NumLocalParts());
 
-  DEBUG("build separator lists...");
+  HYMLS_DEBUG("build separator lists...");
 
   int MaxNumElements=p_graph_->MaxNumIndices();
 
@@ -599,7 +599,7 @@ int OverlappingPartitioner::GroupSeparators()
 
   for (int sd=0;sd<partitioner_->NumLocalParts();sd++)
     {
-#ifdef TESTING
+#ifdef HYMLS_TESTING
     if (sd>=groupPointer->size())
       {
       Tools::Error("(temporary) groupPointer array incorrect",__FILE__,__LINE__);
@@ -615,8 +615,8 @@ int OverlappingPartitioner::GroupSeparators()
                 // this does not include retained variables,
                 // which start at groupPointer[2]
 
-    DEBVAR(sd);
-    DEBVAR(numSepNodes);
+    HYMLS_DEBVAR(sd);
+    HYMLS_DEBVAR(numSepNodes);
 
     sepNodes.resize(numSepNodes);
 
@@ -631,7 +631,7 @@ int OverlappingPartitioner::GroupSeparators()
       int type_i = (*p_nodeType_)[p_map.LID(row)];
       int var_i=partitioner_->VariableType(row);
 
-      //DEBUG("Process node "<<row);
+      //HYMLS_DEBUG("Process node "<<row);
       connectedSubs.resize(1);
       connectedSubs[0]=(*partitioner_)(row);
       //CHECK_ZERO(p_graph_->ExtractGlobalRowCopy(row,MaxNumElements,len,cols));
@@ -655,10 +655,10 @@ int OverlappingPartitioner::GroupSeparators()
           {
           // we have to create a 'new subdomain id' as the separator
           // node connects to the interior of a full conservation tube.
-          //DEBUG("connected to FCT");
+          //HYMLS_DEBUG("connected to FCT");
           int sd_id = (*partitioner_)(cols[j])
                     + (-type_j+1)*offset;
-          //DEBUG("\t"<<cols[j]<<" ["<<type_j<<"], gives sd="<<sd_id);
+          //HYMLS_DEBUG("\t"<<cols[j]<<" ["<<type_j<<"], gives sd="<<sd_id);
           // flow may be 0 because the subcell is on the
           // same subdomain, I hope this is correct without
           // the sign as well (may fail in rare cases like
@@ -681,7 +681,7 @@ int OverlappingPartitioner::GroupSeparators()
             {
             int sign = flow/std::abs(flow);
             int sd_id = (*partitioner_)(cols[j]);
-            DEBUG("\t"<<cols[j]<<" "<<sd_id);
+            HYMLS_DEBUG("\t"<<cols[j]<<" "<<sd_id);
             connectedSubs.append(sign*sd_id);
             }
           }// if nodeType
@@ -705,7 +705,7 @@ int OverlappingPartitioner::GroupSeparators()
     // now we sort the nodes by subdomains they connect to.
     // That way we get the correct ordering and only have to
     // set the group pointers:
-    DEBUG("Sort sep nodes");
+    HYMLS_DEBUG("Sort sep nodes");
     std::sort(sepNodes.begin(),sepNodes.end());
 
     // list of retained nodes. We sort these by subdomain and variable type so that
@@ -764,10 +764,10 @@ int OverlappingPartitioner::GroupSeparators()
 
     std::sort(retNodes.begin(),retNodes.end());
 
-    DEBVAR(sepNodes);
-    DEBVAR(retNodes);
+    HYMLS_DEBVAR(sepNodes);
+    HYMLS_DEBVAR(retNodes);
 
-    DEBUG("add the new groups...");
+    HYMLS_DEBUG("add the new groups...");
 
     // place interior nodes into new map (unchanged)
     int num = (*groupPointer)[sd][1]-(*groupPointer)[sd][0];
@@ -906,7 +906,7 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
     newList->sublist("Preconditioner").set("Separator Length", new_sx);
     }
 
-  DEBVAR(*newList);
+  HYMLS_DEBVAR(*newList);
 
   Teuchos::RCP<const OverlappingPartitioner> newLevel;
   newLevel = Teuchos::rcp(new OverlappingPartitioner(Ared, newList,Level()+1));
@@ -1000,7 +1000,7 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
 
     if (pvar_>=0 && false) // TODO this section is disabled for now
       {
-      DEBVAR(pvar_);
+      HYMLS_DEBVAR(pvar_);
       // given A  B, form  C  B, with C = A + BB'
       //       B' 0        B' 0
       CHECK_ZERO(AugmentSppGraph(pvar_));
@@ -1030,9 +1030,9 @@ int OverlappingPartitioner::DumpGraph() const
   {
   HYMLS_PROF2(Label(),"AugmentSppGraph");
 
-  DEBVAR(pvar);
-  DEBVAR(pvar_);
-  DEBVAR(*p_graph_);
+  HYMLS_DEBVAR(pvar);
+  HYMLS_DEBVAR(pvar_);
+  HYMLS_DEBVAR(*p_graph_);
 
   if (!p_graph_->Filled()) Tools::Error("AugmentSppGraph() requires p_graph_ to be filled",
         __FILE__,__LINE__);
@@ -1068,7 +1068,7 @@ int OverlappingPartitioner::DumpGraph() const
           // walk through row of Div to see which rows ii,jj of Grad have entries in common
           // (that's where an entry ii,jj has to be added)
           int lridD = p_graph_->LRID(cols[j]);
-          DEBVAR(lridD);
+          HYMLS_DEBVAR(lridD);
           if (lridD>=0)
             {
             CHECK_ZERO(p_graph_->ExtractMyRowView(lridD,lenD,colsD));
@@ -1086,7 +1086,7 @@ int OverlappingPartitioner::DumpGraph() const
                 }
               }
             }
-#ifdef TESTING
+#ifdef HYMLS_TESTING
           else
             {
             std::stringstream msg;
@@ -1095,9 +1095,9 @@ int OverlappingPartitioner::DumpGraph() const
             msg << "column in G: "<<cols[j] << std::endl;
             msg << "Row not present in K on this proc.\n";
             msg << "Case not handled, your graph should have overlap.\n";
-            msg << "If you compile with -DDEBUGGING, the bad graph is stored in \n";
+            msg << "If you compile with -DHYMLS_DEBUGGING, the bad graph is stored in \n";
             msg << "debug*.txt, after the keyword AugmentSppGraph.\n";
-            DEBVAR(*p_graph_);
+            HYMLS_DEBVAR(*p_graph_);
             Tools::Error(msg.str(),__FILE__,__LINE__);
             }
 #endif
@@ -1107,13 +1107,13 @@ int OverlappingPartitioner::DumpGraph() const
       int_i cols_end = std::unique(cols.begin(),cols.begin()+len);
       len = std::distance(cols.begin(),cols_end);
 
-#ifdef DEBUGGING_
-      DEBVAR(grid);
+#ifdef HYMLS_DEBUGGING_
+      HYMLS_DEBVAR(grid);
       for (int j=0;j<len;j++)
         {
         Tools::deb() << cols[j] << " ";
         }
-      DEBUG("");
+      HYMLS_DEBUG("");
 #endif
       }
     else
@@ -1123,7 +1123,7 @@ int OverlappingPartitioner::DumpGraph() const
     CHECK_ZERO(graph->InsertGlobalIndices(grid,len,cols.getRawPtr()));
     }
 
-  DEBUG("call FillComplete on augmented graph");
+  HYMLS_DEBUG("call FillComplete on augmented graph");
   CHECK_ZERO(graph->FillComplete());
   graph_=graph;
 

@@ -88,9 +88,9 @@ int DenseUtils::MatMul(const Epetra_MultiVector& V, const Epetra_MultiVector& W,
   HYMLS_PROF3(Label(),"MatMul");
   if (!(W.Map().SameAs(V.Map())))
     {
-    DEBUG("DenseUtils::MatMul(V,W) failed because the maps are not the same");
-    DEBVAR(V.Map());
-    DEBVAR(W.Map());
+    HYMLS_DEBUG("DenseUtils::MatMul(V,W) failed because the maps are not the same");
+    HYMLS_DEBVAR(V.Map());
+    HYMLS_DEBVAR(W.Map());
     return -1;
     }
   int m = V.NumVectors();

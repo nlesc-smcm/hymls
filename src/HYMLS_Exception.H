@@ -1,6 +1,8 @@
 #ifndef HYMLS_EXCEPTION_H
 #define HYMLS_EXCEPTION_H
 
+#include "HYMLS_config.h"
+
 #include <string>
 #include <exception>
 

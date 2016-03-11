@@ -1,6 +1,8 @@
 #ifndef HYMLS_SPARSE_DIRECT_SOLVER_H
 #define HYMLS_SPARSE_DIRECT_SOLVER_H
 
+#include "HYMLS_config.h"
+
 #include "Amesos_config.h"
 
 // use Amesos interfaces - no custom ordering or scaling,

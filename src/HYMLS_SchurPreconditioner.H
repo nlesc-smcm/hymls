@@ -1,6 +1,8 @@
 #ifndef HYMLS_SCHUR_PRECONDITIONER_H
 #define HYMLS_SCHUR_PRECONDITIONER_H
 
+#include "HYMLS_config.h"
+
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_Array.hpp"
 #include "Ifpack_Preconditioner.h"

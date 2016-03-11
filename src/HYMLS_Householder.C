@@ -146,7 +146,7 @@ namespace HYMLS {
     // X = (2vv'/v'v-I)Y
     // can be written as X = Z-Y, Z= (2/nrmv^2 v'Y)v
     const int n=X.M();
-#ifdef TESTING
+#ifdef HYMLS_TESTING
     if (v.Length()!=n)
       {
       return -1;
@@ -189,7 +189,7 @@ namespace HYMLS {
     // X = (2vv'/v'v-I)Y
     // can be written as X = Z-X, Z= (2/nrmv^2 v'Y)v
     int n=X.N();
-#ifdef TESTING
+#ifdef HYMLS_TESTING
     if (v.Length()!=n)
       {
       return -1;
@@ -235,7 +235,7 @@ namespace HYMLS {
     {
     HYMLS_PROF3(label_, "Construct (1)");
     int n=M.N();
-#ifdef TESTING
+#ifdef HYMLS_TESTING
     if (M.M()!=n)
       {
       return -1;
@@ -321,7 +321,7 @@ namespace HYMLS {
     
     Wmat_=Teuchos::rcp(&T,false);  
     
-#ifdef STORE_MATRICES
+#ifdef HYMLS_STORE_MATRICES
     MatrixUtils::Dump(A, "HOUSE_A.txt");
     MatrixUtils::Dump(*Wmat_, "HOUSE_W.txt");
 #endif
@@ -330,7 +330,7 @@ namespace HYMLS {
     Teuchos::RCP<Epetra_CrsMatrix> AwT = Teuchos::rcp(new
         Epetra_CrsMatrix(Copy,A.RowMap(),A.MaxNumEntries()) );
 
-    DEBUG("compute A*wT...");
+    HYMLS_DEBUG("compute A*wT...");
 #if (1 || TRILINOS_MAJOR_MINOR_VERSION<101000)
 #define MATMUL_BUG 1
 #endif
@@ -349,10 +349,10 @@ namespace HYMLS {
     Teuchos::RCP<Epetra_CrsMatrix> AwTw = Teuchos::rcp(new 
         Epetra_CrsMatrix(Copy,A.RowMap(),AwT->MaxNumEntries()) );
 
-    DEBUG("compute A*wT*w...");
+    HYMLS_DEBUG("compute A*wT*w...");
     CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(*AwT,false,T,false,*AwTw,false));
 
-#ifdef STORE_MATRICES
+#ifdef HYMLS_STORE_MATRICES
     MatrixUtils::Dump(*AwT,"HOUSE_AwT.txt");
     // not filled yet
     //MatrixUtils::Dump(*AwTw,"HOUSE_AwTw.txt");
@@ -366,31 +366,31 @@ namespace HYMLS {
       AwTw=Teuchos::null;
       }
     
-    DEBUG("compute C=A(2wTw-I)...");
+    HYMLS_DEBUG("compute C=A(2wTw-I)...");
     CHECK_ZERO(EpetraExt::MatrixMatrix::Add(A,false,-1.0,*Cmat_,2.0));
     CHECK_ZERO(Cmat_->FillComplete());
 
-#ifdef STORE_MATRICES
+#ifdef HYMLS_STORE_MATRICES
     MatrixUtils::Dump(*Cmat_,"HOUSE_C.txt");
 #endif
 
     // wC
     WCmat_ = Teuchos::rcp(new Epetra_CrsMatrix(Copy,A.RowMap(),Cmat_->MaxNumEntries()) );
 
-    DEBUG("compute wC...");
+    HYMLS_DEBUG("compute wC...");
     CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(T,false,*Cmat_,false,*WCmat_,true));
 
     // wTwC
     Teuchos::RCP<Epetra_CrsMatrix> wTwC = Teuchos::rcp(new 
         Epetra_CrsMatrix(Copy,A.RowMap(),WTmat_->MaxNumEntries()) );
   
-    DEBUG("compute wTwC...");
+    HYMLS_DEBUG("compute wTwC...");
 #ifndef MATMUL_BUG
     CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(*Wmat_,true,*WCmat_,false,*wTwC,false));
 #else
     CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(*WTmat_,false,*WCmat_,false,*wTwC,false));
 #endif
-#ifdef STORE_MATRICES
+#ifdef HYMLS_STORE_MATRICES
     MatrixUtils::Dump(*WCmat_,"HOUSE_wC.txt");
     // not filled yet
     //MatrixUtils::Dump(*wTwC,"HOUSE_wTwC.txt");
@@ -403,11 +403,11 @@ namespace HYMLS {
       Transp_=Teuchos::null;
       }
 
-    DEBUG("compute TAT=2wTwC-C...");
+    HYMLS_DEBUG("compute TAT=2wTwC-C...");
     CHECK_ZERO(EpetraExt::MatrixMatrix::Add(*Cmat_,false,-1.0,*wTwC,2.0));
     wTwC->FillComplete();
 
-#ifdef STORE_MATRICES
+#ifdef HYMLS_STORE_MATRICES
     // not filled yet
     //MatrixUtils::Dump(*wTwC,"HOUSE_HAH.txt");
 #endif
@@ -426,7 +426,7 @@ namespace HYMLS {
                     WTmat_->NumMyNonzeros();
     REPORT_SUM_MEM(label_,"intermediate results",my_nnz,my_nnz,&wTwC->Comm());
     }
-    DEBUG("done!");
+    HYMLS_DEBUG("done!");
     return wTwC;                
     }
 
@@ -474,29 +474,29 @@ namespace HYMLS {
       }
     
     // Aw'
-    DEBUG("compute A*wT...");
+    HYMLS_DEBUG("compute A*wT...");
     CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(A,false,*WTmat_,false,TAT));
 
 
     // Aw'w
-    DEBUG("compute A*wT*w...");
+    HYMLS_DEBUG("compute A*wT*w...");
     CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(TAT,false,*Wmat_,false,*Cmat_));
 
     // C=2Aw'w-A
-    DEBUG("compute C=A(I-2wTw)...");
+    HYMLS_DEBUG("compute C=A(I-2wTw)...");
     CHECK_ZERO(EpetraExt::MatrixMatrix::Add(A,false,1.0,*Cmat_,-2.0));
 
     // wC
-    DEBUG("compute wC...");
+    HYMLS_DEBUG("compute wC...");
     CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(*Wmat_,false,*Cmat_,false,*WCmat_));
 
     // wTwC
-    DEBUG("compute wTwC...");
+    HYMLS_DEBUG("compute wTwC...");
     CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(*WTmat_,false,*WCmat_,false,TAT));
 
-    DEBUG("compute TAT=C-2wTwC...");
+    HYMLS_DEBUG("compute TAT=C-2wTwC...");
     CHECK_ZERO(EpetraExt::MatrixMatrix::Add(*Cmat_,false,1.0,TAT,-2.0));
-    DEBUG("done!");
+    HYMLS_DEBUG("done!");
 
     
     return 0;

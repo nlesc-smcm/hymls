@@ -1,6 +1,8 @@
 #ifndef HYMLS_ORTHOGONAL_TRANSFORM_H
 #define HYMLS_ORTHOGONAL_TRANSFORM_H
 
+#include "HYMLS_config.h"
+
 #include "Teuchos_RCP.hpp"
 
 class Epetra_SerialDenseMatrix;

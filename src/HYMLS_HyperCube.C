@@ -19,22 +19,22 @@ HyperCube::HyperCube()
   MPI_Get_processor_name(procname,&procname_len);
   std::string proc(procname);
   delete [] procname;
-  DEBVAR(proc);
+  HYMLS_DEBVAR(proc);
   for (size_t i=0; i<proc.length();i++)
     {
     if (proc[i]<'0' || proc[i]>'9') proc[i]='0';
     }
   int node_id = Teuchos::StrUtils::atoi(proc);
-  DEBVAR(node_id);
+  HYMLS_DEBVAR(node_id);
   Teuchos::Array<int> all_nodes(commWorld_->NumProc());
   CHECK_ZERO(commWorld_->GatherAll(&node_id,&all_nodes[0],1));
   std::sort(all_nodes.begin(),all_nodes.end());
   Teuchos::Array<int>::iterator new_end = std::unique(all_nodes.begin(),all_nodes.end());
   numNodes_ = std::distance(all_nodes.begin(),new_end);
-  DEBVAR(numNodes_);
+  HYMLS_DEBVAR(numNodes_);
   nodeNumber_=0;
   while (all_nodes[nodeNumber_]!=node_id) nodeNumber_++;
-  DEBVAR(nodeNumber_);
+  HYMLS_DEBVAR(nodeNumber_);
 
   Teuchos::Array<int> my_node(numNodes_);
   all_nodes.resize(numNodes_);
@@ -47,7 +47,7 @@ HyperCube::HyperCube()
   
   CHECK_ZERO(commWorld_->ScanSum(&my_node[0],&all_nodes[0],numNodes_));
   rankOnNode_=all_nodes[nodeNumber_]-1;
-  DEBVAR(rankOnNode_);
+  HYMLS_DEBVAR(rankOnNode_);
 
   for (int i=0;i<numNodes_;i++) 
     {
@@ -60,7 +60,7 @@ HyperCube::HyperCube()
     {
     maxProcPerNode_=std::max(maxProcPerNode_,all_nodes[i]);
     }
-  DEBVAR(maxProcPerNode_);
+  HYMLS_DEBVAR(maxProcPerNode_);
     
   // how many local rank 0, rank 1 etc are there on all these nodes?
   Teuchos::Array<int> my_proc_counts(maxProcPerNode_);
@@ -74,7 +74,7 @@ HyperCube::HyperCube()
   int newRank=0;
   for (int i=0;i<rankOnNode_;i++) newRank+=proc_counts[i];
   newRank+=scan_proc[rankOnNode_];
-  DEBVAR(newRank);
+  HYMLS_DEBVAR(newRank);
 
   // create a new reordered comm with all ranks still in it.
   int color=1;  
@@ -84,7 +84,7 @@ HyperCube::HyperCube()
   
   reorderedComm_=Teuchos::rcp(new Epetra_MpiComm(NewComm));
 
-//#ifdef TESTING  
+//#ifdef HYMLS_TESTING  
   for (int i=0;i<reorderedComm_->NumProc();i++)
     {
     if (reorderedComm_->MyPID()==i)

@@ -1,6 +1,8 @@
 #ifndef NOX_EPETRA_LINEARSYSTEMHYMLS_H
 #define NOX_EPETRA_LINEARSYSTEMHYMLS_H
 
+#include "HYMLS_config.h"
+
 #include "BelosConfigDefs.hpp"
 #include "NOX_Epetra_LinearSystem_AztecOO.H"
 #include "Teuchos_ScalarTraits.hpp"

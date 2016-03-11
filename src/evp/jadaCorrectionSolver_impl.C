@@ -334,7 +334,7 @@ void SUBR(computeResidual)(TYPE(const_linearOp_ptr) B_op, TYPE(mvec_ptr) r_ptr,
   PHIST_CHK_IERR(SUBR(mvec_dot_mvec)(rtil_ptr,rtil_ptr,nrm,iflag),*iflag);
   *resid=sqrt(nrm[0]+nrm[1]);
 
-#ifdef TESTING
+#ifdef HYMLS_TESTING
   // TODO: We can't do anything here if we don't have B
   if (solver == Teuchos::null)
     return;
@@ -368,7 +368,7 @@ void SUBR(computeResidual)(TYPE(const_linearOp_ptr) B_op, TYPE(mvec_ptr) r_ptr,
   // Test if Au is really A*u
   solver->ApplyMatrix(explicit_resid, vec1);
 
-#ifdef DEBUGGING
+#ifdef HYMLS_DEBUGGING
   HYMLS::MatrixUtils::Dump(*(const Epetra_MultiVector *)Au_ptr, "Au_ptr.txt");
   HYMLS::MatrixUtils::Dump(vec1, "Au.txt");
 #endif
@@ -380,7 +380,7 @@ void SUBR(computeResidual)(TYPE(const_linearOp_ptr) B_op, TYPE(mvec_ptr) r_ptr,
   vec1.Update(-1.0, Au_full, 1.0);
   vec1.Norm2(norm1);
 
-#ifdef DEBUGGING
+#ifdef HYMLS_DEBUGGING
   HYMLS::MatrixUtils::Dump(vec1, "Au_update.txt");
 
   for (int i = 0; i < nv; i++)

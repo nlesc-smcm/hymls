@@ -176,7 +176,7 @@ bool status=true;
     b = Teuchos::rcp(new Epetra_Vector(*map));
     have_exact_sol=true;
     }
-#ifdef TESTING  
+#ifdef HYMLS_TESTING  
   HYMLS::MatrixUtils::Dump(*K, "Matrix.txt");
 #endif  
   

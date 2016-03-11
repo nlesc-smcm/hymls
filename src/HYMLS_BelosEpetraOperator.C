@@ -129,12 +129,12 @@ int EpetraOperator::ApplyInverse( const Epetra_MultiVector &X, Epetra_MultiVecto
   Epetra_MultiVector B1(X), B2(X);
   if (V_!=Teuchos::null)
     {
-    DEBUG("project rhs");
+    HYMLS_DEBUG("project rhs");
     CHECK_ZERO(HYMLS::DenseUtils::ApplyOrth(*V_,X,B1));
     }
   if (P_!=Teuchos::null)
     {
-    DEBUG("apply preconditioner to rhs");
+    HYMLS_DEBUG("apply preconditioner to rhs");
     CHECK_ZERO(P_->ApplyInverse(B1,B2));
     }
   else
@@ -148,11 +148,11 @@ int EpetraOperator::ApplyInverse( const Epetra_MultiVector &X, Epetra_MultiVecto
   vec_Y = Teuchos::rcp( &Y, false );
   if (initSolnVec_)
     vec_Y->PutScalar( 0.0 );
-  DEBUG("set problem...");
+  HYMLS_DEBUG("set problem...");
   lp_->setProblem( vec_Y, vec_X );
-  DEBUG("solve using Krylov method...");
+  HYMLS_DEBUG("solve using Krylov method...");
   ::Belos::ReturnType ret = solver_->solve();
-  DEBUG("done: Belos returned '"+::Belos::convertReturnTypeToString(ret)+"'");
+  HYMLS_DEBUG("done: Belos returned '"+::Belos::convertReturnTypeToString(ret)+"'");
   numIter_=solver_->getNumIters();
   if (ret != ::Belos::Converged) 
     {

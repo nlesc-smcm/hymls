@@ -1,6 +1,8 @@
 #ifndef HYMLS_OVERLAPPING_PARTITIONER_H
 #define HYMLS_OVERLAPPING_PARTITIONER_H
 
+#include "HYMLS_config.h"
+
 #include "HYMLS_HierarchicalMap.H"
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_Array.hpp"

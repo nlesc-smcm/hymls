@@ -1,6 +1,8 @@
 #ifndef HYMLS_MAIN_UTILS_H
 #define HYMLS_MAIN_UTILS_H
 
+#include "HYMLS_config.h"
+
 #include <string>
 #include "Teuchos_RCP.hpp"
 

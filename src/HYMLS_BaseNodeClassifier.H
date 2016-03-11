@@ -1,6 +1,7 @@
 #ifndef HYMLS_BASE_NODE_CLASSIFIER_H
 #define HYMLS_BASE_NODE_CLASSIFIER_H
 
+#include "HYMLS_config.h"
 #include "Teuchos_RCP.hpp"
 
 namespace HYMLS {

@@ -1,6 +1,8 @@
 #ifndef HYMLS_BORDERED_SOLVER_H
 #define HYMLS_BORDERED_SOLVER_H
 
+#include "HYMLS_config.h"
+
 class Epetra_MultiVector;
 class Epetra_SerialDenseMatrix;
 

@@ -47,6 +47,8 @@
 #ifndef HYMLS_BELOS_EPETRA_OPERATOR_H
 #define HYMLS_BELOS_EPETRA_OPERATOR_H
 
+#include "HYMLS_config.h"
+
 #include "Epetra_MultiVector.h"
 #include "Epetra_Operator.h"
 #include "Epetra_Map.h"

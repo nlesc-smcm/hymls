@@ -1,6 +1,8 @@
 #ifndef HYMLS_SOLVERCONTAINER_H
 #define HYMLS_SOLVERCONTAINER_H
 
+#include "HYMLS_config.h"
+
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_ParameterList.hpp"
 

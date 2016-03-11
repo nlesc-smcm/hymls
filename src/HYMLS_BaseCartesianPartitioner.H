@@ -1,6 +1,7 @@
 #ifndef HYMLS_BASE_CARTESIAN_PARTITONER_H
 #define HYMLS_BASE_CARTESIAN_PARTITONER_H
 
+#include "HYMLS_config.h"
 #include <iostream>
 #include "HYMLS_Tools.H"
 #include "Teuchos_RCP.hpp"
@@ -95,7 +96,7 @@ class BaseCartesianPartitioner : public BasePartitioner
   int operator()(int gid) const
     {
     int i,j,k,var;
-#ifdef TESTING    
+#ifdef HYMLS_TESTING    
     if (!Partitioned())
       {
       Tools::Error("Partition() not yet called!",__FILE__,__LINE__);
@@ -210,7 +211,7 @@ protected:
   //! get local subdomain id 
   inline int LSID(int i, int j, int k) const
     {
-#ifdef TESTING
+#ifdef HYMLS_TESTING
     if (sdMap_==Teuchos::null)
       {
       Tools::Error("sdMap not created yet!",__FILE__,__LINE__);
@@ -222,7 +223,7 @@ protected:
   //! get local subdomain id 
   inline int LSID(int gid) const
     {
-#ifdef TESTING
+#ifdef HYMLS_TESTING
     if (sdMap_==Teuchos::null)
       {
       Tools::Error("sdMap not created yet!",__FILE__,__LINE__);
@@ -244,7 +245,7 @@ protected:
     int npy = npy_ / nprocy_;
     int npz = npz_ / nprocz_;
 
-#ifdef TESTING    
+#ifdef HYMLS_TESTING    
     if ( (npx*nprocx_!=npx_) ||
          (npy*nprocy_!=npy_) ||
          (npz*nprocz_!=npz_) )
@@ -260,10 +261,10 @@ protected:
 
     int pid = Tools::sub2ind(nprocx_,nprocy_,nprocz_,1,pidx,pidy,pidz,0);
 /*
-    DEBUG("ijk: "<<i<<" "<<j<<" "<<k);
-    DEBUG("np_loc: "<<npx<<" "<<npy<<" "<<npz);
-    DEBUG("sd: "<<sdx<<" "<<sdy<<" "<<sdz);
-    DEBUG("PID: "<<pidx<<" "<<pidy<<" "<<pidz<<" ("<<pid<<")");
+    HYMLS_DEBUG("ijk: "<<i<<" "<<j<<" "<<k);
+    HYMLS_DEBUG("np_loc: "<<npx<<" "<<npy<<" "<<npz);
+    HYMLS_DEBUG("sd: "<<sdx<<" "<<sdy<<" "<<sdz);
+    HYMLS_DEBUG("PID: "<<pidx<<" "<<pidy<<" "<<pidz<<" ("<<pid<<")");
 */
     return pid;
     }

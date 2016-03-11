@@ -1,6 +1,8 @@
 #ifndef HYMLS_PROJECTED_OPERATOR_H
 #define HYMLS_PROJECTED_OPERATOR_H
 
+#include "HYMLS_config.h"
+
 #include "Teuchos_RCP.hpp"
 #include "Epetra_Operator.h"
 #include "HYMLS_Tools.H"

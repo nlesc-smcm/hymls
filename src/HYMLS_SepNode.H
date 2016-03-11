@@ -1,6 +1,8 @@
 #ifndef HYMLS_SEPNODE_H
 #define HYMLS_SEPNODE_H
 
+#include "HYMLS_config.h"
+
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_Array.hpp"
 #include <algorithm>

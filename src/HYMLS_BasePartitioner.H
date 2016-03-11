@@ -1,6 +1,7 @@
 #ifndef HYMLS_BASE_PARTITONER_H
 #define HYMLS_BASE_PARTITONER_H
 
+#include "HYMLS_config.h"
 #include "Teuchos_RCP.hpp"
 #include "HYMLS_Tools.H"
 

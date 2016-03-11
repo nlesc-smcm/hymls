@@ -153,8 +153,8 @@ int SchurComplement::Construct(Teuchos::RCP<Epetra_FECrsMatrix> S) const
     for (int k = 0; k < hid.NumMySubdomains(); k++)
       {
       CHECK_ZERO(hid.getSeparatorGIDs(k, indices));
-      DEBVAR(k);
-      DEBVAR(indices);
+      HYMLS_DEBVAR(k);
+      HYMLS_DEBVAR(indices);
       if (indices.Length() != Sk.N())
         {
         Sk.Shape(indices.Length(), indices.Length());
@@ -168,7 +168,7 @@ int SchurComplement::Construct(Teuchos::RCP<Epetra_FECrsMatrix> S) const
         }
       }
 
-    DEBUG("SchurComplement: Assembly with all zeros...");
+    HYMLS_DEBUG("SchurComplement: Assembly with all zeros...");
     //assemble without calling FillComplete because we
     // still miss A22 in the pattern
     CHECK_ZERO(S->GlobalAssemble(false));
@@ -186,7 +186,7 @@ int SchurComplement::Construct(Teuchos::RCP<Epetra_FECrsMatrix> S) const
 
     CHECK_ZERO(S->SumIntoGlobalValues(indices, Sk));
     }
-  DEBUG("SchurComplement - GlobalAssembly");
+  HYMLS_DEBUG("SchurComplement - GlobalAssembly");
   CHECK_ZERO(S->GlobalAssemble(false));
   CHECK_ZERO(EpetraExt::MatrixMatrix::Add(*A22_->Block(), false, 1.0,
       *S, -1.0));
@@ -214,7 +214,7 @@ int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
     return -1;
     }
 
-#ifdef TESTING
+#ifdef HYMLS_TESTING
   // verify that the ID array of the subdomain solver is sorted
   // in ascending order, I think we assume that...
   for (int i = 1; i < A11.NumRows(); i++)
@@ -245,9 +245,9 @@ int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
 
   A11.SetNumVectors(nrows);
 
-  DEBVAR(sd);
-  DEBVAR(inds);
-  DEBVAR(nrows);
+  HYMLS_DEBVAR(sd);
+  HYMLS_DEBVAR(inds);
+  HYMLS_DEBVAR(nrows);
 
   int int_elems = hid.NumInteriorElements(sd);
   int len[int_elems];
@@ -276,7 +276,7 @@ int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
       }
     }
 
-//    DEBUG("Apply A11 inverse...");
+//    HYMLS_DEBUG("Apply A11 inverse...");
 #ifdef FLOPS_COUNT
   double flopsOld = A11.ApplyInverseFlops();
 #endif
@@ -311,7 +311,7 @@ int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
 #endif
   // re-index and put into final block
 
-//    DEBUG("Copy into Sk matrix");
+//    HYMLS_DEBUG("Copy into Sk matrix");
   for (int i = 0; i < nrows; i++)
     {
     int lrid = A21.RowMap().LID(inds[i]);
@@ -323,7 +323,7 @@ int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
 
   A11.SetNumVectors(1);
 
-//    DEBUG("Block constructed successfully!");
+//    HYMLS_DEBUG("Block constructed successfully!");
 #ifdef FLOPS_COUNT
   if (count_flops != NULL) *count_flops += flops;
 #endif

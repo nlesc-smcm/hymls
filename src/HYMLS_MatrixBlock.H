@@ -1,6 +1,8 @@
 #ifndef HYMLS_MATRIXBLOCK_H
 #define HYMLS_MATRIXBLOCK_H
 
+#include "HYMLS_config.h"
+
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_Array.hpp"
 

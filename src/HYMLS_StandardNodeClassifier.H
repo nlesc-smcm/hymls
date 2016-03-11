@@ -1,6 +1,8 @@
 #ifndef HYMLS_STANDARD_NODE_CLASSIFIER_H
 #define HYMLS_STANDARD_NODE_CLASSIFIER_H
 
+#include "HYMLS_config.h"
+
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_Array.hpp"
 #include "HYMLS_BaseNodeClassifier.H"

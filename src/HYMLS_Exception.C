@@ -6,10 +6,10 @@ namespace HYMLS {
   Exception::Exception(std::string msg, std::string file, int line) throw() :
     msg_(msg),file_(file),line_(line)
     {
-    DEBUG("THROWING HYMLS EXCEPTION!");
-    DEBVAR(msg);
-    DEBVAR(file);
-    DEBVAR(line);
+    HYMLS_DEBUG("THROWING HYMLS EXCEPTION!");
+    HYMLS_DEBVAR(msg);
+    HYMLS_DEBVAR(file);
+    HYMLS_DEBVAR(line);
     {
     std::stringstream ss;
     Tools::printFunctionStack(ss);

@@ -22,8 +22,8 @@
 #include "Teuchos_StandardCatchMacros.hpp"
 
 /*
-#ifndef TESTING
-#define TESTING 1
+#ifndef HYMLS_TESTING
+#define HYMLS_TESTING 1
 #endif
 */
 namespace HYMLS {
@@ -108,7 +108,7 @@ int StandardNodeClassifier::BuildNodeTypeVector()
   CHECK_ZERO(p_nodeType_->Import(*nodeType_,import,Insert));
   // p_nodeType is the nodetype on the overlappingg domain. Here nodetype information from other processors is
   //gathered.
-#if defined(STORE_MATRICES)||defined(TESTING)
+#if defined(HYMLS_STORE_MATRICES)||defined(HYMLS_TESTING)
 std::ofstream nodeTypeStream;
 nodeTypeStream.open(("nodeTypes_L"+Teuchos::toString(myLevel_)+
         "_"+Teuchos::toString(nodeType_->Comm().MyPID())+".txt").c_str(),std::ios::trunc);
@@ -123,7 +123,7 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"initial");
   // import to "spread the word"
   CHECK_ZERO(p_nodeType_->Import(*nodeType_,import,Insert));
 
-#if defined(STORE_MATRICES)||defined(TESTING)
+#if defined(HYMLS_STORE_MATRICES)||defined(HYMLS_TESTING)
     this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"step 1");
 #endif
 
@@ -157,7 +157,7 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"initial");
 
   CHECK_ZERO(p_nodeType_->Import(*nodeType_,import,Insert));
 
-#if defined(STORE_MATRICES) || defined(TESTING)
+#if defined(HYMLS_STORE_MATRICES) || defined(HYMLS_TESTING)
   this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"with FCCs");
 #endif
 
@@ -166,7 +166,7 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"initial");
   // import again
   CHECK_ZERO(p_nodeType_->Import(*nodeType_,import,Insert));
 
-#if defined(STORE_MATRICES) || defined(TESTING)
+#if defined(HYMLS_STORE_MATRICES) || defined(HYMLS_TESTING)
 this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
 #endif
 
@@ -230,7 +230,7 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
         {
         if (retained[type]<retain[type])
           {
-          DEBUG("retain "<<row<<" in Schur complement");
+          HYMLS_DEBUG("retain "<<row<<" in Schur complement");
           nodeType[i]=5;
           retained[type]++;
           }
@@ -329,7 +329,7 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
 
   const Epetra_BlockMap& map = nodeType.Map();
   const Epetra_BlockMap& p_map = p_nodeType.Map();
-#ifdef TESTING
+#ifdef HYMLS_TESTING
   if (!map.SameAs(partitioner_->Map()))
     {
     Tools::Error("nodeType vector based on wrong map!",__FILE__,__LINE__);
@@ -356,7 +356,7 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
       for (int j=0;j<len;j++)
         {
         int gcid = G.GCID(cols[j]);
-#ifdef TESTING
+#ifdef HYMLS_TESTING
         if (p_map.LID(gcid)==-1)
           {
           std::string msg="parallel map used does not contain all necessary nodes, node "
@@ -380,7 +380,7 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
         {
         if (min_neighbor>=my_type)
           {
-          //DEBUG("increase node level of "<<row);
+          //HYMLS_DEBUG("increase node level of "<<row);
           nodeType[i]=min_neighbor+1;
           }
         }
@@ -432,8 +432,8 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"final");
           }//j
         if ((min_neighbor>0))
           { // all separators around
-          DEBUG(" full conservation cell around p: "<<row);
-#ifdef DEBUGGING          
+          HYMLS_DEBUG(" full conservation cell around p: "<<row);
+#ifdef HYMLS_DEBUGGING          
           Tools::deb() << "Div-row: ";
           for (int j=0;j<len;j++)
             {

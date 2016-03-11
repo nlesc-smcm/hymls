@@ -1,6 +1,8 @@
 #ifndef HYMLS_CARTESIAN_NODE_CLASSIFIER_H
 #define HYMLS_CARTESIAN_NODE_CLASSIFIER_H
 
+#include "HYMLS_config.h"
+
 #include "HYMLS_StandardNodeClassifier.H"
 #include "GaleriExt_Periodic.h"
 #include "Teuchos_RCP.hpp"

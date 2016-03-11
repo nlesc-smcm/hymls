@@ -40,9 +40,9 @@ namespace HYMLS {
   if ((V->Map().SameAs(A->RowMatrixRowMap())==false) ||
       (W->Map().SameAs(A->RowMatrixRowMap())==false))
     {
-    DEBVAR(A->RowMatrixRowMap());
-    DEBVAR(V->Map());
-    DEBVAR(W->Map());
+    HYMLS_DEBVAR(A->RowMatrixRowMap());
+    HYMLS_DEBVAR(V->Map());
+    HYMLS_DEBVAR(W->Map());
     HYMLS::Tools::Error("V and W in AugmentedMatrix must have same map as A",
         __FILE__,__LINE__);
     }
@@ -81,9 +81,9 @@ namespace HYMLS {
                         " row-, range and domain maps right now.",__FILE__,__LINE__);
     }
     
-  DEBVAR(A_->NumMyRows());
-  DEBVAR(V_->NumVectors());
-  DEBVAR(NumMyRows());
+  HYMLS_DEBVAR(A_->NumMyRows());
+  HYMLS_DEBVAR(V_->NumVectors());
+  HYMLS_DEBVAR(NumMyRows());
   
   int* id = new int[NumMyRows()];
   for (int i=0;i<A_->NumMyRows();i++)
@@ -95,7 +95,7 @@ namespace HYMLS {
     {
     id[i]=k++;
     }
-  DEBUG("Construct row map");
+  HYMLS_DEBUG("Construct row map");
   rowMap_ = Teuchos::rcp(new 
         Epetra_Map(-1,NumMyRows(),id,rowMapA.IndexBase(), *comm_));
   delete [] id;
@@ -121,8 +121,8 @@ namespace HYMLS {
   colMap_ = Teuchos::rcp(new 
         Epetra_Map(-1,numMyColEntries,id,colMapA.IndexBase(), *comm_));
   delete [] id;
-  DEBVAR(*rowMap_);
-  DEBVAR(*colMap_);
+  HYMLS_DEBVAR(*rowMap_);
+  HYMLS_DEBVAR(*colMap_);
   rangeMap_ = rowMap_;
   domainMap_ = rowMap_;
   import_=Teuchos::rcp(new Epetra_Import(*colMap_,*domainMap_));
@@ -162,7 +162,7 @@ namespace HYMLS {
   int lenA=0;
   if (MyRow<A_->NumMyRows())
     {
-    DEBUG("   belongs to A V");
+    HYMLS_DEBUG("   belongs to A V");
     ierr = A_->ExtractMyRowCopy(MyRow,Length,lenA,Values,Indices);
     if (ierr)
       {
@@ -179,7 +179,7 @@ namespace HYMLS {
     }
   else
     {
-    DEBUG("   belongs to W C");
+    HYMLS_DEBUG("   belongs to W C");
     int k=MyRow-A_->NumMyRows();
     if (Length!=Wloc_->MyLength() + NumBorderVectors())
       {
@@ -197,7 +197,7 @@ namespace HYMLS {
       Indices[Wloc_->MyLength()+i]=colMap_->LID(Wloc_->Map().MaxAllGID()+i+1);
       }
     }
-#ifdef DEBUGGING
+#ifdef HYMLS_DEBUGGING
 for (int i=0;i<NumEntries;i++)
   {
   Tools::deb() << Map().GID(MyRow) << " " << colMap_->GID(Indices[i]) << " " << Values[i] << std::endl;

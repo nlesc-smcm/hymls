@@ -15,7 +15,7 @@
 #include "Teuchos_XMLParameterListHelpers.hpp"
 #include "Teuchos_ParameterListAcceptorHelpers.hpp"
 #include "Teuchos_StandardCatchMacros.hpp"
-#ifdef DEBUGGING
+#ifdef HYMLS_DEBUGGING
 #include <signal.h>
 #endif
 
@@ -84,12 +84,12 @@ int main(int argc, char* argv[])
   {
   MPI_Init(&argc, &argv);
 
-#ifdef DEBUGGING
+#ifdef HYMLS_DEBUGGING
   signal(SIGINT,HYMLS::Tools::SignalHandler);
   signal(SIGSEGV,HYMLS::Tools::SignalHandler);
 #endif
 
-// random number initialization (if TESTING is defined
+// random number initialization (if HYMLS_TESTING is defined
 // we provide our own seed when creating vectors below)
 std::srand ( std::time(NULL) );
 
@@ -196,7 +196,7 @@ bool status=true;
     std::string eqn=probl_params.get("Equations","Laplace");
 
     map = HYMLS::MainUtils::create_map(*comm,probl_params); 
-#ifdef STORE_MATRICES
+#ifdef HYMLS_STORE_MATRICES
 HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
 #endif
   if (read_problem)
@@ -292,7 +292,7 @@ HYMLS::MatrixUtils::Random(*x);
       //~ }
     //~ }
   HYMLS::MatrixUtils::Dump(*M,"massMatrix.txt");
-#ifdef STORE_MATRICES
+#ifdef HYMLS_STORE_MATRICES
   HYMLS::MatrixUtils::Dump(*M,"massMatrix.txt");
 #endif
   HYMLS::Tools::Out("Create Preconditioner");
@@ -372,7 +372,7 @@ HYMLS::MatrixUtils::Random(*x);
   verbosity += Anasazi::IterationDetails;
   verbosity += Anasazi::OrthoDetails;
   verbosity += Anasazi::FinalSummary + Anasazi::TimingDetails;
-#ifdef DEBUGGING
+#ifdef HYMLS_DEBUGGING
   verbosity += Anasazi::Debug;
 #endif
   eigList.set("Verbosity",verbosity);
@@ -412,7 +412,7 @@ HYMLS::MatrixUtils::Random(*x);
   HYMLS::MatrixUtils::Dump(*x, "x.txt");
 
   // Create the eigenproblem.
-  DEBUG("create eigen-problem");
+  HYMLS_DEBUG("create eigen-problem");
   Teuchos::RCP<Anasazi::BasicEigenproblem<ST, MV, OP> > eigProblem;
   eigProblem = Teuchos::rcp( new Anasazi::BasicEigenproblem<ST,MV,OP>(velocityK, velocityM, velocityx) );
   eigProblem->setHermitian(false);
@@ -430,7 +430,7 @@ HYMLS::MatrixUtils::Random(*x);
 
   // Solve the problem to the specified tolerances or length
   Anasazi::ReturnType returnCode;
-  DEBUG("solve eigenproblem");
+  HYMLS_DEBUG("solve eigenproblem");
   returnCode = jada.solve();
   if (returnCode != Anasazi::Converged)
     {
@@ -438,7 +438,7 @@ HYMLS::MatrixUtils::Random(*x);
         __FILE__,__LINE__);
     }
 
-  DEBUG("post-process returned solution");
+  HYMLS_DEBUG("post-process returned solution");
 
   const Anasazi::Eigensolution<ST,MV>& eigSol =
         eigProblem->getSolution();

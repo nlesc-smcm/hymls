@@ -31,8 +31,8 @@
 #include "Teuchos_StandardCatchMacros.hpp"
 
 /*
-#ifndef TESTING
-#define TESTING 1
+#ifndef HYMLS_TESTING
+#define HYMLS_TESTING 1
 #endif
 */
 typedef Teuchos::Array<int>::iterator int_i;
@@ -92,7 +92,7 @@ int CartesianStokesClassifier::BuildNodeTypeVector()
   p_nodeType_=Teuchos::rcp(new Epetra_IntVector(parallelGraph_->RowMap()));
   Epetra_Import import(p_nodeType_->Map(),nodeType_->Map());
   CHECK_ZERO(p_nodeType_->Import(*nodeType_,import,Insert));
-#if defined(STORE_MATRICES)||defined(TESTING)
+#if defined(HYMLS_STORE_MATRICES)||defined(HYMLS_TESTING)
 std::ofstream nodeTypeStream;
 nodeTypeStream.open(("nodeTypes_L"+Teuchos::toString(myLevel_)+
         "_"+Teuchos::toString(nodeType_->Comm().MyPID())+"_CartStokes.txt").c_str(),std::ios::trunc);
@@ -113,7 +113,7 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"initial");
   // import again
   CHECK_ZERO(p_nodeType_->Import(*nodeType_,import,Insert));
 
-#if defined(STORE_MATRICES) || defined(TESTING)
+#if defined(HYMLS_STORE_MATRICES) || defined(HYMLS_TESTING)
 this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"step 2");
 #endif
 
@@ -158,7 +158,7 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"step 2");
 
   CHECK_ZERO(p_nodeType_->Import(*nodeType_,import,Insert));
 
-#if defined(STORE_MATRICES) || defined(TESTING)
+#if defined(HYMLS_STORE_MATRICES) || defined(HYMLS_TESTING)
   this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"with FCCs");
 #endif
   
@@ -175,7 +175,7 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"step 2");
   // import again
   CHECK_ZERO(p_nodeType_->Import(*nodeType_,import,Insert));
 
-#if defined(STORE_MATRICES)||defined(TESTING)
+#if defined(HYMLS_STORE_MATRICES)||defined(HYMLS_TESTING)
   this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"with FCTs");
   HYMLS::MatrixUtils::Dump(*nodeType_,"NodeTypes"+Teuchos::toString(myLevel_)+".txt");
 #endif
@@ -289,8 +289,8 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"step 2");
           }//j
         if ((min_neighbor>0))
           {
-          DEBUG(" full conservation cell around p: "<<row);
-#ifdef DEBUGGING          
+          HYMLS_DEBUG(" full conservation cell around p: "<<row);
+#ifdef HYMLS_DEBUGGING          
           Tools::deb() << "Div-row: ";
           for (int j=0;j<len;j++)
             {
@@ -384,7 +384,7 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"step 2");
   // it does not connect toa type-5 V-node.             
   for (int sd=0;sd<partitioner_->NumLocalParts();sd++)
     {
-    DEBVAR(sd);
+    HYMLS_DEBVAR(sd);
     for (int i=partitioner_->First(sd); i<partitioner_->First(sd+1);i++)
       {
       int row=map.GID(i);
@@ -395,7 +395,7 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"step 2");
       if (var_i==dim_ && type_i==1) // candidate P-node for elimination
         {
         eliminate=true;
-        DEBUG("P-Node "<<partitioner_->GID(sd,i));
+        HYMLS_DEBUG("P-Node "<<partitioner_->GID(sd,i));
         int lrow = G.LRID(row);
         CHECK_ZERO(G.ExtractMyRowView(lrow,len,cols));
         for (int j=0;j<len;j++)
@@ -412,13 +412,13 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"step 2");
       else if (type_i==4) //candidate V-node for elimination
         {
         eliminate=true;
-        DEBUG("V-Node "<<partitioner_->GID(sd,i));
+        HYMLS_DEBUG("V-Node "<<partitioner_->GID(sd,i));
         int lrow = G.LRID(row);
         CHECK_ZERO(G.ExtractMyRowView(lrow,len,cols));
         for (int j=0;j<len;j++)
           {
           int gcid=G.GCID(cols[j]);
-          DEBUG("\t"<<gcid<<" ["<<p_nodeType[p_map.LID(gcid)]<<"]")
+          HYMLS_DEBUG("\t"<<gcid<<" ["<<p_nodeType[p_map.LID(gcid)]<<"]")
           int type_j = p_nodeType[p_map.LID(gcid)];
           int var_j = partitioner_->VariableType(gcid);
           if (var_j==var_i)
@@ -433,12 +433,12 @@ this->PrintNodeTypeVector(*p_nodeType_,nodeTypeStream,"step 2");
         }//if 
       if (eliminate)
         {
-        DEBUG("eliminate node "<<partitioner_->GID(sd,i)<<" as interior");
+        HYMLS_DEBUG("eliminate node "<<partitioner_->GID(sd,i)<<" as interior");
         nodeType[i]=var_i-dim_-1;
         }
       if (retain)
         {
-        DEBUG("retain node "<<partitioner_->GID(sd,i)<<" as single P-node");
+        HYMLS_DEBUG("retain node "<<partitioner_->GID(sd,i)<<" as single P-node");
         nodeType[i]=5;
         }
       }//i

@@ -1,6 +1,8 @@
 #ifndef HYMLS_BORDERED_LU_H
 #define HYMLS_BORDERED_LU_H
 
+#include "HYMLS_config.h"
+
 #include "Teuchos_RCP.hpp"
 #include "HYMLS_BorderedSolver.H"
 #include "Epetra_Operator.h"

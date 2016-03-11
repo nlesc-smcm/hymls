@@ -1,6 +1,8 @@
 #ifndef HYMLS_SCHUR_COMPLEMENT_H
 #define HYMLS_SCHUR_COMPLEMENT_H
 
+#include "HYMLS_config.h"
+
 #include "Teuchos_RCP.hpp"
 #include "Epetra_Time.h"
 

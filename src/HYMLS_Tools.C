@@ -54,10 +54,10 @@ RCP<Epetra_Time> Tools::StartTiming(std::string const &fname)
   RCP<Epetra_Time> T=null;
 #pragma omp critical (HYMLS_Timing)
 {
-#ifdef FUNCTION_TRACING
+#ifdef HYMLS_FUNCTION_TRACING
   traceLevel_++;
   functionStack_.push(fname);
-#ifdef DEBUGGING
+#ifdef HYMLS_DEBUGGING
   deb() << "@@@@@ "<<tabstring(traceLevel_)<<"ENTER "<<fname<<" @@@@@"<<std::endl;
   std::string msg;
   std::string file;
@@ -90,7 +90,7 @@ void Tools::StopTiming(std::string const &fname, bool print, RCP<Epetra_Time> T)
   {
 #pragma omp critical (HYMLS_Timing)
 {
-#ifdef FUNCTION_TRACING
+#ifdef HYMLS_FUNCTION_TRACING
   // when an exception or other error is encountered,
   // the function printFunctionStack() may be called,
   // which deletes the stack. In that case, stop     
@@ -98,7 +98,7 @@ void Tools::StopTiming(std::string const &fname, bool print, RCP<Epetra_Time> T)
   if (functionStack_.size()>0)
     {
     functionStack_.pop();
-#ifdef DEBUGGING
+#ifdef HYMLS_DEBUGGING
     deb() << "@@@@@ "<<tabstring(traceLevel_)<<"LEAVE "<<fname<<" @@@@@"<<std::endl;
 #endif
     }
@@ -197,7 +197,7 @@ void Tools::PrintMemUsage(std::ostream& os)
 
 std::ostream& Tools::printFunctionStack(std::ostream& os)
   {
-#ifdef FUNCTION_TRACING
+#ifdef HYMLS_FUNCTION_TRACING
   if (functionStack_.size()>0)
     {
     os << "FUNCTION STACK:"<<std::endl;
@@ -212,12 +212,12 @@ std::ostream& Tools::printFunctionStack(std::ostream& os)
     os << "FUNCTION STACK:"<<std::endl;
     os << Teuchos::get_stacktrace()<<std::endl;
 #else
-  os << "no function stack available, to get one, compile HYMLS with -DFUNCTION_TRACING or -DTESTING"<<std::endl;
+  os << "no function stack available, to get one, compile HYMLS with -DHYMLS_FUNCTION_TRACING or -DHYMLS_TESTING"<<std::endl;
 #endif
   return os;
   }
 
-#ifdef DEBUGGING
+#ifdef HYMLS_DEBUGGING
 void Tools::SetCheckPoint(std::string fname, std::string msg,
         std::string file, int line)
         {

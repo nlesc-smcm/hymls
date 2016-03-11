@@ -1,11 +1,13 @@
 #ifndef HYMLS_MACROS_H
 #define HYMLS_MACROS_H
 
+#include "HYMLS_config.h"
+
 #include "Teuchos_StandardCatchMacros.hpp"
 
-#ifdef DEBUGGING
-#ifndef TESTING
-#define TESTING
+#ifdef HYMLS_DEBUGGING
+#ifndef HYMLS_TESTING
+#define HYMLS_TESTING
 #endif
 #endif
 
@@ -23,7 +25,7 @@
 #endif
 
 // the timing macro's are also used for function tracing, so enable them all:
-#ifdef DEBUGGING
+#ifdef HYMLS_DEBUGGING
 #ifndef TIMING_LEVEL
 #define TIMING_LEVEL 10
 #endif
@@ -39,9 +41,9 @@
 #endif
 #endif
 
-#ifdef TESTING
-#ifndef FUNCTION_TRACING
-#define FUNCTION_TRACING
+#ifdef HYMLS_TESTING
+#ifndef HYMLS_FUNCTION_TRACING
+#define HYMLS_FUNCTION_TRACING
 #endif
 #endif
 
@@ -51,7 +53,7 @@
 // 0: no timing at all
 // 1: timing of major functions like preconditioner setup
 // 2: detailed timing of things like applying orthogonal transformations
-// 3: time everything, this is mainly for the case where TESTING/DEBUGGING
+// 3: time everything, this is mainly for the case where HYMLS_TESTING/HYMLS_DEBUGGING
 //    is defined and the timing routines are abused for function tracing. 
 //    setting this may infringe the performance substantially.
 
@@ -94,7 +96,7 @@ SCOREP_USER_PARAMETER_INT64("level",(int64_t)myLevel_);
 #define HYMLS_LPROF(s1,s2)
 #endif
 
-#ifdef DEBUGGING
+#ifdef HYMLS_DEBUGGING
 #define SET_CHECKPOINT(s1,s2,s3,s4,s5) \
 HYMLS::Tools::SetCheckPoint(((std::string)s1) + ": "+((std::string)s2),s3,s4,s5);
 #define BREAK_ON_CHECKPOINT(s1,s2) {std::string msg; std::string file; int line; \
@@ -140,19 +142,19 @@ HYMLS::Tools::ReportMemUsage((std::string)(label)+": "+(std::string)(description
 #endif
 
 
-#ifdef DEBUGGING
-#ifndef DEBUG
-#define DEBUG(s) HYMLS::Tools::deb() << s << std::endl << std::flush;
+#ifdef HYMLS_DEBUGGING
+#ifndef HYMLS_DEBUG
+#define HYMLS_DEBUG(s) HYMLS::Tools::deb() << s << std::endl << std::flush;
 #endif
-#ifndef DEBVAR
-#define DEBVAR(s) HYMLS::Tools::deb() << #s << " = "<<s << std::endl << std::flush;
+#ifndef HYMLS_DEBVAR
+#define HYMLS_DEBVAR(s) HYMLS::Tools::deb() << #s << " = "<<s << std::endl << std::flush;
 #endif
 #else
-#ifndef DEBUG
-#define DEBUG(s) 
+#ifndef HYMLS_DEBUG
+#define HYMLS_DEBUG(s) 
 #endif
-#ifndef DEBVAR
-#define DEBVAR(s) 
+#ifndef HYMLS_DEBVAR
+#define HYMLS_DEBVAR(s) 
 #endif
 #endif
 

@@ -1,6 +1,8 @@
 #ifndef HYMLS_PARALLEL_SPARSE_DIRECT_SOLVER_H
 #define HYMLS_PARALLEL_SPARSE_DIRECT_SOLVER_H
 
+#include "HYMLS_config.h"
+
 #include "Ifpack_Preconditioner.h"
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_RCP.hpp"

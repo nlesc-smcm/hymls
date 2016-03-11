@@ -13,14 +13,14 @@
 
 using Teuchos::toString;
 
-#ifdef DEBUGGING
-#define FLOW_DEBUGGING
+#ifdef HYMLS_DEBUGGING
+#define FLOW_HYMLS_DEBUGGING
 #endif
 
-#ifdef FLOW_DEBUGGING
-#define FLOW_DEBUG(s) DEBUG(s)
+#ifdef FLOW_HYMLS_DEBUGGING
+#define FLOW_HYMLS_DEBUG(s) HYMLS_DEBUG(s)
 #else
-#define FLOW_DEBUG(s)
+#define FLOW_HYMLS_DEBUG(s)
 #endif
 
 namespace HYMLS {
@@ -51,10 +51,10 @@ namespace HYMLS {
                 __FILE__, __LINE__);
           }
 
-        DEBVAR(nx_);
-        DEBVAR(ny_);
-        DEBVAR(nz_);
-        DEBVAR(dof_);
+        HYMLS_DEBVAR(nx_);
+        HYMLS_DEBVAR(ny_);
+        HYMLS_DEBVAR(nz_);
+        HYMLS_DEBVAR(dof_);
 
         graph_=Teuchos::null;
         pvar_=-1;
@@ -74,11 +74,11 @@ namespace HYMLS {
     int sd1 = (*this)(gid1);
     int sd2 = (*this)(gid2);
     
-    FLOW_DEBUG("### FLOW("<<gid1<<", "<<gid2<<") ###");
+    FLOW_HYMLS_DEBUG("### FLOW("<<gid1<<", "<<gid2<<") ###");
     
     if (sd1==sd2)
       {
-      FLOW_DEBUG("# same subdomain, return 0");
+      FLOW_HYMLS_DEBUG("# same subdomain, return 0");
       return 0;
       }
 
@@ -90,14 +90,14 @@ namespace HYMLS {
 /*
     if (var2==pvar_)
       {
-      FLOW_DEBUG("# coupling to pressure, return 0");
+      FLOW_HYMLS_DEBUG("# coupling to pressure, return 0");
       return 0;
       }
 */  
 
     if (var1!=var2)
       {
-      FLOW_DEBUG("# different variables, return 0");
+      FLOW_HYMLS_DEBUG("# different variables, return 0");
       return 0;
       }
 
@@ -110,17 +110,17 @@ namespace HYMLS {
 
     if (graph_==Teuchos::null) // old style - look at 'node distance' and guess...
       {
-#ifdef FLOW_DEBUGGING
-DEBVAR(di);
-DEBVAR(dj);
-DEBVAR(dk);
+#ifdef FLOW_HYMLS_DEBUGGING
+HYMLS_DEBVAR(di);
+HYMLS_DEBVAR(dj);
+HYMLS_DEBVAR(dk);
 #endif
     // if the cells are not connected:
       if ((std::abs(di)>stencil_width_) || 
         (std::abs(dj)>stencil_width_) || 
         (std::abs(dk)> stencil_width_))
         {
-        FLOW_DEBUG("# not adjacent grid cells, return 0 [based on guesswork!]");
+        FLOW_HYMLS_DEBUG("# not adjacent grid cells, return 0 [based on guesswork!]");
         adjacent=false;
         }
       }
@@ -141,7 +141,7 @@ DEBVAR(dk);
       }
     if (!adjacent) 
       {
-      FLOW_DEBUG("# not adjacent grid cells, return 0 [based on graph]");
+      FLOW_HYMLS_DEBUG("# not adjacent grid cells, return 0 [based on graph]");
       return 0;
       }
     
@@ -151,7 +151,7 @@ DEBVAR(dk);
     // for non-periodic problems it is fairly simple:
     if (perio_==GaleriExt::NO_PERIO)
       {
-      FLOW_DEBUG("# return "<<sd1-sd2);
+      FLOW_HYMLS_DEBUG("# return "<<sd1-sd2);
       return sd1-sd2;
       }
       
@@ -170,47 +170,47 @@ DEBVAR(dk);
 
     if (std::abs(dK)> 0)
       {
-#ifdef FLOW_DEBUGGING
+#ifdef FLOW_HYMLS_DEBUGGING
       if (dk<0)
         {
-        DEBUG("# top edge, return "<<dk);
+        HYMLS_DEBUG("# top edge, return "<<dk);
         }
       else
         {
-        DEBUG("# bottom edge, return "<<dk);
+        HYMLS_DEBUG("# bottom edge, return "<<dk);
         }
 #endif      
       return dk;
       }
     if (std::abs(dJ)> 0)
       {
-#ifdef FLOW_DEBUGGING
+#ifdef FLOW_HYMLS_DEBUGGING
       if (dj<0)
         {
-        DEBUG("# north edge, return "<<dj);
+        HYMLS_DEBUG("# north edge, return "<<dj);
         }
       else
         {
-        DEBUG("# south edge, return "<<dj);
+        HYMLS_DEBUG("# south edge, return "<<dj);
         }
 #endif      
       return dj;
       }
     if (std::abs(dI)> 0)
       {
-#ifdef FLOW_DEBUGGING
+#ifdef FLOW_HYMLS_DEBUGGING
       if (di<0)
         {
-        DEBUG("# east edge, return "<<di);
+        HYMLS_DEBUG("# east edge, return "<<di);
         }
       else
         {
-        DEBUG("# west edge, return "<<di);
+        HYMLS_DEBUG("# west edge, return "<<di);
         }
 #endif      
       return di;
       }
-    FLOW_DEBUG("weird case, return 0");
+    FLOW_HYMLS_DEBUG("weird case, return 0");
     return 0;
     }
 
@@ -255,9 +255,9 @@ DEBVAR(dk);
     npy_=npy_in;
     npz_=npz_in;
         
-    DEBVAR(npx_);
-    DEBVAR(npy_);
-    DEBVAR(npz_);
+    HYMLS_DEBVAR(npx_);
+    HYMLS_DEBVAR(npy_);
+    HYMLS_DEBVAR(npz_);
     
     sx_=nx_/npx_;
     sy_=ny_/npy_;
@@ -331,17 +331,17 @@ DEBVAR(dk);
       numLocalSubdomains_=0;
       }
         
-    DEBVAR(npx_);
-    DEBVAR(npy_);
-    DEBVAR(npz_);
-    DEBVAR(active_);
-    DEBVAR(rank);
-    DEBVAR(rankI);
-    DEBVAR(rankJ);
-    DEBVAR(rankK);
+    HYMLS_DEBVAR(npx_);
+    HYMLS_DEBVAR(npy_);
+    HYMLS_DEBVAR(npz_);
+    HYMLS_DEBVAR(active_);
+    HYMLS_DEBVAR(rank);
+    HYMLS_DEBVAR(rankI);
+    HYMLS_DEBVAR(rankJ);
+    HYMLS_DEBVAR(rankK);
 
     sdMap_=CreateSubdomainMap(nprocs);
-    DEBVAR(*sdMap_);
+    HYMLS_DEBVAR(*sdMap_);
     
     numLocalSubdomains_ = sdMap_->NumMyElements();
     numGlobalSubdomains_ = sdMap_->NumGlobalElements();
@@ -375,8 +375,8 @@ if (repart==true)
 
   int numLocal = baseMap_->NumMyElements() - numSends;
   
-  DEBVAR(numSends);
-  DEBVAR(numLocal);
+  HYMLS_DEBVAR(numSends);
+  HYMLS_DEBVAR(numLocal);
 
   //determine which GIDs we have to move, and where they will go
   int *sendGIDs = new int[numSends];
@@ -386,7 +386,7 @@ if (repart==true)
 
   for (int i=0;i<baseMap_->NumMyElements();i++)
     {
-#ifdef TESTING
+#ifdef HYMLS_TESTING
 if (pos>numSends) Tools::Error("sanity check failed",__FILE__,__LINE__);
 #endif    
     int gid = baseMap_->GID(i);
@@ -401,7 +401,7 @@ if (pos>numSends) Tools::Error("sanity check failed",__FILE__,__LINE__);
   int numRecvs;
   CHECK_ZERO(Distor->CreateFromSends(numSends, sendPIDs, true, numRecvs));
 
-  DEBVAR(numRecvs);
+  HYMLS_DEBVAR(numRecvs);
   
   char* sbuf = reinterpret_cast<char*>(sendGIDs);
   int numRecvChars = static_cast<int>(numRecvs * sizeof(int));
@@ -414,7 +414,7 @@ if (pos>numSends) Tools::Error("sanity check failed",__FILE__,__LINE__);
 
   int *recvGIDs = reinterpret_cast<int*>(rbuf);
 
-#ifdef TESTING
+#ifdef HYMLS_TESTING
   if (static_cast<int>(numRecvs * sizeof(int)) != numRecvChars)
     {
     Tools::Error("sanity check failed", __FILE__, __LINE__);
@@ -422,7 +422,7 @@ if (pos>numSends) Tools::Error("sanity check failed",__FILE__,__LINE__);
 #endif
 
   int NumMyElements = numLocal + numRecvs;
-  DEBVAR(NumMyElements);
+  HYMLS_DEBVAR(NumMyElements);
   int *MyGlobalElements = new int[NumMyElements];
   pos=0;
   for (int i=0;i<baseMap_->NumMyElements();i++)
@@ -437,9 +437,9 @@ if (pos>numSends) Tools::Error("sanity check failed",__FILE__,__LINE__);
   repartitionedMap = Teuchos::rcp(new Epetra_Map
         (-1,NumMyElements,MyGlobalElements, baseMap_->IndexBase(), *comm_));
 
-  DEBVAR(*repartitionedMap);
+  HYMLS_DEBVAR(*repartitionedMap);
 
-DEBUG(std::flush);
+HYMLS_DEBUG(std::flush);
 
   delete [] sendPIDs;
   delete [] sendGIDs;
@@ -462,7 +462,7 @@ DEBUG(std::flush);
     int gid = repartitionedMap->GID(lid);
     int lsd=LSID(gid);
     
-#ifdef TESTING
+#ifdef HYMLS_TESTING
     if (lsd<0)
       {
       Tools::Error("repartitioning seems to be necessary/have failed.",
@@ -479,7 +479,7 @@ DEBUG(std::flush);
     }
 
   int NumMyElements=repartitionedMap->NumMyElements();
-#ifdef TESTING
+#ifdef HYMLS_TESTING
   if (subdomainPointer_[NumLocalParts()]!=NumMyElements)
     {
     Tools::Error("repartitioning - sanity check failed",__FILE__,__LINE__);
@@ -502,10 +502,10 @@ DEBUG(std::flush);
               MyGlobalElements + subdomainPointer_[i+1]);
     }
 
-DEBVAR(NumMyElements);
+HYMLS_DEBVAR(NumMyElements);
 
 cartesianMap_=Teuchos::rcp(new Epetra_Map(-1,NumMyElements,MyGlobalElements,0,*comm_));
-DEBVAR(*cartesianMap_);
+HYMLS_DEBVAR(*cartesianMap_);
     
     if (active_)
       {

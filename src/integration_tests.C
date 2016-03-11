@@ -157,7 +157,7 @@ int main(int argc, char* argv[])
         HYMLS::Tools::out() << "Reason: ";
         printError(ierr);
         HYMLS::Tools::out() << msg << std::endl;
-#ifdef TESTING
+#ifdef HYMLS_TESTING
         HYMLS::Tools::out() << *params << std::endl;
 #endif
         HYMLS::Tools::Out("------------------------------------------------------------");
@@ -307,7 +307,7 @@ int runTest(Teuchos::RCP<const Epetra_Comm> comm,
 
   Teuchos::ParameterList& driverList = params->sublist("Driver");
 
-#ifndef TESTING
+#ifndef HYMLS_TESTING
   // suppress all HYMLS output during the test
   Teuchos::RCP<std::ostream> no_output
         = Teuchos::rcp(new Teuchos::oblackholestream());
@@ -381,7 +381,7 @@ int runTest(Teuchos::RCP<const Epetra_Comm> comm,
 
   params->set("runTest output", message);
 
-#ifndef TESTING
+#ifndef HYMLS_TESTING
   // reset to HYMLS output
   HYMLS::Tools::InitializeIO(comm);
 #endif
@@ -520,7 +520,7 @@ int testSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
       if (maxErr > target_rel_err_norm2) ierr = ierr | ERR_TOO_LARGE;
       int num_iter = solver->getNumIter();
       HYMLS::Tools::out() << std::endl;
-#ifdef DEBUGGING
+#ifdef HYMLS_DEBUGGING
       if (ierr != PASSED)
         {
         HYMLS::MatrixUtils::Dump(*K,"BadMatrix.txt");

@@ -6,6 +6,7 @@ set(SOURCES HYMLS_DenseUtils
   main)
 
 include_directories(${PROJECT_SOURCE_DIR}/src)
+include_directories(${PROJECT_BINARY_DIR}/src)
 
 if (DEFINED ENV{TRILINOS_HOME})
   set(Trilinos_DIR "$ENV{TRILINOS_HOME}/lib/cmake/Trilinos")

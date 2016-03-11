@@ -1,6 +1,8 @@
 #ifndef HYMLS_HOUSEHOLDER_H
 #define HYMLS_HOUSEHOLDER_H
 
+#include "HYMLS_config.h"
+
 #include "HYMLS_OrthogonalTransform.H"
 
 class Epetra_RowMatrixTransposer;

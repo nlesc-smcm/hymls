@@ -146,7 +146,7 @@ bool status=true;
   // create a random exact solution
   Teuchos::RCP<Epetra_MultiVector> x_ex = Teuchos::rcp(new Epetra_MultiVector(*map,numRhs));
 
-#ifdef TESTING
+#ifdef HYMLS_TESTING
   int seed=42;
 #endif
 
@@ -261,7 +261,7 @@ for (int f=0;f<numComputes;f++)
     {
     if (read_problem==false)
       {
-#ifdef TESTING
+#ifdef HYMLS_TESTING
       seed++;
       CHECK_ZERO(HYMLS::MatrixUtils::Random(*x_ex, seed));
 #else
@@ -290,8 +290,8 @@ for (int f=0;f<numComputes;f++)
           }
         }
       }
-DEBVAR(*x);
-DEBVAR(*b);
+HYMLS_DEBVAR(*x);
+HYMLS_DEBVAR(*b);
     HYMLS::Tools::Out("Compute residual.");
   
     // compute residual and error vectors

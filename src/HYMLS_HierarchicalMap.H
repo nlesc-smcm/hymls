@@ -1,6 +1,8 @@
 #ifndef HYMLS_HIERARCHICAL_MAP_H
 #define HYMLS_HIERARCHICAL_MAP_H
 
+#include "HYMLS_config.h"
+
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_Array.hpp"
 #include "HYMLS_BasePartitioner.H"

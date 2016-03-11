@@ -12,9 +12,9 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   message(STATUS "Using GNU compiler flags")
 
   if (NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_C_FLAGS        "${CMAKE_C_FLAGS} -O2 -g -DTESTING -Wall -Wno-unknown-pragmas")
-    set(CMAKE_CXX_FLAGS      "${CMAKE_CXX_FLAGS} -O2 -g -DTESTING -Wall -Wno-unknown-pragmas")
-    set(CMAKE_Fortran_FLAGS  "${CMAKE_Fortran_FLAGS} -O2 -g -DTESTING -Wall -Wno-unknown-pragmas")
+    set(CMAKE_C_FLAGS        "${CMAKE_C_FLAGS} -O2 -g -Wall -Wno-unknown-pragmas")
+    set(CMAKE_CXX_FLAGS      "${CMAKE_CXX_FLAGS} -O2 -g -Wall -Wno-unknown-pragmas")
+    set(CMAKE_Fortran_FLAGS  "${CMAKE_Fortran_FLAGS} -O2 -g -Wall -Wno-unknown-pragmas")
   endif()
 
   set(BUILD_SHARED_LIBS ON)
@@ -51,7 +51,7 @@ elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
   set (CMAKE_CXX_FLAGS_RELWITHDEBINFO     "${CMAKE_CXX_FLAGS_RELEASE}     -g")
   set (CMAKE_Fortran_FLAGS_RELWITHDEBINFO "${CMAKE_Fortran_FLAGS_RELEASE} -g")
 
-  add_definitions(-DUSE_MKL)
+  set(HYMLS_USE_MKL 1 CACHE STRING "use MKL ParDiSo for direct solves")
 else()
   message (WARNING "No custom compiler flags for the ${CMAKE_CXX_COMPILER_ID} compiler were found.")
 endif()
@@ -110,7 +110,7 @@ set(HYMLS_SOURCE HYMLS_Solver
 
 set(HYMLS_EIGS_SOURCE evp/dummy.cpp)
 
-# Headers incldue eachother, so for now just assume we want to install all
+# Headers include eachother, so for now just assume we want to install all
 # header files that have a source
 set(HEADERS)
 set(header_extensions ".h" ".H" ".hpp")
@@ -121,6 +121,7 @@ foreach(i ${HYMLS_SOURCE})
     endif()
   endforeach()
 endforeach()
+list(APPEND HEADERS "${CMAKE_CURRENT_BINARY_DIR}/HYMLS_config.h")
 unset(header_extensions)
 
 # Manually add headers without source file
@@ -164,25 +165,25 @@ find_package(phist QUIET CONFIG)
 
 # HYMLS version
 execute_process(COMMAND git rev-parse --short --sq HEAD OUTPUT_VARIABLE rev)
-add_definitions(-DHYMLS_REVISION="${rev}")
+STRING(REPLACE "'" "\"" HYMLS_REVISION ${rev})
+
+set(HYMLS_TIMING_LEVEL 2 CACHE STRING "which function should be timed/traced (0: none, 1: major functions ... 99: all")
+
 
 if (CMAKE_BUILD_TYPE MATCHES "Debug")
 
   message(STATUS "enabling TESTING")
-  add_definitions(-DTESTING)
+  set(HYMLS_TESTING 1)
 
   if (HYMLS_STORE_MATRICES)
     message(STATUS "enabling STORE_MATRICES output")
-    add_definitions(-DSTORE_MATRICES)
   endif()
 
   if (HYMLS_DEBUGGING)
     message(STATUS "enabling DEBUGGING output")
-    add_definitions(-DDEBUGGING)
   endif()
   if (HYMLS_FUNCTION_TRACING)
     message(STATUS "enabling FUNCTION_TRACING output")
-    add_definitions(-DFUNCTION_TRACING)
   endif()
 
 endif()
@@ -195,10 +196,16 @@ target_link_libraries(hymls ${MPI_CXX_LIBRARIES})
 
 if (${phist_FOUND})
   message(STATUS "phist found in ${PHIST_INCLUDE_DIRS}")
-  add_definitions(-DHAVE_PHIST)
+  set(HYMLS_HAVE_PHIST 1)
   include_directories(${PHIST_INCLUDE_DIRS})
   link_directories(${PHIST_LIBRARY_DIRS})
 endif()
+
+
+# create header file to tell the source code about some config-time settings and features it can use
+configure_file(${PROJECT_SOURCE_DIR}/HYMLS_config.h.in ${CMAKE_CURRENT_BINARY_DIR}/HYMLS_config.h)
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
+
 
 # phist is typically compiled with OpenMP support, add the openmp flag to be able to link.
 # And even if we compile without, I think our Trilinos or MPI installation require it, so
