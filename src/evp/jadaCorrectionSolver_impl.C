@@ -407,7 +407,7 @@ void SUBR(computeResidual)(TYPE(const_linearOp_ptr) B_op, TYPE(mvec_ptr) r_ptr,
   explicit_resid = vec1;
 
   // r = A*u - B*u*Theta
-  PHIST_CHK_IERR(SUBR(mvec_times_sdMat)(-1.0,(Dconst_mvec_ptr_t)(&vec2),Theta,1.0,(Dmvec_ptr_t)(&explicit_resid),iflag),*iflag);
+  PHIST_CHK_IERR(SUBR(mvec_times_sdMat)(-1.0,(phist_Dconst_mvec_ptr)(&vec2),Theta,1.0,(phist_Dmvec_ptr)(&explicit_resid),iflag),*iflag);
 
   double *res_norm = new double[nv];
   explicit_resid.Norm2(res_norm);
