@@ -250,6 +250,7 @@ void getLinearSystem(Teuchos::RCP<const Epetra_Comm> comm,
   {
   Teuchos::ParameterList& driverList = params->sublist("Driver");
   Teuchos::ParameterList& problemList = params->sublist("Problem");
+  Teuchos::ParameterList problemList_cpy = problemList;
 
   bool read_problem = driverList.get("Read Linear System", false);
   int numRhs = driverList.get("Number of rhs", 1);
@@ -257,7 +258,7 @@ void getLinearSystem(Teuchos::RCP<const Epetra_Comm> comm,
   int dim0=0; // if the problem is read from a file, a null space can be read, too, with dim0 columns.
   if (nullSpaceType=="File") dim0=driverList.get("Null Space Dimension",0);
           
-  Teuchos::RCP<Epetra_Map> map = HYMLS::MainUtils::create_map(*comm, params->sublist("Problem"));
+  Teuchos::RCP<Epetra_Map> map = HYMLS::MainUtils::create_map(*comm, problemList_cpy);
   nullSpace=Teuchos::null;
 
   // exact solution
@@ -308,13 +309,13 @@ void getLinearSystem(Teuchos::RCP<const Epetra_Comm> comm,
       {
       galeriList = driverList.sublist("Galeri");
       }
-    K = HYMLS::MainUtils::create_matrix(*map, problemList,
+    K = HYMLS::MainUtils::create_matrix(*map, problemList_cpy,
         galeriLabel, galeriList);
     }
 
   if (nullSpace==Teuchos::null && nullSpaceType!="None")
     {
-    nullSpace=HYMLS::MainUtils::create_nullspace(*K, nullSpaceType, problemList);
+    nullSpace=HYMLS::MainUtils::create_nullspace(*K, nullSpaceType, problemList_cpy);
     dim0=nullSpace->NumVectors();
     }
   return;
@@ -430,8 +431,10 @@ int testSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
   double target_rel_err_norm2 = targetList.get("Relative Error 2-Norm",1.0);
 
   Teuchos::ParameterList& probl_params = params->sublist("Problem");
+  // copy to prevent the main program and main utils from changing the list for the solver
+  Teuchos::ParameterList probl_params_cpy=probl_params;
   int dim = probl_params.get("Dimension", 2);
-  std::string eqn = probl_params.get("Equations", "Laplace");
+  std::string eqn = probl_params_cpy.get("Equations", "Laplace");
 
   //~ driverList.unused(std::cerr);
 
@@ -595,8 +598,9 @@ int testEigenSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
   double target_err = targetList.get("Error Eigenvalues", 1.0);
 
   Teuchos::ParameterList& probl_params = params->sublist("Problem");
+  Teuchos::ParameterList& probl_params_cpy = probl_params;
   int dim = probl_params.get("Dimension", 2);
-  std::string eqn = probl_params.get("Equations", "Laplace");
+  std::string eqn = probl_params_cpy.get("Equations", "Laplace");
   int dof = 1;
 
   Teuchos::RCP<Epetra_MultiVector> v0 = Teuchos::rcp(new Epetra_Vector(x->Map()));
@@ -665,6 +669,7 @@ int testEigenSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
   if (eqn == "Laplace")
     {
     Teuchos::ParameterList& problemList = params->sublist("Problem");
+    Teuchos::ParameterList& problemList_cpy = problemList;
 
     int nx = problemList.get("nx", 32);
     int ny = problemList.get("ny", nx);

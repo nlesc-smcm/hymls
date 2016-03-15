@@ -151,17 +151,16 @@ bool status=true;
     int nx=probl_params.get("nx",32);
     int ny=probl_params.get("ny",nx);
     int nz=probl_params.get("nz",dim>2?nx:1);
-  
-    std::string eqn="not-set";
-    if (probl_params.isParameter("Equations"))
-      {
-      eqn=probl_params.get("Equations","Laplace");
-      }
 
-    map = HYMLS::MainUtils::create_map(*comm,probl_params); 
-//#ifdef HYMLS_STORE_MATRICES
+    // copy problem sublist so that the main utils don't modify the original
+    Teuchos::ParameterList probl_params_cpy = probl_params;
+  
+    std::string eqn=probl_params_cpy.get("Equations","not-set");
+
+    map = HYMLS::MainUtils::create_map(*comm,probl_params_cpy); 
+#ifdef HYMLS_STORE_MATRICES
 HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
-//#endif
+#endif
   if (read_problem)
     {
     K=HYMLS::MainUtils::read_matrix(datadir,file_format,map);
@@ -170,7 +169,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     {
     HYMLS::Tools::Out("Create matrix");
 
-    K=HYMLS::MainUtils::create_matrix(*map,probl_params,
+    K=HYMLS::MainUtils::create_matrix(*map,probl_params_cpy,
         galeriLabel, galeriList);
     }
  

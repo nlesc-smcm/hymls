@@ -188,21 +188,12 @@ Teuchos::RCP<Epetra_Map> create_map(const Epetra_Comm& comm,
   int nx=probl_params.get("nx",32);
   int ny=probl_params.get("ny",nx);
   int nz=probl_params.get("nz",(dim>2)?nx:1);
-  std::string eqn="not-set";
-  if (probl_params.isParameter("Equations"))
-    {
-    eqn=probl_params.get("Equations","Laplace");
-    }
+  std::string eqn=probl_params.get("Equations","not-set");
 
   Teuchos::RCP<Epetra_Map> map=Teuchos::null;
 
-  int dof=1;
-  if (probl_params.isParameter("Degrees of Freedom")) dof=probl_params.get("Degrees of Freedom",dof);
-  bool is_complex=false;
-  if (probl_params.isParameter("Complex Arithmetic"))
-  {
-    is_complex=probl_params.get("Complex Arithmetic",false);
-  }
+  int dof=probl_params.get("Degrees of Freedom",1);
+  bool is_complex=probl_params.get("Complex Arithmetic",false);
 
   if (eqn=="Stokes-C")
     {
@@ -301,7 +292,7 @@ Teuchos::RCP<Epetra_CrsMatrix> create_matrix(const Epetra_Map& map,
     nullSpace = Teuchos::rcp(new Epetra_Vector(A.OperatorDomainMap()));
     int dim = probl_params.get("Dimension", -1);
     int pvar= probl_params.get("Pressure Variable",dim);
-    int dof = probl_params.get("Degrees of Freedom", -1);
+    int dof=probl_params.get("Degrees of Freedom", -1);
     // TODO: this is all a bit ad-hoc
     if (pvar == -1 || dof == -1)
       {
