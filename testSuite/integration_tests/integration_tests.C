@@ -61,6 +61,7 @@ void printError(int ierr);
 int testSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
     Teuchos::RCP<Teuchos::ParameterList> params, Teuchos::RCP<Epetra_CrsMatrix> &K,
     Teuchos::RCP<Epetra_MultiVector> &b, Teuchos::RCP<Epetra_MultiVector> &x_ex,
+    Teuchos::RCP<Epetra_MultiVector> &nullSpace,
     Teuchos::RCP<HYMLS::Solver> &solver, Teuchos::RCP<HYMLS::Preconditioner> &precond);
 
 int testEigenSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
@@ -244,14 +245,20 @@ void printError(int ierr)
 void getLinearSystem(Teuchos::RCP<const Epetra_Comm> comm,
     Teuchos::RCP<Teuchos::ParameterList> params,
     Teuchos::RCP<Epetra_CrsMatrix> &K, Teuchos::RCP<Epetra_CrsMatrix> &M,
-    Teuchos::RCP<Epetra_MultiVector> &b, Teuchos::RCP<Epetra_MultiVector> &x_ex)
+    Teuchos::RCP<Epetra_MultiVector> &b, Teuchos::RCP<Epetra_MultiVector> &x_ex,
+    Teuchos::RCP<Epetra_MultiVector> &nullSpace)
   {
   Teuchos::ParameterList& driverList = params->sublist("Driver");
+  Teuchos::ParameterList& problemList = params->sublist("Problem");
 
   bool read_problem = driverList.get("Read Linear System", false);
   int numRhs = driverList.get("Number of rhs", 1);
-
+  std::string nullSpaceType=driverList.get("Null Space Type","None");
+  int dim0=0; // if the problem is read from a file, a null space can be read, too, with dim0 columns.
+  if (nullSpaceType=="File") dim0=driverList.get("Null Space Dimension",0);
+          
   Teuchos::RCP<Epetra_Map> map = HYMLS::MainUtils::create_map(*comm, params->sublist("Problem"));
+  nullSpace=Teuchos::null;
 
   // exact solution
   x_ex = Teuchos::rcp(new Epetra_MultiVector(*map, numRhs));
@@ -282,6 +289,15 @@ void getLinearSystem(Teuchos::RCP<const Epetra_Comm> comm,
       {
       M = HYMLS::MainUtils::read_matrix(datadir, file_format, map, "mass");
       }
+
+    // read nullspace from a file if requiested
+    if (nullSpaceType=="File")
+      {
+      nullSpace=Teuchos::rcp(new Epetra_MultiVector(*map,dim0));
+      std::string nullSpace_file=datadir+"/nullSpace.mtx";
+      HYMLS::Tools::Out("Try to read null space from file '"+nullSpace_file+"'");
+      HYMLS::MatrixUtils::mmread(nullSpace_file,*nullSpace);
+      }
     }
   else
     {
@@ -292,11 +308,18 @@ void getLinearSystem(Teuchos::RCP<const Epetra_Comm> comm,
       {
       galeriList = driverList.sublist("Galeri");
       }
-    K = HYMLS::MainUtils::create_matrix(*map, params->sublist("Problem"),
+    K = HYMLS::MainUtils::create_matrix(*map, problemList,
         galeriLabel, galeriList);
     }
-  }
 
+  if (nullSpace==Teuchos::null && nullSpaceType!="None")
+    {
+    nullSpace=HYMLS::MainUtils::create_nullspace(*K, nullSpaceType, problemList);
+    dim0=nullSpace->NumVectors();
+    }
+  return;
+  }
+  
 int runTest(Teuchos::RCP<const Epetra_Comm> comm,
         Teuchos::RCP<Teuchos::ParameterList> params)
   {
@@ -304,8 +327,6 @@ int runTest(Teuchos::RCP<const Epetra_Comm> comm,
   HYMLS::Tester::numFailedTests_ = 0; // check if internal tests fail on the way
   std::string message = "";
   int no_exception = true;
-
-  Teuchos::ParameterList& driverList = params->sublist("Driver");
 
 #ifndef HYMLS_TESTING
   // suppress all HYMLS output during the test
@@ -322,6 +343,7 @@ int runTest(Teuchos::RCP<const Epetra_Comm> comm,
 
     Teuchos::RCP<Epetra_MultiVector> b;
     Teuchos::RCP<Epetra_MultiVector> x_ex;
+    Teuchos::RCP<Epetra_MultiVector> nullSpace;
 
     // create a copy of the parameter list
     Teuchos::RCP<Teuchos::ParameterList> params_copy
@@ -330,7 +352,7 @@ int runTest(Teuchos::RCP<const Epetra_Comm> comm,
     // we pass in params_copy here because in case of Laplace-Neumann
     // the "Problem" list is adjusted for the solver, which we do not
     // want in the original list.
-    getLinearSystem(comm, params_copy, K, M, b, x_ex);
+    getLinearSystem(comm, params_copy, K, M, b, x_ex, nullSpace);
 
     HYMLS::Tools::Out("Create Preconditioner");
 
@@ -346,7 +368,7 @@ int runTest(Teuchos::RCP<const Epetra_Comm> comm,
 
     message = "";
 
-    ierr |= testSolver(message, comm, params, K, b, x_ex, solver, precond);
+    ierr |= testSolver(message, comm, params, K, b, x_ex, nullSpace, solver, precond);
 
 #ifdef HAVE_PHIST
     if (driverList.isSublist("Eigenvalues"))
@@ -391,6 +413,7 @@ int runTest(Teuchos::RCP<const Epetra_Comm> comm,
 int testSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
     Teuchos::RCP<Teuchos::ParameterList> params, Teuchos::RCP<Epetra_CrsMatrix> &K,
     Teuchos::RCP<Epetra_MultiVector> &b, Teuchos::RCP<Epetra_MultiVector> &x_ex,
+    Teuchos::RCP<Epetra_MultiVector> &nullSpace,
     Teuchos::RCP<HYMLS::Solver> &solver, Teuchos::RCP<HYMLS::Preconditioner> &precond)
   {
   int ierr = PASSED;
@@ -419,12 +442,6 @@ int testSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
   Teuchos::RCP<Epetra_MultiVector> x = Teuchos::rcp(new Epetra_MultiVector(map, numRhs));
 
   bool doDeflation = false;
-  Teuchos::RCP<const Epetra_MultiVector> Nul = Teuchos::null;
-  if (params->sublist("Solver").get("Null Space", "None") != "None")
-    {
-    doDeflation = true;
-    Nul = solver->getNullSpace();
-    }
 
   if (params->sublist("Solver").get("Deflated Subspace Dimension", 0) > 0)
     {
@@ -434,6 +451,10 @@ int testSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
   for (int f=0;f<numComputes;f++)
     {
     CHECK_ZERO(precond->Compute());
+    if (nullSpace!=Teuchos::null)
+      {
+        solver->setNullSpace(nullSpace);
+      }
     if (doDeflation)
       {
       CHECK_ZERO(solver->SetupDeflation());
@@ -447,14 +468,15 @@ int testSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
         {
         xseed = x_ex->Seed();
         CHECK_ZERO(HYMLS::MatrixUtils::Random(*x_ex));
-         if (Nul!=Teuchos::null)
+         if (nullSpace!=Teuchos::null)
           {
-          double alpha;
-          double vnrm2;
-          CHECK_ZERO(x_ex->Dot(*Nul,&alpha));
-          CHECK_ZERO(Nul->Norm2(&vnrm2));
-          alpha/=(vnrm2*vnrm2);
-          CHECK_ZERO(x_ex->Update(-alpha,*Nul,1.0));
+          int dim0=nullSpace->NumVectors();
+          Epetra_SerialComm serialComm;
+          Epetra_LocalMap localMap(dim0,0,*comm);
+          Teuchos::RCP<Epetra_MultiVector> M = Teuchos::rcp(new Epetra_MultiVector(localMap,1),true);
+
+          CHECK_ZERO(M->Multiply('T','N',1.0,*nullSpace,*x_ex,0.0));
+          CHECK_ZERO(x_ex->Multiply('N','N',-1.0,*nullSpace,*M,1.0));
           }
 
         CHECK_ZERO(K->Multiply(false,*x_ex,*b));

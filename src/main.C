@@ -187,18 +187,16 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
   // read nullspace from a file if requiested
   Teuchos::RCP<Epetra_MultiVector> nullSpace=Teuchos::null;
   if (read_problem)
-  {
-    if (nullSpaceType=="File")
     {
+    if (nullSpaceType=="File")
+      {
       nullSpace=Teuchos::rcp(new Epetra_MultiVector(*map,dim0));
       std::string nullSpace_file=datadir+"/nullSpace.mtx";
       HYMLS::Tools::Out("Try to read null space from file '"+nullSpace_file+"'");
       HYMLS::MatrixUtils::mmread(nullSpace_file,*nullSpace);
+      }
     }
-  }
-  // if the nullspace was not read from a file, it may be constructed if the 
-  // user puts a hint like "Null Space Type"=="Constant" etc. in the file
-  if (nullSpaceType!="File" && nullSpaceType!="None")
+  else if (nullSpaceType!="None")
     {
     nullSpace=HYMLS::MainUtils::create_nullspace(*K, nullSpaceType, probl_params);
     dim0=nullSpace->NumVectors();

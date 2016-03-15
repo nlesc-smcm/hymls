@@ -236,9 +236,6 @@ target_link_libraries(hymls_main hymls)
 add_executable(hymls_main_eigs_full main_eigs_full.C)
 target_link_libraries(hymls_main_eigs_full hymls_eigs)
 
-add_executable(hymls_integration_tests integration_tests.C)
-target_link_libraries(hymls_integration_tests hymls_eigs)
-
 set(INCLUDE_INSTALL_DIR include)
 set(LIB_INSTALL_DIR lib)
 set(BIN_INSTALL_DIR bin)
