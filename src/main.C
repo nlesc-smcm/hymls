@@ -226,8 +226,6 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
   //bool do_deflation = (solver_params.get("Deflated Subspace Dimension",0)>0);
   bool do_deflation = false;
     
-  HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap-2.txt");
- 
   HYMLS::Tools::Out("Create dummy mass matrix");
   Teuchos::RCP<Epetra_CrsMatrix> M = Teuchos::null;
   M= Teuchos::rcp(new Epetra_CrsMatrix(Copy,*map,1,true));
