@@ -188,38 +188,36 @@ Teuchos::RCP<Epetra_Map> create_map(const Epetra_Comm& comm,
   int nx=probl_params.get("nx",32);
   int ny=probl_params.get("ny",nx);
   int nz=probl_params.get("nz",(dim>2)?nx:1);
-  
   std::string eqn="not-set";
   if (probl_params.isParameter("Equations"))
     {
-    probl_params.get("Equations","Laplace");
+    eqn=probl_params.get("Equations","Laplace");
     }
 
   Teuchos::RCP<Epetra_Map> map=Teuchos::null;
 
-  HYMLS::Tools::Out("Create map");
-  int dof=probl_params.get("Degrees of Freedom",1);
+  int dof=1;
+  if (probl_params.isParameter("Degrees of Freedom")) dof=probl_params.get("Degrees of Freedom",dof);
   bool is_complex=false;
   if (probl_params.isParameter("Complex Arithmetic"))
   {
     is_complex=probl_params.get("Complex Arithmetic",false);
   }
-  if (is_complex) dof*=2;
 
-  if (eqn=="Laplace" || eqn=="Laplace Neumann" || eqn=="not-set")
-    {
-    map=HYMLS::MatrixUtils::CreateMap(nx,ny,nz,dof,0,comm);
-    }
-  else if (eqn=="Stokes-C")
+  if (eqn=="Stokes-C")
     {
     dof=dim+1;
-    map=HYMLS::MatrixUtils::CreateMap(nx,ny,nz,dof,0,comm);
     }
-  else
+  else if (eqn!="Laplace" && eqn=="Laplace Neumann")
     {
-    HYMLS::Tools::Error("cannot determine problem type from 'Equation' parameter "+eqn,
+    HYMLS::Tools::Warning("cannot determine problem type from 'Equation' parameter "+eqn+"\n"
+                          "Assuming dof="+Teuchos::toString(dof)+" cartesian grid in "+Teuchos::toString(dim)+"D",
         __FILE__, __LINE__);
     }
+  if (is_complex) dof*=2;
+  
+  HYMLS::Tools::out()<<"Create map with dof="<<dof<<" in "<<dim<<"D"<<std::endl;
+  map=HYMLS::MatrixUtils::CreateMap(nx,ny,nz,dof,0,comm);
   return map;
   }
 
