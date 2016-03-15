@@ -19,6 +19,9 @@
         value="${PROJECT_SOURCE_DIR}/testSuite/data/DrivenCavity/32x32/Re0"/>
     <Parameter name="File Format" type="string" value="MatrixMarket"/>
     <Parameter name="Exact Solution Available" type="bool" value="1"/>
+
+    <Parameter name="Null Space Type" type="string" value="Constant P"/>
+    <Parameter name="Pressure Variable" type="int" value="2"/>
     
   </ParameterList><!--}-->
 
@@ -42,11 +45,8 @@
   <!-- Krylov solver and deflation  -->  
   <ParameterList name="Solver"><!--{-->
   
-    <Parameter name="Pressure Variable" type="int" value="2"/>
     <Parameter name="Degrees of Freedom" type="int" value="3"/>
   
-    <Parameter name="Null Space" type="string" value="Constant P"/>
-
     <!-- "CG", "GMRES", "PCPG" (only GMRES actually supported by our solver right now) -->
     <Parameter name="Krylov Method" type="string" value="GMRES"/>  
     <!-- parameters for the iterative solver (Belos) -->

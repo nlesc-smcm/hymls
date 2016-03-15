@@ -16,6 +16,14 @@
     <Parameter name="Number of solves" type="int" value="2"/>
      <!-- how to generate the matrix -->
      <Parameter name="Galeri Label" type="string" value="Laplace Neumann"/> 
+
+     <!-- null space: constant vector will be projected out to  -->
+     <!-- get a non-singular system (for testing the bordering) -->
+     <Parameter name="Null Space Type" type="string" value="Constant"/>
+    
+     <!-- additional vectors to deflate: none for this test -->
+     <Parameter name="Deflated Subspace Dimension" type="int" value="0"/>
+
   </ParameterList><!--}-->
   
   <ParameterList name="Targets"><!--{-->
@@ -39,14 +47,6 @@
     <!-- currently only GMRES works with bordering (CG should as well but doesn't) -->
     <Parameter name="Krylov Method" type="string" value="GMRES"/>
 
-    <!-- null space: constant vector will be projected out to  -->
-    <!-- get a non-singular system (for testing the bordering) -->
-    <Parameter name="Null Space" type="string" value="Constant"/>
-    
-    <!-- additional vectors to deflate: none for this test -->
-    <Parameter name="Deflated Subspace Dimension" type="int" value="0"/>
-  
-    
     <!-- vector to start the Krylov sequence: "Zero", "Random", "Previous" -->
     <Parameter name="Initial Vector" type="string" value="Random"/>
         

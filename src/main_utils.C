@@ -299,7 +299,8 @@ Teuchos::RCP<Epetra_CrsMatrix> create_matrix(const Epetra_Map& map,
     // NOTE: we assume u/v/w/p[/T] ordering here, it works for 2D and 3D as long
     // as var[dim]=P
     nullSpace = Teuchos::rcp(new Epetra_Vector(A.OperatorDomainMap()));
-    int pvar = probl_params.get("Dimension", -1);
+    int dim = probl_params.get("Dimension", -1);
+    int pvar= probl_params.get("Pressure Variable",dim);
     int dof = probl_params.get("Degrees of Freedom", -1);
     // TODO: this is all a bit ad-hoc
     if (pvar == -1 || dof == -1)

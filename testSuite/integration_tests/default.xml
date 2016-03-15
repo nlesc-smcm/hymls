@@ -13,6 +13,10 @@
     <Parameter name="Number of solves" type="int" value="1"/>
     <!-- number of right-hand sides per solve -->
     <Parameter name="Number of rhs" type="int" value="1"/>
+
+    <!-- type of null space to be deflated (e.g. "Constant", "None", ... -->
+    <Parameter name="Null Space Type" type="string" value="None"/>
+    
     
   </ParameterList><!--}-->
   
@@ -43,9 +47,6 @@
     
     <!-- apply preconditioning from left or right (if Krylov Method!="None") -->
     <Parameter name="Left or Right Preconditioning" type="string" value="Left"/>
-    
-    <!-- type of null space to be deflated (e.g. "Constant", "None", ... -->
-    <Parameter name="Null Space" type="string" value="None"/>
     
     <!-- this is not necessary for Laplace, of course, but we can test the eigensolver: -->
     <Parameter name="Deflated Subspace Dimension" type="int" value="0"/>
