@@ -165,3 +165,6 @@ sympy-plots-for-*.tex/
 
 # Documentation
 hymls/doc/*
+
+# unignore CMakeLists.txt
+!*CMakeLists.txt
