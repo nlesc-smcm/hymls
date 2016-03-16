@@ -107,7 +107,6 @@ bool status=true;
       }
     }
 
-  cout << "Hello-1"<< endl;
 
   Teuchos::RCP<Epetra_Map> map;
   Teuchos::RCP<Epetra_CrsMatrix> K;
@@ -115,7 +114,6 @@ bool status=true;
   Teuchos::RCP<Teuchos::ParameterList> params = 
         Teuchos::getParametersFromXmlFile(param_file);
    
-  cout << "Hello-2"<< endl;
      
   for (int i=0;i<extra_files.size();i++)
     {
@@ -138,6 +136,9 @@ bool status=true;
     if (driverList.isSublist("Galeri")) galeriList = driverList.sublist("Galeri");
 
     std::string startingBasisFile = driverList.get("Starting Basis", "None");
+    
+    std::string nullSpaceType = driverList.get("Null Space Type","None");
+    int dim0=0;
 
     // copy here rather than reference because the driver list will be removed 
     // alltogether...   
@@ -156,6 +157,10 @@ bool status=true;
         }                
       file_format = driverList.get("File Format","MatrixMarket");
       have_massmatrix = driverList.get("Mass Matrix Available",false);
+      if (nullSpaceType=="File")
+        {
+        dim0=driverList.get("Null Space Dimension",1);
+        }
       }
 
     driverList.unused(std::cerr);
@@ -163,6 +168,7 @@ bool status=true;
 
         
     Teuchos::ParameterList& probl_params = params->sublist("Problem");
+    Teuchos::ParameterList probl_params_cpy = probl_params;
             
     int dim=probl_params.get("Dimension",2);
     int nx=probl_params.get("nx",32);
@@ -170,52 +176,48 @@ bool status=true;
     int nz=probl_params.get("nz",dim>2?nx:1);
     int dof=probl_params.get("Degrees of Freedom",2);   
  
-    std::string eqn=probl_params.get("Equations","Laplace");
+    std::string eqn=probl_params_cpy.get("Equations","Laplace");
 
-    map = HYMLS::MainUtils::create_map(*comm,probl_params); 
-//#ifdef HYMLS_STORE_MATRICES
+    map = HYMLS::MainUtils::create_map(*comm,probl_params_cpy); 
+#ifdef HYMLS_STORE_MATRICES
 HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
-//#endif
+#endif
   if (read_problem)
     {
-     cout << "Hello-3"<< endl;
      K=HYMLS::MainUtils::read_matrix(datadir,file_format,map);
-     cout << "Hello-4"<< endl;
     }
   else
     {
     HYMLS::Tools::Out("Create matrix");
 
-    K=HYMLS::MainUtils::create_matrix(*map,probl_params,
+    K=HYMLS::MainUtils::create_matrix(*map,probl_params_cpy,
         galeriLabel, galeriList);
     }
 
-// create start vector
-Teuchos::RCP<Epetra_MultiVector> x=Teuchos::rcp(new Epetra_Vector(*map));
-HYMLS::MatrixUtils::Random(*x);
 
-// read nullspace from outside
- Teuchos::RCP<Epetra_MultiVector> nullSpace=Teuchos::rcp(new Epetra_Vector(*map,2));
-// std::string nullspace = "turing/nullS.mtx";
 
- //HYMLS::MatrixUtils::mmread(nullspace,*nullSpace);
- //HYMLS::MatrixUtils::Dump(*nullSpace,"nullSpace.mtx");
- for (int i=2*nx*ny-2*nx+1;i<nullSpace->MyLength();i=i+2)
-  {
-    (*nullSpace)[0][i]=1.0; // set the velocity v of (u,v) on the top line be one  
-  }
+  // read or create the null space
+  Teuchos::RCP<Epetra_MultiVector> nullSpace=Teuchos::null;
+  if (nullSpaceType=="File")
+    {
+    nullSpace=Teuchos::rcp(new Epetra_MultiVector(*map,dim0));
+    std::string nullSpace_file=datadir+"/nullSpace.mtx";
+    HYMLS::Tools::Out("Try to read null space from file '"+nullSpace_file+"'");
+    HYMLS::MatrixUtils::mmread(nullSpace_file,*nullSpace);
+    }
+  else if (nullSpaceType!="None")
+    {
+    nullSpace=HYMLS::MainUtils::create_nullspace(*K, nullSpaceType, probl_params);
+    dim0=nullSpace->NumVectors();
+    }
 
-  for (int i=1;i<nullSpace->MyLength();i=i+nx)
-  {
-    (*nullSpace)[1][i]=1.0; // set the velocity v of (u,v) on the right line be one  
-  }
-
+  // create start vector
+  Teuchos::RCP<Epetra_MultiVector> x=Teuchos::rcp(new Epetra_Vector(*map));
+  HYMLS::MatrixUtils::Random(*x);
 
   Teuchos::ParameterList& solver_params = params->sublist("Solver");
   bool do_deflation = (solver_params.get("Deflated Subspace Dimension",0)>0);
 
-  cout << "Hello-5"<< endl;
-  cout << "dof=" << dof <<endl;
   //int dof = 1;
 //  int dof = 2; //for turing system Weiyan
   if (eqn=="Stokes-C")
@@ -268,7 +270,6 @@ HYMLS::MatrixUtils::Random(*x);
 
   if (precond!=Teuchos::null)
     {
-     cout << "Hello-6"<< endl;
 
     HYMLS::Tools::Out("Initialize Preconditioner...");
     HYMLS::Tools::StartTiming ("main: Initialize Preconditioner");
@@ -301,16 +302,18 @@ HYMLS::MatrixUtils::Random(*x);
     {
     solver->SetMassMatrix(M);
     }
+
+  if (nullSpace!=Teuchos::null)
+    {
+    CHECK_ZERO(solver->setNullSpace(nullSpace));
+    }
+
   if (do_deflation)
     {
     //~ solver->SetMassMatrix(M);
     CHECK_ZERO(solver->SetupDeflation());
     }
-  else
-    {
-    CHECK_ZERO(solver->setNullSpace(nullSpace));
-    }
-
+  
   // Set verbosity level
   int verbosity = Anasazi::Errors + Anasazi::Warnings;
   verbosity += Anasazi::IterationDetails;

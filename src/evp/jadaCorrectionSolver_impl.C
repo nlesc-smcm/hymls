@@ -205,13 +205,14 @@ void HYMLS_jadaCorrectionSolver_run(void* vme,
 }
 
 // we need to replace the residual computation in jdqr right now by re-implementing
-// it and using linker tricks (library order). The B_op has a pointer to a hymls_wrapper
+// it and passing it via the jadaOpts. This is because we want to enforce the Div-
+// constraint in Navier-Stokes here.
+//
+// Details: The B_op has a pointer to a hymls_wrapper
 // as its A member, from which we can get both the mass matrix and the HYMLS solver.
-// In the future we need to consolidate the jdqr interface so that the user can do their
-// own residual calculation, or we should have the operators involved (A,B,Precond) have
-// the velocity map as range and domain map and allow an additional projector to implement
-// the divergence constraint. See phist issue 125)
-void SUBR(computeResidual)(TYPE(const_linearOp_ptr) B_op, TYPE(mvec_ptr) r_ptr,
+// In the future we should probably have the operators involved (A,B,Precond) have
+// the velocity map as range and domain map and always act in the div-free space.
+void HYMLS_computeResidual(void* customSolver, TYPE(const_linearOp_ptr) B_op, TYPE(mvec_ptr) r_ptr,
         TYPE(mvec_ptr) Au_ptr, TYPE(mvec_ptr) u_ptr, TYPE(mvec_ptr) rtil_ptr,
         TYPE(mvec_ptr) Qv, TYPE(mvec_ptr) tmp, TYPE(sdMat_ptr) Theta,
         TYPE(sdMat_ptr) atil, TYPE(sdMat_ptr) *atilv, _MT_ *resid,
@@ -245,14 +246,14 @@ void SUBR(computeResidual)(TYPE(const_linearOp_ptr) B_op, TYPE(mvec_ptr) r_ptr,
   Teuchos::RCP<HYMLS::Solver> solver = Teuchos::null;
   if (B_op != NULL)
   {
-    hymls_wrapper_t* me= (hymls_wrapper_t*)B_op->aux;
+    hymls_wrapper_t* me= (hymls_wrapper_t*)customSolver;
     if (me!=NULL)
     {
       solver = me->solver;
     }
     else
     {
-      PHIST_SOUT(PHIST_ERROR,"in HYMLS overloaded computeResidual function, B_op->aux is "
+      PHIST_SOUT(PHIST_ERROR,"in HYMLS overloaded computeResidual function, customSolver is "
                              "NULL (should point to the customSolver struct hymls_wrapper_t \n");
       *iflag=PHIST_BAD_CAST;
       return;

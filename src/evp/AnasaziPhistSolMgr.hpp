@@ -281,6 +281,7 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
   d_opts.customSolver = (void*)d_wrapper.get();
   d_opts.customSolver_run = HYMLS_jadaCorrectionSolver_run;
   d_opts.customSolver_run1 = HYMLS_jadaCorrectionSolver_run1;
+  d_opts.custom_computeResidual=HYMLS_computeResidual;
 }
 
 template <class ScalarType>

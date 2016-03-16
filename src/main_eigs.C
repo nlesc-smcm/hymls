@@ -187,15 +187,16 @@ bool status=true;
 
         
     Teuchos::ParameterList& probl_params = params->sublist("Problem");
+    Teuchos::ParameterList probl_params_cpy=probl_params;
             
     int dim=probl_params.get("Dimension",2);
     int nx=probl_params.get("nx",32);
     int ny=probl_params.get("ny",nx);
     int nz=probl_params.get("nz",dim>2?nx:1);
     
-    std::string eqn=probl_params.get("Equations","Laplace");
+    std::string eqn=probl_params_cpy.get("Equations","Laplace");
 
-    map = HYMLS::MainUtils::create_map(*comm,probl_params); 
+    map = HYMLS::MainUtils::create_map(*comm,probl_params_cpy); 
 #ifdef HYMLS_STORE_MATRICES
 HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
 #endif
@@ -207,7 +208,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     {
     HYMLS::Tools::Out("Create matrix");
 
-    K=HYMLS::MainUtils::create_matrix(*map,probl_params,
+    K=HYMLS::MainUtils::create_matrix(*map,probl_params_cpy,
         galeriLabel, galeriList);
     }
 

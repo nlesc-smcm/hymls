@@ -42,5 +42,20 @@ void HYMLS_jadaCorrectionSolver_run1(void* vme,
   int robust,
   int *iflag);
 
+// we need to replace the residual computation in jdqr right now by re-implementing
+// it and passing it via the jadaOpts. This is because we want to enforce the Div-
+// constraint in Navier-Stokes here.
+//
+// Details: The B_op has a pointer to a hymls_wrapper
+// as its A member, from which we can get both the mass matrix and the HYMLS solver.
+// In the future we should probably have the operators involved (A,B,Precond) have
+// the velocity map as range and domain map and always act in the div-free space.
+void HYMLS_computeResidual(TYPE(const_linearOp_ptr) B_op, TYPE(mvec_ptr) r_ptr,
+        TYPE(mvec_ptr) Au_ptr, TYPE(mvec_ptr) u_ptr, TYPE(mvec_ptr) rtil_ptr,
+        TYPE(mvec_ptr) Qv, TYPE(mvec_ptr) tmp, TYPE(sdMat_ptr) Theta,
+        TYPE(sdMat_ptr) atil, TYPE(sdMat_ptr) *atilv, _MT_ *resid,
+        int nv, int nconv, int* iflag);
+
+        
 
 #endif
