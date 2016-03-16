@@ -21,7 +21,9 @@
 #include "Teuchos_ParameterList.hpp"
 
 #include "Teuchos_StandardCatchMacros.hpp"
+#ifdef HYMLS_USE_OPENMP
 #include <omp.h>
+#endif
 
 namespace HYMLS {
 

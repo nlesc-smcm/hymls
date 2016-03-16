@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 2.8)
 project(HYMLS CXX)
 
+option(HYMLS_USE_OPENMP OFF "allow using multi-threading inside HYMLS")
+
 add_subdirectory (src)
 add_subdirectory (testSuite)
 

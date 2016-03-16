@@ -22,4 +22,7 @@
 /* wether to use ML ParDiSo */
 #cmakedefine HYMLS_USE_MKL
 
+/* use OpenMP? */
+#cmakedefine HYMLS_USE_OPENMP
+
 #endif
