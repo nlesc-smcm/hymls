@@ -161,7 +161,13 @@ include_directories("${CMAKE_CURRENT_SOURCE_DIR}/evp")
 link_directories(${Trilinos_LIBRARY_DIRS})
 link_directories(${Trilinos_TPL_LIBRARY_DIRS})
 
-find_package(phist QUIET CONFIG)
+if (HYMLS_USE_PHIST)
+  find_package(phist QUIET CONFIG)
+  if (phist_DIR MATCHES "phist_DIR-NOT-FOUND")
+    message(WARNING "phist was requested but not found")
+    set(HYMLS_USE_PHIST OFF)
+  endif()
+endif()
 
 # HYMLS version
 execute_process(COMMAND git rev-parse --short --sq HEAD OUTPUT_VARIABLE rev)

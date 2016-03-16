@@ -19,10 +19,13 @@
 /* determines which functions are to be timed/traced (0: none >5 all) */
 #define HYMLS_TIMING_LEVEL ${HYMLS_TIMING_LEVEL}
 
-/* wether to use ML ParDiSo */
+/* wether to use MKL ParDiSo */
 #cmakedefine HYMLS_USE_MKL
 
 /* use OpenMP? */
 #cmakedefine HYMLS_USE_OPENMP
+
+/* use PHIST as eigensolver? */
+#cmakedefine HYMLS_USE_PHIST
 
 #endif
