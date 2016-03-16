@@ -310,9 +310,9 @@ Teuchos::RCP<BorderedLU> LU_;
   
   //! a pointer array we need in order to construct a product operator
   mutable Teuchos::RCP<const Epetra_Operator> op_array_[2];
-  
+
   //! default value for the "Left or Right Preconditioning" parameter
-  const std::string lor_default_="Right";
+  const std::string lor_default_;
   
   };
 

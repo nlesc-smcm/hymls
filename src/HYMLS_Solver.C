@@ -52,6 +52,7 @@ Solver::Solver(Teuchos::RCP<const Epetra_RowMatrix> K,
   numEigs_(0),
   V_(Teuchos::null), W_(Teuchos::null),
   useTranspose_(false), normInf_(-1.0), numIter_(0),
+  lor_default_("Right"),
   label_("HYMLS::Solver")
   {
   HYMLS_PROF3(label_,"Constructor");
