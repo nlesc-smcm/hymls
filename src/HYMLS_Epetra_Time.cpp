@@ -45,7 +45,7 @@
 #ifdef EPETRA_MPI
 #include <time.h>
 #endif
-#ifdef EPETRA_HAVE_OMP
+#if defined(EPETRA_HAVE_OMP)&&defined(HYMLS_USE_OPENMP)
 #include <omp.h>
 #endif
 

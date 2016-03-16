@@ -380,7 +380,7 @@ int MatrixBlock::ApplyInverse(const Epetra_MultiVector& B, Epetra_MultiVector& X
 #ifdef HYMLS_USE_MKL
     mkl_set_num_threads(numThreads_);
 #endif
-#ifdef USE_OPENMP
+#ifdef HYMLS_USE_OPENMP
     omp_set_num_threads(numThreads_);
 #endif
     }
