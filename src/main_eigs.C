@@ -9,12 +9,16 @@
 #include "Epetra_MultiVector.h"
 #include "Epetra_CrsMatrix.h"
 #include "Epetra_Import.h"
+#include "EpetraExt_MultiVectorIn.h"
 
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_XMLParameterListHelpers.hpp"
 #include "Teuchos_ParameterListAcceptorHelpers.hpp"
 #include "Teuchos_StandardCatchMacros.hpp"
+
+#include <BelosIMGSOrthoManager.hpp>
+
 #ifdef HYMLS_DEBUGGING
 #include <signal.h>
 #endif
@@ -26,11 +30,11 @@
 
 #include "AnasaziBlockKrylovSchurSolMgr.hpp"
 
-#ifdef HAVE_PHIST
-#include "evp/AnasaziPhistSolMgr.hpp"
+#ifdef HYMLS_USE_PHIST
+#include "AnasaziPhistSolMgr.hpp"
 #else
-#include "evp/AnasaziJacobiDavidsonSolMgr.hpp"
-#include "evp/AnasaziHymlsAdapter.hpp"
+#include "AnasaziJacobiDavidsonSolMgr.hpp"
+#include "AnasaziHymlsAdapter.hpp"
 #endif
 
 /*
@@ -42,43 +46,12 @@
 #include "HYMLS_Preconditioner.H"
 #include "HYMLS_Solver.H"
 #include "HYMLS_MatrixUtils.H"
+#include "HYMLS_Tester.H"
 
 typedef double ST;
 typedef Epetra_MultiVector MV;
 typedef Epetra_Operator OP;
 typedef HYMLS::Solver PREC;
-
-Teuchos::RCP<Epetra_Map> GetVelocityMap(Epetra_Map const &map, int dim = 3, int dof = 4)
-{
-  int num = map.NumMyElements();
-  int *elementList = new int[num];
-  int *newElementList = new int[num];
-  map.MyGlobalElements(elementList);
-  int j = 0;
-  for (int i = 0; i < num; ++i)
-    {
-    if (elementList[i] % dof != dim)
-      {
-      newElementList[j] = elementList[i];
-      j++;
-      }
-    }
-  Teuchos::RCP<Epetra_Map> newMap = Teuchos::rcp(new Epetra_Map(-1, j, newElementList, map.IndexBase(), map.Comm()));
-
-  delete[] elementList;
-  delete[] newElementList;
-
-  return newMap;
-}
-
-Teuchos::RCP<Epetra_Import> GetVelocityImporter(Epetra_Map const &map, Teuchos::RCP<Epetra_Map> velocityMap=Teuchos::null, int dim = 3, int dof = 4)
-{
-  if (velocityMap == Teuchos::null)
-    {
-    velocityMap = GetVelocityMap(map, dim, dof);
-    }
-  return Teuchos::rcp(new Epetra_Import(*velocityMap, map));
-}
 
 int main(int argc, char* argv[])
   {
@@ -115,6 +88,7 @@ bool status=true;
   std::string param_file;
   Teuchos::Array<std::string> extra_files;
 
+
   if (argc<2)
     {
     HYMLS::Tools::Out("USAGE: main_eigs <parameter_filename>");
@@ -139,7 +113,8 @@ bool status=true;
 
   Teuchos::RCP<Teuchos::ParameterList> params = 
         Teuchos::getParametersFromXmlFile(param_file);
-        
+   
+     
   for (int i=0;i<extra_files.size();i++)
     {
     Teuchos::updateParametersFromXmlFile(extra_files[i],params.ptr());
@@ -159,13 +134,17 @@ bool status=true;
     std::string galeriLabel=driverList.get("Galeri Label","");
     Teuchos::ParameterList galeriList;
     if (driverList.isSublist("Galeri")) galeriList = driverList.sublist("Galeri");
- 
+
+    std::string startingBasisFile = driverList.get("Starting Basis", "None");
+    
+    std::string nullSpaceType = driverList.get("Null Space Type","None");
+    int dim0=0;
+
     // copy here rather than reference because the driver list will be removed 
     // alltogether...   
     bool read_problem=driverList.get("Read Linear System",false);
+    
     string datadir,file_format;
-    bool have_rhs=true;
-    bool have_exact_sol=false;
     bool have_massmatrix=false;
 
     if (read_problem)
@@ -177,9 +156,11 @@ bool status=true;
                 __FILE__,__LINE__);
         }                
       file_format = driverList.get("File Format","MatrixMarket");
-      have_rhs = driverList.get("RHS Available",true);
-      have_exact_sol = driverList.get("Exact Solution Available",false);
       have_massmatrix = driverList.get("Mass Matrix Available",false);
+      if (nullSpaceType=="File")
+        {
+        dim0=driverList.get("Null Space Dimension",1);
+        }
       }
 
     driverList.unused(std::cerr);
@@ -187,13 +168,14 @@ bool status=true;
 
         
     Teuchos::ParameterList& probl_params = params->sublist("Problem");
-    Teuchos::ParameterList probl_params_cpy=probl_params;
+    Teuchos::ParameterList probl_params_cpy = probl_params;
             
     int dim=probl_params.get("Dimension",2);
     int nx=probl_params.get("nx",32);
     int ny=probl_params.get("ny",nx);
     int nz=probl_params.get("nz",dim>2?nx:1);
-    
+    int dof=probl_params.get("Degrees of Freedom",2);   
+ 
     std::string eqn=probl_params_cpy.get("Equations","Laplace");
 
     map = HYMLS::MainUtils::create_map(*comm,probl_params_cpy); 
@@ -202,7 +184,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
 #endif
   if (read_problem)
     {
-    K=HYMLS::MainUtils::read_matrix(datadir,file_format,map);
+     K=HYMLS::MainUtils::read_matrix(datadir,file_format,map);
     }
   else
     {
@@ -212,14 +194,32 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
         galeriLabel, galeriList);
     }
 
-// create start vector
-Teuchos::RCP<Epetra_Vector> x=Teuchos::rcp(new Epetra_Vector(*map));
-HYMLS::MatrixUtils::Random(*x);
+
+
+  // read or create the null space
+  Teuchos::RCP<Epetra_MultiVector> nullSpace=Teuchos::null;
+  if (nullSpaceType=="File")
+    {
+    nullSpace=Teuchos::rcp(new Epetra_MultiVector(*map,dim0));
+    std::string nullSpace_file=datadir+"/nullSpace.mtx";
+    HYMLS::Tools::Out("Try to read null space from file '"+nullSpace_file+"'");
+    HYMLS::MatrixUtils::mmread(nullSpace_file,*nullSpace);
+    }
+  else if (nullSpaceType!="None")
+    {
+    nullSpace=HYMLS::MainUtils::create_nullspace(*K, nullSpaceType, probl_params);
+    dim0=nullSpace->NumVectors();
+    }
+
+  // create start vector
+  Teuchos::RCP<Epetra_MultiVector> x=Teuchos::rcp(new Epetra_Vector(*map));
+  HYMLS::MatrixUtils::Random(*x);
 
   Teuchos::ParameterList& solver_params = params->sublist("Solver");
   bool do_deflation = (solver_params.get("Deflated Subspace Dimension",0)>0);
 
-  int dof = 1;
+  //int dof = 1;
+//  int dof = 2; //for turing system Weiyan
   if (eqn=="Stokes-C")
     {
     dof=dim+1;
@@ -237,7 +237,9 @@ HYMLS::MatrixUtils::Random(*x);
       HYMLS::Tools::Out("Create dummy mass matrix");
       M=Teuchos::rcp(new Epetra_CrsMatrix(Copy,*map,1,true));
       int gid;
-      double val1=1.0/(nx*ny*nz);
+//      double val1=1.0/(nx*ny*nz);
+      double val1=1.0; //for turing problem Weiyan 
+
       double val0=0.0;
       if (eqn=="Stokes-C")
         {
@@ -263,80 +265,23 @@ HYMLS::MatrixUtils::Random(*x);
       CHECK_ZERO(M->FillComplete());
       }
     }
-//~ 
-  //~ if (eqn=="Stokes-C")
-    //~ {
-    //~ // scale equations by -1 to make operator 'negative indefinite'
-    //~ // (for testing the deflation capabilities)
-//~ //    K->Scale(-1.0);
-    //~ // put a zero in the mass matrix for singletons
-    //~ if (M!=Teuchos::null)
-      //~ {
-     //~ int lenA, lenM;
-      //~ int *indA, *indM;
-      //~ double *valA, *valM;
-      //~ for (int i=0;i<K->NumMyRows();i++)
-        //~ {
-        //~ CHECK_ZERO(K->ExtractMyRowView(i,lenA,valA,indA));
-        //~ CHECK_ZERO(M->ExtractMyRowView(i,lenM,valM,indM));
-        //~ if (lenA==1)
-          //~ {
-          //~ if (K->GCID(indA[0])==K->GRID(i))
-            //~ {
-            //~ for (int j=0;j<lenM;j++)
-              //~ {
-              //~ valM[j]=0.0;
-              //~ }
-            //~ }
-          //~ }
-        //~ }
-      //~ }
-    //~ }
-  HYMLS::MatrixUtils::Dump(*M,"massMatrix.txt");
-#ifdef HYMLS_STORE_MATRICES
-  HYMLS::MatrixUtils::Dump(*M,"massMatrix.txt");
-#endif
-  HYMLS::Tools::Out("Create Preconditioner");
-
-{
-  Teuchos::RCP<Epetra_Import> velocityImporter = GetVelocityImporter(K->RangeMap());
-  Teuchos::RCP<Epetra_Map> velocityMap = GetVelocityMap(K->DomainMap());
-  Teuchos::RCP<Epetra_CrsMatrix> velocityK = Teuchos::rcp(new Epetra_CrsMatrix(*K, *velocityImporter));
-
-  HYMLS::MatrixUtils::Dump(*velocityK, "origVelocityK.txt");
-  HYMLS::MatrixUtils::Dump(*K, "origK.txt");
-}
-
-  int num = K->MaxNumEntries();
-  Teuchos::RCP<Epetra_Map> velocityMap = GetVelocityMap(K->RangeMap(), dim, dof);
-  Teuchos::RCP<Epetra_Import> velocityImporter = GetVelocityImporter(K->RangeMap(), velocityMap, dim, dof);
-  Teuchos::RCP<Epetra_Map> velocityColMap = HYMLS::MatrixUtils::CreateColMap(*K, *velocityMap, *velocityMap);
-
-  Teuchos::RCP<Epetra_CrsMatrix> velocityK = Teuchos::rcp(new
-          Epetra_CrsMatrix(Copy, *velocityMap, *velocityColMap, num));
-  CHECK_ZERO(velocityK->Import(*K, *velocityImporter, Insert));
-  CHECK_ZERO(velocityK->FillComplete(*velocityMap, *velocityColMap));
-
-  Teuchos::RCP<Epetra_CrsMatrix> velocityM = Teuchos::rcp(new
-          Epetra_CrsMatrix(Copy, *velocityMap, *velocityColMap, num));
-  CHECK_ZERO(velocityM->Import(*M, *velocityImporter, Insert));
-  CHECK_ZERO(velocityM->FillComplete(*velocityMap, *velocityColMap));
-
-  HYMLS::MatrixUtils::Dump(*velocityK, "velocityK.txt");
-  HYMLS::MatrixUtils::Dump(*K, "K.txt");
 
     Teuchos::RCP<HYMLS::Preconditioner> precond = Teuchos::rcp(new HYMLS::Preconditioner(K, params));
-    //~ Teuchos::RCP<HYMLS::Preconditioner> precond = Teuchos::null;
 
   if (precond!=Teuchos::null)
     {
+
     HYMLS::Tools::Out("Initialize Preconditioner...");
     HYMLS::Tools::StartTiming ("main: Initialize Preconditioner");
     REPORT_MEM("main","before Initialize",0,0);
+    cout << "dof=" << dof <<endl;
+
     CHECK_ZERO(precond->Initialize());
     REPORT_MEM("main","after Initialize",0,0);
     HYMLS::Tools::StopTiming("main: Initialize Preconditioner",true);
     }
+  
+  cout << "dof=" << dof <<endl;
 
   HYMLS::Tools::Out("Create Solver");
   Teuchos::RCP<HYMLS::Solver> solver = Teuchos::rcp(new HYMLS::Solver(K, precond, params,1));
@@ -357,17 +302,18 @@ HYMLS::MatrixUtils::Random(*x);
     {
     solver->SetMassMatrix(M);
     }
+
+  if (nullSpace!=Teuchos::null)
+    {
+    CHECK_ZERO(solver->setNullSpace(nullSpace));
+    }
+
   if (do_deflation)
     {
     //~ solver->SetMassMatrix(M);
     CHECK_ZERO(solver->SetupDeflation());
     }
-  else
-    {
-    CHECK_ZERO(solver->setNullSpace());
-    }
-    
-
+  
   // Set verbosity level
   int verbosity = Anasazi::Errors + Anasazi::Warnings;
   verbosity += Anasazi::IterationDetails;
@@ -379,43 +325,55 @@ HYMLS::MatrixUtils::Random(*x);
   eigList.set("Verbosity",verbosity);
   eigList.set("Output Stream",HYMLS::Tools::out().getOStream());
 
-  Teuchos::RCP<MV> v0 = Teuchos::rcp(new Epetra_Vector(x->Map()));
-  HYMLS::MatrixUtils::Random(*v0);
-
-  for (int i = 0; i < v0->MyLength(); i++)
+  if (startingBasisFile != "None")
     {
-    if (v0->Map().GID(i) % dof == dim)
+    // Use a provided starting basis
+    Epetra_MultiVector *vecout;
+    EpetraExt::MatrixMarketFileToMultiVector(startingBasisFile.c_str(), x->Map(), vecout);
+    x = Teuchos::rcp(vecout);
+
+    // Reorthogonalize because of round-off errors
+    typedef Belos::IMGSOrthoManager<ST, MV, Epetra_Operator> orthoMan_t;
+    Teuchos::RCP<orthoMan_t> ortho = Teuchos::rcp(new orthoMan_t("hist/orthog/imgs", M));
+
+    Teuchos::RCP<const Teuchos::ParameterList> default_params = ortho->getValidParameters();
+    params->setParametersNotAlreadySet(*default_params);
+
+    ortho->setParameterList(params);
+    Teuchos::ArrayView<Teuchos::RCP<const Epetra_MultiVector > > V_array;
+    Teuchos::Array<Teuchos::RCP<Teuchos::SerialDenseMatrix<int, double> > > C_array;
+    Teuchos::RCP< Teuchos::SerialDenseMatrix<int, double> > mat = Teuchos::null;
+    ortho->projectAndNormalize(*x, Teuchos::null, C_array, mat, V_array);
+    }
+  else
+    {
+    // Use a random B-orthogonal starting vector
+    Teuchos::RCP<MV> v0 = Teuchos::rcp(new Epetra_Vector(x->Map()));
+    HYMLS::MatrixUtils::Random(*v0);
+
+    for (int i = 0; i < v0->MyLength(); i++)
       {
-      (*v0)[0][i] = 0.0;
+      if (v0->Map().GID(i) % dof == dim-1)
+        {
+        (*v0)[0][i] = 0.0;
+        }
       }
+
+    precond->ApplyInverse(*v0, *x);
+
+    // Make x B-orthogonal
+    double result;
+    M->Multiply(false, *x, *v0);
+    x->Dot(*v0, &result);
+    x->Scale(1.0/sqrt(result));
     }
 
-  precond->ApplyInverse(*v0, *x);
-
   HYMLS_TEST("main_eigs",isDivFree(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(K), *x, dof, dim),__FILE__,__LINE__);
-
-  Teuchos::RCP<Epetra_Vector> velocityx = Teuchos::rcp(new
-          Epetra_Vector(*velocityMap));
-  Teuchos::RCP<Epetra_Vector> velocityTmp = Teuchos::rcp(new
-          Epetra_Vector(*velocityMap));
-  CHECK_ZERO(velocityx->Import(*x, *velocityImporter, Insert));
-
-  // Make x B-orthogonal
-  double result;
-  velocityM->Multiply(false, *velocityx, *velocityTmp);
-  velocityx->Dot(*velocityTmp, &result);
-  velocityx->Scale(1.0/sqrt(result));
-
-  HYMLS::MatrixUtils::Dump(*velocityM, "velocityM.txt");
-  HYMLS::MatrixUtils::Dump(*M, "M.txt");
-
-  HYMLS::MatrixUtils::Dump(*velocityx, "velocityx.txt");
-  HYMLS::MatrixUtils::Dump(*x, "x.txt");
 
   // Create the eigenproblem.
   HYMLS_DEBUG("create eigen-problem");
   Teuchos::RCP<Anasazi::BasicEigenproblem<ST, MV, OP> > eigProblem;
-  eigProblem = Teuchos::rcp( new Anasazi::BasicEigenproblem<ST,MV,OP>(velocityK, velocityM, velocityx) );
+  eigProblem = Teuchos::rcp( new Anasazi::BasicEigenproblem<ST,MV,OP>(K, M, x) );
   eigProblem->setHermitian(false);
   eigProblem->setNEV(numEigs);
   if (eigProblem->setProblem()==false)
@@ -423,7 +381,7 @@ HYMLS::MatrixUtils::Random(*x);
     HYMLS::Tools::Error("eigProblem->setPoroblem returned 'false'",__FILE__,__LINE__);
     }
 
-#ifdef HAVE_PHIST
+#ifdef HYMLS_USE_PHIST
   Anasazi::PhistSolMgr<ST,MV,OP,PREC> jada(eigProblem,solver,eigList);
 #else
   Anasazi::JacobiDavidsonSolMgr<ST,MV,OP,PREC> jada(eigProblem,solver,eigList);
@@ -434,10 +392,10 @@ HYMLS::MatrixUtils::Random(*x);
   HYMLS_DEBUG("solve eigenproblem");
   returnCode = jada.solve();
   if (returnCode != Anasazi::Converged)
-    {
+
     HYMLS::Tools::Warning("Anasazi::EigensolverMgr::solve() returned unconverged.",
         __FILE__,__LINE__);
-    }
+    
 
   HYMLS_DEBUG("post-process returned solution");
 
@@ -463,14 +421,15 @@ HYMLS::MatrixUtils::Random(*x);
               << std::endl;
       }
     HYMLS::Tools::out()<<"-----------------------------------------------------------"<<std::endl;
+
     }
 
   REPORT_MEM("main","after HYMLS",0,0);
 
   if (store_solution)
     {
-//    HYMLS::Tools::Out("store solution...");
-//    HYMLS::MatrixUtils::Dump(*x, "EigenSolution.txt",false);
+    HYMLS::Tools::Out("store solution...");
+    HYMLS::MatrixUtils::mmwrite("Eigenvectors.txt", *eigSol.Evecs);
     }
     
   if (print_final_list)
@@ -493,7 +452,7 @@ HYMLS::MatrixUtils::Random(*x);
     }
   
   
-    } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr, status);
+    }TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr, status);
   if (!status) HYMLS::Tools::Fatal("Caught an exception",__FILE__,__LINE__);
 
   HYMLS::Tools::PrintTiming(HYMLS::Tools::out());

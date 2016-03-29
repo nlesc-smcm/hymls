@@ -243,8 +243,8 @@ target_link_libraries(hymls_eigs hymls)
 add_executable(hymls_main main.C)
 target_link_libraries(hymls_main hymls)
 
-add_executable(hymls_main_eigs_full main_eigs_full.C)
-target_link_libraries(hymls_main_eigs_full hymls_eigs)
+add_executable(hymls_main_eigs main_eigs.C)
+target_link_libraries(hymls_main_eigs hymls_eigs)
 
 set(INCLUDE_INSTALL_DIR include)
 set(LIB_INSTALL_DIR lib)
@@ -252,7 +252,7 @@ set(BIN_INSTALL_DIR bin)
 
 # Install executables
 install(TARGETS hymls_main EXPORT HYMLSTargets RUNTIME DESTINATION ${BIN_INSTALL_DIR})
-install(TARGETS hymls_main_eigs_full EXPORT HYMLSTargets RUNTIME DESTINATION ${BIN_INSTALL_DIR})
+install(TARGETS hymls_main_eigs EXPORT HYMLSTargets RUNTIME DESTINATION ${BIN_INSTALL_DIR})
 
 # Install libraries
 set(library_list)
