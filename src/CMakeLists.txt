@@ -3,8 +3,8 @@ project(HYMLS CXX)
 
 list (APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/")
 if (CMAKE_MAJOR_VERSION GREATER 2)
-  set (CMAKE_CXX_STANDARD 11)
-  set(PHIST_HAVE_CXX11 ON)
+  set(CMAKE_CXX_STANDARD 11)
+  set(HYMLS_HAVE_CXX11 ON)
 endif()
 
 option(HYMLS_STORE_MATRICES "dump all matrices, maps etc. encountered (huge overhead)" OFF)
