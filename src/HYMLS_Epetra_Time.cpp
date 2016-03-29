@@ -40,6 +40,7 @@
 // ************************************************************************
 //@HEADER
 
+#include "HYMLS_config.h"
 #include "HYMLS_Epetra_Time.h"
 
 #ifdef EPETRA_MPI
@@ -75,7 +76,7 @@ double Epetra_Time::WallTime(void) const
 	return(MPI_Wtime());
 #else
 
-#ifdef EPETRA_HAVE_OMP
+#if defined(EPETRA_HAVE_OMP)&&defined(HYMLS_HAVE_OPENMP)
        return(omp_get_wtime());
 #else
 #if ICL || defined(_WIN32)
