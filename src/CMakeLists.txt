@@ -170,7 +170,7 @@ if (HYMLS_USE_PHIST)
 endif()
 
 # HYMLS version
-execute_process(COMMAND git rev-parse --short --sq HEAD OUTPUT_VARIABLE rev)
+execute_process(COMMAND git rev-parse --short --sq HEAD WORKING_DIRECTORY ${PROJECT_SOURCE_DIR} OUTPUT_VARIABLE rev)
 STRING(REPLACE "'" "\"" HYMLS_REVISION ${rev})
 
 set(HYMLS_TIMING_LEVEL 2 CACHE STRING "which function should be timed/traced (0: none, 1: major functions ... 99: all")
