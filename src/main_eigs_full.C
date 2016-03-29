@@ -30,7 +30,7 @@
 
 #include "AnasaziBlockKrylovSchurSolMgr.hpp"
 
-#ifdef HAVE_PHIST
+#ifdef HYMLS_USE_PHIST
 #include "AnasaziPhistSolMgr.hpp"
 #else
 #include "AnasaziJacobiDavidsonSolMgr.hpp"
@@ -381,7 +381,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     HYMLS::Tools::Error("eigProblem->setPoroblem returned 'false'",__FILE__,__LINE__);
     }
 
-#ifdef HAVE_PHIST
+#ifdef HYMLS_USE_PHIST
   Anasazi::PhistSolMgr<ST,MV,OP,PREC> jada(eigProblem,solver,eigList);
 #else
   Anasazi::JacobiDavidsonSolMgr<ST,MV,OP,PREC> jada(eigProblem,solver,eigList);
