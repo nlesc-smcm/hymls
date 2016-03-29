@@ -2,7 +2,10 @@ cmake_minimum_required(VERSION 2.8)
 project(HYMLS CXX)
 
 list (APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/")
-set (CMAKE_CXX_STANDARD 11)
+if (CMAKE_MAJOR_VERSION GREATER 2)
+  set (CMAKE_CXX_STANDARD 11)
+  set(PHISST_HAVE_CXX11 ON)
+endif()
 
 option(HYMLS_STORE_MATRICES "dump all matrices, maps etc. encountered (huge overhead)" OFF)
 option(HYMLS_DEBUGGING "turns on verbose debugging output" OFF)

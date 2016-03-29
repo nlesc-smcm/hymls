@@ -22,6 +22,7 @@ class Exception : public std::exception
   //! constructor with message, file name and line number
   Exception(std::string msg, std::string file, int line) throw();
 
+#ifdef PHIST_HAVE_CXX11
   //! copy constructor
   Exception(const Exception& e)=default;
 
@@ -30,7 +31,9 @@ class Exception : public std::exception
 
   //! move constructor
   Exception(Exception&& e)=default;
-  
+#else
+
+#endif  
   //!
   const char* what() const throw();
 

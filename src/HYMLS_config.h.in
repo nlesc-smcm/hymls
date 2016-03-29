@@ -28,4 +28,7 @@
 /* use PHIST as eigensolver? */
 #cmakedefine HYMLS_USE_PHIST
 
+/* can we use CXX11 features? */
+#cmakedefine HYMLS_HAVE_CXX11
+
 #endif
