@@ -144,8 +144,8 @@ class PhistSolMgr : public SolverManager<ScalarType,MV,OP>
         RCP< Eigenproblem<ScalarType,MV,OP> >           d_problem;
         RCP< PREC >                                     d_prec;
         // used to pass HYMLS object to phist
-        RCP<hymls_wrapper_t>                            d_wrapper;
-        phist_jadaOpts_t                                d_opts;
+        RCP<phist_hymls_wrapper>                        d_wrapper;
+        phist_jadaOpts                                  d_opts;
 
         bool borderedSolver;
 
@@ -272,7 +272,7 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
         d_opts.which = phist_LM;
     }
 
-  d_wrapper = Teuchos::rcp(new hymls_wrapper_t);
+  d_wrapper = Teuchos::rcp(new phist_hymls_wrapper);
   d_wrapper->solver = d_prec;
   d_wrapper->borderedSolver = borderedSolver;
 
@@ -281,7 +281,7 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
   d_opts.customSolver = (void*)d_wrapper.get();
   d_opts.customSolver_run = HYMLS_jadaCorrectionSolver_run;
   d_opts.customSolver_run1 = HYMLS_jadaCorrectionSolver_run1;
-  d_opts.custom_computeResidual=HYMLS_computeResidual;
+  d_opts.custom_computeResidual = HYMLS_computeResidual;
 }
 
 template <class ScalarType>
@@ -309,17 +309,17 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
   //~ d_opts.initialShift=-51.0;
 
   // create operator wrapper for computing Y=A*X using a CRS matrix
-  Teuchos::RCP<DlinearOp_t> A_op = Teuchos::rcp(new DlinearOp_t);
+  Teuchos::RCP<phist_DlinearOp> A_op = Teuchos::rcp(new phist_DlinearOp);
   phist_DlinearOp_wrap_sparseMat(A_op.get(), Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(d_problem->getOperator()).get(), &iflag);
   TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
     "PhistSolMgr::solve: phist_DlinearOp_wrap_sparseMat returned nonzero error code "+Teuchos::toString(iflag));
 
-  Teuchos::RCP<DlinearOp_t> B_op = Teuchos::null;
+  Teuchos::RCP<phist_DlinearOp> B_op = Teuchos::null;
   if (d_problem->getM() != Teuchos::null)
   {
     Teuchos::RCP<const Epetra_CrsMatrix> B_rcp=Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(d_problem->getM());
     const Epetra_CrsMatrix* B=B_rcp.get();
-    B_op = Teuchos::rcp(new DlinearOp_t());
+    B_op = Teuchos::rcp(new phist_DlinearOp());
     phist_DlinearOp_wrap_sparseMat(B_op.get(), B, &iflag);
     TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
       "PhistSolMgr::solve: phist_DlinearOp_wrap_sparseMat returned nonzero error code "+Teuchos::toString(iflag));

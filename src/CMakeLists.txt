@@ -3,8 +3,8 @@ project(HYMLS CXX)
 
 list (APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/")
 if (CMAKE_MAJOR_VERSION GREATER 2)
-  set (CMAKE_CXX_STANDARD 11)
-  set(PHISST_HAVE_CXX11 ON)
+  set(CMAKE_CXX_STANDARD 11)
+  set(HYMLS_HAVE_CXX11 ON)
 endif()
 
 option(HYMLS_STORE_MATRICES "dump all matrices, maps etc. encountered (huge overhead)" OFF)
@@ -205,7 +205,6 @@ target_link_libraries(hymls ${MPI_CXX_LIBRARIES})
 
 if (${phist_FOUND})
   message(STATUS "phist found in ${PHIST_INCLUDE_DIRS}")
-  set(HYMLS_HAVE_PHIST 1)
   include_directories(${PHIST_INCLUDE_DIRS})
   link_directories(${PHIST_LIBRARY_DIRS})
 endif()
@@ -244,8 +243,8 @@ target_link_libraries(hymls_eigs hymls)
 add_executable(hymls_main main.C)
 target_link_libraries(hymls_main hymls)
 
-add_executable(hymls_main_eigs_full main_eigs_full.C)
-target_link_libraries(hymls_main_eigs_full hymls_eigs)
+add_executable(hymls_main_eigs main_eigs.C)
+target_link_libraries(hymls_main_eigs hymls_eigs)
 
 set(INCLUDE_INSTALL_DIR include)
 set(LIB_INSTALL_DIR lib)
@@ -253,7 +252,7 @@ set(BIN_INSTALL_DIR bin)
 
 # Install executables
 install(TARGETS hymls_main EXPORT HYMLSTargets RUNTIME DESTINATION ${BIN_INSTALL_DIR})
-install(TARGETS hymls_main_eigs_full EXPORT HYMLSTargets RUNTIME DESTINATION ${BIN_INSTALL_DIR})
+install(TARGETS hymls_main_eigs EXPORT HYMLSTargets RUNTIME DESTINATION ${BIN_INSTALL_DIR})
 
 # Install libraries
 set(library_list)
