@@ -20,8 +20,6 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CMAKE_Fortran_FLAGS  "${CMAKE_Fortran_FLAGS} -O2 -g -Wall -Wno-unknown-pragmas")
   endif()
 
-  set(BUILD_SHARED_LIBS ON)
-
   set(CMAKE_C_FLAGS_RELEASE        "-O3 -ffast-math -march=native")
   set(CMAKE_CXX_FLAGS_RELEASE      "-O3 -ffast-math -march=native")
   set(CMAKE_Fortran_FLAGS_RELEASE  "-O3 -ffast-math -march=native")
@@ -58,6 +56,8 @@ elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
 else()
   message (WARNING "No custom compiler flags for the ${CMAKE_CXX_COMPILER_ID} compiler were found.")
 endif()
+
+set(BUILD_SHARED_LIBS ON)
 
 find_package(MPI REQUIRED)
 if (${MPI_FOUND})
