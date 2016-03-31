@@ -202,7 +202,7 @@ if (${phist_FOUND})
     evp/jadaCorrectionSolver_impl)
   list(APPEND HEADERS
     evp/jadaCorrectionSolver_impl.H
-    AnasaziPhistSolMgr.hpp)
+    evp/AnasaziPhistSolMgr.hpp)
 endif()
 
 # create header file to tell the source code about some config-time settings and features it can use

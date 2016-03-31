@@ -4,6 +4,8 @@
 
 #include <mpi.h>
 
+#include "HYMLS_config.h"
+
 #include "Epetra_MpiComm.h"
 #include "Epetra_Map.h"
 #include "Epetra_Vector.h"
@@ -25,7 +27,7 @@
 #include "AnasaziEpetraAdapter.hpp"
 #include "AnasaziBlockKrylovSchurSolMgr.hpp"
 
-#ifdef HAVE_PHIST
+#ifdef HYMLS_USE_PHIST
 #include "evp/AnasaziPhistSolMgr.hpp"
 #else
 #include "evp/AnasaziJacobiDavidsonSolMgr.hpp"
@@ -89,7 +91,7 @@ int main(int argc, char* argv[])
   // construct file streams, otherwise the output won't work correctly
   HYMLS::Tools::InitializeIO(comm);
 
-  HYMLS::Tools::out() << "this is HYMLS, rev "<<HYMLS::Tools::Revision()<<std::endl;
+  HYMLS::Tools::out() << "this is HYMLS, rev " << HYMLS::Tools::Revision() << std::endl;
 
   HYMLS::Tools::StartTiming("Integration Tests");
 
@@ -371,12 +373,16 @@ int runTest(Teuchos::RCP<const Epetra_Comm> comm,
 
     ierr |= testSolver(message, comm, params, K, b, x_ex, nullSpace, solver, precond);
 
-#ifdef HAVE_PHIST
+    Teuchos::ParameterList& driverList = params->sublist("Driver");
     if (driverList.isSublist("Eigenvalues"))
       {
+#ifdef HYMLS_USE_PHIST
       ierr |= testEigenSolver(message, comm, params, K, M, solver, precond);
-      }
+#else
+      HYMLS::Tools::Warning("Eigenvalue computation not tested because phist is disabled",
+        __FILE__, __LINE__);
 #endif
+      }
 
     comm->Barrier();
     }
@@ -642,10 +648,10 @@ int testEigenSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
 
   if (!eigProblem->setProblem())
     {
-    HYMLS::Tools::Error("eigProblem->setPoroblem returned 'false'",__FILE__,__LINE__);
+    HYMLS::Tools::Error("eigProblem->setProblem returned 'false'",__FILE__,__LINE__);
     }
 
-#ifdef HAVE_PHIST
+#ifdef HYMLS_USE_PHIST
   Anasazi::PhistSolMgr<ST,MV,OP,PREC> jada(eigProblem, solver, eigList);
 #else
   Anasazi::JacobiDavidsonSolMgr<ST,MV,OP,PREC> jada(eigProblem, solver, eigList);

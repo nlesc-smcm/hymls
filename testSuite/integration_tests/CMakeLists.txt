@@ -22,9 +22,26 @@ include_directories(${Trilinos_TPL_INCLUDE_DIRS})
 link_directories(${Trilinos_LIBRARY_DIRS})
 link_directories(${Trilinos_TPL_LIBRARY_DIRS})
 
+if (HYMLS_USE_PHIST)
+  find_package(phist QUIET CONFIG)
+  if (phist_DIR MATCHES "phist_DIR-NOT-FOUND")
+    message(WARNING "phist was requested but not found")
+    set(HYMLS_USE_PHIST OFF)
+  endif()
+endif()
+
+if (${phist_FOUND})
+  include_directories(${PHIST_INCLUDE_DIRS})
+  link_directories(${PHIST_LIBRARY_DIRS})
+endif()
+
 add_executable(integration_tests integration_tests.C)
 
 target_link_libraries(integration_tests ${Trilinos_LIBRARIES})
 target_link_libraries(integration_tests ${Trilinos_TPL_LIBRARIES})
+
+if (${phist_FOUND})
+  target_link_libraries(integration_tests ${PHIST_LIBRARIES})
+endif()
 
 target_link_libraries(integration_tests hymls)
