@@ -16,6 +16,10 @@
 #include "Ifpack_DenseContainer.h"
 #include "Ifpack_Amesos.h"
 
+#ifdef HYMLS_USE_MKL
+#include <mkl.h>
+#endif
+
 namespace HYMLS {
 
 MatrixBlock::MatrixBlock(Teuchos::RCP<const Epetra_CrsMatrix> matrix,

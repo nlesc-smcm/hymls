@@ -42,10 +42,6 @@
 
 #include "GaleriExt_Periodic.h"
 
-#ifdef HYMLS_USE_MKL
-#include <mkl.h>
-#endif
-
 typedef Teuchos::Array<int>::iterator int_i;
 
 namespace HYMLS {
