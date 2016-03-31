@@ -111,8 +111,6 @@ set(HYMLS_SOURCE HYMLS_Solver
     GaleriExt_Periodic
     main_utils)
 
-set(HYMLS_EIGS_SOURCE evp/dummy.cpp)
-
 # Headers include eachother, so for now just assume we want to install all
 # header files that have a source
 set(HEADERS)
@@ -132,7 +130,6 @@ set(HEADERS ${HEADERS}
   evp/AnasaziHymlsAdapter.hpp
   evp/AnasaziJacobiDavidson.hpp
   evp/AnasaziJacobiDavidsonSolMgr.hpp
-  evp/AnasaziPhistSolMgr.hpp
   evp/AnasaziPreconditionerTraits.hpp
   GaleriExt_Cross2DN.h
   GaleriExt_Darcy2D.h
@@ -148,7 +145,7 @@ set(HEADERS ${HEADERS}
   HYMLS_ShiftedOperator.H
   HYMLS_MatrixBlock.H
   )
-  
+
 include_directories(${PROJECT_SOURCE_DIR})
 
 if (DEFINED ENV{TRILINOS_HOME})
@@ -178,7 +175,6 @@ STRING(REPLACE "'" "\"" HYMLS_REVISION ${rev})
 
 set(HYMLS_TIMING_LEVEL 2 CACHE STRING "which function should be timed/traced (0: none, 1: major functions ... 99: all")
 
-
 if (CMAKE_BUILD_TYPE MATCHES "Debug")
 
   message(STATUS "enabling TESTING")
@@ -197,23 +193,21 @@ if (CMAKE_BUILD_TYPE MATCHES "Debug")
 
 endif()
 
-add_library(hymls ${HYMLS_SOURCE})
-
-target_link_libraries(hymls ${Trilinos_LIBRARIES})
-target_link_libraries(hymls ${Trilinos_TPL_LIBRARIES})
-target_link_libraries(hymls ${MPI_CXX_LIBRARIES})
-
 if (${phist_FOUND})
   message(STATUS "phist found in ${PHIST_INCLUDE_DIRS}")
   include_directories(${PHIST_INCLUDE_DIRS})
   link_directories(${PHIST_LIBRARY_DIRS})
-endif()
 
+  list(APPEND HYMLS_SOURCE
+    evp/jadaCorrectionSolver_impl)
+  list(APPEND HEADERS
+    evp/jadaCorrectionSolver_impl.H
+    AnasaziPhistSolMgr.hpp)
+endif()
 
 # create header file to tell the source code about some config-time settings and features it can use
 configure_file(${PROJECT_SOURCE_DIR}/HYMLS_config.h.in ${CMAKE_CURRENT_BINARY_DIR}/HYMLS_config.h)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
-
 
 # phist is typically compiled with OpenMP support, add the openmp flag to be able to link.
 # And even if we compile without, I think our Trilinos or MPI installation require it, so
@@ -227,24 +221,21 @@ if (HYMLS_USE_OPENMP)
   endif()
 endif()
 
-add_library(hymls_eigs ${HYMLS_EIGS_SOURCE})
+add_library(hymls ${HYMLS_SOURCE})
+
+target_link_libraries(hymls ${Trilinos_LIBRARIES})
+target_link_libraries(hymls ${Trilinos_TPL_LIBRARIES})
+target_link_libraries(hymls ${MPI_CXX_LIBRARIES})
+
 if (${phist_FOUND})
-  add_library(hymls_jada evp/jadaCorrectionSolver_impl)
-  list(APPEND HEADERS evp/jadaCorrectionSolver_impl.H)
-  target_link_libraries(hymls_jada hymls)
-  target_link_libraries(hymls_jada ${PHIST_LIBRARIES})
-
-#  set_target_properties(hymls PROPERTIES COMPILE_FLAGS "-fPIC")
-
-  target_link_libraries(hymls_eigs hymls_jada)
+  target_link_libraries(hymls ${PHIST_LIBRARIES})
 endif()
-target_link_libraries(hymls_eigs hymls)
 
 add_executable(hymls_main main.C)
 target_link_libraries(hymls_main hymls)
 
 add_executable(hymls_main_eigs main_eigs.C)
-target_link_libraries(hymls_main_eigs hymls_eigs)
+target_link_libraries(hymls_main_eigs hymls)
 
 set(INCLUDE_INSTALL_DIR include)
 set(LIB_INSTALL_DIR lib)
@@ -256,14 +247,6 @@ install(TARGETS hymls_main_eigs EXPORT HYMLSTargets RUNTIME DESTINATION ${BIN_IN
 
 # Install libraries
 set(library_list)
-
-install(TARGETS hymls_eigs EXPORT HYMLSTargets LIBRARY DESTINATION ${LIB_INSTALL_DIR})
-list(APPEND library_list hymls_eigs)
-
-if (${phist_FOUND})
-  install(TARGETS hymls_jada EXPORT HYMLSTargets LIBRARY DESTINATION ${LIB_INSTALL_DIR})
-  list(APPEND library_list hymls_jada)
-endif()
 
 install(TARGETS hymls EXPORT HYMLSTargets LIBRARY DESTINATION ${LIB_INSTALL_DIR})
 list(APPEND library_list hymls)

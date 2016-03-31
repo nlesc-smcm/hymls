@@ -27,4 +27,4 @@ add_executable(integration_tests integration_tests.C)
 target_link_libraries(integration_tests ${Trilinos_LIBRARIES})
 target_link_libraries(integration_tests ${Trilinos_TPL_LIBRARIES})
 
-target_link_libraries(integration_tests hymls_eigs)
+target_link_libraries(integration_tests hymls)
