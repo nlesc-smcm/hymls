@@ -12,10 +12,12 @@ include("${HYMLS_CMAKE_DIR}/HYMLSTargets.cmake")
 @PACKAGE_INIT@
 
 set_and_check(HYMLS_INCLUDE_DIR "@PACKAGE_INCLUDE_INSTALL_DIR@")
+
 set(HYMLS_INCLUDE_DIRS "${HYMLS_INCLUDE_DIR}")
 list(APPEND HYMLS_INCLUDE_DIRS "@include_list@")
 
-# TODO: I want this to be less ugly. I'm looking for a function or variable that lists all libraries
-set(HYMLS_LIBRARIES "@library_list@")
+# TODO: I want this to be less ugly. I'm looking for a function or
+# variable that lists all libraries
+set(HYMLS_LIBRARIES @library_list@)
 
 check_required_components(HYMLS)
