@@ -146,6 +146,9 @@ set(HEADERS ${HEADERS}
   HYMLS_MatrixBlock.H
   )
 
+set(library_list)
+set(include_list)
+
 include_directories(${PROJECT_SOURCE_DIR})
 
 if (DEFINED ENV{TRILINOS_HOME})
@@ -155,11 +158,9 @@ find_package(Trilinos)
 
 include_directories(${Trilinos_INCLUDE_DIRS})
 include_directories(${Trilinos_TPL_INCLUDE_DIRS})
+list(APPEND include_list ${Trilinos_INCLUDE_DIRS})
 
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/evp")
-
-link_directories(${Trilinos_LIBRARY_DIRS})
-link_directories(${Trilinos_TPL_LIBRARY_DIRS})
 
 if (HYMLS_USE_PHIST)
   find_package(phist QUIET CONFIG)
@@ -196,7 +197,7 @@ endif()
 if (${phist_FOUND})
   message(STATUS "phist found in ${PHIST_INCLUDE_DIRS}")
   include_directories(${PHIST_INCLUDE_DIRS})
-  link_directories(${PHIST_LIBRARY_DIRS})
+  list(APPEND include_list ${PHIST_INCLUDE_DIRS})
 
   list(APPEND HYMLS_SOURCE
     evp/jadaCorrectionSolver_impl)
@@ -223,13 +224,38 @@ endif()
 
 add_library(hymls ${HYMLS_SOURCE})
 
-target_link_libraries(hymls ${Trilinos_LIBRARIES})
-target_link_libraries(hymls ${Trilinos_TPL_LIBRARIES})
-target_link_libraries(hymls ${MPI_CXX_LIBRARIES})
+# Create lists of all libraries and library directories
+set(library_dependencies ${Trilinos_LIBRARIES})
+list(APPEND library_dependencies ${Trilinos_TPL_LIBRARIES})
+list(APPEND library_dependencies ${MPI_CXX_LIBRARIES})
+
+set(library_directories ${Trilinos_LIBRARY_DIRS})
+list(APPEND library_directories ${Trilinos_TPL_LIBRARY_DIRS})
+list(APPEND library_directories ${MPI_CXX_LIBRARY_DIRSY_DIRS})
 
 if (${phist_FOUND})
-  target_link_libraries(hymls ${PHIST_LIBRARIES})
+  list(APPEND library_dependencies ${PHIST_LIBRARIES})
+  list(APPEND library_directories ${PHIST_LIBRARY_DIRS})
 endif()
+
+# Find absolute paths to all libraries. See
+# https://cmake.org/cmake/help/v3.0/command/link_directories.html
+# for the reason why we want this.
+set(found_library_dependencies)
+foreach(lib ${library_dependencies})
+  set(found_${lib})
+  if(IS_ABSOLUTE ${lib})
+    set(found_${lib} ${lib})
+  else()
+    find_library(found_${lib} ${lib} ${library_directories})
+  endif()
+  list(APPEND found_library_dependencies ${found_${lib}})
+  message(STATUS "${lib}")
+  message(STATUS "${found_${lib}}")
+endforeach(lib)
+
+# Link HYMLS to all found libraries
+target_link_libraries(hymls ${found_library_dependencies})
 
 add_executable(hymls_main main.C)
 target_link_libraries(hymls_main hymls)
@@ -246,8 +272,6 @@ install(TARGETS hymls_main EXPORT HYMLSTargets RUNTIME DESTINATION ${BIN_INSTALL
 install(TARGETS hymls_main_eigs EXPORT HYMLSTargets RUNTIME DESTINATION ${BIN_INSTALL_DIR})
 
 # Install libraries
-set(library_list)
-
 install(TARGETS hymls EXPORT HYMLSTargets LIBRARY DESTINATION ${LIB_INSTALL_DIR})
 list(APPEND library_list hymls)
 
