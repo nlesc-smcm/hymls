@@ -1663,127 +1663,123 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
       }
     }
 
-#pragma omp parallel
+  int len;
+  int *indices;
+  double *values;
+
+  int new_len;
+  int *new_indices = new int[A->MaxNumEntries()+1];
+  double *new_values = new double[A->MaxNumEntries()+1];
+
+  int NumRows = A->NumMyRows();
+
+  double scal = 1.0;
+  double scal_i = 1.0;
+  for (int i = 0; i < NumRows; i++)
     {
-    int len;
-    int *indices;
-    double *values;
+    CHECK_ZERO(A->ExtractMyRowView(i, len, values, indices));
 
-    int new_len;
-    int *new_indices = new int[A->MaxNumEntries()+1];
-    double *new_values = new double[A->MaxNumEntries()+1];
-
-    int NumRows = A->NumMyRows();
-
-    double scal = 1.0;
-    double scal_i = 1.0;
-#pragma omp for schedule(static)
-    for (int i = 0; i < NumRows; i++)
+    // this index trafo is required because diagA is based on the col map of A
+    int lcid_i = diagA->Map().LID(A->GRID(i));
+    if (rel)
       {
-      CHECK_ZERO(A->ExtractMyRowView(i, len, values, indices));
-
-      // this index trafo is required because diagA is based on the col map of A
-      int lcid_i = diagA->Map().LID(A->GRID(i));
-      if (rel)
-        {
 #ifdef HYMLS_TESTING
-        if (lcid_i < 0) Tools::Error("matrix is missing a column", __FILE__, __LINE__);
+      if (lcid_i < 0) Tools::Error("matrix is missing a column", __FILE__, __LINE__);
 #endif
-        scal_i = std::abs((*diagA)[lcid_i]);
-        }
-
-      new_len = 0;
-
-      // If fullDiag we always want the diagonal entries
-      if (fullDiag)
-        {
-        double diagValue = (*diagA)[lcid_i];
-        new_values[new_len] = (std::abs(diagValue) > droptol) ? diagValue : 0.0;
-        new_indices[new_len] = A->GRID(i);
-        new_len++;
-        }
-
-      for (int j = 0; j < len; j++)
-        {
-        bool isDiag = (A->GCID(indices[j]) == A->GRID(i));
-
-        // We already did this
-        if (isDiag && fullDiag)
-          continue;
-
-        scal = scal_i;
-
-        if (isDiag && absDiag)
-          {
-          // use absolute tol on diagonal
-          scal = 1.0;
-          }
-        else if (rel)
-          {
-          // for F - matrices with zeros on the diagonal, use tol*|ajj| instead
-          // of tol*|aii|, this prevents loss of structural symmetry.
-          int lcid_j = diagA->Map().LID(A->GCID(indices[j]));
-#ifdef HYMLS_TESTING
-          if (lcid_j < 0) Tools::Error("diagonal entry not imported?", __FILE__, __LINE__);
-#endif
-          scal = std::max(scal_i, std::abs((*diagA)[lcid_j]));
-          }
-
-        if (std::abs(values[j]) > scal*droptol)
-          {
-          // retain the entry
-          new_values[new_len] = values[j];
-          new_indices[new_len] = A->GCID(indices[j]);
-          new_len++;
-          }
-        else if (isDiag && zeroDiag)
-          {
-          // put physical 0.0 in
-          new_values[new_len] = 0.0;
-          new_indices[new_len] = A->GCID(indices[j]);
-          new_len++;
-          }
-        }// j
-#ifdef HYMLS_TESTING
-      bool testFailed = false;
-      for (int jj = 0; jj < new_len; jj++)
-        {
-        if (std::abs(new_values[jj])<std::numeric_limits < double>::epsilon()
-          && new_indices[jj] != A->GRID(i))
-          {
-          testFailed = true;
-          Tools::out() << "row " << A->GRID(i) << " col " << new_indices[jj] << std::endl;
-          }
-        }
-      if (testFailed)
-        {
-        Tools::out() << "original matrix row (" << len << " entries): " << std::endl;
-        for (int jj = 0; jj < len; jj++)
-          {
-          Tools::out() << A->GRID(i) << " " << A->GCID(indices[jj]) << " " << values[jj] << std::endl;
-          }
-        Tools::out() << "diagonal entry i: " << (*diagA)[diagA->Map().LID(A->GRID(i))] << std::endl;
-        Tools::out() << "diagonal entries j: " << std::endl;
-        for (int jj = 0; jj < len; jj++)
-          {
-          Tools::out() << A->GCID(indices[jj]) << " " << A->GCID(indices[jj]) << " " <<
-            (*diagA)[diagA->Map().LID(A->GCID(indices[jj]))] << std::endl;
-          }
-        Tools::out() << "matrix row after dropping (" << new_len << " entries): " << std::endl;
-        for (int jj = 0; jj < new_len; jj++)
-          {
-          Tools::out() << A->GRID(i) << " " << new_indices[jj] << " ";
-          Tools::out() << new_values[jj] << std::endl;
-          }
-        Tools::Warning("matrix contains tiny entries after dropping", __FILE__, __LINE__);
-        }
-#endif
-      CHECK_ZERO(mat->InsertGlobalValues(A->GRID(i), new_len, new_values, new_indices));
+      scal_i = std::abs((*diagA)[lcid_i]);
       }
 
-    delete[] new_indices;
-    delete[] new_values;
+    new_len = 0;
+
+    // If fullDiag we always want the diagonal entries
+    if (fullDiag)
+      {
+      double diagValue = (*diagA)[lcid_i];
+      new_values[new_len] = (std::abs(diagValue) > droptol) ? diagValue : 0.0;
+      new_indices[new_len] = A->GRID(i);
+      new_len++;
+      }
+
+    for (int j = 0; j < len; j++)
+      {
+      bool isDiag = (A->GCID(indices[j]) == A->GRID(i));
+
+      // We already did this
+      if (isDiag && fullDiag)
+        continue;
+
+      scal = scal_i;
+
+      if (isDiag && absDiag)
+        {
+        // use absolute tol on diagonal
+        scal = 1.0;
+        }
+      else if (rel)
+        {
+        // for F - matrices with zeros on the diagonal, use tol*|ajj| instead
+        // of tol*|aii|, this prevents loss of structural symmetry.
+        int lcid_j = diagA->Map().LID(A->GCID(indices[j]));
+#ifdef HYMLS_TESTING
+        if (lcid_j < 0) Tools::Error("diagonal entry not imported?", __FILE__, __LINE__);
+#endif
+        scal = std::max(scal_i, std::abs((*diagA)[lcid_j]));
+        }
+
+      if (std::abs(values[j]) > scal*droptol)
+        {
+        // retain the entry
+        new_values[new_len] = values[j];
+        new_indices[new_len] = A->GCID(indices[j]);
+        new_len++;
+        }
+      else if (isDiag && zeroDiag)
+        {
+        // put physical 0.0 in
+        new_values[new_len] = 0.0;
+        new_indices[new_len] = A->GCID(indices[j]);
+        new_len++;
+        }
+      }// j
+#ifdef HYMLS_TESTING
+    bool testFailed = false;
+    for (int jj = 0; jj < new_len; jj++)
+      {
+      if (std::abs(new_values[jj])<std::numeric_limits < double>::epsilon()
+        && new_indices[jj] != A->GRID(i))
+        {
+        testFailed = true;
+        Tools::out() << "row " << A->GRID(i) << " col " << new_indices[jj] << std::endl;
+        }
+      }
+    if (testFailed)
+      {
+      Tools::out() << "original matrix row (" << len << " entries): " << std::endl;
+      for (int jj = 0; jj < len; jj++)
+        {
+        Tools::out() << A->GRID(i) << " " << A->GCID(indices[jj]) << " " << values[jj] << std::endl;
+        }
+      Tools::out() << "diagonal entry i: " << (*diagA)[diagA->Map().LID(A->GRID(i))] << std::endl;
+      Tools::out() << "diagonal entries j: " << std::endl;
+      for (int jj = 0; jj < len; jj++)
+        {
+        Tools::out() << A->GCID(indices[jj]) << " " << A->GCID(indices[jj]) << " " <<
+          (*diagA)[diagA->Map().LID(A->GCID(indices[jj]))] << std::endl;
+        }
+      Tools::out() << "matrix row after dropping (" << new_len << " entries): " << std::endl;
+      for (int jj = 0; jj < new_len; jj++)
+        {
+        Tools::out() << A->GRID(i) << " " << new_indices[jj] << " ";
+        Tools::out() << new_values[jj] << std::endl;
+        }
+      Tools::Warning("matrix contains tiny entries after dropping", __FILE__, __LINE__);
+      }
+#endif
+    CHECK_ZERO(mat->InsertGlobalValues(A->GRID(i), new_len, new_values, new_indices));
     }
+
+  delete[] new_indices;
+  delete[] new_values;
 
   HYMLS_DEBUG("calling FillComplete()");
   CHECK_ZERO(mat->FillComplete());

@@ -94,7 +94,6 @@ int MatrixBlock::ComputeSubdomainBlocks()
   int num_sd = hid_->NumMySubdomains();
   subBlocks_.resize(num_sd);
 
-// #pragma omp parallel for schedule(static)
   for (int sd = 0; sd < num_sd; sd++)
     {
     // subRangeMap_[sd] = hid_->SpawnMap(sd, rowStrategy);
@@ -134,14 +133,8 @@ int MatrixBlock::InitializeSubdomainSolvers(std::string const &solverType,
 
   subdomainSolvers_.resize(hid_->NumMySubdomains());
 
-  // In case OpenMP is used, this for loop uses a parallel
-  // exception catcher to prevent race conditions
-  PEC_INIT;
-#pragma omp parallel for schedule(static)
   for (int sd = 0; sd < hid_->NumMySubdomains(); sd++)
     {
-#pragma omp flush(PEC)
-    PEC_PROTECT;
     const int nrows = hid_->NumInteriorElements(sd);
 
     if (solverType == "Dense")
@@ -156,12 +149,10 @@ int MatrixBlock::InitializeSubdomainSolvers(std::string const &solverType,
       }
     else
       {
-      PEC_CATCH(Tools::Error("invalid 'Subdomain Solver Type' in 'Solver' sublist",
-          __FILE__, __LINE__));
+      Tools::Error("invalid 'Subdomain Solver Type' in 'Solver' sublist",
+          __FILE__, __LINE__);
       }
 
-#pragma omp critical (HYMLS_SetParams)
-      {
       // copy parameter list
       Teuchos::ParameterList tmp_sd_list = *sd_list;
 
@@ -170,9 +161,7 @@ int MatrixBlock::InitializeSubdomainSolvers(std::string const &solverType,
 #else
       tmp_sd_list.set("Label", "direct solver (lev "+Teuchos::toString(myLevel_)+")");
 #endif
-      PEC_IFPACK_CHK_ERR2(subdomainSolvers_[sd]->SetParameters(tmp_sd_list));
-      }
-    PEC_PROTECT;
+      IFPACK_CHK_ERR(subdomainSolvers_[sd]->SetParameters(tmp_sd_list));
 
 #ifdef HYMLS_TESTING
     bool status = true;
@@ -199,7 +188,6 @@ int MatrixBlock::InitializeSubdomainSolvers(std::string const &solverType,
       subdomainSolvers_[sd]->ID(j) = LRID;
       }
     }
-  PEC_HANDLE_ERRORS;
 
   return 0;
   }
@@ -211,9 +199,6 @@ int MatrixBlock::ComputeSubdomainSolvers()
   HYMLS_DEBUG("compute subdomain solvers...");
 
   int nnz = 0;
-
-  // In case OpenMP is used, this for loop uses a parallel
-  // exception catcher to prevent race conditions
   for (int sd = 0; sd < hid_->NumMySubdomains(); sd++)
     {
     if (subdomainSolvers_[sd]->NumRows() > 0)
@@ -300,7 +285,6 @@ int MatrixBlock::ComputeSubdomainSolvers()
 
   if (subBlocks_.size())
     {
-#pragma omp parallel for schedule(static)
     for (int sd = 0; sd < hid_->NumMySubdomains(); sd++)
       {
       CHECK_ZERO(subBlocks_[sd]->PutScalar(0.0));
@@ -318,7 +302,6 @@ int MatrixBlock::ComputeSubdomainSolvers()
   Epetra_Map const &rowMap = matrix_->RowMap();
   if (subdomainSolvers_.size())
     {
-#pragma omp parallel for schedule(static)
     for (int sd = 0; sd < hid_->NumMySubdomains(); sd++)
       {
       CHECK_ZERO(subdomainSolvers_[sd]->Initialize());
@@ -389,67 +372,54 @@ int MatrixBlock::ApplyInverse(const Epetra_MultiVector& B, Epetra_MultiVector& X
 #endif
     }
 
-  // In case OpenMP is used, this for loop uses a parallel
-  // exception catcher to prevent race conditions
-  PEC_INIT;
-#pragma omp parallel
+  // assume that all block solvers have the same number of vectors...
+  if (subdomainSolvers_.size() > 0)
     {
-    // assume that all block solvers have the same number of vectors...
-    if (subdomainSolvers_.size() > 0)
+    if (subdomainSolvers_[0]->NumVectors() != X.NumVectors())
       {
-      if (subdomainSolvers_[0]->NumVectors() != X.NumVectors())
+      for (int sd = 0; sd < subdomainSolvers_.size() ; sd++)
         {
-#pragma omp  for schedule(static)
-        for (int sd = 0; sd < subdomainSolvers_.size() ; sd++)
-          {
-#pragma omp flush(PEC)
-          PEC_PROTECT;
-          PEC_CATCH(CHECK_ZERO(subdomainSolvers_[sd]->SetNumVectors(X.NumVectors())));
-          }
-        }
-      }
-    // step 1: solve subdomain problems for temporary vector y
-#pragma omp for schedule(static)
-    for (int sd = 0 ; sd < subdomainSolvers_.size() ; sd++)
-      {
-#pragma omp flush(PEC)
-      PEC_PROTECT;
-      const int rows = subdomainSolvers_[sd]->NumRows();
-
-      // copy IDs to be able to walk through the vectors columnwise
-      int IDlist[rows];
-      for (int j = 0 ; j < rows ; j++)
-        IDlist[j] = subdomainSolvers_[sd]->ID(j);
-
-      // extract RHS from X
-      for (int k = 0 ; k < B.NumVectors() ; k++)
-        {
-        const double *Bvec = B[k];
-        for (int j = 0 ; j < rows ; j++)
-          {
-          subdomainSolvers_[sd]->RHS(j,k) = Bvec[IDlist[j]];
-          }
-        }
-
-      // apply the inverse of each block. NOTE: flops occurred
-      // in ApplyInverse() of each block are summed up in method
-      // ApplyInverseFlops().
-      if (subdomainSolvers_[sd]->NumRows()>0)
-        {
-        PEC_IFPACK_CHK_ERR(subdomainSolvers_[sd]->ApplyInverse());
-        }
-      // copy back into solution vector Y
-      for (int k = 0 ; k < X.NumVectors() ; k++)
-        {
-        double *Xvec = X[k];
-        for (int j = 0 ; j < rows ; j++)
-          {
-          Xvec[IDlist[j]] = subdomainSolvers_[sd]->LHS(j,k);
-          }
+        CHECK_ZERO(subdomainSolvers_[sd]->SetNumVectors(X.NumVectors()));
         }
       }
     }
-  PEC_HANDLE_ERRORS;
+  // step 1: solve subdomain problems for temporary vector y
+  for (int sd = 0 ; sd < subdomainSolvers_.size() ; sd++)
+    {
+    const int rows = subdomainSolvers_[sd]->NumRows();
+
+    // copy IDs to be able to walk through the vectors columnwise
+    int IDlist[rows];
+    for (int j = 0 ; j < rows ; j++)
+      IDlist[j] = subdomainSolvers_[sd]->ID(j);
+
+    // extract RHS from X
+    for (int k = 0 ; k < B.NumVectors() ; k++)
+      {
+      const double *Bvec = B[k];
+      for (int j = 0 ; j < rows ; j++)
+        {
+        subdomainSolvers_[sd]->RHS(j,k) = Bvec[IDlist[j]];
+        }
+      }
+
+    // apply the inverse of each block. NOTE: flops occurred
+    // in ApplyInverse() of each block are summed up in method
+    // ApplyInverseFlops().
+    if (subdomainSolvers_[sd]->NumRows()>0)
+      {
+      IFPACK_CHK_ERR(subdomainSolvers_[sd]->ApplyInverse());
+      }
+    // copy back into solution vector Y
+    for (int k = 0 ; k < X.NumVectors() ; k++)
+      {
+      double *Xvec = X[k];
+      for (int j = 0 ; j < rows ; j++)
+        {
+        Xvec[IDlist[j]] = subdomainSolvers_[sd]->LHS(j,k);
+        }
+      }
+    }
 
   return 0;
   }
@@ -521,7 +491,6 @@ Teuchos::RCP<Ifpack_Container> MatrixBlock::SubdomainSolver(int sd) const
 double MatrixBlock::InitializeFlops() const
   {
   double total = initializeFlops_;
-#pragma omp parallel for schedule(static) reduction(+:total)
   for (int i = 0 ; i < subdomainSolvers_.size(); i++)
     {
     if (subdomainSolvers_[i] != Teuchos::null)
@@ -536,7 +505,6 @@ double MatrixBlock::InitializeFlops() const
 double MatrixBlock::ComputeFlops() const
   {
   double total = computeFlops_;
-#pragma omp parallel for schedule(static) reduction(+:total)
   for (int i = 0 ; i < subdomainSolvers_.size(); i++)
     {
     if (subdomainSolvers_[i] != Teuchos::null)
@@ -551,7 +519,6 @@ double MatrixBlock::ComputeFlops() const
 double MatrixBlock::ApplyInverseFlops() const
   {
   double total = applyInverseFlops_;
-#pragma omp parallel for schedule(static) reduction(+:total)
   for (int i = 0 ; i < subdomainSolvers_.size(); i++)
     {
     if (subdomainSolvers_[i] != Teuchos::null)

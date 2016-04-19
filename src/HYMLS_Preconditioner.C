@@ -405,7 +405,6 @@ HYMLS_TEST(Label(),isDDcorrect(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix
   int numElts=map1_->NumMyElements()
              +map2_->NumMyElements();
 
-#pragma omp parallel for schedule(static) reduction(+:numElts)
   for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
     {
     numElts+=sepObject->NumSeparatorElements(sep);

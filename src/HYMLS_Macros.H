@@ -187,40 +187,4 @@ if (ierr<0) {std::cerr<<"Trilinos Error "<<ierr<<" returned from call "<<#funcal
 #define MOD(x,y) (((double)(y)==0.0)? (double)(x): ((double)(x) - floor((double)(x)/((double)(y)))*((double)(y))))
 #endif
 
-#ifndef PEC_INIT
-#define PEC_INIT HYMLS::ParallelExceptionCatcher PEC
-#endif
-
-#ifndef PEC_PROTECT
-#define PEC_PROTECT if (PEC.CheckErrors()) continue;
-#endif
-
-#ifndef PEC_IFPACK_CHK_ERR
-#define PEC_IFPACK_CHK_ERR(x) PEC.IfpackCheckErr(x); PEC_PROTECT
-//#define PEC_IFPACK_CHK_ERR(x) IFPACK_CHK_ERR(x)
-#endif
-
-#ifndef PEC_IFPACK_CHK_ERR2
-#define PEC_IFPACK_CHK_ERR2(x) PEC.IfpackCheckErr(x)
-//#define PEC_IFPACK_CHK_ERR2(x) IFPACK_CHK_ERR(x)
-#endif
-
-#ifndef PEC_ERROR
-#define PEC_ERROR(x___) PEC.Error(x___); PEC_PROTECT
-#endif
-
-#ifndef PEC_CATCH
-#define PEC_CATCH(x___) try { x___;} catch (HYMLS::Exception &ex___) {PEC.Error(ex___);} PEC_PROTECT
-//#define PEC_CATCH(x) x
-#endif
-
-#ifndef PEC_CATCH2
-#define PEC_CATCH2(x___) try { x___;} catch (HYMLS::Exception &ex___) {PEC.Error(ex___);}
-//#define PEC_CATCH2(x) x
-#endif
-
-#ifndef PEC_HANDLE_ERRORS
-#define PEC_HANDLE_ERRORS {int err___ = PEC.HandleErrors(); if (err___ != 0) return err___;}
-#endif
-
 #endif

@@ -156,11 +156,8 @@ namespace HYMLS {
     const double v1=v(0)+nrmv; // first vector element, all others are those in v
     // this is 2/(v'v) with the adjusted v
     const double fac1 = 1.0/(nrmv*v1);
-#pragma omp parallel
-{
     double *Xrow;
     const double *vvalues = v.Values();
-#pragma omp for
     for (int k=0;k<X.N();k++)
       {
       // v'x
@@ -177,7 +174,6 @@ namespace HYMLS {
         Xrow[i]=vvalues[i]*fac-Xrow[i];
         }
       }
-}
     return 0;
     }
 
@@ -200,10 +196,7 @@ namespace HYMLS {
     const double v1=v(0)+nrmv; // first vector element, all others are those in v
     // this is 2/(v'v) with the adjusted v
     const double fac1 = 1.0/(nrmv*v1);
-#pragma omp parallel
-{
     const double *vvalues = v.Values();
-#pragma omp for
     for (int k=0;k<X.M();k++)
       {
       // v'x
@@ -219,7 +212,6 @@ namespace HYMLS {
         X[i][k] = vvalues[i]*fac-X[i][k];
         }
       }
-}
     return 0;
     }
 

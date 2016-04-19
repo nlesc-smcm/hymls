@@ -52,8 +52,6 @@ const char* Tools::Revision()
 RCP<Epetra_Time> Tools::StartTiming(std::string const &fname)
   {
   RCP<Epetra_Time> T=null;
-#pragma omp critical (HYMLS_Timing)
-{
 #ifdef HYMLS_FUNCTION_TRACING
   traceLevel_++;
   functionStack_.push(fname);
@@ -81,15 +79,12 @@ RCP<Epetra_Time> Tools::StartTiming(std::string const &fname)
       }  
     timerList_.sublist("timers").set(fname,T);
     }
-}
     return T;
   }
 
 
 void Tools::StopTiming(std::string const &fname, bool print, RCP<Epetra_Time> T)
   {
-#pragma omp critical (HYMLS_Timing)
-{
 #ifdef HYMLS_FUNCTION_TRACING
   // when an exception or other error is encountered,
   // the function printFunctionStack() may be called,
@@ -122,7 +117,6 @@ void Tools::StopTiming(std::string const &fname, bool print, RCP<Epetra_Time> T)
       out() << "### timing: "<<fname<<" "<<elapsed<<std::endl;
       }
     }
-}
   }
 
 void Tools::PrintTiming(std::ostream& os)
@@ -243,59 +237,13 @@ bool Tools::GetCheckPoint(std::string fname, std::string& msg,
 
 TimerObject::TimerObject(std::string const &s, bool print)
   {
-#pragma omp critical (HYMLS_TimerObject)
-{
   s_=s;
   print_=print;
   T_=Tools::StartTiming(s);
-}
   }
 
 TimerObject::~TimerObject()
   {
-#pragma omp critical (HYMLS_TimerObject)
-{
   Tools::StopTiming(s_, print_, T_);
-}
-  }
-
-bool ParallelExceptionCatcher::CheckErrors()
-  {
-  return (!exceptions_.empty() || !ifpack_errors_.empty());
-  }
-
-void ParallelExceptionCatcher::IfpackCheckErr(int i)
-  {
-#pragma omp critical(HYMLS_IfpackCheckErr)
-{
-  if (i < 0)
-    ifpack_errors_.push_back(i);
-}
-  }
-
-void ParallelExceptionCatcher::Error(HYMLS::Exception &e)
-  {
-#pragma omp critical(HYMLS_IfpackCheckErr)
-{
-  exceptions_.push_back(e);
-}
-  }
-
-void ParallelExceptionCatcher::reset()
-  {
-#pragma omp critical(HYMLS_IfpackCheckErr)
-{
-  exceptions_.clear();
-  ifpack_errors_.clear();
-}
-  }
-
-int ParallelExceptionCatcher::HandleErrors()
-  {
-  for (Teuchos::Array<HYMLS::Exception>::iterator it = exceptions_.begin(); it != exceptions_.end(); ++it)
-    throw *it;
-  for (Teuchos::Array<int>::iterator it = ifpack_errors_.begin(); it != ifpack_errors_.end(); ++it)
-    IFPACK_CHK_ERR(*it);
-  return 0;
   }
 }
