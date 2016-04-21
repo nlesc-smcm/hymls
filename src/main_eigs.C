@@ -144,7 +144,7 @@ bool status=true;
     // alltogether...   
     bool read_problem=driverList.get("Read Linear System",false);
     
-    string datadir,file_format;
+    std::string datadir,file_format;
     bool have_massmatrix=false;
 
     if (read_problem)
