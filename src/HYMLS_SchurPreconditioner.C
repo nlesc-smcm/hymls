@@ -158,7 +158,7 @@ namespace HYMLS {
     
     while (pos>0)
       {
-      string label="Fix GID "+Teuchos::toString(pos);
+      std::string label="Fix GID "+Teuchos::toString(pos);
       if (PL().isParameter(label))
         {
         fix_gid_.append(PL().get(label,0));
@@ -1067,7 +1067,7 @@ int SchurPreconditioner::InitializeOT()
   // (saves some memory)
   int SchurPreconditioner::AssembleTransformAndDrop()
     {
-    string timerLabel="AssembleTransformAndDrop";
+    std::string timerLabel="AssembleTransformAndDrop";
 
     if (SchurComplement_==Teuchos::null) Tools::Error("SC not available in unassembled form", __FILE__,__LINE__);
 

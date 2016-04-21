@@ -52,8 +52,8 @@ Solver::Solver(Teuchos::RCP<const Epetra_RowMatrix> K,
   numEigs_(0),
   V_(Teuchos::null), W_(Teuchos::null),
   useTranspose_(false), normInf_(-1.0), numIter_(0),
-  lor_default_("Right"),
-  label_("HYMLS::Solver")
+  label_("HYMLS::Solver"),
+  lor_default_("Right")
   {
   HYMLS_PROF3(label_,"Constructor");
   setParameterList(params);
@@ -146,7 +146,7 @@ void Solver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)
   if (precond_==Teuchos::null) return;
 
   belosPrecPtr_=Teuchos::rcp(new belosPrecType_(precond_));
-  string lor = PL().get("Left or Right Preconditioning",lor_default_);
+  std::string lor = PL().get("Left or Right Preconditioning",lor_default_);
   if (lor=="Left")
     {
     belosProblemPtr_->setLeftPrec(belosPrecPtr_);
@@ -760,7 +760,7 @@ int Solver::setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V)
     Teuchos::RCP<ProjectedOperator> newPrec = Teuchos::rcp(new ProjectedOperator(precond_, V, massMatrix_, true));
 
     belosPrecPtr_=Teuchos::rcp(new belosPrecType_(newPrec));
-    string lor = PL().get("Left or Right Preconditioning",lor_default_);
+    std::string lor = PL().get("Left or Right Preconditioning",lor_default_);
     if (lor=="Left")
       {
       belosProblemPtr_->setLeftPrec(belosPrecPtr_);

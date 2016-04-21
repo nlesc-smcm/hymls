@@ -259,7 +259,7 @@ applyJacobianInverse(Teuchos::ParameterList &p,
 #ifdef HAVE_NOX_EPETRAEXT
 
   ++linearSolveCount;
-  std::ostringstream iterationNumber;
+  std::ostd::stringstream iterationNumber;
   iterationNumber << linearSolveCount;
     
   std::string prefixName = p.get("Write Linear System File Prefix", 

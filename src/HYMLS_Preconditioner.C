@@ -139,7 +139,7 @@ namespace HYMLS {
     // "Laplace", "Stokes-C" etc to make it easier for the user.
     // on coarser levels, the "Equation" parameter is removed and the
     // "Problem Definition" list is provided by the previous level.
-    string eqn="Undefined Problem";
+    std::string eqn="Undefined Problem";
     
     if (probList_.isParameter("Equations"))
       {
@@ -1051,7 +1051,7 @@ if (dumpVectors_)
     return os;
     }
 
-int Preconditioner::SetProblemDefinition(string eqn, Teuchos::ParameterList& list)
+int Preconditioner::SetProblemDefinition(std::string eqn, Teuchos::ParameterList& list)
   {
     HYMLS_LPROF3(label_,"SetProblemDefinition");
   Teuchos::ParameterList& probList=list.sublist("Problem");
