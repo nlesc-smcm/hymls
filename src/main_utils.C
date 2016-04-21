@@ -28,7 +28,7 @@ namespace HYMLS {
 
 namespace MainUtils {
 
-Teuchos::RCP<Epetra_CrsMatrix> read_matrix(string datadir,string file_format, Teuchos::RCP<Epetra_Map> map, std::string name)
+Teuchos::RCP<Epetra_CrsMatrix> read_matrix(std::string datadir,std::string file_format, Teuchos::RCP<Epetra_Map> map, std::string name)
   {
   if (map==Teuchos::null)
     {
@@ -36,7 +36,7 @@ Teuchos::RCP<Epetra_CrsMatrix> read_matrix(string datadir,string file_format, Te
         __FILE__,__LINE__);
     }
   
-  string suffix;
+  std::string suffix;
   if (file_format=="MatrixMarket")
     {
     suffix=".mtx";
@@ -50,7 +50,7 @@ Teuchos::RCP<Epetra_CrsMatrix> read_matrix(string datadir,string file_format, Te
     HYMLS::Tools::Error("File format '"+file_format+"' not supported",__FILE__,__LINE__);
     }
 
-  string filename = datadir+"/"+name+suffix;
+  std::string filename = datadir+"/"+name+suffix;
 
   HYMLS::Tools::Out("... read matrix from file '"+filename+"'");
   HYMLS::Tools::Out("    file format: "+file_format);
@@ -76,8 +76,8 @@ Teuchos::RCP<Epetra_CrsMatrix> read_matrix(string datadir,string file_format, Te
   return K;
   }
 
-Teuchos::RCP<Epetra_Vector>  read_vector(string name,string datadir,
-                string file_format,Teuchos::RCP<Epetra_Map> map)
+Teuchos::RCP<Epetra_Vector>  read_vector(std::string name,std::string datadir,
+                std::string file_format,Teuchos::RCP<Epetra_Map> map)
   {
   if (map==Teuchos::null)
     {
@@ -85,7 +85,7 @@ Teuchos::RCP<Epetra_Vector>  read_vector(string name,string datadir,
         __FILE__,__LINE__);
     }
   
-  string suffix;
+  std::string suffix;
   if (file_format=="MatrixMarket")
     {
     suffix=".mtx";
@@ -99,7 +99,7 @@ Teuchos::RCP<Epetra_Vector>  read_vector(string name,string datadir,
     HYMLS::Tools::Error("File format '"+file_format+"' not supported",__FILE__,__LINE__);
     }
 
-  string filename = datadir+"/"+name+suffix;
+  std::string filename = datadir+"/"+name+suffix;
   
   HYMLS::Tools::Out("... read vector from file '"+filename+"'");
   HYMLS::Tools::Out("    file format: "+file_format);

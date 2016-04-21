@@ -120,7 +120,7 @@ bool status=true;
     // copy here rather than reference because the driver list will be removed 
     // alltogether...   
     bool read_problem=driverList.get("Read Linear System",false);
-    string datadir,file_format;
+    std::string datadir,file_format;
     bool have_rhs=false;
     bool have_exact_sol=false;
     std::string nullSpaceType=driverList.get("Null Space Type","None");
