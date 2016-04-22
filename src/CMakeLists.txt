@@ -115,10 +115,6 @@ set(HEADERS)
 
 # Manually add headers without source file
 set(HEADERS ${HEADERS}
-  evp/AnasaziHymlsAdapter.hpp
-  evp/AnasaziJacobiDavidson.hpp
-  evp/AnasaziJacobiDavidsonSolMgr.hpp
-  evp/AnasaziPreconditionerTraits.hpp
   GaleriExt_Cross2DN.h
   GaleriExt_Darcy2D.h
   GaleriExt_Darcy3D.h
@@ -147,8 +143,6 @@ find_package(Trilinos)
 include_directories(${Trilinos_INCLUDE_DIRS})
 include_directories(${Trilinos_TPL_INCLUDE_DIRS})
 list(APPEND include_list ${Trilinos_INCLUDE_DIRS})
-
-include_directories("${CMAKE_CURRENT_SOURCE_DIR}/evp")
 
 if (HYMLS_USE_PHIST)
   find_package(phist QUIET CONFIG)

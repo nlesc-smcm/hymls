@@ -29,9 +29,6 @@
 
 #ifdef HYMLS_USE_PHIST
 #include "AnasaziPhistSolMgr.hpp"
-#else
-#include "evp/AnasaziJacobiDavidsonSolMgr.hpp"
-#include "evp/AnasaziHymlsAdapter.hpp"
 #endif
 
 /*
@@ -654,7 +651,7 @@ int testEigenSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
 #ifdef HYMLS_USE_PHIST
   Anasazi::PhistSolMgr<ST,MV,OP,PREC> jada(eigProblem, solver, eigList);
 #else
-  Anasazi::JacobiDavidsonSolMgr<ST,MV,OP,PREC> jada(eigProblem, solver, eigList);
+  Anasazi::BlockKrylovSchurSolMgr<ST,MV,OP,PREC> jada(eigProblem, solver, eigList);
 #endif
 
   // Solve the problem to the specified tolerances or length

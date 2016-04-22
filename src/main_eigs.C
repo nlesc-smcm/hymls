@@ -32,9 +32,6 @@
 
 #ifdef HYMLS_USE_PHIST
 #include "AnasaziPhistSolMgr.hpp"
-#else
-#include "AnasaziJacobiDavidsonSolMgr.hpp"
-#include "AnasaziHymlsAdapter.hpp"
 #endif
 
 /*
@@ -384,7 +381,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
 #ifdef HYMLS_USE_PHIST
   Anasazi::PhistSolMgr<ST,MV,OP,PREC> jada(eigProblem,solver,eigList);
 #else
-  Anasazi::JacobiDavidsonSolMgr<ST,MV,OP,PREC> jada(eigProblem,solver,eigList);
+  Anasazi::BlockKrylovSchurSolMgr<ST,MV,OP,PREC> jada(eigProblem,solver,eigList);
 #endif
 
   // Solve the problem to the specified tolerances or length
