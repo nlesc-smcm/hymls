@@ -643,6 +643,10 @@ int testEigenSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
   eigProblem->setHermitian(false);
   eigProblem->setNEV(eigList.get("How Many", 10));
 
+#ifndef HYMLS_USE_PHIST
+  eigProblem->setPrec(precond);
+#endif
+
   if (!eigProblem->setProblem())
     {
     HYMLS::Tools::Error("eigProblem->setProblem returned 'false'",__FILE__,__LINE__);
@@ -651,7 +655,7 @@ int testEigenSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
 #ifdef HYMLS_USE_PHIST
   Anasazi::PhistSolMgr<ST,MV,OP,PREC> jada(eigProblem, solver, eigList);
 #else
-  Anasazi::BlockKrylovSchurSolMgr<ST,MV,OP,PREC> jada(eigProblem, solver, eigList);
+  Anasazi::BlockKrylovSchurSolMgr<ST,MV,OP> jada(eigProblem,eigList);
 #endif
 
   // Solve the problem to the specified tolerances or length

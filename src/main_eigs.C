@@ -373,6 +373,11 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
   eigProblem = Teuchos::rcp( new Anasazi::BasicEigenproblem<ST,MV,OP>(K, M, x) );
   eigProblem->setHermitian(false);
   eigProblem->setNEV(numEigs);
+
+#ifndef HYMLS_USE_PHIST
+  eigProblem->setPrec(precond);
+#endif
+
   if (eigProblem->setProblem()==false)
     {
     HYMLS::Tools::Error("eigProblem->setPoroblem returned 'false'",__FILE__,__LINE__);
@@ -381,7 +386,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
 #ifdef HYMLS_USE_PHIST
   Anasazi::PhistSolMgr<ST,MV,OP,PREC> jada(eigProblem,solver,eigList);
 #else
-  Anasazi::BlockKrylovSchurSolMgr<ST,MV,OP,PREC> jada(eigProblem,solver,eigList);
+  Anasazi::BlockKrylovSchurSolMgr<ST,MV,OP> jada(eigProblem,eigList);
 #endif
 
   // Solve the problem to the specified tolerances or length
