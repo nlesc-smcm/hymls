@@ -28,7 +28,7 @@
 #include "AnasaziBlockKrylovSchurSolMgr.hpp"
 
 #ifdef HYMLS_USE_PHIST
-#include "evp/AnasaziPhistSolMgr.hpp"
+#include "AnasaziPhistSolMgr.hpp"
 #else
 #include "evp/AnasaziJacobiDavidsonSolMgr.hpp"
 #include "evp/AnasaziHymlsAdapter.hpp"

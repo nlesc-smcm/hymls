@@ -111,19 +111,7 @@ set(HYMLS_SOURCE HYMLS_Solver
     GaleriExt_Periodic
     main_utils)
 
-# Headers include eachother, so for now just assume we want to install all
-# header files that have a source
 set(HEADERS)
-set(header_extensions ".h" ".H" ".hpp")
-foreach(i ${HYMLS_SOURCE})
-  foreach(j ${header_extensions})
-    if (EXISTS "${PROJECT_SOURCE_DIR}/${i}${j}")
-      list(APPEND HEADERS "${i}${j}")
-    endif()
-  endforeach()
-endforeach()
-list(APPEND HEADERS "${CMAKE_CURRENT_BINARY_DIR}/HYMLS_config.h")
-unset(header_extensions)
 
 # Manually add headers without source file
 set(HEADERS ${HEADERS}
@@ -200,15 +188,27 @@ if (${phist_FOUND})
   list(APPEND include_list ${PHIST_INCLUDE_DIRS})
 
   list(APPEND HYMLS_SOURCE
-    evp/jadaCorrectionSolver_impl)
+    HYMLS_PhistWrapper)
   list(APPEND HEADERS
-    evp/jadaCorrectionSolver_impl.H
-    evp/AnasaziPhistSolMgr.hpp)
+    AnasaziPhistSolMgr.hpp)
 endif()
 
 # create header file to tell the source code about some config-time settings and features it can use
 configure_file(${PROJECT_SOURCE_DIR}/HYMLS_config.h.in ${CMAKE_CURRENT_BINARY_DIR}/HYMLS_config.h)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
+list(APPEND HEADERS "${CMAKE_CURRENT_BINARY_DIR}/HYMLS_config.h")
+
+# Add header files belonging to cpp files. Headers include eachother,
+#so for now just assume we want to install all header files that have a source.
+set(header_extensions ".h" ".H" ".hpp")
+foreach(i ${HYMLS_SOURCE})
+  foreach(j ${header_extensions})
+    if (EXISTS "${PROJECT_SOURCE_DIR}/${i}${j}")
+      list(APPEND HEADERS "${i}${j}")
+    endif()
+  endforeach()
+endforeach()
+unset(header_extensions)
 
 # phist is typically compiled with OpenMP support, add the openmp flag to be able to link.
 # And even if we compile without, I think our Trilinos or MPI installation require it, so

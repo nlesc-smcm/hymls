@@ -1,37 +1,5 @@
-// @HEADER
-// ***********************************************************************
-//
-//                 Anasazi: Block Eigensolvers Package
-//                 Copyright (2004) Sandia Corporation
-//
-// Under terms of Contract DE-AC04-94AL85000, there is a non-exclusive
-// license for use of this work by or on behalf of the U.S. Government.
-//
-// This library is free software; you can redistribute it and/or modify
-// it under the terms of the GNU Lesser General Public License as
-// published by the Free Software Foundation; either version 2.1 of the
-// License, or (at your option) any later version.
-//
-// This library is distributed in the hope that it will be useful, but
-// WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// Lesser General Public License for more details.
-//
-// You should have received a copy of the GNU Lesser General Public
-// License along with this library; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301
-// USA
-// Questions? Contact Michael A. Heroux (maherou@sandia.gov)
-//
-// ***********************************************************************
-// @HEADER
-
 #ifndef ANASAZI_PHIST_SOLMGR_HPP
 #define ANASAZI_PHIST_SOLMGR_HPP
-
-/*! \file AnasaziJacobiDavidsonSolMgr.hpp
- *  \brief The Anasazi::JacobiDavidsonSolMgr provides a solver manager for the JacobiDavidson eigensolver.
-*/
 
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_RCPDecl.hpp"
@@ -43,7 +11,7 @@
 #include "AnasaziSolverManager.hpp"
 
 // Include this before phist
-#include "jadaCorrectionSolver_impl.H"
+#include "HYMLS_PhistWrapper.H"
 
 #include "phist_macros.h"
 #include "phist_kernels.h"
@@ -58,18 +26,15 @@
 
 using Teuchos::RCP;
 
-/** \example JacobiDavidson/JacobiDavidsonEpetraExFileIfpack.cpp
-    This is an example of how to use the Anasazi::JacobiDavidsonSolMgr solver manager, using Epetra data structures and an Ifpack preconditioner.  */
-
 namespace Anasazi {
 
 /*!
- * \class JacobiDavidsonSolMgr
- * \brief Solver Manager for JacobiDavidson
+ * \class PhistSolMgr
+ * \brief Solver Manager for Jacobi Davidson in phist
  *
- * This class provides a simple interface to the JacobiDavidson
+ * This class provides a simple interface to the Jacobi Davidson
  * eigensolver.  This manager creates
- * appropriate orthogonalization/sort/output managers based on user
+ * appropriate managers based on user
  * specified ParameterList entries (or selects suitable defaults),
  * provides access to solver functionality, and manages the restarting
  * process.
@@ -79,7 +44,6 @@ namespace Anasazi {
 
  \ingroup anasazi_solver_framework
 
- \author Steven Hamilton
  */
 template <class ScalarType, class MV, class OP, class PREC>
 class PhistSolMgr : public SolverManager<ScalarType,MV,OP>
@@ -87,7 +51,7 @@ class PhistSolMgr : public SolverManager<ScalarType,MV,OP>
     public:
 
         /*!
-         * \brief Basic constructor for JacobiDavidsonSolMgr
+         * \brief Basic constructor for PhistSolMgr
          *
          * This constructor accepts the Eigenproblem to be solved and a parameter list of options
          * for the solver.
@@ -101,14 +65,9 @@ class PhistSolMgr : public SolverManager<ScalarType,MV,OP>
          * - "Restart Dimension" -- Number of vectors retained after a restart.  Default: NEV
          * - "Maximum Restarts" -- an int specifying the maximum number of restarts the underlying solver
          *  is allowed to perform.  Default: 20
-         * - "Orthogonalization" -- a string specifying the desired orthogonalization: DGKS, SVQB, ICGS.
-         *   Default: "SVQB"
          * - "Verbosity" -- a sum of MsgType specifying the verbosity.  Default: AnasaziErrors
          * - "Convergence Tolerance" -- a MagnitudeType specifying the level that residual norms must
          *  reach to decide convergence.  Default: machine precision
-         * - "Relative Convergence Tolerance" -- a bool specifying whether residual norms should be
-         *  scaled by the magnitude of the corresponding Ritz value.  Care should be taken when performing
-         *  scaling for problems where the eigenvalue can be very large or very small.  Default: "false".
          * - "Initial Guess" -- how should initial vector be selected: "Random" or "User".
          *   If "User," the value in problem->getInitVec() will be used.  Default: "Random".
          * - "Print Number of Ritz Values" -- an int specifying how many Ritz values should be printed
@@ -149,7 +108,7 @@ class PhistSolMgr : public SolverManager<ScalarType,MV,OP>
 
         bool borderedSolver;
 
-}; // class JacobiDavidsonSolMgr
+}; // class PhistSolMgr
 
 //---------------------------------------------------------------------------//
 // Prevent instantiation on complex scalar type
@@ -304,9 +263,6 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
 
   d_opts.v0 = v0.get();
   d_opts.arno = 0;
-  //~ d_opts.minBas = 5;
-  //~ d_opts.initialShift=-0.05;
-  //~ d_opts.initialShift=-51.0;
 
   // create operator wrapper for computing Y=A*X using a CRS matrix
   Teuchos::RCP<phist_DlinearOp> A_op = Teuchos::rcp(new phist_DlinearOp);

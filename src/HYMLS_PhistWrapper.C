@@ -2,7 +2,7 @@
 #include <mpi.h>
 
 // Include this before other phist headers
-#include "jadaCorrectionSolver_impl.H"
+#include "HYMLS_PhistWrapper.H"
 
 #include "HYMLS_Solver.H"
 #include "HYMLS_Macros.H"
