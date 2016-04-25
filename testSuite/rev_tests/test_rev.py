@@ -343,6 +343,8 @@ def sync_commits(hymls_path, fvm_path, commit):
     os.chdir(fvm_path)
     git_command('fetch', True)
     git_command('svn fetch', True)
+    git_command('reset --hard')
+    git_command('svn rebase', True)
     h = git_command('log -1 --format="%H" --before=' + t.strip())
     git_command('reset --hard ' + h)
     os.chdir(prev_path)
