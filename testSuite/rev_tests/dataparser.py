@@ -32,6 +32,12 @@ class ParserData:
         self.unit_tests = {'failures': 0}
 
         self.failed = False
+        self.errors = []
+
+def error_message(data, message):
+    data.failed = True
+    data.errors.append(message)
+    print message
 
 class Parser:
     def __init__(self, prefix=None):
@@ -84,8 +90,7 @@ class Parser:
 
         # If we don't have timing data something went wrong
         if not parsed_data.fvm['timing']:
-            print 'No timing data'
-            parsed_data.failed = True
+            error_message(parsed_data, 'No timing data')
 
         return parsed_data
 
@@ -98,7 +103,7 @@ class Parser:
             test_file.close()
 
             if not i.endswith('out') and not i == 'integration_tests.txt' \
-               and not i == 'unit_tests.txt':
+               and not i == 'unit_tests.txt' or i.startswith('.'):
                 continue
 
             if i.endswith('out'):
@@ -127,14 +132,12 @@ class Parser:
             data.failed = data.failed or parsed_data.failed
 
             # Check for crashes
-            rets = re.findall('Returncode is (\d+)', ''.join(test_data))
+            rets = re.findall('Returncode is (\-?\d+)', ''.join(test_data))
             if not rets and not i.endswith('out'):
-                data.failed = True
-                print 'No return from test in', i
+                error_message(data, 'No return from test in ' + i)
             for ret in rets:
                 if ret != '0':
-                    print 'Ret is', ret, 'for', i
-                    data.failed = True
+                    error_message(data, 'Ret is ' + ret + ' in ' + i)
 
         return data
 
@@ -230,24 +233,29 @@ class Parser:
                     prev_failures = failures
                     last = rev
                 else:
-                    plot.annotate('x', xy=(int(rev), prev_failures), xytext=(0,0), textcoords='offset points')
+                    plot.annotate('x', xy=(int(rev), prev_failures),
+                                  xytext=(0, 0), textcoords='offset points')
             plot.plot(x, y, linewidth=2)
             yprev = 0
-            for (i,j) in zip(x,y):
+            for (i, j) in zip(x, y):
                 if abs(yprev - j) > 0.05 * j:
-                    plot.annotate(str(i), xy=(i,j), xytext=(-10, 5), textcoords='offset points')
+                    plot.annotate(str(i), xy=(i, j), xytext=(-10, 5),
+                                  textcoords='offset points')
                 yprev = j
             plot.hold(True)
 
         plot.set_title('Failures up to revision '+str(last))
-        data_list = ['FVM', 'FVM (parallel)', 'unit tests', 'integration tests', 'integration tests (parallel)']
+        data_list = ['FVM', 'FVM (parallel)', 'unit tests',
+                     'integration tests', 'integration tests (parallel)']
         leg = plot.legend(data_list, loc=1)
         frame = leg.get_frame()
         frame.set_alpha(0.5)
         plot.set_xlabel(u'rev', size='large')
         plot.set_ylabel(u'failures', size='large')
-        figure.savefig(os.path.join(self.prefix, 'test_failures.eps'), bbox_inches='tight')
-        figure.savefig(os.path.join(self.prefix, 'test_failures.png'), bbox_inches='tight')
+        figure.savefig(os.path.join(self.prefix, 'test_failures.eps'),
+                       bbox_inches='tight')
+        figure.savefig(os.path.join(self.prefix, 'test_failures.png'),
+                       bbox_inches='tight')
 
 def main():
     parser = Parser('./')
@@ -263,7 +271,7 @@ def find_previous_commit(commit):
         commit = out.strip()
 
     d = os.listdir('./')
-    for i in xrange(int(commit)-1,0,-1):
+    for i in xrange(int(commit)-1, 0, -1):
         if str(i) in d:
             return str(i)
     return ''
@@ -291,16 +299,22 @@ def compare(first, second=None):
         subdata1 = getattr(data1, name)
         subdata2 = getattr(data2, name)
         if name == 'failed':
+            continue
+        if name == 'errors':
             if subdata2:
-                errors += 'Error: Tests failed\n'
+                errors += '\n'.join(subdata2) + '\n'
             continue
 
-        # Search for values that changed (too much) compared to the previous commit
+        # Search for values that changed (too much) compared
+        # to the previous commit
         for item, value in subdata1.iteritems():
             value2 = subdata2[item]
             if isinstance(value, int):
-                if value != value2:
+                if value > value2:
                     warnings += 'Warning: {:s} in {:s} went from {:d} to {:d}\n'.format(
+                        item, name, value, value2)
+                if value < value2:
+                    errors += 'Error: {:s} in {:s} went from {:d} to {:d}\n'.format(
                         item, name, value, value2)
             if item == 'timing':
                 maxtime = get_max(value.values(), value2.values())
@@ -327,8 +341,10 @@ def compare(first, second=None):
                         report += '{:<50s}: {:6.2f}s, was {:6.2f}s\n'.format(short_tname, t, subdata1.get(item, {}).get(tname, 0))
 
     message = 'Tests completed succesfully'
-    if errors or warnings:
-        message = errors + '\n' + warnings
+    if errors:
+        message = 'Error: Tests failed\n\n' + errors
+    if warnings:
+        message += '\n' + warnings
 
     message += '\n\n------------------------\nFull report\n------------------------\n' + report
 

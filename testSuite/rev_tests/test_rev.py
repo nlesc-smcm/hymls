@@ -152,6 +152,8 @@ def build(base_path, path, testing=False):
     command = 'cmake -DCMAKE_INSTALL_PREFIX="' + install_path + '"'
     if not testing:
         command += ' -DCMAKE_BUILD_TYPE=Release'
+    else:
+        command += ' -DHYMLS_TESTING=On'
     p = Command(command + ' .. ', env=cmake_env_vars(base_path))
     p.run()
 
@@ -239,10 +241,18 @@ def integration_tests(base_path, procs=1):
     log("Starting integration tests\n")
 
     prev_path = os.getcwd()
-    path = os.path.join(base_path, 'hymls', 'testSuite', 'integration_tests')
+    path = os.path.join(base_path, 'hymls', 'build', 'testSuite',
+                        'integration_tests')
     os.chdir(path)
 
-    exe = os.path.join(base_path, 'hymls', 'build', 'src', 'hymls_integration_tests')
+    exe = os.path.join(path, 'integration_tests')
+
+    if not os.path.exists(exe):
+        path = os.path.join(base_path, 'hymls', 'testSuite',
+                            'integration_tests')
+        os.chdir(path)
+        exe = os.path.join(base_path, 'hymls', 'build', 'src',
+                           'hymls_integration_tests')
     if not os.path.exists(exe):
         exe = os.path.join(base_path, 'hymls', 'src', 'integration_tests')
 
