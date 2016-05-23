@@ -138,11 +138,12 @@ include_directories(${PROJECT_SOURCE_DIR})
 if (DEFINED ENV{TRILINOS_HOME})
   set(Trilinos_DIR "$ENV{TRILINOS_HOME}/lib/cmake/Trilinos")
 endif()
-find_package(Trilinos)
+find_package(Trilinos REQUIRED CONFIG)
 
 include_directories(${Trilinos_INCLUDE_DIRS})
 include_directories(${Trilinos_TPL_INCLUDE_DIRS})
 list(APPEND include_list ${Trilinos_INCLUDE_DIRS})
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${Trilinos_CXX_COMPILER_FLAGS}")
 
 if (HYMLS_USE_PHIST)
   find_package(phist QUIET CONFIG)

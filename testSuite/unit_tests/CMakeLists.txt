@@ -5,6 +5,8 @@ set(SOURCES HYMLS_DenseUtils
   HYMLS_Tools
   main)
 
+message(STATUS "unit_tests/PROJECT_SOURCE_DIR='${PROJECT_SOURCE_DIR}'")
+
 include_directories(${PROJECT_SOURCE_DIR}/src)
 include_directories(${PROJECT_BINARY_DIR}/src)
 
@@ -18,6 +20,8 @@ include_directories(${Trilinos_TPL_INCLUDE_DIRS})
 
 link_directories(${Trilinos_LIBRARY_DIRS})
 link_directories(${Trilinos_TPL_LIBRARY_DIRS})
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${Trilinos_CXX_COMPILER_FLAGS}")
 
 add_executable(unit_tests ${SOURCES})
 
