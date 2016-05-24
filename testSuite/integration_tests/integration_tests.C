@@ -152,7 +152,7 @@ int main(int argc, char* argv[])
         {
         std::string msg=params->get("runTest output","no output available");
         HYMLS::Tools::Out("------------------------------------------------------------");
-        HYMLS::Tools::out() << "Test "+Teuchos::toString(counter)+" ('"+test_file+"') failed.\n";
+        HYMLS::Tools::out() << "Test "+Teuchos::toString(counter)+" ('"+test_file+"') FAILED.\n";
         HYMLS::Tools::out() << "at resolution: "<<nx<<"x"<<ny<<"x"<<nz<<"\n";
         HYMLS::Tools::out() << "Reason: ";
         printError(ierr);
