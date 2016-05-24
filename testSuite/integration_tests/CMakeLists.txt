@@ -46,7 +46,7 @@ endif()
 
 target_link_libraries(integration_tests hymls)
 
-add_test(NAME unit_tests COMMAND mpirun -np 8 ./integration_tests)
-        set_tests_properties(unit_tests PROPERTIES PASS_REGULAR_EXPRESSION "ALL TESTS PASSED")
-        set_tests_properties(unit_tests PROPERTIES FAIL_REGULAR_EXPRESSION "FAILED")
-        set_tests_properties(unit_tests PROPERTIES TIMEOUT 500)
+add_test(NAME integration_tests COMMAND mpirun -np 8 ./integration_tests)
+        set_tests_properties(integration_tests PROPERTIES PASS_REGULAR_EXPRESSION "ALL TESTS PASSED")
+        set_tests_properties(integration_tests PROPERTIES FAIL_REGULAR_EXPRESSION "FAILED")
+        set_tests_properties(integration_tests PROPERTIES TIMEOUT 500)
