@@ -46,7 +46,7 @@
     <ParameterList name="Iterative Solver"><!--{-->
       <Parameter name="Maximum Iterations" type="int" value="100"/>
       <Parameter name="Block Size" type="int" value="1"/>
-      <Parameter name="Convergence Tolerance" type="double" value="1.0e-10"/>
+      <Parameter name="Convergence Tolerance" type="double" value="0.8e-10"/>
     </ParameterList><!--}-->
   </ParameterList><!--}-->
 
