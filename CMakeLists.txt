@@ -5,6 +5,8 @@ option(HYMLS_USE_OPENMP OFF "allow using multi-threading inside HYMLS")
 
 option(HYMLS_USE_PHIST OFF "try to find PHIST and enable it as eigensolver with HYMLS")
 
+enable_testing()
+
 add_subdirectory (src)
 add_subdirectory (testSuite)
 
