@@ -195,9 +195,10 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
       HYMLS::MatrixUtils::mmread(nullSpace_file,*nullSpace);
       }
     }
-  else if (nullSpaceType!="None")
+
+  if (nullSpaceType!="None" && nullSpace==Teuchos::null)
     {
-    nullSpace=HYMLS::MainUtils::create_nullspace(*K, nullSpaceType, probl_params);
+    nullSpace=HYMLS::MainUtils::create_nullspace(*K, nullSpaceType, probl_params_cpy);
     dim0=nullSpace->NumVectors();
     }
 #ifdef HYMLS_STORE_MATRICES
