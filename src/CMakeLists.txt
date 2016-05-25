@@ -245,8 +245,8 @@ foreach(lib ${library_dependencies})
     find_library(found_${lib} ${lib} ${library_directories})
   endif()
   list(APPEND found_library_dependencies ${found_${lib}})
-  message(STATUS "${lib}")
-  message(STATUS "${found_${lib}}")
+#  message(STATUS "${lib}")
+#  message(STATUS "${found_${lib}}")
 endforeach(lib)
 
 # Link HYMLS to all found libraries
