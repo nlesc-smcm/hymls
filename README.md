@@ -40,8 +40,13 @@ from the build directory. It will be installed in the `CMAKE_INSTALL_PREFIX`. If
 cd ~/build/hymls
 PATH=$PATH:$HOME/Trilinos cmake -DCMAKE_INSTALL_PREFIX="${HOME}/local" ~/hymls
 make
+make test
+make install
 ```
 
+The line "make test" will run all unit and integration tests and exit with a non-zero return value if anything fails.
+A more verbose variant is "make check", which runs the same tests but prints the output. The integration tests are run
+with 8 MPI processes.
 After installing HYMLS, other packages should be able to find it through the cmake config.
 
 # Building the example
