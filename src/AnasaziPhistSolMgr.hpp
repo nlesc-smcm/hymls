@@ -141,7 +141,7 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
         const RCP<Eigenproblem<ScalarType,MV,OP> > &problem,
         const RCP<PREC> &prec,
         Teuchos::ParameterList &pl )
-   : d_problem(problem), d_prec(prec)
+   : d_problem(problem), d_prec(prec), numIters_(0)
 {
     TEUCHOS_TEST_FOR_EXCEPTION( d_problem == Teuchos::null,                std::invalid_argument, "Problem not given to solver manager." );
     TEUCHOS_TEST_FOR_EXCEPTION( !d_problem->isProblemSet(),                std::invalid_argument, "Problem not set." );
@@ -302,7 +302,7 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
   int num_eigs;
 
   phist_Djdqr(A_op.get(), B_op.get(), X.get(), Q.get(), NULL, &evals[0], &resid[0], &is_cmplx[0],
-        d_opts, &num_eigs, &numIter_, &iflag);
+        d_opts, &num_eigs, &numIters_, &iflag);
   TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
     "PhistSolMgr::solve: phist_Djdqr returned nonzero error code "+Teuchos::toString(iflag));
 
