@@ -50,6 +50,7 @@ RES_TOO_LARGE =2,
 ERR_TOO_LARGE =8,
 CAUGHT_EXCEPTION=16,
 INTERNAL_TESTS_FAILED=32
+SKIPPED=99
 } ReturnCode;
 
 
@@ -148,7 +149,7 @@ int main(int argc, char* argv[])
       HYMLS::Tools::out() << "\t\t- grid size "<<var<<std::endl;
 
       ierr = runTest(comm, params);
-      if (ierr != PASSED)
+      if (ierr != PASSED && ierr!=SKIPPED)
         {
         std::string msg=params->get("runTest output","no output available");
         HYMLS::Tools::Out("------------------------------------------------------------");
@@ -163,6 +164,10 @@ int main(int argc, char* argv[])
         HYMLS::Tools::Out("------------------------------------------------------------");
         failed++;
         break; // stop grid refinement
+        }
+        else if (ierr==SKIPPED)
+        {
+        HYMLS::Tools::out() << "Test "+Teuchos::toString(counter)+" ('"+test_file+"') SKIPPED.\n";
         }
 
       nx*=2;
@@ -376,8 +381,9 @@ int runTest(Teuchos::RCP<const Epetra_Comm> comm,
 #ifdef HYMLS_USE_PHIST
       ierr |= testEigenSolver(message, comm, params, K, M, solver, precond);
 #else
-      HYMLS::Tools::Warning("Eigenvalue computation not tested because phist is disabled",
+      HYMLS::Tools::Out("Eigenvalue computation not tested because phist is disabled",
         __FILE__, __LINE__);
+        ierr=SKIPPED;
 #endif
       }
 
