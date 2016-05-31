@@ -49,8 +49,8 @@ MAX_ITER_EXCEEDED=1,
 RES_TOO_LARGE =2,
 ERR_TOO_LARGE =8,
 CAUGHT_EXCEPTION=16,
-INTERNAL_TESTS_FAILED=32
-SKIPPED=99
+INTERNAL_TESTS_FAILED=32,
+SKIPPED=8192
 } ReturnCode;
 
 
@@ -381,9 +381,8 @@ int runTest(Teuchos::RCP<const Epetra_Comm> comm,
 #ifdef HYMLS_USE_PHIST
       ierr |= testEigenSolver(message, comm, params, K, M, solver, precond);
 #else
-      HYMLS::Tools::Out("Eigenvalue computation not tested because phist is disabled",
-        __FILE__, __LINE__);
-        ierr=SKIPPED;
+      HYMLS::Tools::Out("Eigenvalue computation not tested because phist is disabled");
+      ierr=SKIPPED;
 #endif
       }
 

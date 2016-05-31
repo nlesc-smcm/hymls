@@ -85,7 +85,7 @@ class PhistSolMgr : public SolverManager<ScalarType,MV,OP>
         /*!
          * \brief Get the iteration count for the most recent call to solve()
          */
-        int getNumIters() const { return -1; }
+        int getNumIters() const { return numIters_; }
 
         /*!
          * \brief This method performs possibly repeated calls to the underlying eigensolver's iterate()
@@ -107,6 +107,7 @@ class PhistSolMgr : public SolverManager<ScalarType,MV,OP>
         phist_jadaOpts                                  d_opts;
 
         bool borderedSolver;
+        int numIters_; //! number of iterations performed in previous solve()
 
 }; // class PhistSolMgr
 
@@ -298,10 +299,10 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
   TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
     "PhistSolMgr::solve: phist_Dmvec_normalize returned nonzero error code "+Teuchos::toString(iflag));
 
-  int num_eigs, num_iters;
+  int num_eigs;
 
   phist_Djdqr(A_op.get(), B_op.get(), X.get(), Q.get(), NULL, &evals[0], &resid[0], &is_cmplx[0],
-        d_opts, &num_eigs, &num_iters, &iflag);
+        d_opts, &num_eigs, &numIter_, &iflag);
   TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
     "PhistSolMgr::solve: phist_Djdqr returned nonzero error code "+Teuchos::toString(iflag));
 

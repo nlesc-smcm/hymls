@@ -1,3 +1,5 @@
+<!-- note that this test is run both with just the linear solver and with the eigensolver, the -->
+<!-- targets given below apply to one of the runs in general                                   -->
 <ParameterList name="Laplace 2-level basic convergence test"><!--{-->
 
 <Parameter name="Description" type="string"
@@ -18,7 +20,8 @@
     <ParameterList name="Eigenvalues">
       <Parameter name="Which" type="string" value="SM"/>
       <Parameter name="How Many" type="int" value="10"/>
-      <Parameter name="Convergence Tolerance" type="double" value="1.0e-4"/>
+      <Parameter name="Convergence Tolerance" type="double" value="1.0e-8"/>
+      <Parameter name="Number of Iterations" type="int" value="50"/>
       <Parameter name="Test Space" type="string" value="V"/>
       <Parameter name="Block Size" type="int" value="1"/>
       <Parameter name="Maximum Subspace Dimension" type="int" value="40"/>
@@ -29,10 +32,13 @@
   </ParameterList><!--}-->
   
   <ParameterList name="Targets"><!--{-->
-    <Parameter name="Number of Iterations" type="int" value="21"/>
+    <!-- targets for pure linear solver run -->
+    <Parameter name="Number of Iterations" type="int" value="25"/>
     <Parameter name="Relative Residual 2-Norm" type="double" value="5.0e-10"/>
     <Parameter name="Relative Error 2-Norm" type="double" value="5.0e-10"/>
-    <Parameter name="Error Eigenvalues" type="double" value="1.0e-4"/>
+    <!-- target for eigensolver run, note that we limit the number of eigensolver iterations -->
+    <!-- above so this is also tested in a way.                                              -->
+    <Parameter name="Error Eigenvalues" type="double" value="1.0e-8"/>
   </ParameterList><!--}-->
 
   <ParameterList name="Problem"><!--{-->
