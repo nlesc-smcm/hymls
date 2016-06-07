@@ -53,8 +53,6 @@ set(HEADERS ${HEADERS}
 set(library_list)
 set(include_list)
 
-include_directories(${PROJECT_SOURCE_DIR})
-
 if (${phist_FOUND})
   message(STATUS "phist found in ${PHIST_INCLUDE_DIRS}")
   include_directories(${PHIST_INCLUDE_DIRS})
@@ -76,7 +74,7 @@ list(APPEND HEADERS "${CMAKE_CURRENT_BINARY_DIR}/HYMLS_config.h")
 set(header_extensions ".h" ".H" ".hpp")
 foreach(i ${HYMLS_SOURCE})
   foreach(j ${header_extensions})
-    if (EXISTS "${PROJECT_SOURCE_DIR}/${i}${j}")
+    if (EXISTS "${PROJECT_SOURCE_DIR}/src/${i}${j}")
       list(APPEND HEADERS "${i}${j}")
     endif()
   endforeach()
