@@ -87,6 +87,11 @@ else()
   message (WARNING "No custom compiler flags for the ${CMAKE_CXX_COMPILER_ID} compiler were found.")
 endif()
 
+# here are the HYMLS headers:
+include_directories(${PROJECT_SOURCE_DIR}/src)
+
+# and here are any configured headers, e.g. HYMLS_config.h:
+include_directories(${CMAKE_CURRENT_BINARY_DIR}/src/)
 
 find_package(MPI REQUIRED)
 if (${MPI_FOUND})
@@ -107,10 +112,9 @@ endif()
 set(MPIEXEC "mpirun" CACHE STRING "")
 set(MPIEXEC_NUMPROC_FLAG "-np" CACHE STRING "")
 
-find_package(Ifpack REQUIRED)
-
-
-
+#################
+# find Trilinos #
+#################
 
 if (DEFINED ENV{TRILINOS_HOME})
   set(Trilinos_DIR "$ENV{TRILINOS_HOME}/lib/cmake/Trilinos")
