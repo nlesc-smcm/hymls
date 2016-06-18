@@ -374,7 +374,7 @@ int Solver::addBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
     {
     V_ = V;
     W_ = W;
-    if (!W.is_null())
+    if (W.is_null())
       {
       W_ = V;
       }
