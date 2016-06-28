@@ -18,13 +18,19 @@ Note that HYMLS has to be built with an mpi compiler, and that Trilinos has to b
 
 ```
 cd ~/build/hymls
-PATH=$PATH:$HOME/Trilinos cmake ~/hymls
+PATH=$PATH:$HOME/Trilinos/bin cmake ~/hymls
 make
 ```
 
 Instead of adding Trilinos to your path, you can also set it through TRILINOS_HOME.
 
-Building with PHIST is done in the same way. You just add it to your PATH. HYMLS will then automatically enable support for the PHIST JDQR solver, and build a library, hymls_jada, that can be used by other packages, for instance FVM.
+Building with PHIST is done in the same way. You just add it to your PATH. After this, you can enable support for the PHIST JDQR solver by setting `-DHYMLS_USE_PHIST=On`. A build command may look something like
+
+```
+cd ~/build/hymls
+PATH=$PATH:$HOME/Trilinos/bin:$HOME/phist/bin cmake -DHYMLS_USE_PHIST=On ~/hymls
+make
+```
 
 # Installing HYMLS
 
@@ -38,7 +44,7 @@ from the build directory. It will be installed in the `CMAKE_INSTALL_PREFIX`. If
 
 ```
 cd ~/build/hymls
-PATH=$PATH:$HOME/Trilinos cmake -DCMAKE_INSTALL_PREFIX="${HOME}/local" ~/hymls
+PATH=$PATH:$HOME/Trilinos/bin cmake -DCMAKE_INSTALL_PREFIX="${HOME}/local" ~/hymls
 make
 make test
 make install
@@ -55,7 +61,7 @@ The example can be seen as a separate project. After installing HYMLS, the examp
 
 ```
 cd ~/build/example
-PATH=$PATH:${HOME}/local/bin:$HOME/Trilinos cmake ~/hymls/example
+PATH=$PATH:${HOME}/local/bin:$HOME/Trilinos/bin cmake ~/hymls/example
 make
 ```
 
