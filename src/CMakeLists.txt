@@ -54,8 +54,6 @@ include_directories(${PROJECT_SOURCE_DIR})
 
 if (${phist_FOUND})
   message(STATUS "phist found in ${PHIST_INCLUDE_DIRS}")
-  include_directories(${PHIST_INCLUDE_DIRS})
-  link_directories(${PHIST_LIBRARY_DIRS})
 
   list(APPEND HYMLS_SOURCE
     HYMLS_PhistWrapper)
@@ -99,6 +97,7 @@ target_link_libraries(hymls ${Trilinos_TPL_LIBRARIES})
 target_link_libraries(hymls ${MPI_CXX_LIBRARIES})
 
 if (${phist_FOUND})
+  target_include_directories(hymls PUBLIC ${PHIST_INCLUDE_DIRS})
   target_link_libraries(hymls ${PHIST_LIBRARIES})
 endif()
 

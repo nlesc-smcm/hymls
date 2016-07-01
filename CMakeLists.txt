@@ -126,13 +126,10 @@ include_directories(${Trilinos_TPL_INCLUDE_DIRS})
 list(APPEND include_list ${Trilinos_INCLUDE_DIRS})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${Trilinos_CXX_COMPILER_FLAGS}")
 
+
 if (HYMLS_USE_PHIST)
   find_package(phist REQUIRED CONFIG)
-  include_directories(${PHIST_INCLUDE_DIRS})
-  link_libraries(${PHIST_LIBRARIES})
 endif()
-
-
 
 # enable "make test" and "make check"  targets
 enable_testing()
