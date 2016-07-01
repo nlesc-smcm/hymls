@@ -370,11 +370,11 @@ if (repart==true)
   for (int i=0;i<baseMap_->NumMyElements();i++)
     {
     int gid = baseMap_->GID(i);
-    if (LSID(gid)<0) numSends++;
+    if (LSID(gid) < 0) numSends++;
     }
 
   int numLocal = baseMap_->NumMyElements() - numSends;
-  
+
   HYMLS_DEBVAR(numSends);
   HYMLS_DEBVAR(numLocal);
 
@@ -382,22 +382,25 @@ if (repart==true)
   int *sendGIDs = new int[numSends];
   int *sendPIDs = new int[numSends];
 
-  int pos=0;
+  int pos = 0;
 
-  for (int i=0;i<baseMap_->NumMyElements();i++)
+  for (int i = 0; i < baseMap_->NumMyElements(); i++)
     {
-#ifdef HYMLS_TESTING
-if (pos>numSends) Tools::Error("sanity check failed",__FILE__,__LINE__);
-#endif    
     int gid = baseMap_->GID(i);
-    int pid = this->PID(gid); // global partition ID
-    if (pid!=comm_->MyPID())
+    int pid = PID(gid); // global partition ID
+    if (pid != comm_->MyPID())
       {
+#ifdef HYMLS_TESTING
+      if (pos >= numSends)
+        Tools::Error("Sanity check failed with gid=" + Teuchos::toString(gid) +
+          ", pos=" + Teuchos::toString(pos) + ", numSends=" +
+          Teuchos::toString(numSends) + ".", __FILE__, __LINE__);
+#endif
       sendGIDs[pos] = gid;
       sendPIDs[pos++] = pid;
       }
     }
-    
+
   int numRecvs;
   CHECK_ZERO(Distor->CreateFromSends(numSends, sendPIDs, true, numRecvs));
 
@@ -465,8 +468,8 @@ HYMLS_DEBUG(std::flush);
 #ifdef HYMLS_TESTING
     if (lsd<0)
       {
-      Tools::Error("repartitioning seems to be necessary/have failed.",
-        __FILE__,__LINE__);
+      Tools::Error("repartitioning seems to be necessary/have failed for gid "
+        + Teuchos::toString(gid) + ".", __FILE__, __LINE__);
       }
 #endif    
     NumElementsInSubdomain[lsd]++;

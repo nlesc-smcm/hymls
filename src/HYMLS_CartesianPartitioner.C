@@ -15,7 +15,6 @@ using Teuchos::toString;
 
 namespace HYMLS {
 
-  
   // constructor 
   CartesianPartitioner::CartesianPartitioner
         (Teuchos::RCP<const Epetra_Map> map, int nx, int ny, int nz, int dof, 
@@ -33,12 +32,27 @@ namespace HYMLS {
     HYMLS_PROF3(label_,"Destructor");
     }
 
-  Teuchos::RCP<Epetra_Map> CartesianPartitioner::CreateSubdomainMap
-        (int num_active) const
+  Teuchos::RCP<Epetra_Map> CartesianPartitioner::CreateSubdomainMap(
+    int num_active) const
     {
-    return MatrixUtils::CreateMap(npx_,npy_,npz_,1,0,*comm_,num_active);
+    int NumMyElements = 0;
+    int NumGlobalElements = npx_ * npy_ * npz_;
+    int *MyGlobalElements = new int[NumGlobalElements];
+
+    for (int i = 0; i < npx_; i++)
+      for (int j = 0; j < npy_; j++)
+        for (int k = 0; k < npz_; k++)
+          {
+          int pid = PID(sx_ * i, sy_ * j, sz_ * k);
+          if (pid == comm_->MyPID())
+            MyGlobalElements[NumMyElements++] = i + j * npx_ + k * npx_ * npy_;
+          }
+
+    Teuchos::RCP<Epetra_Map> result = Teuchos::rcp(new Epetra_Map(NumGlobalElements,
+        NumMyElements, MyGlobalElements, 0, *comm_));
+
+    delete [] MyGlobalElements;
+    return result;
     }
 
-
-  
 }
