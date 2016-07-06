@@ -532,13 +532,10 @@ HYMLS_TEST(Label(),isDDcorrect(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix
 
   HYMLS_DEBUG("Create Schur-complement");  
 
-  if (Schur_==Teuchos::null)
-    {
-    // construct the Schur-complement operator (no computations, just
-    // pass in pointers of the LU's)
-      Schur_ = Teuchos::rcp(new SchurComplement(
-          A11_, A12_, A21_, A22_, myLevel_));
-    }
+  // construct the Schur-complement operator (no computations, just
+  // pass in pointers of the LU's)
+  Schur_ = Teuchos::rcp(new SchurComplement(
+      A11_, A12_, A21_, A22_, myLevel_));
 Tools::out() << "=============================="<<std::endl;
 Tools::out() << "LEVEL "<< myLevel_<<std::endl;
 Tools::out() << "SIZE OF A: "<< matrix_->NumGlobalRows()<<std::endl;
@@ -588,12 +585,9 @@ Tools::out() << "=============================="<<std::endl;
   MatrixUtils::Dump(*testVector2, "testVecDrop"+Teuchos::toString(myLevel_)+".txt");
 #endif
 
-  if (schurPrec_==Teuchos::null)
-    {
-    HYMLS_DEBUG("Construct schur-preconditioner");
-    schurPrec_=Teuchos::rcp(new SchurPreconditioner(Schur_,hid_,
-              getMyNonconstParamList(), myLevel_, testVector2));
-    }
+  HYMLS_DEBUG("Construct schur-preconditioner");
+  schurPrec_=Teuchos::rcp(new SchurPreconditioner(Schur_,hid_,
+      getMyNonconstParamList(), myLevel_, testVector2));
   
   CHECK_ZERO(schurPrec_->Initialize());
 

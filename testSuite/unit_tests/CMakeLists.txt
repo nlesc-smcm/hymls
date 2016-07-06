@@ -1,4 +1,6 @@
-set(SOURCES HYMLS_DenseUtils
+set(SOURCES
+  HYMLS_DenseUtils
+  HYMLS_Preconditioner
   HYMLS_Tester
   HYMLS_Tools
   main)
