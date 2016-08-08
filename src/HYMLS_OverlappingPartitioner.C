@@ -106,7 +106,7 @@ namespace HYMLS {
     REPORT_SUM_MEM(Label(),"graph with overlap",0,nzgraph,GetComm());
 
 #ifdef HYMLS_STORE_MATRICES
-  this->DumpGraph();
+    DumpGraph();
 #endif
     CHECK_ZERO(this->DetectSeparators());
     HYMLS_DEBVAR(*this);

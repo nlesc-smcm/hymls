@@ -64,11 +64,6 @@ public:
   Teuchos::RCP<const OverlappingPartitioner> SpawnNextLevel
         (Teuchos::RCP<const Epetra_RowMatrix> reducedMatrix,
         Teuchos::RCP<Teuchos::ParameterList> newParamList) const;
-
-  //! write the graph used by this class to a text file
-  
-  //! file originalGraph<level>.txt: original matrix graph on this level
-  int DumpGraph() const;
   
   //! from the PLA base class
   void setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& params);
@@ -178,7 +173,11 @@ private:
   //! separate group for each retained P-   
   //! node.
   int GroupSeparators();
-  
+
+  //! write the graph used by this class to a text file
+  //! file originalGraph<level>.txt: original matrix graph on this level
+  int DumpGraph() const;
+
   //!\name functions called from DetectSeparators()
   //!@{
   
