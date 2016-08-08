@@ -178,11 +178,6 @@ private:
   //! also constructs the importer, importOverlap_, between the two.
   int CreateGraph();
 
-  //! If graph_/p_graph_ represent a saddlepoint matrix K=[A G; D 0], adds edges
-  //! so that the pattern is that of [A+G*D G; D 0]. Replaces graph_ and p_graph_,
-  //! which should both already be Filled().
-  int AugmentSppGraph(int pvar);
-
   //! Step 2: construct overlapping maps after partitioning
   //! the result is a HierarchicalMap with three groups per
   //! subdomain: interior, separator and retained.
