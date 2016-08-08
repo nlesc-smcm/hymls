@@ -20,6 +20,8 @@ class BaseNodeClassifier;
 }
 
 class Epetra_IntVector;
+class Epetra_CrsGraph;
+class Epetra_Import;
 
 namespace HYMLS {
 

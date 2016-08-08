@@ -10,10 +10,6 @@
 
 // forward declarations
 class Epetra_Comm;
-class Epetra_RowMatrix;
-class Epetra_Import;
-class Epetra_CrsGraph;
-class Epetra_CrsMatrix;
 class Epetra_IntSerialDenseVector;
 
 namespace Teuchos 
