@@ -251,14 +251,6 @@ public:
     return 0;
     }
 
-  //! given a subdomain sd and a global node ID gid, return the local
-  //! group id in which the GID appears first, or -1 if it is not found
-  //! in this subdomain. We make this private because it is inefficient
-  //! if used excessively.
-  int GetGroupID(int sd, int gid) const;
-  
-
-
   //!
   Teuchos::RCP<Teuchos::Array<Teuchos::Array<int> > > GetGroupPointer() const
     {

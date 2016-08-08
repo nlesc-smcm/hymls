@@ -273,30 +273,6 @@ namespace HYMLS {
   return os;
   }
 
-  //! given a subdomain sd and a global node ID gid, return the local
-  //! group id in which the GID appears first, or -1 if it is not found
-  //! in this subdomain
-  int HierarchicalMap::GetGroupID(int sd, int gid) const
-    {
-    if (!Filled()) return -2;
-    if (sd>=NumMySubdomains()) return -3;
-    int group=-1; // if not found we return -1
-    for (int grp=0;grp<NumGroups(sd);grp++)
-      {
-      for (int i=0;i<NumElements(sd,grp);i++)
-        {
-        if (GID(sd,grp,i)==gid)
-          {
-          group=grp;
-          break;
-          }
-        }//i
-      if (group>=0) break;
-      }
-    return group;
-    }
-        
-
 Teuchos::RCP<const HierarchicalMap> 
 HierarchicalMap::Spawn(SpawnStrategy strat,
         Teuchos::RCP<Teuchos::Array<HYMLS::SepNode> > regroup) const
