@@ -41,7 +41,8 @@ public:
   //! destructor
   virtual ~StandardNodeClassifier();
 
-  //! called by constructor
+  //! called when constructing the OverlappingPartitioner
+  //! to assign a "node type" to each unknown in the problem
   int BuildNodeTypeVector();
 
   //! get node type vector
