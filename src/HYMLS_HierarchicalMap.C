@@ -177,19 +177,6 @@ namespace HYMLS {
     overlappingMap_ = Teuchos::null;
     return 0;
     }
-
-  int HierarchicalMap::AddSubdomain(int min_id)
-    {
-    HYMLS_PROF3(label_,"AddSubdomain");
-    if (Filled()) this->FillStart();
-    int id = groupPointer_->size();
-    if (id<min_id) id=min_id;
-    groupPointer_->resize(id+1);
-    gidList_->resize(id+1);
-    (*groupPointer_)[id].resize(1);
-    (*groupPointer_)[id][0]=0;
-    return id;
-    }
     
   int HierarchicalMap::AddGroup(int sd, Teuchos::Array<int>& gidList)
     {
@@ -199,7 +186,7 @@ namespace HYMLS {
     if (sd>=groupPointer_->size())
       {
       Tools::Warning("invalid subdomain index",__FILE__,__LINE__);
-      return -1; //AddSubdomain has to be called to generate a valid sd
+      return -1; // You should Reset with the right amount of sd
       }
       
     HYMLS_DEBVAR(sd);

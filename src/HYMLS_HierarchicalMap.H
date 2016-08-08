@@ -257,11 +257,6 @@ public:
   
   //! given a list of GIDs, returns a list of subdomains to which they belong
   int getSubdomainList(int num_gids, int* gids, int* sd) const;
-
-  //! add a new subdomain, returns the id of the subdomain. FillComplete()
-  //! should not have been called. The optional argument can be used to 
-  //! force the subdomain ID to be at least a certain value.
-  int AddSubdomain(int min_id=0);
   
   //! add a group of GIDs to an existing subdomain. Returns the group id
   //! of the new group. FillComplete() should not have been called.

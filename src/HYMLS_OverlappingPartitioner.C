@@ -353,10 +353,7 @@ for (int i=0;i<Map().NumMyElements();i++)
 #endif
 
   // add the subdomains to the base class so we can start inserting groups of nodes
-  for (int sd=0;sd<partitioner_->NumLocalParts();sd++)
-    {
-    this->AddSubdomain();
-    }
+  Reset(partitioner_->NumLocalParts());
 
   return 0;
   }
