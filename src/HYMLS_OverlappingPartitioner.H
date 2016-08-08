@@ -20,6 +20,8 @@ class BaseNodeClassifier;
 }
 
 class Epetra_IntVector;
+class Epetra_CrsGraph;
+class Epetra_Import;
 
 namespace HYMLS {
 
@@ -49,21 +51,6 @@ public:
   //! get the partitioner used internally
   const BasePartitioner& Partitioner() const {return *partitioner_;}
 
-  //! returns true if a separator group belongs to the same subdomain
-  //! as the interior nodes of that subdomain, according to the original
-  //! non-overlapping partitioning. This is useful when looping over
-  //! separators but not wanting to access any node twice.
-  bool GroupOwnedBySubdomain(int sd, int grp) const
-    {
-    if (this->NumElements(sd,grp)==0)
-      {
-      return true;
-      }
-    int gid1 = GID(sd,grp,0);
-    int gid0 = GID(sd,0,0);
-    return ((*partitioner_)(gid0)==(*partitioner_)(gid1));
-    }
-  
   //! this class allows spawning a next level object for the variables  
   //! retained in a reduced problem                                     
   //! TODO: unclutter the BaseO.P., RecursiveO.P., and this class       
@@ -77,11 +64,6 @@ public:
   Teuchos::RCP<const OverlappingPartitioner> SpawnNextLevel
         (Teuchos::RCP<const Epetra_RowMatrix> reducedMatrix,
         Teuchos::RCP<Teuchos::ParameterList> newParamList) const;
-
-  //! write the graph used by this class to a text file
-  
-  //! file originalGraph<level>.txt: original matrix graph on this level
-  int DumpGraph() const;
   
   //! from the PLA base class
   void setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& params);
@@ -178,11 +160,6 @@ private:
   //! also constructs the importer, importOverlap_, between the two.
   int CreateGraph();
 
-  //! If graph_/p_graph_ represent a saddlepoint matrix K=[A G; D 0], adds edges
-  //! so that the pattern is that of [A+G*D G; D 0]. Replaces graph_ and p_graph_,
-  //! which should both already be Filled().
-  int AugmentSppGraph(int pvar);
-
   //! Step 2: construct overlapping maps after partitioning
   //! the result is a HierarchicalMap with three groups per
   //! subdomain: interior, separator and retained.
@@ -196,7 +173,11 @@ private:
   //! separate group for each retained P-   
   //! node.
   int GroupSeparators();
-  
+
+  //! write the graph used by this class to a text file
+  //! file originalGraph<level>.txt: original matrix graph on this level
+  int DumpGraph() const;
+
   //!\name functions called from DetectSeparators()
   //!@{
   

@@ -177,19 +177,6 @@ namespace HYMLS {
     overlappingMap_ = Teuchos::null;
     return 0;
     }
-
-  int HierarchicalMap::AddSubdomain(int min_id)
-    {
-    HYMLS_PROF3(label_,"AddSubdomain");
-    if (Filled()) this->FillStart();
-    int id = groupPointer_->size();
-    if (id<min_id) id=min_id;
-    groupPointer_->resize(id+1);
-    gidList_->resize(id+1);
-    (*groupPointer_)[id].resize(1);
-    (*groupPointer_)[id][0]=0;
-    return id;
-    }
     
   int HierarchicalMap::AddGroup(int sd, Teuchos::Array<int>& gidList)
     {
@@ -199,7 +186,7 @@ namespace HYMLS {
     if (sd>=groupPointer_->size())
       {
       Tools::Warning("invalid subdomain index",__FILE__,__LINE__);
-      return -1; //AddSubdomain has to be called to generate a valid sd
+      return -1; // You should Reset with the right amount of sd
       }
       
     HYMLS_DEBVAR(sd);
@@ -272,30 +259,6 @@ namespace HYMLS {
       }
   return os;
   }
-
-  //! given a subdomain sd and a global node ID gid, return the local
-  //! group id in which the GID appears first, or -1 if it is not found
-  //! in this subdomain
-  int HierarchicalMap::GetGroupID(int sd, int gid) const
-    {
-    if (!Filled()) return -2;
-    if (sd>=NumMySubdomains()) return -3;
-    int group=-1; // if not found we return -1
-    for (int grp=0;grp<NumGroups(sd);grp++)
-      {
-      for (int i=0;i<NumElements(sd,grp);i++)
-        {
-        if (GID(sd,grp,i)==gid)
-          {
-          group=grp;
-          break;
-          }
-        }//i
-      if (group>=0) break;
-      }
-    return group;
-    }
-        
 
 Teuchos::RCP<const HierarchicalMap> 
 HierarchicalMap::Spawn(SpawnStrategy strat,

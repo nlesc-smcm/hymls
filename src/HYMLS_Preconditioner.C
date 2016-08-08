@@ -1293,7 +1293,6 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
   ofs << *hid_<<std::endl;
   ofs.close();
 #ifdef HYMLS_STORE_MATRICES  
-//  hid_->DumpGraph(); //that's the same as of the original matrix right now
   Teuchos::RCP<const Epetra_CrsMatrix> A = Teuchos::rcp_dynamic_cast
         <const Epetra_CrsMatrix>(matrix_);
   if (A!=Teuchos::null) MatrixUtils::Dump(*A,"matrix"+Teuchos::toString(myLevel_)+".txt");

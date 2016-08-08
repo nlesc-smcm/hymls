@@ -10,10 +10,6 @@
 
 // forward declarations
 class Epetra_Comm;
-class Epetra_RowMatrix;
-class Epetra_Import;
-class Epetra_CrsGraph;
-class Epetra_CrsMatrix;
 class Epetra_IntSerialDenseVector;
 
 namespace Teuchos 
@@ -251,14 +247,6 @@ public:
     return 0;
     }
 
-  //! given a subdomain sd and a global node ID gid, return the local
-  //! group id in which the GID appears first, or -1 if it is not found
-  //! in this subdomain. We make this private because it is inefficient
-  //! if used excessively.
-  int GetGroupID(int sd, int gid) const;
-  
-
-
   //!
   Teuchos::RCP<Teuchos::Array<Teuchos::Array<int> > > GetGroupPointer() const
     {
@@ -269,11 +257,6 @@ public:
   
   //! given a list of GIDs, returns a list of subdomains to which they belong
   int getSubdomainList(int num_gids, int* gids, int* sd) const;
-
-  //! add a new subdomain, returns the id of the subdomain. FillComplete()
-  //! should not have been called. The optional argument can be used to 
-  //! force the subdomain ID to be at least a certain value.
-  int AddSubdomain(int min_id=0);
   
   //! add a group of GIDs to an existing subdomain. Returns the group id
   //! of the new group. FillComplete() should not have been called.

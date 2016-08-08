@@ -106,7 +106,7 @@ namespace HYMLS {
     REPORT_SUM_MEM(Label(),"graph with overlap",0,nzgraph,GetComm());
 
 #ifdef HYMLS_STORE_MATRICES
-  this->DumpGraph();
+    DumpGraph();
 #endif
     CHECK_ZERO(this->DetectSeparators());
     HYMLS_DEBVAR(*this);
@@ -353,10 +353,7 @@ for (int i=0;i<Map().NumMyElements();i++)
 #endif
 
   // add the subdomains to the base class so we can start inserting groups of nodes
-  for (int sd=0;sd<partitioner_->NumLocalParts();sd++)
-    {
-    this->AddSubdomain();
-    }
+  Reset(partitioner_->NumLocalParts());
 
   return 0;
   }
@@ -998,14 +995,6 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
       CHECK_ZERO(p_graph_->FillComplete());// cleans everything up (removes workarrays).
       }
 
-    if (pvar_>=0 && false) // TODO this section is disabled for now
-      {
-      HYMLS_DEBVAR(pvar_);
-      // given A  B, form  C  B, with C = A + BB'
-      //       B' 0        B' 0
-      CHECK_ZERO(AugmentSppGraph(pvar_));
-      }
-
   return 0;
   }
 
@@ -1019,119 +1008,6 @@ int OverlappingPartitioner::DumpGraph() const
        Teuchos::rcp(new Epetra_CrsMatrix(Copy,*graph_));
   graph->PutScalar(1.0);
   MatrixUtils::Dump(*graph,filename);
-  return 0;
-  }
-
-
-  //! If graph_/p_graph_ represent a saddlepoint matrix K=[A G; D 0], adds edges
-  //! so that the pattern is that of [A+G*D G; D 0]. Replaces graph_ and p_graph_,
-  //! which should both already be Filled().
-  int OverlappingPartitioner::AugmentSppGraph(int pvar)
-  {
-  HYMLS_PROF2(Label(),"AugmentSppGraph");
-
-  HYMLS_DEBVAR(pvar);
-  HYMLS_DEBVAR(pvar_);
-  HYMLS_DEBVAR(*p_graph_);
-
-  if (!p_graph_->Filled()) Tools::Error("AugmentSppGraph() requires p_graph_ to be filled",
-        __FILE__,__LINE__);
-
-  if (!graph_->Filled()) Tools::Error("AugmentSppGraph() requires graph_ to be filled",
-        __FILE__,__LINE__);
-
-  int max_len = p_graph_->MaxNumIndices()*4;
-  Teuchos::Array<int> cols;
-  int len,lenK, lenD;
-  int *colsD;
-
-  Teuchos::RCP<Epetra_CrsGraph> graph = Teuchos::rcp(
-        new Epetra_CrsGraph(Copy, graph_->RowMap(),graph_->MaxNumIndices()));
-
-
-  for (int i=0;i<graph_->NumMyRows();i++)
-    {
-    cols.resize(max_len);
-    int grid = graph_->GRID(i);
-    CHECK_ZERO(graph_->ExtractGlobalRowCopy(grid,max_len,lenK,cols.getRawPtr()));
-    len=lenK;
-    if (MOD(grid,dof_)!=pvar && MOD(grid,dof_)<pvar_)
-      {
-
-      // append B'B (Grad*Div)
-
-      // walk through row of Grad
-      for (int j=0;j<lenK;j++)
-        {
-        if (MOD(cols[j],dof_)==pvar) // entry of Grad (=B)
-          {
-          // walk through row of Div to see which rows ii,jj of Grad have entries in common
-          // (that's where an entry ii,jj has to be added)
-          int lridD = p_graph_->LRID(cols[j]);
-          HYMLS_DEBVAR(lridD);
-          if (lridD>=0)
-            {
-            CHECK_ZERO(p_graph_->ExtractMyRowView(lridD,lenD,colsD));
-            for (int jj=0;jj<lenD;jj++)
-              {
-              if (MOD(p_graph_->GCID(colsD[jj]),dof_)!=pvar_ &&
-                  MOD(p_graph_->GCID(colsD[jj]),dof_)!=pvar)
-                {
-                if (len>=max_len)
-                  {
-                  max_len*=4;
-                  cols.resize(max_len);
-                  }
-                cols[len++]=p_graph_->GCID(colsD[jj]);
-                }
-              }
-            }
-#ifdef HYMLS_TESTING
-          else
-            {
-            std::stringstream msg;
-            msg << "rank "<<p_graph_->Comm().MyPID()<<std::endl;
-            msg << "current row (V-node): "<<grid<<std::endl;
-            msg << "column in G: "<<cols[j] << std::endl;
-            msg << "Row not present in K on this proc.\n";
-            msg << "Case not handled, your graph should have overlap.\n";
-            msg << "If you compile with -DHYMLS_DEBUGGING, the bad graph is stored in \n";
-            msg << "debug*.txt, after the keyword AugmentSppGraph.\n";
-            HYMLS_DEBVAR(*p_graph_);
-            Tools::Error(msg.str(),__FILE__,__LINE__);
-            }
-#endif
-          }
-        }
-      std::sort(cols.begin(),cols.begin()+len);
-      int_i cols_end = std::unique(cols.begin(),cols.begin()+len);
-      len = std::distance(cols.begin(),cols_end);
-
-#ifdef HYMLS_DEBUGGING_
-      HYMLS_DEBVAR(grid);
-      for (int j=0;j<len;j++)
-        {
-        Tools::deb() << cols[j] << " ";
-        }
-      HYMLS_DEBUG("");
-#endif
-      }
-    else
-      {
-      // copy in the div-row unchanged.
-      }
-    CHECK_ZERO(graph->InsertGlobalIndices(grid,len,cols.getRawPtr()));
-    }
-
-  HYMLS_DEBUG("call FillComplete on augmented graph");
-  CHECK_ZERO(graph->FillComplete());
-  graph_=graph;
-
-  p_graph_ = Teuchos::rcp(new Epetra_CrsGraph
-      (Copy,p_graph_->RowMap(),graph_->MaxNumIndices(),false));
-
-  CHECK_ZERO(p_graph_->Import(*graph_,*importOverlap_,Insert));
-  CHECK_ZERO(p_graph_->FillComplete());
   return 0;
   }
 

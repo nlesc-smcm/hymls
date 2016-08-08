@@ -75,9 +75,10 @@ TEUCHOS_UNIT_TEST(Preconditioner, Blocks)
   Epetra_Util util;
   for (int i = 0; i < n; i++) {
     int A_idx = util.RandomInt() % n;
-    double A_val = util.RandomDouble();
+    double A_val = -std::abs(util.RandomDouble());
+    double A_val2 = std::abs(util.RandomDouble());
     A->InsertGlobalValues(i, 1, &A_val, &A_idx);
-    A->InsertGlobalValues(i, 1, &A_val, &i);
+    A->InsertGlobalValues(i, 1, &A_val2, &i);
   }
   A->FillComplete();
 
