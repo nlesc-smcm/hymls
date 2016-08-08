@@ -51,21 +51,6 @@ public:
   //! get the partitioner used internally
   const BasePartitioner& Partitioner() const {return *partitioner_;}
 
-  //! returns true if a separator group belongs to the same subdomain
-  //! as the interior nodes of that subdomain, according to the original
-  //! non-overlapping partitioning. This is useful when looping over
-  //! separators but not wanting to access any node twice.
-  bool GroupOwnedBySubdomain(int sd, int grp) const
-    {
-    if (this->NumElements(sd,grp)==0)
-      {
-      return true;
-      }
-    int gid1 = GID(sd,grp,0);
-    int gid0 = GID(sd,0,0);
-    return ((*partitioner_)(gid0)==(*partitioner_)(gid1));
-    }
-  
   //! this class allows spawning a next level object for the variables  
   //! retained in a reduced problem                                     
   //! TODO: unclutter the BaseO.P., RecursiveO.P., and this class       
