@@ -32,11 +32,6 @@ TEUCHOS_UNIT_TEST(StandardNodeClassifier, BuildNodeTypeVectorForLaplace2D)
   Epetra_MpiComm Comm(MPI_COMM_WORLD);
   Teuchos::RCP<const Epetra_MpiComm> comm = Teuchos::rcp(&Comm, false);
   HYMLS::Tools::InitializeIO(comm);
-  if (comm->NumProc()>1) 
-  {
-    std::cout << "test skipped for np>1 for the moment!\n";
-    return;
-  }
   int dim = 2;
   int dof = 1;
   int nx=12;
@@ -87,7 +82,7 @@ TEUCHOS_UNIT_TEST(StandardNodeClassifier, BuildNodeTypeVectorForLaplace2D)
   // there is a function 'flow(i,j)' which returns !=0 if there is an edge between
   // two nodes i,j and they are on different subdomains. In the current implementation
   // this requires that the CartesianPartitioner knows about the graph.
-  part->SetGraph(graph);
+  part->SetGraph(localGraph);
 
   // until here, everything was test setup
 
