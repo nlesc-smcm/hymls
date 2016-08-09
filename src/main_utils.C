@@ -23,6 +23,7 @@
 
 #include "GaleriExt_Darcy2D.h"
 #include "GaleriExt_Darcy3D.h"
+#include "GaleriExt_Stokes2D.h"
 
 namespace HYMLS {
 
@@ -248,6 +249,19 @@ Teuchos::RCP<Epetra_CrsMatrix> create_matrix(const Epetra_Map& map,
         {
         matrix = Teuchos::rcp(GaleriExt::Matrices::Darcy3D(&map,
                 nx, ny, nz, 1, -1), true);
+        }
+      }
+    else if (galeriLabel=="Stokes-C")
+      {
+      if (dim==2)
+        {
+        if (nx!=ny) HYMLS::Tools::Warning("GaleriExt::Stokes2D only gives correct matrix entries if nx=ny, but the graph is corret\n",__FILE__,__LINE__);
+        matrix = Teuchos::rcp(GaleriExt::Matrices::Stokes2D(&map,
+                nx, ny, nx*nx, 1), true);
+        }
+      else if (dim==3)
+        {
+        HYMLS::Tools::Error("Stokes3D not yet available in Galeri(Ext)",__FILE__,__LINE__);
         }
       else
         {

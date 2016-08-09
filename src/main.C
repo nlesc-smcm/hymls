@@ -381,7 +381,9 @@ for (int f=0;f<numComputes;f++)
 
     HYMLS::Tools::Out("Solve ("+Teuchos::toString(s+1)+")");
   HYMLS::Tools::StartTiming("main: Solve");
-    CHECK_ZERO(solver->ApplyInverse(*b,*x));
+    //CHECK_ZERO(
+    solver->ApplyInverse(*b,*x);
+    //);
   HYMLS::Tools::StopTiming("main: Solve",true);
 
     // subtract constant from pressure if solving Stokes-C
