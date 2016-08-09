@@ -354,7 +354,7 @@ Teuchos::RCP<Epetra_Map> repartitionedMap =
 // a) the number of subdomains becomes smaller than the number of processes,
 // b) the subdomains can't be nicely distributed among the processes.
 // In both cases some processes are deactivated.
-if (repart==true)
+if (repart)
   {
   Tools::Out("repartition for "+s4+" procs");
   HYMLS_PROF3(label_,"repartition map");
@@ -390,12 +390,10 @@ if (repart==true)
     int pid = PID(gid); // global partition ID
     if (pid != comm_->MyPID())
       {
-#ifdef HYMLS_TESTING
       if (pos >= numSends)
         Tools::Error("Sanity check failed with gid=" + Teuchos::toString(gid) +
           ", pos=" + Teuchos::toString(pos) + ", numSends=" +
           Teuchos::toString(numSends) + ".", __FILE__, __LINE__);
-#endif
       sendGIDs[pos] = gid;
       sendPIDs[pos++] = pid;
       }
@@ -417,12 +415,10 @@ if (repart==true)
 
   int *recvGIDs = reinterpret_cast<int*>(rbuf);
 
-#ifdef HYMLS_TESTING
   if (static_cast<int>(numRecvs * sizeof(int)) != numRecvChars)
     {
     Tools::Error("sanity check failed", __FILE__, __LINE__);
     }
-#endif
 
   int NumMyElements = numLocal + numRecvs;
   HYMLS_DEBVAR(NumMyElements);
@@ -464,14 +460,12 @@ HYMLS_DEBUG(std::flush);
     {
     int gid = repartitionedMap->GID(lid);
     int lsd=LSID(gid);
-    
-#ifdef HYMLS_TESTING
+
     if (lsd<0)
       {
       Tools::Error("repartitioning seems to be necessary/have failed for gid "
         + Teuchos::toString(gid) + ".", __FILE__, __LINE__);
       }
-#endif    
     NumElementsInSubdomain[lsd]++;
     }
 
@@ -482,12 +476,10 @@ HYMLS_DEBUG(std::flush);
     }
 
   int NumMyElements=repartitionedMap->NumMyElements();
-#ifdef HYMLS_TESTING
   if (subdomainPointer_[NumLocalParts()]!=NumMyElements)
     {
     Tools::Error("repartitioning - sanity check failed",__FILE__,__LINE__);
     }
-#endif  
   int *MyGlobalElements = new int[NumMyElements];
   for (int i=0;i<NumLocalParts();i++) NumElementsInSubdomain[i]=0;
 

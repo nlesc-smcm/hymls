@@ -11,6 +11,7 @@
 
 #include "HYMLS_SchurPreconditioner.H"
 #include "HYMLS_SchurComplement.H"
+#include "HYMLS_CartesianPartitioner.H"
 
 #include "HYMLS_UnitTests.H"
 
@@ -71,7 +72,14 @@ TEUCHOS_UNIT_TEST(Preconditioner, Blocks)
     problemList.get<int>("ny") * problemList.get<int>("nz");
   Epetra_Map map(n, 0, Comm);
 
+  HYMLS::CartesianPartitioner part(Teuchos::rcp(&map, false),
+    problemList.get<int>("nx"), problemList.get<int>("ny"), problemList.get<int>("nz"),
+    problemList.get<int>("Degrees of Freedom"));
+  part.Partition(2, true);
+  map = *part.GetMap();
+
   Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(new Epetra_CrsMatrix(Copy, map, 2));
+
   Epetra_Util util;
   for (int i = 0; i < n; i++) {
     int A_idx = util.RandomInt() % n;
