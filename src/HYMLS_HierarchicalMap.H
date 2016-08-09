@@ -270,7 +270,7 @@ public:
   
   //! restart putting in things, deletes the map and resets the groupPointer
   //! to local indexing. This function is called internally if you call     
-  //! AddSubdomain() or AddGroup() after FillComplete(), Filled() will then 
+  //! AddGroup() after FillComplete(), Filled() will then 
   //! return false until you call FillComplete() again.
   int FillStart();
   
