@@ -1,4 +1,5 @@
 set(SOURCES
+  GaleriExt_Darcy2D
   GaleriExt_Stokes2D
   HYMLS_CartesianPartitioner
   HYMLS_StandardNodeClassifier
@@ -6,6 +7,7 @@ set(SOURCES
   HYMLS_Preconditioner
   HYMLS_Tester
   HYMLS_Tools
+  HYMLS_UnitTests
   main)
 
 # we use this matrix file for testing the GaleriExt::Matrices::Stokes2D function

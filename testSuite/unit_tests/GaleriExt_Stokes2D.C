@@ -8,7 +8,7 @@
 
 #include "HYMLS_UnitTests.H"
 
-TEUCHOS_UNIT_TEST(Stokes2D, CompareWithFile)
+TEUCHOS_UNIT_TEST(GaleriExt, Stokes2D_CompareWithFile)
   {
   Epetra_MpiComm Comm(MPI_COMM_WORLD);
 
@@ -16,7 +16,8 @@ TEUCHOS_UNIT_TEST(Stokes2D, CompareWithFile)
   const int nx = 32,ny=32,dof=3;
   std::string filename="stokes32x32.mtx";
   int n = nx*ny*dof;
-  Epetra_Map map(n, 0, Comm);
+  Teuchos::RCP<Epetra_Map> map_ptr=HYMLS::UnitTests::create_random_map(Comm,n, dof);
+  const Epetra_Map& map=*map_ptr;
   double dx = 1.0/nx, dy=1.0/ny;
   
   Teuchos::RCP<Epetra_CrsMatrix> A_func = Teuchos::rcp(GaleriExt::Matrices::Stokes2D
