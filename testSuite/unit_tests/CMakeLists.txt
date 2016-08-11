@@ -1,6 +1,8 @@
 set(SOURCES
   GaleriExt_Darcy2D
+  GaleriExt_Darcy3D
   GaleriExt_Stokes2D
+  GaleriExt_Stokes3D
   HYMLS_CartesianPartitioner
   HYMLS_StandardNodeClassifier
   HYMLS_DenseUtils
@@ -12,6 +14,7 @@ set(SOURCES
 
 # we use this matrix file for testing the GaleriExt::Matrices::Stokes2D function
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../data/DrivenCavity/32x32/Re0/jac.mtx ${CMAKE_CURRENT_BINARY_DIR}/stokes32x32.mtx)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../data/DrivenCavity/16x16x16/Re0/jac.mtx ${CMAKE_CURRENT_BINARY_DIR}/stokes16x16x16.mtx)
 
 add_executable(unit_tests ${SOURCES})
 
