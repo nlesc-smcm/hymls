@@ -75,7 +75,7 @@ Stokes3D(const Epetra_Map* Map,
   Teuchos::RCP<Epetra_CrsMatrix> Laplace=Teuchos::null;
   if (perio==NO_PERIO)
   {
-    Laplace=Teuchos::rcp(Galeri::Matrices::Cross3D(Map1.get(),nx,ny,nz,4,-1,-1,-1,-1,-1,-1));
+    Laplace=Teuchos::rcp(Galeri::Matrices::Cross3D(Map1.get(),nx,ny,nz,6,-1,-1,-1,-1,-1,-1));
   }
   else
   {
@@ -120,7 +120,7 @@ Stokes3D(const Epetra_Map* Map,
         if (right==-1)
         {
           lenLaplace=1;
-          vals_laplace[0]=b/(a*a); 
+          vals_laplace[0]=-1.0/a; 
           cols_laplace[0]=row0;
         }
         else 
@@ -142,7 +142,7 @@ Stokes3D(const Epetra_Map* Map,
         if (upper==-1)
         {
           lenLaplace=1;
-          vals_laplace[0]=b/(a*a);
+          vals_laplace[0]=-1.0/a;
           cols_laplace[0]=row0;
         }
         else
@@ -164,7 +164,7 @@ Stokes3D(const Epetra_Map* Map,
         if (above==-1)
         {
           lenLaplace=1;
-          vals_laplace[0]=b/(a*a);
+          vals_laplace[0]=-1.0/a;
           cols_laplace[0]=row0;
         }
         else

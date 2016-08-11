@@ -22,16 +22,26 @@ TEUCHOS_UNIT_TEST(GaleriExt, Stokes3D_CompareWithFile)
   const Epetra_Map& map=*map_ptr;
   double dx = 1.0/nx;
   
+  // note: the matrix file we use for comparison comes from our FVM package,
+  // where the equations are scaled by dx*dy*dz, hence the scaling factors
+  // for the A and B part (the function puts b in the B part and a*[-1 6 -1 ...] in the A part)
   Teuchos::RCP<Epetra_CrsMatrix> A_func = Teuchos::rcp(GaleriExt::Matrices::Stokes3D
-        (&map,nx,ny,nz,1.0/(dx*dx),1.0,GaleriExt::NO_PERIO));
+        (&map,nx,ny,nz,dx,(dx*dx),GaleriExt::NO_PERIO));
   
   // read matrix from file for comparing
   Epetra_CrsMatrix* tmp=NULL;
   EpetraExt::MatrixMarketFileToCrsMatrix(filename.c_str(),map,tmp);
   Teuchos::RCP<Epetra_CrsMatrix> A_file=Teuchos::rcp(tmp,true);
 
-//  std::cout << "A_file="<<*A_file<<std::endl;
- // std::cout << "A_func="<<*A_func<<std::endl;
+  // note: in the file we compare with, we have A B; B' 0], but our function creates A B; -B' 0], so
+  // scale all the p-rows of the comparison matrix by -1 beforehand
+  Epetra_Vector scale(map);
+  scale.PutScalar(1.0);
+  for (int i=dof-1; i<scale.MyLength(); i+=dof) scale[i]=-1.0;
+  A_file->RightScale(scale);
+
+  std::cout << "A_file="<<*A_file<<std::endl;
+  std::cout << "A_func="<<*A_func<<std::endl;
 
   // test if the matrices are the same by doing a matvec with a random vector
   Epetra_Vector v1(map);
@@ -48,7 +58,7 @@ TEUCHOS_UNIT_TEST(GaleriExt, Stokes3D_CompareWithFile)
   v2.Update(-1.0,v3,1.0);
   double norm_should_be_small;
   v2.Norm2(&norm_should_be_small);
-//  std::cout << "diff: "<<v2<<std::endl;
+  std::cout << "diff: "<<v2<<std::endl;
   TEST_FLOATING_EQUALITY(1.0,1.0+norm_should_be_small,1e-14);
   }
 

@@ -23,7 +23,6 @@ TEUCHOS_UNIT_TEST(GaleriExt, Darcy3D)
   
   Teuchos::RCP<Epetra_CrsMatrix> A_func = Teuchos::rcp(GaleriExt::Matrices::Darcy3D
         (&map,nx,ny,nz,a,1.0,GaleriExt::NO_PERIO));
-  
   // test if the diagonal has <a> in the u/v and 0 in the p rows
   Epetra_Vector d(map);
   A_func->ExtractDiagonalCopy(d);
@@ -51,14 +50,17 @@ TEUCHOS_UNIT_TEST(GaleriExt, Darcy3D)
   ierr=A_func->Multiply(false,v1,v2);
   TEST_EQUALITY(0,ierr);
   double norm_should_be_small=0;
+  double div_should_not_be_small=10.0;
   for (int i=0; i<v1.MyLength(); i+=dof)
   {
     for (int j=0; j<dof-1; j++)
     {
       norm_should_be_small = std::max(std::abs(v1[i+j]*a - v2[i+j]),norm_should_be_small);
     }
+    div_should_not_be_small = std::min(std::abs(v1[i+dof-1]),div_should_not_be_small);
   }
 //  std::cout << "diff: "<<v2<<std::endl;
   TEST_FLOATING_EQUALITY(1.0,1.0+norm_should_be_small,1e-14);
+  TEST_EQUALITY(div_should_not_be_small>1.0,true);
   }
 
