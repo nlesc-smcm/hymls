@@ -95,15 +95,20 @@ class BuildNodeTypeVectorTest
   {
     for (int j=0; j<ny_; j++)
     {
-      for (int i=0; i<nx_; i++) 
+      for (int i=0; i<nx_; i++)
       {
-        int gid = HYMLS::Tools::sub2ind(nx_, ny_, nz_, dof_, i, j, 0, 0);
-        int lid = cartPart_->Map().LID(gid);
-        if (lid>=0)
+        int vmax=1;
+        if (stokes_) vmax=dof_-1;
+        for (int var=0; var<vmax;var++)
         {
-          if ((i+1)%sx_==0 && i+1<nx_) (*refNodeTypes)[lid]++;
-          if ((j+1)%sy_==0 && j+1<ny_) (*refNodeTypes)[lid]++;
-          if ((k+1)%sz_==0 && j+1<nz_) (*refNodeTypes)[lid]++;
+          int gid = HYMLS::Tools::sub2ind(nx_, ny_, nz_, dof_, i, j, k, var);
+          int lid = cartPart_->Map().LID(gid);
+          if (lid>=0)
+          {
+            if ((i+1)%sx_==0 && i+1<nx_) (*refNodeTypes)[lid]++;
+            if ((j+1)%sy_==0 && j+1<ny_) (*refNodeTypes)[lid]++;
+            if ((k+1)%sz_==0 && k+1<nz_) (*refNodeTypes)[lid]++;
+          }
         }
       }
     }
@@ -140,14 +145,46 @@ class BuildNodeTypeVectorTest
   return classi->GetVector();
   }
 
-  double RunTest()
+  std::ostream& PrintGrid(const Epetra_IntVector& v, std::ostream& os)
+  {
+    if (comm_->NumProc()>1) return os; // not implemented in parallel
+    
+    for (int k=0; k<nz_;k++)
+    {
+      os << "k="<<k<<std::endl;
+      for (int j=0; j<ny_; j++)
+      {
+        for (int i=0; i<nx_; i++)
+        {
+          int gid = ((k*ny_)+j)*nx_+i;
+          int lid=cartPart_->Map().LID(gid);
+          os << " " << std::setw(4) << v[lid];
+        }
+        os << std::endl;
+      }
+      os << std::endl;
+    }
+    return os;
+  }
+
+  int RunTest(bool output_on_failure=true)
   {
     Teuchos::RCP<const Epetra_IntVector> refNodeTypes=this->ConstructExpectedNodeTypeVector();
     Teuchos::RCP<const Epetra_IntVector> myNodeTypes=this->ConstructNodeTypeVector();
   
     //  std::cout << "refNodeTypes: \n"<<refNodeTypes << std::endl;
     //  std::cout << "nodeTypes: \n"<<nodeTypes << std::endl;
-    return NormInfAminusB(*refNodeTypes,*myNodeTypes);
+    int diff=NormInfAminusB(*refNodeTypes,*myNodeTypes);
+    if (output_on_failure && diff!=0)
+    {
+      Epetra_IntVector diff=*refNodeTypes;
+      for (int i=0;i<myNodeTypes->MyLength();i++) diff[i]-=(*myNodeTypes)[i];
+      
+      std::cout << "Reference node type vector:\n"<<this->PrintGrid(*refNodeTypes,std::cout)<<std::endl;
+      std::cout << "Constructed node type vector:\n"<<this->PrintGrid(*myNodeTypes,std::cout)<<std::endl;
+      std::cout << "Diff: (ref <-> computed)\n"<<this->PrintGrid(diff,std::cout)<<std::endl;
+    }
+    return diff;
   }
   
   Teuchos::RCP<const Epetra_MpiComm> comm_; 
@@ -165,21 +202,30 @@ class BuildNodeTypeVectorTest
 // and compare the reference node type vector with the actual one.
 TEUCHOS_UNIT_TEST(StandardNodeClassifier, BuildNodeTypeVectorForLaplace2D)
 {
-
-  // this should give 3x2 subdomains of 4x4 each
-  int dim = 2;
+  // Laplace 2D, 3x2 subdomains of 4x4 each
   int dof = 1;
-  int nx=12;
-  int ny=8;
-  int nz=1;
-  int sx=4;
-  int sy=4;
-  int sz=1;
+  int nx=12, ny=8, nz=1;
+  int sx=4, sy=4, sz=1;
   int nparts=6;
 
   BuildNodeTypeVectorTest test(nx,ny,nz,dof,nparts,sx,sy,sz);
   
-  // compare the two vectors
+  TEST_EQUALITY(0,test.RunTest());
+}
+
+
+// actual tests start here, they just construct the object above with different input args
+// and compare the reference node type vector with the actual one.
+TEUCHOS_UNIT_TEST(StandardNodeClassifier, BuildNodeTypeVectorForLaplace3D)
+{
+  // Laplace 3D, 3x4x2 subdomains of 3x3x3 each
+  int dof = 1;
+  int nx=9, ny=12, nz=6;
+  int sx=3, sy=3, sz=3;
+  int nparts=24;
+
+  BuildNodeTypeVectorTest test(nx,ny,nz,dof,nparts,sx,sy,sz);
+  
   TEST_EQUALITY(0,test.RunTest());
 }
 
