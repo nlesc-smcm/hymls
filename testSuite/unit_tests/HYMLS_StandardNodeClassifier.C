@@ -124,7 +124,7 @@ class BuildNodeTypeVectorTest
           {
             int gid = HYMLS::Tools::sub2ind(nx_, ny_, nz_, dof_, i, j, k, var);
             int lid = cartPart_->Map().LID(gid);
-            (*refNodeTypes)[lid]=5;
+            if (lid>=0) (*refNodeTypes)[lid]=5;
           }
           
       // mark "full conservation cells" with P=5, V=4
@@ -139,27 +139,67 @@ class BuildNodeTypeVectorTest
               // mark the P-node with 5
               int gid = HYMLS::Tools::sub2ind(nx_, ny_, nz_, dof_, i+sx_-1, j+sy_-1, 0, var);
               int lid = cartPart_->Map().LID(gid);
-              (*refNodeTypes)[lid]=5;
+              if (lid>=0) (*refNodeTypes)[lid]=5;
               
               // mark the velocities surrounding this P as 4
               gid = HYMLS::Tools::sub2ind(nx_, ny_, nz_, dof_, i+sx_-1, j+sy_-1, 0, 0);
               lid = cartPart_->Map().LID(gid);
-              (*refNodeTypes)[lid]=4;
+              if (lid>=0) (*refNodeTypes)[lid]=4;
               gid = HYMLS::Tools::sub2ind(nx_, ny_, nz_, dof_, i+sx_-1, j+sy_-1, 0, 1);
               lid = cartPart_->Map().LID(gid);
-              (*refNodeTypes)[lid]=4;
+              if (lid>=0) (*refNodeTypes)[lid]=4;
               gid = HYMLS::Tools::sub2ind(nx_, ny_, nz_, dof_, i+sx_-2, j+sy_-1, 0, 0);
               lid = cartPart_->Map().LID(gid);
-              (*refNodeTypes)[lid]=4;
+              if (lid>=0) (*refNodeTypes)[lid]=4;
               gid = HYMLS::Tools::sub2ind(nx_, ny_, nz_, dof_, i+sx_-1, j+sy_-2, 0, 1);
               lid = cartPart_->Map().LID(gid);
-              (*refNodeTypes)[lid]=4;
+              if (lid>=0) (*refNodeTypes)[lid]=4;
             }
           }
         }
       }
       else
       {
+        for (int k=0;k<nz_;k++)
+        {
+          for (int j=0;j<ny_;j++)
+          {
+            for (int i=0;i<nx_;i++)
+            {
+              int b1=(i+1<nx_ && (i+1)%sx_==0)?1:0;
+              int b2=(j+1<ny_ && (j+1)%sy_==0)?1:0;
+              int b3=(k+1<nz_ && (k+1)%sz_==0)?1:0;
+              int bsum=b1+b2+b3;
+              int uval=bsum+2;
+              if (bsum>=2)
+              {
+                int gid_p = HYMLS::Tools::sub2ind(nx_, ny_, nz_, dof_, i, j, k, var);
+                int lid_p = cartPart_->Map().LID(gid_p);
+                (*refNodeTypes)[lid_p]=5;                
+                
+                for (int xx=-1;xx<=0;xx++)
+                {
+                  int gid=-1,lid=-1;
+                  try {
+                  gid = HYMLS::Tools::sub2ind(nx_, ny_, nz_, dof_, i+xx, j, k, 0);
+                  } catch(...) {gid=-1;}
+                  lid = cartPart_->Map().LID(gid);
+                  if (lid>=0) (*refNodeTypes)[lid]=std::max(uval,(*refNodeTypes)[lid]);
+                  try {
+                  gid = HYMLS::Tools::sub2ind(nx_, ny_, nz_, dof_, i, j+xx, k, 1);
+                  } catch(...) {gid=-1;}
+                  lid = cartPart_->Map().LID(gid);
+                  if (lid>=0) (*refNodeTypes)[lid]=std::max(uval,(*refNodeTypes)[lid]);
+                  try {
+                  gid = HYMLS::Tools::sub2ind(nx_, ny_, nz_, dof_, i, j, k+xx, 2);
+                  } catch(...) {gid=-1;}
+                  lid = cartPart_->Map().LID(gid);
+                  if (lid>=0) (*refNodeTypes)[lid]=std::max(uval,(*refNodeTypes)[lid]);
+                }
+              }
+            }
+          }
+        }
       }
       // in the Stokes matrices there are some singletons due to Dirichlet BC e.g. for u at i=nx_-1,
       // these do not get a node type from our StandardNodeClassifier because they are not coupled 
@@ -172,7 +212,7 @@ class BuildNodeTypeVectorTest
         {
           int gid = HYMLS::Tools::sub2ind(nx_, ny_, nz_, dof_, i, j, k, var);
           int lid = cartPart_->Map().LID(gid);
-          (*refNodeTypes)[lid]=0;
+          if (lid>=0) (*refNodeTypes)[lid]=0;
         }
       }
       var=1;
@@ -183,7 +223,7 @@ class BuildNodeTypeVectorTest
         {
           int gid = HYMLS::Tools::sub2ind(nx_, ny_, nz_, dof_, i, j, k, var);
           int lid = cartPart_->Map().LID(gid);
-          (*refNodeTypes)[lid]=0;
+          if (lid>=0) (*refNodeTypes)[lid]=0;
         }
       }
       if (dim_>2) {
@@ -195,7 +235,7 @@ class BuildNodeTypeVectorTest
         {
           int gid = HYMLS::Tools::sub2ind(nx_, ny_, nz_, dof_, i, j, k, var);
           int lid = cartPart_->Map().LID(gid);
-          (*refNodeTypes)[lid]=0;
+          if (lid>=0) (*refNodeTypes)[lid]=0;
         }
       }
       }
