@@ -2,6 +2,7 @@
 #include "Galeri_Random.h"
 #include "Epetra_Map.h"
 #include "Epetra_Comm.h"
+#include "Epetra_IntVector.h"
 
 namespace HYMLS {
 namespace UnitTests {
@@ -29,5 +30,20 @@ Teuchos::RCP<Epetra_Map> create_random_map(const Epetra_Comm& comm, int n, int n
   map=Teuchos::rcp(new Epetra_Map(n,nloc,my_gids,ibase,comm));
   return map;
 }
+
+// helper function for comparing Epetra_IntVectors
+int NormInfAminusB(const Epetra_IntVector& A, const Epetra_IntVector& B)
+{
+  if (A.Map().SameAs(B.Map())==false) return -1;
+  int value=0;
+  for (int i=0; i<A.MyLength(); i++)
+  {
+    value=std::max(value,std::abs(A[i]-B[i]));
+  }
+  int global_value;
+  A.Map().Comm().MaxAll(&value,&global_value,1);
+  return global_value;
+}
+
 
 }} // namespaces HYMLS::UnitTests

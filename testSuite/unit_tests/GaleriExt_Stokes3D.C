@@ -40,8 +40,8 @@ TEUCHOS_UNIT_TEST(GaleriExt, Stokes3D_CompareWithFile)
   for (int i=dof-1; i<scale.MyLength(); i+=dof) scale[i]=-1.0;
   A_file->RightScale(scale);
 
-  std::cout << "A_file="<<*A_file<<std::endl;
-  std::cout << "A_func="<<*A_func<<std::endl;
+//  std::cout << "A_file="<<*A_file<<std::endl;
+//  std::cout << "A_func="<<*A_func<<std::endl;
 
   // test if the matrices are the same by doing a matvec with a random vector
   Epetra_Vector v1(map);
@@ -58,7 +58,7 @@ TEUCHOS_UNIT_TEST(GaleriExt, Stokes3D_CompareWithFile)
   v2.Update(-1.0,v3,1.0);
   double norm_should_be_small;
   v2.Norm2(&norm_should_be_small);
-  std::cout << "diff: "<<v2<<std::endl;
+  //std::cout << "diff: "<<v2<<std::endl;
   TEST_FLOATING_EQUALITY(1.0,1.0+norm_should_be_small,1e-14);
   }
 
