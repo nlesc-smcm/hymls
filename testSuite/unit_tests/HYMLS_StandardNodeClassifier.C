@@ -117,8 +117,7 @@ class BuildNodeTypeVectorTest
     if (stokes_)
     {
       int var=dof_-1;
-      // P-variable: retain one P node per subdomain interior and
-      // all the P-nodes on vertex separators and edge separators in 3D
+      // P-variable: retain one P node per subdomain interior
       for (int k=0;k<nz_;k+=sz_)
         for (int j=0;j<ny_;j+=sy_)
           for (int i=0;i<nx_;i+=sx_)
@@ -126,20 +125,42 @@ class BuildNodeTypeVectorTest
             int gid = HYMLS::Tools::sub2ind(nx_, ny_, nz_, dof_, i, j, k, var);
             int lid = cartPart_->Map().LID(gid);
             (*refNodeTypes)[lid]=5;
+          }
+          
+      // mark "full conservation cells" with P=5, V=4
+      if (dim_==2)
+      {
+        for (int j=0;j<ny_;j+=sy_)
+        {
+          for (int i=0;i<nx_;i+=sx_)
+          {
             if ((i+sx_)<nx_ && (j+sy_)<ny_)
             {
-              for (int kk=0;kk<sz_;kk++)
-              {
-                int gid = HYMLS::Tools::sub2ind(nx_, ny_, nz_, dof_, i+sx_-1, j+sy_-1, k+kk, var);
-                int lid = cartPart_->Map().LID(gid);
-                (*refNodeTypes)[lid]=5;
-                
-              }
-              if (dim_==3)
-              {
-              }
+              // mark the P-node with 5
+              int gid = HYMLS::Tools::sub2ind(nx_, ny_, nz_, dof_, i+sx_-1, j+sy_-1, 0, var);
+              int lid = cartPart_->Map().LID(gid);
+              (*refNodeTypes)[lid]=5;
+              
+              // mark the velocities surrounding this P as 4
+              gid = HYMLS::Tools::sub2ind(nx_, ny_, nz_, dof_, i+sx_-1, j+sy_-1, 0, 0);
+              lid = cartPart_->Map().LID(gid);
+              (*refNodeTypes)[lid]=4;
+              gid = HYMLS::Tools::sub2ind(nx_, ny_, nz_, dof_, i+sx_-1, j+sy_-1, 0, 1);
+              lid = cartPart_->Map().LID(gid);
+              (*refNodeTypes)[lid]=4;
+              gid = HYMLS::Tools::sub2ind(nx_, ny_, nz_, dof_, i+sx_-2, j+sy_-1, 0, 0);
+              lid = cartPart_->Map().LID(gid);
+              (*refNodeTypes)[lid]=4;
+              gid = HYMLS::Tools::sub2ind(nx_, ny_, nz_, dof_, i+sx_-1, j+sy_-2, 0, 1);
+              lid = cartPart_->Map().LID(gid);
+              (*refNodeTypes)[lid]=4;
             }
           }
+        }
+      }
+      else
+      {
+      }
       // in the Stokes matrices there are some singletons due to Dirichlet BC e.g. for u at i=nx_-1,
       // these do not get a node type from our StandardNodeClassifier because they are not coupled 
       // to anyone, so they are eliminated (treated as interior, 0)
