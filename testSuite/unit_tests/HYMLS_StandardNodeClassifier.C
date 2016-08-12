@@ -2,6 +2,7 @@
 #include "HYMLS_CartesianPartitioner.H"
 #include "HYMLS_Tools.H"
 #include "Galeri_CrsMatrices.h"
+#include "GaleriExt_CrsMatrices.h"
 #include <Epetra_IntVector.h>
 #include <Epetra_LocalMap.h>
 #include <Epetra_Import.h>
@@ -24,7 +25,7 @@ class BuildNodeTypeVectorTest
   {
     comm_ = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
     HYMLS::Tools::InitializeIO(comm_);
-    dim_=(nz_>0)?3: 2;
+    dim_=(nz_>1)?3: 2;
     stokes_=(dof_==dim_+1);
     int n = nx * ny * nz * dof;
     map_ = Teuchos::rcp(new Epetra_Map(n, 0, *comm_));
@@ -58,7 +59,7 @@ class BuildNodeTypeVectorTest
     }
     else
     {
-      throw "test not implemented";
+      matrix= Teuchos::rcp(GaleriExt::CreateCrsMatrix(matrixType,map_.get(),galeriList));
     }
 
     } catch (Galeri::Exception G) {G.Print();}
@@ -90,29 +91,94 @@ class BuildNodeTypeVectorTest
   {
     Teuchos::RCP<Epetra_IntVector> refNodeTypes = Teuchos::rcp(new Epetra_IntVector(cartPart_->Map()));
 
-  refNodeTypes->PutValue(0);
-  for (int k=0; k<nz_; k++)
-  {
-    for (int j=0; j<ny_; j++)
+    refNodeTypes->PutValue(0);
+    for (int k=0; k<nz_; k++)
     {
-      for (int i=0; i<nx_; i++)
+      for (int j=0; j<ny_; j++)
       {
-        int vmax=1;
-        if (stokes_) vmax=dof_-1;
-        for (int var=0; var<vmax;var++)
+        for (int i=0; i<nx_; i++)
         {
-          int gid = HYMLS::Tools::sub2ind(nx_, ny_, nz_, dof_, i, j, k, var);
-          int lid = cartPart_->Map().LID(gid);
-          if (lid>=0)
+          int vmax=1;
+          if (stokes_) vmax=dof_-1;
+          for (int var=0; var<vmax;var++)
           {
-            if ((i+1)%sx_==0 && i+1<nx_) (*refNodeTypes)[lid]++;
-            if ((j+1)%sy_==0 && j+1<ny_) (*refNodeTypes)[lid]++;
-            if ((k+1)%sz_==0 && k+1<nz_) (*refNodeTypes)[lid]++;
+            int gid = HYMLS::Tools::sub2ind(nx_, ny_, nz_, dof_, i, j, k, var);
+            int lid = cartPart_->Map().LID(gid);
+            if (lid>=0)
+            {
+              if ((i+1)%sx_==0 && i+1<nx_) (*refNodeTypes)[lid]++;
+              if ((j+1)%sy_==0 && j+1<ny_) (*refNodeTypes)[lid]++;
+              if ((k+1)%sz_==0 && k+1<nz_) (*refNodeTypes)[lid]++;
+            }
           }
         }
       }
     }
-  }
+    if (stokes_)
+    {
+      int var=dof_-1;
+      // P-variable: retain one P node per subdomain interior and
+      // all the P-nodes on vertex separators and edge separators in 3D
+      for (int k=0;k<nz_;k+=sz_)
+        for (int j=0;j<ny_;j+=sy_)
+          for (int i=0;i<nx_;i+=sx_)
+          {
+            int gid = HYMLS::Tools::sub2ind(nx_, ny_, nz_, dof_, i, j, k, var);
+            int lid = cartPart_->Map().LID(gid);
+            (*refNodeTypes)[lid]=5;
+            if ((i+sx_)<nx_ && (j+sy_)<ny_)
+            {
+              for (int kk=0;kk<sz_;kk++)
+              {
+                int gid = HYMLS::Tools::sub2ind(nx_, ny_, nz_, dof_, i+sx_-1, j+sy_-1, k+kk, var);
+                int lid = cartPart_->Map().LID(gid);
+                (*refNodeTypes)[lid]=5;
+                
+              }
+              if (dim_==3)
+              {
+              }
+            }
+          }
+      // in the Stokes matrices there are some singletons due to Dirichlet BC e.g. for u at i=nx_-1,
+      // these do not get a node type from our StandardNodeClassifier because they are not coupled 
+      // to anyone, so they are eliminated (treated as interior, 0)
+      var=0;
+      int i=nx_-1;
+      for (int k=0; k<nz_; k++)
+      {
+        for (int j=0; j<ny_; j++)
+        {
+          int gid = HYMLS::Tools::sub2ind(nx_, ny_, nz_, dof_, i, j, k, var);
+          int lid = cartPart_->Map().LID(gid);
+          (*refNodeTypes)[lid]=0;
+        }
+      }
+      var=1;
+      int j=ny_-1;
+      for (int k=0; k<nz_; k++)
+      {
+        for (int i=0; i<nx_; i++)
+        {
+          int gid = HYMLS::Tools::sub2ind(nx_, ny_, nz_, dof_, i, j, k, var);
+          int lid = cartPart_->Map().LID(gid);
+          (*refNodeTypes)[lid]=0;
+        }
+      }
+      if (dim_>2) {
+      var=2;
+      int k=nz_-1;
+      for (int j=0; j<ny_; j++)
+      {
+        for (int i=0; i<nx_; i++)
+        {
+          int gid = HYMLS::Tools::sub2ind(nx_, ny_, nz_, dof_, i, j, k, var);
+          int lid = cartPart_->Map().LID(gid);
+          (*refNodeTypes)[lid]=0;
+        }
+      }
+      }
+    }
   
     return refNodeTypes;
   }
@@ -145,26 +211,36 @@ class BuildNodeTypeVectorTest
   return classi->GetVector();
   }
 
-  std::ostream& PrintGrid(const Epetra_IntVector& v, std::ostream& os)
+  void PrintGrid(const Epetra_IntVector& v, std::ostream& os)
   {
-    if (comm_->NumProc()>1) return os; // not implemented in parallel
+    if (comm_->NumProc()>1) return; // not implemented in parallel
     
+    for (int var=0; var<dof_;var++)
+    {
     for (int k=0; k<nz_;k++)
     {
-      os << "k="<<k<<std::endl;
+      os << "var="<<var<<", k="<<k<<std::endl;
       for (int j=0; j<ny_; j++)
       {
         for (int i=0; i<nx_; i++)
         {
-          int gid = ((k*ny_)+j)*nx_+i;
+          int gid = (((k*ny_)+j)*nx_+i)*dof_+var;
           int lid=cartPart_->Map().LID(gid);
-          os << " " << std::setw(4) << v[lid];
+          if (v[lid])
+          {
+            os << " " << std::setw(5) << v[lid];
+          }
+          else
+          {
+            os << "     ~";
+          }
         }
         os << std::endl;
       }
       os << std::endl;
     }
-    return os;
+    os << "#######################################################"<<std::endl;
+    }
   }
 
   int RunTest(bool output_on_failure=true)
@@ -180,9 +256,12 @@ class BuildNodeTypeVectorTest
       Epetra_IntVector diff=*refNodeTypes;
       for (int i=0;i<myNodeTypes->MyLength();i++) diff[i]-=(*myNodeTypes)[i];
       
-      std::cout << "Reference node type vector:\n"<<this->PrintGrid(*refNodeTypes,std::cout)<<std::endl;
-      std::cout << "Constructed node type vector:\n"<<this->PrintGrid(*myNodeTypes,std::cout)<<std::endl;
-      std::cout << "Diff: (ref <-> computed)\n"<<this->PrintGrid(diff,std::cout)<<std::endl;
+      std::cout << "Reference node type vector:\n";
+      this->PrintGrid(*refNodeTypes,std::cout);
+      std::cout << "Constructed node type vector:\n";
+      this->PrintGrid(*myNodeTypes,std::cout);
+      std::cout << "Diff: (ref <-> computed)\n";
+      this->PrintGrid(diff,std::cout);
     }
     return diff;
   }
@@ -200,7 +279,7 @@ class BuildNodeTypeVectorTest
 
 // actual tests start here, they just construct the object above with different input args
 // and compare the reference node type vector with the actual one.
-TEUCHOS_UNIT_TEST(StandardNodeClassifier, BuildNodeTypeVectorForLaplace2D)
+TEUCHOS_UNIT_TEST(StandardNodeClassifier, Laplace2D)
 {
   // Laplace 2D, 3x2 subdomains of 4x4 each
   int dof = 1;
@@ -216,10 +295,42 @@ TEUCHOS_UNIT_TEST(StandardNodeClassifier, BuildNodeTypeVectorForLaplace2D)
 
 // actual tests start here, they just construct the object above with different input args
 // and compare the reference node type vector with the actual one.
-TEUCHOS_UNIT_TEST(StandardNodeClassifier, BuildNodeTypeVectorForLaplace3D)
+TEUCHOS_UNIT_TEST(StandardNodeClassifier, Laplace3D)
 {
   // Laplace 3D, 3x4x2 subdomains of 3x3x3 each
   int dof = 1;
+  int nx=9, ny=12, nz=6;
+  int sx=3, sy=3, sz=3;
+  int nparts=24;
+
+  BuildNodeTypeVectorTest test(nx,ny,nz,dof,nparts,sx,sy,sz);
+  
+  TEST_EQUALITY(0,test.RunTest());
+}
+
+
+// actual tests start here, they just construct the object above with different input args
+// and compare the reference node type vector with the actual one.
+TEUCHOS_UNIT_TEST(StandardNodeClassifier, Stokes2D)
+{
+  // Laplace 2D, 3x2 subdomains of 4x4 each
+  int dof = 3;
+  int nx=12, ny=8, nz=1;
+  int sx=4, sy=4, sz=1;
+  int nparts=6;
+
+  BuildNodeTypeVectorTest test(nx,ny,nz,dof,nparts,sx,sy,sz);
+  
+  TEST_EQUALITY(0,test.RunTest());
+}
+
+
+// actual tests start here, they just construct the object above with different input args
+// and compare the reference node type vector with the actual one.
+TEUCHOS_UNIT_TEST(StandardNodeClassifier, Stokes3D)
+{
+  // Laplace 3D, 3x4x2 subdomains of 3x3x3 each
+  int dof = 4;
   int nx=9, ny=12, nz=6;
   int sx=3, sy=3, sz=3;
   int nparts=24;

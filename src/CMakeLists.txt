@@ -28,6 +28,7 @@ set(HYMLS_SOURCE HYMLS_Solver
     HYMLS_Exception
     HYMLS_MatrixBlock
     NOX_Epetra_LinearSystem_Hymls
+    GaleriExt_CrsMatrices
     GaleriExt_Periodic
     main_utils)
 
