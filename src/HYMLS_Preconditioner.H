@@ -33,7 +33,6 @@ namespace HYMLS
   {
   class SchurComplement;
   class SchurPreconditioner;
-  class MultiVector_View;
   }
 
 namespace Teuchos 
@@ -308,12 +307,6 @@ protected:
 
   //! some temporary vectors we use in ApplyInverse()
   mutable Teuchos::RCP<Epetra_MultiVector> tmpVec_[12];
-  
-  //! view vectors as if they had only the interior elements
-  Teuchos::RCP<HYMLS::MultiVector_View> interior_;
-
-  //! view vectors as if they had only the vsum elements
-  Teuchos::RCP<HYMLS::MultiVector_View> separators_;
   
   //! a test vector for constructing good orthogonal transformations
   //! (all ones on the first level, passed to the approximate SC)

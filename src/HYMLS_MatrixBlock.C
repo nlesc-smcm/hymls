@@ -7,7 +7,6 @@
 
 #include "HYMLS_Macros.H"
 #include "HYMLS_MatrixUtils.H"
-#include "HYMLS_View_MultiVector.H"
 #include "HYMLS_OverlappingPartitioner.H"
 #include "HYMLS_HierarchicalMap.H"
 #include "HYMLS_SparseDirectSolver.H"
@@ -334,18 +333,7 @@ int MatrixBlock::Apply(const Epetra_MultiVector& X, Epetra_MultiVector& Y)
     return -1;
     }
 
-  if (useTranspose_)
-    {
-    HYMLS::MultiVector_View xView(X.Map(), *rangeMap_);
-    HYMLS::MultiVector_View yView(Y.Map(), *domainMap_);
-    CHECK_ZERO(block_->Apply(*xView(X),*yView(Y)));
-    }
-  else
-    {
-    HYMLS::MultiVector_View xView(X.Map(), *domainMap_);
-    HYMLS::MultiVector_View yView(Y.Map(), *rangeMap_);
-    CHECK_ZERO(block_->Apply(*xView(X),*yView(Y)));
-    }
+  CHECK_ZERO(block_->Apply(X, Y));
 
   applyFlops_ += 2 * block_->NumGlobalNonzeros();
 

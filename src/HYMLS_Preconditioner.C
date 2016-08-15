@@ -36,8 +36,6 @@
 #include "Teuchos_StandardParameterEntryValidators.hpp"
 #include "Teuchos_Utils.hpp"
 
-#include "HYMLS_View_MultiVector.H"
-
 #include "Teuchos_StandardCatchMacros.hpp"
 
 #include "GaleriExt_Periodic.h"
@@ -451,14 +449,14 @@ HYMLS_DEBVAR(probList_);
         k++;
         }
       }
-    }    
+    }
 
   HYMLS_DEBUG("build rowMap");
   rowMap_ = Teuchos::rcp(new Epetra_Map(-1,numElts,AllMyElements,
                 rangeMap_->IndexBase(), *comm_));
 
   importer_=Teuchos::rcp(new Epetra_Import(*rowMap_,*rangeMap_));
-                
+
   delete [] AllMyElements;
 
   int MaxNumEntriesPerRow=matrix_->MaxNumEntries();
@@ -477,15 +475,6 @@ HYMLS_DEBVAR(probList_);
   MatrixUtils::Dump(*rowMap_,"reorderedMap"+Teuchos::toString(myLevel_)+".txt");
   MatrixUtils::Dump(*map2_,"schurMap"+Teuchos::toString(myLevel_)+".txt");
 #endif
-
-  // this object can be used to create a vector view of the interior nodes:
-  interior_=Teuchos::rcp(new HYMLS::MultiVector_View(*rowMap_,*map1_));
-
-  // create a view of the Schur-part of vectors. Note that EpetraExt's version
-  // doesn't work here because it assumes the submap to be the first part of 
-  // the original. This view does not include overlap between partitions,
-  // which is in rowMap behind the map2 (local separator) entries.
-  separators_=Teuchos::rcp(new HYMLS::MultiVector_View(*rowMap_,*map2_));
 
   HYMLS_DEBUG("Reorder global matrix");
   reorderedMatrix_=Teuchos::rcp(new Epetra_CrsMatrix(Copy,*rowMap_,MaxNumEntriesPerRow));
