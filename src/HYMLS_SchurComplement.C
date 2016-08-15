@@ -250,9 +250,9 @@ int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
   HYMLS_DEBVAR(nrows);
 
   int int_elems = hid.NumInteriorElements(sd);
-  int len[int_elems];
-  int *indices[int_elems];
-  double *values[int_elems];
+  int *len = new int[int_elems];
+  int **indices = new int*[int_elems];
+  double **values = new double*[int_elems];
   // loop over all rows in this subdomain
   for (int i = 0; i < int_elems; i++)
     {
@@ -267,14 +267,20 @@ int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
     // loop over all rows in this subdomain
     for (int i = 0; i < int_elems; i++)
       {
+      // A11 ID stores local indices of the original matrix
+      const int lrid = A12.LRID(A11_->ExtendedMatrix()->GRID(A11.ID(i)));
       // loop over the matrix row and look for matching entries
-      for (int k = 0 ; k < len[i]; k++)
+      for (int k = 0 ; k < len[lrid]; k++)
         {
-        if (gcid == A12.GCID(indices[i][k]))
-          A11.RHS(i, pos) = values[i][k];
+        if (gcid == A12.GCID(indices[lrid][k]))
+          A11.RHS(i, pos) = values[lrid][k];
         }
       }
     }
+
+  delete[] len;
+  delete[] indices;
+  delete[] values;
 
 //    HYMLS_DEBUG("Apply A11 inverse...");
 #ifdef FLOPS_COUNT
@@ -295,7 +301,8 @@ int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
     {
     for (int k = 0; k < nrows; k++)
       {
-      B[k][j] = A11.LHS(j, k);
+      const int lrid = A12.LRID(A11_->ExtendedMatrix()->GRID(A11.ID(j)));
+      B[k][lrid] = A11.LHS(j, k);
       }
     }
 

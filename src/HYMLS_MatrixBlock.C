@@ -23,12 +23,14 @@
 namespace HYMLS {
 
 MatrixBlock::MatrixBlock(Teuchos::RCP<const Epetra_CrsMatrix> matrix,
+  Teuchos::RCP<const Epetra_CrsMatrix> extendedMatrix,
   Teuchos::RCP<const OverlappingPartitioner> hid,
   HierarchicalMap::SpawnStrategy rowStrategy,
   HierarchicalMap::SpawnStrategy colStrategy,
   int level)
   :
   matrix_(matrix),
+  extendedMatrix_(extendedMatrix),
   hid_(hid),
   rowStrategy_(rowStrategy),
   colStrategy_(colStrategy),
@@ -40,14 +42,15 @@ MatrixBlock::MatrixBlock(Teuchos::RCP<const Epetra_CrsMatrix> matrix,
   // block. This will not cause any duplicate work because they are
   // cached in the hid.
   Teuchos::RCP<const HierarchicalMap> rowObject = hid_->Spawn(rowStrategy);
+  rowMap_ = rowObject->GetMap();
   rangeMap_ = rowObject->GetMap();
 
   Teuchos::RCP<const HierarchicalMap> colObject = hid_->Spawn(colStrategy);
   domainMap_ = colObject->GetMap();
 
   // This could be really expensive, but I want to try it anyway...
-  colMap_ = MatrixUtils::CreateColMap(*matrix_, *domainMap_, *domainMap_);
-  import_ = Teuchos::rcp(new Epetra_Import(*rangeMap_, matrix_->RowMap()));
+  colMap_ = MatrixUtils::CreateColMap(*extendedMatrix_, *domainMap_, *domainMap_);
+  import_ = Teuchos::rcp(new Epetra_Import(*rowMap_, matrix_->RowMap()));
 
   /*
   int active_ranks=HYMLS::ProcTopo->getNumActive(myLevel_);
@@ -74,7 +77,7 @@ int MatrixBlock::Compute()
   HYMLS_LPROF3(label_, "Compute");
 
   int MaxNumEntriesPerRow = matrix_->MaxNumEntries();
-  block_ = Teuchos::rcp(new Epetra_CrsMatrix(Copy, *rangeMap_,
+  block_ = Teuchos::rcp(new Epetra_CrsMatrix(Copy, *rowMap_,
       *colMap_, MaxNumEntriesPerRow));
 
   CHECK_ZERO(block_->Import(*matrix_, *import_, Insert));
@@ -106,18 +109,18 @@ int MatrixBlock::ComputeSubdomainBlocks()
     Teuchos::RCP<const Epetra_Map> subDomainMap = hid_->SpawnMap(sd, colStrategy_);
     HYMLS_DEBVAR(*subDomainMap);
 
-    int MaxNumEntriesPerRow = matrix_->MaxNumEntries();
+    int MaxNumEntriesPerRow = extendedMatrix_->MaxNumEntries();
     subBlocks_[sd] = Teuchos::rcp(new
       Epetra_CrsMatrix(Copy, *subRangeMap, *subDomainMap, MaxNumEntriesPerRow));
 
-    CHECK_ZERO(MatrixUtils::ExtractLocalBlock(*matrix_, *subBlocks_[sd]));
+    CHECK_ZERO(MatrixUtils::ExtractLocalBlock(*extendedMatrix_, *subBlocks_[sd]));
 
     CHECK_ZERO(subBlocks_[sd]->FillComplete(*subDomainMap,*subRangeMap));
 
     nzCopy += (double)(subBlocks_[sd]->NumMyNonzeros());
     }
 
-  REPORT_SUM_MEM(label_, "copies of matrix parts", nzCopy, nzCopy, &matrix_->Comm());
+  REPORT_SUM_MEM(label_, "copies of matrix parts", nzCopy, nzCopy, &extendedMatrix_->Comm());
 
   return 0;
   }
@@ -175,12 +178,12 @@ int MatrixBlock::InitializeSubdomainSolvers(std::string const &solverType,
     if (!status)
       {
       Tools::Fatal("Caught an exception in subdomain solver init of sd="+
-        Teuchos::toString(sd)+" on partition "+Teuchos::toString(matrix_->Comm().MyPID()),
+        Teuchos::toString(sd)+" on partition "+Teuchos::toString(extendedMatrix_->Comm().MyPID()),
           __FILE__, __LINE__);
       }
 #endif
 
-    Epetra_Map const &rowMap = matrix_->RowMap();
+    Epetra_Map const &rowMap = extendedMatrix_->RowMap();
     // set "global" ID of each partitioner row
     for (int j = 0 ; j < nrows ; j++)
       {
@@ -209,14 +212,14 @@ int MatrixBlock::ComputeSubdomainSolvers()
       try {
 #endif
 
-        CHECK_ZERO(subdomainSolvers_[sd]->Compute(*matrix_));
+        CHECK_ZERO(subdomainSolvers_[sd]->Compute(*extendedMatrix_));
 
 #ifdef HYMLS_TESTING
         } TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, status);
       if (!status)
         {
         Tools::Fatal("caught an exception in subdomain factorization of sd="+
-          Teuchos::toString(sd)+" on partition "+Teuchos::toString(matrix_->Comm().MyPID()),
+          Teuchos::toString(sd)+" on partition "+Teuchos::toString(extendedMatrix_->Comm().MyPID()),
           __FILE__, __LINE__);
         }
 #endif
@@ -249,7 +252,7 @@ int MatrixBlock::ComputeSubdomainSolvers()
         Tools::Warning("STORE_SUBDOMAIN_MATRICES is defined, this produces lots of output"
           " and makes the code VERY slow", __FILE__, __LINE__);
         const Epetra_RowMatrix& Asd = container->Inverse()->Matrix();
-        std::string filename = "SubdomainMatrix_P"+Teuchos::toString(matrix_->Comm().MyPID())+
+        std::string filename = "SubdomainMatrix_P"+Teuchos::toString(extendedMatrix_->Comm().MyPID())+
           "_L"+Teuchos::toString(myLevel_)+
           "_SD"+Teuchos::toString(sd)+".txt";
         std::ofstream ofs(filename.c_str());
@@ -269,28 +272,21 @@ int MatrixBlock::ComputeSubdomainSolvers()
         Teuchos::rcp_dynamic_cast<Ifpack_SparseContainer<SparseDirectSolver> >(
           subdomainSolvers_[0]);
       std::string label = "sdlu_L" + Teuchos::toString(myLevel_) +
-        "_0_p" + Teuchos::toString(matrix_->Comm().MyPID());
+        "_0_p" + Teuchos::toString(extendedMatrix_->Comm().MyPID());
       container->Inverse()->DumpSolverStatus(label, false, Teuchos::null, Teuchos::null);
       }
     }
 #endif
 
-  REPORT_SUM_MEM(label_, "subdomain solvers", nnz, nnz, &matrix_->Comm());
+  REPORT_SUM_MEM(label_, "subdomain solvers", nnz, nnz, &extendedMatrix_->Comm());
   return 0;
   }
 
- int MatrixBlock::Recompute(Teuchos::RCP<const Epetra_CrsMatrix> matrix)
+  int MatrixBlock::Recompute(Teuchos::RCP<const Epetra_CrsMatrix> matrix,
+    Teuchos::RCP<const Epetra_CrsMatrix> extendedMatrix)
   {
   matrix_ = matrix;
-
-  if (subBlocks_.size())
-    {
-    for (int sd = 0; sd < hid_->NumMySubdomains(); sd++)
-      {
-      CHECK_ZERO(subBlocks_[sd]->PutScalar(0.0));
-      CHECK_ZERO(MatrixUtils::ExtractLocalBlock(*matrix_, *subBlocks_[sd]));
-      }
-    }
+  extendedMatrix_ = extendedMatrix;
 
   if (block_ != Teuchos::null)
     {
@@ -298,8 +294,16 @@ int MatrixBlock::ComputeSubdomainSolvers()
     CHECK_ZERO(block_->Import(*matrix_, *import_, Insert));
     }
 
+  if (subBlocks_.size())
+    {
+    for (int sd = 0; sd < hid_->NumMySubdomains(); sd++)
+      {
+      CHECK_ZERO(subBlocks_[sd]->PutScalar(0.0));
+      CHECK_ZERO(MatrixUtils::ExtractLocalBlock(*extendedMatrix_, *subBlocks_[sd]));
+      }
+    }
 
-  Epetra_Map const &rowMap = matrix_->RowMap();
+  Epetra_Map const &rowMap = extendedMatrix_->RowMap();
   if (subdomainSolvers_.size())
     {
     for (int sd = 0; sd < hid_->NumMySubdomains(); sd++)
@@ -391,7 +395,7 @@ int MatrixBlock::ApplyInverse(const Epetra_MultiVector& B, Epetra_MultiVector& X
     // copy IDs to be able to walk through the vectors columnwise
     int IDlist[rows];
     for (int j = 0 ; j < rows ; j++)
-      IDlist[j] = subdomainSolvers_[sd]->ID(j);
+      IDlist[j] = B.Map().LID(extendedMatrix_->GRID(subdomainSolvers_[sd]->ID(j)));
 
     // extract RHS from X
     for (int k = 0 ; k < B.NumVectors() ; k++)
