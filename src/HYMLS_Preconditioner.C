@@ -732,141 +732,13 @@ REPORT_SUM_MEM(label_,"before schurprec",0,0, comm_);
                            Epetra_MultiVector& X) const
     {
     HYMLS_LPROF(label_,"ApplyInverse");
-
-    numApplyInverse_++;
-    time_->ResetStartTime();
-
-#ifdef HYMLS_DEBUGGING
-    if (dumpVectors_)
+    Epetra_SerialDenseMatrix S, T;
+    if (HaveBorder())
       {
-      MatrixUtils::Dump(B, "Preconditioner"+Teuchos::toString(myLevel_)+"_Rhs.txt");
-      }
-#endif
-
-    int numvec = X.NumVectors();
-
-    Epetra_Import const &import1 = A12_->Importer();
-    Epetra_Import const &import2 = A21_->Importer();
-
-    Epetra_Map const &map1 = A12_->RowMap();
-    Epetra_Map const &map2 = A21_->RowMap();
-
-    Epetra_MultiVector x1(map1, numvec);
-    Epetra_MultiVector x2(map2, numvec);
-
-    Epetra_MultiVector b1(map1, numvec);
-    Epetra_MultiVector b2(map2, numvec);
-
-    Epetra_MultiVector y1(map1, numvec);
-    Epetra_MultiVector y2(map2, numvec);
-
-    // We first import B into the parts of B belonging to their blocks
-    CHECK_ZERO(b1.Import(B, import1, Insert));
-    CHECK_ZERO(b2.Import(B, import2, Insert));
-
-    // We want to compute
-    // A11*x1 + A12*x2 = b1
-    // A21*x1 + A22*x2 = b2
-    // which results in solving
-    // S*x2 = b2 - A21*A11\b1
-    // x1 = -A11\A12*x2 + A11\b1
-    // where S is the Schur complement
-
-    // We first compute x1 = A11\b1, which we keep for later
-    CHECK_ZERO(A11_->ApplyInverse(b1, x1));
-
-    // Now we compute y2 = A21*A11\b1
-    CHECK_ZERO(A21_->Apply(x1, y2));
-
-    // We now compute the right-hand side for the Schur complement solve
-    if (schurRhs_->NumVectors() != X.NumVectors())
-      {
-      schurRhs_ = Teuchos::rcp(new Epetra_MultiVector(map2, X.NumVectors()));
-      schurSol_ = Teuchos::rcp(new Epetra_MultiVector(map2, X.NumVectors()));
-      schurSol_->PutScalar(0.0);
-      }
-    CHECK_ZERO(schurRhs_->Update(1.0, b2, -1.0, y2, 0.0));
-
-    // We now compute the border in case it is present
-    Epetra_SerialDenseMatrix q,s;
-    if (borderW_!=Teuchos::null)
-      {
-      CHECK_ZERO(DenseUtils::MatMul(*borderW1_, x1, q));
-      CHECK_ZERO(q.Scale(-1));
-      s.Reshape(q.M(), q.N());
+      T.Reshape(borderV_->NumVectors(), B.NumVectors());
       }
 
-    // And now we solve the Schur complement system to compute x2
-    if (scaleSchur_)
-      {
-      // left-scale rhs with schurScaLeft_
-      CHECK_ZERO(schurRhs_->Multiply(1.0, *schurScaLeft_, *schurRhs_, 0.0))
-        }
-    if (borderV_!=Teuchos::null)
-      {
-      Teuchos::RCP<HYMLS::BorderedSolver> borderedSchurSolver
-        = Teuchos::rcp_dynamic_cast<HYMLS::BorderedSolver>(schurPrec_);
-      if (borderedSchurSolver==Teuchos::null)
-        {
-        Tools::Error("cannot handle bordered Schur system!",__FILE__,__LINE__);
-        }
-      else
-        {
-        CHECK_ZERO(borderedSchurSolver->ApplyInverse(*schurRhs_, q, *schurSol_, s));
-        HYMLS_DEBUG("successfully applied bordered Schur precond");
-        }
-      }
-    else
-      {
-      CHECK_ZERO(schurPrec_->ApplyInverse(*schurRhs_,*schurSol_));
-      }
-
-    if (scaleSchur_)
-      {
-      // unscale rhs with schurScaRight_
-      CHECK_ZERO(schurSol_->ReciprocalMultiply(1.0, *schurScaRight_, *schurSol_, 0.0))
-      }
-
-    x2 = *schurSol_;
-
-    // We have x2 now, so now we can compute x1. Remember that part of the solution
-    // is already in there. We first compute y1=A12*x2
-    CHECK_ZERO(A12_->Apply(x2, y1));
-
-    // And now b1=A11\A12*x2. Note that we just use b1 as tmp variable here
-    CHECK_ZERO(A11_->ApplyInverse(y1, b1));
-
-    // And finally we update x1
-    // this gives the final result [x1-y1; x2]
-    CHECK_ZERO(x1.Update(-1.0, b1, 1.0));
-
-    // Bordered stuff again
-    if (borderQ1_!=Teuchos::null)
-      {
-      Teuchos::RCP<Epetra_MultiVector> ss = DenseUtils::CreateView(s);
-      CHECK_ZERO(x1.Multiply('N', 'N', -1.0, *borderQ1_, *ss, 1.0));
-      }
-
-    // And now we import the result into X
-    //'Zero' would disable repartitioning here (some
-    // ranks may have a part of the vector but not  
-    // of the preconditioner), and
-    //'Insert' would put the empty overlap nodes into
-    // the other subdomains, so we need to zero out X
-    // and 'Add' instead.
-    CHECK_ZERO(X.PutScalar(0.0));
-    CHECK_ZERO(X.Export(x1, import1, Add));
-    CHECK_ZERO(X.Export(x2, import2, Add));
-    
-#ifdef HYMLS_DEBUGGING
-    if (dumpVectors_)
-      {
-      MatrixUtils::Dump(X, "Preconditioner"+Teuchos::toString(myLevel_)+"_Sol.txt");
-      dumpVectors_=numApplyInverse_>1?false: true;
-      }
-#endif
-    timeApplyInverse_+=time_->ElapsedTime();
-    return 0;
+    ApplyInverse(B, T, X, S);
     }
 
   // Returns a pointer to the matrix to be preconditioned.
@@ -1429,167 +1301,139 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
   int Preconditioner::ApplyInverse(const Epetra_MultiVector& B, const Epetra_SerialDenseMatrix& T,
                Epetra_MultiVector& X,       Epetra_SerialDenseMatrix& S) const
   {
-    HYMLS_LPROF(label_,"ApplyInverse (with border)");
-    if (!HaveBorder()) return ApplyInverse(B,X);
     numApplyInverse_++;
     time_->ResetStartTime();
 
 #ifdef HYMLS_DEBUGGING
-if (dumpVectors_)
-  {
-  MatrixUtils::Dump(B, "BorderedPreconditioner"+Teuchos::toString(myLevel_)+"_Rhs.txt");
-  }
-#endif
-    int numvec=X.NumVectors();   // these are used for calculating flops
-    int veclen=X.GlobalLength();
-    
-    // create some vectors based on the map we use internally (first all internal and then 
-    // all separator variables):
-    Teuchos::RCP<Epetra_MultiVector> x,y,z,b;
-    // views of the interior nodes:
-    Teuchos::RCP<Epetra_MultiVector> x1,z1;
-    // views of the vsum nodes:
-    Teuchos::RCP<Epetra_MultiVector> x2,y2,z2,b2;
-    
-    // only reconstruct temporary vectors and views if
-    // first call or number of rhs changed:
-    bool realloc=false; 
-    if (tmpVec_[0]!=Teuchos::null)
+    if (dumpVectors_)
       {
-      realloc = (tmpVec_[0]->NumVectors()!=numvec);
+      MatrixUtils::Dump(B, "Preconditioner"+Teuchos::toString(myLevel_)+"_Rhs.txt");
+      }
+#endif
+
+    int numvec = X.NumVectors();
+
+    Epetra_Import const &import1 = A12_->Importer();
+    Epetra_Import const &import2 = A21_->Importer();
+
+    Epetra_Map const &map1 = A12_->RowMap();
+    Epetra_Map const &map2 = A21_->RowMap();
+
+    Epetra_MultiVector x1(map1, numvec);
+    Epetra_MultiVector x2(map2, numvec);
+
+    Epetra_MultiVector b1(map1, numvec);
+    Epetra_MultiVector b2(map2, numvec);
+
+    Epetra_MultiVector y1(map1, numvec);
+    Epetra_MultiVector y2(map2, numvec);
+
+    // We first import B into the parts of B belonging to their blocks
+    CHECK_ZERO(b1.Import(B, import1, Insert));
+    CHECK_ZERO(b2.Import(B, import2, Insert));
+
+    // We want to compute
+    // A11*x1 + A12*x2 = b1
+    // A21*x1 + A22*x2 = b2
+    // which results in solving
+    // S*x2 = b2 - A21*A11\b1
+    // x1 = -A11\A12*x2 + A11\b1
+    // where S is the Schur complement
+
+    // We first compute x1 = A11\b1, which we keep for later
+    CHECK_ZERO(A11_->ApplyInverse(b1, x1));
+
+    // Now we compute y2 = A21*A11\b1
+    CHECK_ZERO(A21_->Apply(x1, y2));
+
+    // We now compute the right-hand side for the Schur complement solve
+    if (schurRhs_->NumVectors() != X.NumVectors())
+      {
+      schurRhs_ = Teuchos::rcp(new Epetra_MultiVector(map2, X.NumVectors()));
+      schurSol_ = Teuchos::rcp(new Epetra_MultiVector(map2, X.NumVectors()));
+      schurSol_->PutScalar(0.0);
+      }
+    CHECK_ZERO(schurRhs_->Update(1.0, b2, -1.0, y2, 0.0));
+
+    // We now compute the border in case it is present
+    Epetra_SerialDenseMatrix q;
+    if (borderW_!=Teuchos::null)
+      {
+      CHECK_ZERO(DenseUtils::MatMul(*borderW1_, x1, q));
+      CHECK_ZERO(q.Scale(-1));
+      S.Reshape(q.M(), q.N());
+      q += T;
+      }
+
+    // And now we solve the Schur complement system to compute x2
+    if (scaleSchur_)
+      {
+      // left-scale rhs with schurScaLeft_
+      CHECK_ZERO(schurRhs_->Multiply(1.0, *schurScaLeft_, *schurRhs_, 0.0))
+        }
+    if (borderV_!=Teuchos::null)
+      {
+      Teuchos::RCP<HYMLS::BorderedSolver> borderedSchurSolver
+        = Teuchos::rcp_dynamic_cast<HYMLS::BorderedSolver>(schurPrec_);
+      if (borderedSchurSolver==Teuchos::null)
+        {
+        Tools::Error("cannot handle bordered Schur system!",__FILE__,__LINE__);
+        }
+      else
+        {
+        CHECK_ZERO(borderedSchurSolver->ApplyInverse(*schurRhs_, q, *schurSol_, S));
+        HYMLS_DEBUG("successfully applied bordered Schur precond");
+        }
       }
     else
       {
-      realloc = true;
+      CHECK_ZERO(schurPrec_->ApplyInverse(*schurRhs_,*schurSol_));
       }
 
-    if (realloc)
+    if (scaleSchur_)
       {
-      for (int i=0;i<4;i++)
-        {
-        tmpVec_[i] = Teuchos::rcp( new Epetra_MultiVector(*rowMap_,X.NumVectors()) );
-        tmpVec_[4+i] = (*interior_)(tmpVec_[i]);
-        tmpVec_[8+i] = (*separators_)(tmpVec_[i]);
-        }
-      }
-    
-    for (int i=0;i<4;i++) tmpVec_[i]->PutScalar(0.0);
-      
-    x = tmpVec_[0];
-    y = tmpVec_[1];
-    z = tmpVec_[2];
-    b = tmpVec_[3];
-    x1= tmpVec_[4];
-    z1= tmpVec_[6];
-    x2= tmpVec_[8];
-    y2= tmpVec_[9];
-    z2= tmpVec_[10];
-    b2= tmpVec_[11];
-    
-    // should just be a local reordering, unless the  
-    // partitioner has repartitioned the domain (eg.  
-    // if there were fewer subdomains than procs).    
-    // in that case we need the 'Insert' here for     
-    // the repartitioning, whereas otherwise a Zero   
-    // would be enough and no communication required. 
-    CHECK_ZERO(b->Import(B,*importer_,Insert)); 
-  
-    
-    HYMLS_DEBUG("solve subdomains...");
-    CHECK_ZERO(A11_->ApplyInverse(*b, *x));
-    
-    HYMLS_DEBUG("apply A21...");    
-    //CHECK_ZERO(ApplyA21(*x,z2,&flopsApplyInverse_));
-    CHECK_ZERO(A21_->Apply(*x,*z));
-
-    if (schurRhs_->NumVectors()!=X.NumVectors())
-      {
-      schurRhs_=Teuchos::rcp(new Epetra_MultiVector(*map2_,X.NumVectors()));
-      schurSol_=Teuchos::rcp(new Epetra_MultiVector(*map2_,X.NumVectors()));
-      schurSol_->PutScalar(0.0);
-      }        
-    schurRhs_->Update(1.0,*b2,-1.0,*z2,0.0);
-    flopsApplyInverse_+=veclen*numvec;
-    
-    if (S.M()!=T.M() || S.N()!=T.N() || S.N()!=numvec)
-      {
-      Tools::Error("invalid args to ApplyInverse (with border)",
-        __FILE__, __LINE__);
+      // unscale rhs with schurScaRight_
+      CHECK_ZERO(schurSol_->ReciprocalMultiply(1.0, *schurScaRight_, *schurSol_, 0.0))
       }
 
-    Epetra_SerialDenseMatrix q(T.M(),T.N());
+    x2 = *schurSol_;
 
-    CHECK_ZERO(DenseUtils::MatMul(*borderW1_,*x1,q));
-    CHECK_ZERO(q.Scale(-1));
-    q+=T;
+    // We have x2 now, so now we can compute x1. Remember that part of the solution
+    // is already in there. We first compute y1=A12*x2
+    CHECK_ZERO(A12_->Apply(x2, y1));
 
-  if (scaleSchur_)
-    {
-    // left-scale rhs with schurScaLeft_
-    CHECK_ZERO(schurRhs_->Multiply(1.0, *schurScaLeft_, *schurRhs_, 0.0))
-    }
+    // And now b1=A11\A12*x2. Note that we just use b1 as tmp variable here
+    CHECK_ZERO(A11_->ApplyInverse(y1, b1));
 
-  Teuchos::RCP<HYMLS::BorderedSolver> borderedSchurSolver
-        = Teuchos::rcp_dynamic_cast<HYMLS::BorderedSolver>(schurPrec_);
-  if (borderedSchurSolver==Teuchos::null)
-    {
-    Tools::Error("cannot handle bordered Schur system!",__FILE__,__LINE__);
-    }
-  else
-    {
-    CHECK_ZERO(borderedSchurSolver->ApplyInverse(*schurRhs_,q,*schurSol_,S));  
-    HYMLS_DEBUG("successfully applied bordered Schur precond");
-    }
+    // And finally we update x1
+    // this gives the final result [x1-y1; x2]
+    CHECK_ZERO(x1.Update(-1.0, b1, 1.0));
 
-  // unscale rhs with schurScaRight_
-  if (scaleSchur_)
-    {
-    CHECK_ZERO(schurSol_->ReciprocalMultiply(1.0, *schurScaRight_, *schurSol_, 0.0))
-    }
+    // Bordered stuff again
+    if (borderQ1_!=Teuchos::null)
+      {
+      Teuchos::RCP<Epetra_MultiVector> ss = DenseUtils::CreateView(S);
+      CHECK_ZERO(x1.Multiply('N', 'N', -1.0, *borderQ1_, *ss, 1.0));
+      }
+
+    // And now we import the result into X
+    //'Zero' would disable repartitioning here (some
+    // ranks may have a part of the vector but not  
+    // of the preconditioner), and
+    //'Insert' would put the empty overlap nodes into
+    // the other subdomains, so we need to zero out X
+    // and 'Add' instead.
+    CHECK_ZERO(X.PutScalar(0.0));
+    CHECK_ZERO(X.Export(x1, import1, Add));
+    CHECK_ZERO(X.Export(x2, import2, Add));
     
-  *x2=*schurSol_;
-  // this gives z1
-  HYMLS_DEBUG("Apply A12...");
-  CHECK_ZERO(A12_->Apply(*x2, *z));
-  // this gives y1, y2=0   
-  HYMLS_DEBUG("solve subdomains...");
-  CHECK_ZERO(A11_->ApplyInverse(*z, *y));
-  // this gives the final result [x1-y1; x2]
-  CHECK_ZERO(x->Update(-1.0,*y,1.0));
-  flopsApplyInverse_+=numvec*veclen;
-
-  Teuchos::RCP<Epetra_MultiVector> ss = DenseUtils::CreateView(S);
-  CHECK_ZERO(x1->Multiply('N','N',-1.0,*borderQ1_,*ss,1.0));
-
 #ifdef HYMLS_DEBUGGING
-if (dumpVectors_)
-  {
-  MatrixUtils::Dump(*z1,"Preconditioner"+Teuchos::toString(myLevel_)+"_Z1.txt");
-  MatrixUtils::Dump(*z2,"Preconditioner"+Teuchos::toString(myLevel_)+"_Z2.txt");
-  MatrixUtils::Dump(*y2,"Preconditioner"+Teuchos::toString(myLevel_)+"_Y2.txt");
-  }
-#endif    
-
-
-  
-  HYMLS_DEBUG("export solution.");
-  
-  //'Zero' would disable repartitioning here (some
-  // ranks may have a part of the vector but not  
-  // of the preconditioner), and
-  //'Insert' would put the empty overlap nodes into
-  // the other subdomains, so we need to zero out X
-  // and 'Add' instead.
-  CHECK_ZERO(X.PutScalar(0.0));
-  CHECK_ZERO(X.Export(*x,*importer_,Add)); 
-
-#ifdef HYMLS_DEBUGGING
-  if (dumpVectors_)
-    {
-    MatrixUtils::Dump(X, "Preconditioner"+Teuchos::toString(myLevel_)+"_Sol.txt");
-    dumpVectors_=numApplyInverse_>1?false: true;
-    }
-#endif    
+    if (dumpVectors_)
+      {
+      MatrixUtils::Dump(X, "Preconditioner"+Teuchos::toString(myLevel_)+"_Sol.txt");
+      dumpVectors_=numApplyInverse_>1?false: true;
+      }
+#endif
     timeApplyInverse_+=time_->ElapsedTime();
     return 0;
   }
