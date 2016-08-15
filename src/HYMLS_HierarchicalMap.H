@@ -238,6 +238,11 @@ public:
     return overlappingMap_;
     }
 
+  //! get an overlapping map containing also all
+  //! off-processor separators, but not with duplicate GIDs like
+  //! the overlapping map
+  Teuchos::RCP<const Epetra_Map> GetUniqueOverlappingMap() const;
+
   protected:
 
   //! replace internal map. To be used with extreme care!
@@ -270,7 +275,7 @@ public:
   
   //! restart putting in things, deletes the map and resets the groupPointer
   //! to local indexing. This function is called internally if you call     
-  //! AddSubdomain() or AddGroup() after FillComplete(), Filled() will then 
+  //! AddGroup() after FillComplete(), Filled() will then 
   //! return false until you call FillComplete() again.
   int FillStart();
   

@@ -17,7 +17,6 @@ set(HYMLS_SOURCE HYMLS_Solver
     HYMLS_BorderedLU
     HYMLS_BelosEpetraOperator
     HYMLS_Epetra_Time
-    HYMLS_View_MultiVector
     HYMLS_EpetraExt_ProductOperator
     HYMLS_SparseDirectSolver
     HYMLS_Householder

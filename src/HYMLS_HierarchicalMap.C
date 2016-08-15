@@ -260,6 +260,25 @@ namespace HYMLS {
   return os;
   }
 
+
+Teuchos::RCP<const Epetra_Map> HierarchicalMap::GetUniqueOverlappingMap() const
+  {
+  HYMLS_PROF3(label_,"GetUniqueOverlappingMap");
+
+  // Get elements from the original overlappign map which contains duplicate elements
+  Teuchos::Array<int> myElements(overlappingMap_->NumMyElements());
+  overlappingMap_->MyGlobalElements(&myElements[0]);
+
+  // Sort the list and only keep the unique elements
+  std::sort(myElements.begin(), myElements.end());
+  auto last = std::unique(myElements.begin(), myElements.end());
+  myElements.erase(last, myElements.end());
+
+  // Return a new overlapping map with only unique elements
+  return Teuchos::rcp(new Epetra_Map(-1, myElements.size(), &myElements[0],
+      overlappingMap_->IndexBase(), *comm_));
+  }
+
 Teuchos::RCP<const HierarchicalMap> 
 HierarchicalMap::Spawn(SpawnStrategy strat,
         Teuchos::RCP<Teuchos::Array<HYMLS::SepNode> > regroup) const
