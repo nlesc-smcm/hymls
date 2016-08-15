@@ -335,12 +335,6 @@ protected:
   
   //! lower right block of bordered Schur system
   Teuchos::RCP<Epetra_SerialDenseMatrix> borderSchurC_;
-
-  //! map with _all_ interior elements
-  Teuchos::RCP<const Epetra_Map> map1_;
-
-  //! map defining the rows/columns of the Schur complement (separator nodes)
-  Teuchos::RCP<const Epetra_Map> map2_;
   
   //@}
   

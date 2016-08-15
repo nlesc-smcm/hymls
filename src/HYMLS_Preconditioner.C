@@ -64,7 +64,7 @@ namespace HYMLS {
     HYMLS_LPROF3(label_,"Constructor");
     REPORT_SUM_MEM(label_,"Matrix",K->NumMyNonzeros(),K->NumMyNonzeros(),comm_);
     serialComm_=Teuchos::rcp(new Epetra_SerialComm());
-//    serialComm_=Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_SELF));
+//    serialComm_=Teuchos::rcp(new Epetra_MpiComm(MPIborderC_OMM_SELF));
     time_=Teuchos::rcp(new Epetra_Time(K->Comm()));
 
     setParameterList(params);
@@ -383,81 +383,11 @@ HYMLS_DEBVAR(probList_);
   ProcTopo->setActive(myLevel_,active);
 */
 
-    // construct maps for the 1- (subdomain-) and 2- (separator-)blocks
-    HYMLS_DEBUG("Precond: construct maps");
-
-    Teuchos::RCP<const HierarchicalMap> interiorObject = 
-        hid_->Spawn(HierarchicalMap::Interior);
-
-    Teuchos::RCP<const HierarchicalMap> sepObject = 
-        hid_->Spawn(HierarchicalMap::Separators);
-
-  map1_ = interiorObject->GetMap();
-  map2_ = sepObject->GetMap();
-
-  
-  // The rowMap object has first all the interior elements,
-  // then all the local separator elements, and finally    
-  // all the off-processor separators connected to local   
-  // subdomains. It is used to permute/import objects so   
-  // that we can easily access the various types of nodes. 
-  int numElts=map1_->NumMyElements()
-             +map2_->NumMyElements();
-
-  for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
-    {
-    numElts+=sepObject->NumSeparatorElements(sep);
-    }    
-
-  int *AllMyElements=new int[numElts];
-
-#ifdef HYMLS_TESTING
-  Teuchos::RCP<const Epetra_Map> repartMap = hid_->GetMap();
-  if (repartMap->NumMyElements()!=(map1_->NumMyElements()+map2_->NumMyElements()))
-    {
-    std::ofstream ofs("hid_data.m",std::ios::app);
-    ofs << *hid_<<std::endl;
-    ofs.close();
-    HYMLS_DEBVAR(*map1_);
-    HYMLS_DEBVAR(*map2_);
-    HYMLS_DEBVAR(*repartMap);
-    HYMLS_DEBUG(std::flush);
-    Tools::Error("inconsistent maps found",__FILE__,__LINE__);
-    }
-#endif 
-  
-  for (int i=0;i<map1_->NumMyElements();i++)
-    {
-    AllMyElements[i]=map1_->GID(i);
-    }
-
-  int offset = map1_->NumMyElements();
-  for (int i=0;i<map2_->NumMyElements();i++)
-    {
-    AllMyElements[offset+i]=map2_->GID(i);
-    }
-
-  offset+=map2_->NumMyElements();
-  int k=0;
-  for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
-    {
-    for (int grp=1;grp<sepObject->NumGroups(sep);grp++)
-      {
-      for (int j=0;j<sepObject->NumElements(sep,grp);j++)
-        {
-        AllMyElements[offset+k] = sepObject->GID(sep,grp,j);
-        k++;
-        }
-      }
-    }
-
-  HYMLS_DEBUG("build rowMap");
-  rowMap_ = Teuchos::rcp(new Epetra_Map(-1,numElts,AllMyElements,
-                rangeMap_->IndexBase(), *comm_));
+  // Obtain a map with overlap between processors from the overlapping
+  // partitioner which we need for the A12/A21 subdomain blocks
+  rowMap_ = hid_->GetUniqueOverlappingMap();
 
   importer_=Teuchos::rcp(new Epetra_Import(*rowMap_,*rangeMap_));
-
-  delete [] AllMyElements;
 
   int MaxNumEntriesPerRow=matrix_->MaxNumEntries();
 
@@ -473,7 +403,6 @@ HYMLS_DEBVAR(probList_);
 #if defined(HYMLS_STORE_MATRICES) || defined(HYMLS_TESTING)
   MatrixUtils::Dump(*rangeMap_,"originalMap"+Teuchos::toString(myLevel_)+".txt");
   MatrixUtils::Dump(*rowMap_,"reorderedMap"+Teuchos::toString(myLevel_)+".txt");
-  MatrixUtils::Dump(*map2_,"schurMap"+Teuchos::toString(myLevel_)+".txt");
 #endif
 
   HYMLS_DEBUG("Reorder global matrix");
@@ -520,7 +449,9 @@ HYMLS_DEBVAR(probList_);
   // Initialize the subdomain solvers for the A11 block
   A11_->InitializeSubdomainSolvers(sdSolverType_, sd_list, numThreadsSD_);
 
-  HYMLS_DEBUG("Create Schur-complement");  
+  HYMLS_DEBUG("Create Schur-complement");
+
+  Epetra_Map const &map2 = A22_->RowMap();
 
   // construct the Schur-complement operator (no computations, just
   // pass in pointers of the LU's)
@@ -529,7 +460,7 @@ HYMLS_DEBVAR(probList_);
 Tools::out() << "=============================="<<std::endl;
 Tools::out() << "LEVEL "<< myLevel_<<std::endl;
 Tools::out() << "SIZE OF A: "<< matrix_->NumGlobalRows()<<std::endl;
-Tools::out() << "SIZE OF S: "<< map2_->NumGlobalElements()<<std::endl;
+Tools::out() << "SIZE OF S: "<< map2.NumGlobalElements()<<std::endl;
 if (sdSolverType_=="Dense")
   {
     Tools::out() << "*** USING DENSE SUBDOMAIN SOLVERS ***"<<std::endl;
@@ -555,11 +486,10 @@ Tools::out() << "=============================="<<std::endl;
     }
     
   Epetra_Vector tmpVec(*rowMap_);
-  Teuchos::RCP<Epetra_Vector> testVector2
-        = Teuchos::rcp(new Epetra_Vector(*map2_));
-  Teuchos::RCP<Epetra_Import> import2_ = Teuchos::rcp(new Epetra_Import(*map2_,*rowMap_));
+  Teuchos::RCP<Epetra_Vector> testVector2 = Teuchos::rcp(new Epetra_Vector(map2));
+  Teuchos::RCP<Epetra_Import> import2 = Teuchos::rcp(new Epetra_Import(map2, *rowMap_));
   CHECK_ZERO(tmpVec.Import(*testVector_,*importer_,Insert));
-  CHECK_ZERO(testVector2->Import(tmpVec,*import2_,Insert));
+  CHECK_ZERO(testVector2->Import(tmpVec,*import2,Insert));
 
 #ifdef STORE_TESTVECTOR
   Teuchos::RCP<Epetra_Import> importer = Teuchos::rcp(new Epetra_Import(Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_)->DomainMap(), *rangeMap_));
@@ -582,8 +512,8 @@ Tools::out() << "=============================="<<std::endl;
   CHECK_ZERO(schurPrec_->Initialize());
 
   // create Belos' view of the Schur-complement problem
-  schurRhs_=Teuchos::rcp(new Epetra_Vector(*map2_));
-  schurSol_=Teuchos::rcp(new Epetra_Vector(*map2_));
+  schurRhs_=Teuchos::rcp(new Epetra_Vector(map2));
+  schurSol_=Teuchos::rcp(new Epetra_Vector(map2));
   schurSol_->PutScalar(0.0);
     
   initialized_=true;
@@ -648,7 +578,7 @@ A11_->ComputeSubdomainSolvers();
       {
       // explicitly construct the SC and check wether it is an F-matrix
       Teuchos::RCP<Epetra_FECrsMatrix> TestSC =
-              Teuchos::rcp(new Epetra_FECrsMatrix(Copy, *map2_, Matrix().MaxNumEntries()));
+        Teuchos::rcp(new Epetra_FECrsMatrix(Copy, A22_->RowMap(), Matrix().MaxNumEntries()));
       CHECK_ZERO(Schur_->Construct(TestSC));
 
 #ifdef HYMLS_STORE_MATRICES
@@ -724,10 +654,10 @@ REPORT_SUM_MEM(label_,"before schurprec",0,0, comm_);
     Epetra_SerialDenseMatrix S, T;
     if (HaveBorder())
       {
-      T.Reshape(borderV_->NumVectors(), B.NumVectors());
+      CHECK_ZERO(T.Reshape(borderV_->NumVectors(), B.NumVectors()));
       }
 
-    ApplyInverse(B, T, X, S);
+    return ApplyInverse(B, T, X, S);
     }
 
   // Returns a pointer to the matrix to be preconditioned.
@@ -1146,9 +1076,9 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
     {
     HYMLS_LPROF2(label_,"addBorder");
 
-    Teuchos::RCP<const Epetra_MultiVector> _V=V;
-    Teuchos::RCP<const Epetra_MultiVector> _W=W;
-    Teuchos::RCP<const Epetra_SerialDenseMatrix> _C=C;
+    borderV_ = Teuchos::null;
+    borderW_ = Teuchos::null;
+    borderC_ = Teuchos::null;
 
     if (!IsComputed())
       {
@@ -1159,63 +1089,65 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
       Tools::Error("addBorder: requires preconditioner to be computed",
         __FILE__,__LINE__);
       }
-    if (_V==Teuchos::null)
+
+    if (V == Teuchos::null)
       {
-      Tools::Error("addBorder: V can't be null",__FILE__,__LINE__);
+      Tools::Error("addBorder: V can't be null", __FILE__, __LINE__);
       }
-    int m = _V->NumVectors();
+
+    borderV_ = Teuchos::rcp(new Epetra_MultiVector(*V));
+
+    int m = borderV_->NumVectors();
     HYMLS_DEBVAR(m);
-    if (_W==Teuchos::null)
+    if (W == Teuchos::null)
       {
       HYMLS_DEBUG("Using W=V");
-      _W=_V;
-      }
-    if (_C==Teuchos::null)
-      {
-      HYMLS_DEBUG("Using C=0");
-      _C=Teuchos::rcp(new Epetra_SerialDenseMatrix(m,m));
-      }
-    
-    if (!(_V->Map().SameAs(OperatorRangeMap())&&_V->Map().SameAs(_W->Map())))
-      {
-      Tools::Error("incompatible maps found",__FILE__,__LINE__);
-      }
-    if (_W->NumVectors()!=m)
-      {
-      Tools::Error("bordering: V and W must have same number of columns",
-        __FILE__,__LINE__); 
-      }
-    if ((_C->N()!=_C->M())||(_C->N()!=m))
-      {
-      Tools::Error("bordering: C block must be square and compatible with V and W",
-        __FILE__,__LINE__);
-      }
-    
-    borderV_ = Teuchos::rcp(new Epetra_MultiVector(*rowMap_, m));
-    CHECK_ZERO(borderV_->Import(*_V, *importer_, Insert));
-    
-    if (_W.get()==_V.get())
-      {
-      borderW_=borderV_;
+      borderW_ = borderV_;
       }
     else
       {
-      borderW_ = Teuchos::rcp(new Epetra_MultiVector(*rowMap_, m));
-      CHECK_ZERO(borderW_->Import(*_W, *importer_, Insert));
+      borderW_ = Teuchos::rcp(new Epetra_MultiVector(*W));
       }
 
-    // TODO: Remove this and also map1_ etc. Those are now part
-    // of MatrixBlock
-    Teuchos::RCP<Epetra_Import> import1_ = Teuchos::rcp(new Epetra_Import(*map1_,*rowMap_));
-    Teuchos::RCP<Epetra_Import> import2_ = Teuchos::rcp(new Epetra_Import(*map2_,*rowMap_));
+    if (C == Teuchos::null)
+      {
+      HYMLS_DEBUG("Using C=0");
+      borderC_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(m,m));
+      }
+    else
+      {
+      borderC_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(*C));
+      }
 
-    borderC_ = _C;
+    if (!(borderV_->Map().SameAs(OperatorRangeMap()) &&
+        borderV_->Map().SameAs(borderW_->Map())))
+      {
+      Tools::Error("incompatible maps found", __FILE__, __LINE__);
+      }
+
+    if (borderW_->NumVectors() != m)
+      {
+      Tools::Error("bordering: V and W must have same number of columns",
+        __FILE__, __LINE__); 
+      }
+
+    if ((borderC_->N() != borderC_->M()) || (borderC_->N() != m))
+      {
+      Tools::Error("bordering: C block must be square and compatible with V and W",
+        __FILE__, __LINE__);
+      }
+
+    Epetra_Import const &import1 = A12_->Importer();
+    Epetra_Import const &import2 = A21_->Importer();
+
+    Epetra_Map const &map1 = A12_->RowMap();
+    Epetra_Map const &map2 = A21_->RowMap();
     
-    borderV1_ = Teuchos::rcp(new Epetra_MultiVector(*map1_,m));
-    borderV2_ = Teuchos::rcp(new Epetra_MultiVector(*map2_,m));
+    borderV1_ = Teuchos::rcp(new Epetra_MultiVector(map1,m));
+    borderV2_ = Teuchos::rcp(new Epetra_MultiVector(map2,m));
 
-    CHECK_ZERO(borderV1_->Import(*borderV_,*import1_,Insert));
-    CHECK_ZERO(borderV2_->Import(*borderV_,*import2_,Insert));
+    CHECK_ZERO(borderV1_->Import(*borderV_,import1,Insert));
+    CHECK_ZERO(borderV2_->Import(*borderV_,import2,Insert));
 
     if (borderV_.get()==borderW_.get())
       {
@@ -1224,26 +1156,26 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
       }
     else
       {
-      borderW1_ = Teuchos::rcp(new Epetra_MultiVector(*map1_,m));
-      borderW2_ = Teuchos::rcp(new Epetra_MultiVector(*map2_,m));
-      CHECK_ZERO(borderW1_->Import(*borderW_,*import1_,Insert));
-      CHECK_ZERO(borderW2_->Import(*borderW_,*import2_,Insert));
+      borderW1_ = Teuchos::rcp(new Epetra_MultiVector(map1,m));
+      borderW2_ = Teuchos::rcp(new Epetra_MultiVector(map2,m));
+      CHECK_ZERO(borderW1_->Import(*borderW_,import1,Insert));
+      CHECK_ZERO(borderW2_->Import(*borderW_,import2,Insert));
       }
 
     // build the border for the Schur-complement
-    borderSchurV_ = Teuchos::rcp(new Epetra_MultiVector(*map2_,m));
-    borderQ1_= Teuchos::rcp(new Epetra_MultiVector(*map1_,m));
+    borderSchurV_ = Teuchos::rcp(new Epetra_MultiVector(map2,m));
+    borderQ1_= Teuchos::rcp(new Epetra_MultiVector(map1,m));
 
     CHECK_ZERO(A11_->ApplyInverse(*borderV1_,*borderQ1_));
     CHECK_ZERO(A21_->Apply(*borderQ1_, *borderSchurV_));
     CHECK_ZERO(borderSchurV_->Update(1.0,*borderV2_,-1.0));
 
     // borderSchurW is given by W2 - (A11\A12)'W1
-    borderSchurW_ = Teuchos::rcp(new Epetra_MultiVector(*map2_,m));
+    borderSchurW_ = Teuchos::rcp(new Epetra_MultiVector(map2,m));
     // TODO: we use the formulation W2 - A12'(A11'\W1) instead, not
     //       sure which is the more efficient implementation, but this
     //       seemed to be easier to do quickly.
-    Epetra_MultiVector w1tmp(*map1_,m);
+    Epetra_MultiVector w1tmp(map1,m);
     A11_->SetUseTranspose(true);
     CHECK_ZERO(A11_->ApplyInverse(*borderW1_, w1tmp));
     A11_->SetUseTranspose(false);
