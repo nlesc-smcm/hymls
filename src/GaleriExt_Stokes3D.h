@@ -55,20 +55,18 @@ Stokes3D(const Epetra_Map* Map,
 {
   Teuchos::RCP<Epetra_CrsMatrix> Matrix = Teuchos::rcp(new Epetra_CrsMatrix(Copy, *Map,  9));
   Teuchos::RCP<Epetra_CrsMatrix> Darcy  = Teuchos::rcp(Darcy3D(Map,nx,ny,nz,0.0,-b,perio));
-  
-  
+
   int dof=4;
-  int NumMyElements1 = Map->NumMyElements()/dof;
-  int NumGlobalElements1=Map->NumGlobalElements()/dof;
+  int MaxNumMyElements1 = Map->NumMyElements() / dof + 1;
+  int NumGlobalElements1 = Map->NumGlobalElements() / dof;
   Teuchos::ArrayRCP<int> MyGlobalElements1;
-  MyGlobalElements1.resize(NumMyElements1);
-  int pos=0;
-  
-  
+  MyGlobalElements1.resize(MaxNumMyElements1);
+  int NumMyElements1=0;
+
   for (int i=0; i<Map->NumMyElements();i++)
   {
     int gid=Map->GID(i);
-    if (gid%dof==0) MyGlobalElements1[pos++]=gid/dof;
+    if (gid%dof==0) MyGlobalElements1[NumMyElements1++]=gid/dof;
   }
   Teuchos::RCP<Epetra_Map> Map1=Teuchos::rcp(new Epetra_Map(NumGlobalElements1,NumMyElements1,&MyGlobalElements1[0],Map->IndexBase(),Map->Comm()));
  
@@ -89,7 +87,8 @@ Stokes3D(const Epetra_Map* Map,
     const int max_len=9;
     int cols[max_len], cols_laplace[max_len];
     double vals[max_len],vals_laplace[max_len];
-    int lenDarcy,lenLaplace;
+    int lenDarcy=0;
+    int lenLaplace=0;
     Darcy->ExtractGlobalRowCopy(row,max_len,lenDarcy,vals,cols);
     // u or v node? add Laplace row entries
     int lenTotal=lenDarcy;

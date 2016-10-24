@@ -34,7 +34,9 @@ Teuchos::RCP<Epetra_Map> create_random_map(const Epetra_Comm& comm, int n, int n
 // helper function for comparing Epetra_IntVectors
 int NormInfAminusB(const Epetra_IntVector& A, const Epetra_IntVector& B)
 {
-  if (A.Map().SameAs(B.Map())==false) return -1;
+  if (!A.Map().SameAs(B.Map()))
+    return -1;
+
   int value=0;
   for (int i=0; i<A.MyLength(); i++)
   {
