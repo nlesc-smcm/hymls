@@ -1,7 +1,8 @@
-#include "HYMLS_MatrixUtils.H"
 #include "GaleriExt_Periodic.h"
 #include "GaleriExt_Stokes3D.h"
+#include "HYMLS_Tools.H"
 #include "HYMLS_Macros.H"
+#include "HYMLS_MatrixUtils.H"
 
 #include "Epetra_MpiComm.h"
 #include "EpetraExt_CrsMatrixIn.h"
@@ -9,6 +10,7 @@
 #include "Epetra_Vector.h"
 
 #include "HYMLS_UnitTests.H"
+#include "HYMLS_UnitTestData.H"
 
 TEUCHOS_UNIT_TEST(GaleriExt, Stokes3D_CompareWithFile)
   {
@@ -16,7 +18,6 @@ TEUCHOS_UNIT_TEST(GaleriExt, Stokes3D_CompareWithFile)
 
   // create the 32x32 C-grid Stokes matrix using the function to be tested
   const int nx = 16,ny=16,nz=16,dof=4;
-  std::string filename="stokes16x16x16.mtx";
   int n = nx*ny*nz*dof;
   Teuchos::RCP<Epetra_Map> map_ptr=HYMLS::UnitTests::create_random_map(Comm,n, dof);
   const Epetra_Map& map=*map_ptr;
@@ -27,10 +28,12 @@ TEUCHOS_UNIT_TEST(GaleriExt, Stokes3D_CompareWithFile)
   // for the A and B part (the function puts b in the B part and a*[-1 6 -1 ...] in the A part)
   Teuchos::RCP<Epetra_CrsMatrix> A_func = Teuchos::rcp(GaleriExt::Matrices::Stokes3D
         (&map,nx,ny,nz,dx,(dx*dx),GaleriExt::NO_PERIO));
-  
+
   // read matrix from file for comparing
   Epetra_CrsMatrix* tmp=NULL;
-  EpetraExt::MatrixMarketFileToCrsMatrix(filename.c_str(),map,tmp);
+  CHECK_ZERO(EpetraExt::MatrixMarketFileToCrsMatrix(
+      HYMLS::UnitTests::GetDataParameterList()->get("3D Stokes matrix", "").c_str(), map, tmp));
+
   Teuchos::RCP<Epetra_CrsMatrix> A_file=Teuchos::rcp(tmp,true);
 
   // note: in the file we compare with, we have A B; B' 0], but our function creates A B; -B' 0], so
@@ -39,9 +42,6 @@ TEUCHOS_UNIT_TEST(GaleriExt, Stokes3D_CompareWithFile)
   scale.PutScalar(1.0);
   for (int i=dof-1; i<scale.MyLength(); i+=dof) scale[i]=-1.0;
   A_file->RightScale(scale);
-
-//  std::cout << "A_file="<<*A_file<<std::endl;
-//  std::cout << "A_func="<<*A_func<<std::endl;
 
   // test if the matrices are the same by doing a matvec with a random vector
   Epetra_Vector v1(map);
@@ -58,7 +58,6 @@ TEUCHOS_UNIT_TEST(GaleriExt, Stokes3D_CompareWithFile)
   v2.Update(-1.0,v3,1.0);
   double norm_should_be_small;
   v2.Norm2(&norm_should_be_small);
-  //std::cout << "diff: "<<v2<<std::endl;
   TEST_FLOATING_EQUALITY(1.0,1.0+norm_should_be_small,1e-14);
   }
 

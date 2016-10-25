@@ -1,12 +1,14 @@
-#include "HYMLS_MatrixUtils.H"
 #include "GaleriExt_Periodic.h"
 #include "GaleriExt_Stokes2D.h"
+#include "HYMLS_Tools.H"
 #include "HYMLS_Macros.H"
+#include "HYMLS_MatrixUtils.H"
 
 #include "Epetra_MpiComm.h"
 #include "EpetraExt_CrsMatrixIn.h"
 
 #include "HYMLS_UnitTests.H"
+#include "HYMLS_UnitTestData.H"
 
 TEUCHOS_UNIT_TEST(GaleriExt, Stokes2D_CompareWithFile)
   {
@@ -14,22 +16,20 @@ TEUCHOS_UNIT_TEST(GaleriExt, Stokes2D_CompareWithFile)
 
   // create the 32x32 C-grid Stokes matrix using the function to be tested
   const int nx = 32,ny=32,dof=3;
-  std::string filename="stokes32x32.mtx";
   int n = nx*ny*dof;
   Teuchos::RCP<Epetra_Map> map_ptr=HYMLS::UnitTests::create_random_map(Comm,n, dof);
   const Epetra_Map& map=*map_ptr;
-  double dx = 1.0/nx, dy=1.0/ny;
-  
+  double dx = 1.0/nx;
+
   Teuchos::RCP<Epetra_CrsMatrix> A_func = Teuchos::rcp(GaleriExt::Matrices::Stokes2D
         (&map,nx,ny,1.0/(dx*dx),1.0,GaleriExt::NO_PERIO));
-  
+
   // read matrix from file for comparing
   Epetra_CrsMatrix* tmp=NULL;
-  EpetraExt::MatrixMarketFileToCrsMatrix(filename.c_str(),map,tmp);
-  Teuchos::RCP<Epetra_CrsMatrix> A_file=Teuchos::rcp(tmp,true);
+  CHECK_ZERO(EpetraExt::MatrixMarketFileToCrsMatrix(
+      HYMLS::UnitTests::GetDataParameterList()->get("2D Stokes matrix", "").c_str(), map, tmp));
 
-//  std::cout << "A_file="<<*A_file<<std::endl;
- // std::cout << "A_func="<<*A_func<<std::endl;
+  Teuchos::RCP<Epetra_CrsMatrix> A_file=Teuchos::rcp(tmp,true);
 
   // test if the matrices are the same by doing a matvec with a random vector
   Epetra_Vector v1(map);

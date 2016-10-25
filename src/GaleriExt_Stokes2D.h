@@ -42,6 +42,9 @@
 #include "GaleriExt_Cross2DN.h"
 #include "GaleriExt_Darcy2D.h"
 
+#include <Teuchos_RCP.hpp>
+#include <Teuchos_Array.hpp>
+
 namespace GaleriExt {
 namespace Matrices {
 

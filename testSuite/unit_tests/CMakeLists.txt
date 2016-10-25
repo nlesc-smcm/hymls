@@ -13,9 +13,10 @@ set(SOURCES
   HYMLS_UnitTests
   main)
 
-# we use this matrix file for testing the GaleriExt::Matrices::Stokes2D function
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../data/DrivenCavity/32x32/Re0/jac.mtx ${CMAKE_CURRENT_BINARY_DIR}/stokes32x32.mtx)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../data/DrivenCavity/16x16x16/Re0/jac.mtx ${CMAKE_CURRENT_BINARY_DIR}/stokes16x16x16.mtx)
+# Configure the data xml file in which we can set parameters (like file names)
+configure_file(data.xml ${CMAKE_CURRENT_BINARY_DIR}/data.xml)
+configure_file(HYMLS_UnitTestData.H.in ${CMAKE_CURRENT_BINARY_DIR}/HYMLS_UnitTestData.H)
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 add_executable(unit_tests ${SOURCES})
 

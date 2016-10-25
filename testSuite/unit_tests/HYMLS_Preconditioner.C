@@ -85,10 +85,15 @@ TEUCHOS_UNIT_TEST(Preconditioner, Blocks)
     int A_idx = util.RandomInt() % n;
     double A_val = -std::abs(util.RandomDouble());
     double A_val2 = std::abs(util.RandomDouble());
-    A->InsertGlobalValues(i, 1, &A_val, &A_idx);
-    A->InsertGlobalValues(i, 1, &A_val2, &i);
+
+    // Check if we own the index
+    if (A->LRID(i) == -1)
+      continue;
+
+    CHECK_ZERO(A->InsertGlobalValues(i, 1, &A_val, &A_idx));
+    CHECK_ZERO(A->InsertGlobalValues(i, 1, &A_val2, &i));
   }
-  A->FillComplete();
+  CHECK_ZERO(A->FillComplete());
 
   TestablePreconditioner prec(A, params);
   prec.Initialize();

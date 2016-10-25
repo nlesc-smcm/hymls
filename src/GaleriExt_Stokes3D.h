@@ -40,6 +40,9 @@
 #include "Galeri_Cross3D.h"
 #include "GaleriExt_Darcy3D.h"
 
+#include <Teuchos_RCP.hpp>
+#include <Teuchos_Array.hpp>
+
 namespace GaleriExt {
 namespace Matrices {
 
