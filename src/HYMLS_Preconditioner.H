@@ -304,9 +304,6 @@ protected:
 
   //! solution vector for Schur complement
   mutable Teuchos::RCP<Epetra_MultiVector> schurSol_;
-
-  //! some temporary vectors we use in ApplyInverse()
-  mutable Teuchos::RCP<Epetra_MultiVector> tmpVec_[12];
   
   //! a test vector for constructing good orthogonal transformations
   //! (all ones on the first level, passed to the approximate SC)
