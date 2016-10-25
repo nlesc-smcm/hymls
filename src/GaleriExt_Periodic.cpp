@@ -1,20 +1,6 @@
 #include "HYMLS_Tools.H"
 #include "Galeri_Utils.h"
 #include "GaleriExt_Periodic.h"
-#include "Galeri_Exception.h"
-#include "Epetra_MultiVector.h"
-#include "Epetra_Comm.h"
-#include "Epetra_BlockMap.h"
-#include "Epetra_Map.h"
-#include "Epetra_RowMatrix.h"
-#include "Epetra_LinearProblem.h"
-#include "Epetra_SerialDenseMatrix.h"
-#include "Epetra_SerialDenseSolver.h"
-#include "Epetra_LAPACK.h"
-#include "Epetra_CrsMatrix.h"
-#include "Epetra_IntSerialDenseMatrix.h"
-#include "Epetra_SerialDenseMatrix.h"
-#include "Teuchos_ParameterList.hpp"
 
 namespace GaleriExt {
 
