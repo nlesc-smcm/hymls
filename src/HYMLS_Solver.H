@@ -47,16 +47,10 @@ public:
   ~Solver();
 
   //! set solver parameters (the list is the "HYMLS"->"Solver" sublist)
-  void setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& params)
-    {
-    solver_->setParameterList(params);
-    }
+  void setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& params);
 
   //! get a list of valid parameters for this object
-  Teuchos::RCP<const Teuchos::ParameterList> getValidParameters() const
-    {
-    return solver_->getValidParameters();
-    }
+  Teuchos::RCP<const Teuchos::ParameterList> getValidParameters() const;
 
   //! set matrix for solve
   void SetMatrix(Teuchos::RCP<const Epetra_RowMatrix> A)
@@ -235,31 +229,15 @@ public:
     return solver_->SetupDeflation(maxEigs);
     }
 
-  //! Forwarding functions for the PLA to the actual solver
-public:
-  Teuchos::RCP<Teuchos::ParameterList> getNonconstParameterList()
-    {
-    return solver_->getNonconstParameterList();
-    }
-
-  Teuchos::RCP<Teuchos::ParameterList> unsetParameterList()
-    {
-    return solver_->unsetParameterList();
-    }
-
-  Teuchos::RCP<const Teuchos::ParameterList> getParameterList() const
-    {
-    return solver_->getParameterList();
-    }
-
-  Teuchos::RCP<const Teuchos::DependencySheet> getDependencies() const
-    {
-    return solver_->getDependencies();
-    }
-
 private:
   //! Actual HYMLS solver without extra functionality
   Teuchos::RCP<BaseSolver> solver_;
+
+  //! label
+  std::string label_;
+
+  //! Used to determine if we want to use the deflated HYMLS solver class
+  bool useDeflation_;
 
   };
 

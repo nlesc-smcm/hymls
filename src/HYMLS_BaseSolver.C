@@ -52,7 +52,7 @@ BaseSolver::BaseSolver(Teuchos::RCP<const Epetra_RowMatrix> K,
   numEigs_(0),
   V_(Teuchos::null), W_(Teuchos::null),
   useTranspose_(false), normInf_(-1.0), numIter_(0),
-  label_("HYMLS::Solver"),
+  label_("HYMLS::BaseSolver"),
   lor_default_("Right")
   {
   HYMLS_PROF3(label_,"Constructor");
