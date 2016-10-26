@@ -2,23 +2,15 @@
 #define HYMLS_SOLVER_H
 
 #include "HYMLS_config.h"
-#include "HYMLS_Macros.H"
 
 #include "Teuchos_RCP.hpp"
 #include "Epetra_Operator.h"
-#include "Ifpack_Preconditioner.h"
-
-#include "BelosLinearProblem.hpp"
-#include "BelosSolverManager.hpp"
-#include "BelosEpetraAdapter.hpp"
-#include "BelosOutputManager.hpp"
-
 #include "Epetra_RowMatrix.h"
 
-#include "HYMLS_MatrixUtils.H"
 #include "HYMLS_PLA.H"
+#include "HYMLS_BaseSolver.H"
 
-// forward declarations
+  // forward declarations
 class Epetra_MultiVector;
 class Epetra_Comm;
 class Epetra_SerialDenseMatrix;
@@ -26,141 +18,176 @@ class Epetra_Map;
 class Epetra_Import;
 
 
-namespace Teuchos 
+namespace Teuchos
   {
   class ParameterList;
   }
 
 namespace HYMLS {
 
-class BorderedLU;
-
-namespace Belos {
-class EpetraOperator;
-}
-/*! iterative solver class, basically         
-   an Epetra wrapper for Belos extended with  
+/*! iterative solver class, basically
+   an Epetra wrapper for Belos extended with
    some bordering and deflation functionality.
 */
 class Solver : public Epetra_Operator,
                public PLA
   {
-  
 public:
-
-  typedef double ST;
-  typedef Epetra_MultiVector MV;
-  typedef Epetra_Operator OP;
-  typedef ::Belos::EpetraPrecOp belosPrecType_;
-  typedef ::Belos::LinearProblem<ST,MV,OP> belosProblemType_;
-  typedef ::Belos::SolverManager<ST,MV,OP> belosSolverType_;
-
-
-  //!                                                     
-  //! Constructor                                         
-  //!                                                     
-  //! arguments: matrix, preconditioner and belos params. 
-  //!                                                     
-  Solver(Teuchos::RCP<const Epetra_RowMatrix> K, 
-      Teuchos::RCP<Epetra_Operator> P,
-      Teuchos::RCP<Teuchos::ParameterList> params,
-      int numRhs=1);
+  //!
+  //! Constructor
+  //!
+  //! arguments: matrix, preconditioner and belos params.
+  //!
+  Solver(Teuchos::RCP<const Epetra_RowMatrix> K,
+    Teuchos::RCP<Epetra_Operator> P,
+    Teuchos::RCP<Teuchos::ParameterList> params,
+    int numRhs = 1);
 
   //! destructor
   ~Solver();
 
   //! set solver parameters (the list is the "HYMLS"->"Solver" sublist)
-  void setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& params);
-  
+  void setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& params)
+    {
+    solver_->setParameterList(params);
+    }
+
   //! get a list of valid parameters for this object
-  Teuchos::RCP<const Teuchos::ParameterList> getValidParameters() const;
-  
+  Teuchos::RCP<const Teuchos::ParameterList> getValidParameters() const
+    {
+    return solver_->getValidParameters();
+    }
+
   //! set matrix for solve
-  void SetMatrix(Teuchos::RCP<const Epetra_RowMatrix> A);
+  void SetMatrix(Teuchos::RCP<const Epetra_RowMatrix> A)
+    {
+    solver_->SetMatrix(A);
+    }
 
   //! set preconditioner for solve
-  void SetPrecond(Teuchos::RCP<Epetra_Operator> P);
+  void SetPrecond(Teuchos::RCP<Epetra_Operator> P)
+    {
+    solver_->SetPrecond(P);
+    }
 
   //! for eigenvalue computations - set mass matrix
-  void SetMassMatrix(Teuchos::RCP<const Epetra_RowMatrix> B);
+  void SetMassMatrix(Teuchos::RCP<const Epetra_RowMatrix> B)
+    {
+    solver_->SetMassMatrix(B);
+    }
 
   //! Applies the operator
   int Apply(const Epetra_MultiVector& X,
-                           Epetra_MultiVector& Y) const 
+    Epetra_MultiVector& Y) const
     {
-    return operator_->Apply(X,Y);
+    return solver_->Apply(X, Y);
     }
 
   //! Applies the matrix
   int ApplyMatrix(const Epetra_MultiVector& X,
-                           Epetra_MultiVector& Y) const 
+    Epetra_MultiVector& Y) const
     {
-    return matrix_->Apply(X,Y);
+    return solver_->Apply(X, Y);
     }
 
   //! Applies the preconditioner
   int ApplyPrec(const Epetra_MultiVector& X,
-                           Epetra_MultiVector& Y) const 
+    Epetra_MultiVector& Y) const
     {
-    return precond_->ApplyInverse(X,Y);
+    return solver_->ApplyPrec(X, Y);
     }
 
   //! Applies the mass matrix
   int ApplyMass(const Epetra_MultiVector& X,
-                           Epetra_MultiVector& Y) const 
+    Epetra_MultiVector& Y) const
     {
-    return massMatrix_->Apply(X,Y);
+    return solver_->ApplyMass(X, Y);
     }
 
   //! Applies the preconditioner to vector X, returns the result in Y.
   int ApplyInverse(const Epetra_MultiVector& X,
-                           Epetra_MultiVector& Y) const;
+    Epetra_MultiVector& Y) const
+    {
+    return solver_->ApplyInverse(X, Y);
+    }
 
   int SetUseTranspose(bool UseTranspose)
     {
-    useTranspose_=false; // not implemented.
-    return -1;
+    return solver_->SetUseTranspose(UseTranspose);
     }
+
   //! not implemented.
-  bool HasNormInf() const {return false;}
+  bool HasNormInf() const
+    {
+    return solver_->HasNormInf();
+    }
 
   //! infinity norm
-  double NormInf() const {return normInf_;}
+  double NormInf() const
+    {
+    return solver_->NormInf();
+    }
 
   //! label
-  const char* Label() const {return label_.c_str();}
-  
+  const char* Label() const
+    {
+    return solver_->Label();
+    }
+
   //! use transpose?
-  bool UseTranspose() const {return useTranspose_;}
-  
+  bool UseTranspose() const
+    {
+    return solver_->UseTranspose();
+    }
+
   //! communicator
-  const Epetra_Comm & Comm() const {return *comm_;}
-  
-    //! Returns the Epetra_Map object associated with the domain of this operator.
-    const Epetra_Map & OperatorDomainMap() const {return matrix_->OperatorDomainMap();}
+  const Epetra_Comm & Comm() const
+    {
+    return solver_->Comm();
+    }
 
-    //! Returns the Epetra_Map object associated with the range of this operator.
-    const Epetra_Map & OperatorRangeMap() const {return matrix_->OperatorRangeMap();}
-  
+  //! Returns the Epetra_Map object associated with the domain of this operator.
+  const Epetra_Map & OperatorDomainMap() const
+    {
+    return solver_->OperatorDomainMap();
+    }
 
-  
-
+  //! Returns the Epetra_Map object associated with the range of this operator.
+  const Epetra_Map & OperatorRangeMap() const
+    {
+    return solver_->OperatorRangeMap();
+    }
   //@}
 
   //! computes dominant eigenpairs of inv(P)
-  Teuchos::RCP<MatrixUtils::Eigensolution> EigsPrec(int numEigs) const;
-  
-  //! setup the solver to solve (shiftA*A+shiftB*B)x=b
-  void setShift(double shiftA, double shiftB);
+  Teuchos::RCP<MatrixUtils::Eigensolution> EigsPrec(int numEigs) const
+    {
+    return solver_->EigsPrec(numEigs);
+    }
 
-  void SetTolerance(double tol);
+  //! setup the solver to solve (shiftA*A+shiftB*B)x=b
+  void setShift(double shiftA, double shiftB)
+    {
+    solver_->setShift(shiftA, shiftB);
+    }
+
+  void SetTolerance(double tol)
+    {
+    solver_->SetTolerance(tol);
+    }
 
   //! get number of iterations performed in last ApplyInverse() call
-  inline int getNumIter() const {return numIter_;}
-  
+  int getNumIter() const
+    {
+    return solver_->getNumIter();
+    }
+
   //! get the null space (or approximate null space) of the operator
-  Teuchos::RCP<const Epetra_MultiVector> getNullSpace() {return nullSpace_;}
-  
+  Teuchos::RCP<const Epetra_MultiVector> getNullSpace()
+    {
+    return solver_->getNullSpace();
+    }
+
   //! For singular problems with a known null space, add the null space
   //! as a border so that in fact the linear system
   //!
@@ -169,13 +196,12 @@ public:
   //!
   //! is being solved. This means that the solution will be perpendicular to V0
   //! If the function is called repeatedly, the 'old' vectors are replaced.
-  int setNullSpace(Teuchos::RCP<const Epetra_MultiVector> const &V = Teuchos::null);
+  int setNullSpace(Teuchos::RCP<const Epetra_MultiVector> const &V = Teuchos::null)
+    {
+    return solver_->setNullSpace(V);
+    }
 
   //! Set the border of the matrix or expand the null space with this
-
-  //! border when a null space is present
-  int addBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
-
   //! border when a null space is present. If setNullSpace has not been
   //! called, this function is equivalent to setNullSpace.
   //! If the function is called repeatedly, the vectors added by setNullSpace are preserved
@@ -184,11 +210,17 @@ public:
   //! \todo rename this function addBorder and clarify who takes care of adding the border to
   //! the preconditioner: HYMLS::Solver or NOX::Epetra::LinearSystemHymls.
 
-
-    Teuchos::RCP<const Epetra_MultiVector> const &W);
+  int addBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
+    Teuchos::RCP<const Epetra_MultiVector> const &W)
+    {
+    return solver_->addBorder(V, W);
+    }
 
   //! use same preconditioner but operator (I-VV')A
-  int setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V);
+  int setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V)
+    {
+    return solver_->setProjectionVectors(V);
+    }
 
   //! computes the modes closest to 0 and sets up the solver's deflation
   //! capabilities. If maxEigs==-2, the value "Deflated Subspace Dimension"
@@ -198,124 +230,38 @@ public:
   //! preconditioner to make it non-singular.
   //!
   //! \todo see todo in addBorder
-  int SetupDeflation(int maxEigs=-2);
-  
+  int SetupDeflation(int maxEigs=-2)
+    {
+    return solver_->SetupDeflation(maxEigs);
+    }
 
-protected: 
+  //! Forwarding functions for the PLA to the actual solver
+public:
+  Teuchos::RCP<Teuchos::ParameterList> getNonconstParameterList()
+    {
+    return solver_->getNonconstParameterList();
+    }
 
-  //! communicator
-  Teuchos::RCP<const Epetra_Comm> comm_;
+  Teuchos::RCP<Teuchos::ParameterList> unsetParameterList()
+    {
+    return solver_->unsetParameterList();
+    }
 
-  //! matrix
-  Teuchos::RCP<const Epetra_RowMatrix> matrix_;
+  Teuchos::RCP<const Teuchos::ParameterList> getParameterList() const
+    {
+    return solver_->getParameterList();
+    }
 
- //! operator for which we solve OP*x=b, typically same as matrix_ or
- //! beta*A+alpha*B (if SetShift was called)
- Teuchos::RCP<const Epetra_Operator> operator_;
+  Teuchos::RCP<const Teuchos::DependencySheet> getDependencies() const
+    {
+    return solver_->getDependencies();
+    }
 
-  //! preconditioner
-  Teuchos::RCP<Epetra_Operator> precond_;
+private:
+  //! Actual HYMLS solver without extra functionality
+  Teuchos::RCP<BaseSolver> solver_;
 
-  //! We solve (beta*A+alpha*B)x=b
-  double shiftA_, shiftB_;
-
-  //! solver type and start vector type
-  std::string solverType_, startVec_;
-  
-  //! rhs and sol vectors. I'm not sure if we need these vectors
-  //! in the object or could just pass on the input of ApplyInverse,
-  //! but since it is currently implemented like this we make them
-  //! mutable so they can be re-allocated in ApplyInverse() if the 
-  //! number of RHS changes
-  mutable Teuchos::RCP<Epetra_MultiVector> belosRhs_,belosSol_;
-
-  //! Belos preconditioner interface
-  Teuchos::RCP<belosPrecType_> belosPrecPtr_;
-
-  //! Belos linear problem interface
-  Teuchos::RCP<belosProblemType_> belosProblemPtr_;
-
-  //! Belos solver
-  Teuchos::RCP<belosSolverType_> belosSolverPtr_;
-
-//@}
-
-//!\name data structures to monitor and deflate unstable modes
-
-/*! we compute a number of delicate eigenmodes and form their basis V.
-We then solve [V_orth'AV_orth   V_orth'AV; V'AV_orth   V'AV] [v; v_orth]=[V_orth'b;V'b]
-and form the solution as V*v+V_orth v_orth. The solution is computed using the class
-BorderedLU.
-*/
-
-//@{
-
-//! mass matrix - can be set using SetmassMatrix(). If not set, the 
-//! standard eigenproblem is solved.
-Teuchos::RCP<const Epetra_RowMatrix> massMatrix_;
-
-//! default null space to be removed from matrix before deflation (the parameter
-//! "Solver"->"Null Space" can be used to construct this, e.g. set it to "Constant P"
-//! for Stokes-C etc.), or the method setNullSpace can be used
-Teuchos::RCP<const Epetra_MultiVector> nullSpace_;
-
-//! number of eigenvalues computed initially
-int numEigs_;
-
-//! number of deflated eigenmodes
-int numDeflated_;
-
-//! tolerance to remove a mode. An eigenmode            
-//! is deflated if |lambda(P^{-1}A)-1|>tol (set by      
-//! "Deflation Threshold" in the "Solver" sublist).     
-double deflThres_;
-
-//! eigen-pairs of the preconditioner
-Teuchos::RCP<MatrixUtils::Eigensolution> precEigs_;
-
-//! Borders of the matrix, which might be the eigenspace
-  Teuchos::RCP<const Epetra_MultiVector> V_, W_;
-
-//! V_orth'AV and V'AV_orth (border of the block system)
-//! borderV_ = V_orth'AV, borderW_ = (V'AV_orth)'.
-Teuchos::RCP<Epetra_MultiVector> borderV_, borderW_;
-
-//! VAV
-Teuchos::RCP<Epetra_SerialDenseMatrix> borderC_;
-
-//! projected operator (V_orth' A V_orth)
-Teuchos::RCP<Epetra_Operator> Aorth_;
-
-//! a belos solver for Aorth_, disguised as an Epetra_Operator
-Teuchos::RCP<Belos::EpetraOperator> AorthSolver_;
-
-//! object handling the bordered solve
-Teuchos::RCP<BorderedLU> LU_;
-
-//@}
-
-  //! use transposed operator?
-  bool useTranspose_;
-  
-  //! infinity norm
-  double normInf_;
-  
-  //! number of iterations performed in last ApplyInverse() call
-  mutable int numIter_;
-  
-  //! label
-  std::string label_;
-  
-  private:
-  
-  //! a pointer array we need in order to construct a product operator
-  mutable Teuchos::RCP<const Epetra_Operator> op_array_[2];
-
-  //! default value for the "Left or Right Preconditioning" parameter
-  const std::string lor_default_;
-  
   };
-
 
 }
 
