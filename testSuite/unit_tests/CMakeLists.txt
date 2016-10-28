@@ -1,6 +1,7 @@
 set(SOURCES
   HYMLS_DenseUtils
   HYMLS_Preconditioner
+  HYMLS_ProjectedOperator
   HYMLS_Tester
   HYMLS_Tools
   main)

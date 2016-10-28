@@ -22,21 +22,47 @@ namespace HYMLS
   useTranspose_(false)
   {
   HYMLS_PROF3("ProjectedOperator", "Constructor");
+
   if (A_->OperatorRangeMap().SameAs(A_->OperatorDomainMap())==false)
     {
     Tools::Error("operator must be 'square'",__FILE__,__LINE__);
-    }  
+    }
+
   if (A_->OperatorRangeMap().SameAs(V_->Map())==false)
     {
     Tools::Error("operator and vector space must have compatible maps",
         __FILE__,__LINE__);
-    }  
+    }
+
+  // Check that V is (B-)orthonormal
+  int n = V_->NumVectors();
+  Epetra_SerialDenseMatrix tmpMat(n, n);
+  if (B_ == Teuchos::null)
+    {
+    CHECK_ZERO(DenseUtils::MatMul(*V_, *V_, tmpMat));
+    }
+  else
+    {
+    Epetra_MultiVector tmpVec(*V_);
+    CHECK_ZERO(B_->Apply(*V_, tmpVec));
+    CHECK_ZERO(DenseUtils::MatMul(*V_, tmpVec, tmpMat));
+    }
+  for (int i = 0; i < n; i++)
+    {
+    tmpMat(i, i) -= 1.0;
+    }
+
+  if (std::abs(tmpMat.NormInf()) > 1e-12)
+    {
+    Tools::Error("V is not (B-)orthonormal", __FILE__, __LINE__);
+    }
+
   // re-allocated if Apply(Inverse)() is called with more vectors:
   tmpVector_ = Teuchos::rcp(new Epetra_MultiVector(V_->Map(),1));
   labelV_="V";
-if (useVorth_) labelV_=labelV_+"_orth";
-labelA_="("+std::string(A_->Label())+")";
-labelT_="";
+  if (useVorth_) labelV_=labelV_+"_orth";
+  labelA_="("+std::string(A_->Label())+")";
+  labelT_="";
   }
 
     int ProjectedOperator::Apply(const Epetra_MultiVector& X, Epetra_MultiVector& Y) const
@@ -62,11 +88,13 @@ labelT_="";
         {
         Tools::Error("not implemented!",__FILE__,__LINE__);
         }
+
       if (leftPrecond_!=Teuchos::null)
         {
         *tmpVector_=Y;
         CHECK_ZERO(leftPrecond_->ApplyInverse(*tmpVector_,Y));
         }
+
       return 0;
       }
 
