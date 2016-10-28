@@ -150,12 +150,6 @@ public:
     }
   //@}
 
-  //! computes dominant eigenpairs of inv(P)
-  Teuchos::RCP<MatrixUtils::Eigensolution> EigsPrec(int numEigs) const
-    {
-    return solver_->EigsPrec(numEigs);
-    }
-
   //! setup the solver to solve (shiftA*A+shiftB*B)x=b
   void setShift(double shiftA, double shiftB)
     {

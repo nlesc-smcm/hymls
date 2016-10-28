@@ -19,8 +19,6 @@
 #include "Epetra_Import.h"
 #include "Epetra_SerialDenseMatrix.h"
 #include "Epetra_SerialDenseVector.h"
-#include "Epetra_InvOperator.h"
-#include "HYMLS_EpetraExt_ProductOperator.H"
 
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_Utils.hpp"
@@ -49,7 +47,6 @@ BaseSolver::BaseSolver(Teuchos::RCP<const Epetra_RowMatrix> K,
   matrix_(K), operator_(K), precond_(P),
   shiftA_(1.0), shiftB_(0.0),
   massMatrix_(Teuchos::null), nullSpace_(Teuchos::null),
-  numEigs_(0),
   V_(Teuchos::null), W_(Teuchos::null),
   useTranspose_(false), normInf_(-1.0), numIter_(0),
   label_("HYMLS::BaseSolver"),
@@ -260,75 +257,6 @@ Teuchos::RCP<const Teuchos::ParameterList> BaseSolver::getValidParameters() cons
   return validParams_;
   }
 
-
-Teuchos::RCP<MatrixUtils::Eigensolution> BaseSolver::EigsPrec(int numEigs) const
-  {
-  // If there is a null-space, deflate it.
-  // If no NS and no additional vectors asked for -
-  // nothing to be done.
-  HYMLS_PROF(label_,"EigsPrec");
-
-  Teuchos::RCP<Epetra_Operator> op, iop;
-  Teuchos::RCP<MatrixUtils::Eigensolution> precEigs=Teuchos::null;
-  
-  op=precond_;
-
-  ////////////////////////////////////////////////////////////////////////
-  // Start by constructing the operator iop, which will be                
-  // [P N; N' 0] * [M 0; 0 I], with P the preconditioner, M the mass      
-  // matrix, N the null space and I the identity matrix.                  
-  ////////////////////////////////////////////////////////////////////////
-  if (massMatrix_!=Teuchos::null) 
-    {
-    // construct the operator P\M
-    EpetraExt::ProductOperator::EApplyMode mode[2];
-    Teuchos::ETransp trans[2];
-    
-    op_array_[1]=massMatrix_;
-    mode[1]=EpetraExt::ProductOperator::APPLY_MODE_APPLY;
-    trans[1]=Teuchos::NO_TRANS;
-    op_array_[0]=precond_;
-    mode[0]=EpetraExt::ProductOperator::APPLY_MODE_APPLY_INVERSE;
-    trans[0]=Teuchos::NO_TRANS;
-    
-    iop=Teuchos::rcp(new EpetraExt::ProductOperator(2,&op_array_[0],trans,mode));
-    }
-  else
-    {
-    // for e.g. Navier-Stokes it is important to set the mass matrix before
-    // calling this function, by calling SetMassMatrix() in both the solver
-    // and the preconditioner.
-    Tools::Warning("EigsPrec() called without mass matrix, is that what you want?",
-      __FILE__,__LINE__);
-    iop = Teuchos::rcp(new Epetra_InvOperator(op.get()));
-    }
-
-  ////////////////////////////////////////////////////
-  // compute dominant eigenvalues of (P^{-1}, M).     
-  ////////////////////////////////////////////////////
-  bool status=true;
-  try {
-    Tools::Out("Compute max eigs of inv(P)");
-    precEigs = MatrixUtils::Eigs(iop, Teuchos::null, numEigs, 1.0e-8);
-    } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status);
-  if (!status) Tools::Fatal("caught an exception",__FILE__,__LINE__);
-    
-  // I think this should never occur:
-  if (precEigs==Teuchos::null)
-    {
-    Tools::Error("null returned from Eigs routine?",__FILE__,__LINE__);
-    }
-
-  if (precEigs->numVecs<numEigs)
-    {
-    Tools::Warning("found "+Teuchos::toString(precEigs->numVecs)
-      +" eigenpairs in EigsPrec(), while you requested "+Teuchos::toString(numEigs),
-      __FILE__,__LINE__);
-    }
-  return precEigs;
-  }
-
-
 int BaseSolver::setNullSpace(Teuchos::RCP<const Epetra_MultiVector> const &V)
   {
   if (!nullSpace_.is_null() && !V.is_null())
@@ -427,6 +355,8 @@ int BaseSolver::addBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
 
 int BaseSolver::SetupDeflation(int maxEigs)
   {
+  Tools::Error("Functionality moved to DeflatedSolver",  __FILE__, __LINE__);
+#if 0
   // by default leave numEigs_ at its present value:
   if (maxEigs!=-2) numEigs_=maxEigs;
   
@@ -748,6 +678,7 @@ int BaseSolver::SetupDeflation(int maxEigs)
     LU_=Teuchos::rcp(new BorderedLU(AorthSolver_,borderV_,borderW_,borderC_));
     } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status);
   if (!status) Tools::Error("failed to create bordered outer solver",__FILE__,__LINE__);
+#endif
   return 0;
   }
 

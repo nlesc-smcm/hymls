@@ -73,8 +73,6 @@ class MatrixUtils
   GATHER,       // collect to root and dump in ascii file (may require lots of memory on one proc)
   HDF5          // not implemented, probably the best thing to do as it is portable
   } PrintMethod;
-  
-  typedef Anasazi::Eigensolution<double,Epetra_MultiVector> Eigensolution;
 
     //! create a map for a 3D problem with multiple degrees of freedom per node
     
@@ -310,7 +308,7 @@ class MatrixUtils
     //!                                                               
     //! The eigenvectors returned are the right eigenvectors of [A,B].
     //!                                                               
-    static Teuchos::RCP<Eigensolution> Eigs(
+    static Teuchos::RCP<Anasazi::Eigensolution<double, Epetra_MultiVector> > Eigs(
                 Teuchos::RCP<const Epetra_Operator> A, 
                 Teuchos::RCP<const Epetra_Operator> B, 
                 int howMany=6,

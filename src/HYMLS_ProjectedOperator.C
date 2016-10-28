@@ -51,9 +51,10 @@ namespace HYMLS
     tmpMat(i, i) -= 1.0;
     }
 
-  if (std::abs(tmpMat.NormInf()) > 1e-12)
+  if (std::abs(tmpMat.NormInf()) > 1e-8)
     {
-    Tools::Error("V is not (B-)orthonormal", __FILE__, __LINE__);
+    Tools::Error("V is not (B-)orthonormal. Norm is " + Teuchos::toString(tmpMat.NormInf()),
+      __FILE__, __LINE__);
     }
 
   // re-allocated if Apply(Inverse)() is called with more vectors:

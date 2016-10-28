@@ -5,7 +5,11 @@
 #include "Epetra_SerialDenseMatrix.h"
 #include "Epetra_SerialDenseSolver.h"
 
+#include "Epetra_InvOperator.h"
+#include "HYMLS_EpetraExt_ProductOperator.H"
+
 #include "HYMLS_DenseUtils.H"
+#include "HYMLS_MatrixUtils.H"
 
 namespace HYMLS {
 
@@ -68,23 +72,23 @@ int DeflatedSolver::SetupDeflation(int numEigs)
   {
   if (numEigs_ <= 0)
     return -1;
- 
+
   precEigs_ = EigsPrec(numEigs_);
   numEigs_ = precEigs_->numVecs;
 
-  if (numEigs_ == 0) 
+  if (numEigs_ == 0)
     {
     return 1;
     }
 
   if (precEigs_->Evecs == Teuchos::null)
     {
-    Tools::Error("no eigenvectors have been returned.",__FILE__,__LINE__);
+    Tools::Error("no eigenvectors have been returned.", __FILE__, __LINE__);
     }
 
   if (precEigs_->Espace == Teuchos::null)
     {
-    Tools::Error("no eigenvector basis has been returned.",__FILE__,__LINE__);
+    Tools::Error("no eigenvector basis has been returned.", __FILE__, __LINE__);
     }
 
   deflationVectors_ = precEigs_->Espace;
@@ -100,8 +104,6 @@ int DeflatedSolver::SetupDeflation(int numEigs)
   deflationRhs_ = Teuchos::rcp(new Epetra_MultiVector(*deflationVectors_));
   Epetra_MultiVector tmp(*deflationVectors_);
   CHECK_ZERO(DenseUtils::ApplyOrth(*deflationVectors_, AV, tmp));
-  CHECK_ZERO(DenseUtils::MatMul(*deflationVectors_, tmp, *deflationMatrix_));
-  std::cout << *deflationMatrix_;
   BaseSolver::ApplyInverse(tmp, *deflationRhs_);
 
   CHECK_ZERO(DenseUtils::MatMul(*deflationVectors_, AV, *deflationMatrix_));
@@ -167,10 +169,78 @@ int DeflatedSolver::ApplyInverse(const Epetra_MultiVector& X,
   // Vperp = Wb - WA*v
   CHECK_ZERO(Wb.Multiply('N', 'N', -1.0, *deflationRhs_, *MVv, 1.0));
   CHECK_ZERO(Y.Multiply('N', 'N', 1.0, *deflationVectors_, *MVv, 0.0));
-  
+
   // y = Vperp + Vv
   CHECK_ZERO(Y.Update(1.0, Wb, 1.0));
   return 0;
+  }
+
+Teuchos::RCP<Anasazi::Eigensolution<double, Epetra_MultiVector> > DeflatedSolver::EigsPrec(int numEigs) const
+  {
+  // If there is a null-space, deflate it.
+  // If no NS and no additional vectors asked for -
+  // nothing to be done.
+  HYMLS_PROF(label_, "EigsPrec");
+
+  Teuchos::RCP<Epetra_Operator> op, iop;
+  Teuchos::RCP<Anasazi::Eigensolution<double, Epetra_MultiVector> > precEigs = Teuchos::null;
+  Teuchos::RCP<const Epetra_Operator> op_array[2];
+
+  op = precond_;
+
+  ////////////////////////////////////////////////////////////////////////
+  // Start by constructing the operator iop, which will be
+  // [P N; N' 0] * [M 0; 0 I], with P the preconditioner, M the mass
+  // matrix, N the null space and I the identity matrix.
+  ////////////////////////////////////////////////////////////////////////
+  if (massMatrix_ != Teuchos::null)
+    {
+    // construct the operator P\M
+    EpetraExt::ProductOperator::EApplyMode mode[2];
+    Teuchos::ETransp trans[2];
+
+    op_array[1] = massMatrix_;
+    mode[1] = EpetraExt::ProductOperator::APPLY_MODE_APPLY;
+    trans[1] = Teuchos::NO_TRANS;
+    op_array[0] = precond_;
+    mode[0] = EpetraExt::ProductOperator::APPLY_MODE_APPLY_INVERSE;
+    trans[0] = Teuchos::NO_TRANS;
+
+    iop = Teuchos::rcp(new EpetraExt::ProductOperator(2, &op_array[0], trans, mode));
+    }
+  else
+    {
+    // for e.g. Navier-Stokes it is important to set the mass matrix before
+    // calling this function, by calling SetMassMatrix() in both the solver
+    // and the preconditioner.
+    Tools::Warning("EigsPrec() called without mass matrix, is that what you want?",
+      __FILE__, __LINE__);
+    iop = Teuchos::rcp(new Epetra_InvOperator(op.get()));
+    }
+
+  ////////////////////////////////////////////////////
+  // compute dominant eigenvalues of (P^{-1}, M).
+  ////////////////////////////////////////////////////
+  bool status = true;
+  try {
+    Tools::Out("Compute max eigs of inv(P)");
+    precEigs = MatrixUtils::Eigs(iop, Teuchos::null, numEigs, 1.0e-8);
+    } TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, status);
+  if (!status) Tools::Fatal("caught an exception", __FILE__, __LINE__);
+
+  // I think this should never occur:
+  if (precEigs == Teuchos::null)
+    {
+    Tools::Error("null returned from Eigs routine?", __FILE__, __LINE__);
+    }
+
+  if (precEigs->numVecs < numEigs)
+    {
+    Tools::Warning("found "+Teuchos::toString(precEigs->numVecs)
+      +" eigenpairs in EigsPrec(), while you requested "+Teuchos::toString(numEigs),
+      __FILE__, __LINE__);
+    }
+  return precEigs;
   }
 
   }//namespace HYMLS

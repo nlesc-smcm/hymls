@@ -15,7 +15,6 @@
 
 #include "Epetra_RowMatrix.h"
 
-#include "HYMLS_MatrixUtils.H"
 #include "HYMLS_PLA.H"
 
 // forward declarations
@@ -149,9 +148,6 @@ public:
 
   //@}
 
-  //! computes dominant eigenpairs of inv(P)
-  Teuchos::RCP<MatrixUtils::Eigensolution> EigsPrec(int numEigs) const;
-  
   //! setup the solver to solve (shiftA*A+shiftB*B)x=b
   void setShift(double shiftA, double shiftB);
 
@@ -262,20 +258,6 @@ Teuchos::RCP<const Epetra_RowMatrix> massMatrix_;
 //! for Stokes-C etc.), or the method setNullSpace can be used
 Teuchos::RCP<const Epetra_MultiVector> nullSpace_;
 
-//! number of eigenvalues computed initially
-int numEigs_;
-
-//! number of deflated eigenmodes
-int numDeflated_;
-
-//! tolerance to remove a mode. An eigenmode            
-//! is deflated if |lambda(P^{-1}A)-1|>tol (set by      
-//! "Deflation Threshold" in the "Solver" sublist).     
-double deflThres_;
-
-//! eigen-pairs of the preconditioner
-Teuchos::RCP<MatrixUtils::Eigensolution> precEigs_;
-
 //! Borders of the matrix, which might be the eigenspace
   Teuchos::RCP<const Epetra_MultiVector> V_, W_;
 
@@ -310,9 +292,6 @@ Teuchos::RCP<BorderedLU> LU_;
   std::string label_;
   
   private:
-  
-  //! a pointer array we need in order to construct a product operator
-  mutable Teuchos::RCP<const Epetra_Operator> op_array_[2];
 
   //! default value for the "Left or Right Preconditioning" parameter
   const std::string lor_default_;

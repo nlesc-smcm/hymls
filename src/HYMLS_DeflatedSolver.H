@@ -6,6 +6,7 @@
 #include "Teuchos_RCP.hpp"
 #include "Epetra_Operator.h"
 #include "Epetra_RowMatrix.h"
+#include "AnasaziTypes.hpp"
 
 #include "HYMLS_PLA.H"
 #include "HYMLS_BaseSolver.H"
@@ -19,7 +20,7 @@ class Epetra_Map;
 
 namespace Teuchos
   {
-  class ParameterList;
+class ParameterList;
   }
 
 namespace HYMLS {
@@ -62,6 +63,9 @@ public:
   //! See SetupDeflation in the base solver. Maybe this one works
   virtual int SetupDeflation(int maxEigs=-2);
 
+  //! computes dominant eigenpairs of inv(P)
+  Teuchos::RCP<Anasazi::Eigensolution<double, Epetra_MultiVector> > EigsPrec(int numEigs) const;
+
 private:
 
   //! label
@@ -93,6 +97,9 @@ private:
 
   //! WA from the SingSys tex document
   Teuchos::RCP<Epetra_SerialDenseSolver> deflationMatrixSolver_;
+
+  //! eigen-pairs of the preconditioner
+  Teuchos::RCP<Anasazi::Eigensolution<double, Epetra_MultiVector> > precEigs_;
 
   };
 
