@@ -71,7 +71,6 @@ private:
   //! label
   std::string label_;
 
-  // TODO: Make all this stuff non-mutable
   //! number of eigenvalues computed initially
   int numEigs_;
 
@@ -95,13 +94,13 @@ private:
   //! WA from the SingSys tex document
   Teuchos::RCP<Epetra_MultiVector> deflationRhs_;
 
-  //! WA from the SingSys tex document
+  //! V'AV -V'AWA from the SingSys tex document
   Teuchos::RCP<Epetra_SerialDenseMatrix> deflationMatrix_;
 
-  //! WA from the SingSys tex document
+  //! solver for the above matrix
   Teuchos::RCP<Epetra_SerialDenseSolver> deflationMatrixSolver_;
 
-  //! eigen-pairs of the preconditioner
+  //! eigenpairs of the preconditioner
   Teuchos::RCP<Anasazi::Eigensolution<double, Epetra_MultiVector> > precEigs_;
 
   };
