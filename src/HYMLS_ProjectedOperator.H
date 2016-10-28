@@ -157,6 +157,9 @@ does not support transpose.
     //! operator B, mass matrix
     Teuchos::RCP<const Epetra_Operator> B_;
 
+    //! B times vector space
+    Teuchos::RCP<const Epetra_MultiVector> BV_;
+
     //! temporary vector for intermediate results
     mutable Teuchos::RCP<Epetra_MultiVector> tmpVector_;
 

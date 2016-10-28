@@ -40,12 +40,14 @@ namespace HYMLS
   if (B_ == Teuchos::null)
     {
     CHECK_ZERO(DenseUtils::MatMul(*V_, *V_, tmpMat));
+    BV_ = V_;
     }
   else
     {
-    Epetra_MultiVector tmpVec(*V_);
-    CHECK_ZERO(B_->Apply(*V_, tmpVec));
-    CHECK_ZERO(DenseUtils::MatMul(*V_, tmpVec, tmpMat));
+    Teuchos::RCP<Epetra_MultiVector> BV = Teuchos::rcp(new Epetra_MultiVector(*V_));
+    CHECK_ZERO(B_->Apply(*V_, *BV));
+    CHECK_ZERO(DenseUtils::MatMul(*V_, *BV, tmpMat));
+    BV_ = BV;
     }
   for (int i = 0; i < n; i++)
     {
@@ -124,18 +126,8 @@ namespace HYMLS
 
         // H=Q'K^-1Z
         H_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(m, m));
-        if (B_ != Teuchos::null)
-          {
-          Epetra_MultiVector tmpVectorm2(V_->Map(), m);
-          CHECK_ZERO(B_->Apply(*V_, tmpVectorm));
-          CHECK_ZERO(A_->ApplyInverse(tmpVectorm, tmpVectorm2));
-          CHECK_ZERO(B_->Apply(tmpVectorm2, tmpVectorm));
-          }
-        else
-          {
-          CHECK_ZERO(A_->ApplyInverse(*V_, tmpVectorm));
-          }
-        CHECK_ZERO(DenseUtils::MatMul(*V_, tmpVectorm, *H_));
+        CHECK_ZERO(A_->ApplyInverse(*BV_, tmpVectorm));
+        CHECK_ZERO(DenseUtils::MatMul(*BV_, tmpVectorm, *H_));
 
         HSolver_ = Teuchos::rcp(new Epetra_SerialDenseSolver());
         CHECK_ZERO(HSolver_->SetMatrix(*H_));
@@ -148,16 +140,8 @@ namespace HYMLS
       Epetra_SerialDenseMatrix C(m, k);
       Epetra_SerialDenseMatrix D(m, k);
 
-      if (B_ == Teuchos::null)
-        {
-        //C=Q'K^-1X
-        CHECK_ZERO(DenseUtils::MatMul(*V_, Y, C));
-        }
-      else
-        {
-        CHECK_ZERO(B_->Apply(Y, *tmpVector_));
-        CHECK_ZERO(DenseUtils::MatMul(*V_, *tmpVector_, C));
-        }
+      //C=Q'K^-1X
+      CHECK_ZERO(DenseUtils::MatMul(*BV_, Y, C));
 
       //D=H^-1Q'K^-1X
       CHECK_ZERO(HSolver_->SetVectors(D, C));
@@ -166,17 +150,8 @@ namespace HYMLS
       Teuchos::RCP<Epetra_MultiVector> HVY = DenseUtils::CreateView(D);
 
       //T=X-ZH^-1Q'K^-1X
-      if (B_ == Teuchos::null)
-        {
-        *tmpVector_ = X;
-        CHECK_ZERO(tmpVector_->Multiply('N', 'N', -1.0, *V_, *HVY, 1.0));
-        }
-      else
-        {
-        CHECK_ZERO(Y.Multiply('N', 'N', 1.0, *V_, *HVY, 0.0));
-        CHECK_ZERO(B_->Apply(Y, *tmpVector_));
-        CHECK_ZERO(tmpVector_->Update(1.0, X, -1.0));
-        }
+      *tmpVector_ = X;
+      CHECK_ZERO(tmpVector_->Multiply('N', 'N', -1.0, *BV_, *HVY, 1.0));
 
       //Y=K^-1(X-ZH^-1Q'K^-1X)
       CHECK_ZERO(A_->ApplyInverse(*tmpVector_, Y));
