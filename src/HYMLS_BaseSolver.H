@@ -62,18 +62,23 @@ public:
   //! arguments: matrix, preconditioner and belos params. 
   //!                                                     
   BaseSolver(Teuchos::RCP<const Epetra_RowMatrix> K, 
-      Teuchos::RCP<Epetra_Operator> P,
-      Teuchos::RCP<Teuchos::ParameterList> params,
-      int numRhs=1);
+    Teuchos::RCP<Epetra_Operator> P,
+    Teuchos::RCP<Teuchos::ParameterList> params,
+    int numRhs=1, bool validate=true);
 
   //! destructor
-  ~BaseSolver();
+  virtual ~BaseSolver();
 
   //! set solver parameters (the list is the "HYMLS"->"Solver" sublist)
-  void setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& params);
-  
+  virtual void setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& params);
+
+  //! set solver parameters (the list is the "HYMLS"->"Solver" sublist)
+  //! The extra argument is so it can be used by the actual Solver class
+  virtual void setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& params,
+    bool validateParameters);
+
   //! get a list of valid parameters for this object
-  Teuchos::RCP<const Teuchos::ParameterList> getValidParameters() const;
+  virtual Teuchos::RCP<const Teuchos::ParameterList> getValidParameters() const;
   
   //! set matrix for solve
   void SetMatrix(Teuchos::RCP<const Epetra_RowMatrix> A);
@@ -113,9 +118,9 @@ public:
     }
 
   //! Applies the preconditioner to vector X, returns the result in Y.
-  int ApplyInverse(const Epetra_MultiVector& X,
-                           Epetra_MultiVector& Y) const;
-
+  virtual int ApplyInverse(const Epetra_MultiVector& X,
+    Epetra_MultiVector& Y) const;
+  
   int SetUseTranspose(bool UseTranspose)
     {
     useTranspose_=false; // not implemented.
@@ -136,14 +141,11 @@ public:
   //! communicator
   const Epetra_Comm & Comm() const {return *comm_;}
   
-    //! Returns the Epetra_Map object associated with the domain of this operator.
-    const Epetra_Map & OperatorDomainMap() const {return matrix_->OperatorDomainMap();}
-
-    //! Returns the Epetra_Map object associated with the range of this operator.
-    const Epetra_Map & OperatorRangeMap() const {return matrix_->OperatorRangeMap();}
+  //! Returns the Epetra_Map object associated with the domain of this operator.
+  const Epetra_Map & OperatorDomainMap() const {return matrix_->OperatorDomainMap();}
   
-
-  
+  //! Returns the Epetra_Map object associated with the range of this operator.
+  const Epetra_Map & OperatorRangeMap() const {return matrix_->OperatorRangeMap();}
 
   //@}
 
@@ -188,7 +190,8 @@ public:
     Teuchos::RCP<const Epetra_MultiVector> const &W);
 
   //! use same preconditioner but operator (I-VV')A
-  int setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V);
+  int setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V,
+    Teuchos::RCP<const Epetra_MultiVector> W = Teuchos::null);
 
   //! computes the modes closest to 0 and sets up the solver's deflation
   //! capabilities. If maxEigs==-2, the value "Deflated Subspace Dimension"
@@ -198,7 +201,7 @@ public:
   //! preconditioner to make it non-singular.
   //!
   //! \todo see todo in addBorder
-  int SetupDeflation(int maxEigs=-2);
+  virtual int SetupDeflation(int maxEigs=-2);
   
 
 protected: 

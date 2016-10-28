@@ -459,12 +459,7 @@ int testSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
   // approximate solution
   Teuchos::RCP<Epetra_MultiVector> x = Teuchos::rcp(new Epetra_MultiVector(map, numRhs));
 
-  bool doDeflation = false;
-
-  if (params->sublist("Solver").get("Deflated Subspace Dimension", 0) > 0)
-    {
-    doDeflation = true;
-    }
+  bool doDeflation = params->sublist("Solver").get("Use Deflation", false);
 
   for (int f=0;f<numComputes;f++)
     {

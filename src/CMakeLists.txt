@@ -1,6 +1,7 @@
 
 set(HYMLS_SOURCE HYMLS_Solver
     HYMLS_BaseSolver
+    HYMLS_DeflatedSolver
     HYMLS_Preconditioner
     HYMLS_SchurComplement
     HYMLS_SchurPreconditioner

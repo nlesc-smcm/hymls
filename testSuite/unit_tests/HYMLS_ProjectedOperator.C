@@ -91,8 +91,11 @@ TEUCHOS_UNIT_TEST(ProjectedOperator, ConstructorWithB)
   imgs->normalize(V, mat);
   TEST_THROW(HYMLS::ProjectedOperator op(A, Teuchos::rcp(&V, false), Teuchos::null, true),
     HYMLS::Exception);
+
+  Epetra_MultiVector BV(map, m);
+  B->Apply(V, BV);
   
-  HYMLS::ProjectedOperator op(A, Teuchos::rcp(&V, false), B, true);
+  HYMLS::ProjectedOperator op(A, Teuchos::rcp(&V, false), Teuchos::rcp(&BV, false), true);
   }
 
 TEUCHOS_UNIT_TEST(ProjectedOperator, Apply)
@@ -185,13 +188,15 @@ TEUCHOS_UNIT_TEST(ProjectedOperator, ApplyWithB)
   Teuchos::RCP<orthoMan> imgs = Teuchos::rcp(new orthoMan("hist/orthog/imgs", B));
 
   imgs->normalize(V, mat);
-  HYMLS::ProjectedOperator op(A, Teuchos::rcp(&V, false), B, true);
+  Epetra_MultiVector BV(map, m);
+  B->Apply(V, BV);
+  HYMLS::ProjectedOperator op(A, Teuchos::rcp(&V, false), Teuchos::rcp(&BV, false), true);
 
   Epetra_MultiVector X(map, m);
   Epetra_MultiVector tmp(map, m);
   Epetra_SerialDenseMatrix testMat(m, m);
   X.Random();
-  HYMLS::DenseUtils::ApplyOrth(V, X, tmp, B, true);
+  HYMLS::DenseUtils::ApplyOrth(V, X, tmp, Teuchos::rcp(&BV, false), true);
   X = tmp;
 
   B->Apply(X, tmp);
@@ -303,13 +308,15 @@ TEUCHOS_UNIT_TEST(ProjectedOperator, ApplyInverseWithB)
   Teuchos::RCP<orthoMan> imgs = Teuchos::rcp(new orthoMan("hist/orthog/imgs", B));
 
   imgs->normalize(V, mat);
-  HYMLS::ProjectedOperator op(A, Teuchos::rcp(&V, false), B, true);
+  Epetra_MultiVector BV(map, m);
+  B->Apply(V, BV);
+  HYMLS::ProjectedOperator op(A, Teuchos::rcp(&V, false), Teuchos::rcp(&BV, false), true);
 
   Epetra_MultiVector X(map, m);
   Epetra_MultiVector tmp(map, m);
   Epetra_SerialDenseMatrix testMat(m, m);
   X.Random();
-  HYMLS::DenseUtils::ApplyOrth(V, X, tmp, B);
+  HYMLS::DenseUtils::ApplyOrth(V, X, tmp, Teuchos::rcp(&BV, false));
   X = tmp;
 
   // TODO: Do we want this? I'm not sure anymore. Need to check in JDQR

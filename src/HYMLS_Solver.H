@@ -13,10 +13,7 @@
   // forward declarations
 class Epetra_MultiVector;
 class Epetra_Comm;
-class Epetra_SerialDenseMatrix;
 class Epetra_Map;
-class Epetra_Import;
-
 
 namespace Teuchos
   {
@@ -81,7 +78,7 @@ public:
   int ApplyMatrix(const Epetra_MultiVector& X,
     Epetra_MultiVector& Y) const
     {
-    return solver_->Apply(X, Y);
+    return solver_->ApplyMatrix(X, Y);
     }
 
   //! Applies the preconditioner
@@ -211,9 +208,10 @@ public:
     }
 
   //! use same preconditioner but operator (I-VV')A
-  int setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V)
+  int setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V,
+    Teuchos::RCP<const Epetra_MultiVector> W = Teuchos::null)
     {
-    return solver_->setProjectionVectors(V);
+    return solver_->setProjectionVectors(V, W);
     }
 
   //! computes the modes closest to 0 and sets up the solver's deflation

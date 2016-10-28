@@ -1,4 +1,6 @@
 #include "HYMLS_Solver.H"
+#include "HYMLS_BaseSolver.H"
+#include "HYMLS_DeflatedSolver.H"
 
 namespace HYMLS {
 
@@ -9,11 +11,17 @@ Solver::Solver(Teuchos::RCP<const Epetra_RowMatrix> K,
   int numRhs)
   :
   PLA("Solver"),
+  solver_(Teuchos::null),
   label_("HYMLS::Solver")
   {
   HYMLS_PROF3(label_, "Constructor");
 
-  solver_ = Teuchos::rcp(new BaseSolver(K, P, params, numRhs));
+  setParameterList(params);
+
+  if (useDeflation_)
+    solver_ = Teuchos::rcp(new DeflatedSolver(K, P, params, numRhs, false));
+  else
+    solver_ = Teuchos::rcp(new BaseSolver(K, P, params, numRhs, false));
 
   setParameterList(params);
   }
@@ -33,10 +41,16 @@ void Solver::setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& params
 
   useDeflation_ = PL().get("Use Deflation", false);
 
-  if (validateParameters_)
-    getValidParameters();
+  if (solver_.is_null())
+    return;
 
-  solver_->setParameterList(params);
+  solver_->setParameterList(params, false);
+
+  if (validateParameters_)
+    {
+    getValidParameters();
+    PL().validateParameters(VPL());
+    }
   }
 
 //! get a list of valid parameters for this object
@@ -44,7 +58,7 @@ Teuchos::RCP<const Teuchos::ParameterList> Solver::getValidParameters() const
   {
   HYMLS_PROF3(label_, "getValidParameterList");
 
-  if (validParams_ != Teuchos::null)
+  if (validParams_ != Teuchos::null || solver_.is_null())
     return validParams_;
 
   Teuchos::RCP<const Teuchos::ParameterList> validParams = solver_->getValidParameters();

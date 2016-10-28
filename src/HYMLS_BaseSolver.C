@@ -43,7 +43,7 @@ namespace HYMLS {
 BaseSolver::BaseSolver(Teuchos::RCP<const Epetra_RowMatrix> K,
   Teuchos::RCP<Epetra_Operator> P,
   Teuchos::RCP<Teuchos::ParameterList> params,
-  int numRhs)
+  int numRhs, bool validate)
   :
   PLA("Solver"), comm_(Teuchos::rcp(&(K->Comm()),false)),
   matrix_(K), operator_(K), precond_(P),
@@ -56,7 +56,7 @@ BaseSolver::BaseSolver(Teuchos::RCP<const Epetra_RowMatrix> K,
   lor_default_("Right")
   {
   HYMLS_PROF3(label_,"Constructor");
-  setParameterList(params);
+  setParameterList(params, validate && validateParameters_);
   
   belosRhs_=Teuchos::rcp(new Epetra_MultiVector(matrix_->OperatorRangeMap(),numRhs));
   belosSol_=Teuchos::rcp(new Epetra_MultiVector(matrix_->OperatorDomainMap(),numRhs));
@@ -195,6 +195,13 @@ void BaseSolver::setShift(double shiftA, double shiftB)
 // Sets all parameters for the solver
 void BaseSolver::setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& List)
   {
+  setParameterList(List, validateParameters_);
+  }
+
+// Sets all parameters for the solver
+void BaseSolver::setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& List,
+  bool validateParameters)
+  {
   HYMLS_PROF3(label_,"SetParameterList");
 
   setMyParamList(List);
@@ -205,14 +212,11 @@ void BaseSolver::setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& Li
   startVec_=PL().get("Initial Vector","Random");
   PL().get("Left or Right Preconditioning",lor_default_);
 
-  numEigs_=PL().get("Deflated Subspace Dimension",numEigs_);
-  deflThres_=PL().get("Deflation Threshold",0.0);
-
   // this is the place where we check for
   // valid parameters for the iterative solver
-  if (validateParameters_)
+  if (validateParameters)
     {
-    this->getValidParameters();
+    getValidParameters();
     PL().validateParameters(VPL());
     }
   HYMLS_DEBUG(PL());
@@ -249,10 +253,6 @@ Teuchos::RCP<const Teuchos::ParameterList> BaseSolver::getValidParameters() cons
   VPL().set("Left or Right Preconditioning", lor_default_,
     "wether to do left (P\\Ax=P\\b) or right (AP\\(Px)=b) preconditioning",
     lorValidator);
-
-  VPL().set("Deflated Subspace Dimension",0,"maximum number of eigenmodes to deflate");
-
-  VPL().set("Deflation Threshold",1.0e-3,"An eigenmode is deflated if the eigenvalue is within [-eps 0]");
 
   // Belos parameters should be specified in this list:
   VPL().sublist("Iterative Solver",false,
@@ -309,8 +309,7 @@ Teuchos::RCP<MatrixUtils::Eigensolution> BaseSolver::EigsPrec(int numEigs) const
   bool status=true;
   try {
     Tools::Out("Compute max eigs of inv(P)");
-    precEigs = MatrixUtils::Eigs
-      (iop, Teuchos::null, numEigs_,1.0e-8);
+    precEigs = MatrixUtils::Eigs(iop, Teuchos::null, numEigs, 1.0e-8);
     } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,status);
   if (!status) Tools::Fatal("caught an exception",__FILE__,__LINE__);
     
@@ -420,7 +419,7 @@ int BaseSolver::addBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
     {
     CHECK_ZERO(bprec->setBorder(V_, W_));
     }
-  Aorth_ = Teuchos::rcp(new ProjectedOperator(operator_, V_, massMatrix_, true));
+  Aorth_ = Teuchos::rcp(new ProjectedOperator(operator_, V_, W_, true));
   belosProblemPtr_->setOperator(Aorth_);
 
   return 0;
@@ -672,7 +671,7 @@ int BaseSolver::SetupDeflation(int maxEigs)
       } // otherwise this was done above (only deflate a given null space)
     }
 
-  Aorth_=Teuchos::rcp(new ProjectedOperator(operator_,V_,massMatrix_,true));
+  Aorth_=Teuchos::rcp(new ProjectedOperator(operator_,V_,Teuchos::null,true));
 
   // TODO: Implement right preconditioning because at the moment only left preconditioning works
   CHECK_ZERO(Teuchos::rcp_dynamic_cast<HYMLS::ProjectedOperator>(Aorth_)->SetLeftPrecond(precond_));
@@ -752,12 +751,16 @@ int BaseSolver::SetupDeflation(int maxEigs)
   return 0;
   }
 
-int BaseSolver::setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V)
+int BaseSolver::setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V,
+  Teuchos::RCP<const Epetra_MultiVector> W)
   {
-  Aorth_=Teuchos::rcp(new ProjectedOperator(operator_, V, massMatrix_, true));
+  V_ = V;
+  W_ = W;
+
+  Aorth_=Teuchos::rcp(new ProjectedOperator(operator_, V, W, true));
   if (precond_ != Teuchos::null)
     {
-    Teuchos::RCP<ProjectedOperator> newPrec = Teuchos::rcp(new ProjectedOperator(precond_, V, massMatrix_, true));
+    Teuchos::RCP<ProjectedOperator> newPrec = Teuchos::rcp(new ProjectedOperator(precond_, V, W, true));
 
     belosPrecPtr_=Teuchos::rcp(new belosPrecType_(newPrec));
     std::string lor = PL().get("Left or Right Preconditioning",lor_default_);
@@ -830,7 +833,7 @@ int BaseSolver::ApplyInverse(const Epetra_MultiVector& B,
   // Make the initial guess orthogonal to the V_ space
   if (V_ != Teuchos::null)
     {
-    CHECK_ZERO(DenseUtils::ApplyOrth(*V_, *belosSol_, X));
+    CHECK_ZERO(DenseUtils::ApplyOrth(*V_, *belosSol_, X, W_));
     *belosSol_ = X;
     }
 

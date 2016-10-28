@@ -12,11 +12,11 @@ namespace HYMLS
   {
     
     //!constructor
-    ProjectedOperator::ProjectedOperator(Teuchos::RCP<const Epetra_Operator> A, 
+    ProjectedOperator::ProjectedOperator(Teuchos::RCP<const Epetra_Operator> A,
                       Teuchos::RCP<const Epetra_MultiVector> V,
-                      Teuchos::RCP<const Epetra_Operator> B,
+                      Teuchos::RCP<const Epetra_MultiVector> BV,
                       bool useVorth) :
-  A_(A), V_(V), B_(B),
+  A_(A), V_(V), BV_(BV),
   useVorth_(useVorth),
   leftPrecond_(Teuchos::null),
   useTranspose_(false)
@@ -37,17 +37,14 @@ namespace HYMLS
   // Check that V is (B-)orthonormal
   int n = V_->NumVectors();
   Epetra_SerialDenseMatrix tmpMat(n, n);
-  if (B_ == Teuchos::null)
+  if (BV_ == Teuchos::null)
     {
     CHECK_ZERO(DenseUtils::MatMul(*V_, *V_, tmpMat));
     BV_ = V_;
     }
   else
     {
-    Teuchos::RCP<Epetra_MultiVector> BV = Teuchos::rcp(new Epetra_MultiVector(*V_));
-    CHECK_ZERO(B_->Apply(*V_, *BV));
-    CHECK_ZERO(DenseUtils::MatMul(*V_, *BV, tmpMat));
-    BV_ = BV;
+    CHECK_ZERO(DenseUtils::MatMul(*V_, *BV_, tmpMat));
     }
   for (int i = 0; i < n; i++)
     {
@@ -81,10 +78,10 @@ namespace HYMLS
         {
         //TODO: this may be optimized in several ways, e.g. keep temporary vectors
         // used inside ApplyOrth etc.
-        //~ CHECK_ZERO(DenseUtils::ApplyOrth(*V_,X,Y, B_, true));
+        //~ CHECK_ZERO(DenseUtils::ApplyOrth(*V_,X,Y, BV_, true));
         //~ CHECK_ZERO(A_->Apply(Y,*tmpVector_));
         CHECK_ZERO(A_->Apply(X,*tmpVector_));
-        CHECK_ZERO(DenseUtils::ApplyOrth(*V_,*tmpVector_,Y, B_));
+        CHECK_ZERO(DenseUtils::ApplyOrth(*V_,*tmpVector_,Y, BV_));
         }
       else
         {
