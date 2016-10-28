@@ -86,6 +86,9 @@ private:
   //! tells if deflation vectors were already computed
   bool deflationComputed_;
 
+  //! tells if deflation vectors were computed after the mass matrix was set
+  mutable bool deflationWithMassMatrix_;
+
   //! deflation vectors
   Teuchos::RCP<Epetra_MultiVector> deflationVectors_;
 

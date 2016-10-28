@@ -140,7 +140,13 @@ int DeflatedSolver::ApplyInverse(const Epetra_MultiVector& X,
     Tools::Error("You need to compute the deflated vectors first", __FILE__, __LINE__);
     }
 
-  // TODO: Need mass matrix handling
+  if (massMatrix_ != Teuchos::null && !deflationWithMassMatrix_)
+    {
+    // for e.g. Navier-Stokes it is important to set the mass matrix before
+    // calling EigsPrec, by calling SetMassMatrix() in both the solver
+    // and the preconditioner.
+    Tools::Error("EigsPrec() called without mass matrix", __FILE__, __LINE__);
+    }
 
   Epetra_MultiVector Wb(OperatorRangeMap(), X.NumVectors());
   Epetra_MultiVector tmp(OperatorRangeMap(), X.NumVectors());
@@ -207,15 +213,12 @@ Teuchos::RCP<Anasazi::Eigensolution<double, Epetra_MultiVector> > DeflatedSolver
     trans[0] = Teuchos::NO_TRANS;
 
     iop = Teuchos::rcp(new EpetraExt::ProductOperator(2, &op_array[0], trans, mode));
+    deflationWithMassMatrix_ = true;
     }
   else
     {
-    // for e.g. Navier-Stokes it is important to set the mass matrix before
-    // calling this function, by calling SetMassMatrix() in both the solver
-    // and the preconditioner.
-    Tools::Warning("EigsPrec() called without mass matrix, is that what you want?",
-      __FILE__, __LINE__);
     iop = Teuchos::rcp(new Epetra_InvOperator(op.get()));
+    deflationWithMassMatrix_ = false;
     }
 
   ////////////////////////////////////////////////////
