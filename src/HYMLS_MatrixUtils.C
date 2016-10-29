@@ -1385,7 +1385,7 @@ Teuchos::RCP<Anasazi::Eigensolution<double, Epetra_MultiVector> > MatrixUtils::E
     verbosity += Anasazi::FinalSummary + Anasazi::TimingDetails;
     }
   if (debug) {
-//    verbosity += Anasazi::Debug;
+   verbosity += Anasazi::Debug;
     }
 
   //

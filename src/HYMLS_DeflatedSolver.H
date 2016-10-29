@@ -91,6 +91,9 @@ private:
   //! deflation vectors
   Teuchos::RCP<Epetra_MultiVector> deflationVectors_;
 
+  //! deflation vectors
+  Teuchos::RCP<Epetra_MultiVector> massDeflationVectors_;
+
   //! WA from the SingSys tex document
   Teuchos::RCP<Epetra_MultiVector> deflationRhs_;
 

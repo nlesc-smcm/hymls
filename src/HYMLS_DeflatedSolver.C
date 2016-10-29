@@ -11,6 +11,9 @@
 #include "HYMLS_DenseUtils.H"
 #include "HYMLS_MatrixUtils.H"
 
+#include "AnasaziEpetraAdapter.hpp"
+#include "AnasaziSVQBOrthoManager.hpp"
+
 namespace HYMLS {
 
 // constructor
@@ -91,19 +94,29 @@ int DeflatedSolver::SetupDeflation(int numEigs)
     Tools::Error("no eigenvector basis has been returned.", __FILE__, __LINE__);
     }
 
+  // FIXME: This should always be orthogonal according to Anasazi documentation
+  // but it is not.
   deflationVectors_ = precEigs_->Espace;
+  Teuchos::RCP<Anasazi::SVQBOrthoManager<double, Epetra_MultiVector, Epetra_Operator> > ortho = Teuchos::rcp(new Anasazi::SVQBOrthoManager<double, Epetra_MultiVector, Epetra_Operator>(massMatrix_));
+  ortho->normalize(*deflationVectors_);
 
   int n = deflationVectors_->NumVectors();
   deflationMatrix_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(n, n));
 
+  massDeflationVectors_ = Teuchos::rcp(new Epetra_MultiVector(*deflationVectors_));
+  if (massMatrix_ != Teuchos::null)
+    {
+    massMatrix_->Apply(*deflationVectors_, *massDeflationVectors_);
+    }
+
   Epetra_MultiVector AV(*deflationVectors_);
   // TODO: Filter A for zero vectors (vectors that the prec captures)
   CHECK_ZERO(ApplyMatrix(*deflationVectors_, AV));
-  CHECK_ZERO(setProjectionVectors(deflationVectors_));
+  CHECK_ZERO(setProjectionVectors(deflationVectors_, massDeflationVectors_));
 
   deflationRhs_ = Teuchos::rcp(new Epetra_MultiVector(*deflationVectors_));
   Epetra_MultiVector tmp(*deflationVectors_);
-  CHECK_ZERO(DenseUtils::ApplyOrth(*deflationVectors_, AV, tmp));
+  CHECK_ZERO(DenseUtils::ApplyOrth(*deflationVectors_, AV, tmp, massDeflationVectors_));
   BaseSolver::ApplyInverse(tmp, *deflationRhs_);
 
   CHECK_ZERO(DenseUtils::MatMul(*deflationVectors_, AV, *deflationMatrix_));
@@ -150,7 +163,7 @@ int DeflatedSolver::ApplyInverse(const Epetra_MultiVector& X,
 
   Epetra_MultiVector Wb(OperatorRangeMap(), X.NumVectors());
   Epetra_MultiVector tmp(OperatorRangeMap(), X.NumVectors());
-  CHECK_ZERO(DenseUtils::ApplyOrth(*deflationVectors_, X, tmp));
+  CHECK_ZERO(DenseUtils::ApplyOrth(*deflationVectors_, X, tmp, massDeflationVectors_));
   CHECK_ZERO(BaseSolver::ApplyInverse(tmp, Wb));
 
   Epetra_MultiVector &AWb = tmp;

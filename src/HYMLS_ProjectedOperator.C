@@ -79,9 +79,9 @@ namespace HYMLS
         {
         //TODO: this may be optimized in several ways, e.g. keep temporary vectors
         // used inside ApplyOrth etc.
-        //~ CHECK_ZERO(DenseUtils::ApplyOrth(*V_,X,Y, BV_, true));
-        //~ CHECK_ZERO(A_->Apply(Y,*tmpVector_));
-        CHECK_ZERO(A_->Apply(X,*tmpVector_));
+        CHECK_ZERO(DenseUtils::ApplyOrth(*V_,X,Y, BV_, true));
+        CHECK_ZERO(A_->Apply(Y,*tmpVector_));
+        // CHECK_ZERO(A_->Apply(X,*tmpVector_));
         CHECK_ZERO(DenseUtils::ApplyOrth(*V_,*tmpVector_,Y, BV_));
         }
       else
