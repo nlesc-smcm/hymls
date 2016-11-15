@@ -362,7 +362,7 @@ int runTest(Teuchos::RCP<const Epetra_Comm> comm,
           = Teuchos::rcp(new Teuchos::ParameterList(*params));
 
     // we pass in params_copy here because in case of Laplace-Neumann
-    // the "Problem" list is adjusted for the solver, which we do not
+    // the "Problem" list is adjusted for the solver which we do not
     // want in the original list.
     getLinearSystem(comm, params_copy, K, M, b, x_ex, nullSpace);
 
@@ -606,6 +606,7 @@ int testEigenSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
 
   Teuchos::ParameterList& targetList = params->sublist("Targets");
   double target_err = targetList.get("Error Eigenvalues", 1.0);
+  int target_num_iter = targetList.get("Number of Eigenvalue Iterations", 9999);
 
   Teuchos::ParameterList& probl_params = params->sublist("Problem");
   Teuchos::ParameterList& probl_params_cpy = probl_params;
@@ -686,7 +687,6 @@ int testEigenSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
   if (eqn == "Laplace")
     {
     Teuchos::ParameterList& problemList = params->sublist("Problem");
-    Teuchos::ParameterList& problemList_cpy = problemList;
 
     int nx = problemList.get("nx", 32);
     int ny = problemList.get("ny", nx);
@@ -730,6 +730,15 @@ int testEigenSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
            + ", expected: " + Teuchos::toString(-ev_list[i]) + "\n";
       }
     }
+  Teuchos::RCP<const Teuchos::ParameterList> finalList
+    = solver->getParameterList();
+  std::string filename1 = "params.xml.final";
+  writeParameterListToXmlFile(*finalList, filename1);
+
+  int num_iter = jada.getNumIters();
+  if (num_iter > target_num_iter) ierr = ierr | MAX_ITER_EXCEEDED;
+  message += "num iter: " + Teuchos::toString(num_iter)
+    + ", expected: " + Teuchos::toString(target_num_iter) + "\n";
 
   message += "------------------------------------------\n";
 

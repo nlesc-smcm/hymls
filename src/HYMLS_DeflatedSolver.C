@@ -103,6 +103,7 @@ int DeflatedSolver::SetupDeflation(int numEigs)
   int n = deflationVectors_->NumVectors();
   deflationMatrix_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(n, n));
 
+  //TODO: Do we need this?
   massDeflationVectors_ = Teuchos::rcp(new Epetra_MultiVector(*deflationVectors_));
   if (massMatrix_ != Teuchos::null)
     {
@@ -111,33 +112,35 @@ int DeflatedSolver::SetupDeflation(int numEigs)
 
   Epetra_MultiVector AV(*deflationVectors_);
   // TODO: Filter A for zero vectors (vectors that the prec captures)
-  CHECK_ZERO(ApplyMatrix(*deflationVectors_, AV));
-  CHECK_ZERO(setProjectionVectors(deflationVectors_, massDeflationVectors_));
+  CHECK_ZERO(BaseSolver::ApplyMatrix(*deflationVectors_, AV));
+  CHECK_ZERO(BaseSolver::setProjectionVectors(deflationVectors_, massDeflationVectors_));
 
   deflationRhs_ = Teuchos::rcp(new Epetra_MultiVector(*deflationVectors_));
   Epetra_MultiVector tmp(*deflationVectors_);
   CHECK_ZERO(DenseUtils::ApplyOrth(*deflationVectors_, AV, tmp, massDeflationVectors_));
-  BaseSolver::ApplyInverse(tmp, *deflationRhs_);
+  int ret = BaseSolver::ApplyInverse(tmp, *deflationRhs_);
 
   CHECK_ZERO(DenseUtils::MatMul(*deflationVectors_, AV, *deflationMatrix_));
 
-  Epetra_MultiVector AWA(*deflationVectors_);
-  CHECK_ZERO(ApplyMatrix(*deflationRhs_, AWA));
+  ATV_ = Teuchos::rcp(new Epetra_MultiVector(*deflationVectors_));
+  CHECK_ZERO(matrix_->Multiply(true, *deflationVectors_, *ATV_));
 
   Epetra_SerialDenseMatrix tmpMat(n, n);
-  CHECK_ZERO(DenseUtils::MatMul(*deflationVectors_, AWA, tmpMat));
-  tmpMat.Scale(-1.0);
+  CHECK_ZERO(DenseUtils::MatMul(*ATV_, *deflationRhs_, tmpMat));
+  CHECK_ZERO(tmpMat.Scale(-1.0));
 
   *deflationMatrix_ += tmpMat;
+  deflationMatrixFactors_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(*deflationMatrix_));
 
   // TODO: Use SVD
   deflationMatrixSolver_ = Teuchos::rcp(new Epetra_SerialDenseSolver());
-  CHECK_ZERO(deflationMatrixSolver_->SetMatrix(*deflationMatrix_));
+  CHECK_ZERO(deflationMatrixSolver_->SetMatrix(*deflationMatrixFactors_));
+  deflationMatrixSolver_->FactorWithEquilibration(true);
   CHECK_ZERO(deflationMatrixSolver_->Factor());
 
   deflationComputed_ = true;
 
-  return 0;
+  return ret;
   }
 
 int DeflatedSolver::ApplyInverse(const Epetra_MultiVector& X,
@@ -161,37 +164,71 @@ int DeflatedSolver::ApplyInverse(const Epetra_MultiVector& X,
     Tools::Error("EigsPrec() called without mass matrix", __FILE__, __LINE__);
     }
 
+  int ret = 0;
+
+  int dim0 = deflationVectors_->NumVectors();
+  int dim1 = 0;
+
   Epetra_MultiVector Wb(OperatorRangeMap(), X.NumVectors());
   Epetra_MultiVector tmp(OperatorRangeMap(), X.NumVectors());
-  CHECK_ZERO(DenseUtils::ApplyOrth(*deflationVectors_, X, tmp, massDeflationVectors_));
-  CHECK_ZERO(BaseSolver::ApplyInverse(tmp, Wb));
 
-  Epetra_MultiVector &AWb = tmp;
-  CHECK_ZERO(ApplyMatrix(Wb, AWb));
+  if (deflationV_ != Teuchos::null)
+    {
+    CHECK_ZERO(DenseUtils::ApplyOrth(*deflationV_, X, Wb));
+    CHECK_ZERO(DenseUtils::ApplyOrth(*deflationVectors_, Wb, tmp, massDeflationVectors_));
+    }
+  else
+    {
+    CHECK_ZERO(DenseUtils::ApplyOrth(*deflationVectors_, X, tmp, massDeflationVectors_));
+    }
 
-  Epetra_SerialDenseMatrix tmpMat(deflationVectors_->NumVectors(), X.NumVectors());
-  CHECK_ZERO(DenseUtils::MatMul(*deflationVectors_, AWb, tmpMat));
-  tmpMat.Scale(-1.0);
+  ret = BaseSolver::ApplyInverse(tmp, Wb);
 
+  DenseUtils::CheckOrthogonal(*deflationVectors_, Wb , __FILE__, __LINE__);
+
+  Epetra_SerialDenseMatrix v(deflationMatrix_->N(), X.NumVectors());
+  Epetra_SerialDenseMatrix w(deflationMatrix_->N(), X.NumVectors());
+
+  Epetra_SerialDenseMatrix tmpMat;
+  Epetra_SerialDenseMatrix w1(View, &w(0, 0), w.LDA(), dim0, X.NumVectors());
+  CHECK_ZERO(DenseUtils::MatMul(*ATV_, Wb, tmpMat));
+  w1 += tmpMat;
+
+  if (deflationV_ != Teuchos::null)
+    {
+    dim1 = deflationV_->NumVectors();
+    Epetra_SerialDenseMatrix w2(View, &w(dim0, 0), w.LDA(), dim1, X.NumVectors());
+    CHECK_ZERO(DenseUtils::MatMul(*deflationV_, Wb, tmpMat));
+    w2 += tmpMat;
+    }
+  
   Epetra_SerialDenseMatrix Vb(deflationVectors_->NumVectors(), X.NumVectors());
   CHECK_ZERO(DenseUtils::MatMul(*deflationVectors_, X, Vb));
+  Vb.Scale(-1.0);
+  w1 += Vb;
 
-  tmpMat += Vb;
+  CHECK_ZERO(deflationMatrixSolver_->SetVectors(v, w));
+  CHECK_ZERO(deflationMatrixSolver_->Solve());
 
-  Epetra_SerialDenseMatrix v(deflationVectors_->NumVectors(), X.NumVectors());
-  CHECK_ZERO(deflationMatrixSolver_->SetVectors(v, tmpMat));
+  Epetra_SerialComm comm;
+  Epetra_LocalMap map1(dim0, 0, comm);
+  Epetra_MultiVector v1(View, map1, v.A(), v.LDA(), X.NumVectors());
 
-  deflationMatrixSolver_->Solve();
-
-  Teuchos::RCP<Epetra_MultiVector> MVv = DenseUtils::CreateView(v);
+  if (deflationV_ != Teuchos::null)
+    {
+    Epetra_LocalMap map2(dim1, 0, comm);
+    Epetra_MultiVector v2(View, map2, v.A()+dim0, v.LDA(), X.NumVectors());
+    CHECK_ZERO(Wb.Multiply('N', 'N', 1.0, *AinvDeflationV_, v2, 1.0));
+    }
 
   // Vperp = Wb - WA*v
-  CHECK_ZERO(Wb.Multiply('N', 'N', -1.0, *deflationRhs_, *MVv, 1.0));
-  CHECK_ZERO(Y.Multiply('N', 'N', 1.0, *deflationVectors_, *MVv, 0.0));
+  CHECK_ZERO(Wb.Multiply('N', 'N', 1.0, *deflationRhs_, v1, 1.0));
+  CHECK_ZERO(Y.Multiply('N', 'N', -1.0, *deflationVectors_, v1, 0.0));
 
   // y = Vperp + Vv
   CHECK_ZERO(Y.Update(1.0, Wb, 1.0));
-  return 0;
+
+  return ret;
   }
 
 Teuchos::RCP<Anasazi::Eigensolution<double, Epetra_MultiVector> > DeflatedSolver::EigsPrec(int numEigs) const
@@ -257,6 +294,74 @@ Teuchos::RCP<Anasazi::Eigensolution<double, Epetra_MultiVector> > DeflatedSolver
       __FILE__, __LINE__);
     }
   return precEigs;
+  }
+
+int DeflatedSolver::setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V,
+  Teuchos::RCP<const Epetra_MultiVector> W)
+  {
+  if (!deflationComputed_)
+    {
+    Tools::Error("You need to compute the deflated vectors first", __FILE__, __LINE__);
+    }
+
+  if (massMatrix_ != Teuchos::null || (W != Teuchos::null && V.get() != W.get()))
+    {
+    Tools::Error("DeflatedSolver with extra borders not yet implemented with "
+      "mass matrix", __FILE__, __LINE__);
+    }
+
+  int n = deflationVectors_->NumVectors() + V->NumVectors();
+  deflationMatrix_->Reshape(n, n);
+
+  // Expand the deflation space with the border that was added here
+  int dim0 = deflationVectors_->NumVectors();
+  int dim1 = V->NumVectors();
+
+  AinvDeflationV_ = Teuchos::rcp(new Epetra_MultiVector(*V));
+  Epetra_MultiVector tmp(*V);
+  CHECK_ZERO(DenseUtils::ApplyOrth(*deflationVectors_, *V, tmp, massDeflationVectors_));
+
+  BaseSolver::setProjectionVectors(V_, W_);
+  int ret = BaseSolver::ApplyInverse(tmp, *AinvDeflationV_);
+
+  Epetra_SerialDenseMatrix tmpMat;
+  Epetra_SerialDenseMatrix A12(View, &(*deflationMatrix_)(0, dim0),
+    deflationMatrix_->LDA(), dim0, dim1);
+  CHECK_ZERO(DenseUtils::MatMul(*ATV_, *AinvDeflationV_, tmpMat));
+  A12.Scale(0.0);
+  A12 += tmpMat;
+  CHECK_ZERO(A12.Scale(-1.0));
+  CHECK_ZERO(DenseUtils::MatMul(*deflationVectors_, *V, tmpMat));
+  A12 += tmpMat;
+
+  Epetra_SerialDenseMatrix A21(View, &(*deflationMatrix_)(dim0, 0),
+    deflationMatrix_->LDA(), dim1, dim0);
+  CHECK_ZERO(DenseUtils::MatMul(*V, *deflationRhs_, tmpMat));
+  A21.Scale(0.0);
+  A21 += tmpMat;
+  CHECK_ZERO(A21.Scale(-1.0));
+  CHECK_ZERO(DenseUtils::MatMul(*V, *deflationVectors_, tmpMat));
+  A21 += tmpMat;
+
+  Epetra_SerialDenseMatrix A22(View, &(*deflationMatrix_)(dim0, dim0),
+    deflationMatrix_->LDA(), dim1, dim1);
+  CHECK_ZERO(DenseUtils::MatMul(*V, *AinvDeflationV_, tmpMat));
+  A22.Scale(0.0);
+  A22 += tmpMat;
+  CHECK_ZERO(A22.Scale(-1.0));
+
+  deflationMatrixFactors_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(*deflationMatrix_));
+  CHECK_ZERO(deflationMatrixSolver_->SetMatrix(*deflationMatrixFactors_));
+  deflationMatrixSolver_->FactorWithEquilibration(true);
+  CHECK_ZERO(deflationMatrixSolver_->Factor());
+
+  deflationV_ = V;
+  return ret;
+  }
+
+void DeflatedSolver::setShift(double shiftA, double shiftB)
+  {
+  Tools::Warning("Shifted DeflatedSolver not yet implemented", __FILE__, __LINE__);
   }
 
   }//namespace HYMLS

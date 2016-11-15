@@ -186,7 +186,7 @@ public:
     Teuchos::RCP<const Epetra_MultiVector> const &W);
 
   //! use same preconditioner but operator (I-VV')A
-  int setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V,
+  virtual int setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V,
     Teuchos::RCP<const Epetra_MultiVector> W = Teuchos::null);
 
   //! computes the modes closest to 0 and sets up the solver's deflation

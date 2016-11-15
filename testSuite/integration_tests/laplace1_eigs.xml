@@ -39,6 +39,7 @@
     <!-- target for eigensolver run, note that we limit the number of eigensolver iterations -->
     <!-- above so this is also tested in a way.                                              -->
     <Parameter name="Error Eigenvalues" type="double" value="1.0e-8"/>
+    <Parameter name="Number of Eigenvalue Iterations" type="int" value="70"/>
   </ParameterList><!--}-->
 
   <ParameterList name="Problem"><!--{-->

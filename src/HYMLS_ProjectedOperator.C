@@ -34,28 +34,11 @@ namespace HYMLS
         __FILE__,__LINE__);
     }
 
-  // Check that V is (B-)orthonormal
-  int n = V_->NumVectors();
-  Epetra_SerialDenseMatrix tmpMat(n, n);
   if (BV_ == Teuchos::null)
     {
-    CHECK_ZERO(DenseUtils::MatMul(*V_, *V_, tmpMat));
     BV_ = V_;
     }
-  else
-    {
-    CHECK_ZERO(DenseUtils::MatMul(*V_, *BV_, tmpMat));
-    }
-  for (int i = 0; i < n; i++)
-    {
-    tmpMat(i, i) -= 1.0;
-    }
-
-  if (std::abs(tmpMat.NormInf()) > 1e-8)
-    {
-    Tools::Error("V is not (B-)orthonormal. Norm is " + Teuchos::toString(tmpMat.NormInf()),
-      __FILE__, __LINE__);
-    }
+  DenseUtils::CheckOrthogonal(*V_, *BV_, __FILE__, __LINE__, true);
 
   // re-allocated if Apply(Inverse)() is called with more vectors:
   tmpVector_ = Teuchos::rcp(new Epetra_MultiVector(V_->Map(),1));

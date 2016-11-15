@@ -159,6 +159,30 @@ int DenseUtils::ApplyOrth(const Epetra_MultiVector& V, const Epetra_MultiVector&
   return 0;
   }
 
+void DenseUtils::CheckOrthogonal(Epetra_MultiVector const &X, Epetra_MultiVector const &Y,
+  const char* file, int line, bool isBasis)
+  {
+  if (!X.Map().SameAs(Y.Map()))
+    Tools::Error("Maps are not the same", file, line);
+
+  int m = X.NumVectors();
+  int n = X.NumVectors();
+  Epetra_SerialDenseMatrix tmpMat(m, n);
+  CHECK_ZERO(DenseUtils::MatMul(X, Y, tmpMat));
+
+  if (isBasis)
+    for (int i = 0; i < n; i++)
+      {
+      tmpMat(i, i) -= 1.0;
+      }
+
+  if (std::abs(tmpMat.NormInf()) > 1e-8)
+    {
+    Tools::Error("Vectors are not orthogonal. The norm is " +
+      Teuchos::toString(tmpMat.NormInf()), file, line);
+    }
+  }
+
 //! returns orthogonal basis for the columns of A.
 int DenseUtils::Orthogonalize(Epetra_SerialDenseMatrix& A)
   {

@@ -66,6 +66,13 @@ public:
   //! computes dominant eigenpairs of inv(P)
   Teuchos::RCP<Anasazi::Eigensolution<double, Epetra_MultiVector> > EigsPrec(int numEigs) const;
 
+  //! use same preconditioner but operator (I-VV')A
+  virtual int setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V,
+    Teuchos::RCP<const Epetra_MultiVector> W = Teuchos::null);
+  
+  //! setup the solver to solve (shiftA*A+shiftB*B)x=b
+  void setShift(double shiftA, double shiftB);
+
 private:
 
   //! label
@@ -94,17 +101,29 @@ private:
   //! deflation vectors
   Teuchos::RCP<Epetra_MultiVector> massDeflationVectors_;
 
+  //! deflation vectors
+  Teuchos::RCP<Epetra_MultiVector> ATV_;
+
   //! WA from the SingSys tex document
   Teuchos::RCP<Epetra_MultiVector> deflationRhs_;
 
   //! V'AV -V'AWA from the SingSys tex document
   Teuchos::RCP<Epetra_SerialDenseMatrix> deflationMatrix_;
 
+  //! V'AV -V'AWA from the SingSys tex document
+  Teuchos::RCP<Epetra_SerialDenseMatrix> deflationMatrixFactors_;
+
   //! solver for the above matrix
   Teuchos::RCP<Epetra_SerialDenseSolver> deflationMatrixSolver_;
 
   //! eigenpairs of the preconditioner
   Teuchos::RCP<Anasazi::Eigensolution<double, Epetra_MultiVector> > precEigs_;
+
+  //! Projection vectors other than the deflation vectors
+  Teuchos::RCP<const Epetra_MultiVector> deflationV_, deflationW_;
+
+  //! Projection vectors other than the deflation vectors
+  Teuchos::RCP<Epetra_MultiVector> AinvDeflationV_, AinvDeflationW_;
 
   };
 
