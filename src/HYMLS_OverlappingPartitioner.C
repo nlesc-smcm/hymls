@@ -110,8 +110,6 @@ namespace HYMLS {
 #endif
     CHECK_ZERO(this->DetectSeparators());
     HYMLS_DEBVAR(*this);
-    CHECK_ZERO(this->GroupSeparators());
-    HYMLS_DEBVAR(*this);
     return;
     }
 
@@ -278,30 +276,29 @@ int OverlappingPartitioner::Partition()
   Teuchos::ParameterList& solverParams=PL("Preconditioner");
   HYMLS_DEBVAR(PL("Preconditioner"));
   int npx,npy,npz;
-  int sx=-1;
-  int sy,sz;
+  sx_ = -1;
   if (solverParams.isParameter("Separator Length (x)"))
     {
-    sx=solverParams.get("Separator Length (x)",4);
-    sy=solverParams.get("Separator Length (y)",sx);
-    sz=solverParams.get("Separator Length (z)",nz_>1?sx:1);
+    sx_=solverParams.get("Separator Length (x)",4);
+    sy_=solverParams.get("Separator Length (y)",sx_);
+    sz_=solverParams.get("Separator Length (z)",nz_>1?sx_:1);
     }
   else if (solverParams.isParameter("Separator Length"))
     {
-    sx=solverParams.get("Separator Length",4);
-    sy=sx;
-    sz=nz_>1 ? sx : 1;
+    sx_=solverParams.get("Separator Length",4);
+    sy_=sx_;
+    sz_=nz_>1 ? sx_ : 1;
     }
   else
     {
     Tools::Error("Separator Length not set",__FILE__,__LINE__);
     }
 
-  if (sx>0)
+  if (sx_>0)
     {
-    npx=(nx_>1) ? nx_/sx : 1;
-    npy=(ny_>1) ? ny_/sy : 1;
-    npz=(nz_>1) ? nz_/sz : 1;
+    npx=(nx_>1) ? nx_/sx_ : 1;
+    npy=(ny_>1) ? ny_/sy_ : 1;
+    npz=(nz_>1) ? nz_/sz_ : 1;
     }
   else
     {
@@ -361,454 +358,60 @@ for (int i=0;i<Map().NumMyElements();i++)
 int OverlappingPartitioner::DetectSeparators()
   {
   HYMLS_PROF2(Label(),"DetectSeparators");
-  //! first we import our original matrix into the ordering defined by the partitioner.
-
-  if (Teuchos::is_null(graph_))
-    {
-    Tools::Error("Graph not yet constructed!",__FILE__,__LINE__);
-    }
-
-  if (Teuchos::is_null(p_graph_))
-    {
-    Tools::Error("p_graph not yet constructed!",__FILE__,__LINE__);
-    }
-
-  bool isCartStokes=(partitioningMethod_=="Cartesian" && classificationMethod_=="Stokes");
-  if (isCartStokes)
-    {
-    classifier_=Teuchos::rcp(new CartesianStokesClassifier
-        (p_graph_,partitioner_,variableType_,retainIsolated_,
-        perio_,dim_,Level(),nx_,ny_,nz_));
-#ifdef HYMLS_TESTING
-    // for comparison purposes - create the standard object so it
-    // writes its nodeType vector to file in HYMLS_TESTING mode
-    Teuchos::RCP<StandardNodeClassifier> tmp=Teuchos::rcp(new StandardNodeClassifier
-        (p_graph_,partitioner_,variableType_,retainIsolated_,
-        Level(),nx_,ny_,nz_));
-    CHECK_ZERO(tmp->BuildNodeTypeVector());
-#endif
-    }
-  else
-    {
-    classifier_=Teuchos::rcp(new StandardNodeClassifier
-        (p_graph_,partitioner_,variableType_,retainIsolated_,
-        Level(),nx_,ny_,nz_));
-    }
-
-  CHECK_ZERO(classifier_->BuildNodeTypeVector());
-  nodeType_ = classifier_->GetVector();
-  p_nodeType_ = classifier_->GetOverlappingVector();
-
-  if (dim_==3 && classificationMethod_=="Stokes")
-    {
-    HYMLS_TEST(Label(),areTubesCorrect(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_),*p_nodeType_,dof_,pvar_),__FILE__,__LINE__);
-    }
-
-  // put them into lists
 
   // nodes to be eliminated exactly in the next step
   Teuchos::Array<int> interior_nodes;
   // separator nodes
-  Teuchos::Array<int> separator_nodes;
+  Teuchos::Array<Teuchos::Array<int> > separator_nodes;
   // nodes to be retained in the Schur complement (typically pressures)
   Teuchos::Array<int> retained_nodes;
 
-  // first we do all 'regular' subdomains.
-  // The special ones (FCCs and FCTs for CartStokes partitioner)
-  // are treated in FixSubCells() because they need the regular
-  // subdomains to be finished already (FixSubCells is called
-  // after GroupSeparators()).
-  for (int sd=0;sd<partitioner_->NumLocalParts();sd++)
+  for (int sd = 0; sd < partitioner_->NumLocalParts(); sd++)
     {
     interior_nodes.resize(0);
     separator_nodes.resize(0);
-    retained_nodes.resize(0);
-    CHECK_ZERO(this->BuildNodeLists(sd,*p_graph_, *nodeType_, *p_nodeType_,
-              interior_nodes, separator_nodes, retained_nodes));
-
-    HYMLS_DEBVAR(sd);
-    HYMLS_DEBVAR(interior_nodes);
-    HYMLS_DEBVAR(separator_nodes);
-    HYMLS_DEBVAR(retained_nodes);
-
-    // in this function we just form three groups per subdomain:
-    // interior, separator or retained. In GroupSeparators() this
-    // grouping is refined.
-    this->AddGroup(sd, interior_nodes);
-    this->AddGroup(sd, separator_nodes);
-    this->AddGroup(sd, retained_nodes);
-    }
-  // build the temporary map with three groups per regular subdomain
-  // (interior separator retained)
-  CHECK_ZERO(this->FillComplete());
-
-  REPORT_SUM_MEM(Label(),"map with overlap",0,OverlappingMap().NumMyElements(),GetComm());
-  REPORT_SUM_MEM(Label(),"int vectors",0,nodeType_->MyLength()
-        +p_nodeType_->MyLength(),GetComm());
-
-  return 0;
-  }
-
-  //! form list with interior, separator and retained nodes for subdomain
-  // sd. Links separators to subdomains.
-  int OverlappingPartitioner::BuildNodeLists(int sd,
-                              const Epetra_CrsGraph& G,
-                              const Epetra_IntVector& nodeType,
-                              const Epetra_IntVector& p_nodeType,
-                              Teuchos::Array<int>& interior,
-                              Teuchos::Array<int>& separator,
-                              Teuchos::Array<int>& retained) const
-  {
-  HYMLS_PROF3(Label(),"BuildNodeLists");
-
-  int MaxNumEntriesPerRow = G.MaxNumIndices();
-
-  int *cols = new int[MaxNumEntriesPerRow];
-  int len;
-
-  if (sd>partitioner_->NumLocalParts())
-    {
-    Tools::Error("not implemeneted",__FILE__,__LINE__);
-    }
-
-  int sd_i = partitioner_->GPID(sd);
-  HYMLS_DEBVAR(sd);
-  HYMLS_DEBVAR(sd_i);
-
-  const Epetra_BlockMap& p_map = p_nodeType.Map();
-
-#ifdef HYMLS_TESTING
-  if (!partitioner_->Map().SameAs(nodeType.Map()))
-    {
-    Tools::Error("nodeType must be based on partitioner's map",
-        __FILE__,__LINE__);
-    }
-#endif
-  for (int i=partitioner_->First(sd); i<partitioner_->First(sd+1);i++)
-    {
-    int row=partitioner_->Map().GID(i);
-    // check for non-local separators of the subdomain
-    if (nodeType[i]<=0)
+    int prev_num_seps = 0;
+    for (int i = partitioner_->First(sd); i < partitioner_->First(sd+1); i++)
       {
-      // add any separator nodes on adjacent subdomains
-      CHECK_ZERO(G.ExtractGlobalRowCopy(row,MaxNumEntriesPerRow,len,cols));
-      for (int j=0;j<len;j++)
+      int row = partitioner_->Map().GID(i);
+      int num_seps = 0;
+      if ((row / dof_ + 1) % sx_ == 0)
         {
-        int sd_j = (*partitioner_)(cols[j]);
-        int nt_j = (*p_nodeType_)[p_map.LID(cols[j])];
-        if ((sd_j!=sd_i)&&nt_j>0)
+        num_seps += 1;
+        }
+      if (ny_ > 1 && (row / nx_ / dof_ + 1) % sy_ == 0)
+        {
+        num_seps += 2;
+        }
+      if (nz_ > 1 && (row / nx_ / ny_ / dof_ + 1) % sz_ == 0)
+        {
+        num_seps += 4;
+        }
+      if (num_seps > 0)
+        {
+        if (prev_num_seps != num_seps)
           {
-          HYMLS_DEBUG("include "<<cols[j]<<" from "<<row);
-          if (nt_j>=4)
-            {
-            retained.append(cols[j]);
-            }
-          else
-            {
-            separator.append(cols[j]);
-            }
+          separator_nodes.push_back(Teuchos::Array<int>());
           }
-        }
-      }
-    // put node i in the correct list
-    if (nodeType[i]<=0)
-      {
-      interior.append(row);
-      }
-    else if (nodeType[i]>=4)
-      {
-      retained.append(row);
-      }
-    else
-      {
-      separator.append(row);
-      }
-    }
-
-  std::set<int> tmp;
-
-  tmp.insert(separator.begin(),separator.end());
-  tmp.insert(retained.begin(),retained.end());
-
-  separator.clear();
-  retained.clear();
-
-  for (std::set<int>::iterator i=tmp.begin();i!=tmp.end();i++)
-    {
-    if (p_nodeType[p_map.LID(*i)]<4)
-      {
-      separator.append(*i);
-      }
-    else
-      {
-      retained.append(*i);
-      }
-    }
-
-
-  delete [] cols;
-  return 0;
-  }
-
-// reorders the separators found in DtectSeparators()
-// into groups suitable for our transformations.
-int OverlappingPartitioner::GroupSeparators()
-  {
-  HYMLS_PROF2(Label(),"GroupSeparators");
-  if (Teuchos::is_null(graph_))
-    {
-    Tools::Error("Graph not yet constructed!",__FILE__,__LINE__);
-    }
-  if (Teuchos::is_null(p_graph_))
-    {
-    Tools::Error("overlapping Graph not yet constructed!",__FILE__,__LINE__);
-    }
-  if (!Filled())
-    {
-    Tools::Error("Separators not yet detected!",__FILE__,__LINE__);
-    }
-
-  const Epetra_BlockMap& p_map = p_nodeType_->Map();
-
-  // offset for creating new partition numbers in corners (2D) and edges
-  // (3D) Stokes problems. Singleton subdomains start at offset, FCTs at
-  // 2*offset.
-  int offset = partitioner_->NumGlobalParts();
-
-  // copy old data structures and reset base class (HierarchicalMap)
-  Teuchos::RCP<Teuchos::Array<Teuchos::Array<int> > > groupPointer
-        = this->GetGroupPointer();
-
-  Teuchos::RCP<const Epetra_Map> overlappingMap =
-        this->GetOverlappingMap();
-
-  this->Reset(partitioner_->NumLocalParts());
-
-  HYMLS_DEBUG("build separator lists...");
-
-  int MaxNumElements=p_graph_->MaxNumIndices();
-
-  int* cols = new int[MaxNumElements];
-  int len;
-
-  Teuchos::Array<SepNode> sepNodes;
-  Teuchos::Array<int> gidList;
-
-  for (int sd=0;sd<partitioner_->NumLocalParts();sd++)
-    {
-#ifdef HYMLS_TESTING
-    if (sd>=groupPointer->size())
-      {
-      Tools::Error("(temporary) groupPointer array incorrect",__FILE__,__LINE__);
-      }
-    // [ interior separators retained]
-    if ((*groupPointer)[sd].size()!=4)
-      {
-      Tools::Error("(temporary) groupPointer array incorrect",__FILE__,__LINE__);
-      }
-#endif
-
-    int numSepNodes=(*groupPointer)[sd][2]-(*groupPointer)[sd][1];
-                // this does not include retained variables,
-                // which start at groupPointer[2]
-
-    HYMLS_DEBVAR(sd);
-    HYMLS_DEBVAR(numSepNodes);
-
-    sepNodes.resize(numSepNodes);
-
-    // will contain for every separator node the subdomains it connects to
-    // and as last entry in each row the GID of the separator node. We use
-    // this array as a criterion when grouping nodes
-    Teuchos::Array<int> connectedSubs;
-    int new_id = offset;
-    for (int i=0;i<numSepNodes;i++)
-      {
-      int row=overlappingMap->GID((*groupPointer)[sd][1]+i);
-      int type_i = (*p_nodeType_)[p_map.LID(row)];
-      int var_i=partitioner_->VariableType(row);
-
-      //HYMLS_DEBUG("Process node "<<row);
-      connectedSubs.resize(1);
-      connectedSubs[0]=(*partitioner_)(row);
-      //CHECK_ZERO(p_graph_->ExtractGlobalRowCopy(row,MaxNumElements,len,cols));
-      int ierr=p_graph_->ExtractGlobalRowCopy(row,MaxNumElements,len,cols);
-      if (ierr!=0)
-        {
-        Tools::Error("extracting global row "+Teuchos::toString(row)+
-                " failed on rank "+Teuchos::toString(Comm().MyPID()),__FILE__,__LINE__);
-        }
-      for (int j=0;j<len;j++)
-        {
-        // We only consider edges to lower-level nodes here,
-        // e.g. from face separators to interior, from
-        // edges to faces and from vertices to edges. We treat
-        // subcells (full conservation tubes in Stokes) as separate
-        // subdomains.
-        int type_j=(*p_nodeType_)[p_map.LID(cols[j])];
-        int var_j=partitioner_->VariableType(cols[j]);
-
-        if (type_j<0 && var_i!=var_j)
-          {
-          // we have to create a 'new subdomain id' as the separator
-          // node connects to the interior of a full conservation tube.
-          //HYMLS_DEBUG("connected to FCT");
-          int sd_id = (*partitioner_)(cols[j])
-                    + (-type_j+1)*offset;
-          //HYMLS_DEBUG("\t"<<cols[j]<<" ["<<type_j<<"], gives sd="<<sd_id);
-          // flow may be 0 because the subcell is on the
-          // same subdomain, I hope this is correct without
-          // the sign as well (may fail in rare cases like
-          // a single subdomain with periodic BC)
-          connectedSubs.append(sd_id);
-          }
-        else if (type_j<type_i)
-          {
-          int flow = partitioner_->flow(row,cols[j]);
-
-          // if the row and col are not in the same subdomain, multiply
-          // the partition ID by +1 or -1, depending on the "direction of
-          // flow" across the separator. If we don't do this, for periodic
-          // BC we can get two different separators identified as one, e.g
-          //
-          // | SD1 | SD2 |        (here separators s1 and s2 both connect
-          // s1    s2    s1       to subdomains SD1 and SD2)
-          //
-          if (flow)
-            {
-            int sign = flow/std::abs(flow);
-            int sd_id = (*partitioner_)(cols[j]);
-            HYMLS_DEBUG("\t"<<cols[j]<<" "<<sd_id);
-            connectedSubs.append(sign*sd_id);
-            }
-          }// if nodeType
-        }//j
-      if (connectedSubs.length()==0)
-        {
-        // this is a singleton as they appear in the corners
-        // of subdomains (only connected to separators). Give
-        // it a unique ID so that it isn't put in the same group
-        // as other singletons around the same subdomain.
-        connectedSubs.append(new_id++);
-        }//if
-
-      //int variableType=var_i;
-      int variableType= type_i*10 + var_i;
-
-      SepNode S(row,connectedSubs,variableType);
-      sepNodes[i]=S;
-      }//i
-
-    // now we sort the nodes by subdomains they connect to.
-    // That way we get the correct ordering and only have to
-    // set the group pointers:
-    HYMLS_DEBUG("Sort sep nodes");
-    std::sort(sepNodes.begin(),sepNodes.end());
-
-    // list of retained nodes. We sort these by subdomain and variable type so that
-    // pressures appear at the end of the ordering.
-    int numRetained=(*groupPointer)[sd][3]-(*groupPointer)[sd][2];
-    Teuchos::Array<SepNode> retNodes(numRetained);
-    Teuchos::Array<int> conSub(1);
-    conSub[0]=sd;
-
-    for (int i=(*groupPointer)[sd][2];i<(*groupPointer)[sd][3];i++)
-      {
-      int gid=overlappingMap->GID(i);
-      int varType = partitioner_->VariableType(gid);
-      SepNode S(gid,conSub,varType);
-      retNodes[i-(*groupPointer)[sd][2]]=S;
-      }
-
-    // move singletons to the end of the ordering.
-    // singletons are groups with only one element.
-    // TODO: this is probably unnecessary here - when
-    //       calling HierarchicalMap::SpawnSeparators
-    //       they are moved to the end of the ordering (per process)
-    Teuchos::Array<SepNode>::iterator i=sepNodes.begin();
-    int num_members=1;
-    bool last_member=false;
-    while (i!=sepNodes.end())
-      {
-      Teuchos::Array<SepNode>::iterator next = i+1;
-      if (next==sepNodes.end())
-        {
-        last_member=true;
-        }
-      else if (*i!=*next)
-        {
-        last_member=true;
+        separator_nodes.back().push_back(row);
+        prev_num_seps = num_seps;
         }
       else
         {
-        last_member=false;
-        num_members++;
-        }
-
-      // move singleton group to 'retained' elements
-      if (last_member && (num_members==1))
-        {
-        SepNode S(i->GID(),conSub,i->type());
-        retNodes.append(S);
-        i=sepNodes.erase(i);
-        ((*groupPointer)[sd][2])--;  // retained nodes are between groupPointer[sd][2] and [3]
-        }
-      else
-        {
-        i++;
-        }
-      }//i
-
-    std::sort(retNodes.begin(),retNodes.end());
-
-    HYMLS_DEBVAR(sepNodes);
-    HYMLS_DEBVAR(retNodes);
-
-    HYMLS_DEBUG("add the new groups...");
-
-    // place interior nodes into new map (unchanged)
-    int num = (*groupPointer)[sd][1]-(*groupPointer)[sd][0];
-    gidList.resize(num);
-    for (int i=0;i<num;i++)
-      {
-      gidList[i]=overlappingMap->GID((*groupPointer)[sd][0]+i);
-      }
-    this->AddGroup(sd,gidList);
-
-    // place reordered separator nodes in new map:
-    gidList.resize(0);
-    for (int i=0;i<sepNodes.size()-1;i++)
-      {
-      gidList.append(sepNodes[i].GID());
-      if (sepNodes[i+1]!=sepNodes[i])
-        {
-        // new group starts, insert previous one
-        this->AddGroup(sd,gidList);
-        gidList.resize(0);
+        interior_nodes.push_back(row);
         }
       }
-    if (sepNodes.length()>0)
+
+    AddGroup(sd, interior_nodes);
+    for (int i = 0; i < separator_nodes.size(); i++)
       {
-      gidList.append((sepNodes.end()-1)->GID());
-      this->AddGroup(sd,gidList);
+      std::cout << separator_nodes[i] << std::endl;
+      AddGroup(sd, separator_nodes[i]);
       }
-
-    num = (*groupPointer)[sd][3]-(*groupPointer)[sd][2];
-    gidList.resize(1);
-    for (int i=0;i<num;i++)
-      {
-      gidList[0]=retNodes[i].GID();
-      this->AddGroup(sd,gidList);
-      }//i
-    }//sd
-
-  sepNodes.resize(0);
-  gidList.resize(0);
+    }
 
   // and rebuild map and global groupPointer
-  CHECK_ZERO(this->FillComplete());
-
-  delete [] cols;
+  CHECK_ZERO(FillComplete());
   return 0;
   }
 
@@ -829,24 +432,6 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
   if (dim==-1) Tools::Error("'Dimension' not set in 'Problem' subist",
         __FILE__,__LINE__);
   int cx=-1,cy,cz;
-  int old_sx=-1,old_sy,old_sz;
-
-  if (newList->sublist("Preconditioner").isParameter("Separator Length (x)"))
-    {
-    old_sx = newList->sublist("Preconditioner").get("Separator Length (x)",old_sx);
-    old_sy = newList->sublist("Preconditioner").get("Separator Length (y)",old_sx);
-    old_sz = newList->sublist("Preconditioner").get("Separator Length (z)",dim_>2?old_sx:1);
-    }
- else if (newList->sublist("Preconditioner").isParameter("Separator Length"))
-    {
-    old_sx = newList->sublist("Preconditioner").get("Separator Length",old_sx);
-    old_sy = old_sx;
-    old_sz = dim>2?old_sx:1;
-    }
-  else
-    {
-    Tools::Error("Separator Length not set in list",__FILE__,__LINE__);
-    }
 
   // "Base Separator Length" is deprecated and "Coarsening Factor" should be
   // used instead, since it explains better what it does. "Base Separator Length"
@@ -879,17 +464,17 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
   // Set the coarsening factor to be the same as the separator size
   if (cx == -1) // assume that this is the first level
     {
-    cx = old_sx;
-    cy = old_sy;
-    cz = old_sz;
+    cx = sx_;
+    cy = sy_;
+    cz = sz_;
     newList->sublist("Preconditioner").set("Coarsening Factor (x)", cx);
     newList->sublist("Preconditioner").set("Coarsening Factor (y)", cy);
     newList->sublist("Preconditioner").set("Coarsening Factor (z)", cz);
     }
 
-  int new_sx = old_sx*cx;
-  int new_sy = old_sy*cy;
-  int new_sz = old_sz*cz;
+  int new_sx = sx_*cx;
+  int new_sy = sy_*cy;
+  int new_sz = sz_*cz;
 
   if (newList->sublist("Preconditioner").isParameter("Separator Length (x)"))
     {

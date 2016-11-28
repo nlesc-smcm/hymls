@@ -96,6 +96,9 @@ protected:
   //! grid size
   int nx_,ny_,nz_;
   
+  //! subdomain size
+  int sx_,sy_,sz_;
+  
   //! partitioning strategy
   std::string partitioningMethod_;
 
@@ -164,15 +167,6 @@ private:
   //! the result is a HierarchicalMap with three groups per
   //! subdomain: interior, separator and retained.
   int DetectSeparators();
-  
-  //! Step 3: reorder and group separators. 
-  //! The result is a HierarchicalMap with a
-  //! group per subdomain for interior and a
-  //! group for each separator, e.g. for the
-  //! northern U-face separator, etc. and a 
-  //! separate group for each retained P-   
-  //! node.
-  int GroupSeparators();
 
   //! write the graph used by this class to a text file
   //! file originalGraph<level>.txt: original matrix graph on this level
