@@ -391,6 +391,37 @@ int OverlappingPartitioner::DetectSeparators()
         {
         if (prev_num_seps != num_seps)
           {
+          if (separator_nodes.size() > 0)
+            {
+            Teuchos::Array<int> nodes = separator_nodes.back();
+            if (prev_num_seps == 1 && (nodes[0] / dof_ - sx_ + 1) % nx_ > 0)
+              {
+              for (int j = 0; j < nodes.size(); j++)
+                {
+                nodes[j] -= sx_ * dof_;
+                }
+              if ((nodes[0] / dof_ + 1) % nx_ == 0) separator_nodes.pop_back(); // Remove right side
+              separator_nodes.push_back(nodes);
+              }
+            if (prev_num_seps == 2 && (nodes[0] / nx_ / dof_ - sy_ + 1) % ny_ > 0)
+              {
+              for (int j = 0; j < nodes.size(); j++)
+                {
+                nodes[j] -= sy_ * nx_ * dof_;
+                }
+              if ((nodes[0] / nx_ / dof_ + 1) % ny_ == 0) separator_nodes.pop_back(); // Remove bottom side
+              separator_nodes.push_back(nodes);
+              }
+            if (prev_num_seps == 4 && (nodes[0] / nx_ / ny_ / dof_ - sz_ + 1) % nz_ > 0)
+              {
+              for (int j = 0; j < nodes.size(); j++)
+                {
+                nodes[j] -= sz_ * nx_ * ny_ * dof_;
+                }
+              if ((nodes[0] / nx_ / ny_ / dof_ + 1) % nz_ == 0) separator_nodes.pop_back(); // Remove back side
+              separator_nodes.push_back(nodes);
+              }
+            }
           separator_nodes.push_back(Teuchos::Array<int>());
           }
         separator_nodes.back().push_back(row);
