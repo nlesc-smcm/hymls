@@ -7,6 +7,7 @@ set(SOURCES
   HYMLS_StandardNodeClassifier
   HYMLS_DenseUtils
   HYMLS_HierarchicalMap
+  HYMLS_OverlappingPartitioner
   HYMLS_Preconditioner
   HYMLS_Tester
   HYMLS_Tools

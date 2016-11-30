@@ -39,9 +39,9 @@ namespace HYMLS {
     int NumGlobalElements = npx_ * npy_ * npz_;
     int *MyGlobalElements = new int[NumGlobalElements];
 
-    for (int i = 0; i < npx_; i++)
+    for (int k = 0; k < npz_; k++)
       for (int j = 0; j < npy_; j++)
-        for (int k = 0; k < npz_; k++)
+        for (int i = 0; i < npx_; i++)
           {
           int pid = PID(sx_ * i, sy_ * j, sz_ * k);
           if (pid == comm_->MyPID())

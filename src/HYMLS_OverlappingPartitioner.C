@@ -355,6 +355,84 @@ for (int i=0;i<Map().NumMyElements();i++)
   return 0;
   }
 
+int OverlappingPartitioner::RemoveBoundarySeparators(Teuchos::Array<int> &interior_nodes, Teuchos::Array<Teuchos::Array<int> > &separator_nodes) const
+  {
+  // TODO: There should be a much easier way to do this, but I want to get rid
+  // of it eventually for consistency. We need those things anyway for periodic
+  // boundaries.
+
+  // Remove boundary separators and add them to the interior
+  Teuchos::Array<Teuchos::Array<int> >::iterator sep = separator_nodes.begin();
+  for (; sep != separator_nodes.end(); sep++)
+    {
+    Teuchos::Array<int> &nodes = *sep;
+    if ((nodes[0] / dof_ + 1) % nx_ == 0)
+      {
+      // Remove right side
+      interior_nodes.insert(interior_nodes.end(), nodes.begin(), nodes.end());
+      separator_nodes.erase(sep);
+      }
+    else if (ny_ > 1 && (nodes[0] / nx_ / dof_ + 1) % ny_ == 0)
+      {
+      // Remove bottom side
+      interior_nodes.insert(interior_nodes.end(), nodes.begin(), nodes.end());
+      separator_nodes.erase(sep);
+      }
+    else if (nz_ > 1 && (nodes[0] / nx_ / ny_ / dof_ + 1) % nz_ == 0)
+      {
+      // Remove back side
+      interior_nodes.insert(interior_nodes.end(), nodes.begin(), nodes.end());
+      separator_nodes.erase(sep);
+      }
+    else
+      continue;
+    sep = separator_nodes.begin();
+    }
+
+  // Add back boundary nodes to separators that are not along the boundaries
+  for (sep = separator_nodes.begin(); sep != separator_nodes.end(); sep++)
+    {
+    int nodeID = -1;
+    Teuchos::Array<int> &nodes = *sep;
+    for (int i = 0; i < nodes.size(); i++)
+      {
+      if ((nodes[i] / dof_) % nx_ + 2 == nx_)
+        {
+        nodeID = nodes[i] + dof_;
+        nodes.push_back(nodeID);
+        Teuchos::Array<int>::iterator it = std::find(
+          interior_nodes.begin(), interior_nodes.end(), nodeID);
+        if (it != interior_nodes.end())
+          interior_nodes.erase(it);
+        }
+      else if (ny_ > 1 && (nodes[i] / dof_ / nx_) % ny_ + 2 == ny_)
+        {
+        nodeID = nodes[i] + dof_ * nx_;
+        nodes.push_back(nodeID);
+        Teuchos::Array<int>::iterator it = std::find(
+          interior_nodes.begin(), interior_nodes.end(), nodeID);
+        if (it != interior_nodes.end())
+          interior_nodes.erase(it);
+        }
+      else if (nz_ > 1 && (nodes[i] / dof_ / nx_ / ny_) % nz_ + 2 == nz_)
+        {
+        nodeID = nodes[i] + dof_ * nx_ * ny_;
+        nodes.push_back(nodeID);
+        Teuchos::Array<int>::iterator it = std::find(
+          interior_nodes.begin(), interior_nodes.end(), nodeID);
+        if (it != interior_nodes.end())
+          interior_nodes.erase(it);
+        }
+      }
+    }
+
+  // Since we added some randon nodes to the end of the interior
+  // we sort them here
+  std::sort(interior_nodes.begin(), interior_nodes.end());
+
+  return 0;
+  }
+
 int OverlappingPartitioner::DetectSeparators()
   {
   HYMLS_PROF2(Label(),"DetectSeparators");
@@ -400,7 +478,6 @@ int OverlappingPartitioner::DetectSeparators()
                 {
                 nodes[j] -= sx_ * dof_;
                 }
-              if ((nodes[0] / dof_ + 1) % nx_ == 0) separator_nodes.pop_back(); // Remove right side
               separator_nodes.push_back(nodes);
               }
             if (prev_num_seps == 2 && (nodes[0] / nx_ / dof_ - sy_ + 1) % ny_ > 0)
@@ -409,7 +486,6 @@ int OverlappingPartitioner::DetectSeparators()
                 {
                 nodes[j] -= sy_ * nx_ * dof_;
                 }
-              if ((nodes[0] / nx_ / dof_ + 1) % ny_ == 0) separator_nodes.pop_back(); // Remove bottom side
               separator_nodes.push_back(nodes);
               }
             if (prev_num_seps == 4 && (nodes[0] / nx_ / ny_ / dof_ - sz_ + 1) % nz_ > 0)
@@ -418,7 +494,6 @@ int OverlappingPartitioner::DetectSeparators()
                 {
                 nodes[j] -= sz_ * nx_ * ny_ * dof_;
                 }
-              if ((nodes[0] / nx_ / ny_ / dof_ + 1) % nz_ == 0) separator_nodes.pop_back(); // Remove back side
               separator_nodes.push_back(nodes);
               }
             }
@@ -433,10 +508,11 @@ int OverlappingPartitioner::DetectSeparators()
         }
       }
 
+    RemoveBoundarySeparators(interior_nodes, separator_nodes);
+
     AddGroup(sd, interior_nodes);
     for (int i = 0; i < separator_nodes.size(); i++)
       {
-      std::cout << separator_nodes[i] << std::endl;
       AddGroup(sd, separator_nodes[i]);
       }
     }

@@ -183,6 +183,9 @@ private:
                               Teuchos::Array<int>& interiorNodes,
                               Teuchos::Array<int>& separatorNodes,
                               Teuchos::Array<int>& retainedNodes) const;
+
+  int RemoveBoundarySeparators(Teuchos::Array<int> &interior_nodes,
+    Teuchos::Array<Teuchos::Array<int> > &separator_nodes) const;
     
   //!@}
 
