@@ -23,6 +23,41 @@
 
 #include "phist_gen_d.h"
 
+
+namespace HYMLS {
+
+void phist_precon_apply(_ST_ alpha, const void* vP, 
+        TYPE(const_mvec_ptr) vX, _ST_ beta,  TYPE(mvec_ptr) vY, int* iflag)
+{
+  PHIST_CAST_PTR_FROM_VOID(const HYMLS::Preconditioner,P,vP,*iflag);
+  PHIST_CAST_PTR_FROM_VOID(const Epetra_MultiVector,X,vX,*iflag);
+  PHIST_CAST_PTR_FROM_VOID(Epetra_MultiVector,Y,vY,*iflag);
+  PHIST_CHK_IERR(*iflag=(alpha!=1.0 || beta!=0.0)?PHIST_NOT_IMPLEMENTED:0,*iflag);
+  PHIST_CHK_IERR(*iflag=P->ApplyInverse(*X,*Y),*iflag); 
+}
+ //!
+ void phist_precon_apply_shifted(_ST_ alpha, const void* P, _ST_ const sigma[],
+        TYPE(const_mvec_ptr) X, _ST_ beta,  TYPE(mvec_ptr) Y, int* iflag)
+{
+  // our preconditioner does nothing special ith the shifts, so call the regular apply instead
+  PHIST_CHK_IERR(phist_precon_apply(alpha,P,X,beta,Y,iflag),*iflag);
+}
+
+void phist_precon_update(void const* P, void* aux, _ST_ sigma,
+                   TYPE(const_mvec_ptr) Vkern,
+                   TYPE(const_mvec_ptr) BVkern,
+                   int* iflag)
+{
+  PHIST_CAST_PTR_FROM_VOID(HYMLS::Preconditioner,Prec,aux,*iflag);
+  // not implemented - keep preconditioner as it is but return 0 (success).
+  // In this function we could implement updating the border or the shift sigma
+  // in A-sigma*B (and recomputing the preconditioner).
+  *iflag=0;
+}
+
+}
+
+/*
 void HYMLS_jadaCorrectionSolver_run1(void* vme,
   void const* vA_op, void const* vB_op, 
   TYPE(const_mvec_ptr) Qtil, TYPE(const_mvec_ptr) BQtil,
@@ -426,3 +461,4 @@ void HYMLS_computeResidual(void* customSolver, void const* vB_op, TYPE(mvec_ptr)
 #endif
 }
 
+*/

@@ -370,9 +370,13 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
   // Create the eigenproblem.
   HYMLS_DEBUG("create eigen-problem");
   Teuchos::RCP<Anasazi::BasicEigenproblem<ST, MV, OP> > eigProblem;
-  eigProblem = Teuchos::rcp( new Anasazi::BasicEigenproblem<ST,MV,OP>(K, M, x) );
-  eigProblem->setHermitian(false);
-  eigProblem->setNEV(numEigs);
+  // note: use the default constructor because otherwise only Op and not AOp gets set
+  eigProblem = Teuchos::rcp( new Anasazi::BasicEigenproblem<ST,MV,OP>() );
+    eigProblem->setA(K);
+    eigProblem->setM(M);
+    eigProblem->setInitVec(x);
+    eigProblem->setHermitian(false);
+    eigProblem->setNEV(numEigs);
 
 #ifndef HYMLS_USE_PHIST
   eigProblem->setPrec(precond);

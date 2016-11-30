@@ -644,7 +644,10 @@ int testEigenSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
   typedef HYMLS::Solver PREC;
 
   Teuchos::RCP<Anasazi::BasicEigenproblem<ST, MV, OP> > eigProblem;
-  eigProblem = Teuchos::rcp(new Anasazi::BasicEigenproblem<ST,MV,OP>(K, M, x));
+  eigProblem = Teuchos::rcp(new Anasazi::BasicEigenproblem<ST,MV,OP>());
+  eigProblem->setA(K);
+  eigProblem->setM(M);
+  eigProblem->setInitVec(x);
   eigProblem->setHermitian(false);
   eigProblem->setNEV(eigList.get("How Many", 10));
 
