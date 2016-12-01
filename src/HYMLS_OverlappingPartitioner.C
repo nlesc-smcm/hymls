@@ -389,6 +389,8 @@ int OverlappingPartitioner::RemoveBoundarySeparators(Teuchos::Array<int> &interi
     sep = separator_nodes.begin();
     }
 
+  std::cout << interior_nodes << std::endl;
+
   // Add back boundary nodes to separators that are not along the boundaries
   for (sep = separator_nodes.begin(); sep != separator_nodes.end(); sep++)
     {
@@ -405,7 +407,7 @@ int OverlappingPartitioner::RemoveBoundarySeparators(Teuchos::Array<int> &interi
         if (it != interior_nodes.end())
           interior_nodes.erase(it);
         }
-      else if (ny_ > 1 && (nodes[i] / dof_ / nx_) % ny_ + 2 == ny_)
+      if (ny_ > 1 && (nodes[i] / dof_ / nx_) % ny_ + 2 == ny_)
         {
         nodeID = nodes[i] + dof_ * nx_;
         nodes.push_back(nodeID);
@@ -414,7 +416,7 @@ int OverlappingPartitioner::RemoveBoundarySeparators(Teuchos::Array<int> &interi
         if (it != interior_nodes.end())
           interior_nodes.erase(it);
         }
-      else if (nz_ > 1 && (nodes[i] / dof_ / nx_ / ny_) % nz_ + 2 == nz_)
+      if (nz_ > 1 && (nodes[i] / dof_ / nx_ / ny_) % nz_ + 2 == nz_)
         {
         nodeID = nodes[i] + dof_ * nx_ * ny_;
         nodes.push_back(nodeID);
@@ -424,6 +426,7 @@ int OverlappingPartitioner::RemoveBoundarySeparators(Teuchos::Array<int> &interi
           interior_nodes.erase(it);
         }
       }
+    std::sort(nodes.begin(), nodes.end());
     }
 
   // Since we added some randon nodes to the end of the interior
@@ -448,72 +451,66 @@ int OverlappingPartitioner::DetectSeparators()
     {
     interior_nodes.resize(0);
     separator_nodes.resize(0);
-    int prev_num_seps = 0;
-    for (int i = partitioner_->First(sd); i < partitioner_->First(sd+1); i++)
+
+    Teuchos::Array<int> *nodes;
+    int first = partitioner_->Map().GID(partitioner_->First(sd));
+    std::cout << first << std::endl;
+    for (int ktype = (nz_ > 1 ? -1 : 0); ktype < (nz_ > 1 ? 2 : 1); ktype++)
       {
-      int row = partitioner_->Map().GID(i);
-      int num_seps = 0;
-      if ((row / dof_ + 1) % sx_ == 0)
+      if (ktype == 1)
+        ktype = sz_ - 1;
+      if (ktype == -1 && (first / dof_ / nx_ / ny_) % nz_ == 0)
+        continue;
+      for (int jtype = -1; jtype < 2; jtype++)
         {
-        num_seps += 1;
-        }
-      if (ny_ > 1 && (row / nx_ / dof_ + 1) % sy_ == 0)
-        {
-        num_seps += 2;
-        }
-      if (nz_ > 1 && (row / nx_ / ny_ / dof_ + 1) % sz_ == 0)
-        {
-        num_seps += 4;
-        }
-      if (num_seps > 0)
-        {
-        if (prev_num_seps != num_seps)
+        if (jtype == 1)
+          jtype = sy_ - 1;
+        if (jtype == -1 && (first / dof_ / nx_) % ny_ == 0)
+          continue;
+        for (int itype = -1; itype < 2; itype++)
           {
-          if (separator_nodes.size() > 0)
+          if (itype == 1)
+            itype = sx_ - 1;
+          if (itype == -1 && (first / dof_) % nx_ == 0)
+            continue;
+          if (itype == 0 && jtype == 0 && ktype == 0)
+            nodes = &interior_nodes;
+          else
             {
-            Teuchos::Array<int> nodes = separator_nodes.back();
-            if (prev_num_seps == 1 && (nodes[0] / dof_ - sx_ + 1) % nx_ > 0)
+            separator_nodes.append(Teuchos::Array<int>());
+            nodes = &separator_nodes.back();
+            }
+          for (int k = ktype; k < (ktype || nz_ <= 1 ? ktype+1 : sz_-1); k++)
+            {
+            for (int j = jtype; j < (jtype ? jtype+1 : sy_-1); j++)
               {
-              for (int j = 0; j < nodes.size(); j++)
+              for (int i = itype; i < (itype ? itype+1 : sx_-1); i++)
                 {
-                nodes[j] -= sx_ * dof_;
+                int gid = first + i * dof_ + j * nx_ * dof_ + k * nx_ * ny_ * dof_;
+                if (gid == 254)
+                  std::cout << *nodes << " " << gid << " " << i << " " << j << " " << k << " " << std::endl;
+                nodes->append(gid);
                 }
-              separator_nodes.push_back(nodes);
-              }
-            if (prev_num_seps == 2 && (nodes[0] / nx_ / dof_ - sy_ + 1) % ny_ > 0)
-              {
-              for (int j = 0; j < nodes.size(); j++)
-                {
-                nodes[j] -= sy_ * nx_ * dof_;
-                }
-              separator_nodes.push_back(nodes);
-              }
-            if (prev_num_seps == 4 && (nodes[0] / nx_ / ny_ / dof_ - sz_ + 1) % nz_ > 0)
-              {
-              for (int j = 0; j < nodes.size(); j++)
-                {
-                nodes[j] -= sz_ * nx_ * ny_ * dof_;
-                }
-              separator_nodes.push_back(nodes);
               }
             }
-          separator_nodes.push_back(Teuchos::Array<int>());
+          std::cout << *nodes << std::endl;
           }
-        separator_nodes.back().push_back(row);
-        prev_num_seps = num_seps;
-        }
-      else
-        {
-        interior_nodes.push_back(row);
         }
       }
+
+    std::cout << interior_nodes << std::endl;
 
     RemoveBoundarySeparators(interior_nodes, separator_nodes);
 
     AddGroup(sd, interior_nodes);
+    std::cout << interior_nodes << std::endl;
     for (int i = 0; i < separator_nodes.size(); i++)
       {
-      AddGroup(sd, separator_nodes[i]);
+      if (separator_nodes[i].size() > 0)
+        {
+        AddGroup(sd, separator_nodes[i]);
+        std::cout << separator_nodes[i] << std::endl;
+        }
       }
     }
 

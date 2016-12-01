@@ -410,10 +410,8 @@ HYMLS_DEBVAR(probList_);
 
   CHECK_ZERO(reorderedMatrix_->Import(*Acrs,*importer_,Insert));
 
-  try {
-    CHECK_ZERO(reorderedMatrix_->FillComplete());
-    } catch (...) {HYMLS::Tools::Error("caught exception in FillComplete()",__FILE__,__LINE__);}
-    
+  CHECK_ZERO(reorderedMatrix_->FillComplete());
+
   REPORT_SUM_MEM(label_,"reordered matrix",reorderedMatrix_->NumMyNonzeros(),
     reorderedMatrix_->NumMyNonzeros(),
     comm_);

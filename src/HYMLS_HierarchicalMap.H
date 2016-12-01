@@ -267,6 +267,10 @@ public:
   //! of the new group. FillComplete() should not have been called.
   int AddGroup(int sd, Teuchos::Array<int>& gidList);
   
+  //! get back a group that was added as described above. Used for debugging purposes
+  //! only
+  Teuchos::Array<int> GetGroup(int sd, int grp);
+  
   //! delete the map and all subdomains and groups that have been added so far
   int Reset(int num_sd);
 

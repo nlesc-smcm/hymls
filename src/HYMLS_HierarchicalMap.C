@@ -34,9 +34,6 @@
 
 #include "HYMLS_MatrixUtils.H"
 
-
-typedef Teuchos::Array<int>::iterator int_i;
-
 namespace HYMLS {
 
   //empty constructor
@@ -127,9 +124,10 @@ namespace HYMLS {
       std::copy((*gidList_)[sd].begin(),(*gidList_)[sd].end(),std::back_inserter(all_gids));
       if (sd>0)
         {
-        for (int_i j=(*groupPointer_)[sd].begin();j!=(*groupPointer_)[sd].end();j++)
+        for (Teuchos::Array<int>::iterator j = (*groupPointer_)[sd].begin();
+             j != (*groupPointer_)[sd].end(); j++)
           {
-          *j+=*((*groupPointer_)[sd-1].end()-1);
+          *j += *((*groupPointer_)[sd-1].end()-1);
           }
         }
       }
@@ -162,16 +160,13 @@ namespace HYMLS {
     {
     HYMLS_PROF2(label_,"FillStart");
     // adjust the group pointer back to local indexing per subdomain
-    for (int sd=0;sd<NumMySubdomains();sd++)
+    for (int sd = NumMySubdomains()-1; sd > 0; sd--)
       {
-      HYMLS_DEBVAR(sd);
-      if (sd>0)
+      for (Teuchos::Array<int>::iterator j = (*groupPointer_)[sd].begin();
+           j != (*groupPointer_)[sd].end(); j++)
         {
-        for (int_i j=(*groupPointer_)[sd].begin();j!=(*groupPointer_)[sd].end();j++)
-          {
-          HYMLS_DEBVAR(*j);
-          *j-=*((*groupPointer_)[sd-1].end()-1);
-          }
+        HYMLS_DEBVAR(*j);
+        *j -= *((*groupPointer_)[sd-1].end()-1);
         }
       }
     overlappingMap_ = Teuchos::null;
@@ -199,6 +194,31 @@ namespace HYMLS {
       std::copy(gidList.begin(),gidList.end(),std::back_inserter((*gidList_)[sd]));
       }
     return (*groupPointer_)[sd].length()-1;
+    }
+
+Teuchos::Array<int> HierarchicalMap::GetGroup(int sd, int grp)
+    {
+    HYMLS_PROF3(label_,"GetGroup");
+    bool wasFilled = Filled();
+    if (wasFilled) FillStart();
+
+    if (sd >= groupPointer_->size())
+      Tools::Error("Invalid subdomain index", __FILE__, __LINE__);
+
+    if (grp >= (*groupPointer_)[sd].size())
+      Tools::Error("Invalid group index", __FILE__, __LINE__);
+
+    int offset = *((*groupPointer_)[sd].begin() + grp);
+    int len = *((*groupPointer_)[sd].begin() + grp + 1) - offset;
+
+    if (offset + len > (*gidList_)[sd].size())
+      Tools::Error("Invalid group index", __FILE__, __LINE__);
+
+    Teuchos::Array<int> gidList;
+    std::copy((*gidList_)[sd].begin() + offset, (*gidList_)[sd].begin() + offset + len,std::back_inserter(gidList));
+
+    if (wasFilled) FillComplete();
+    return gidList;
     }
 
   //! print domain decomposition to file
@@ -430,9 +450,9 @@ HierarchicalMap::SpawnInterior() const
   // so if we call 'unique' we keep each separator (including those
   // on a different partition) exactly once
   std::sort(InteriorIDs.begin(), InteriorIDs.end());
-  int_i end_interior=std::unique(InteriorIDs.begin(),InteriorIDs.end());
+  Teuchos::Array<int>::iterator end_interior=std::unique(InteriorIDs.begin(),InteriorIDs.end());
   std::sort(SeparatorIDs.begin(), SeparatorIDs.end());
-  int_i end_separators=std::unique(SeparatorIDs.begin(),SeparatorIDs.end());
+  Teuchos::Array<int>::iterator end_separators=std::unique(SeparatorIDs.begin(),SeparatorIDs.end());
     
   int numInteriorElements=std::distance(InteriorIDs.begin(),end_interior);
   int numSeparatorElements=std::distance(SeparatorIDs.begin(),end_separators);  
@@ -447,11 +467,11 @@ HierarchicalMap::SpawnInterior() const
 
   int *myOverlappingElements = new int[numOverlappingElements];
   int pos=0;
-  for (int_i i=InteriorIDs.begin();i!=end_interior;i++)
+  for (Teuchos::Array<int>::iterator i=InteriorIDs.begin();i!=end_interior;i++)
     {
     myOverlappingElements[pos++]=*i;
     }
-  for (int_i i=SeparatorIDs.begin();i!=end_separators;i++)
+  for (Teuchos::Array<int>::iterator i=SeparatorIDs.begin();i!=end_separators;i++)
     {
     myOverlappingElements[pos++]=*i;
     }
