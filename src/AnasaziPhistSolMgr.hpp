@@ -190,6 +190,10 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
                                 std::invalid_argument, "Convergence Tolerance must be greater than zero." );
 
     d_opts.convTol = tol;
+    d_opts.numEigs = pl.get<int>("How Many");
+    d_opts.minBas = d_opts.numEigs + 2;
+    d_opts.blockSize = pl.get<int>("Block Size");
+
 
     // Get maximum restarts
     d_opts.maxBas = pl.get<int>("Restart Dimension",d_problem->getNEV());
@@ -334,11 +338,6 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
   TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
     "PhistSolMgr::solve: phist_Dmvec_normalize returned nonzero error code "+Teuchos::toString(iflag));
 
-  int num_eigs;
-
-  TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
-    "PhistSolMgr::solve: phist_Djdqr returned nonzero error code "+Teuchos::toString(iflag));
-
   Eigensolution<ScalarType,MV> sol;
   int num_eigs, block_dim;
   num_eigs = d_opts.numEigs;
@@ -351,20 +350,18 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
   
   //using Djdqr, R could be NULL. But using subspacejada, we need to create R
   phist_DsdMat_ptr  R = NULL;
-  phist_comm_ptr comm = NULL;
+  phist_const_comm_ptr comm = NULL;
   phist_Dmvec_get_comm(Q.get(),&comm,&iflag);
 
   //phist_Dmvec_get_comm(X.get(),&comm,&iflag); //need const_comm
   // wrap MPI_COMM_WORLD
   
   phist_DsdMat_create(&R,num_eigs+block_dim-1,num_eigs+block_dim-1,comm,&iflag); 
-  phist::SdMatOwner<double> _R(R);
 
   phist_Dsubspacejada(A_op.get(), B_op.get(), d_opts, Q.get(), R, ev, &resid[0],  &num_eigs, &numIters_, &iflag);
   TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
     "PhistSolMgr::solve: phist_Dsubspacejada returned nonzero error code "+Teuchos::toString(iflag));
 
-  Eigensolution<ScalarType,MV> sol;
   sol.numVecs = num_eigs;
 
   sol.index.resize(sol.numVecs);
@@ -385,9 +382,13 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
   }
   d_problem->setSolution(sol);
 
+  phist_DsdMat_create(&R,num_eigs+block_dim-1,num_eigs+block_dim-1,comm,&iflag); 
+
   // Return convergence status
   if( sol.numVecs < d_problem->getNEV() )
+  {
     return Unconverged;
+  }
 
   return Converged;
 }
