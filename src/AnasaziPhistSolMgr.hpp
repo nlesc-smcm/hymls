@@ -336,10 +336,33 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
 
   int num_eigs;
 
-  phist_Djdqr(A_op.get(), B_op.get(), X.get(), Q.get(), NULL, &evals[0], &resid[0], &is_cmplx[0],
-        d_opts, &num_eigs, &numIters_, &iflag);
   TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
     "PhistSolMgr::solve: phist_Djdqr returned nonzero error code "+Teuchos::toString(iflag));
+
+  Eigensolution<ScalarType,MV> sol;
+  int num_eigs, block_dim;
+  num_eigs = d_opts.numEigs;
+  block_dim = d_opts.blockSize; 
+  
+  std::complex<double> *ev = new std::complex<double>[num_eigs+block_dim-1];
+   
+  //phist_Djdqr(A_op.get(), B_op.get(), X.get(), Q.get(), NULL, &evals[0], &resid[0], &is_cmplx[0],
+    //    d_opts, &num_eigs, &numIters_, &iflag);
+  
+  //using Djdqr, R could be NULL. But using subspacejada, we need to create R
+  phist_DsdMat_ptr  R = NULL;
+  phist_comm_ptr comm = NULL;
+  phist_Dmvec_get_comm(Q.get(),&comm,&iflag);
+
+  //phist_Dmvec_get_comm(X.get(),&comm,&iflag); //need const_comm
+  // wrap MPI_COMM_WORLD
+  
+  phist_DsdMat_create(&R,num_eigs+block_dim-1,num_eigs+block_dim-1,comm,&iflag); 
+  phist::SdMatOwner<double> _R(R);
+
+  phist_Dsubspacejada(A_op.get(), B_op.get(), d_opts, Q.get(), R, ev, &resid[0],  &num_eigs, &numIters_, &iflag);
+  TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
+    "PhistSolMgr::solve: phist_Dsubspacejada returned nonzero error code "+Teuchos::toString(iflag));
 
   Eigensolution<ScalarType,MV> sol;
   sol.numVecs = num_eigs;
@@ -347,25 +370,17 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
   sol.index.resize(sol.numVecs);
   sol.Evals.resize(sol.numVecs);
 
-  int i = 0;
-  while (i < sol.numVecs)
+  for (int i = 0; i < sol.numVecs; i++)
   {
     sol.index[i] = i;
     sol.Evals[i].realpart = evals[i];
-    if (is_cmplx[i]) {
-      sol.Evals[i].imagpart = evals[i+1];
-      sol.Evals[i+1].realpart = evals[i];
-      sol.Evals[i+1].imagpart = -evals[i+1];
-      i++;
-    }
-    i++;
+    sol.Evals[i].realpart = ev[i].real();
+    sol.Evals[i].imagpart = ev[i].imag();
   }
-
-  std::sort(sol.Evals.begin(), sol.Evals.end(), eigSort<ScalarType>);
 
   if (sol.numVecs)
   {
-    sol.Evecs = MVT::CloneCopy(*X, Teuchos::Range1D(0, sol.numVecs-1));
+    //sol.Evecs = MVT::CloneCopy(*X, Teuchos::Range1D(0, sol.numVecs-1));
     sol.Espace = MVT::CloneCopy(*Q, Teuchos::Range1D(0, sol.numVecs-1));
   }
   d_problem->setSolution(sol);
