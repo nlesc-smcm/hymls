@@ -147,7 +147,6 @@ namespace HYMLS {
           0, NULL, 0, NULL);
         }
       }
-    
     overlappingMap_ = Teuchos::rcp(new Epetra_Map
         (-1,numel,my_gids,baseMap_->IndexBase(),*comm_));
     // we keep the gidLists so we can add more subdomains and groups
@@ -199,8 +198,11 @@ namespace HYMLS {
 Teuchos::Array<int> HierarchicalMap::GetGroup(int sd, int grp)
     {
     HYMLS_PROF3(label_,"GetGroup");
-    bool wasFilled = Filled();
-    if (wasFilled) FillStart();
+    if (Filled())
+      for (int sd = NumMySubdomains()-1; sd > 0; sd--)
+        for (Teuchos::Array<int>::iterator j = (*groupPointer_)[sd].begin();
+             j != (*groupPointer_)[sd].end(); j++)
+          *j -= *((*groupPointer_)[sd-1].end()-1);
 
     if (sd >= groupPointer_->size())
       Tools::Error("Invalid subdomain index", __FILE__, __LINE__);
@@ -217,7 +219,12 @@ Teuchos::Array<int> HierarchicalMap::GetGroup(int sd, int grp)
     Teuchos::Array<int> gidList;
     std::copy((*gidList_)[sd].begin() + offset, (*gidList_)[sd].begin() + offset + len,std::back_inserter(gidList));
 
-    if (wasFilled) FillComplete();
+    if (Filled())
+      for (int sd = 1; sd < NumMySubdomains(); sd++)
+        for (Teuchos::Array<int>::iterator j = (*groupPointer_)[sd].begin();
+             j != (*groupPointer_)[sd].end(); j++)
+          *j += *((*groupPointer_)[sd-1].end()-1);
+
     return gidList;
     }
 
