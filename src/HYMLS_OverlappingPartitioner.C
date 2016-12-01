@@ -389,8 +389,6 @@ int OverlappingPartitioner::RemoveBoundarySeparators(Teuchos::Array<int> &interi
     sep = separator_nodes.begin();
     }
 
-  std::cout << interior_nodes << std::endl;
-
   // Add back boundary nodes to separators that are not along the boundaries
   for (sep = separator_nodes.begin(); sep != separator_nodes.end(); sep++)
     {
@@ -454,7 +452,6 @@ int OverlappingPartitioner::DetectSeparators()
 
     Teuchos::Array<int> *nodes;
     int first = partitioner_->Map().GID(partitioner_->First(sd));
-    std::cout << first << std::endl;
     for (int ktype = (nz_ > 1 ? -1 : 0); ktype < (nz_ > 1 ? 2 : 1); ktype++)
       {
       if (ktype == 1)
@@ -487,29 +484,22 @@ int OverlappingPartitioner::DetectSeparators()
               for (int i = itype; i < (itype ? itype+1 : sx_-1); i++)
                 {
                 int gid = first + i * dof_ + j * nx_ * dof_ + k * nx_ * ny_ * dof_;
-                if (gid == 254)
-                  std::cout << *nodes << " " << gid << " " << i << " " << j << " " << k << " " << std::endl;
                 nodes->append(gid);
                 }
               }
             }
-          std::cout << *nodes << std::endl;
           }
         }
       }
 
-    std::cout << interior_nodes << std::endl;
-
     RemoveBoundarySeparators(interior_nodes, separator_nodes);
 
     AddGroup(sd, interior_nodes);
-    std::cout << interior_nodes << std::endl;
     for (int i = 0; i < separator_nodes.size(); i++)
       {
       if (separator_nodes[i].size() > 0)
         {
         AddGroup(sd, separator_nodes[i]);
-        std::cout << separator_nodes[i] << std::endl;
         }
       }
     }

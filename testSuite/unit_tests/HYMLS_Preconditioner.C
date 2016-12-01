@@ -83,14 +83,14 @@ TEUCHOS_UNIT_TEST(Preconditioner, Blocks)
   Epetra_Util util;
   for (int i = 0; i < n; i++) {
     int A_idx = util.RandomInt() % n;
-    double A_val = -std::abs(util.RandomDouble());
+    // double A_val = -std::abs(util.RandomDouble());
     double A_val2 = std::abs(util.RandomDouble());
 
     // Check if we own the index
     if (A->LRID(i) == -1)
       continue;
 
-    CHECK_ZERO(A->InsertGlobalValues(i, 1, &A_val, &A_idx));
+    // CHECK_ZERO(A->InsertGlobalValues(i, 1, &A_val, &A_idx));
     CHECK_ZERO(A->InsertGlobalValues(i, 1, &A_val2, &i));
   }
   CHECK_ZERO(A->FillComplete());

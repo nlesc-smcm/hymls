@@ -285,7 +285,7 @@ Teuchos::RCP<const Epetra_Map> HierarchicalMap::GetUniqueOverlappingMap() const
   {
   HYMLS_PROF3(label_,"GetUniqueOverlappingMap");
 
-  // Get elements from the original overlappign map which contains duplicate elements
+  // Get elements from the original overlapping map which contains duplicate elements
   Teuchos::Array<int> myElements(overlappingMap_->NumMyElements());
   overlappingMap_->MyGlobalElements(&myElements[0]);
 

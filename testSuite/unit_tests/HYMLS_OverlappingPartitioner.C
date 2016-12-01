@@ -100,7 +100,6 @@ public:
             }
           }
 
-        std::cout << group << " " << found << std::endl;
         if (found > 0)
           newPart->AddGroup(sd, group);
         }
@@ -371,3 +370,4 @@ TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, Laplace3D, 1, 8, 8, 8, 4, 4, 4);
 TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, Laplace3D, 2, 16, 16, 16, 4, 4, 4);
 TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, Laplace3D, 3, 16, 8, 8, 4, 4, 4);
 TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, Laplace3D, 4, 4, 4, 4, 2, 2, 2);
+TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, Laplace3D, 5, 8, 4, 4, 4, 4, 4);
