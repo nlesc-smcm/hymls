@@ -5,6 +5,8 @@
 
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_Array.hpp"
+#include "Epetra_RowMatrix.h"
+#include "Epetra_CrsMatrix.h"
 
 #include "Ifpack_Preconditioner.h"
 #include "Ifpack_Container.h"
@@ -25,7 +27,6 @@
 // forward declarations
 class Epetra_Comm;
 class Epetra_Map;
-class Epetra_RowMatrix;
 class Epetra_Import;
 
 
