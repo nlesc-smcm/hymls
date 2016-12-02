@@ -225,9 +225,11 @@ public:
   //!\name HYMLS::BorderedSolver interface
   //@{
   
-  //! add a border to the preconditioner. So instead of solving
-  //! Px=y we then solve Px+Vs=y, W'x+Cs=0.
-  int addBorder(Teuchos::RCP<const Epetra_MultiVector> V,
+  //! set a border on the preconditioner. So instead of solving 
+  //! Px=y we then solve Px+Vs=y, W'x+Cs=0. If W is omitted, W=V
+  //! is used. If C is omitted, C=0 is used.                    
+  //! To remove an existing border, pass in V=W=C=Teuchos::null.
+  int setBorder(Teuchos::RCP<const Epetra_MultiVector> V,
                 Teuchos::RCP<const Epetra_MultiVector> W=Teuchos::null,
                 Teuchos::RCP<const Epetra_SerialDenseMatrix> C=Teuchos::null);
 

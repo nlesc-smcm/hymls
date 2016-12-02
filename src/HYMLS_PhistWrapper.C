@@ -49,9 +49,11 @@ void phist_precon_update(void const* P, void* aux, _ST_ sigma,
                    int* iflag)
 {
   PHIST_CAST_PTR_FROM_VOID(HYMLS::Preconditioner,Prec,aux,*iflag);
-  // not implemented - keep preconditioner as it is but return 0 (success).
-  // In this function we could implement updating the border or the shift sigma
-  // in A-sigma*B (and recomputing the preconditioner).
+  // add the deflation space obtained from Jacobi-Davidson as a border to the
+  // preconditioner
+  Teuchos::RCP<const Epetra_MultiVector> V = Teuchos::rcp((const Epetra_MultiVector*)Vkern,false);
+  Teuchos::RCP<const Epetra_MultiVector> W = Teuchos::rcp((const Epetra_MultiVector*)BVkern,false);
+  PHIST_CHK_IERR(*iflag=Prec->setBorder(V,W),*iflag);
   *iflag=0;
 }
 

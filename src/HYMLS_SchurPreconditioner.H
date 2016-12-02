@@ -214,7 +214,7 @@ public:
   //@{
   
   //!
-  int addBorder(Teuchos::RCP<const Epetra_MultiVector> V,
+  int setBorder(Teuchos::RCP<const Epetra_MultiVector> V,
                 Teuchos::RCP<const Epetra_MultiVector> W,
                 Teuchos::RCP<const Epetra_SerialDenseMatrix> C=Teuchos::null);
   

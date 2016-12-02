@@ -19,7 +19,7 @@ namespace HYMLS
   : A_(A),useTranspose_(false),label_("BorderedLU(A="+std::string(A->Label())+")")
   {
   HYMLS_PROF2(label_,"Constructor");
-  CHECK_ZERO(this->addBorder(V,W,C));
+  CHECK_ZERO(this->setBorder(V,W,C));
   }
 
 HYMLS::BorderedLU::~BorderedLU()
@@ -51,11 +51,11 @@ HYMLS::BorderedLU::~BorderedLU()
       return ierr;
       }
 
-    int BorderedLU::addBorder(Teuchos::RCP<const Epetra_MultiVector> V,
+    int BorderedLU::setBorder(Teuchos::RCP<const Epetra_MultiVector> V,
                   Teuchos::RCP<const Epetra_MultiVector> W,
                   Teuchos::RCP<const Epetra_SerialDenseMatrix> C)
   {
-  HYMLS_PROF2(label_,"addBorder");
+  HYMLS_PROF2(label_,"setBorder");
   V_=V; W_=W; C_=C;
   if (V==Teuchos::null) Tools::Error("V is null",__FILE__,__LINE__);
   if (W==Teuchos::null) W_=V;
