@@ -19,6 +19,8 @@
 
 #include <BelosIMGSOrthoManager.hpp>
 
+#include "HYMLS_config.h"
+
 #ifdef HYMLS_DEBUGGING
 #include <signal.h>
 #endif
@@ -48,7 +50,7 @@
 typedef double ST;
 typedef Epetra_MultiVector MV;
 typedef Epetra_Operator OP;
-typedef HYMLS::Solver PREC;
+typedef HYMLS::Preconditioner PREC;
 
 int main(int argc, char* argv[])
   {
@@ -278,39 +280,15 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     HYMLS::Tools::StopTiming("main: Initialize Preconditioner",true);
     }
   
-  cout << "dof=" << dof <<endl;
-
-  HYMLS::Tools::Out("Create Solver");
-  Teuchos::RCP<HYMLS::Solver> solver = Teuchos::rcp(new HYMLS::Solver(K, precond, params,1));
-
-  // get the null space (if any), as specified in the xml-file
-  Teuchos::RCP<const Epetra_MultiVector> Nul = solver->getNullSpace();
-
   REPORT_MEM("main","before HYMLS",0,0);
   
-  if (precond!=Teuchos::null) 
+  if (precond!=Teuchos::null)
     {
     HYMLS::Tools::StartTiming("main: Compute Preconditioner");
     CHECK_ZERO(precond->Compute());
     HYMLS::Tools::StopTiming("main: Compute Preconditioner",true);
     }
 
-  if (M!=Teuchos::null)
-    {
-    solver->SetMassMatrix(M);
-    }
-
-  if (nullSpace!=Teuchos::null)
-    {
-    CHECK_ZERO(solver->setNullSpace(nullSpace));
-    }
-
-  if (do_deflation)
-    {
-    //~ solver->SetMassMatrix(M);
-    CHECK_ZERO(solver->SetupDeflation());
-    }
-  
   // Set verbosity level
   int verbosity = Anasazi::Errors + Anasazi::Warnings;
   verbosity += Anasazi::IterationDetails;
@@ -388,15 +366,15 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     }
 
 #ifdef HYMLS_USE_PHIST
-  Anasazi::PhistSolMgr<ST,MV,OP,PREC> jada(eigProblem,solver,eigList);
+  Anasazi::PhistSolMgr<ST,MV,OP,PREC> esolver(eigProblem,precond,eigList);
 #else
-  Anasazi::BlockKrylovSchurSolMgr<ST,MV,OP> jada(eigProblem,eigList);
+  Anasazi::BlockKrylovSchurSolMgr<ST,MV,OP> esolver(eigProblem,eigList);
 #endif
 
   // Solve the problem to the specified tolerances or length
   Anasazi::ReturnType returnCode;
   HYMLS_DEBUG("solve eigenproblem");
-  returnCode = jada.solve();
+  returnCode = esolver.solve();
   if (returnCode != Anasazi::Converged)
 
     HYMLS::Tools::Warning("Anasazi::EigensolverMgr::solve() returned unconverged.",
@@ -442,16 +420,8 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     {
     if (comm->MyPID()==0)
       {
-      Teuchos::RCP<const Teuchos::ParameterList> finalList
-        = solver->getParameterList();
-      std::string filename1 = param_file+".final";        
-      HYMLS::Tools::out() << "final parameter list is written to '" << filename1<<"'"<<std::endl;
-      writeParameterListToXmlFile(*finalList,filename1);
-
       HYMLS::Tools::out() << "parameter documentation is written to file param_doc.txt" << std::endl;
-      std::ofstream ofs("paramDoc.txt");
-      ofs << "valid parameters for HYMLS::Solver "<<std::endl;
-      printValidParameters(*solver,ofs);
+      std::ofstream ofs("param_doc.txt");
       ofs << "valid parameters for HYMLS::Preconditioner "<<std::endl;
       printValidParameters(*precond,ofs);
       }

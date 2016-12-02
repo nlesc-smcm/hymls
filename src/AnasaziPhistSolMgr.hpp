@@ -230,7 +230,7 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
     }
     else
     {
-        borderedSolver = true;
+        borderedSolver = false;
     }
 
     // Get sort type
