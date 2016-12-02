@@ -19,6 +19,7 @@
 #include "phist_precon.h"
 #include "phist_jadaOpts.h"
 #include "phist_subspacejada.h"
+#include "phist_schur_decomp.h"
 
 #include "HYMLS_Solver.H"
 #include "HYMLS_Tester.H"
@@ -387,6 +388,12 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
     sol.Evals[i].realpart = ev[i].real();
     sol.Evals[i].imagpart = ev[i].imag();
   }
+  
+  phist_DComputeEigenvectors(Q.get(),R,X.get(),&iflag);
+  TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
+        "PHIST error "+Teuchos::toString(iflag)+" returned from call phist_Despace_to_evecs");
+
+  phist_DsdMat_delete(R,&iflag);
 
   if (sol.numVecs)
   {
