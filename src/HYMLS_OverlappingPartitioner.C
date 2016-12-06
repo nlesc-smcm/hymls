@@ -451,7 +451,8 @@ int OverlappingPartitioner::DetectSeparators()
     separator_nodes.resize(0);
 
     Teuchos::Array<int> *nodes;
-    int first = partitioner_->Map().GID(partitioner_->First(sd)) / sx_ * sx_;
+    int first = partitioner_->Map().GID(partitioner_->First(sd));
+    first = (first % nx_) / sx_ * sx_ + first / (sy_ * nx_) * (sy_ * nx_);
     for (int ktype = (nz_ > 1 ? -1 : 0); ktype < (nz_ > 1 ? 2 : 1); ktype++)
       {
       if (ktype == 1)

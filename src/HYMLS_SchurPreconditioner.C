@@ -856,7 +856,6 @@ int SchurPreconditioner::InitializeOT()
         {
 //        HYMLS_DEBVAR(grp);
         int len = sepObject->NumElements(sep,grp);
-        std::cout << sep << " " << grp << " " << len << std::endl;
         if ((inds.Length()!=len) && (len>0))
           {
           inds.Size(len);
@@ -873,7 +872,6 @@ int SchurPreconditioner::InitializeOT()
             vec[pos++] = localTestVector[lid];
             }
           }
-        std::cout << sep << " " << grp << " " << pos << std::endl;
         inds.Resize(pos);
         vec.Resize(pos);
         if (pos>0)
@@ -890,9 +888,7 @@ int SchurPreconditioner::InitializeOT()
           }
         }
       }
-    std::cout << *sparseMatrixOT_ << std::endl;
     CHECK_ZERO(sparseMatrixOT_->FillComplete());
-    std::cout << "OT " << *sparseMatrixOT_ << std::endl;
     }
 #ifdef HYMLS_STORE_MATRICES
   MatrixUtils::Dump(*sparseMatrixOT_, 
@@ -940,8 +936,6 @@ int SchurPreconditioner::InitializeOT()
 
       vsumMap_=Teuchos::rcp(new Epetra_Map(-1,numBlocks,MyVsumElements,
                                 map_->IndexBase(), map_->Comm()));
-
-      std::cout << "VSUMMAP " << *vsumMap_ << std::endl;
       
       delete [] MyVsumElements;
       HYMLS_DEBUG(label_);
