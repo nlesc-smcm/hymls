@@ -612,23 +612,14 @@ HierarchicalMap::SpawnLocalSeparators
   HYMLS_PROF3(label_,"SpawnLocalSeparators");
 
   Teuchos::RCP<const HierarchicalMap> newObject=Teuchos::null;
-  Teuchos::RCP<Epetra_Map> newMap=Teuchos::null;
-  Teuchos::RCP<Epetra_Map> newOverlappingMap=Teuchos::null;
   Teuchos::RCP<Teuchos::Array<Teuchos::Array<int> > > newGidList =
         Teuchos::rcp(new Teuchos::Array<Teuchos::Array<int> >());
   Teuchos::RCP<Teuchos::Array<Teuchos::Array<int> > > newGroupPointer =
         Teuchos::rcp(new Teuchos::Array<Teuchos::Array<int> >());
   
-  int base = baseMap_->IndexBase();  
-  
-  // start out from the standard Separator object. It's interior groups are the new 
-  // subdomains, and we split them according to the criteria given by the user in the
-  // SepNode array.
-  Teuchos::RCP<const HierarchicalMap> sepObject 
-        = this->Spawn(Separators);
-
-  // TODO: Remove this array
-  Teuchos::Array<int> todo;
+  // Start out from the standard Separator object. All local separators are located
+  // in its baseMap_
+  Teuchos::RCP<const HierarchicalMap> sepObject = this->Spawn(Separators);
 
   for (int sd = 0; sd < sepObject->NumMySubdomains(); sd++)
     {
@@ -636,8 +627,7 @@ HierarchicalMap::SpawnLocalSeparators
     newGroupPointer->append(Teuchos::Array<int>(2));
     for (int grp = 1; grp < sepObject->NumGroups(sd); grp++)
       {
-      if (sepObject->NumElements(sd, grp) > 0 && baseMap_->MyGID(sepObject->GID(sd, grp, 0)) &&
-        std::find(todo.begin(), todo.end(), sepObject->GID(sd, grp, 0)) == todo.end())
+      if (sepObject->NumElements(sd, grp) > 0 && sepObject->GetMap()->MyGID(sepObject->GID(sd, grp, 0)))
         {
         Teuchos::Array<int> gidList = sepObject->GetGroup(sd, grp);
         int offset = *((*newGroupPointer)[sd].end()-1);
@@ -647,94 +637,13 @@ HierarchicalMap::SpawnLocalSeparators
           (*newGroupPointer)[sd].append(offset + len);
           std::copy(gidList.begin(), gidList.end(), std::back_inserter((*newGidList)[sd]));
           }
-        todo.append(sepObject->GID(sd, grp, 0));
         }
       }
     }
-  Teuchos::Array<int> all_gids;
-  for (int sd=0;sd<NumMySubdomains();sd++)
-    {
-    std::copy((*newGidList)[sd].begin(), (*newGidList)[sd].end(),std::back_inserter(all_gids));
-    }
 
-  // std::sort(all_gids.begin(), all_gids.end());
-  // Teuchos::Array<int>::iterator end_interior = std::unique(all_gids.begin(),all_gids.end());
-  
-  // int numel = std::distance(all_gids.begin(), end_interior);
-  int numel = all_gids.size();
-  int *my_gids = numel>0? &(all_gids[0]) : NULL;
-  
-  newMap = Teuchos::rcp(new Epetra_Map
-    (-1,numel,my_gids,baseMap_->IndexBase(),*comm_));
-  
-  newObject = Teuchos::rcp(new HierarchicalMap
-      (comm_,newMap,newMap,newGroupPointer,newGidList,"Local Separator Nodes",myLevel_) );
-  return newObject;
+  newObject = Teuchos::rcp(new HierarchicalMap(comm_, sepObject->GetMap(), sepObject->GetMap(),
+      newGroupPointer, newGidList, "Local Separator Nodes", myLevel_));
 
-  // Teuchos::RCP<const HierarchicalMap> sepObject 
-  //       = this->Spawn(Separators);
-
-  
-  // the number of elements in the new object is the number of interior
-  // elements in the old one
-  // int NumMyElements = sepObject->NumMyInteriorElements();
-  // int* MyElements=new int[NumMyElements];
-  // newGroupPointer->resize(sepObject->NumMySubdomains());
-
-  // int pos=0;
-  // for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
-  //   {
-  //   HYMLS_DEBVAR(sep)
-  //   (*newGroupPointer)[sep].append(pos);
-  //   if (regroup!=Teuchos::null)
-  //     {
-  //     // sort the SepNodes
-  //     int begin = sepObject->LID(sep,0,0);
-  //     int end = begin + sepObject->NumElements(sep,0);
-  //     std::sort(regroup->begin()+begin,regroup->begin()+end);
-  //     MyElements[pos++] = (*regroup)[begin].GID();
-  //     HYMLS_DEBUG("|"<<pos-1<<"| "<<(*regroup)[begin]);
-  //     for (int j=1;j<sepObject->NumElements(sep,0);j++)
-  //       {
-  //       MyElements[pos] = (*regroup)[begin+j].GID();
-  //       HYMLS_DEBUG("|"<<pos<<"| "<<(*regroup)[begin+j]);
-  //       // note: comparing SepNode objects means comparing there
-  //       // connectivity and variable type, not their GIDs. So 
-  //       // this call does the grouping (together with the sort)
-  //       if ((*regroup)[begin+j]!=(*regroup)[begin+j-1])
-  //         {
-  //         HYMLS_DEBUG("this is a new group");
-  //         (*newGroupPointer)[sep].append(pos);
-  //         }
-  //       pos++;
-  //       }
-  //     }
-  //   else
-  //     {
-  //     for (int j=0;j<sepObject->NumElements(sep,0);j++)
-  //       {
-  //       MyElements[pos++] = sepObject->GID(sep,0,j);
-  //       }
-  //     }
-  //   (*newGroupPointer)[sep].append(pos);
-  //   }
-
-  // //for this object the map and overlapping map are the same
-  // newMap=Teuchos::rcp(new Epetra_Map(-1,NumMyElements,MyElements,base,*comm_));
-
-  // newOverlappingMap=newMap;
-  
-  // delete [] MyElements;
-
-  // newObject = Teuchos::rcp(new HierarchicalMap
-  //       (comm_,newMap,newOverlappingMap,newGroupPointer,"Local Separator Nodes",myLevel_) );
-  
-//  std::cout << *sepObject << std::endl;
-//  std::cout << *newObject << std::endl;
-  newMap = Teuchos::rcp(new Epetra_Map(sepObject->Map()));
-
-  newObject = Teuchos::rcp(new HierarchicalMap
-    (comm_,newMap,newMap,groupPointer_,gidList_,"Local Separator Nodes",myLevel_) );
   return newObject;
   }
 
