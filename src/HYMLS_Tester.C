@@ -503,7 +503,7 @@ namespace HYMLS {
   for (int sep=0;sep<sepObject.NumMySubdomains();sep++)
     {
     // loop over all local separator groups
-    for (int grp=0;grp<sepObject.NumGroups(sep);grp++)
+    for (int grp=1;grp<sepObject.NumGroups(sep);grp++)
       {
       // loop over all elements in the group, skipping the first one (the V-sum node)
       for (int i=1;i<sepObject.NumElements(sep,grp);i++)

@@ -514,7 +514,7 @@ HYMLS_DEBVAR(*borderC_);
           
     for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
       {
-      for (int grp=0;grp<sepObject->NumGroups(sep);grp++)
+      for (int grp=1;grp<sepObject->NumGroups(sep);grp++)
         {
         begS << offset << std::endl;
         offset = offset + sepObject->NumElements(sep,grp);
@@ -624,13 +624,16 @@ int SchurPreconditioner::InitializeBlocks()
     int numBlocks=0;
     for (int i=0;i<sepObject->NumMySubdomains();i++)
       {
-      numBlocks+=sepObject->NumGroups(i);
+      for (int grp=1;grp<sepObject->NumGroups(i);grp++)
+        {
+        numBlocks++;
+        }
       }
 
 #ifdef HYMLS_TESTING
     for (int i=0;i<sepObject->NumMySubdomains();i++)
       {
-      for (int grp=0;grp<sepObject->NumGroups(i);grp++)
+      for (int grp=1;grp<sepObject->NumGroups(i);grp++)
         {
         if (sepObject->NumElements(i,grp)==0)
           {
@@ -647,7 +650,7 @@ int SchurPreconditioner::InitializeBlocks()
   int blk=0;
   for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
     {
-    for (int grp=0;grp<sepObject->NumGroups(sep);grp++)
+    for (int grp=1;grp<sepObject->NumGroups(sep);grp++)
       {
       // in the spawned sepObject, each local separator is a group of a subdomain.
       // -1 because we remove one Vsum node from each block
@@ -686,7 +689,7 @@ int SchurPreconditioner::InitializeSingleBlock()
     for (int i=0;i<sepObject->NumMySubdomains();i++)
       {
       numMyElements+=sepObject->NumElements(i);
-      numMyVsums+=sepObject->NumGroups(i);
+      numMyVsums+=sepObject->NumGroups(i)-1;
       }
    // we actually need the number of owned non-Vsums:
    int numRows = numMyElements - numMyVsums;
@@ -701,7 +704,7 @@ int SchurPreconditioner::InitializeSingleBlock()
   int pos=0;
   for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
     {
-    for (int grp=0;grp<sepObject->NumGroups(sep);grp++)
+    for (int grp=1;grp<sepObject->NumGroups(sep);grp++)
       {      
       // skip first element, which is a Vsum
       for (int j=1; j<sepObject->NumElements(sep,grp); j++)
@@ -720,79 +723,79 @@ int SchurPreconditioner::InitializeSingleBlock()
 int SchurPreconditioner::InitializeSeparatorGroups()
   {
   HYMLS_LPROF2(label_,"InitializeSeparatorGroups");
-  if (subdivideSeparators_)
-    {
-    if (SchurMatrix_==Teuchos::null)
-      {
-      Tools::Error("for splitting separators we need an assembled\n"
-                   "Schur-Complement",__FILE__,__LINE__);
-      }
-    int dof=PL("Problem").sublist("Partitioner")
-                  .get("Degrees of Freedom",-1);
-    if (dof==-1)
-      {
-      HYMLS::Tools::Error("'Degrees of Freedom' parameter not set!",
-              __FILE__,__LINE__);
-      }
-    int pressure=PL().get("Subdivide based on variable",-1);
-    if (pressure==-1)
-      {
-      HYMLS::Tools::Error("'Subdivide based on variable' parameter not set!",
-              __FILE__,__LINE__);
-      }
-    Teuchos::RCP<const HierarchicalMap> sepObject
-        = hid_->Spawn(HierarchicalMap::Separators);
-    Teuchos::RCP<Teuchos::Array<HYMLS::SepNode> > sepList 
-        = Teuchos::rcp(new Teuchos::Array<HYMLS::SepNode>(sepObject->NumMyElements()));
-    Teuchos::Array<int> connectedPs(2); // typically there are exactly two p-couplings
-    for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
-      {
-      int grp=0; // the standard Separator object has local separators as group 0
-                 // of its 'subdomains'
-      for (int j=0;j<sepObject->NumElements(sep,grp);j++)
-        {
-        int lsid = sepObject->LID(sep,grp,j);// local separator ID
-        int gid = sepObject->GID(sep,grp,j); // global ID
-        int lrid = SchurMatrix_->LRID(gid); // local row ID
-        int* indices;
-        double* values;
-        int len;
-        int type = -1;
-        CHECK_ZERO(SchurMatrix_->ExtractMyRowView(lrid,len,values,indices));
-        int pos=0;
-        connectedPs[0]=-1;
-        connectedPs[1]=-1;// will remain there if not connected to P-nodes -> own group
-        for (int k=0;k<len;k++)
-          {
-          int gcid = SchurMatrix_->GCID(indices[k]);
-          if (MOD(gcid,dof)==pressure)
-            {
-            if (std::abs(values[k])>1.0e-8)
-              {
-              if (pos==0)
-                {
-                // distinguish between [+1 -1] and [-1 +1] type p-couplings
-                type = values[k]>0? 1:0;
-                }
-              connectedPs[pos++]=gcid;
-              }
-            if (pos>=2)
-              {
-              break;
-              }
-            }
-          }
-        SepNode S(gid,connectedPs,type);
-        (*sepList)[lsid] = S;
-        }
-      }
+  // if (subdivideSeparators_)
+  //   {
+  //   if (SchurMatrix_==Teuchos::null)
+  //     {
+  //     Tools::Error("for splitting separators we need an assembled\n"
+  //                  "Schur-Complement",__FILE__,__LINE__);
+  //     }
+  //   int dof=PL("Problem").sublist("Partitioner")
+  //                 .get("Degrees of Freedom",-1);
+  //   if (dof==-1)
+  //     {
+  //     HYMLS::Tools::Error("'Degrees of Freedom' parameter not set!",
+  //             __FILE__,__LINE__);
+  //     }
+  //   int pressure=PL().get("Subdivide based on variable",-1);
+  //   if (pressure==-1)
+  //     {
+  //     HYMLS::Tools::Error("'Subdivide based on variable' parameter not set!",
+  //             __FILE__,__LINE__);
+  //     }
+  //   Teuchos::RCP<const HierarchicalMap> sepObject
+  //       = hid_->Spawn(HierarchicalMap::Separators);
+  //   Teuchos::RCP<Teuchos::Array<HYMLS::SepNode> > sepList 
+  //       = Teuchos::rcp(new Teuchos::Array<HYMLS::SepNode>(sepObject->NumMyElements()));
+  //   Teuchos::Array<int> connectedPs(2); // typically there are exactly two p-couplings
+  //   for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
+  //     {
+  //     int grp=0; // the standard Separator object has local separators as group 0
+  //                // of its 'subdomains'
+  //     for (int j=0;j<sepObject->NumElements(sep,grp);j++)
+  //       {
+  //       int lsid = sepObject->LID(sep,grp,j);// local separator ID
+  //       int gid = sepObject->GID(sep,grp,j); // global ID
+  //       int lrid = SchurMatrix_->LRID(gid); // local row ID
+  //       int* indices;
+  //       double* values;
+  //       int len;
+  //       int type = -1;
+  //       CHECK_ZERO(SchurMatrix_->ExtractMyRowView(lrid,len,values,indices));
+  //       int pos=0;
+  //       connectedPs[0]=-1;
+  //       connectedPs[1]=-1;// will remain there if not connected to P-nodes -> own group
+  //       for (int k=0;k<len;k++)
+  //         {
+  //         int gcid = SchurMatrix_->GCID(indices[k]);
+  //         if (MOD(gcid,dof)==pressure)
+  //           {
+  //           if (std::abs(values[k])>1.0e-8)
+  //             {
+  //             if (pos==0)
+  //               {
+  //               // distinguish between [+1 -1] and [-1 +1] type p-couplings
+  //               type = values[k]>0? 1:0;
+  //               }
+  //             connectedPs[pos++]=gcid;
+  //             }
+  //           if (pos>=2)
+  //             {
+  //             break;
+  //             }
+  //           }
+  //         }
+  //       SepNode S(gid,connectedPs,type);
+  //       (*sepList)[lsid] = S;
+  //       }
+  //     }
       
-    hid_->Spawn(HierarchicalMap::LocalSeparators,sepList);
-    }
-  else
-    {
+  //   hid_->Spawn(HierarchicalMap::LocalSeparators,sepList);
+  //   }
+  // else
+  //   {
     hid_->Spawn(HierarchicalMap::LocalSeparators);
-    }
+    // }
 
 #ifdef HYMLS_DEBUGGING
     std::ofstream ofs1,ofs2;
@@ -838,11 +841,9 @@ int SchurPreconditioner::InitializeOT()
     Epetra_IntSerialDenseVector inds;
     Epetra_SerialDenseVector vec;
     
-    int nnzPerRow = sepObject->NumMySubdomains()>0? sepObject->NumInteriorElements(0) : 
-    0;
+    int nnzPerRow = sepObject->NumMySubdomains()>0? sepObject->NumSeparatorElements(0) : 0;
 
-    sparseMatrixOT_ = Teuchos::rcp(new
-        Epetra_CrsMatrix(Copy,*map_,nnzPerRow));
+    sparseMatrixOT_ = Teuchos::rcp(new Epetra_CrsMatrix(Copy,*map_,nnzPerRow));
 
     // loop over all separators connected to a local subdomain
     for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
@@ -851,21 +852,31 @@ int SchurPreconditioner::InitializeOT()
       // the LocalSeparator object has only local separators, but it may
       // have several groups due to splitting of groups (i.e. for the B-grid,
       // where velocities are grouped depending on how they connect ot the pressures)
-      for (int grp=0;grp<sepObject->NumGroups(sep);grp++)
+      for (int grp=1;grp<sepObject->NumGroups(sep);grp++)
         {
 //        HYMLS_DEBVAR(grp);
         int len = sepObject->NumElements(sep,grp);
+        std::cout << sep << " " << grp << " " << len << std::endl;
         if ((inds.Length()!=len) && (len>0))
           {
           inds.Size(len);
           vec.Size(len);
           }
+        int pos = 0;
         for (int j=0;j<len;j++)
           {
-          inds[j] = sepObject->GID(sep,grp,j);
-          vec[j] = localTestVector[sepMap.LID(inds[j])];
+          int gid = sepObject->GID(sep,grp,j);
+          int lid = sepMap.LID(gid);
+          if (lid != -1)
+            {
+            inds[pos] = gid;
+            vec[pos++] = localTestVector[lid];
+            }
           }
-        if (len>0)
+        std::cout << sep << " " << grp << " " << pos << std::endl;
+        inds.Resize(pos);
+        vec.Resize(pos);
+        if (pos>0)
           {
 //          HYMLS_DEBVAR(inds);
 //          HYMLS_DEBVAR(vec);
@@ -877,10 +888,11 @@ int SchurPreconditioner::InitializeOT()
             return ierr;
             }
           }
-        }    
+        }
       }
-    
-    CHECK_ZERO(sparseMatrixOT_->FillComplete())
+    std::cout << *sparseMatrixOT_ << std::endl;
+    CHECK_ZERO(sparseMatrixOT_->FillComplete());
+    std::cout << "OT " << *sparseMatrixOT_ << std::endl;
     }
 #ifdef HYMLS_STORE_MATRICES
   MatrixUtils::Dump(*sparseMatrixOT_, 
@@ -901,7 +913,7 @@ int SchurPreconditioner::InitializeOT()
       int numBlocks = 0;
       for (int i=0;i<sepObject->NumMySubdomains();i++)
         {
-        for (int j=0;j<sepObject->NumGroups(i);j++)
+        for (int j=1;j<sepObject->NumGroups(i);j++)
           {
           if (sepObject->NumElements(i,j)>0) numBlocks++;
           }
@@ -917,7 +929,7 @@ int SchurPreconditioner::InitializeOT()
       for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
         {
         HYMLS_DEBVAR(sep)
-        for (int grp = 0 ; grp < sepObject->NumGroups(sep) ; grp++)
+        for (int grp = 1 ; grp < sepObject->NumGroups(sep) ; grp++)
           {
           if (sepObject->NumElements(sep,grp)>0)
             {
@@ -925,9 +937,11 @@ int SchurPreconditioner::InitializeOT()
             }
           }
         }
-        
+
       vsumMap_=Teuchos::rcp(new Epetra_Map(-1,numBlocks,MyVsumElements,
                                 map_->IndexBase(), map_->Comm()));
+
+      std::cout << "VSUMMAP " << *vsumMap_ << std::endl;
       
       delete [] MyVsumElements;
       HYMLS_DEBUG(label_);
@@ -1139,7 +1153,7 @@ int SchurPreconditioner::InitializeOT()
       for (int sd=0;sd<hid_->NumMySubdomains();sd++)
         {
         // put in the Vsum-Vsum couplings
-        int numVsums = hid_->NumGroups(sd);
+        int numVsums = hid_->NumGroups(sd)-1;
         indsPart.Resize(numVsums);
         if (numVsums>Spart.N()) Spart.Reshape(2*numVsums,2*numVsums);
         numVsums=0;
@@ -1645,67 +1659,67 @@ int SchurPreconditioner::ApplyOT(bool trans, Epetra_MultiVector& v, double* flop
   {
   HYMLS_LPROF2(label_,"ApplyOT");
 
-//  if ((!subdivideSeparators_))
-  if (false)
-    {
-    if (maxLevel_>2)
-      {
-      Tools::Warning("this variant of ApplyOT is not valid for multi-level case",      
-        __FILE__,__LINE__);
-      }
-    // implementation 1: apply OT to views of blocks of the vector. This is 
-    // potentially very fast, but works only if the separators are contiguous
-    // in the ordering of S (which they are unless you use "Subdivide Separators").
+// //  if ((!subdivideSeparators_))
+//   if (false)
+//     {
+//     if (maxLevel_>2)
+//       {
+//       Tools::Warning("this variant of ApplyOT is not valid for multi-level case",      
+//         __FILE__,__LINE__);
+//       }
+//     // implementation 1: apply OT to views of blocks of the vector. This is 
+//     // potentially very fast, but works only if the separators are contiguous
+//     // in the ordering of S (which they are unless you use "Subdivide Separators").
     
-    // We currently always use the second implementation because it allows more general
-    // transformations, which is required for the multi-level method (the vector v in the 
-    // Householder transform is always assumed to contain only ones in case of the first
-    // implementation). If there is a performance gain we can implement this in the
-    // 'view' implementation, too.
+//     // We currently always use the second implementation because it allows more general
+//     // transformations, which is required for the multi-level method (the vector v in the 
+//     // Householder transform is always assumed to contain only ones in case of the first
+//     // implementation). If there is a performance gain we can implement this in the
+//     // 'view' implementation, too.
 
-    // this object has each local separator as a group (without overlap),
-    // and remote separators connecting to local subdomains as separators
-    // (we only access the local separators here)
-    Teuchos::RCP<const HierarchicalMap> sepObject
-          = hid_->Spawn(HierarchicalMap::LocalSeparators);
+//     // this object has each local separator as a group (without overlap),
+//     // and remote separators connecting to local subdomains as separators
+//     // (we only access the local separators here)
+//     Teuchos::RCP<const HierarchicalMap> sepObject
+//           = hid_->Spawn(HierarchicalMap::LocalSeparators);
   
-    if (trans)
-      {
-      for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
-        {
-        int len = sepObject->NumInteriorElements(sep);
+//     if (trans)
+//       {
+//       for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
+//         {
+//         int len = sepObject->NumInteriorElements(sep);
         
-        int gid = sepObject->GID(sep,0,0);
-        int lid = map_->LID(gid);
-        for (int k=0;k<v.NumVectors();k++)
-          {
-          Epetra_SerialDenseVector block(View,&(v[k][lid]),len);
-          OT->ApplyInverse(block);
-          }
-        }
-      }
-    else
-      {
-      for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
-        {
-        int len = sepObject->NumInteriorElements(sep);
-        int gid = sepObject->GID(sep,0,0);
-        int lid = map_->LID(gid);
-        for (int k=0;k<v.NumVectors();k++)
-          {
-          Epetra_SerialDenseVector block(View,&(v[k][lid]),len);
-          OT->Apply(block);
-          }
-        }
-      }
+//         int gid = sepObject->GID(sep,0,0);
+//         int lid = map_->LID(gid);
+//         for (int k=0;k<v.NumVectors();k++)
+//           {
+//           Epetra_SerialDenseVector block(View,&(v[k][lid]),len);
+//           OT->ApplyInverse(block);
+//           }
+//         }
+//       }
+//     else
+//       {
+//       for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
+//         {
+//         int len = sepObject->NumInteriorElements(sep);
+//         int gid = sepObject->GID(sep,0,0);
+//         int lid = map_->LID(gid);
+//         for (int k=0;k<v.NumVectors();k++)
+//           {
+//           Epetra_SerialDenseVector block(View,&(v[k][lid]),len);
+//           OT->Apply(block);
+//           }
+//         }
+//       }
               
-    //TODO: implement flops-counter
-    if (flops!=NULL)
-      {
-      }
-    }
-  else
-    {
+//     //TODO: implement flops-counter
+//     if (flops!=NULL)
+//       {
+//       }
+//     }
+//   else
+//     {
     // implementation 2: just apply the constructed sparse matrix.
     // This makes sure that the OT for the matrix and the vectors are
     // consistent.
@@ -1728,7 +1742,7 @@ int SchurPreconditioner::ApplyOT(bool trans, Epetra_MultiVector& v, double* flop
       //TODO: make this general for all OTs
       *flops += sparseMatrixOT_->NumGlobalNonzeros() * 4 + v.MyLength();
       }
-    }
+    // }
   return 0;
   }
 

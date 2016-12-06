@@ -47,8 +47,6 @@
 //#undef HYMLS_DEBVAR
 //#define HYMLS_DEBVAR(s) std::cerr << #s << " = "<< s << std::endl;
 
-typedef Teuchos::Array<int>::iterator int_i;
-
 namespace HYMLS {
 
   //constructor
@@ -366,7 +364,9 @@ int OverlappingPartitioner::RemoveBoundarySeparators(Teuchos::Array<int> &interi
   for (; sep != separator_nodes.end(); sep++)
     {
     Teuchos::Array<int> &nodes = *sep;
-    if ((nodes[0] / dof_ + 1) % nx_ == 0)
+    if (nodes.size() == 0)
+      separator_nodes.erase(sep);
+    else if ((nodes[0] / dof_ + 1) % nx_ == 0)
       {
       // Remove right side
       interior_nodes.insert(interior_nodes.end(), nodes.begin(), nodes.end());
@@ -451,25 +451,28 @@ int OverlappingPartitioner::DetectSeparators()
     separator_nodes.resize(0);
 
     Teuchos::Array<int> *nodes;
-    int first = partitioner_->Map().GID(partitioner_->First(sd));
+    int first = partitioner_->Map().GID(partitioner_->First(sd)) / sx_ * sx_;
     for (int ktype = (nz_ > 1 ? -1 : 0); ktype < (nz_ > 1 ? 2 : 1); ktype++)
       {
       if (ktype == 1)
         ktype = sz_ - 1;
       if (ktype == -1 && (first / dof_ / nx_ / ny_) % nz_ == 0)
         continue;
+ 
       for (int jtype = -1; jtype < 2; jtype++)
         {
         if (jtype == 1)
           jtype = sy_ - 1;
         if (jtype == -1 && (first / dof_ / nx_) % ny_ == 0)
           continue;
+
         for (int itype = -1; itype < 2; itype++)
           {
           if (itype == 1)
             itype = sx_ - 1;
           if (itype == -1 && (first / dof_) % nx_ == 0)
             continue;
+
           if (itype == 0 && jtype == 0 && ktype == 0)
             nodes = &interior_nodes;
           else
@@ -477,6 +480,7 @@ int OverlappingPartitioner::DetectSeparators()
             separator_nodes.append(Teuchos::Array<int>());
             nodes = &separator_nodes.back();
             }
+
           for (int k = ktype; k < (ktype || nz_ <= 1 ? ktype+1 : sz_-1); k++)
             {
             for (int j = jtype; j < (jtype ? jtype+1 : sy_-1); j++)

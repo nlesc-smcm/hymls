@@ -250,6 +250,7 @@ TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, Laplace2D, 1, 8, 8, 4, 4);
 TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, Laplace2D, 2, 16, 16, 4, 4);
 TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, Laplace2D, 3, 16, 8, 4, 4);
 TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, Laplace2D, 4, 4, 4, 2, 2);
+TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, Laplace2D, 5, 64, 64, 16, 16);
 
 TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Laplace3D, nx, ny, nz, sx, sy, sz)
   {

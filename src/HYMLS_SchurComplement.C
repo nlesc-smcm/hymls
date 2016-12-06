@@ -2,7 +2,6 @@
 
 #include "HYMLS_SchurComplement.H"
 #include "HYMLS_OverlappingPartitioner.H"
-#include "HYMLS_SparseDirectSolver.H"
 #include "HYMLS_MatrixUtils.H"
 
 #include "Epetra_Comm.h"
@@ -324,6 +323,7 @@ int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
     int lrid = A21.RowMap().LID(inds[i]);
     for (int j = 0; j < nrows; j++)
       {
+      std::cout << i << " " << j << " " << inds[i] << " " << lrid << std::endl;
       Sk(i, j) = Aloc[j][lrid];
       }
     }

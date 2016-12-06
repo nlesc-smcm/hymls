@@ -336,6 +336,22 @@ for (int f=0;f<numComputes;f++)
     HYMLS::Tools::StopTiming("main: Compute Preconditioner",true);
     }
 
+  // std::ofstream of("test.mtx");
+  // of << "%%MatrixMarket matrix coordinate real general" << std::endl;
+  // of << "4096 4096 16777216" << std::endl;
+  // for (int i = 0; i < K->NumMyRows(); i++)
+  //   {
+  //   Epetra_Vector vec(*map);
+  //   Epetra_Vector vec2(*map);
+  //   vec.Scale(0.0);
+  //   vec[i] = 1.0;
+  //   precond->ApplyInverse(vec, vec2);
+  //   for (int j = 0; j < K->NumMyRows(); j++)
+  //     of << (j+1) << ' ' << (i+1) << ' ' << vec2[j] << '\n';
+  //   }
+  // of.close();
+  // return 0;
+
   if (nullSpace!=Teuchos::null)
     {
     CHECK_ZERO(solver->setNullSpace(nullSpace));

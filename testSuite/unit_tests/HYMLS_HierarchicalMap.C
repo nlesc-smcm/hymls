@@ -263,25 +263,25 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumElements2)
   TEST_EQUALITY(ret, n);
   }
 
-TEUCHOS_UNIT_TEST(HierarchicalMap, LID)
-  {
-  Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
+// TEUCHOS_UNIT_TEST(HierarchicalMap, LID)
+//   {
+//   Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
 
-  int n = 100;
-  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
+//   int n = 100;
+//   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
 
-  Teuchos::Array<int> gidList(n);
-  for (int i = 0; i < n; i++)
-    {
-    gidList[i] = i;
-    }
+//   Teuchos::Array<int> gidList(n);
+//   for (int i = 0; i < n; i++)
+//     {
+//     gidList[i] = i;
+//     }
 
-  TestableHierarchicalMap hmap(Comm, map);
+//   TestableHierarchicalMap hmap(Comm, map);
 
-  hmap.Reset(2);
-  hmap.AddGroup(0, gidList);
-  hmap.AddGroup(1, gidList);
-  hmap.AddGroup(1, gidList);
-  int ret = hmap.LID(1, 1, 50);
-  TEST_EQUALITY(ret, 150);
-  }
+//   hmap.Reset(2);
+//   hmap.AddGroup(0, gidList);
+//   hmap.AddGroup(1, gidList);
+//   hmap.AddGroup(1, gidList);
+//   int ret = hmap.LID(1, 1, 50);
+//   TEST_EQUALITY(ret, 150);
+//   }

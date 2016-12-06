@@ -129,17 +129,19 @@ public:
   //! returns a local index for the map Map(). Again, grp=0 
   //! are interior nodes whereas grp=1:NumSeparatorGroups() 
   //! are separators.
-  inline int LID(int sd, int grp, int j) const
-    {
-    return (*groupPointer_)[sd][grp]+j;
-    }
+  // inline int LID(int sd, int grp, int j) const
+  //   {
+  //   return (*groupPointer_)[sd][grp]+j;
+  //   }
 
   //! j'th element of subdomain sd, group grp. This function
   //! returns a global index. Again, grp=0 are interior nodes
   //! whereas grp=1:NumSeparatorGroups() are separators.
   inline int GID(int sd, int grp, int j) const
     {
-    return overlappingMap_->GID(this->LID(sd,grp,j));
+    // return overlappingMap_->GID(this->LID(sd,grp,j));
+    return (*gidList_)[sd][(*groupPointer_)[sd][grp]+j];
+    // return GetGroup(sd, grp)[j];
     }
 
   //! given a subdomain, returns a list of GIDs that belong to the subdomain
@@ -269,7 +271,7 @@ public:
   
   //! get back a group that was added as described above. Used for debugging purposes
   //! only
-  Teuchos::Array<int> GetGroup(int sd, int grp);
+  Teuchos::Array<int> GetGroup(int sd, int grp) const;
   
   //! delete the map and all subdomains and groups that have been added so far
   int Reset(int num_sd);
@@ -320,11 +322,12 @@ private:
   //! (FillComplete() has been called), this is used for spawning
   //! objects like a map with all separators etc.
   HierarchicalMap(Teuchos::RCP<const Epetra_Comm> comm,
-              Teuchos::RCP<const Epetra_Map> baseMap,
-              Teuchos::RCP<const Epetra_Map> overlappingMap,
-              Teuchos::RCP<Teuchos::Array< Teuchos::Array<int> > > groupPointer,
-              std::string label, int level);
-
+    Teuchos::RCP<const Epetra_Map> baseMap,
+    Teuchos::RCP<const Epetra_Map> overlappingMap,
+    Teuchos::RCP<Teuchos::Array< Teuchos::Array<int> > > groupPointer,
+    Teuchos::RCP<Teuchos::Array< Teuchos::Array<int> > > gidList,
+    std::string label, int level);
+  
   //! \name private member functions
   //! @{
 
