@@ -399,29 +399,35 @@ int OverlappingPartitioner::RemoveBoundarySeparators(Teuchos::Array<int> &interi
       if ((nodes[i] / dof_) % nx_ + 2 == nx_)
         {
         nodeID = nodes[i] + dof_;
-        nodes.push_back(nodeID);
         Teuchos::Array<int>::iterator it = std::find(
           interior_nodes.begin(), interior_nodes.end(), nodeID);
         if (it != interior_nodes.end())
+          {
+          nodes.push_back(nodeID);
           interior_nodes.erase(it);
+          }
         }
       if (ny_ > 1 && (nodes[i] / dof_ / nx_) % ny_ + 2 == ny_)
         {
         nodeID = nodes[i] + dof_ * nx_;
-        nodes.push_back(nodeID);
         Teuchos::Array<int>::iterator it = std::find(
           interior_nodes.begin(), interior_nodes.end(), nodeID);
         if (it != interior_nodes.end())
+          {
+          nodes.push_back(nodeID);
           interior_nodes.erase(it);
+          }
         }
       if (nz_ > 1 && (nodes[i] / dof_ / nx_ / ny_) % nz_ + 2 == nz_)
         {
         nodeID = nodes[i] + dof_ * nx_ * ny_;
-        nodes.push_back(nodeID);
         Teuchos::Array<int>::iterator it = std::find(
           interior_nodes.begin(), interior_nodes.end(), nodeID);
         if (it != interior_nodes.end())
+          {
+          nodes.push_back(nodeID);
           interior_nodes.erase(it);
+          }
         }
       }
     std::sort(nodes.begin(), nodes.end());
