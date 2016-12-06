@@ -544,146 +544,19 @@ HierarchicalMap::SpawnInterior() const
   {
   HYMLS_PROF3(label_,"SpawnSeparators");
 
-  if (!Filled()) Tools::Error("object not filled",__FILE__,__LINE__);
+  if (!Filled()) Tools::Error("object not filled", __FILE__, __LINE__);
 
-  Teuchos::RCP<const HierarchicalMap> newObject=Teuchos::null;
-  Teuchos::RCP<Epetra_Map> newMap=Teuchos::null;
-  Teuchos::RCP<Epetra_Map> newOverlappingMap=Teuchos::null;
+  Teuchos::RCP<const HierarchicalMap> newObject = Teuchos::null;
+  Teuchos::RCP<Epetra_Map> newMap = Teuchos::null;
+  Teuchos::RCP<Epetra_Map> newOverlappingMap = Teuchos::null;
   Teuchos::RCP<Teuchos::Array<Teuchos::Array<int> > > newGroupPointer =
         Teuchos::rcp(new Teuchos::Array<Teuchos::Array<int> >());
   Teuchos::RCP<Teuchos::Array<Teuchos::Array<int> > > newGidList =
         Teuchos::rcp(new Teuchos::Array<Teuchos::Array<int> >());
-  
-  int base = baseMap_->IndexBase();  
 
-  // all separator groups should appear as a new subdomain,
-  // and they should appear exactly once.
-  // all separator groups shared by at least two processor partitions
-  // should appear as separator group of the last subdomain, exactly
-  // once each.
-
-    
-  // (2) make a unique list of separator nodes on this partition and
-  // one of those connected to this 
-  // processor partition (not sorted correctly)
-  Teuchos::Array<int> InteriorIDs;
-  Teuchos::Array<int> SeparatorIDs;
-
-  // for (int sd=0;sd<NumMySubdomains();sd++)
-  //   {
-  //   for (int grp=1;grp<=NumSeparatorGroups(sd);grp++)
-  //     {
-  //     if (NumElements(sd,grp)>0)
-  //       {
-  //       if (baseMap_->MyGID(GID(sd,grp,0)))
-  //         {
-  //         for (int j=0;j<NumElements(sd,grp);j++)
-  //           {
-  //           InteriorIDs.append(GID(sd,grp,j));
-  //           }
-  //         }
-  //       else
-  //         {
-  //         for (int j=0;j<NumElements(sd,grp);j++)
-  //           {
-  //           SeparatorIDs.append(GID(sd,grp,j));
-  //           }
-  //         }
-  //       }
-  //     }
-  //   }
-
-  for (int sd=0;sd<NumMySubdomains();sd++)
-    {
-    for (int grp=1;grp<=NumSeparatorGroups(sd);grp++)
-      {
-      if (NumElements(sd,grp)>0)
-        {
-        for (int j=0;j<NumElements(sd,grp);j++)
-          {
-          int gid = GID(sd,grp,j);
-          if (baseMap_->MyGID(gid))
-            {
-            InteriorIDs.append(gid);
-            }
-          else
-            {
-            SeparatorIDs.append(gid);
-            }
-          }
-        }
-      }
-    }
-    
-  // each separator node belongs to exactly one separator group,
-  // so if we call 'unique' we keep each separator (including those
-  // on a different partition) exactly once
-  std::sort(InteriorIDs.begin(), InteriorIDs.end());
-  Teuchos::Array<int>::iterator end_interior=std::unique(InteriorIDs.begin(),InteriorIDs.end());
-  std::sort(SeparatorIDs.begin(), SeparatorIDs.end());
-  Teuchos::Array<int>::iterator end_separators=std::unique(SeparatorIDs.begin(),SeparatorIDs.end());
-    
-  int numInteriorElements=std::distance(InteriorIDs.begin(),end_interior);
-  int numSeparatorElements=std::distance(SeparatorIDs.begin(),end_separators);
-  int numOverlappingElements = numInteriorElements+numSeparatorElements;
-
-  HYMLS_DEBVAR(numInteriorElements);
-  HYMLS_DEBVAR(numSeparatorElements);
- 
-  // make a temporary overlapping map that has
-  // overlap between physical partiitions and is not ordered
-  // correctly.
-
-  int *myOverlappingElements = new int[numOverlappingElements];
-  int pos=0;
-  for (Teuchos::Array<int>::iterator i=InteriorIDs.begin();i!=end_interior;i++)
-    {
-    myOverlappingElements[pos++]=*i;
-    }
-  for (Teuchos::Array<int>::iterator i=SeparatorIDs.begin();i!=end_separators;i++)
-    {
-    myOverlappingElements[pos++]=*i;
-    }
-
-  Teuchos::RCP<Epetra_Map> tmpOverlappingMap =
-    Teuchos::rcp(new Epetra_Map(-1,numOverlappingElements,myOverlappingElements,base,*comm_));
-
-  HYMLS_DEBVAR(*tmpOverlappingMap);
-
-  Epetra_IntVector vec(*baseMap_);
-  for (Teuchos::Array<int>::iterator i=InteriorIDs.begin();i!=end_interior;i++)
-    {
-    int lid = baseMap_->LID(*i);
-    if (lid != -1)
-      vec[lid] = 1;
-    }
-  Epetra_Import imp(*tmpOverlappingMap, *baseMap_);
-  Epetra_IntVector overlappingVec(*tmpOverlappingMap);
-  overlappingVec.Import(vec, imp, Insert);
-
-  pos = 0;
-  for (Teuchos::Array<int>::iterator i=InteriorIDs.begin();i!=end_interior;i++)
-    {
-    if (overlappingVec[tmpOverlappingMap->LID(*i)])
-      myOverlappingElements[pos++] = *i;
-    }
-  // first elements form the new non-overlapping map
-  newMap=Teuchos::rcp(new 
-    Epetra_Map(-1,pos,myOverlappingElements,base,*comm_));
-
-  for (Teuchos::Array<int>::iterator i=SeparatorIDs.begin();i!=end_separators;i++)
-    {
-    if (overlappingVec[tmpOverlappingMap->LID(*i)])
-      myOverlappingElements[pos++] = *i;
-    }
-
-  newOverlappingMap=Teuchos::rcp(new 
-    Epetra_Map(-1,pos,myOverlappingElements,base,*comm_));
-  
-  delete [] myOverlappingElements;
-  HYMLS_DEBVAR(*newOverlappingMap);
-
-  Teuchos::Array<int> todo;
+  Teuchos::Array<int> done;
+  Teuchos::Array<int> localGIDs;
+  Teuchos::Array<int> overlappingGIDs;
 
   for (int sd=0;sd<NumMySubdomains();sd++)
     {
@@ -692,16 +565,17 @@ HierarchicalMap::SpawnInterior() const
     for (int grp=1;grp<=NumSeparatorGroups(sd);grp++)
       {
       if (NumElements(sd,grp)>0 &&
-        std::find(todo.begin(), todo.end(), GID(sd, grp, 0)) == todo.end())
-      // if (NumElements(sd,grp)>0)
+        std::find(done.begin(), done.end(), GID(sd, grp, 0)) == done.end())
         {
         Teuchos::Array<int> gidList;
         for (int j=0;j<NumElements(sd,grp);j++)
           {
           int gid = GID(sd, grp, j);
-          if (overlappingVec[tmpOverlappingMap->LID(gid)])
+          gidList.append(gid);
+          overlappingGIDs.append(gid);
+          if (baseMap_->MyGID(gid))
             {
-            gidList.append(gid);
+            localGIDs.append(gid);
             }
           }
         int offset = *((*newGroupPointer)[sd].end()-1);
@@ -711,337 +585,22 @@ HierarchicalMap::SpawnInterior() const
           (*newGroupPointer)[sd].append(offset + len);
           std::copy(gidList.begin(), gidList.end(), std::back_inserter((*newGidList)[sd]));
           }
-        todo.append(GID(sd, grp, 0));
+        done.append(GID(sd, grp, 0));
         }
       }
     }
 
-  Teuchos::Array<int> all_gids;
-  for (int sd=0;sd<NumMySubdomains();sd++)
-    std::copy((*newGidList)[sd].begin(),(*newGidList)[sd].end(),std::back_inserter(all_gids));
-  int numel = all_gids.size();
-  int *my_gids = numel>0? &(all_gids[0]) : NULL;
-  newOverlappingMap = Teuchos::rcp(new Epetra_Map
-    (-1,numel,my_gids,baseMap_->IndexBase(),*comm_));
-  newMap = newOverlappingMap;
+  newOverlappingMap = Teuchos::rcp(new Epetra_Map(-1, overlappingGIDs.size(),
+      &overlappingGIDs[0], baseMap_->IndexBase(), *comm_));
 
-  all_gids.resize(0);
-  todo.resize(0);
-  for (int sd=0;sd<NumMySubdomains();sd++)
-    {
-    for (int grp=1;grp<=NumSeparatorGroups(sd);grp++)
-      {
-      int gid = GID(sd, grp, 0);
-      if (NumElements(sd,grp)>0 &&
-        std::find(todo.begin(), todo.end(), gid) == todo.end() && baseMap_->MyGID(gid))
-      // if (NumElements(sd,grp)>0)
-        {
-        for (int j=0;j<NumElements(sd,grp);j++)
-          {
-          int gid = GID(sd, grp, j);
-          if (overlappingVec[tmpOverlappingMap->LID(gid)])
-            {
-            all_gids.append(gid);
-            }
-          }
-        todo.append(GID(sd, grp, 0));
-        }
-      }
-    }
-  numel = all_gids.size();
-  my_gids = numel>0? &(all_gids[0]) : NULL;
-  newMap = Teuchos::rcp(new Epetra_Map
-    (-1,numel,my_gids,baseMap_->IndexBase(),*comm_));
-  // newObject = Teuchos::rcp(new HierarchicalMap
-  //   (comm_,newMap,newOverlappingMap,groupPointer_,gidList_,"Separator Nodes",myLevel_) );
-  newObject = Teuchos::rcp(new HierarchicalMap
-    (comm_,newMap,newOverlappingMap,newGroupPointer,newGidList,"Separator Nodes",myLevel_) );
-  
+  newMap = Teuchos::rcp(new Epetra_Map(-1, localGIDs.size(),
+      &localGIDs[0], baseMap_->IndexBase(), *comm_));
+
+  newObject = Teuchos::rcp(new HierarchicalMap(comm_, newMap, newOverlappingMap,
+      newGroupPointer, newGidList, "Separator Nodes", myLevel_));
+
   return newObject;
-  
-  Teuchos::Array<int> groupSize;
-  Epetra_IntVector groupID(*tmpOverlappingMap);
-  
-  groupID.PutValue(-1);
-  
-  // assign group-IDs to owned separators (new subdomains)
-  int num_subdomains=0;
 
-
-//CAVEAT: this is just for debugging/testing, if it is defined
-// the code may not work for general problems!
-#ifdef SHIFT_PRESSURE_TO_END
-  const int dof=4; // assuming 3D Stokes here
-  const int pressure=3;
-#warning "using SHIFT_PRESSURE_TO_END, a debugging feature for 3D Stokes only."
-#else
-  const int dof=1;
-  const int pressure=-1;
-#endif  
-
-#ifdef SHIFT_SINGLETONS_TO_END
-  const int singleton=1;
-#warning "using SHIFT_SINGLETONS_TO_END, a debugging feature."
-#else
-  const int singleton=0;
-#endif
-
-  // first non-singletons  
-  for (int sd=0;sd<NumMySubdomains();sd++)
-    {
-    HYMLS_DEBVAR(sd);
-    for (int grp=1;grp<NumGroups(sd);grp++)
-      {
-      HYMLS_DEBVAR(grp);
-      HYMLS_DEBVAR(NumElements(sd,grp));
-      if (NumElements(sd,grp)>singleton)
-        {
-        int gid = GID(sd,grp,0);
-        if (baseMap_->MyGID(gid))
-          {
-          int lid = tmpOverlappingMap->LID(gid);
-#ifdef HYMLS_TESTING
-          if (lid<0) Tools::Error("inconsistency in ordering!!!",__FILE__,__LINE__);
-#endif
-          if (groupID[lid]==-1) 
-            {
-            HYMLS_DEBUG("new group: "<<num_subdomains);
-            groupSize.append(NumElements(sd,grp));
-            for (int j=0;j<NumElements(sd,grp);j++)
-              {
-              int gid_j = this->GID(sd,grp,j);
-              int lid_j = tmpOverlappingMap->LID(gid_j);
-#ifdef HYMLS_DEBUGGING
-              Tools::deb() << gid_j<<"/"<<lid_j<<" ";
-#endif
-              groupID[lid_j]=num_subdomains;
-              }// for j
-            HYMLS_DEBUG("");
-            num_subdomains++;
-            }// if not assigned
-#ifdef HYMLS_DEBUGGING
-          else
-            {
-            HYMLS_DEBVAR(groupID[lid]);
-            }
-#endif            
-          }// if belongs to me
-        }// non-singleton
-      }// for grp
-    }//for sd
-
-  // non-pressure singletons
-  if (singleton==1)
-    {
-    for (int sd=0;sd<NumMySubdomains();sd++)
-      {
-      for (int grp=1;grp<NumGroups(sd);grp++)
-        {
-        if (NumElements(sd,grp)==singleton)
-          {
-          int gid = GID(sd,grp,0);
-          if (MOD(gid,dof)!=pressure)
-            {
-            if (baseMap_->MyGID(gid))
-              {
-              int lid = tmpOverlappingMap->LID(gid);
-              if (groupID[lid]<0)
-                {
-                groupSize.append(1);
-                groupID[lid]=num_subdomains;
-                num_subdomains++;
-                }// if not assigned
-              }// if belongs to me
-            }// non-pressure
-          }//singleton
-        }// for grp
-      }//for sd
-    }// singletons shifted to end?
-  // pressure singletons
-  if (pressure>=0)
-    {
-    for (int sd=0;sd<NumMySubdomains();sd++)
-      {
-      for (int grp=1;grp<NumGroups(sd);grp++)
-        {
-        if (NumElements(sd,grp)==1)
-          {
-          int gid = GID(sd,grp,0);
-          if (MOD(gid,dof)==pressure)
-            {
-            if (baseMap_->MyGID(gid))
-              {
-              int lid = tmpOverlappingMap->LID(gid);
-              if (groupID[lid]<0)
-                {
-                groupSize.append(1);
-                groupID[lid]=num_subdomains;
-                num_subdomains++;
-                }// if not assigned
-              }// if belongs to me
-            }// pressure
-          }//singleton
-        }// for grp
-      }//for sd
-    }// shift pressures to end
-    
-  // if there are no local separator groups, 
-  // transform them into a single group without
-  // any elements. We do this because we want to
-  // add non-local separators as groups of the 
-  // last new subdomain.
-  if (num_subdomains==0 && (NumMySubdomains()>0))
-    {
-    groupSize.append(0);
-    num_subdomains++;
-    }
-      
-  HYMLS_DEBVAR(num_subdomains);
-  
-  // assign group-IDs to separators on other partitions
-  // (new separators)
-  int num_separator_groups=0;
-  HYMLS_DEBUG("off-processor nodes:");
-  for (int sd=0;sd<NumMySubdomains();sd++)
-    {
-    for (int grp=1;grp<NumGroups(sd);grp++)
-      {
-      int gid = GID(sd,grp,0);
-      if (!baseMap_->MyGID(gid))
-        {
-        int lid = tmpOverlappingMap->LID(gid);
-#ifdef HYMLS_TESTING
-          if (lid<0) Tools::Error("inconsistency in ordering!!!",__FILE__,__LINE__);
-#endif        
-        if (groupID[lid]<0)
-          {
-          HYMLS_DEBUG("new group: "<<num_subdomains+num_separator_groups);
-          groupSize.append(NumElements(sd,grp));
-          for (int j=0;j<NumElements(sd,grp);j++)
-            {
-            int gid_j = this->GID(sd,grp,j);
-            int lid_j = tmpOverlappingMap->LID(gid_j);
-            groupID[lid_j]=num_subdomains+num_separator_groups;
-#ifdef HYMLS_DEBUGGING
-              Tools::deb() << gid_j <<"/"<<lid_j<<" ";
-#endif
-            }// for j
-          HYMLS_DEBUG("");
-          num_separator_groups++;
-          }// if not assigned
-#ifdef HYMLS_DEBUGGING
-        else
-          {
-          HYMLS_DEBVAR(groupID[lid]);
-          }
-#endif
-        }// if belongs to someone else
-      }// for grp
-    }//for sd
-
-  HYMLS_DEBVAR(num_separator_groups);
-  
-  HYMLS_DEBVAR(groupSize);
-  HYMLS_DEBVAR(groupID);
-
-#ifdef HYMLS_TESTING
-for (int i=0;i<groupID.MyLength();i++)
-  {
-  if (groupID[i]<0)
-    {
-    std::cerr<<"P"+Teuchos::toString(comm_->MyPID())+": "+Label()+
-    " - node "+Teuchos::toString(tmpOverlappingMap->GID(i))+
-    " not assigned to any group!\n";
-    }
-  }
-#endif
-
-  // groupPointer may have empty subdomain group
-  newGroupPointer->resize(num_subdomains);
-
-  // currently we add all new separator elements
-  // (i.e. those on other partitions) to a single
-  // group (group 0). TODO: can we do something smarter?
-  pos=0;
-  for (int i=0;i<num_subdomains;i++)
-    {
-    (*newGroupPointer)[i].resize(2);
-    (*newGroupPointer)[i][0]=pos;
-    pos+=groupSize[i];
-    (*newGroupPointer)[i][1]=pos;
-    }
-    
-    
-  // add new separator nodes to the end of the ordering (last subdomain)
-  for (int i=0;i<num_separator_groups; i++)
-    {
-    pos+=groupSize[num_subdomains+i];
-    (*newGroupPointer)[num_subdomains-1].append(pos);
-    }
-
-  // now we have the groupPointer - use it to reorder the elements of the map
-  for (int i=0;i<num_subdomains+num_separator_groups;i++)
-    {
-    groupSize[i]=0;
-    }
-    
-  for (int i=0;i<groupID.MyLength();i++)
-    {
-    // all new separator groups (groupID>=num_subdomains) belong to the last subdomain:
-    int idx=groupID[i];
-    int sd = std::min(idx,num_subdomains-1);
-    // all new interior elements are put into groups 0 of their subdomain:
-    int grp = std::max(idx-num_subdomains+1, 0);
-    int pos = groupSize[idx];
-    
-    if (sd==-1)
-      {
-      /*
-      std::cerr << "PROC: "<< comm_->MyPID()<<std::endl;
-      std::cerr << "i="<<i<<std::endl;
-      std::cerr << "groupID[i]="<<idx<<std::endl;
-      std::cerr << "entire groupID array: "<<groupID<<std::endl;
-      */
-      HYMLS::Tools::Warning("unassigned GID!",__FILE__,__LINE__);
-      }
-    myOverlappingElements[(*newGroupPointer)[sd][grp]+pos]=tmpOverlappingMap->GID(i);
-    groupSize[idx]++;
-    }
-// this can be used to get nicer pictures, but is 
-// otherwise probably completely irrelevant:
-//#define CENTRAL_VSUMS 1
-#ifdef CENTRAL_VSUMS
-  // we now move the most central node on each separator to the first
-  // position. Thus we make a node in the center the Vsum node.
-  // TODO: does this really matter?
-  for (int sd=0;sd<num_subdomains;sd++)
-    {
-    for (int grp=0;grp<(*newGroupPointer)[sd].length()-1;grp++)
-      {
-      int sep_len = (*newGroupPointer)[sd][grp+1]-(*newGroupPointer)[sd][grp];
-      if (sep_len>1)
-        {
-        int center  = sep_len/2;
-        std::swap(myOverlappingElements[(*newGroupPointer)[sd][grp]],
-              myOverlappingElements[(*newGroupPointer)[sd][grp]+center]);
-        }
-      }
-    }
-#endif    
-  // first elements form the new non-overlapping map
-  newMap=Teuchos::rcp(new 
-    Epetra_Map(-1,numInteriorElements,myOverlappingElements,base,*comm_));
-
-  newOverlappingMap=Teuchos::rcp(new 
-    Epetra_Map(-1,numOverlappingElements,myOverlappingElements,base,*comm_));
-  
-  delete [] myOverlappingElements;
-  HYMLS_DEBVAR(*newOverlappingMap);   
-  
-  newObject = Teuchos::rcp(new HierarchicalMap
-    (comm_,newMap,newOverlappingMap,newGroupPointer,gidList_,"Separator Nodes",myLevel_) );
-  
-  return newObject;
   }
 
 ////////////////////////////////////////////////////////////////////////////////
