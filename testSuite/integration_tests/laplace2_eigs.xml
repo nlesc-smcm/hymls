@@ -25,7 +25,7 @@
       <Parameter name="Maximum Subspace Dimension" type="int" value="40"/>
       <Parameter name="Restart Dimension" type="int" value="20"/>
       <Parameter name="Relative Convergence Tolerance" type="bool" value="false"/>
-      <Parameter name="BOrdered Solver" type="bool" value="true"/>
+      <Parameter name="Bordered Solver" type="bool" value="true"/>
     </ParameterList>
     
   </ParameterList><!--}-->

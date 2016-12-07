@@ -5,7 +5,7 @@
   <Parameter name="Test 1b" type="string" value="laplace1.xml"/>
   <Parameter name="Test 1c" type="string" value="stokes1.xml"/>
   <Parameter name="Test 1d" type="string" value="laplace1_eigs.xml"/>
-  <!--Parameter name="Test 1d" type="string" value="laplace2_eigs.xml"/-->
+  <Parameter name="Test 1d" type="string" value="laplace2_eigs.xml"/>
   <!-- 2D test problems, 3- and 4-level methods -->
   <Parameter name="Test 2a" type="string" value="laplace2.xml"/>
   <Parameter name="Test 2b" type="string" value="stokes2.xml"/>
