@@ -1338,6 +1338,7 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
       borderSchurV_=Teuchos::null;
       borderSchurW_=Teuchos::null;
       borderSchurC_=Teuchos::null;
+      borderQ1_=Teuchos::null;
       Teuchos::RCP<HYMLS::BorderedSolver> borderedSchurSolver = 
     Teuchos::rcp_dynamic_cast<HYMLS::BorderedSolver>(schurPrec_);
     if (!Teuchos::is_null(borderedSchurSolver))
