@@ -435,9 +435,6 @@ private:
   //! too much extra work by keeping some data structures if they exist
   int InitializeCompute();
 
-  //! initialize grouping of separators for OT and factorization
-  int InitializeSeparatorGroups();
-
   //! Initialize orthogonal transform
   int InitializeOT();
   

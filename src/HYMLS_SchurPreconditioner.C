@@ -207,7 +207,6 @@ namespace HYMLS {
     reducedSchurSolver_=Teuchos::null;
     if (myLevel_!=maxLevel_)
       {
-      CHECK_ZERO(InitializeSeparatorGroups());
       CHECK_ZERO(InitializeOT());
       if (variant_=="Block Diagonal"||
           variant_=="Lower Triangular")
@@ -716,105 +715,6 @@ int SchurPreconditioner::InitializeSingleBlock()
     }
   REPORT_SUM_MEM(label_,"single diagonal block (not counted)",0.0,0,comm_);
   return 0;  
-  }
-
-
-int SchurPreconditioner::InitializeSeparatorGroups()
-  {
-  HYMLS_LPROF2(label_,"InitializeSeparatorGroups");
-  // if (subdivideSeparators_)
-  //   {
-  //   if (SchurMatrix_==Teuchos::null)
-  //     {
-  //     Tools::Error("for splitting separators we need an assembled\n"
-  //                  "Schur-Complement",__FILE__,__LINE__);
-  //     }
-  //   int dof=PL("Problem").sublist("Partitioner")
-  //                 .get("Degrees of Freedom",-1);
-  //   if (dof==-1)
-  //     {
-  //     HYMLS::Tools::Error("'Degrees of Freedom' parameter not set!",
-  //             __FILE__,__LINE__);
-  //     }
-  //   int pressure=PL().get("Subdivide based on variable",-1);
-  //   if (pressure==-1)
-  //     {
-  //     HYMLS::Tools::Error("'Subdivide based on variable' parameter not set!",
-  //             __FILE__,__LINE__);
-  //     }
-  //   Teuchos::RCP<const HierarchicalMap> sepObject
-  //       = hid_->Spawn(HierarchicalMap::Separators);
-  //   Teuchos::RCP<Teuchos::Array<HYMLS::SepNode> > sepList 
-  //       = Teuchos::rcp(new Teuchos::Array<HYMLS::SepNode>(sepObject->NumMyElements()));
-  //   Teuchos::Array<int> connectedPs(2); // typically there are exactly two p-couplings
-  //   for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
-  //     {
-  //     int grp=0; // the standard Separator object has local separators as group 0
-  //                // of its 'subdomains'
-  //     for (int j=0;j<sepObject->NumElements(sep,grp);j++)
-  //       {
-  //       int lsid = sepObject->LID(sep,grp,j);// local separator ID
-  //       int gid = sepObject->GID(sep,grp,j); // global ID
-  //       int lrid = SchurMatrix_->LRID(gid); // local row ID
-  //       int* indices;
-  //       double* values;
-  //       int len;
-  //       int type = -1;
-  //       CHECK_ZERO(SchurMatrix_->ExtractMyRowView(lrid,len,values,indices));
-  //       int pos=0;
-  //       connectedPs[0]=-1;
-  //       connectedPs[1]=-1;// will remain there if not connected to P-nodes -> own group
-  //       for (int k=0;k<len;k++)
-  //         {
-  //         int gcid = SchurMatrix_->GCID(indices[k]);
-  //         if (MOD(gcid,dof)==pressure)
-  //           {
-  //           if (std::abs(values[k])>1.0e-8)
-  //             {
-  //             if (pos==0)
-  //               {
-  //               // distinguish between [+1 -1] and [-1 +1] type p-couplings
-  //               type = values[k]>0? 1:0;
-  //               }
-  //             connectedPs[pos++]=gcid;
-  //             }
-  //           if (pos>=2)
-  //             {
-  //             break;
-  //             }
-  //           }
-  //         }
-  //       SepNode S(gid,connectedPs,type);
-  //       (*sepList)[lsid] = S;
-  //       }
-  //     }
-      
-  //   hid_->Spawn(HierarchicalMap::LocalSeparators,sepList);
-  //   }
-  // else
-  //   {
-    hid_->Spawn(HierarchicalMap::LocalSeparators);
-    // }
-
-#ifdef HYMLS_DEBUGGING
-    std::ofstream ofs1,ofs2;
-    if (myLevel_==1)
-      {
-      ofs1.open("sep_data.m",std::ios::out);
-      ofs2.open("lsep_data.m",std::ios::out);
-      }
-    else
-      {
-      ofs1.open("sep_data.m",std::ios::app);
-      ofs2.open("lsep_data.m",std::ios::app);
-      }
-    ofs1<<*(hid_->Spawn(HierarchicalMap::Separators));
-    ofs1.close();
-    ofs2<<*(hid_->Spawn(HierarchicalMap::LocalSeparators));
-    ofs2.close();
-#endif      
-
-  return 0;
   }
 
 int SchurPreconditioner::InitializeOT()
