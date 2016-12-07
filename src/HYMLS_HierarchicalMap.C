@@ -203,45 +203,27 @@ int HierarchicalMap::FillComplete()
   return 0;
   }
 
-  int HierarchicalMap::FillStart()
-    {
-    HYMLS_PROF2(label_,"FillStart");
-    // adjust the group pointer back to local indexing per subdomain
-    // for (int sd = NumMySubdomains()-1; sd > 0; sd--)
-    //   {
-    //   for (Teuchos::Array<int>::iterator j = (*groupPointer_)[sd].begin();
-    //        j != (*groupPointer_)[sd].end(); j++)
-    //     {
-    //     HYMLS_DEBVAR(*j);
-    //     *j -= *((*groupPointer_)[sd-1].end()-1);
-    //     }
-    //   }
-    overlappingMap_ = Teuchos::null;
-    return 0;
-    }
-    
-  int HierarchicalMap::AddGroup(int sd, Teuchos::Array<int>& gidList)
-    {
-    HYMLS_PROF3(label_,"AddGroup");
-    // if (Filled()) this->FillStart();
+int HierarchicalMap::AddGroup(int sd, Teuchos::Array<int>& gidList)
+  {
+  HYMLS_PROF3(label_,"AddGroup");
 
-    if (sd>=groupPointer_->size())
-      {
-      Tools::Warning("invalid subdomain index",__FILE__,__LINE__);
-      return -1; // You should Reset with the right amount of sd
-      }
-      
-    HYMLS_DEBVAR(sd);
-    HYMLS_DEBVAR(gidList);
-    int offset=*((*groupPointer_)[sd].end()-1);
-    int len = gidList.size();
-    (*groupPointer_)[sd].append(offset+len);
-    if (len>0)
-      {
-      std::copy(gidList.begin(),gidList.end(),std::back_inserter((*gidList_)[sd]));
-      }
-    return (*groupPointer_)[sd].length()-1;
+  if (sd>=groupPointer_->size())
+    {
+    Tools::Warning("invalid subdomain index",__FILE__,__LINE__);
+    return -1; // You should Reset with the right amount of sd
     }
+
+  HYMLS_DEBVAR(sd);
+  HYMLS_DEBVAR(gidList);
+  int offset=*((*groupPointer_)[sd].end()-1);
+  int len = gidList.size();
+  (*groupPointer_)[sd].append(offset+len);
+  if (len>0)
+    {
+    std::copy(gidList.begin(),gidList.end(),std::back_inserter((*gidList_)[sd]));
+    }
+  return (*groupPointer_)[sd].length()-1;
+  }
 
 Teuchos::Array<int> HierarchicalMap::GetGroup(int sd, int grp) const
     {
