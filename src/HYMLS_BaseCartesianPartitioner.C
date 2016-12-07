@@ -44,8 +44,6 @@ namespace HYMLS {
         HYMLS_DEBVAR(nz_);
         HYMLS_DEBVAR(dof_);
 
-        graph_=Teuchos::null;
-        
         npx_=-1;// indicates that Partition() hasn't been called
         }
         

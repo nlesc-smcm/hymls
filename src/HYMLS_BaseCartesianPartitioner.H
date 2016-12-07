@@ -7,7 +7,6 @@
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_Array.hpp"
 #include "Epetra_Map.h"
-#include "Epetra_CrsGraph.h"
 #include "HYMLS_BasePartitioner.H"
 
 #include "GaleriExt_Periodic.h"
@@ -37,12 +36,6 @@ class BaseCartesianPartitioner : public BasePartitioner
   
   //! destructor
   virtual ~BaseCartesianPartitioner();
-
-  //! set the graph of the problem to be used for determining wether there
-  //! is an edge between two nodes. If no graph is set, heuristics are used,
-  //! for instance based on 'stencil width', as before. Setting the graph
-  //! should make the class more robust.
-  void SetGraph(Teuchos::RCP<const Epetra_CrsGraph> G){graph_=G;}
 
   //! pure virtual functions
   //@{
@@ -187,10 +180,6 @@ class BaseCartesianPartitioner : public BasePartitioner
   //! stencil width, currently set to 1.
   static const int stencil_width_=1;
   
-  //! graph of the problem. If not null, it is used to determine 
-  //! wether there is an edge between two given nodes of the graph.
-  Teuchos::RCP<const Epetra_CrsGraph> graph_;
-
   //! pointers into map
   Teuchos::Array<int> subdomainPointer_;
   
