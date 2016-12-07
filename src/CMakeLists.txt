@@ -7,8 +7,6 @@ set(HYMLS_SOURCE HYMLS_Solver
     HYMLS_HierarchicalMap
     HYMLS_BaseCartesianPartitioner
     HYMLS_CartesianPartitioner
-    HYMLS_StandardNodeClassifier
-    HYMLS_CartesianStokesClassifier
     HYMLS_SepNode
     HYMLS_HyperCube
     HYMLS_MatrixUtils
@@ -39,7 +37,6 @@ set(HEADERS ${HEADERS}
   GaleriExt_Darcy2D.h
   GaleriExt_Darcy3D.h
   GaleriExt_Star3D.h
-  HYMLS_BaseNodeClassifier.H
   HYMLS_BasePartitioner.H
   HYMLS_BorderedSolver.H
   HYMLS_Macros.H

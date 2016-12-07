@@ -4,7 +4,6 @@ set(SOURCES
   GaleriExt_Stokes2D
   GaleriExt_Stokes3D
   HYMLS_CartesianPartitioner
-  HYMLS_StandardNodeClassifier
   HYMLS_DenseUtils
   HYMLS_HierarchicalMap
   HYMLS_OverlappingPartitioner
