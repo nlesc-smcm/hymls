@@ -226,37 +226,26 @@ int HierarchicalMap::AddGroup(int sd, Teuchos::Array<int>& gidList)
   }
 
 Teuchos::Array<int> HierarchicalMap::GetGroup(int sd, int grp) const
-    {
-    HYMLS_PROF3(label_,"GetGroup");
-    // if (Filled())
-    //   for (int sd = NumMySubdomains()-1; sd > 0; sd--)
-    //     for (Teuchos::Array<int>::iterator j = (*groupPointer_)[sd].begin();
-    //          j != (*groupPointer_)[sd].end(); j++)
-    //       *j -= *((*groupPointer_)[sd-1].end()-1);
+  {
+  HYMLS_PROF3(label_,"GetGroup");
 
-    if (sd >= groupPointer_->size())
-      Tools::Error("Invalid subdomain index", __FILE__, __LINE__);
+  if (sd >= groupPointer_->size())
+    Tools::Error("Invalid subdomain index", __FILE__, __LINE__);
 
-    if (grp >= (*groupPointer_)[sd].size())
-      Tools::Error("Invalid group index", __FILE__, __LINE__);
+  if (grp >= (*groupPointer_)[sd].size())
+    Tools::Error("Invalid group index", __FILE__, __LINE__);
 
-    int offset = *((*groupPointer_)[sd].begin() + grp);
-    int len = *((*groupPointer_)[sd].begin() + grp + 1) - offset;
+  int offset = *((*groupPointer_)[sd].begin() + grp);
+  int len = *((*groupPointer_)[sd].begin() + grp + 1) - offset;
 
-    if (offset + len > (*gidList_)[sd].size())
-      Tools::Error("Invalid group index", __FILE__, __LINE__);
+  if (offset + len > (*gidList_)[sd].size())
+    Tools::Error("Invalid group index", __FILE__, __LINE__);
 
-    Teuchos::Array<int> gidList;
-    std::copy((*gidList_)[sd].begin() + offset, (*gidList_)[sd].begin() + offset + len,std::back_inserter(gidList));
+  Teuchos::Array<int> gidList;
+  std::copy((*gidList_)[sd].begin() + offset, (*gidList_)[sd].begin() + offset + len,std::back_inserter(gidList));
 
-    // if (Filled())
-    //   for (int sd = 1; sd < NumMySubdomains(); sd++)
-    //     for (Teuchos::Array<int>::iterator j = (*groupPointer_)[sd].begin();
-    //          j != (*groupPointer_)[sd].end(); j++)
-    //       *j += *((*groupPointer_)[sd-1].end()-1);
-
-    return gidList;
-    }
+  return gidList;
+  }
 
   //! print domain decomposition to file
   std::ostream& HierarchicalMap::Print(std::ostream& os) const
