@@ -15,7 +15,6 @@
 #include "HYMLS_Tools.H"
 #include "HYMLS_BasePartitioner.H"
 #include "HYMLS_CartesianPartitioner.H"
-#include "HYMLS_SepNode.H"
 
 #include "Epetra_Comm.h"
 #include "Epetra_SerialComm.h"
@@ -326,8 +325,7 @@ Teuchos::RCP<const Epetra_Map> HierarchicalMap::GetUniqueOverlappingMap() const
   }
 
 Teuchos::RCP<const HierarchicalMap> 
-HierarchicalMap::Spawn(SpawnStrategy strat,
-        Teuchos::RCP<Teuchos::Array<HYMLS::SepNode> > regroup) const
+HierarchicalMap::Spawn(SpawnStrategy strat) const
   {
   if (!Filled())
     {
@@ -356,7 +354,7 @@ HierarchicalMap::Spawn(SpawnStrategy strat,
       }
     else if (strat==LocalSeparators)
       {
-      object=SpawnLocalSeparators(regroup);
+      object=SpawnLocalSeparators();
       }
     else if (strat==All)
       {
@@ -488,8 +486,7 @@ HierarchicalMap::SpawnInterior() const
 ////////////////////////////////////////////////////////////////////////////////
 
 Teuchos::RCP<const HierarchicalMap> 
-HierarchicalMap::SpawnLocalSeparators
-        (Teuchos::RCP<Teuchos::Array<HYMLS::SepNode> > regroup) const
+HierarchicalMap::SpawnLocalSeparators() const
   { 
   HYMLS_PROF3(label_,"SpawnLocalSeparators");
 

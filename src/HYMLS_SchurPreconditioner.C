@@ -12,7 +12,6 @@
 #include "HYMLS_SchurComplement.H" 
 #include "HYMLS_Preconditioner.H" 
 #include "HYMLS_Householder.H" 
-#include "HYMLS_SepNode.H"
 #include "HYMLS_RestrictedOT.H"
 
 #include "Epetra_Comm.h" 

@@ -19,8 +19,6 @@ namespace Teuchos
 
 namespace HYMLS {
 
-class SepNode;
-
 //! class for hierarchically partitioned maps
 
 /*! This class allows constructing Epetra_Maps which are sub-maps
@@ -176,12 +174,7 @@ public:
                                                                         
    strat=LocalSeparators: This object is used for constructing the      
                           orthogonal transform, it has only local sepa- 
-                          rators, which are grouped according to an     
-                          array of SepNode objects passed in when       
-                          calling this function. The SchurPreconditioner
-                          uses this for problems where the p-connections
-                          are not so straight-forward, i.e. in THCM,    
-                          where two p's per subdomain are retained.     
+                          rators.
                                                                         
     The 'Interior' object's Map() gives the variables to be eliminated  
     in the first place.                                                 
@@ -192,8 +185,7 @@ public:
     interior+separator nodes).                                          
                                                                         
   */
-  virtual Teuchos::RCP<const HierarchicalMap> Spawn(SpawnStrategy strat,
-        Teuchos::RCP<Teuchos::Array<HYMLS::SepNode> > regroup=Teuchos::null) const;
+  virtual Teuchos::RCP<const HierarchicalMap> Spawn(SpawnStrategy strat) const;
 
   //! spawn a map containing all Interior or all Separator nodes belonging to one subdomain,
   //! or All nodes belonging to one subdomain.
@@ -327,8 +319,7 @@ private:
   //!
   Teuchos::RCP<const HierarchicalMap> SpawnSeparators() const;
   //!
-  Teuchos::RCP<const HierarchicalMap> SpawnLocalSeparators
-        (Teuchos::RCP<Teuchos::Array<HYMLS::SepNode> > regroup) const;
+  Teuchos::RCP<const HierarchicalMap> SpawnLocalSeparators() const;
 
   //@}    
   };

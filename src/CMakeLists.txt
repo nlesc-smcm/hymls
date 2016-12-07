@@ -7,7 +7,6 @@ set(HYMLS_SOURCE HYMLS_Solver
     HYMLS_HierarchicalMap
     HYMLS_BaseCartesianPartitioner
     HYMLS_CartesianPartitioner
-    HYMLS_SepNode
     HYMLS_HyperCube
     HYMLS_MatrixUtils
     HYMLS_DenseUtils

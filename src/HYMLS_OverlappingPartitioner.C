@@ -29,8 +29,6 @@
 
 #include "Galeri_Utils.h"
 
-#include "HYMLS_SepNode.H"
-
 #include "GaleriExt_Periodic.h"
 
 #include "HYMLS_MatrixUtils.H"
