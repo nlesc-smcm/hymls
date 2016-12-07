@@ -375,11 +375,10 @@ HierarchicalMap::Spawn(SpawnStrategy strat,
 Teuchos::RCP<const HierarchicalMap> 
 HierarchicalMap::SpawnInterior() const
   {
-  HYMLS_PROF3(label_,"SpawnInterior");    
+  HYMLS_PROF3(label_,"SpawnInterior");
 
   Teuchos::RCP<const HierarchicalMap> newObject=Teuchos::null;
   Teuchos::RCP<Epetra_Map> newMap=Teuchos::null;
-  Teuchos::RCP<Epetra_Map> newOverlappingMap=Teuchos::null;
   Teuchos::RCP<Teuchos::Array<Teuchos::Array<int> > > newGroupPointer =
         Teuchos::rcp(new Teuchos::Array<Teuchos::Array<int> >());
   Teuchos::RCP<Teuchos::Array<Teuchos::Array<int> > > newGidList =
@@ -389,51 +388,33 @@ HierarchicalMap::SpawnInterior() const
   
   int num = NumMyInteriorElements();
   int *myElements = new int[num];
-  int pos=0;
-  for (int sd=0;sd<NumMySubdomains();sd++)
+  int pos = 0;
+  for (int sd = 0; sd < NumMySubdomains(); sd++)
     {
-    newGidList->append(Teuchos::Array<int>());
-    newGroupPointer->append(Teuchos::Array<int>(1));
-    Teuchos::Array<int> gidList;
-    for (int j=0;j<NumInteriorElements(sd);j++)
-      {
-      int gid = GID(sd,0,j);
-      if (baseMap_->MyGID(gid))
-        {
-        myElements[pos++]=gid;
-        gidList.append(gid);
-        }
-      }
-    int len = gidList.size();
-    if (len>0)
-      {
-      (*newGroupPointer)[sd].append(len);
-      std::copy(gidList.begin(), gidList.end(), std::back_inserter((*newGidList)[sd]));
-      }
+    int len = (*groupPointer_)[sd][1];
+    std::copy((*gidList_)[sd].begin(), (*gidList_)[sd].begin()+len, myElements+pos);
+    pos += len;
     }
 
-  newMap=Teuchos::rcp(new Epetra_Map(-1,pos,myElements,base,*comm_));
-  newOverlappingMap=newMap;
+  newMap = Teuchos::rcp(new Epetra_Map(-1, pos, myElements, base, *comm_));
   delete [] myElements;
 
-  // newGroupPointer->resize(NumMySubdomains());
-  // if (NumMySubdomains()>0)
-  //   {
-  //   (*newGroupPointer)[0].resize(2);
-  //   (*newGroupPointer)[0][0]=0;
-  //   (*newGroupPointer)[0][1]=NumInteriorElements(0);
-  //   }
-  // for (int sd=1;sd<NumMySubdomains();sd++)
-  //   {
-  //   (*newGroupPointer)[sd].resize(2);
-  //   (*newGroupPointer)[sd][0]=(*newGroupPointer)[sd-1][1];
-  //   (*newGroupPointer)[sd][1]=(*newGroupPointer)[sd][0]+NumInteriorElements(sd);
-  //   }
+  newGroupPointer->resize(NumMySubdomains());
+  if (NumMySubdomains()>0)
+    {
+    (*newGroupPointer)[0].resize(2);
+    (*newGroupPointer)[0][0]=0;
+    (*newGroupPointer)[0][1]=NumInteriorElements(0);
+    }
+  for (int sd=1;sd<NumMySubdomains();sd++)
+    {
+    (*newGroupPointer)[sd].resize(2);
+    (*newGroupPointer)[sd][0]=(*newGroupPointer)[sd-1][1];
+    (*newGroupPointer)[sd][1]=(*newGroupPointer)[sd][0]+NumInteriorElements(sd);
+    }
 
-  // newObject = Teuchos::rcp(new HierarchicalMap
-  //   (comm_,newMap,newOverlappingMap,newGroupPointer,gidList_,"Interior Nodes",myLevel_) );
-  newObject = Teuchos::rcp(new HierarchicalMap
-    (comm_,newMap,newOverlappingMap,newGroupPointer,newGidList,"Interior Nodes",myLevel_) );
+  newObject = Teuchos::rcp(new HierarchicalMap(comm_, newMap, newMap,
+      newGroupPointer, gidList_, "Interior Nodes",myLevel_) );
 
   return newObject;
   }
