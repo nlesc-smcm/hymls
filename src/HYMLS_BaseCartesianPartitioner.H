@@ -17,8 +17,7 @@ class Epetra_Import;
 
 namespace HYMLS {
 
-/* implements common functionality of cartesian partitioners
-   like the tricky flow() function.
+/* implements common functionality of cartesian partitioners.
     
     classes derived from this base only need to implement
     operator()(i,j,k) and a function CreateSubdomainMap(),
@@ -44,10 +43,6 @@ class BaseCartesianPartitioner : public BasePartitioner
   //! for instance based on 'stencil width', as before. Setting the graph
   //! should make the class more robust.
   void SetGraph(Teuchos::RCP<const Epetra_CrsGraph> G){graph_=G;}
-
-  //! for Stokes - tell the class which one is the pressure variable, that
-  //! one should be ignored inthe flow() function. -1: no pressure variables.
-  void SetPressureVariable(int var){pvar_=var;}
 
   //! pure virtual functions
   //@{
@@ -138,9 +133,6 @@ class BaseCartesianPartitioner : public BasePartitioner
           
   //! get global index of element j in local subdomain i
   inline int GID(int i, int j) const {return Map().GID(First(i)+j);}
-              
-  //! impose ordering on subdomains
-  int flow(int gid1, int gid2) const;
 
   //!
   std::string label_;
@@ -198,10 +190,6 @@ class BaseCartesianPartitioner : public BasePartitioner
   //! graph of the problem. If not null, it is used to determine 
   //! wether there is an edge between two given nodes of the graph.
   Teuchos::RCP<const Epetra_CrsGraph> graph_;
-  
-  //! if not -1, pvar_ indicates which variable in each cell is the
-  //! pressure and should be ignored in the flow() function
-  int pvar_;
 
   //! pointers into map
   Teuchos::Array<int> subdomainPointer_;

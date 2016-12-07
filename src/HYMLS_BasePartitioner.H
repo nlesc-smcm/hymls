@@ -103,50 +103,6 @@ class BasePartitioner
   //! get global index of element j in local subdomain i
   virtual int GID(int i, int j) const = 0;
   
-  //! this function imposes an ordering on the subdomains  
-  //! to make sure that periodic boundary conditions are   
-  //! handled correctly by the solver. For non-periodic    
-  //! problems it is OK to use the default implementation, 
-  //! which is flow(gid1,gid2)=sd(gid1)-sd(gid2).          
-  //!                                                      
-  //! If gid1 and gid2 belong to different variable types  
-  //! (e.g. u- and v-velocities, or a velocity and a pres- 
-  //! sure, flow(gid1,gid2) should always return 0 to      
-  // make sure our algorithms do the same for Navier-Stokes
-  // as for Stokes.                                         
-  //!                                                      
-  //! For periodic problems it should be something like    
-  //! this for the 2-domain case:                          
-  //!                                                      
-  //!   sd1  |     sd2  |       sd1 ...                    
-  //!                                                      
-  //! then flow(gid1,gid2)==0 if gid1 and gid2 are in      
-  //!           same subdomain or not connected.           
-  //!      flow(gid1,gid2)>0  if the edge between gid1     
-  //!           and gid2 crosses a subdomain boundary in   
-  //!           one direction (e.g. from left to right)    
-  //!      flow(gid1,gid2)<0  if the edge between gid1     
-  //!           and gid2 crosses a subdomain boundary in   
-  //!           the other direction (from right to left)   
-    
-  //!                                                      
-  //! this makes sure that the following separator nodes   
-  //! (*) are selected:                                    
-  //!   sd1 *|     sd2 *|       sd1 ...                    
-  //!                                                      
-  //! This is straight-forward to implement for cartesian  
-  //! partitioning. For other partitioners, one might look 
-  //! at the orientation of a gradient operator.           
-  //!                                                      
-  virtual int flow(int gid1, int gid2) const
-    {
-    if (VariableType(gid1)==VariableType(gid2))
-      {
-      return operator()(gid1)-operator()(gid2);
-      }
-    return 0;
-    };
-  
   };
 
 }

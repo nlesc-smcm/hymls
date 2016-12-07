@@ -10,22 +10,10 @@
 #include "Epetra_MpiDistributor.h"
 #endif
 
-
 using Teuchos::toString;
-
-#ifdef HYMLS_DEBUGGING
-#define FLOW_HYMLS_DEBUGGING
-#endif
-
-#ifdef FLOW_HYMLS_DEBUGGING
-#define FLOW_HYMLS_DEBUG(s) HYMLS_DEBUG(s)
-#else
-#define FLOW_HYMLS_DEBUG(s)
-#endif
 
 namespace HYMLS {
 
-  
   // constructor 
   BaseCartesianPartitioner::BaseCartesianPartitioner
         (Teuchos::RCP<const Epetra_Map> map, int nx, int ny, int nz, int dof, 
@@ -57,7 +45,6 @@ namespace HYMLS {
         HYMLS_DEBVAR(dof_);
 
         graph_=Teuchos::null;
-        pvar_=-1;
         
         npx_=-1;// indicates that Partition() hasn't been called
         }
@@ -67,173 +54,6 @@ namespace HYMLS {
   BaseCartesianPartitioner::~BaseCartesianPartitioner()
     {
     HYMLS_PROF3(label_,"Destructor");
-    }
-
-  int BaseCartesianPartitioner::flow(int gid1, int gid2) const
-    {
-    int sd1 = (*this)(gid1);
-    int sd2 = (*this)(gid2);
-    
-    FLOW_HYMLS_DEBUG("### FLOW("<<gid1<<", "<<gid2<<") ###");
-    
-    if (sd1==sd2)
-      {
-      FLOW_HYMLS_DEBUG("# same subdomain, return 0");
-      return 0;
-      }
-
-    int i1,j1,k1,i2,j2,k2;
-    int var1,var2;
-      
-    Tools::ind2sub(nx_,ny_,nz_,dof_,gid1,i1,j1,k1,var1);
-    Tools::ind2sub(nx_,ny_,nz_,dof_,gid2,i2,j2,k2,var2);
-/*
-    if (var2==pvar_)
-      {
-      FLOW_HYMLS_DEBUG("# coupling to pressure, return 0");
-      return 0;
-      }
-*/  
-
-    if (var1!=var2)
-      {
-      FLOW_HYMLS_DEBUG("# different variables, return 0");
-      return 0;
-      }
-
-    bool adjacent=false;
-      int di,dj,dk;
-
-      di=calc_distance(nx_,i1,i2,(perio_&GaleriExt::X_PERIO));
-      dj=calc_distance(ny_,j1,j2,(perio_&GaleriExt::Y_PERIO));
-      dk=calc_distance(nz_,k1,k2,(perio_&GaleriExt::Z_PERIO));
-
-    if (graph_==Teuchos::null) // old style - look at 'node distance' and guess...
-      {
-#ifdef FLOW_HYMLS_DEBUGGING
-HYMLS_DEBVAR(di);
-HYMLS_DEBVAR(dj);
-HYMLS_DEBVAR(dk);
-#endif
-    // if the cells are not connected:
-      if ((std::abs(di)>stencil_width_) || 
-        (std::abs(dj)>stencil_width_) || 
-        (std::abs(dk)> stencil_width_))
-        {
-        FLOW_HYMLS_DEBUG("# not adjacent grid cells, return 0 [based on guesswork!]");
-        adjacent=false;
-        }
-      }
-    else
-      {
-      int len;
-      int *cols;
-      int lrid1 = graph_->LRID(gid1);
-      CHECK_ZERO(graph_->ExtractMyRowView(lrid1,len,cols));
-      for (int j=0;j<len;j++)
-        {
-        if (graph_->GCID(cols[j])==gid2)
-          {
-          adjacent=true;
-          break;
-          }
-        }
-      }
-    if (!adjacent) 
-      {
-      FLOW_HYMLS_DEBUG("# not adjacent grid cells, return 0 [based on graph]");
-      return 0;
-      }
-    
-    // the cells are connected and in different subdomains, so we have to
-    // return a nonzero value.
-
-    // for non-periodic problems it is fairly simple:
-    if (perio_==GaleriExt::NO_PERIO)
-      {
-      FLOW_HYMLS_DEBUG("# return "<<sd1-sd2);
-      return sd1-sd2;
-      }
-      
-    // problem is periodic in at least one direction
-
-    int I1,J1,K1,I2,J2,K2;
-    int dI, dJ, dK;
-    int dum;
-
-    Tools::ind2sub(npx_,npy_,npz_,1,sd1,I1,J1,K1,dum);
-    Tools::ind2sub(npx_,npy_,npz_,1,sd2,I2,J2,K2,dum);
-
-    dI=calc_distance(npx_,I1,I2,(perio_&GaleriExt::X_PERIO));
-    dJ=calc_distance(npy_,J1,J2,(perio_&GaleriExt::Y_PERIO));
-    dK=calc_distance(npz_,K1,K2,(perio_&GaleriExt::Z_PERIO));
-
-    if (std::abs(dK)> 0)
-      {
-#ifdef FLOW_HYMLS_DEBUGGING
-      if (dk<0)
-        {
-        HYMLS_DEBUG("# top edge, return "<<dk);
-        }
-      else
-        {
-        HYMLS_DEBUG("# bottom edge, return "<<dk);
-        }
-#endif      
-      return dk;
-      }
-    if (std::abs(dJ)> 0)
-      {
-#ifdef FLOW_HYMLS_DEBUGGING
-      if (dj<0)
-        {
-        HYMLS_DEBUG("# north edge, return "<<dj);
-        }
-      else
-        {
-        HYMLS_DEBUG("# south edge, return "<<dj);
-        }
-#endif      
-      return dj;
-      }
-    if (std::abs(dI)> 0)
-      {
-#ifdef FLOW_HYMLS_DEBUGGING
-      if (di<0)
-        {
-        HYMLS_DEBUG("# east edge, return "<<di);
-        }
-      else
-        {
-        HYMLS_DEBUG("# west edge, return "<<di);
-        }
-#endif      
-      return di;
-      }
-    FLOW_HYMLS_DEBUG("weird case, return 0");
-    return 0;
-    }
-
-  // private
-  int BaseCartesianPartitioner::calc_distance(int n, int i1,int i2,bool perio) const
-    {
-    int di=i1-i2;
-    if (perio)
-      {
-      if (i1<i2)
-        {
-        i1+=n;
-        }
-      else
-        {
-        i2+=n;
-        }
-      if (std::abs(i1-i2)<std::abs(di))
-        {
-        di=i1-i2;
-        }
-      }
-    return di;
     }
 
   int BaseCartesianPartitioner::Partition(int nparts, bool repart)
