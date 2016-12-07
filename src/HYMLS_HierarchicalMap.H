@@ -262,9 +262,6 @@ public:
 
   //@}
   
-  //! given a list of GIDs, returns a list of subdomains to which they belong
-  int getSubdomainList(int num_gids, int* gids, int* sd) const;
-  
   //! add a group of GIDs to an existing subdomain. Returns the group id
   //! of the new group. FillComplete() should not have been called.
   int AddGroup(int sd, Teuchos::Array<int>& gidList);

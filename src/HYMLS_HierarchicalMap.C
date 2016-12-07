@@ -593,35 +593,6 @@ std::ostream & operator<<(std::ostream& os, const HierarchicalMap& h)
   return h.Print(os);
   }
 
-//! given a list of GIDs, returns a list of subdomains to which they belong
-int HierarchicalMap::getSubdomainList(int num_gids, int* gids, int* sd) const
-  {
-  HYMLS_PROF3(label_,"getSubdomainList");
-  int offset=0; // we do a cyclic search, which
-                // should be efficient if the indices
-                // belong to the same or adjacent subdomains
-  for (int i=0;i<num_gids;i++)
-    {
-    sd[i]=-1;
-    int lid = overlappingMap_->LID(gids[i]);
-    if (lid>0)
-      {
-      for (int j=0;j<NumMySubdomains();j++)
-        {
-        int jj=MOD(offset+j,NumMySubdomains());
-        if (((*groupPointer_)[jj][0]<=lid)
-         && (*((*groupPointer_)[jj].end()-1)>lid))
-           {
-           sd[i]=jj;
-           offset=jj;
-           break;
-           }
-        }
-      }
-    }
-  return 0;
-  }
-
 //! given a subdomain, returns a list of GIDs that belong to the subdomain
 int HierarchicalMap::getSeparatorGIDs(int sd, int *gids) const
   {
