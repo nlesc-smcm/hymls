@@ -56,67 +56,28 @@ namespace HYMLS {
   // is not fully initialized during the constructor, but afterwards it is.
   // This is OK because the base class constructor is mostly intended for spawning
   // a new level from an existing one.
-  OverlappingPartitioner::OverlappingPartitioner(Teuchos::RCP<const Epetra_RowMatrix> K,
-      Teuchos::RCP<Teuchos::ParameterList> params, int level)
-      : HierarchicalMap(Teuchos::rcp(&(K->Comm()),false),
-                        Teuchos::rcp(&(K->RowMatrixRowMap()),false),
-                        0,"OverlappingPartitioner",level),
-                        PLA("Problem"), matrix_(K)
-    {
-    HYMLS_PROF3(Label(),"Constructor");
+OverlappingPartitioner::OverlappingPartitioner(Teuchos::RCP<const Epetra_RowMatrix> K,
+  Teuchos::RCP<Teuchos::ParameterList> params, int level)
+  : HierarchicalMap(Teuchos::rcp(&(K->Comm()),false),
+    Teuchos::rcp(&(K->RowMatrixRowMap()),false),
+    0,"OverlappingPartitioner",level),
+    PLA("Problem"), matrix_(K)
+  {
+  HYMLS_PROF3(Label(),"Constructor");
 
-    setParameterList(params);
+  setParameterList(params);
 
-    // check that this is an F-matrix. Note that the actual test is quite expensive,
-    // but it is only performed if -DHYMLS_TESTING is defined.
-    Teuchos::RCP<const Epetra_CrsMatrix> Kcrs =
-        Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(K);
-    if (Kcrs!=Teuchos::null)
-      {
-      HYMLS_TEST(Label(),isFmatrix(*Kcrs,dof_,pvar_),__FILE__,__LINE__);
-      }
+  CHECK_ZERO(this->Partition());
 
-    //TODO - partitioning before creating the graph is
-    //       kind of not so nice, it just works because
-    //       we use the cartesian partitioner, which does
-    //       not need a graph.
+  CHECK_ZERO(this->DetectSeparators());
+  HYMLS_DEBVAR(*this);
+  return;
+  }
 
-    CHECK_ZERO(this->Partition());
-
-    // construct a graph with overlap between partitions (for finding/grouping
-    // separators in parallel).
-    CHECK_ZERO(CreateGraph());
-
-    // pass the graph to the cartesian partitioner so that the flow() function
-    // works. TODO - see comment above, we should first make the graph and then
-    // partition.
-    Teuchos::RCP<CartesianPartitioner> cartPart =
-        Teuchos::rcp_dynamic_cast<CartesianPartitioner>(partitioner_);
-
-    if (cartPart!=Teuchos::null)
-      {
-      cartPart->SetGraph(p_graph_);
-      cartPart->SetPressureVariable(pvar_);
-      }
-
-    //HYMLS_DEBVAR(*p_graph_);
-    int nzgraph = p_graph_->NumMyNonzeros();
-    REPORT_SUM_MEM(Label(),"graph with overlap",0,nzgraph,GetComm());
-
-#ifdef HYMLS_STORE_MATRICES
-    DumpGraph();
-#endif
-    CHECK_ZERO(this->DetectSeparators());
-    HYMLS_DEBVAR(*this);
-    return;
-    }
-
-  OverlappingPartitioner::~OverlappingPartitioner()
-    {
-    HYMLS_PROF3(Label(),"Destructor");
-    }
-
-
+OverlappingPartitioner::~OverlappingPartitioner()
+  {
+  HYMLS_PROF3(Label(),"Destructor");
+  }
 
 void OverlappingPartitioner::setParameterList
         (const Teuchos::RCP<Teuchos::ParameterList>& params)
@@ -144,7 +105,6 @@ void OverlappingPartitioner::setParameterList
   pvar_=-1; int pcount=0;
   for (int i=0;i<dof_;i++)
     {
-    HYMLS_DEBVAR(variableType_[i]);
     if (retainIsolated_[i]) {pvar_=i; pcount++;}
     }
   if (pcount>1)
@@ -598,107 +558,6 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
   Teuchos::RCP<const OverlappingPartitioner> newLevel;
   newLevel = Teuchos::rcp(new OverlappingPartitioner(Ared, newList,Level()+1));
   return newLevel;
-  }
-
-  // constructs a graph suitable for the partitioning process, for instance
-  // [A+BB' B; B' 0] for saddlepoint matrices (graph_), then
-  // construct a graph with overlap between partitions (for finding/grouping
-  // separators in parallel) (p_graph_).
-  //
-  // We need two levels of overlap because we may
-  // have to include nodes as separators of a subdomain that are not physically
-  // connected to a node in the subdomain (secondary separator nodes like node
-  // (a) in subdomain D in this picture):
-  //          :
-  //   C      :       D
-  //         c-d
-  // ........|.|............
-  //         a-b
-  //   A      :       B
-  //          :
-  //
-  // ... actually we need 3 levels of overlap in 3D.
-  // ... TODO - check wether this is still true, even with the graph of [A+BB' B; B' 0]
-  //     that we use now.
-  int OverlappingPartitioner::CreateGraph()
-    {
-    HYMLS_PROF2(Label(),"CreateGraph");
-
-    Teuchos::RCP<const Epetra_CrsMatrix> myCrsMatrix =
-        Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_);
-
-    if (Teuchos::is_null(myCrsMatrix))
-      {
-      Tools::Error("we need a CrsMatrix here!",__FILE__,__LINE__);
-      }
-    // copy the graph
-    graph_=Teuchos::rcp(&(myCrsMatrix->Graph()),false);
-
-    HYMLS_TEST(Label(),noNumericalZeros(*myCrsMatrix),__FILE__,__LINE__);
-
-    if (partitioner_->Partitioned()==false)
-      {
-      Tools::Error("domain not yet partitioned",__FILE__,__LINE__);
-      }
-
-   // repartition...
-   Teuchos::RCP<Epetra_Import> importRepart =
-     Teuchos::rcp(new Epetra_Import(partitioner_->Map(),graph_->RowMap()));
-
-    int MaxNumEntriesPerRow=graph_->MaxNumIndices();
-    Teuchos::RCP<Epetra_CrsGraph> G_repart = Teuchos::rcp
-        (new Epetra_CrsGraph(Copy,partitioner_->Map(),MaxNumEntriesPerRow,false));
-    CHECK_ZERO(G_repart->Import(*graph_,*importRepart,Insert));
-    CHECK_ZERO(G_repart->FillComplete());
-
-    // parallel graph setup
-    p_graph_=Teuchos::null;
-
-
-    if (Comm().NumProc()==1)
-      {
-      p_graph_=G_repart;
-      importOverlap_=importRepart;
-      }
-    else
-      {
-      // build a test matrix - we create an overlapping matrix and then extract its graph
-      Teuchos::RCP<Epetra_CrsMatrix> Atest =
-          Teuchos::rcp(new Epetra_CrsMatrix(Copy,*G_repart));
-
-      CHECK_ZERO(Atest->Import(*matrix_,*importRepart,Insert));
-      CHECK_ZERO(Atest->FillComplete());
-      //the original graph of the matrix is also distributed
-      Ifpack_OverlappingRowMatrix Aov(Atest, dim_);
-      Teuchos::RCP<const Epetra_Map> overlappingMap =
-        Teuchos::rcp(&(Aov.RowMatrixRowMap()),false);
-
-      importOverlap_ =
-      Teuchos::rcp(new Epetra_Import(*overlappingMap, graph_->RowMap()));
-      //importOverlap contains all information needed for MPI.
-      p_graph_ = Teuchos::rcp(new Epetra_CrsGraph
-        (Copy,*overlappingMap,graph_->MaxNumIndices(),false));
-      //Definition of the Graph but it is still  empty
-      //below it is filled
-
-      CHECK_ZERO(p_graph_->Import(*graph_,*importOverlap_,Insert));
-      CHECK_ZERO(p_graph_->FillComplete());// cleans everything up (removes workarrays).
-      }
-
-  return 0;
-  }
-
-
-int OverlappingPartitioner::DumpGraph() const
-  {
-  HYMLS_PROF2(Label(),"DumpGraph");
-  std::string filename="matrixGraph"+Teuchos::toString(Level())+".txt";
-
-  Teuchos::RCP<Epetra_CrsMatrix> graph=
-       Teuchos::rcp(new Epetra_CrsMatrix(Copy,*graph_));
-  graph->PutScalar(1.0);
-  MatrixUtils::Dump(*graph,filename);
-  return 0;
   }
 
 }//namespace

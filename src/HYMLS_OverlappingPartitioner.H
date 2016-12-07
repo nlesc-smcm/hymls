@@ -20,7 +20,6 @@ class BaseNodeClassifier;
 }
 
 class Epetra_IntVector;
-class Epetra_CrsGraph;
 class Epetra_Import;
 
 namespace HYMLS {
@@ -70,26 +69,12 @@ public:
 
   //! get a list of valid parameters for this object
   Teuchos::RCP<const Teuchos::ParameterList> getValidParameters() const;
-      
-        
-protected: 
-  
+
+protected:
+
   //! matrix
   Teuchos::RCP<const Epetra_RowMatrix> matrix_;
 
-  //! graph of the problem and a variant with overlap
-  //! between partitions (but not subdomains)
-  Teuchos::RCP<const Epetra_CrsGraph> graph_;
-  Teuchos::RCP<Epetra_CrsGraph> p_graph_;
-  
-  //! for going between graph and p_Graph, nodeType and p_nodeType
-  Teuchos::RCP<Epetra_Import> importOverlap_;
-  
-  //! vector of node types (0: interior, 1: standard separator, 
-  //! 2: secondary separator (vertex in 2D, edge in 3D),        
-  //! 3: vertex (3D only), 4: retained in Schur complement.     
-  Teuchos::RCP<const Epetra_IntVector> nodeType_, p_nodeType_;
-  
   //! physical dimension (i.e. 2D, 3D)
   int dim_;
   
@@ -120,26 +105,14 @@ protected:
  
   //! indicates if in a certain direction there are periodic BC
   GaleriExt::PERIO_Flag perio_;
-  
-  //! this parameter can be set by the entry "Substitute Graph" 
-  //! in the "Problem"->"Partitioner" sublist, and it           
-  //! defaults to 'true'. If true, the DetectSeparators() and   
-  //! GroupSeparators() functions (i.e. the ordering) are based 
-  //! on an idealized graph consisting of 9-/27-point Laplacians
-  //! and identity matrices (for uncoupled variables).          
-  //! If false, the graph of the original matrix is used, which 
-  //! probably leads to lower quality partitioning and not to   
-  //! grid-independent convergence.                             
-  //! TODO - this parameter is deprecated and should be removed.
-  bool substituteGraph_;
-  
+
   //! indicates the type of variables in the problem
   //! supported types are "Laplace", "Uncoupled", "Retain X",
   //! where X is the number of these unknowns that should be
   //! retained in the Schur-complement (e.g "Retain 1" 
   //! pressure for (Navier-)Stokes on a C-grid)
   Teuchos::Array<std::string> variableType_;
-      
+
   //! indicates if isolated variables of this type should be
   //! retained in the Schur-complement. This is applicable  
   //! i.e. for the pressure in Stokes-type problems, where  
@@ -153,36 +126,10 @@ private:
   //! Step 1: non-overlapping partitioning
   int Partition();
 
-  //! 1. build the graph on which we base the separator detection,
-  //     either just the pattern of A or, for saddlepoint problems,
-  //     (graph_)
-  //     the pattern of A+BB' B; B' 0].
-  //! 2. build parallel (overlapping) graph so we can access rows
-  //!    on separators easily. Creates p_graph_ from graph_
-  //!    (p_graph_)
-  //! also constructs the importer, importOverlap_, between the two.
-  int CreateGraph();
-
   //! Step 2: construct overlapping maps after partitioning
   //! the result is a HierarchicalMap with three groups per
   //! subdomain: interior, separator and retained.
   int DetectSeparators();
-
-  //! write the graph used by this class to a text file
-  //! file originalGraph<level>.txt: original matrix graph on this level
-  int DumpGraph() const;
-
-  //!\name functions called from DetectSeparators()
-  //!@{
-  
-  //! form list with interior, separator and retained nodes for subdomain
-  // sd. Links separators to subdomains.
-  int BuildNodeLists(int sd, const Epetra_CrsGraph& parallelGraph, 
-                              const Epetra_IntVector& nodeTypes,
-                              const Epetra_IntVector& p_nodeTypes,
-                              Teuchos::Array<int>& interiorNodes,
-                              Teuchos::Array<int>& separatorNodes,
-                              Teuchos::Array<int>& retainedNodes) const;
 
   int RemoveBoundarySeparators(Teuchos::Array<int> &interior_nodes,
     Teuchos::Array<Teuchos::Array<int> > &separator_nodes) const;
