@@ -152,6 +152,34 @@ bool status=true;
     int ny=probl_params.get("ny",nx);
     int nz=probl_params.get("nz",dim>2?nx:1);
 
+    GaleriExt::PERIO_Flag perio=probl_params.get("Periodicity",GaleriExt::NO_PERIO);
+    if (probl_params.isParameter("x-periodic"))
+    {
+      if (probl_params.get("x-periodic",false)==true)
+      {
+        (uint32_t&)perio |= (uint32_t)GaleriExt::X_PERIO;
+      }
+      if (read_problem) probl_params.remove("x-periodic");
+    }
+    if (probl_params.isParameter("y-periodic"))
+    {
+      if (probl_params.get("y-periodic",false)==true)
+      {
+        (uint32_t&)perio |= (uint32_t)GaleriExt::Y_PERIO;
+      }
+      if (read_problem) probl_params.remove("y-periodic");
+    }
+    if (probl_params.isParameter("z-periodic"))
+    {
+      if (probl_params.get("z-periodic",false)==true)
+      {
+        (uint32_t&)perio |= (uint32_t)GaleriExt::Z_PERIO;
+      }
+      if (read_problem) probl_params.remove("z-periodic");
+    }
+    
+    if (read_problem) probl_params.set("Periodicity",perio);
+      
     // copy problem sublist so that the main utils don't modify the original
     Teuchos::ParameterList probl_params_cpy = probl_params;
   

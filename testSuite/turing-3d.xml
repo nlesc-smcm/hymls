@@ -39,7 +39,7 @@
 
     <!-- read null space from nullSpace.mtx if dim0>0 -->
     <Parameter name="Null Space Type" type="string" value="None"/>
-    <Parameter name="Null Space Dimension" type="int" value="2"/>
+    <Parameter name="Null Space Dimension" type="int" value="0"/>
     
     <Parameter name="Store Final Parameter List" type="bool" value="1"/>
   </ParameterList>
@@ -57,6 +57,10 @@
     <Parameter name="nx" type="int" value="32"/>
     <Parameter name="ny" type="int" value="32"/>
     <Parameter name="nz" type="int" value="32"/>
+
+    <Parameter name="x-periodic" type="bool" value="true"/>
+    <Parameter name="y-periodic" type="bool" value="true"/>
+    <Parameter name="z-periodic" type="bool" value="true"/>
     
     <ParameterList name="Variable 0">
       <Parameter name="Variable Type" type="string" value="Laplace"/>
