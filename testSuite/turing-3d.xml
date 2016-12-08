@@ -17,7 +17,7 @@
     <Parameter name="Store Solution" type="bool" value="0"/>
     <Parameter name="Store Matrix" type="bool" value="0"/>
     <ParameterList name="Eigenvalues">
-      <Parameter name="Which" type="string" value="SM"/>
+      <Parameter name="Which" type="string" value="LR"/>
       <Parameter name="How Many" type="int" value="6"/>
       <Parameter name="Convergence Tolerance" type="double" value="1.0e-5"/>
       <Parameter name="Test Space" type="string" value="V"/>
