@@ -119,7 +119,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Laplace2D, nx, ny, sx, sy)
   int nsy = ny / sy;
 
   int dof = 1;
-  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(nx*ny, 0, *Comm));
+  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(nx*ny*dof, 0, *Comm));
 
   Teuchos::RCP<HYMLS::CartesianPartitioner> part = Teuchos::rcp(new HYMLS::CartesianPartitioner(map, nx, ny, 1, dof));
   part->Partition(nsx * nsy, true);
@@ -262,7 +262,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Laplace3D, nx, ny, nz, sx, sy, sz
   int nsz = nz / sz;
 
   int dof = 1;
-  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(nx*ny*nz, 0, *Comm));
+  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(nx*ny*nz*dof, 0, *Comm));
 
   Teuchos::RCP<HYMLS::CartesianPartitioner> part = Teuchos::rcp(new HYMLS::CartesianPartitioner(map, nx, ny, nz, dof));
   part->Partition(nsx * nsy * nsz, true);
@@ -372,3 +372,181 @@ TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, Laplace3D, 2, 16, 16, 16, 4, 4, 4
 TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, Laplace3D, 3, 16, 8, 8, 4, 4, 4);
 TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, Laplace3D, 4, 4, 4, 4, 2, 2, 2);
 TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, Laplace3D, 5, 8, 4, 4, 4, 4, 4);
+
+
+TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Stokes2D, nx, ny, sx, sy)
+  {
+  Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
+  HYMLS::Tools::InitializeIO(Comm);
+
+  int nsx = nx / sx;
+  int nsy = ny / sy;
+
+  int dof = 3;
+  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(nx*ny*dof, 0, *Comm));
+
+  Teuchos::RCP<HYMLS::CartesianPartitioner> part = Teuchos::rcp(new HYMLS::CartesianPartitioner(map, nx, ny, 1, dof));
+  part->Partition(nsx * nsy, true);
+  Teuchos::RCP<Epetra_Map> subdomainMap = part->CreateSubdomainMap(0);
+  *map = *part->GetMap();
+
+  Teuchos::RCP<Teuchos::ParameterList> paramList = Teuchos::rcp(new Teuchos::ParameterList);
+  Teuchos::ParameterList &problemList = paramList->sublist("Problem");
+  problemList.set("nx", nx);
+  problemList.set("ny", ny);
+  problemList.set("nz", 1);
+  
+  Teuchos::ParameterList problemListCopy = problemList;
+  Teuchos::RCP<Epetra_CrsMatrix> matrix = Teuchos::rcp(
+    GaleriExt::CreateCrsMatrix("Stokes2D", map.get(), problemListCopy));
+
+  for (int i = 0; i < 2; i++)
+      {
+      Teuchos::ParameterList& velList =
+        problemList.sublist("Variable " + Teuchos::toString(i));
+      velList.set("Variable Type", "Laplace");
+      }
+
+  Teuchos::ParameterList& presList =
+    problemList.sublist("Variable "+Teuchos::toString(2));
+  presList.set("Variable Type", "Retain 1");
+  presList.set("Retain Isolated", true);
+
+  problemList.set("Dimension", 2);
+  problemList.set("Degrees of Freedom", dof);
+
+  Teuchos::ParameterList &solverList = paramList->sublist("Preconditioner");
+  solverList.set("Separator Length", sx);
+  solverList.set("Coarsening Factor", 2);
+
+  TestableOverlappingPartitioner opart(matrix, paramList, 0);
+  Teuchos::RCP<TestableOverlappingPartitioner> opart2 = opart.RemoveCornerSeparators();
+
+  for (int sd = 0; sd < opart2->NumMySubdomains(); sd++)
+    {
+    int gsd = subdomainMap->GID(sd);
+    int substart = gsd % nsx * nx / nsx * dof +
+      gsd / nsx * ny / nsy * dof * nx;
+
+    // Compute the number of groups we expect
+    int numGrps = 13;
+    // Right
+    numGrps -= ((gsd + 1) % nsx == 0) * 5;
+    // Bottom
+    numGrps -= (gsd / nsx == nsy - 1) * 5;
+    // Left
+    numGrps -= (gsd % nsx == 0) * 2;
+    // Top
+    numGrps -= (gsd / nsx == 0) * 2;
+    // Bottom right
+    if (numGrps < 6)
+      numGrps = 6;
+
+    TEST_EQUALITY(opart2->NumGroups(sd), numGrps);
+
+    for (int grp = 0; grp < opart2->NumGroups(sd); grp++)
+      {
+      if (grp == 0)
+        {
+        // Interior
+        if ((gsd + 1) % nsx == 0 && gsd / nsx == nsy - 1)
+          {
+          TEST_EQUALITY(opart2->NumElements(sd, grp), sx * sy * dof - 1);
+          int pos = 0;
+          for (int y = 0; y < sy; y++)
+            for (int x = 0; x < sx; x++)
+              for (int d = 0; d < dof; d++)
+                if (!(d == 2 && pos == 2) && !(d == 2 && x == sx-1 && y == sy-1))
+                  {
+                  int gid = opart2->GID(sd, grp, pos++);
+                  TEST_EQUALITY(gid, substart + x * dof + y * nx * dof + d);
+                  }
+          }
+        else if ((gsd + 1) % nsx == 0)
+          {
+          TEST_EQUALITY(opart2->NumElements(sd, grp), sx * (sy-1) * 2 + sx * sy - 1);
+          int pos = 0;
+          for (int y = 0; y < sy; y++)
+            for (int x = 0; x < sx; x++)
+              for (int d = 0; d < dof; d++)
+                if (((x < sx && y < sy - 1) || d == 2)
+                  && !(d == 2 && pos == 2) && !(d == 2 && x == sx-1 && y == sy-1))
+                  {
+                  int gid = opart2->GID(sd, grp, pos++);
+                  TEST_EQUALITY(gid, substart + x * dof + y * nx * dof + d);
+                  }
+          }
+        else if (gsd / nsx == nsy - 1)
+          {
+          TEST_EQUALITY(opart2->NumElements(sd, grp), sy * (sx-1) * 2 + sx * sy - 1);
+          int pos = 0;
+          for (int y = 0; y < sy; y++)
+            for (int x = 0; x < sx; x++)
+              for (int d = 0; d < dof; d++)
+                if (((x < sx - 1 && y < sy) || d == 2)
+                  && !(d == 2 && pos == 2) && !(d == 2 && x == sx-1 && y == sy-1))
+                  {
+                  int gid = opart2->GID(sd, grp, pos++);
+                  TEST_EQUALITY(gid, substart + x * dof + y * nx * dof + d);
+                  }
+          }
+        else
+          {
+          TEST_EQUALITY(opart2->NumElements(sd, grp), (sx-1) * (sy-1) * 2 + sx * sy - 2);
+          int pos = 0;
+          for (int y = 0; y < sy; y++)
+            for (int x = 0; x < sx; x++)
+              for (int d = 0; d < dof; d++)
+                if (((x < sx - 1 && y < sy - 1) || d == 2)
+                  && !(d == 2 && pos == 2) && !(d == 2 && x == sx-1 && y == sy-1))
+                  {
+                  int gid = opart2->GID(sd, grp, pos++);
+                  TEST_EQUALITY(gid, substart + x * dof + y * nx * dof + d);
+                  }
+          }
+        }
+      else if (opart2->GID(sd, grp, 0) / dof == substart / dof - nx || opart2->GID(sd, grp, 0) / dof == substart / dof + nx * (sx - 1))
+        {
+        // Right border
+        if ((gsd + 1) % nsx == 0)
+          {
+          TEST_EQUALITY(opart2->NumElements(sd, grp), sx);
+          }
+        else
+          {
+          TEST_EQUALITY(opart2->NumElements(sd, grp), sx - 1);
+          }
+        for (int i = 0; i < opart2->NumElements(sd, grp); i++)
+          {
+          TEST_EQUALITY(opart2->GID(sd, grp, i), opart2->GID(sd, grp, 0) + i * dof);
+          }
+        }
+      else if (opart2->GID(sd, grp, 0) / dof == substart / dof + sy - 1 || opart2->GID(sd, grp, 0) / dof == substart / dof - 1)
+        {
+        // Bottom border
+        if (gsd / nsx == nsy - 1)
+          {
+          TEST_EQUALITY(opart2->NumElements(sd, grp), sy);
+          }
+        else
+          {
+          TEST_EQUALITY(opart2->NumElements(sd, grp), sy - 1);
+          }
+        for (int i = 0; i < opart2->NumElements(sd, grp); i++)
+          {
+          TEST_EQUALITY(opart2->GID(sd, grp, i), opart2->GID(sd, grp, 0) + i * nx * dof);
+          }
+        }
+      else
+        {
+        // Corner
+        TEST_EQUALITY(opart2->NumElements(sd, grp), 1);
+        }
+      }
+    }
+  }
+
+TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, Stokes2D, 1, 8, 8, 4, 4);
+TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, Stokes2D, 2, 16, 16, 4, 4);
+TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, Stokes2D, 3, 16, 8, 4, 4);
+TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, Stokes2D, 5, 64, 64, 16, 16);

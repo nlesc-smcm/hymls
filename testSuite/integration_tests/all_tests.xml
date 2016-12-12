@@ -1,6 +1,6 @@
 <ParameterList name="HYMLS Unit Tests">
   <!-- Stokes problem, 1-level method (direct method) -->
-  <!-- <Parameter name="Test 1a" type="string" value="stokes0.xml"/> -->
+  <Parameter name="Test 1a" type="string" value="stokes0.xml"/>
   <!-- 2D test problems, 2-level method -->
   <Parameter name="Test 1b" type="string" value="laplace1.xml"/>
   <!-- <Parameter name="Test 1c" type="string" value="stokes1.xml"/> -->

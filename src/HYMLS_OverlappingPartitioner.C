@@ -330,13 +330,13 @@ int OverlappingPartitioner::RemoveBoundarySeparators(Teuchos::Array<int> &interi
       interior_nodes.insert(interior_nodes.end(), nodes.begin(), nodes.end());
       separator_nodes.erase(sep);
       }
-    else if (ny_ > 1 && (nodes[0] / nx_ / dof_ + 1) % ny_ == 0)
+    else if (ny_ > 1 && (nodes[0] / dof_ / nx_ + 1) % ny_ == 0)
       {
       // Remove bottom side
       interior_nodes.insert(interior_nodes.end(), nodes.begin(), nodes.end());
       separator_nodes.erase(sep);
       }
-    else if (nz_ > 1 && (nodes[0] / nx_ / ny_ / dof_ + 1) % nz_ == 0)
+    else if (nz_ > 1 && (nodes[0] / dof_ / nx_ / ny_ + 1) % nz_ == 0)
       {
       // Remove back side
       interior_nodes.insert(interior_nodes.end(), nodes.begin(), nodes.end());
@@ -391,7 +391,7 @@ int OverlappingPartitioner::RemoveBoundarySeparators(Teuchos::Array<int> &interi
     std::sort(nodes.begin(), nodes.end());
     }
 
-  // Since we added some randon nodes to the end of the interior
+  // Since we added some random nodes to the end of the interior
   // we sort them here
   std::sort(interior_nodes.begin(), interior_nodes.end());
 
@@ -406,17 +406,18 @@ int OverlappingPartitioner::DetectSeparators()
   Teuchos::Array<int> interior_nodes;
   // separator nodes
   Teuchos::Array<Teuchos::Array<int> > separator_nodes;
-  // nodes to be retained in the Schur complement (typically pressures)
+  // presure nodes that need to be retained
   Teuchos::Array<int> retained_nodes;
 
   for (int sd = 0; sd < partitioner_->NumLocalParts(); sd++)
     {
     interior_nodes.resize(0);
     separator_nodes.resize(0);
+    retained_nodes.resize(0);
 
     Teuchos::Array<int> *nodes;
     int first = partitioner_->Map().GID(partitioner_->First(sd));
-    first = (first % nx_) / sx_ * sx_ + first / (sy_ * nx_) * (sy_ * nx_);
+    first = ((first / dof_) % nx_) / sx_ * sx_ * dof_ + first / (sy_ * nx_ * dof_) * (sy_ * nx_ * dof_);
     for (int ktype = (nz_ > 1 ? -1 : 0); ktype < (nz_ > 1 ? 2 : 1); ktype++)
       {
       if (ktype == 1)
@@ -438,27 +439,46 @@ int OverlappingPartitioner::DetectSeparators()
           if (itype == -1 && (first / dof_) % nx_ == 0)
             continue;
 
-          if (itype == 0 && jtype == 0 && ktype == 0)
-            nodes = &interior_nodes;
-          else
+          for (int d = 0; d < dof_; d++)
             {
-            separator_nodes.append(Teuchos::Array<int>());
-            nodes = &separator_nodes.back();
-            }
-
-          for (int k = ktype; k < (ktype || nz_ <= 1 ? ktype+1 : sz_-1); k++)
-            {
-            for (int j = jtype; j < (jtype ? jtype+1 : sy_-1); j++)
+            if (d == pvar_ && (itype == -1 || jtype == -1 || ktype == -1))
+              continue;
+            else if ((itype == 0 && jtype == 0 && ktype == 0) || d == pvar_)
+              nodes = &interior_nodes;
+            else
               {
-              for (int i = itype; i < (itype ? itype+1 : sx_-1); i++)
+              separator_nodes.append(Teuchos::Array<int>());
+              nodes = &separator_nodes.back();
+              }
+
+            for (int k = ktype; k < ((ktype || nz_ <= 1) ? ktype+1 : sz_-1); k++)
+              {
+              for (int j = jtype; j < (jtype ? jtype+1 : sy_-1); j++)
                 {
-                int gid = first + i * dof_ + j * nx_ * dof_ + k * nx_ * ny_ * dof_;
-                nodes->append(gid);
+                for (int i = itype; i < (itype ? itype+1 : sx_-1); i++)
+                  {
+                  int gid = first + i * dof_ + j * nx_ * dof_ + k * nx_ * ny_ * dof_ + d;
+                  if ((d == pvar_ && !i && !j && !k) ||
+                    (d == pvar_ && itype == sx_-1 && jtype == sy_-1))
+                    {
+                    // Retained pressure nodes
+                    retained_nodes.append(gid);
+                    }
+                  else
+                    // Normal nodes in interiors and on separators
+                    nodes->append(gid);
+                  }
                 }
               }
             }
           }
         }
+      }
+
+    for (auto it = retained_nodes.begin(); it != retained_nodes.end(); ++it)
+      {
+      separator_nodes.append(Teuchos::Array<int>());
+      separator_nodes.back().append(*it);
       }
 
     RemoveBoundarySeparators(interior_nodes, separator_nodes);
