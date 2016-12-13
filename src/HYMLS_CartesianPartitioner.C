@@ -205,9 +205,8 @@ int CartesianPartitioner::Partition(int npx_in,int npy_in, int npz_in, bool repa
   numGlobalSubdomains_ = sdMap_->NumGlobalElements();
 
 // create redistributed map:
-  Teuchos::RCP<Epetra_Map> repartitionedMap =
-    Teuchos::rcp_const_cast<Epetra_Map>(baseMap_);
-
+  cartesianMap_ = Teuchos::rcp_const_cast<Epetra_Map>(baseMap_);
+  
 // repartitioning may occur for two reasons, typically on coarser levels:
 // a) the number of subdomains becomes smaller than the number of processes,
 // b) the subdomains can't be nicely distributed among the processes.
@@ -255,7 +254,7 @@ int CartesianPartitioner::Partition(int npx_in,int npy_in, int npz_in, bool repa
         }
       }
 
-    repartitionedMap = Teuchos::rcp(new Epetra_Map(-1, pos,
+    cartesianMap_ = Teuchos::rcp(new Epetra_Map(-1, pos,
         myGlobalElements, baseMap_->IndexBase(), *comm_));
 
     HYMLS_DEBVAR(*repartitionedMap);
@@ -263,68 +262,11 @@ int CartesianPartitioner::Partition(int npx_in,int npy_in, int npz_in, bool repa
       delete [] myGlobalElements;
     }
 
-  // note: NumLocalParts() is simply numLocalSubdomains_.
-  int *NumElementsInSubdomain = new int[NumLocalParts()];
-  for (int sd=0;sd<NumLocalParts();sd++) NumElementsInSubdomain[sd]=0;
-
-  subdomainPointer_.resize(NumLocalParts()+1);
-
-  // now we have a cartesian processor partitioning and no nodes have to
-  // be moved between partitions. Some partitions may be empty, though.
-  for (int lid=0;lid<repartitionedMap->NumMyElements();lid++)
-    {
-    int gid = repartitionedMap->GID(lid);
-    int lsd=LSID(gid);
-
-    if (lsd<0)
-      {
-      Tools::Error("repartitioning seems to be necessary/have failed for gid "
-        + Teuchos::toString(gid) + ".", __FILE__, __LINE__);
-      }
-    NumElementsInSubdomain[lsd]++;
-    }
-
-  subdomainPointer_[0]=0;
-  for (int i=0;i<NumLocalParts();i++)
-    {
-    subdomainPointer_[i+1]=subdomainPointer_[i]+NumElementsInSubdomain[i];
-    }
-
-  int NumMyElements=repartitionedMap->NumMyElements();
-  if (subdomainPointer_[NumLocalParts()]!=NumMyElements)
-    {
-    Tools::Error("repartitioning - sanity check failed",__FILE__,__LINE__);
-    }
-  int *MyGlobalElements = new int[NumMyElements];
-  for (int i=0;i<NumLocalParts();i++) NumElementsInSubdomain[i]=0;
-
-  for (int lid=0;lid<repartitionedMap->NumMyElements();lid++)
-    {
-    int gid = repartitionedMap->GID(lid);
-    int lsd=LSID(gid);
-    MyGlobalElements[subdomainPointer_[lsd] + NumElementsInSubdomain[lsd]] = gid;
-    NumElementsInSubdomain[lsd]++;
-    }
-  // sort nodes per subdomain
-  for (int i=0;i<NumLocalParts();i++)
-    {
-    std::sort(MyGlobalElements + subdomainPointer_[i],
-      MyGlobalElements + subdomainPointer_[i+1]);
-    }
-
-  HYMLS_DEBVAR(NumMyElements);
-
-  cartesianMap_=Teuchos::rcp(new Epetra_Map(-1,NumMyElements,MyGlobalElements,0,*comm_));
-  HYMLS_DEBVAR(*cartesianMap_);
-
   if (active_)
     {
     Tools::Out("Number of Partitions: "+s4);
     Tools::Out("Partition: ["+toString(rankI)+" "+toString(rankJ)+" "+toString(rankK)+"]");
     Tools::Out("Number of Local Subdomains: "+toString(NumLocalParts()));
-
-    delete [] MyGlobalElements;
-    delete [] NumElementsInSubdomain;
     }
   return 0;
   }
