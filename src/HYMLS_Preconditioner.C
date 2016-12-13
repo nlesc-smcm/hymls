@@ -385,7 +385,7 @@ HYMLS_DEBVAR(probList_);
 
   // Obtain a map with overlap between processors from the overlapping
   // partitioner which we need for the A12/A21 subdomain blocks
-  rowMap_ = hid_->GetUniqueOverlappingMap();
+  rowMap_ = hid_->GetOverlappingMap();
 
   importer_=Teuchos::rcp(new Epetra_Import(*rowMap_,*rangeMap_));
 

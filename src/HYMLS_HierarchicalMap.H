@@ -232,11 +232,6 @@ public:
     return overlappingMap_;
     }
 
-  //! get an overlapping map containing also all
-  //! off-processor separators, but not with duplicate GIDs like
-  //! the overlapping map
-  Teuchos::RCP<const Epetra_Map> GetUniqueOverlappingMap() const;
-
   protected:
 
   //! replace internal map. To be used with extreme care!

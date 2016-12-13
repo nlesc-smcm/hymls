@@ -194,7 +194,9 @@ int HierarchicalMap::FillComplete()
     std::copy((*newGidList)[sd].begin(), (*newGidList)[sd].end(),
       std::back_inserter(allGids));
     }
-  overlappingMap_ = Teuchos::rcp(new Epetra_Map(-1, allGids.size(),
+  std::sort(allGids.begin(), allGids.end());
+  auto last = std::unique(allGids.begin(), allGids.end());
+  overlappingMap_ = Teuchos::rcp(new Epetra_Map(-1, std::distance(allGids.begin(), last),
       &allGids[0], baseMap_->IndexBase(), *comm_));
 
   gidList_ = newGidList;
@@ -303,25 +305,6 @@ Teuchos::Array<int> HierarchicalMap::GetGroup(int sd, int grp) const
       os << "%$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$%"<<std::endl;
       }
   return os;
-  }
-
-
-Teuchos::RCP<const Epetra_Map> HierarchicalMap::GetUniqueOverlappingMap() const
-  {
-  HYMLS_PROF3(label_,"GetUniqueOverlappingMap");
-
-  // Get elements from the original overlapping map which contains duplicate elements
-  Teuchos::Array<int> myElements(overlappingMap_->NumMyElements());
-  overlappingMap_->MyGlobalElements(&myElements[0]);
-
-  // Sort the list and only keep the unique elements
-  std::sort(myElements.begin(), myElements.end());
-  auto last = std::unique(myElements.begin(), myElements.end());
-  myElements.erase(last, myElements.end());
-
-  // Return a new overlapping map with only unique elements
-  return Teuchos::rcp(new Epetra_Map(-1, myElements.size(), &myElements[0],
-      overlappingMap_->IndexBase(), *comm_));
   }
 
 Teuchos::RCP<const HierarchicalMap> 
