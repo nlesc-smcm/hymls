@@ -3,6 +3,8 @@
 #include "Teuchos_Utils.hpp"
 #include "Epetra_Comm.h"
 #include "Epetra_Map.h"
+#include "Epetra_IntVector.h"
+#include "Epetra_Import.h"
 #include "HYMLS_MatrixUtils.H"
 
 #ifdef HAVE_MPI
@@ -214,94 +216,51 @@ int CartesianPartitioner::Partition(int npx_in,int npy_in, int npz_in, bool repa
     {
     Tools::Out("repartition for "+s4+" procs");
     HYMLS_PROF3(label_,"repartition map");
-#ifdef HAVE_MPI
-    Teuchos::RCP<const Epetra_MpiComm> mpiComm =
-      Teuchos::rcp_dynamic_cast<const Epetra_MpiComm>(comm_);
-    if (mpiComm==Teuchos::null) Tools::Error("need an MpiComm here",__FILE__,__LINE__);
-    Teuchos::RCP<Epetra_MpiDistributor> Distor =
-      Teuchos::rcp(new Epetra_MpiDistributor(*mpiComm));
-    // check how many of the owned GIDs in the map need to be
-    // moved to someone else:
-    int numSends = 0;
-    for (int i=0;i<baseMap_->NumMyElements();i++)
-      {
-      int gid = baseMap_->GID(i);
-      if (LSID(gid) < 0) numSends++;
-      }
 
-    int numLocal = baseMap_->NumMyElements() - numSends;
-
-    HYMLS_DEBVAR(numSends);
-    HYMLS_DEBVAR(numLocal);
-
-    //determine which GIDs we have to move, and where they will go
-    int *sendGIDs = new int[numSends];
-    int *sendPIDs = new int[numSends];
-
+    int numMyElements = numLocalSubdomains_ * sx_ * sy_ * sz_ * dof_;
+    int *myGlobalElements = new int[numMyElements];
     int pos = 0;
-
-    for (int i = 0; i < baseMap_->NumMyElements(); i++)
+    for (int i = 0; i < baseMap_->MaxAllGID()+1; i++)
       {
-      int gid = baseMap_->GID(i);
-      int pid = PID(gid); // global partition ID
-      if (pid != comm_->MyPID())
+      if (LSID(i) != -1)
         {
-        if (pos >= numSends)
-          Tools::Error("Sanity check failed with gid=" + Teuchos::toString(gid) +
-            ", pos=" + Teuchos::toString(pos) + ", numSends=" +
-            Teuchos::toString(numSends) + ".", __FILE__, __LINE__);
-        sendGIDs[pos] = gid;
-        sendPIDs[pos++] = pid;
+        if (pos >= numMyElements)
+          {
+          Tools::Error("Index out of range", __FILE__, __LINE__);
+          }
+        myGlobalElements[pos++] = i;
         }
       }
 
-    int numRecvs;
-    CHECK_ZERO(Distor->CreateFromSends(numSends, sendPIDs, true, numRecvs));
+    Epetra_Map tmpRepartitionedMap(-1, pos,
+      myGlobalElements, baseMap_->IndexBase(), *comm_);
 
-    HYMLS_DEBVAR(numRecvs);
+    Epetra_IntVector vec(*baseMap_);
+    vec.PutValue(1);
 
-    char* sbuf = reinterpret_cast<char*>(sendGIDs);
-    int numRecvChars = static_cast<int>(numRecvs * sizeof(int));
-    char* rbuf = new char[numRecvChars];
+    Epetra_Import import(tmpRepartitionedMap, *baseMap_);
+    Epetra_IntVector repartVec(tmpRepartitionedMap);
+    repartVec.Import(vec, import, Insert);
 
-    CHECK_ZERO(Distor->Do( sbuf,
-        sizeof(int),
-        numRecvChars,
-        rbuf));
-
-    int *recvGIDs = reinterpret_cast<int*>(rbuf);
-
-    if (static_cast<int>(numRecvs * sizeof(int)) != numRecvChars)
+    pos = 0;
+    for (int i = 0; i < repartVec.MyLength(); i++)
       {
-      Tools::Error("sanity check failed", __FILE__, __LINE__);
+      if (repartVec[i] == 1)
+        {
+        if (pos >= numMyElements)
+          {
+          Tools::Error("Index out of range", __FILE__, __LINE__);
+          }
+        myGlobalElements[pos++] = tmpRepartitionedMap.GID(i);
+        }
       }
 
-    int NumMyElements = numLocal + numRecvs;
-    HYMLS_DEBVAR(NumMyElements);
-    int *MyGlobalElements = new int[NumMyElements];
-    pos=0;
-    for (int i=0;i<baseMap_->NumMyElements();i++)
-      {
-      int gid = baseMap_->GID(i);
-      if (this->LSID(gid)>=0) MyGlobalElements[pos++]=gid;
-      }
-    for (int i=0;i<numRecvs;i++) MyGlobalElements[pos+i]=recvGIDs[i];
-
-    std::sort(MyGlobalElements, MyGlobalElements+NumMyElements);
-
-    repartitionedMap = Teuchos::rcp(new Epetra_Map
-      (-1,NumMyElements,MyGlobalElements, baseMap_->IndexBase(), *comm_));
+    repartitionedMap = Teuchos::rcp(new Epetra_Map(-1, pos,
+        myGlobalElements, baseMap_->IndexBase(), *comm_));
 
     HYMLS_DEBVAR(*repartitionedMap);
-
-    HYMLS_DEBUG(std::flush);
-
-    delete [] sendPIDs;
-    delete [] sendGIDs;
-    delete [] rbuf;
-    delete [] MyGlobalElements;
-
-#endif
+    if (myGlobalElements)
+      delete [] myGlobalElements;
     }
 
   // note: NumLocalParts() is simply numLocalSubdomains_.
