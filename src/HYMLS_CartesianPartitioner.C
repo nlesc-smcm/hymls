@@ -16,12 +16,12 @@ namespace HYMLS {
 
 // constructor
 CartesianPartitioner::CartesianPartitioner(
-  Teuchos::RCP<const Epetra_Map> map, int nx, int ny, int nz, int dof,
+  Teuchos::RCP<const Epetra_Map> map, int nx, int ny, int nz, int dof, int pvar,
   GaleriExt::PERIO_Flag perio)
   : BasePartitioner(), label_("CartesianPartitioner"),
     baseMap_(map), nx_(nx), ny_(ny), nz_(nz),
     numLocalSubdomains_(-1), numGlobalSubdomains_(-1),
-    dof_(dof), perio_(perio)
+    dof_(dof), pvar_(pvar), perio_(perio)
   {
   HYMLS_PROF3(label_,"Constructor");
   active_=true; // by default, everyone is assumed to own a part of the domain.
@@ -367,6 +367,173 @@ int CartesianPartitioner::Partition(int npx_in,int npy_in, int npz_in, bool repa
     delete [] MyGlobalElements;
     delete [] NumElementsInSubdomain;
     }
+  return 0;
+  }
+
+int CartesianPartitioner::RemoveBoundarySeparators(Teuchos::Array<int> &interior_nodes,
+  Teuchos::Array<Teuchos::Array<int> > &separator_nodes) const
+  {
+  // TODO: There should be a much easier way to do this, but I want to get rid
+  // of it eventually for consistency. We need those things anyway for periodic
+  // boundaries.
+
+  // Remove boundary separators and add them to the interior
+  Teuchos::Array<Teuchos::Array<int> >::iterator sep = separator_nodes.begin();
+  for (; sep != separator_nodes.end(); sep++)
+    {
+    Teuchos::Array<int> &nodes = *sep;
+    if (nodes.size() == 0)
+      separator_nodes.erase(sep);
+    else if ((nodes[0] / dof_ + 1) % nx_ == 0)
+      {
+      // Remove right side
+      interior_nodes.insert(interior_nodes.end(), nodes.begin(), nodes.end());
+      separator_nodes.erase(sep);
+      }
+    else if (ny_ > 1 && (nodes[0] / dof_ / nx_ + 1) % ny_ == 0)
+      {
+      // Remove bottom side
+      interior_nodes.insert(interior_nodes.end(), nodes.begin(), nodes.end());
+      separator_nodes.erase(sep);
+      }
+    else if (nz_ > 1 && (nodes[0] / dof_ / nx_ / ny_ + 1) % nz_ == 0)
+      {
+      // Remove back side
+      interior_nodes.insert(interior_nodes.end(), nodes.begin(), nodes.end());
+      separator_nodes.erase(sep);
+      }
+    else
+      continue;
+    sep = separator_nodes.begin();
+    }
+
+  // Add back boundary nodes to separators that are not along the boundaries
+  for (sep = separator_nodes.begin(); sep != separator_nodes.end(); sep++)
+    {
+    int nodeID = -1;
+    Teuchos::Array<int> &nodes = *sep;
+    for (int i = 0; i < nodes.size(); i++)
+      {
+      if ((nodes[i] / dof_) % nx_ + 2 == nx_)
+        {
+        nodeID = nodes[i] + dof_;
+        Teuchos::Array<int>::iterator it = std::find(
+          interior_nodes.begin(), interior_nodes.end(), nodeID);
+        if (it != interior_nodes.end())
+          {
+          nodes.push_back(nodeID);
+          interior_nodes.erase(it);
+          }
+        }
+      if (ny_ > 1 && (nodes[i] / dof_ / nx_) % ny_ + 2 == ny_)
+        {
+        nodeID = nodes[i] + dof_ * nx_;
+        Teuchos::Array<int>::iterator it = std::find(
+          interior_nodes.begin(), interior_nodes.end(), nodeID);
+        if (it != interior_nodes.end())
+          {
+          nodes.push_back(nodeID);
+          interior_nodes.erase(it);
+          }
+        }
+      if (nz_ > 1 && (nodes[i] / dof_ / nx_ / ny_) % nz_ + 2 == nz_)
+        {
+        nodeID = nodes[i] + dof_ * nx_ * ny_;
+        Teuchos::Array<int>::iterator it = std::find(
+          interior_nodes.begin(), interior_nodes.end(), nodeID);
+        if (it != interior_nodes.end())
+          {
+          nodes.push_back(nodeID);
+          interior_nodes.erase(it);
+          }
+        }
+      }
+    std::sort(nodes.begin(), nodes.end());
+    }
+
+  // Since we added some random nodes to the end of the interior
+  // we sort them here
+  std::sort(interior_nodes.begin(), interior_nodes.end());
+
+  return 0;
+  }
+
+int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_nodes,
+  Teuchos::Array<Teuchos::Array<int> > &separator_nodes)
+  {
+  HYMLS_PROF2(label_,"GetGroups");
+
+  // presure nodes that need to be retained
+  Teuchos::Array<int> retained_nodes;
+
+  Teuchos::Array<int> *nodes;
+  int first = cartesianMap_->GID(First(sd));
+  first = ((first / dof_) % nx_) / sx_ * sx_ * dof_ + first / (sy_ * nx_ * dof_) * (sy_ * nx_ * dof_);
+  for (int ktype = (nz_ > 1 ? -1 : 0); ktype < (nz_ > 1 ? 2 : 1); ktype++)
+    {
+    if (ktype == 1)
+      ktype = sz_ - 1;
+    if (ktype == -1 && (first / dof_ / nx_ / ny_) % nz_ == 0)
+      continue;
+ 
+    for (int jtype = -1; jtype < 2; jtype++)
+      {
+      if (jtype == 1)
+        jtype = sy_ - 1;
+      if (jtype == -1 && (first / dof_ / nx_) % ny_ == 0)
+        continue;
+
+      for (int itype = -1; itype < 2; itype++)
+        {
+        if (itype == 1)
+          itype = sx_ - 1;
+        if (itype == -1 && (first / dof_) % nx_ == 0)
+          continue;
+
+        for (int d = 0; d < dof_; d++)
+          {
+          if (d == pvar_ && (itype == -1 || jtype == -1 || ktype == -1))
+            continue;
+          else if ((itype == 0 && jtype == 0 && ktype == 0) || (d == pvar_ && !(
+                itype == sx_-1 && jtype == sy_-1 && (nz_ <= 1 || ktype == sz_-1))))
+            nodes = &interior_nodes;
+          else
+            {
+            separator_nodes.append(Teuchos::Array<int>());
+            nodes = &separator_nodes.back();
+            }
+
+          for (int k = ktype; k < ((ktype || nz_ <= 1) ? ktype+1 : sz_-1); k++)
+            {
+            for (int j = jtype; j < (jtype ? jtype+1 : sy_-1); j++)
+              {
+              for (int i = itype; i < (itype ? itype+1 : sx_-1); i++)
+                {
+                int gid = first + i * dof_ + j * nx_ * dof_ + k * nx_ * ny_ * dof_ + d;
+                if ((d == pvar_ && !i && !j && !k))
+                  {
+                  // Retained pressure nodes
+                  retained_nodes.append(gid);
+                  }
+                else
+                  // Normal nodes in interiors and on separators
+                  nodes->append(gid);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+  RemoveBoundarySeparators(interior_nodes, separator_nodes);
+
+  for (auto it = retained_nodes.begin(); it != retained_nodes.end(); ++it)
+    {
+    separator_nodes.append(Teuchos::Array<int>());
+    separator_nodes.back().append(*it);
+    }
+
   return 0;
   }
 

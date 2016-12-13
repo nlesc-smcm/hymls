@@ -22,7 +22,7 @@ public:
 
   //! constructor
   CartesianPartitioner(Teuchos::RCP<const Epetra_Map> map, int nx, int ny,
-    int nz=1, int dof=1, GaleriExt::PERIO_Flag perio=GaleriExt::NO_PERIO);
+    int nz=1, int dof=1, int pvar=-1, GaleriExt::PERIO_Flag perio=GaleriExt::NO_PERIO);
 
   //! destructor
   virtual ~CartesianPartitioner();
@@ -48,6 +48,18 @@ public:
   //! processor partitioning (as generated i.e. by the
   //! MatrixUtils::CreateMap functions).
   int Partition(int npx, int npy, int npz, bool repart=true);
+
+private:
+  //! Method to remove separators at the boundary when they are not
+  //! strictly needed. This is when there are no periodic boundary
+  //! conditions
+  int RemoveBoundarySeparators(Teuchos::Array<int> &interior_nodes,
+    Teuchos::Array<Teuchos::Array<int> > &separator_nodes) const;
+
+public:
+  //! Get interior and separator groups of the subdomain sd
+  int GetGroups(int sd, Teuchos::Array<int> &interior_nodes,
+    Teuchos::Array<Teuchos::Array<int> > &separator_nodes);
 
   //! is this class fully set up?
   inline bool Partitioned() const {return (npx_>0);}
@@ -146,6 +158,9 @@ protected:
 
   //! number of variables per node
   int dof_;
+
+  //! pressure node
+  int pvar_;
 
   //! maps global to local subdomain ID
   Teuchos::RCP<Epetra_Map> sdMap_;

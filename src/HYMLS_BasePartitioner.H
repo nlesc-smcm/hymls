@@ -39,7 +39,7 @@ class BasePartitioner
   public:
 
   //! constructor
-  BasePartitioner(){;}
+  BasePartitioner(){}
   
   //! destructor
   virtual ~BasePartitioner(){}
@@ -50,6 +50,10 @@ class BasePartitioner
   //! distribution of the nodes, otherwise it may only      
   //! partition the owned nodes on each processor.          
   virtual int Partition(int nparts, bool repart) = 0;
+
+  //! Get interior and separator groups of the subdomain sd
+  virtual int GetGroups(int sd, Teuchos::Array<int> &interior_nodes,
+    Teuchos::Array<Teuchos::Array<int> > &separator_nodes) = 0;
   
   //! get number of local partitions
   virtual int NumLocalParts() const = 0;
