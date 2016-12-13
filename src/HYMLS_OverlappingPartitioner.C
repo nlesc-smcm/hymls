@@ -443,7 +443,8 @@ int OverlappingPartitioner::DetectSeparators()
             {
             if (d == pvar_ && (itype == -1 || jtype == -1 || ktype == -1))
               continue;
-            else if ((itype == 0 && jtype == 0 && ktype == 0) || d == pvar_)
+            else if ((itype == 0 && jtype == 0 && ktype == 0) || (d == pvar_ && !(
+                  itype == sx_-1 && jtype == sy_-1 && (nz_ <= 1 || ktype == sz_-1))))
               nodes = &interior_nodes;
             else
               {
@@ -458,8 +459,7 @@ int OverlappingPartitioner::DetectSeparators()
                 for (int i = itype; i < (itype ? itype+1 : sx_-1); i++)
                   {
                   int gid = first + i * dof_ + j * nx_ * dof_ + k * nx_ * ny_ * dof_ + d;
-                  if ((d == pvar_ && !i && !j && !k) ||
-                    (d == pvar_ && itype == sx_-1 && jtype == sy_-1))
+                  if ((d == pvar_ && !i && !j && !k))
                     {
                     // Retained pressure nodes
                     retained_nodes.append(gid);
@@ -475,13 +475,13 @@ int OverlappingPartitioner::DetectSeparators()
         }
       }
 
+    RemoveBoundarySeparators(interior_nodes, separator_nodes);
+
     for (auto it = retained_nodes.begin(); it != retained_nodes.end(); ++it)
       {
       separator_nodes.append(Teuchos::Array<int>());
       separator_nodes.back().append(*it);
       }
-
-    RemoveBoundarySeparators(interior_nodes, separator_nodes);
 
     AddGroup(sd, interior_nodes);
     for (int i = 0; i < separator_nodes.size(); i++)
