@@ -77,17 +77,6 @@ class BasePartitioner
   //! get non-overlapping global subdomain id 
   virtual int operator()(int gid) const = 0;
   
-  //! given a local subdomain index, find the global one.
-  virtual int GPID(int sd) const
-    {
-    int gpid = -1;
-    if (NumElements(sd)>0) gpid = (*this)(GID(sd,0));
-    if (gpid==-1) Tools::Error
-        ("partitioner function GPID not implemented for the case of empty subdomains!",
-                __FILE__,__LINE__);
-    return gpid;        
-    }
-  
   //! get the (re-)partitioned map (here elements belonging
   //! to a subdomain have contiguous local indexing)
   virtual const Epetra_Map& Map() const = 0;
@@ -99,13 +88,6 @@ class BasePartitioner
   
   //! get number of elements in local subdomain <part>
   virtual int NumElements(int part) const = 0;
-  
-  //! get the local index of the first element in subdomain i.
-  //! For i=NumLocalParts()+1, Map().NumLocalElements() is returned.
-  virtual int First(int i) const = 0;
-
-  //! get global index of element j in local subdomain i
-  virtual int GID(int i, int j) const = 0;
   
   };
 

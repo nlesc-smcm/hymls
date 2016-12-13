@@ -71,22 +71,16 @@ public:
       {
       Teuchos::Array<int> interior = GetGroup(sd, 0);
       newPart->AddGroup(sd, interior);
+      int gsd = (*partitioner_)(interior[0]);
       // And groups
       for (int grp = 1; grp < NumGroups(sd); grp++)
         {
         int found = 0;
         Teuchos::Array<int> group = GetGroup(sd, grp);
         // Check if the node is in the domain
-        for (int lid = partitioner_->First(sd); lid < partitioner_->First(sd+1); lid++)
-          {
-          int gid = partitioner_->Map().GID(lid);
-          if (group[0] == gid)
-            {
-            found = 4;
-            break;
-            }
-          }
-        
+        if ((*partitioner_)(group[0]) == gsd)
+          found = 4;
+
         // See if moving a separator 1 step puts it inside the interior
         int search[3] = {group[0] + dof_, group[0] + dof_ * nx_, group[0] + dof_ * nx_ * ny_};
         for (int i = 0; i < 3; i++)

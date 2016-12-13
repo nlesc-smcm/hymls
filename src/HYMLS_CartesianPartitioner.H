@@ -114,14 +114,7 @@ public:
     }
 
   //! get number of elements in local subdomain <part>
-  inline int NumElements(int part) const {return First(part+1)-First(part);}
-
-  //! get the local index of the first element in subdomain i.
-  //! For i=NumLocalParts()+1, Map().NumLocalElements() is returned.
-  inline int First(int i) const {return subdomainPointer_[i];}
-
-  //! get global index of element j in local subdomain i
-  inline int GID(int i, int j) const {return Map().GID(First(i)+j);}
+  inline int NumElements(int part) const {return sx_ * sy_ * (nz_ > 1 ? sz_ : 1) * dof_;}
 
   //!
   std::string label_;
