@@ -7,7 +7,6 @@
 
 #include "HYMLS_Tester.H"
 
-#include "HYMLS_BaseCartesianPartitioner.H"
 #include "HYMLS_CartesianPartitioner.H"
 
 #include "HYMLS_StandardNodeClassifier.H"
@@ -270,8 +269,8 @@ int OverlappingPartitioner::Partition()
   npy=std::max(npy,1);
   npz=std::max(npz,1);
 
-  Teuchos::RCP<BaseCartesianPartitioner> cartPart
-        = Teuchos::rcp_dynamic_cast<BaseCartesianPartitioner>(partitioner_);
+  Teuchos::RCP<CartesianPartitioner> cartPart
+        = Teuchos::rcp_dynamic_cast<CartesianPartitioner>(partitioner_);
 
   if (cartPart!=Teuchos::null)
     {
