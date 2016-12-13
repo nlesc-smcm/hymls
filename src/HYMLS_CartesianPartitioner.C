@@ -426,8 +426,10 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_nodes,
   Teuchos::Array<int> retained_nodes;
 
   Teuchos::Array<int> *nodes;
-  int first = cartesianMap_->GID(First(sd));
-  first = ((first / dof_) % nx_) / sx_ * sx_ * dof_ + first / (sy_ * nx_ * dof_) * (sy_ * nx_ * dof_);
+
+  int x, y, z, var;
+  Tools::ind2sub(npx_, npy_, npz_, 1, sdMap_->GID(sd), x, y, z, var);
+  int first = x * sx_ * dof_ + y * nx_ * sy_ * dof_ + z * nx_ * ny_ * sz_ * dof_;
   for (int ktype = (nz_ > 1 ? -1 : 0); ktype < (nz_ > 1 ? 2 : 1); ktype++)
     {
     if (ktype == 1)
