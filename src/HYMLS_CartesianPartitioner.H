@@ -2,16 +2,15 @@
 #define HYMLS_CARTESIAN_PARTITONER_H
 
 #include "HYMLS_config.h"
-#include "HYMLS_Tools.H"
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_Array.hpp"
-#include "Epetra_Map.h"
 #include "HYMLS_BasePartitioner.H"
 
 #include "GaleriExt_Periodic.h"
 
 class Epetra_Comm;
 class Epetra_Import;
+class Epetra_Map;
 
 namespace HYMLS {
 
@@ -62,7 +61,10 @@ public:
     Teuchos::Array<Teuchos::Array<int> > &separator_nodes);
 
   //! is this class fully set up?
-  inline bool Partitioned() const {return (npx_>0);}
+  inline bool Partitioned() const
+    {
+    return npx_ > 0;
+    }
 
   //! get the type of a variable (if more than 1 dof per node, otherwise just 0)
   inline int DofPerNode() const
@@ -71,36 +73,25 @@ public:
     }
 
   //! get the type of a variable (if more than 1 dof per node, otherwise just 0)
-  inline int VariableType(int gid) const
+  int VariableType(int gid) const;
+
+  //! return the repartitioned/reordered map
+  inline const Epetra_Map& Map() const
     {
-    return (int)(MOD(gid, dof_));
+    return *cartesianMap_;
     }
 
   //! return the repartitioned/reordered map
-  inline const Epetra_Map& Map() const {return *cartesianMap_;}
-
-  //! return the repartitioned/reordered map
-  inline const Epetra_Map& SubdomainMap() const {return *sdMap_;}
-
-  //! return number of subdomains in this proc partition
-  int NumLocalParts() const
+  inline const Epetra_Map& SubdomainMap() const
     {
-    if (numLocalSubdomains_<0)
-      {
-      Tools::Error("not implemented correctly",__FILE__,__LINE__);
-      }
-    return numLocalSubdomains_;
+    return *sdMap_;
     }
 
   //! return number of subdomains in this proc partition
-  int NumGlobalParts() const
-    {
-    if (numGlobalSubdomains_<0)
-      {
-      Tools::Error("not implemented correctly",__FILE__,__LINE__);
-      }
-    return numGlobalSubdomains_;
-    }
+  int NumLocalParts() const;
+
+  //! return number of subdomains in this proc partition
+  int NumGlobalParts() const;
 
   //! get number of elements in local subdomain <part>
   inline int NumElements(int part) const {return sx_ * sy_ * (nz_ > 1 ? sz_ : 1) * dof_;}
@@ -162,73 +153,16 @@ protected:
 protected:
 
   //! get local subdomain id
-  inline int LSID(int i, int j, int k) const
-    {
-#ifdef HYMLS_TESTING
-    if (sdMap_==Teuchos::null)
-      {
-      Tools::Error("sdMap not created yet!",__FILE__,__LINE__);
-      }
-#endif
-    return sdMap_->LID((*this)(i,j,k));
-    }
+  int LSID(int i, int j, int k) const;
 
   //! get local subdomain id
-  inline int LSID(int gid) const
-    {
-#ifdef HYMLS_TESTING
-    if (sdMap_==Teuchos::null)
-      {
-      Tools::Error("sdMap not created yet!",__FILE__,__LINE__);
-      }
-#endif
-    return sdMap_->LID((*this)(gid));
-    }
+  int LSID(int gid) const;
 
   //! get processor on which a grid point is located
-  inline int PID(int i, int j, int k) const
-    {
-    // in which subdomain is the cell?
-    int sdx = i / sx_;
-    int sdy = j / sy_;
-    int sdz = k / sz_;
-
-    //how many subdomains are there per process?
-    int npx = npx_ / nprocx_;
-    int npy = npy_ / nprocy_;
-    int npz = npz_ / nprocz_;
-
-#ifdef HYMLS_TESTING
-    if ( (npx*nprocx_!=npx_) ||
-      (npy*nprocy_!=npy_) ||
-      (npz*nprocz_!=npz_) )
-      {
-      Tools::Error("case of irregular partitioning not implemented",
-        __FILE__,__LINE__);
-      }
-#endif
-    // so, where is the cell (on which process)?
-    int pidx = sdx / npx;
-    int pidy = sdy / npy;
-    int pidz = sdz / npz;
-
-    int pid = Tools::sub2ind(nprocx_,nprocy_,nprocz_,1,pidx,pidy,pidz,0);
-/*
-  HYMLS_DEBUG("ijk: "<<i<<" "<<j<<" "<<k);
-  HYMLS_DEBUG("np_loc: "<<npx<<" "<<npy<<" "<<npz);
-  HYMLS_DEBUG("sd: "<<sdx<<" "<<sdy<<" "<<sdz);
-  HYMLS_DEBUG("PID: "<<pidx<<" "<<pidy<<" "<<pidz<<" ("<<pid<<")");
-*/
-    return pid;
-    }
+  int PID(int i, int j, int k) const;
 
   //! get processor on which a GID is located
-  inline int PID(int gid) const
-    {
-    int i,j,k,var;
-    Tools::ind2sub(nx_,ny_,nz_,dof_,gid,i,j,k,var);
-    return PID(i,j,k);
-    }
+  int PID(int gid) const;
 
   };
 

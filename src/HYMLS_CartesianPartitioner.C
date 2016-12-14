@@ -5,7 +5,6 @@
 #include "Epetra_Map.h"
 #include "Epetra_IntVector.h"
 #include "Epetra_Import.h"
-#include "HYMLS_MatrixUtils.H"
 
 using Teuchos::toString;
 
@@ -68,6 +67,26 @@ int CartesianPartitioner::operator()(int gid) const
 #endif
   Tools::ind2sub(nx_, ny_, nz_, dof_, gid, i, j, k, var);
   return operator()(i, j, k);
+  }
+
+//! return number of subdomains in this proc partition
+int CartesianPartitioner::NumLocalParts() const
+  {
+  if (numLocalSubdomains_<0)
+    {
+    Tools::Error("not implemented correctly",__FILE__,__LINE__);
+    }
+  return numLocalSubdomains_;
+  }
+
+//! return number of subdomains in this proc partition
+int CartesianPartitioner::NumGlobalParts() const
+  {
+  if (numGlobalSubdomains_<0)
+    {
+    Tools::Error("not implemented correctly",__FILE__,__LINE__);
+    }
+  return numGlobalSubdomains_;
   }
 
 int CartesianPartitioner::CreateSubdomainMap()
@@ -167,13 +186,10 @@ int CartesianPartitioner::Partition(int npx_in,int npy_in, int npz_in, bool repa
   if (nprocs < comm_->NumProc())
     repart = true;
 
-  int rank=comm_->MyPID();
-
   HYMLS_DEBVAR(npx_);
   HYMLS_DEBVAR(npy_);
   HYMLS_DEBVAR(npz_);
   HYMLS_DEBVAR(active_);
-  HYMLS_DEBVAR(rank);
 
   CHECK_ZERO(CreateSubdomainMap());
 
@@ -415,6 +431,81 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_nodes,
     }
 
   return 0;
+  }
+
+//! get the type of a variable (if more than 1 dof per node, otherwise just 0)
+int CartesianPartitioner::VariableType(int gid) const
+  {
+  return (int)(MOD(gid, dof_));
+  }
+
+//! get local subdomain id
+int CartesianPartitioner::LSID(int i, int j, int k) const
+  {
+#ifdef HYMLS_TESTING
+  if (sdMap_==Teuchos::null)
+    {
+    Tools::Error("sdMap not created yet!",__FILE__,__LINE__);
+    }
+#endif
+  return sdMap_->LID((*this)(i,j,k));
+  }
+
+//! get local subdomain id
+int CartesianPartitioner::LSID(int gid) const
+  {
+#ifdef HYMLS_TESTING
+  if (sdMap_==Teuchos::null)
+    {
+    Tools::Error("sdMap not created yet!",__FILE__,__LINE__);
+    }
+#endif
+  return sdMap_->LID((*this)(gid));
+  }
+
+//! get processor on which a grid point is located
+int CartesianPartitioner::PID(int i, int j, int k) const
+  {
+  // in which subdomain is the cell?
+  int sdx = i / sx_;
+  int sdy = j / sy_;
+  int sdz = k / sz_;
+
+  //how many subdomains are there per process?
+  int npx = npx_ / nprocx_;
+  int npy = npy_ / nprocy_;
+  int npz = npz_ / nprocz_;
+
+#ifdef HYMLS_TESTING
+  if ( (npx*nprocx_!=npx_) ||
+    (npy*nprocy_!=npy_) ||
+    (npz*nprocz_!=npz_) )
+    {
+    Tools::Error("case of irregular partitioning not implemented",
+      __FILE__,__LINE__);
+    }
+#endif
+  // so, where is the cell (on which process)?
+  int pidx = sdx / npx;
+  int pidy = sdy / npy;
+  int pidz = sdz / npz;
+
+  int pid = Tools::sub2ind(nprocx_,nprocy_,nprocz_,1,pidx,pidy,pidz,0);
+/*
+  HYMLS_DEBUG("ijk: "<<i<<" "<<j<<" "<<k);
+  HYMLS_DEBUG("np_loc: "<<npx<<" "<<npy<<" "<<npz);
+  HYMLS_DEBUG("sd: "<<sdx<<" "<<sdy<<" "<<sdz);
+  HYMLS_DEBUG("PID: "<<pidx<<" "<<pidy<<" "<<pidz<<" ("<<pid<<")");
+*/
+  return pid;
+  }
+
+//! get processor on which a GID is located
+int CartesianPartitioner::PID(int gid) const
+  {
+  int i,j,k,var;
+  Tools::ind2sub(nx_,ny_,nz_,dof_,gid,i,j,k,var);
+  return PID(i,j,k);
   }
 
   }

@@ -3,7 +3,6 @@
 
 #include "HYMLS_config.h"
 #include "Teuchos_RCP.hpp"
-#include "HYMLS_Tools.H"
 
 class Epetra_Comm;
 class Epetra_Map;
