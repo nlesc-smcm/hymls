@@ -231,16 +231,6 @@ HYMLS_DEBVAR(probList_);
     VPL().set("Partitioner", "Cartesian",
         "Type of partitioner to be used to define the subdomains",
         partValidator);
-        
-
-    Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
-        classValidator = Teuchos::rcp(
-                new Teuchos::StringToIntegralParameterEntryValidator<int>(
-                    Teuchos::tuple<std::string>("Standard","Stokes","Hybrid"),"Classifier"));
-    
-    VPL().set("Classifier", "Standard",
-        "Method to identify and classify separators",
-        classValidator);
 
     VPL().set("Scale Schur-Complement",false,
         "Apply scaling to the Schur complement before building an approximation.\n"

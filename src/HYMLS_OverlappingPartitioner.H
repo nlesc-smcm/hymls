@@ -16,7 +16,6 @@ namespace Teuchos
 
 namespace HYMLS {
 class BasePartitioner;
-class BaseNodeClassifier;
 }
 
 class Epetra_IntVector;
@@ -86,16 +85,10 @@ protected:
   
   //! partitioning strategy
   std::string partitioningMethod_;
-
-  //! classification strategy
-  std::string classificationMethod_;
   
   //! partitioning object used for the subdomains
   //Teuchos::RCP<Ifpack_OverlappingPartitioner> partitioner;
   Teuchos::RCP<BasePartitioner> partitioner_;
-  
-  //! object that constructs the nodeType vector
-  Teuchos::RCP<BaseNodeClassifier> classifier_;
 
   //! number of variables per grid-cell
   int dof_;

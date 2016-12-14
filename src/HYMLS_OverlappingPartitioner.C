@@ -9,9 +9,6 @@
 
 #include "HYMLS_CartesianPartitioner.H"
 
-#include "HYMLS_StandardNodeClassifier.H"
-#include "HYMLS_CartesianStokesClassifier.H"
-
 #include "Epetra_Comm.h"
 #include "Epetra_SerialComm.h"
 #include "Epetra_Map.h"
@@ -132,29 +129,13 @@ void OverlappingPartitioner::setParameterList
     }
 
   partitioningMethod_=PL("Preconditioner").get("Partitioner","Cartesian");
-  classificationMethod_=PL("Preconditioner").get("Classifier","Standard");
 
-  // TODO: the Stokes classifier gives a far more efficient algrithm, but unfortunately
-  //       it does not yield grid-independent convergence unless the standard classifier
-  //       is used starting from level 2. It is not clear at this point wether this is
-  //       an algorithmic problem or a bug.
-  if (classificationMethod_=="Hybrid")
+  if (validateParameters_)
     {
-    if (Level()==1)
-      {
-      classificationMethod_="Stokes";
-      }
-    else
-      {
-      classificationMethod_="Standard";
-      }
+    this->getValidParameters();
+    PL().validateParameters(VPL());
     }
 
-    if (validateParameters_)
-      {
-      this->getValidParameters();
-      PL().validateParameters(VPL());
-      }
   HYMLS_DEBVAR(PL());
   }
 
