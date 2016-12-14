@@ -215,7 +215,7 @@ int CartesianPartitioner::Partition(int npx_in,int npy_in, int npz_in, bool repa
     int pos = 0;
     for (int i = 0; i < baseMap_->MaxAllGID()+1; i++)
       {
-      if (LSID(i) != -1)
+      if (sdMap_->LID((*this)(i)) != -1)
         {
         if (pos >= numMyElements)
           {
@@ -437,18 +437,6 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_nodes,
 int CartesianPartitioner::VariableType(int gid) const
   {
   return (int)(MOD(gid, dof_));
-  }
-
-//! get local subdomain id
-int CartesianPartitioner::LSID(int gid) const
-  {
-#ifdef HYMLS_TESTING
-  if (sdMap_==Teuchos::null)
-    {
-    Tools::Error("sdMap not created yet!",__FILE__,__LINE__);
-    }
-#endif
-  return sdMap_->LID((*this)(gid));
   }
 
 //! get processor on which a grid point is located
