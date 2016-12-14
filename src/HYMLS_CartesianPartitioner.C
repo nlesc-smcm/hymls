@@ -105,26 +105,22 @@ int CartesianPartitioner::Partition(int nparts, bool repart)
   {
   HYMLS_PROF3(label_,"Partition");
   int npx,npy,npz;
-  Tools::SplitBox(nx_,ny_,nz_,nparts,npx,npy,npz);
-  return this->Partition(npx,npy,npz,repart);
+  Tools::SplitBox(nx_, ny_, nz_, nparts, npx, npy, npz);
+  return Partition(nx_ / npx, ny_ / npy, nz_ / npz, repart);
   }
 
 // partition an [nx x ny x nz] grid with one DoF per node
 // into nparts global subdomains.
-int CartesianPartitioner::Partition(int npx_in,int npy_in, int npz_in, bool repart)
+int CartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
   {
   HYMLS_PROF3(label_,"Partition (2)");
-  npx_=npx_in;
-  npy_=npy_in;
-  npz_=npz_in;
+  sx_ = sx;
+  sy_ = sy;
+  sz_ = sz;
 
-  HYMLS_DEBVAR(npx_);
-  HYMLS_DEBVAR(npy_);
-  HYMLS_DEBVAR(npz_);
-
-  sx_=nx_/npx_;
-  sy_=ny_/npy_;
-  sz_=nz_/npz_;
+  npx_ = nx_ / sx_;
+  npy_ = ny_ / sy_;
+  npz_ = nz_ / sz_;
 
   std::string s1=toString(nx_)+"x"+toString(ny_)+"x"+toString(nz_);
   std::string s2=toString(npx_)+"x"+toString(npy_)+"x"+toString(npz_);

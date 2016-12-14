@@ -36,13 +36,12 @@ public:
   int Partition(int nparts, bool repart=true);
 
   //! partition an [nx x ny x nz] grid with one DoF per node
-  //! into npx*npy*npz global subdomains. If repart=true,
+  //! into subdomains with separator length sx. If repart=true,
   //! the map may need repartitioning to match the cartesian
   //! layout of the new partitioned map. Otherwise it is
   //! assumed that the map already has a global cartesian
-  //! processor partitioning (as generated i.e. by the
-  //! MatrixUtils::CreateMap functions).
-  int Partition(int npx, int npy, int npz, bool repart=true);
+  //! processor partitioning
+  int Partition(int sx, int sy, int sz, bool repart=true);
 
 private:
   //! creates the map from global to local partition IDs. The implementation

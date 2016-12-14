@@ -198,20 +198,19 @@ Teuchos::RCP<const Teuchos::ParameterList> OverlappingPartitioner::getValidParam
 
 int OverlappingPartitioner::Partition()
   {
-  HYMLS_PROF2(Label(),"Partition");
-  if (partitioningMethod_=="Cartesian")
+  HYMLS_PROF2(Label(), "Partition");
+  if (partitioningMethod_ == "Cartesian")
     {
     partitioner_=Teuchos::rcp(new CartesianPartitioner(GetMap(), nx_, ny_, nz_,
         dof_, pvar_, perio_));
     }
   else
     {
-    Tools::Error("Up to now we only support Cartesian partitioning",__FILE__,__LINE__);
+    Tools::Error("Up to now we only support Cartesian partitioning", __FILE__, __LINE__);
     }
 
   Teuchos::ParameterList& solverParams=PL("Preconditioner");
   HYMLS_DEBVAR(PL("Preconditioner"));
-  int npx,npy,npz;
   sx_ = -1;
   if (solverParams.isParameter("Separator Length (x)"))
     {
@@ -230,36 +229,16 @@ int OverlappingPartitioner::Partition()
     Tools::Error("Separator Length not set",__FILE__,__LINE__);
     }
 
-  if (sx_>0)
-    {
-    npx=(nx_>1) ? nx_/sx_ : 1;
-    npy=(ny_>1) ? ny_/sy_ : 1;
-    npz=(nz_>1) ? nz_/sz_ : 1;
-    }
-  else
-    {
-    int numGlobalSubdomains=solverParams.get("Number of Subdomains",
-                4*Comm().NumProc());
-    Tools::SplitBox(nx_,ny_,nz_,numGlobalSubdomains,npx,npy,npz);
-    }
-
-  // npX==0 can occur on the last level
-  // for some reason, in that case we
-  // simply set it to 1
-  npx=std::max(npx,1);
-  npy=std::max(npy,1);
-  npz=std::max(npz,1);
-
   Teuchos::RCP<CartesianPartitioner> cartPart
         = Teuchos::rcp_dynamic_cast<CartesianPartitioner>(partitioner_);
 
-  if (cartPart!=Teuchos::null)
+  if (cartPart != Teuchos::null)
     {
-    CHECK_ZERO(cartPart->Partition(npx,npy,npz, false));
+    CHECK_ZERO(cartPart->Partition(sx_, sy_, sz_, false));
     }
   else
     {
-    CHECK_ZERO(partitioner_->Partition(npx*npy*npz, false));
+    CHECK_ZERO(partitioner_->Partition(nx_ / sx_ * ny_ / sy_ * (nz_>1 ? nz_ / sz_ : 1), false));
     }
   // sanity check
   if (dof_!=partitioner_->DofPerNode())
