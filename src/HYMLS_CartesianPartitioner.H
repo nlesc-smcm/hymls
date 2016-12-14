@@ -153,16 +153,10 @@ protected:
 protected:
 
   //! get local subdomain id
-  int LSID(int i, int j, int k) const;
-
-  //! get local subdomain id
   int LSID(int gid) const;
 
   //! get processor on which a grid point is located
   int PID(int i, int j, int k) const;
-
-  //! get processor on which a GID is located
-  int PID(int gid) const;
 
   };
 

@@ -440,18 +440,6 @@ int CartesianPartitioner::VariableType(int gid) const
   }
 
 //! get local subdomain id
-int CartesianPartitioner::LSID(int i, int j, int k) const
-  {
-#ifdef HYMLS_TESTING
-  if (sdMap_==Teuchos::null)
-    {
-    Tools::Error("sdMap not created yet!",__FILE__,__LINE__);
-    }
-#endif
-  return sdMap_->LID((*this)(i,j,k));
-  }
-
-//! get local subdomain id
 int CartesianPartitioner::LSID(int gid) const
   {
 #ifdef HYMLS_TESTING
@@ -498,14 +486,6 @@ int CartesianPartitioner::PID(int i, int j, int k) const
   HYMLS_DEBUG("PID: "<<pidx<<" "<<pidy<<" "<<pidz<<" ("<<pid<<")");
 */
   return pid;
-  }
-
-//! get processor on which a GID is located
-int CartesianPartitioner::PID(int gid) const
-  {
-  int i,j,k,var;
-  Tools::ind2sub(nx_,ny_,nz_,dof_,gid,i,j,k,var);
-  return PID(i,j,k);
   }
 
   }
