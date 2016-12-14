@@ -24,7 +24,7 @@ CartesianPartitioner::CartesianPartitioner(
     baseMap_(map), cartesianMap_(Teuchos::null),
     nx_(nx), ny_(ny), nz_(nz),
     npx_(-1), npy_(-1), npz_(-1),
-    numLocalSubdomains_(-1), numGlobalSubdomains_(-1),
+    numLocalSubdomains_(-1),
     dof_(dof), pvar_(pvar), active_(true), perio_(perio)
   {
   HYMLS_PROF3(label_,"Constructor");
@@ -77,16 +77,6 @@ int CartesianPartitioner::NumLocalParts() const
     Tools::Error("not implemented correctly",__FILE__,__LINE__);
     }
   return numLocalSubdomains_;
-  }
-
-//! return number of subdomains in this proc partition
-int CartesianPartitioner::NumGlobalParts() const
-  {
-  if (numGlobalSubdomains_<0)
-    {
-    Tools::Error("not implemented correctly",__FILE__,__LINE__);
-    }
-  return numGlobalSubdomains_;
   }
 
 int CartesianPartitioner::CreateSubdomainMap()
@@ -196,7 +186,6 @@ int CartesianPartitioner::Partition(int npx_in,int npy_in, int npz_in, bool repa
   HYMLS_DEBVAR(*sdMap_);
 
   numLocalSubdomains_ = sdMap_->NumMyElements();
-  numGlobalSubdomains_ = sdMap_->NumGlobalElements();
 
 // create redistributed map:
   cartesianMap_ = baseMap_;

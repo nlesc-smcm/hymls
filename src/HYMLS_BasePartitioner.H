@@ -36,9 +36,6 @@ class BasePartitioner
   
   //! get number of local partitions
   virtual int NumLocalParts() const = 0;
-
-  //! get global number of partitions
-  virtual int NumGlobalParts() const = 0;
   
   //! is this class fully set up?
   virtual bool Partitioned() const = 0;

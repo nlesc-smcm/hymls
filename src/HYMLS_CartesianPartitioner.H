@@ -90,9 +90,6 @@ public:
   //! return number of subdomains in this proc partition
   int NumLocalParts() const;
 
-  //! return number of subdomains in this proc partition
-  int NumGlobalParts() const;
-
 protected:
 
   //!
@@ -120,9 +117,6 @@ protected:
   //! number of subdomains on this proc
   int numLocalSubdomains_;
 
-  //! number of subdomains on this proc
-  int numGlobalSubdomains_;
-
   //! subdomain size
   int sx_,sy_,sz_;
 
@@ -140,9 +134,6 @@ protected:
 
   //! type of periodicity in the problem
   GaleriExt::PERIO_Flag perio_;
-
-  //! stencil width, currently set to 1.
-  static const int stencil_width_=1;
 
   //! pointers into map
   Teuchos::Array<int> subdomainPointer_;
