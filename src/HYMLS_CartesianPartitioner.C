@@ -7,11 +7,6 @@
 #include "Epetra_Import.h"
 #include "HYMLS_MatrixUtils.H"
 
-#ifdef HAVE_MPI
-#include "Epetra_MpiComm.h"
-#include "Epetra_MpiDistributor.h"
-#endif
-
 using Teuchos::toString;
 
 namespace HYMLS {

@@ -2,7 +2,6 @@
 #define HYMLS_CARTESIAN_PARTITONER_H
 
 #include "HYMLS_config.h"
-#include <iostream>
 #include "HYMLS_Tools.H"
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_Array.hpp"
