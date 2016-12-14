@@ -51,21 +51,29 @@ CartesianPartitioner::~CartesianPartitioner()
 
 // get non-overlapping subdomain id
 int CartesianPartitioner::operator()(int i, int j, int k) const
+  {
+#ifdef HYMLS_TESTING
+  if (!Partitioned())
     {
-#ifdef HYMLS_TESTING    
-    if (!Partitioned())
-      {
-      Tools::Error("Partition() not yet called!",__FILE__,__LINE__);
-      }
-#endif      
-    int ii = i / sx_;
-    int jj = j / sy_;
-    int kk = k / sz_;
-
-    int ind = Tools::sub2ind(npx_,npy_,npz_,ii,jj,kk);
-    //HYMLS_DEBUG("Partition ID["<<i<<","<<j<<","<<k<<"] = "<<ind);
-    return ind;
+    Tools::Error("Partition() not yet called!", __FILE__, __LINE__);
     }
+#endif
+  return Tools::sub2ind(npx_, npy_, npz_, i / sx_, j / sy_, k / sz_);
+  }
+
+//! get non-overlapping subdomain id
+int CartesianPartitioner::operator()(int gid) const
+  {
+  int i,j,k,var;
+#ifdef HYMLS_TESTING
+  if (!Partitioned())
+    {
+    Tools::Error("Partition() not yet called!", __FILE__, __LINE__);
+    }
+#endif
+  Tools::ind2sub(nx_, ny_, nz_, dof_, gid, i, j, k, var);
+  return operator()(i, j, k);
+  }
 
 Teuchos::RCP<Epetra_Map> CartesianPartitioner::CreateSubdomainMap(
   int num_active) const

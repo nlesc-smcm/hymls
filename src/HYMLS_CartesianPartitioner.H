@@ -30,6 +30,9 @@ public:
   //! return global partition ID of a cell (i,j,k)
   int operator()(int i, int j, int k) const;
 
+  //! get non-overlapping subdomain id
+  int operator()(int gid) const;
+
   //! creates the map from global to local partition IDs. The implementation
   //! may assume that npx_, sx_ etc. are already set so that operator() works.
   //! num_active indicates how many procs should get nodes (if there are at
@@ -74,20 +77,6 @@ public:
   inline int VariableType(int gid) const
     {
     return (int)(MOD(gid, dof_));
-    }
-
-  //! get non-overlapping subdomain id
-  int operator()(int gid) const
-    {
-    int i,j,k,var;
-#ifdef HYMLS_TESTING
-    if (!Partitioned())
-      {
-      Tools::Error("Partition() not yet called!",__FILE__,__LINE__);
-      }
-#endif
-    Tools::ind2sub(nx_,ny_,nz_,dof_,gid,i,j,k,var);
-    return operator()(i,j,k);
     }
 
   //! return the repartitioned/reordered map
