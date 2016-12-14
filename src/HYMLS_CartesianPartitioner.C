@@ -161,52 +161,34 @@ int CartesianPartitioner::Partition(int npx_in,int npy_in, int npz_in, bool repa
       nprocs--;
       }
     }
-  std::string s4=Teuchos::toString(nprocx_)+"x"+Teuchos::toString(nprocy_)+"x"+Teuchos::toString(nprocz_);
+  std::string s4 = Teuchos::toString(nprocx_)+"x"+Teuchos::toString(nprocy_)+"x"+Teuchos::toString(nprocz_);
 
-  int my_npx = npx_ / nprocx_;
-  int my_npy = npy_ / nprocy_;
-  int my_npz = npz_ / nprocz_;
-
-  if (comm_->MyPID()>=nprocs)
-    {
+  if (comm_->MyPID() >= nprocs)
     active_ = false;
-    }
 
   // if some processors have no subdomains, we need to
   // repartition the map even if it is a cartesian partitioned
   // map already:
-  if (nprocs<comm_->NumProc()) repart=true;
+  if (nprocs < comm_->NumProc())
+    repart = true;
 
   int rank=comm_->MyPID();
-  int rankI=-1,rankJ=-1,rankK=-1;
-
-  if (active_)
-    {
-    Tools::ind2sub(nprocx_,nprocy_,nprocz_,rank,rankI,rankJ,rankK);
-    numLocalSubdomains_=my_npx*my_npy*my_npz;
-    }
-  else
-    {
-    numLocalSubdomains_=0;
-    }
 
   HYMLS_DEBVAR(npx_);
   HYMLS_DEBVAR(npy_);
   HYMLS_DEBVAR(npz_);
   HYMLS_DEBVAR(active_);
   HYMLS_DEBVAR(rank);
-  HYMLS_DEBVAR(rankI);
-  HYMLS_DEBVAR(rankJ);
-  HYMLS_DEBVAR(rankK);
 
   CHECK_ZERO(CreateSubdomainMap());
+
   HYMLS_DEBVAR(*sdMap_);
 
   numLocalSubdomains_ = sdMap_->NumMyElements();
   numGlobalSubdomains_ = sdMap_->NumGlobalElements();
 
 // create redistributed map:
-  cartesianMap_ = Teuchos::rcp_const_cast<Epetra_Map>(baseMap_);
+  cartesianMap_ = baseMap_;
   
 // repartitioning may occur for two reasons, typically on coarser levels:
 // a) the number of subdomains becomes smaller than the number of processes,
@@ -265,9 +247,8 @@ int CartesianPartitioner::Partition(int npx_in,int npy_in, int npz_in, bool repa
 
   if (active_)
     {
-    Tools::Out("Number of Partitions: "+s4);
-    Tools::Out("Partition: ["+toString(rankI)+" "+toString(rankJ)+" "+toString(rankK)+"]");
-    Tools::Out("Number of Local Subdomains: "+toString(NumLocalParts()));
+    Tools::Out("Number of Partitions: " + s4);
+    Tools::Out("Number of Local Subdomains: " + toString(NumLocalParts()));
     }
   return 0;
   }

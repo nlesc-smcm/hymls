@@ -119,7 +119,7 @@ protected:
 
   //! non-overlapping cartesian map (all subdomains are owned by
   //! exactly one process/belong to only one partition)
-  Teuchos::RCP<Epetra_Map> cartesianMap_;
+  Teuchos::RCP<const Epetra_Map> cartesianMap_;
 
   //! global grid size
   int nx_, ny_, nz_;
