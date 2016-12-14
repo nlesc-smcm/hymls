@@ -10,28 +10,8 @@ class Epetra_Map;
 namespace HYMLS {
 
 /*! Base class for partitioning in HYMLS - on this 
-    partitioning we build our HID.
-
-  The idea is that to iterate over all GID's in subdomain ordering,     
-      you could use something like this:                                
-                                                        
-        for (int p=0;p<NumLocalParts();p++)             
-          for (int i=First(p);i<First(p+1);i++)         
-            {                                           
-            int row=Map().GID(i);                       
-            ...                                         
-            }                                           
-                                                        
-  or equivalently:                                      
-                                                        
-        for (int p=0;p<NumLocalParts();p++)             
-          for (int i=0;i<NumElements(p);i++)            
-            {                                           
-            int row=GID(p,i);                           
-            ...                                         
-            }                                           
-                                                        
-  */
+  partitioning we build our HID.
+*/
 
 class BasePartitioner
   {
@@ -87,9 +67,6 @@ class BasePartitioner
   //! to a subdomain have contiguous local indexing)
   virtual Teuchos::RCP<const Epetra_Map> GetMap() const 
     {return Teuchos::rcp(&Map(),false);}
-  
-  //! get number of elements in local subdomain <part>
-  virtual int NumElements(int part) const = 0;
   
   };
 

@@ -93,13 +93,10 @@ public:
   //! return number of subdomains in this proc partition
   int NumGlobalParts() const;
 
-  //! get number of elements in local subdomain <part>
-  inline int NumElements(int part) const {return sx_ * sy_ * (nz_ > 1 ? sz_ : 1) * dof_;}
+protected:
 
   //!
   std::string label_;
-
-protected:
 
   //! communicator
   Teuchos::RCP<const Epetra_Comm> comm_;
