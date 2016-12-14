@@ -75,8 +75,7 @@ int CartesianPartitioner::operator()(int gid) const
   return operator()(i, j, k);
   }
 
-Teuchos::RCP<Epetra_Map> CartesianPartitioner::CreateSubdomainMap(
-  int num_active) const
+int CartesianPartitioner::CreateSubdomainMap()
   {
   int NumMyElements = 0;
   int NumGlobalElements = npx_ * npy_ * npz_;
@@ -91,11 +90,11 @@ Teuchos::RCP<Epetra_Map> CartesianPartitioner::CreateSubdomainMap(
           MyGlobalElements[NumMyElements++] = i + j * npx_ + k * npx_ * npy_;
         }
 
-  Teuchos::RCP<Epetra_Map> result = Teuchos::rcp(new Epetra_Map(NumGlobalElements,
+  sdMap_ = Teuchos::rcp(new Epetra_Map(NumGlobalElements,
       NumMyElements, MyGlobalElements, 0, *comm_));
 
   delete [] MyGlobalElements;
-  return result;
+  return 0;
   }
 
 int CartesianPartitioner::Partition(int nparts, bool repart)
@@ -200,7 +199,7 @@ int CartesianPartitioner::Partition(int npx_in,int npy_in, int npz_in, bool repa
   HYMLS_DEBVAR(rankJ);
   HYMLS_DEBVAR(rankK);
 
-  sdMap_=CreateSubdomainMap(nprocs);
+  CHECK_ZERO(CreateSubdomainMap());
   HYMLS_DEBVAR(*sdMap_);
 
   numLocalSubdomains_ = sdMap_->NumMyElements();

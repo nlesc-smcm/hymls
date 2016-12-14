@@ -33,12 +33,6 @@ public:
   //! get non-overlapping subdomain id
   int operator()(int gid) const;
 
-  //! creates the map from global to local partition IDs. The implementation
-  //! may assume that npx_, sx_ etc. are already set so that operator() works.
-  //! num_active indicates how many procs should get nodes (if there are at
-  //! least num_active nodes)
-  Teuchos::RCP<Epetra_Map> CreateSubdomainMap(int num_active) const;
-
   //! partition an [nx x ny x nz] grid with (possibly) several DoF per node
   //! into nparts global subdomains.
   int Partition(int nparts, bool repart=true);
@@ -53,6 +47,10 @@ public:
   int Partition(int npx, int npy, int npz, bool repart=true);
 
 private:
+  //! creates the map from global to local partition IDs. The implementation
+  //! may assume that npx_, sx_ etc. are already set so that operator() works.
+  int CreateSubdomainMap();
+
   //! Method to remove separators at the boundary when they are not
   //! strictly needed. This is when there are no periodic boundary
   //! conditions
@@ -81,6 +79,9 @@ public:
 
   //! return the repartitioned/reordered map
   inline const Epetra_Map& Map() const {return *cartesianMap_;}
+
+  //! return the repartitioned/reordered map
+  inline const Epetra_Map& SubdomainMap() const {return *sdMap_;}
 
   //! return number of subdomains in this proc partition
   int NumLocalParts() const

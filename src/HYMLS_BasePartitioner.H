@@ -81,6 +81,9 @@ class BasePartitioner
   //! to a subdomain have contiguous local indexing)
   virtual const Epetra_Map& Map() const = 0;
   
+  //! get the map with global IDs of the subdomains
+  virtual const Epetra_Map& SubdomainMap() const = 0;
+  
   //! get the (re-)partitioned map (here elements belonging
   //! to a subdomain have contiguous local indexing)
   virtual Teuchos::RCP<const Epetra_Map> GetMap() const 

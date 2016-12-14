@@ -117,7 +117,6 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Laplace2D, nx, ny, sx, sy)
 
   Teuchos::RCP<HYMLS::CartesianPartitioner> part = Teuchos::rcp(new HYMLS::CartesianPartitioner(map, nx, ny, 1, dof));
   part->Partition(nsx * nsy, true);
-  Teuchos::RCP<Epetra_Map> subdomainMap = part->CreateSubdomainMap(0);
   *map = *part->GetMap();
 
   Teuchos::RCP<Teuchos::ParameterList> paramList = Teuchos::rcp(new Teuchos::ParameterList);
@@ -141,7 +140,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Laplace2D, nx, ny, sx, sy)
 
   for (int sd = 0; sd < opart2->NumMySubdomains(); sd++)
     {
-    int gsd = subdomainMap->GID(sd);
+    int gsd = opart2->Partitioner().SubdomainMap().GID(sd);
     int substart = gsd % nsx * nx / nsx * dof +
       gsd / nsx * ny / nsy * dof * nx;
 
@@ -260,7 +259,6 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Laplace3D, nx, ny, nz, sx, sy, sz
 
   Teuchos::RCP<HYMLS::CartesianPartitioner> part = Teuchos::rcp(new HYMLS::CartesianPartitioner(map, nx, ny, nz, dof));
   part->Partition(nsx * nsy * nsz, true);
-  Teuchos::RCP<Epetra_Map> subdomainMap = part->CreateSubdomainMap(0);
   *map = *part->GetMap();
 
   Teuchos::RCP<Teuchos::ParameterList> paramList = Teuchos::rcp(new Teuchos::ParameterList);
@@ -284,7 +282,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Laplace3D, nx, ny, nz, sx, sy, sz
 
   for (int sd = 0; sd < opart2->NumMySubdomains(); sd++)
     {
-    int gsd = subdomainMap->GID(sd);
+    int gsd = opart2->Partitioner().SubdomainMap().GID(sd);
     int substart = gsd % nsx * nx / nsx * dof +
       (gsd % (nsx * nsy)) / nsx * ny / nsy * dof * nx +
       gsd / (nsx * nsy) * nz / nsz * dof * nx * ny;
@@ -381,7 +379,6 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Stokes2D, nx, ny, sx, sy)
 
   Teuchos::RCP<HYMLS::CartesianPartitioner> part = Teuchos::rcp(new HYMLS::CartesianPartitioner(map, nx, ny, 1, dof));
   part->Partition(nsx * nsy, true);
-  Teuchos::RCP<Epetra_Map> subdomainMap = part->CreateSubdomainMap(0);
   *map = *part->GetMap();
 
   Teuchos::RCP<Teuchos::ParameterList> paramList = Teuchos::rcp(new Teuchos::ParameterList);
@@ -418,7 +415,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Stokes2D, nx, ny, sx, sy)
 
   for (int sd = 0; sd < opart2->NumMySubdomains(); sd++)
     {
-    int gsd = subdomainMap->GID(sd);
+    int gsd = opart2->Partitioner().SubdomainMap().GID(sd);
     int substart = gsd % nsx * nx / nsx * dof +
       gsd / nsx * ny / nsy * dof * nx;
 
@@ -559,7 +556,6 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Stokes3D, nx, ny, nz, sx, sy, sz)
 
   Teuchos::RCP<HYMLS::CartesianPartitioner> part = Teuchos::rcp(new HYMLS::CartesianPartitioner(map, nx, ny, nz, dof));
   part->Partition(nsx * nsy * nsz, true);
-  Teuchos::RCP<Epetra_Map> subdomainMap = part->CreateSubdomainMap(0);
   *map = *part->GetMap();
 
   Teuchos::RCP<Teuchos::ParameterList> paramList = Teuchos::rcp(new Teuchos::ParameterList);
@@ -596,7 +592,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Stokes3D, nx, ny, nz, sx, sy, sz)
 
   for (int sd = 0; sd < opart2->NumMySubdomains(); sd++)
     {
-    int gsd = subdomainMap->GID(sd);
+    int gsd = opart2->Partitioner().SubdomainMap().GID(sd);
     int substart = gsd % nsx * nx / nsx * dof +
       (gsd % (nsx * nsy)) / nsx * ny / nsy * dof * nx +
       gsd / (nsx * nsy) * nz / nsz * dof * nx * ny;
