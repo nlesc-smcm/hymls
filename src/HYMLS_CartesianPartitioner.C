@@ -16,37 +16,31 @@ using Teuchos::toString;
 
 namespace HYMLS {
 
+// by default, everyone is assumed to own a part of the domain.
+// if in Partition() it turns out that there are more processor
+// partitions than subdomains, active_ is set to false for some
+// ranks, which will get an empty part of the reordered map
+// (cartesianMap_).
+
 // constructor
 CartesianPartitioner::CartesianPartitioner(
   Teuchos::RCP<const Epetra_Map> map, int nx, int ny, int nz, int dof, int pvar,
   GaleriExt::PERIO_Flag perio)
   : BasePartitioner(), label_("CartesianPartitioner"),
-    baseMap_(map), nx_(nx), ny_(ny), nz_(nz),
+    baseMap_(map), cartesianMap_(Teuchos::null),
+    nx_(nx), ny_(ny), nz_(nz),
+    npx_(-1), npy_(-1), npz_(-1),
     numLocalSubdomains_(-1), numGlobalSubdomains_(-1),
-    dof_(dof), pvar_(pvar), perio_(perio)
+    dof_(dof), pvar_(pvar), active_(true), perio_(perio)
   {
   HYMLS_PROF3(label_,"Constructor");
-  active_=true; // by default, everyone is assumed to own a part of the domain.
-  // if in Partition() it turns out that there are more processor
-  // partitions than subdomains, active_ is set to false for some
-  // ranks, which will get an empty part of the reordered map
-  // (cartesianMap_).
-
-  comm_=Teuchos::rcp(&(baseMap_->Comm()),false);
-  cartesianMap_=Teuchos::null;
+  comm_ = Teuchos::rcp(&(baseMap_->Comm()), false);
 
   if (baseMap_->IndexBase()!=0)
     {
     Tools::Warning("Not sure, but I _think_ your map should be 0-based",
       __FILE__, __LINE__);
     }
-
-  HYMLS_DEBVAR(nx_);
-  HYMLS_DEBVAR(ny_);
-  HYMLS_DEBVAR(nz_);
-  HYMLS_DEBVAR(dof_);
-
-  npx_=-1;// indicates that Partition() hasn't been called
   }
 
 // destructor
