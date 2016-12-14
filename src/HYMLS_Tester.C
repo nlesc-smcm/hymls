@@ -587,6 +587,7 @@ namespace HYMLS {
     {
     if (nx_<0) return "Tester not initialized correctly";
     int i,j,k,v;
+
     Tools::ind2sub(nx_,ny_,nz_,dof_,gid,i,j,k,v);
     std::stringstream ss;
     std::string var = (v==0 ? "U": 

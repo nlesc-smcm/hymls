@@ -226,7 +226,7 @@ HYMLS_DEBVAR(probList_);
     Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
         partValidator = Teuchos::rcp(
                 new Teuchos::StringToIntegralParameterEntryValidator<int>(
-                    Teuchos::tuple<std::string>("Cartesian"),"Partitioner"));
+                  Teuchos::tuple<std::string>("Cartesian", "Skew Cartesian"),"Partitioner"));
     
     VPL().set("Partitioner", "Cartesian",
         "Type of partitioner to be used to define the subdomains",

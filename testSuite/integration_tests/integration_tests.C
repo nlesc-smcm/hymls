@@ -255,6 +255,7 @@ void getLinearSystem(Teuchos::RCP<const Epetra_Comm> comm,
   Teuchos::ParameterList& driverList = params->sublist("Driver");
   Teuchos::ParameterList& problemList = params->sublist("Problem");
   Teuchos::ParameterList problemList_cpy = problemList;
+  Teuchos::ParameterList precList_cpy = params->sublist("Preconditioner");
 
   bool read_problem = driverList.get("Read Linear System", false);
   int numRhs = driverList.get("Number of rhs", 1);
@@ -262,7 +263,8 @@ void getLinearSystem(Teuchos::RCP<const Epetra_Comm> comm,
   int dim0=0; // if the problem is read from a file, a null space can be read, too, with dim0 columns.
   if (nullSpaceType=="File") dim0=driverList.get("Null Space Dimension",0);
           
-  Teuchos::RCP<Epetra_Map> map = HYMLS::MainUtils::create_map(*comm, problemList_cpy);
+  Teuchos::RCP<Epetra_Map> map = HYMLS::MainUtils::create_map(*comm,
+    problemList_cpy, precList_cpy);
   nullSpace=Teuchos::null;
 
   // exact solution

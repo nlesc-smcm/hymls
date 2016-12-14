@@ -76,39 +76,6 @@ class MatrixUtils
   
   typedef Anasazi::Eigensolution<double,Epetra_MultiVector> Eigensolution;
 
-    //! create a map for a 3D problem with multiple degrees of freedom per node
-    
-    /*! creates a distributed non-overlapping map to be used for constructing/solving
-        linear problems with one or more dof/node. This is similar to the Galeri map
-        Cartesian3D, except that we allow several dof/node.
-        For 2D problems simply set nz=1.
-        
-        This function can also be used if the number of grid cells nx*ny*nz
-        is less than the number of processes, in which case any proc with PID
-        >= nx*ny*nz gets 0 elements in the map.
-    
-    It is possible to artifically restrict the number of procs that get any nodes to
-    maxNumActiveProcs by setting the flag to something >0. The default -1 means all in comm 
-    get nodes (if there are sufficient nodes).
-    */    
-    static Teuchos::RCP<Epetra_Map> CreateMap(int nx, int ny, int nz, 
-                             int dof, int indexbase,
-                             const Epetra_Comm& comm,
-                             int maxNumActiveProcs=-1);
-
-    //! a general map creating function for a 3D grid
-    
-    /* creates a map of the form (i0:i1,j0:j1,k0:k1),
-       column-major access (i is fastest).           
-       Small letters indicate the bounds of the      
-       subdomain, capital letters the bounds of the  
-       global domain. The indices of subdomains are  
-       allowed to overlap                          */
-    static Teuchos::RCP<Epetra_Map> CreateMap(int i0, int i1, int j0, int j1, int k0, int k1,
-                             int I0, int I1, int J0, int J1, int K0, int K1,
-                             int dof,
-                             const Epetra_Comm& comm);
-  
     //! extract a map with 1 variable from a map with dof variables per node. 'var'
     //! is the variable to be extracted, i.e. 0, 1,...dof-1 
     static Teuchos::RCP<Epetra_Map> CreateSubMap(const Epetra_Map& map, int dof, int var);
@@ -368,16 +335,6 @@ class MatrixUtils
     //! computes the AMD ordering of a serial input matrix using AMD from SuiteSparse.
     static int AMD(const Epetra_CrsGraph& A,
                         Teuchos::Array<int>& perm);
-
-    //! creates a map of the form (i0:i1,j0:j1,k0:k1),
-    //! column-major access (i is fastest).           
-    //! Small letters indicate the bounds of the      
-    //! subdomain, capital letters the bounds of the  
-    //! global domain. The indices of subdomains are  
-    //! allowed to overlap                          */
-    static Teuchos::RCP<Epetra_Map> CreateMap(int i0, int i1, int j0, int j1, int k0, int k1,
-                             int I0, int I1, int J0, int J1, int K0, int K1,
-                             const Epetra_Comm& comm);
     
 
     //! sort an integer and a double array consistently so the integer array

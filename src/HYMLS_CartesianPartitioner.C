@@ -52,7 +52,7 @@ int CartesianPartitioner::operator()(int i, int j, int k) const
     Tools::Error("Partition() not yet called!", __FILE__, __LINE__);
     }
 #endif
-  return Tools::sub2ind(npx_, npy_, npz_, i / sx_, j / sy_, k / sz_);
+  return (k / sz_ * npy_ + j / sy_) * npx_ + i / sx_;
   }
 
 //! get non-overlapping subdomain id
@@ -347,9 +347,11 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_nodes,
 
   Teuchos::Array<int> *nodes;
 
-  int x, y, z, var;
-  Tools::ind2sub(npx_, npy_, npz_, 1, sdMap_->GID(sd), x, y, z, var);
-  int first = x * sx_ * dof_ + y * nx_ * sy_ * dof_ + z * nx_ * ny_ * sz_ * dof_;
+  int gsd = sdMap_->GID(sd);
+  int first = (gsd % npx_) * sx_ * dof_ +
+    ((gsd / npx_) % npy_) * nx_ * sy_ * dof_ +
+    ((gsd / npx_ / npy_) % npz_) * nx_ * ny_ * sz_ * dof_;
+
   for (int ktype = (nz_ > 1 ? -1 : 0); ktype < (nz_ > 1 ? 2 : 1); ktype++)
     {
     if (ktype == 1)
@@ -451,14 +453,7 @@ int CartesianPartitioner::PID(int i, int j, int k) const
   int pidy = sdy / npy;
   int pidz = sdz / npz;
 
-  int pid = Tools::sub2ind(nprocx_,nprocy_,nprocz_,1,pidx,pidy,pidz,0);
-/*
-  HYMLS_DEBUG("ijk: "<<i<<" "<<j<<" "<<k);
-  HYMLS_DEBUG("np_loc: "<<npx<<" "<<npy<<" "<<npz);
-  HYMLS_DEBUG("sd: "<<sdx<<" "<<sdy<<" "<<sdz);
-  HYMLS_DEBUG("PID: "<<pidx<<" "<<pidy<<" "<<pidz<<" ("<<pid<<")");
-*/
-  return pid;
+  return (pidz * nprocy_ + pidy) * nprocx_ + pidx;
   }
 
   }

@@ -17,6 +17,7 @@
 
 #include "HYMLS_Tools.H"
 #include "HYMLS_MatrixUtils.H"
+#include "HYMLS_CartesianPartitioner.H"
 
 #include "GaleriExt_Cross2DN.h"
 #include "Galeri_CrsMatrices.h"
@@ -181,16 +182,29 @@ void ReadTestCase(std::string problem, int nx, int sx,
   }
 #endif
 
-                
 Teuchos::RCP<Epetra_Map> create_map(const Epetra_Comm& comm,
-                                    Teuchos::ParameterList& probl_params)
+  Teuchos::ParameterList& probl_params,
+  Teuchos::ParameterList& prec_params)
   {
-
   int dim = probl_params.get("Dimension",2);
   int nx=probl_params.get("nx",32);
   int ny=probl_params.get("ny",nx);
   int nz=probl_params.get("nz",(dim>2)?nx:1);
   std::string eqn=probl_params.get("Equations","not-set");
+
+  int sx,sy,sz;
+  if (prec_params.isParameter("Separator Length (x)"))
+    {
+    sx = prec_params.get("Separator Length (x)", -1);
+    sy = prec_params.get("Separator Length (y)", sx);
+    sz = dim < 3 ? 1 : prec_params.get("Separator Length (z)", sx);
+    }
+  else
+    {
+    sx = prec_params.get("Separator Length", -1);
+    sy = sx;
+    sz = dim < 3 ? 1 : sx;
+    }
 
   Teuchos::RCP<Epetra_Map> map=Teuchos::null;
 
@@ -204,14 +218,27 @@ Teuchos::RCP<Epetra_Map> create_map(const Epetra_Comm& comm,
   else if (eqn!="Laplace" && eqn=="Laplace Neumann")
     {
     HYMLS::Tools::Warning("cannot determine problem type from 'Equation' parameter "+eqn+"\n"
-                          "Assuming dof="+Teuchos::toString(dof)+" cartesian grid in "+Teuchos::toString(dim)+"D",
-        __FILE__, __LINE__);
+      "Assuming dof="+Teuchos::toString(dof)+" cartesian grid in "+Teuchos::toString(dim)+"D",
+      __FILE__, __LINE__);
     }
   if (is_complex) dof*=2;
   
   HYMLS::Tools::out()<<"Create map with dof="<<dof<<" in "<<dim<<"D"<<std::endl;
-  map=HYMLS::MatrixUtils::CreateMap(nx,ny,nz,dof,0,comm);
-  return map;
+  map = Teuchos::rcp(new Epetra_Map(nx*ny*nz*dof, 0, comm));
+
+  std::string partMethod = prec_params.get("Partitioner", "Cartesian");
+  Teuchos::RCP<HYMLS::BasePartitioner> part = Teuchos::null;
+  if (partMethod == "Cartesian")
+    {
+    Teuchos::RCP<HYMLS::CartesianPartitioner> cartPart =
+      Teuchos::rcp(new HYMLS::CartesianPartitioner(map, nx, ny, nz, dof));
+    cartPart->Partition(sx, sy, sz, true);
+    part = cartPart;
+    }
+  else
+    HYMLS::Tools::Error("Partitioner not recognised", __FILE__, __LINE__);
+
+  return Teuchos::rcp(new Epetra_Map(part->Map()));
   }
 
 Teuchos::RCP<Epetra_CrsMatrix> create_matrix(const Epetra_Map& map,

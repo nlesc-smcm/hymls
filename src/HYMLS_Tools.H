@@ -207,54 +207,6 @@ static void SignalHandler(int signum)
   HYMLS::Tools::Fatal(msg,__FILE__,__LINE__);
   }
 
-  //! converts linear index to cartesian subscripts
-  static inline void ind2sub(int nx, int ny, int nz, int idx, int& i, int& j, int& k)
-    {
-    int dummy;
-    ind2sub(nx,ny,nz,1,idx,i,j,k,dummy);
-    return;
-    }
-
-  //! converts cartesian subscripts to linear index
-  static inline int sub2ind(int nx, int ny, int nz, int dof, int i, int j, int k, int var)
-    {
-#ifdef HYMLS_TESTING    
-    std::string msg1 = "sub2ind: ";
-    std::string msg3 = " out of range ";
-    if ((i<0)||(i>=nx))
-      {
-      std::string msg2 = "i-Index "+Teuchos::toString(i);
-      std::string msg4 = "[0,"+Teuchos::toString(nx)+"]";
-      Tools::Error(msg1+msg2+msg3+msg4,__FILE__,__LINE__);
-      }
-    if ((j<0)||(j>=ny))
-      {
-      std::string msg2 = "j-Index "+Teuchos::toString(j);
-      std::string msg4 = "[0,"+Teuchos::toString(ny)+"]";
-      Tools::Error(msg1+msg2+msg3+msg4,__FILE__,__LINE__);
-      }
-    if ((k<0)||(k>=nz))
-      {
-      std::string msg2 = "k-Index "+Teuchos::toString(j);
-      std::string msg4 = "[0,"+Teuchos::toString(nz)+"]";
-      Tools::Error(msg1+msg2+msg3+msg4,__FILE__,__LINE__);
-      }
-    if ((var<0)||(var>=dof))
-      {
-      std::string msg2 = "var-Index "+Teuchos::toString(j);
-      std::string msg4 = "[0,"+Teuchos::toString(dof)+"]";
-      Tools::Error(msg1+msg2+msg3+msg4,__FILE__,__LINE__);
-      }
-#endif      
-    return ((k*ny+j)*nx+i)*dof+var;
-    }
-
-  //! converts cartesian subscripts to linear index
-  static inline int sub2ind(int nx, int ny, int nz, int i, int j, int k)
-    {
-    return sub2ind(nx,ny,nz,1,i,j,k,0);
-    }
-
   //! split a cartesian box into nparts subdomains in a somehow 'good' way.
   //! This function just tells you how many subdomains there should be in 
   //! every direction. Returns 1 if no splitting was found.

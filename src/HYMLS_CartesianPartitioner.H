@@ -141,7 +141,6 @@ protected:
 
   //! get processor on which a grid point is located
   int PID(int i, int j, int k) const;
-
   };
 
   }
