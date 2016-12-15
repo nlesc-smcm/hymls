@@ -6,6 +6,7 @@ set(HYMLS_SOURCE HYMLS_Solver
     HYMLS_OverlappingPartitioner
     HYMLS_HierarchicalMap
     HYMLS_CartesianPartitioner
+    HYMLS_SkewCartesianPartitioner
     HYMLS_HyperCube
     HYMLS_MatrixUtils
     HYMLS_DenseUtils

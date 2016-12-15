@@ -8,6 +8,7 @@
 #include "HYMLS_Tester.H"
 
 #include "HYMLS_CartesianPartitioner.H"
+#include "HYMLS_SkewCartesianPartitioner.H"
 
 #include "Epetra_Comm.h"
 #include "Epetra_SerialComm.h"
@@ -202,6 +203,11 @@ int OverlappingPartitioner::Partition()
   if (partitioningMethod_ == "Cartesian")
     {
     partitioner_=Teuchos::rcp(new CartesianPartitioner(GetMap(), nx_, ny_, nz_,
+        dof_, pvar_, perio_));
+    }
+  else if (partitioningMethod_ == "Skew Cartesian")
+    {
+    partitioner_ = Teuchos::rcp(new SkewCartesianPartitioner(GetMap(), nx_, ny_, nz_,
         dof_, pvar_, perio_));
     }
   else
