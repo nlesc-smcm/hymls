@@ -107,7 +107,7 @@ protected:
   int nx_, ny_, nz_;
 
   //! number of subdomains
-  int npx_,npy_,npz_;
+  int npx_, npy_, npz_, npl_;
 
   //! processor distribution
   int nprocs_;

@@ -23,7 +23,7 @@ SkewCartesianPartitioner::SkewCartesianPartitioner(
   : BasePartitioner(), label_("SkewCartesianPartitioner"),
     baseMap_(map), cartesianMap_(Teuchos::null),
     nx_(nx), ny_(ny), nz_(nz),
-    npx_(-1), npy_(-1), npz_(-1),
+    npx_(-1), npy_(-1), npz_(-1), npl_(-1),
     numLocalSubdomains_(-1),
     dof_(dof), pvar_(pvar), active_(true), perio_(perio)
   {
@@ -56,7 +56,7 @@ int SkewCartesianPartitioner::operator()(int i, int j, int k) const
   int idx2 = (i - j + ny_) / sx_ - ny_ / sx_;
   int sdz = k / sz_;
 
-  return idx1 * (npx_ + 1) - idx2 * npx_ + sdz * ((npx_ + 1) * npy_);
+  return idx1 * (npx_ / 2 + 1) - idx2 * (npx_ / 2) + sdz * npl_;
   }
 
 //! get non-overlapping subdomain id
@@ -86,7 +86,7 @@ int SkewCartesianPartitioner::NumLocalParts() const
 int SkewCartesianPartitioner::CreateSubdomainMap()
   {
   int NumMyElements = 0;
-  int NumGlobalElements = (npx_+1) * npy_ * npz_;
+  int NumGlobalElements = npl_ * npz_;
   int *MyGlobalElements = new int[NumGlobalElements];
 
   for (int k = 0; k < nz_; k++)
@@ -128,21 +128,21 @@ int SkewCartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
   sy_ = sy;
   sz_ = sz;
 
-  npx_ = nx_ / sx_;
-  npy_ = ny_ / sy_;
+  npx_ = nx_ / sx_ * 2 + 1;
+  npy_ = ny_ / sy_ / 2;
+  npl_ = npx_ * npy_ + npx_ / 2;
   npz_ = nz_ / sz_;
 
   std::string s1 = toString(nx_) + "x" + toString(ny_) + "x" + toString(nz_);
-  std::string s2 = toString((npx_+1) * npy_) + "x" + toString(npz_);
+  std::string s2 = toString(npl_) + "x" + toString(npz_);
 
-  if (nx_ != npx_ * sx_ || ny_ != npy_ * sy_ || nz_ != npz_ * sz_)
+  if (nx_ * ny_ != npx_ / 2 * 2 * npy_ * sy_ * sy * 2 || nz_ != npz_ * sz_)
     {
-    std::string msg = "You are trying to partition an " + s1 + " domain into " + s2 + " parts.\n"
-      "We currently need nx to be a multiple of npx etc.";
+    std::string msg = "You are trying to partition an " + s1 + " domain into " + s2 + " parts.\n";
     Tools::Error(msg, __FILE__, __LINE__);
     }
 
-  std::string s3 = toString(sx_) + "x" + toString(sy_) + "x" + toString(sz_);
+  std::string s3 = toString(sy_*sy_*2) + "x" + toString(sz_);
 
   Tools::Out("Partition domain: ");
   Tools::Out("Grid size: " + s1);
@@ -150,7 +150,7 @@ int SkewCartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
   Tools::Out("Subdomain size: " + s3);
 
   // case where there are more processor partitions than subdomains (experimental)
-  if (comm_->MyPID() >= npx_ * npy_ * npz_)
+  if (comm_->MyPID() >= npl_ * npz_)
     active_ = false;
 
   int color = active_? 1: 0;
@@ -159,7 +159,7 @@ int SkewCartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
 
   while (nprocs_)
     {
-    if ((((npx_ * npy_ * npz_) / nprocs_) * nprocs_) == npx_ * npy_ * npz_)
+    if ((((npl_ * npz_) / nprocs_) * nprocs_) == npl_ * npz_)
       {
       break;
       }
@@ -249,7 +249,7 @@ int SkewCartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
 
   if (active_)
     {
-    Tools::Out("Number of Partitions: " + toString(npx_ * npy_ * npz_));
+    Tools::Out("Number of Partitions: " + toString(npl_ * npz_));
     Tools::Out("Number of Local Subdomains: " + toString(NumLocalParts()));
     }
   return 0;
@@ -258,14 +258,14 @@ int SkewCartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
 int SkewCartesianPartitioner::First(int sd) const
   {
   int gsd = sdMap_->GID(sd);
-  int xpos = (gsd % ((npx_+1) * npy_)) % (npx_*2+1);
-  int ypos = (gsd % ((npx_+1) * npy_)) / (npx_*2+1);
+  int xpos = (gsd % npl_) % npx_;
+  int ypos = (gsd % npl_) / npx_;
   return -dof_ +
-    ((xpos + 1) % (npx_ + 1)) * sx_ * dof_ + // shift to the right
-    -(1 - ((xpos + 1) / (npx_ + 1))) * sy_ * dof_ + // shift first row to the left
+    ((xpos + 1) % (npx_ / 2 + 1)) * sx_ * dof_ + // shift to the right
+    -(1 - ((xpos + 1) / (npx_ / 2 + 1))) * sy_ * dof_ + // shift first row to the left
     ypos * nx_ * sx_ * dof_ + // shift down
-    -(1 - ((xpos + 1) / (npx_ + 1))) * nx_ * sy_ * dof_ + // shift first row sy up
-    ((gsd / (npx_+1) / npy_) % npz_) * nx_ * ny_ * sz_ * dof_; // z-direction
+    -(1 - ((xpos + 1) / (npx_ / 2 + 1))) * nx_ * sy_ * dof_ + // shift first row sy up
+    ((gsd / npl_) % npz_) * nx_ * ny_ * sz_ * dof_; // z-direction
   }
 
 int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_nodes,
@@ -340,11 +340,11 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_no
                     {
                     int gsd2 = operator()(gid);
                     if (gsd2 == gsd ||
-                      (itype == -1 and gsd2 == gsd - npx_ and
-                      gsd % (2 * npx_ + 1) != 2 * npx_) ||
-                      (jtype == -1 and gsd2 == gsd - npx_ - 1 and
-                      gsd % (2 * npx_ + 1) != npx_) ||
-                      (itype == -1 and itype == -1 and gsd2 == gsd - 2 * npx_ - 1))
+                      (itype == -1 and gsd2 == gsd - npx_ / 2 and
+                      gsd % npx_ != npx_ / 2 * 2) ||
+                      (jtype == -1 and gsd2 == gsd - npx_ / 2 - 1 and
+                      gsd % npx_ != npx_ / 2) ||
+                      (itype == -1 and itype == -1 and gsd2 == gsd - npx_))
                       {
                       // Normal nodes in interiors and on separators
                       nodes->append(gid);
@@ -380,35 +380,31 @@ int SkewCartesianPartitioner::PID(int i, int j, int k) const
   int gsd = operator()(i, j, k);
 
   // Remove right boundaries
-  int gsd2 = gsd - (gsd % ((npx_+1) * npy_)) / (npx_ * 2 + 1);
+  int gsd2 = gsd - (gsd % npl_) / npx_;
   // Remove boundaries of layers above this one
-  gsd2 -= gsd / ((npx_+1) * npy_) * (npy_ / 2 + npx_);
+  gsd2 -= gsd / npl_ * (npy_ + npx_ / 2);
+
+  int npl = npx_ / 2 * npy_ * 2;
 
   // Right boundary
-  if ((gsd % ((npx_+1) * npy_)) % (npx_ * 2 + 1) == npx_ * 2)
-    {
-    if (i == 0)
-      Tools::Error("Going into infinite recursion for i="+toString(i)+
-        ", j="+toString(j)+", k="+toString(k)+", gsd=" + toString(gsd)+
-        ", npx="+toString(npx_),
-        __FILE__, __LINE__);
-    return (gsd2 - npx_) / ((npx_ * npy_ * npz_) / nprocs_);
-    }
+  if ((gsd % npl_) % npx_ == npx_ / 2 * 2)
+    return (gsd2 - npx_ / 2) / ((npl * npz_) / nprocs_);
 
   // Bottom boundary
-  if (gsd % ((npx_+1) * npy_) >= npx_ * (npy_ + 1))
+  if (gsd % npl_ >= npl_ - npx_ / 2)
+    return (gsd2 - npx_ / 2 * 2 * npy_) / ((npl * npz_) / nprocs_);
+
+  if (gsd2 >= npl_ * npz_)
     {
-    if (j == 0)
-      Tools::Error("Going into infinite recursion for i="+toString(i)+
-        ", j="+toString(j)+", k="+toString(k)+", gsd=" + toString(gsd),
-        __FILE__, __LINE__);
-    return (gsd2 - npx_ * npy_) / ((npx_ * npy_ * npz_) / nprocs_);
+    Tools::Error("Subdomain index out of range for i="+toString(i)+
+      ", j="+toString(j)+", k="+toString(k)+
+      ", gsd=" + toString(gsd)+", gsd2=" + toString(gsd2)+
+      ", npx="+toString(npx_)+", npy="+toString(npy_)+", npz="+toString(npz_)+
+      ", npl="+toString(npl_),
+      __FILE__, __LINE__);
     }
 
-  if (gsd2 >= npx_ * npy_ * npz_)
-    Tools::Error("Subdomain index out of range", __FILE__, __LINE__);
-
-  return gsd2 / ((npx_ * npy_ * npz_) / nprocs_);
+  return gsd2 / ((npl * npz_) / nprocs_);
   }
 
   }

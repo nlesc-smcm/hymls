@@ -693,8 +693,9 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewLaplace2D, nx, ny, sx, sy)
   Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
   HYMLS::Tools::InitializeIO(Comm);
 
-  int nsx = nx / sx / 2;
-  int nsy = ny / sy;
+  int nsx = nx / sx + 1;
+  int nsy = ny / sy / 2;
+  int nsl = nsx * nsy + nsx / 2;
 
   int dof = 1;
   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(nx*ny*dof, 0, *Comm));
@@ -731,15 +732,15 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewLaplace2D, nx, ny, sx, sy)
     // Compute the number of groups we expect
     int numGrps = 9;
     // Right
-    numGrps -= (gsd % (nsx * 2 + 1) == nsx * 2) * 3;
+    numGrps -= (gsd % nsx == nsx / 2 * 2) * 3;
     // Bottom
-    numGrps -= (gsd > ((nsx+1) * nsy - nsx - 1)) * 3;
+    numGrps -= (gsd > (nsl - nsx / 2 - 1)) * 3;
     // Left
-    numGrps -= (gsd % (nsx * 2 + 1) == nsx) * 5;
-    numGrps -= (gsd % (nsx * 2 + 1) == 0);
+    numGrps -= (gsd % nsx == nsx / 2) * 5;
+    numGrps -= (gsd % nsx == 0);
     // Top
-    numGrps -= (gsd < nsx) * 5;
-    numGrps -= (gsd >= nsx and gsd < nsx * 2 + 1);
+    numGrps -= (gsd < nsx / 2) * 5;
+    numGrps -= (gsd >= nsx / 2 and gsd < nsx);
 
     if (numGrps < 4)
       numGrps = 4;
@@ -751,7 +752,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewLaplace2D, nx, ny, sx, sy)
       if (grp == 0)
         {
         // Interior
-        if (gsd % (nsx * 2 + 1) == nsx * 2)
+        if (gsd % nsx == nsx / 2 * 2)
           {
           // Right
           TEST_EQUALITY(opart2->NumElements(sd, grp), sx * sy);
@@ -770,7 +771,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewLaplace2D, nx, ny, sx, sy)
               m--;
             }
           }
-        else if (gsd > ((nsx+1) * nsy - nsx - 1))
+        else if (gsd > (nsl - nsx / 2 - 1))
           {
           // Bottom
           TEST_EQUALITY(opart2->NumElements(sd, grp), sy * sx);
@@ -786,7 +787,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewLaplace2D, nx, ny, sx, sy)
             m++;
             }
           }
-        else if (gsd % (nsx * 2 + 1) == nsx)
+        else if (gsd % nsx == nsx / 2)
           {
           // Left
           TEST_EQUALITY(opart2->NumElements(sd, grp), sy * sx - sx - (sx - 1));
@@ -805,7 +806,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewLaplace2D, nx, ny, sx, sy)
               m--;
             }
           }
-        else if (gsd < nsx)
+        else if (gsd < nsx / 2)
           {
           // Top
           TEST_EQUALITY(opart2->NumElements(sd, grp), sy * sx - sx - (sx - 1));
@@ -869,6 +870,6 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewLaplace2D, nx, ny, sx, sy)
 
 TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewLaplace2D, 1, 8, 8, 4, 4);
 TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewLaplace2D, 2, 16, 16, 4, 4);
-// TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewLaplace2D, 3, 16, 8, 4, 4);
+TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewLaplace2D, 3, 16, 8, 4, 4);
 TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewLaplace2D, 4, 4, 4, 2, 2);
 TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewLaplace2D, 5, 64, 64, 16, 16);
