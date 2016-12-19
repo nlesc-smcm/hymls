@@ -321,8 +321,8 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
 
   *newList = *getMyParamList();
 
-  std::string partType=newList->sublist("Preconditioner").get("Partitioner","Cartesian");
-  if (partType!="Cartesian")
+  std::string partType=newList->sublist("Preconditioner").get("Partitioner", "Cartesian");
+  if (partType != "Cartesian" && partType != "Skew Cartesian")
     {
     Tools::Error("Can currently only handle cartesian partitioners",__FILE__,__LINE__);
     }
