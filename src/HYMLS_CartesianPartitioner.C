@@ -342,7 +342,7 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_nodes,
   {
   HYMLS_PROF2(label_,"GetGroups");
 
-  // presure nodes that need to be retained
+  // pressure nodes that need to be retained
   Teuchos::Array<int> retained_nodes;
 
   Teuchos::Array<int> *nodes;

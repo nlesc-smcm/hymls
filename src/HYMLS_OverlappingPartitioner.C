@@ -235,17 +235,19 @@ int OverlappingPartitioner::Partition()
     Tools::Error("Separator Length not set",__FILE__,__LINE__);
     }
 
-  Teuchos::RCP<CartesianPartitioner> cartPart
-        = Teuchos::rcp_dynamic_cast<CartesianPartitioner>(partitioner_);
-
-  if (cartPart != Teuchos::null)
+  if (partitioningMethod_ == "Cartesian")
     {
-    CHECK_ZERO(cartPart->Partition(sx_, sy_, sz_, false));
+    CHECK_ZERO(Teuchos::rcp_dynamic_cast<CartesianPartitioner>(partitioner_)->Partition(sx_, sy_, sz_, false));
+    }
+  else if (partitioningMethod_ == "Skew Cartesian")
+    {
+    CHECK_ZERO(Teuchos::rcp_dynamic_cast<SkewCartesianPartitioner>(partitioner_)->Partition(sx_, sy_, sz_, false));
     }
   else
     {
     CHECK_ZERO(partitioner_->Partition(nx_ / sx_ * ny_ / sy_ * (nz_>1 ? nz_ / sz_ : 1), false));
     }
+
   // sanity check
   if (dof_!=partitioner_->DofPerNode())
     {
@@ -295,11 +297,13 @@ int OverlappingPartitioner::DetectSeparators()
 
     partitioner_->GetGroups(sd, interior_nodes, separator_nodes);
 
+    std::sort(interior_nodes.begin(), interior_nodes.end());
     AddGroup(sd, interior_nodes);
     for (int i = 0; i < separator_nodes.size(); i++)
       {
       if (separator_nodes[i].size() > 0)
         {
+        std::sort(separator_nodes[i].begin(), separator_nodes[i].end());
         AddGroup(sd, separator_nodes[i]);
         }
       }

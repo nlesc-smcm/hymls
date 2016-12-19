@@ -100,6 +100,7 @@ int SkewCartesianPartitioner::CreateSubdomainMap()
           MyGlobalElements[NumMyElements++] = gsd;
         }
 
+  std::sort(MyGlobalElements, MyGlobalElements + NumMyElements);
   sdMap_ = Teuchos::rcp(new Epetra_Map(-1, NumMyElements, MyGlobalElements, 0, *comm_));
 
   delete [] MyGlobalElements;
@@ -254,11 +255,116 @@ int SkewCartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
   return 0;
   }
 
+int SkewCartesianPartitioner::First(int sd) const
+  {
+  int gsd = sdMap_->GID(sd);
+  int xpos = (gsd % ((npx_+1) * npy_)) % (npx_*2+1);
+  int ypos = (gsd % ((npx_+1) * npy_)) / (npx_*2+1);
+  return -dof_ +
+    ((xpos + 1) % (npx_ + 1)) * sx_ * dof_ + // shift to the right
+    -(1 - ((xpos + 1) / (npx_ + 1))) * sy_ * dof_ + // shift first row to the left
+    ypos * nx_ * sx_ * dof_ + // shift down
+    -(1 - ((xpos + 1) / (npx_ + 1))) * nx_ * sy_ * dof_ + // shift first row sy up
+    ((gsd / (npx_+1) / npy_) % npz_) * nx_ * ny_ * sz_ * dof_; // z-direction
+  }
+
 int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_nodes,
   Teuchos::Array<Teuchos::Array<int> > &separator_nodes)
   {
   HYMLS_PROF2(label_,"GetGroups");
-  Tools::Error("Not yet implemented", __FILE__, __LINE__);
+
+  // pressure nodes that need to be retained
+  Teuchos::Array<int> retained_nodes;
+
+  Teuchos::Array<int> *nodes;
+
+  int gsd = sdMap_->GID(sd);
+  int first = First(sd);
+  for (int ktype = (nz_ > 1 ? -1 : 0); ktype < (nz_ > 1 ? 2 : 1); ktype++)
+    {
+    if (ktype == 1)
+      ktype = sz_ - 1;
+    if (ktype == -1 && (first / dof_ / nx_ / ny_) % nz_ == 0)
+      continue;
+ 
+    for (int jtype = -1; jtype < 2; jtype++)
+      {
+      if (jtype == 1)
+        jtype = sy_ - 1;
+
+      for (int itype = -1; itype < 2; itype++)
+        {
+        if (itype == 1)
+          itype = sy_ - 1;
+
+        for (int d = 0; d < dof_; d++)
+          {
+          if (d == pvar_ && (itype == -1 || jtype == -1 || ktype == -1))
+            continue;
+          else if ((itype == 0 && jtype == 0 && ktype == 0) || d == pvar_)
+            nodes = &interior_nodes;
+          else
+            {
+            separator_nodes.append(Teuchos::Array<int>());
+            nodes = &separator_nodes.back();
+            }
+          for (int shift = !(itype == 0 && jtype == 0 && ktype == 0); shift < 2; shift++)
+            {
+            int jend = jtype + 1;
+            if (jtype == 0 and shift == 0)
+              jend = sy_;
+            else if (jtype == 0)
+              jend = sy_ - 1;
+
+            int iend = itype + 1;
+            if (itype == 0 and shift == 0)
+              iend = sy_;
+            else if (itype == 0)
+              iend = sy_ - 1;
+
+            for (int k = ktype; k < ((ktype || nz_ <= 1) ? ktype+1 : sz_-1); k++)
+              {
+              for (int j = jtype; j < jend; j++)
+                {
+                for (int i = itype; i < iend; i++)
+                  {
+                  int gid = first - i * dof_ + i * nx_ * dof_ +
+                    j * dof_ + j * nx_ * dof_ + 
+                    k * nx_ * ny_ * dof_ + d + shift * nx_;
+                  if ((d == pvar_ && !i && !j && !k))
+                    {
+                    // Retained pressure nodes
+                    retained_nodes.append(gid);
+                    }
+                  else
+                    {
+                    int gsd2 = operator()(gid);
+                    if (gsd2 == gsd ||
+                      (itype == -1 and gsd2 == gsd - npx_ and
+                      gsd % (2 * npx_ + 1) != 2 * npx_) ||
+                      (jtype == -1 and gsd2 == gsd - npx_ - 1 and
+                      gsd % (2 * npx_ + 1) != npx_) ||
+                      (itype == -1 and itype == -1 and gsd2 == gsd - 2 * npx_ - 1))
+                      {
+                      // Normal nodes in interiors and on separators
+                      nodes->append(gid);
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+  for (auto it = retained_nodes.begin(); it != retained_nodes.end(); ++it)
+    {
+    separator_nodes.append(Teuchos::Array<int>());
+    separator_nodes.back().append(*it);
+    }
+
   return 0;
   }
 
@@ -277,10 +383,6 @@ int SkewCartesianPartitioner::PID(int i, int j, int k) const
   int gsd2 = gsd - (gsd % ((npx_+1) * npy_)) / (npx_ * 2 + 1);
   // Remove boundaries of layers above this one
   gsd2 -= gsd / ((npx_+1) * npy_) * (npy_ / 2 + npx_);
-
-  std::cout << "i="+toString(i)+
-    ", j="+toString(j)+", k="+toString(k)+", gsd=" + toString(gsd)
-    + ", gsd2=" + toString(gsd2) << std::endl;
 
   // Right boundary
   if ((gsd % ((npx_+1) * npy_)) % (npx_ * 2 + 1) == npx_ * 2)

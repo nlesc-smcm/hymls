@@ -1,6 +1,7 @@
 #include "HYMLS_OverlappingPartitioner.H"
 
 #include "HYMLS_CartesianPartitioner.H"
+#include "HYMLS_SkewCartesianPartitioner.H"
 
 #include "Galeri_CrsMatrices.h"
 #include "GaleriExt_CrsMatrices.h"
@@ -686,3 +687,188 @@ TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, Stokes3D, 2, 16, 16, 16, 4, 4, 4)
 TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, Stokes3D, 3, 16, 8, 8, 4, 4, 4);
 TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, Stokes3D, 4, 4, 4, 4, 2, 2, 2);
 TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, Stokes3D, 5, 8, 4, 4, 4, 4, 4);
+
+TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewLaplace2D, nx, ny, sx, sy)
+  {
+  Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
+  HYMLS::Tools::InitializeIO(Comm);
+
+  int nsx = nx / sx / 2;
+  int nsy = ny / sy;
+
+  int dof = 1;
+  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(nx*ny*dof, 0, *Comm));
+
+  Teuchos::RCP<HYMLS::SkewCartesianPartitioner> part = Teuchos::rcp(new HYMLS::SkewCartesianPartitioner(map, nx, ny, 1, dof));
+  part->Partition(sx, sy, 1, true);
+  *map = *part->GetMap();
+
+  Teuchos::RCP<Teuchos::ParameterList> paramList = Teuchos::rcp(new Teuchos::ParameterList);
+  Teuchos::ParameterList &problemList = paramList->sublist("Problem");
+  problemList.set("nx", nx);
+  problemList.set("ny", ny);
+  problemList.set("nz", 1);
+
+  Teuchos::RCP<Epetra_CrsMatrix> matrix = Teuchos::rcp(
+    Galeri::CreateCrsMatrix("Laplace2D", map.get(), problemList));
+
+  problemList.set("Dimension", 2);
+  problemList.set("Degrees of Freedom", dof);
+
+  Teuchos::ParameterList &solverList = paramList->sublist("Preconditioner");
+  solverList.set("Separator Length", sx);
+  solverList.set("Coarsening Factor", 2);
+  solverList.set("Partitioner", "Skew Cartesian");
+
+  Teuchos::RCP<HYMLS::OverlappingPartitioner> opart2 = Teuchos::rcp(
+    new HYMLS::OverlappingPartitioner(matrix, paramList, 0));
+
+  for (int sd = 0; sd < opart2->NumMySubdomains(); sd++)
+    {
+    int gsd = opart2->Partitioner().SubdomainMap().GID(sd);
+    int substart = part->First(sd);
+
+    // Compute the number of groups we expect
+    int numGrps = 9;
+    // Right
+    numGrps -= (gsd % (nsx * 2 + 1) == nsx * 2) * 3;
+    // Bottom
+    numGrps -= (gsd > ((nsx+1) * nsy - nsx - 1)) * 3;
+    // Left
+    numGrps -= (gsd % (nsx * 2 + 1) == nsx) * 5;
+    numGrps -= (gsd % (nsx * 2 + 1) == 0);
+    // Top
+    numGrps -= (gsd < nsx) * 5;
+    numGrps -= (gsd >= nsx and gsd < nsx * 2 + 1);
+
+    if (numGrps < 4)
+      numGrps = 4;
+
+    TEST_EQUALITY(opart2->NumGroups(sd), numGrps);
+
+    for (int grp = 0; grp < opart2->NumGroups(sd); grp++)
+      {
+      if (grp == 0)
+        {
+        // Interior
+        if (gsd % (nsx * 2 + 1) == nsx * 2)
+          {
+          // Right
+          TEST_EQUALITY(opart2->NumElements(sd, grp), sx * sy);
+          int m = 0;
+          int pos = 0;
+          for (int j = 0; j < sx * 2 - 1; j++)
+            {
+            for (int i = -m; i <= 0; i++)
+              {
+              TEST_EQUALITY(opart2->GID(sd, grp, pos), substart + i + j * nx);
+              pos++;
+              }
+            if (j < sx - 1)
+              m++;
+            else
+              m--;
+            }
+          }
+        else if (gsd > ((nsx+1) * nsy - nsx - 1))
+          {
+          // Bottom
+          TEST_EQUALITY(opart2->NumElements(sd, grp), sy * sx);
+          int m = 0;
+          int pos = 0;
+          for (int j = 0; j < sx; j++)
+            {
+            for (int i = -m; i <= m; i++)
+              {
+              TEST_EQUALITY(opart2->GID(sd, grp, pos), substart + i + j * nx);
+              pos++;
+              }
+            m++;
+            }
+          }
+        else if (gsd % (nsx * 2 + 1) == nsx)
+          {
+          // Left
+          TEST_EQUALITY(opart2->NumElements(sd, grp), sy * sx - sx - (sx - 1));
+          int m = 1;
+          int pos = 0;
+          for (int j = 0; j < sx * 2 - 1; j++)
+            {
+            for (int i = 1; i < m; i++)
+              {
+              TEST_EQUALITY(opart2->GID(sd, grp, pos), substart + i + j * nx);
+              pos++;
+              }
+            if (j < sx - 1)
+              m++;
+            else
+              m--;
+            }
+          }
+        else if (gsd < nsx)
+          {
+          // Top
+          TEST_EQUALITY(opart2->NumElements(sd, grp), sy * sx - sx - (sx - 1));
+          int m = sx - 2;
+          int pos = 0;
+          for (int j = 0; j < sx - 1; j++)
+            {
+            for (int i = -m; i <= m; i++)
+              {
+              TEST_EQUALITY(opart2->GID(sd, grp, pos), substart + nx * sy + i + j * nx);
+              pos++;
+              }
+            m--;
+            }
+          }
+        else
+          {
+          TEST_EQUALITY(opart2->NumElements(sd, grp), 2 * sx * sy - sx - (sx - 1));
+          int m = 0;
+          int pos = 0;
+          for (int j = 0; j < sx * 2 - 1; j++)
+            {
+            for (int i = -m; i <= m; i++)
+              {
+              TEST_EQUALITY(opart2->GID(sd, grp, pos), substart + i + j * nx);
+              pos++;
+              }
+            if (j < sx - 1)
+              m++;
+            else
+              m--;
+            }
+          }
+        }
+      else if (opart2->GID(sd, grp, 0) == substart + dof || opart2->GID(sd, grp, 0) == substart + nx * sy - sy + 1)
+        {
+        // Top left to bottom right
+        TEST_EQUALITY(opart2->NumElements(sd, grp), sy - 1);
+        for (int i = 0; i < opart2->NumElements(sd, grp); i++)
+          {
+          TEST_EQUALITY(opart2->GID(sd, grp, i), opart2->GID(sd, grp, 0) + i * (nx + 1));
+          }
+        }
+      else if (opart2->GID(sd, grp, 0) == substart - dof || opart2->GID(sd, grp, 0) == substart + nx * sy + sy - 1)
+        {
+        // Top right to bottom left
+        TEST_EQUALITY(opart2->NumElements(sd, grp), sy - 1);
+        for (int i = 0; i < opart2->NumElements(sd, grp); i++)
+          {
+          TEST_EQUALITY(opart2->GID(sd, grp, i), opart2->GID(sd, grp, 0) + i * (nx - 1));
+          }
+        }
+      else
+        {
+        // Corner
+        TEST_EQUALITY(opart2->NumElements(sd, grp), 1);
+        }
+      }
+    }
+  }
+
+TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewLaplace2D, 1, 8, 8, 4, 4);
+TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewLaplace2D, 2, 16, 16, 4, 4);
+// TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewLaplace2D, 3, 16, 8, 4, 4);
+TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewLaplace2D, 4, 4, 4, 2, 2);
+TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewLaplace2D, 5, 64, 64, 16, 16);

@@ -18,6 +18,7 @@
 #include "HYMLS_Tools.H"
 #include "HYMLS_MatrixUtils.H"
 #include "HYMLS_CartesianPartitioner.H"
+#include "HYMLS_SkewCartesianPartitioner.H"
 
 #include "GaleriExt_Cross2DN.h"
 #include "Galeri_CrsMatrices.h"
@@ -232,6 +233,13 @@ Teuchos::RCP<Epetra_Map> create_map(const Epetra_Comm& comm,
     {
     Teuchos::RCP<HYMLS::CartesianPartitioner> cartPart =
       Teuchos::rcp(new HYMLS::CartesianPartitioner(map, nx, ny, nz, dof));
+    cartPart->Partition(sx, sy, sz, true);
+    part = cartPart;
+    }
+  else if (partMethod == "Skew Cartesian")
+    {
+    Teuchos::RCP<HYMLS::SkewCartesianPartitioner> cartPart =
+      Teuchos::rcp(new HYMLS::SkewCartesianPartitioner(map, nx, ny, nz, dof));
     cartPart->Partition(sx, sy, sz, true);
     part = cartPart;
     }

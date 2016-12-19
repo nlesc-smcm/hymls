@@ -44,12 +44,16 @@ public:
   //! MatrixUtils::CreateMap functions).
   int Partition(int npx, int npy, int npz, bool repart=true);
 
-private:
+protected:
   //! creates the map from global to local partition IDs. The implementation
   //! may assume that npx_, sx_ etc. are already set so that operator() works.
   int CreateSubdomainMap();
 
 public:
+  //! Get the first element of the subdomain. This can also be a non-existant
+  // element outside of the domain. It should always be the center top one
+  int First(int sd) const;
+
   //! Get interior and separator groups of the subdomain sd
   int GetGroups(int sd, Teuchos::Array<int> &interior_nodes,
     Teuchos::Array<Teuchos::Array<int> > &separator_nodes);
