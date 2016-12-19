@@ -286,6 +286,9 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_no
       ktype = sz_ - 1;
     if (ktype == -1 && (first / dof_ / nx_ / ny_) % nz_ == 0)
       continue;
+
+    // int gsdLayer = gsd - (ktype == -1 ? npl_ : 0);
+    int gsdLayer = gsd - (ktype == -1 ? npl_ : 0);
  
     for (int jtype = -1; jtype < 2; jtype++)
       {
@@ -308,7 +311,7 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_no
             separator_nodes.append(Teuchos::Array<int>());
             nodes = &separator_nodes.back();
             }
-          for (int shift = !(itype == 0 && jtype == 0 && ktype == 0); shift < 2; shift++)
+          for (int shift = !(itype == 0 && jtype == 0); shift < 2; shift++)
             {
             int jend = jtype + 1;
             if (jtype == 0 and shift == 0)
@@ -329,22 +332,25 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_no
                 for (int i = itype; i < iend; i++)
                   {
                   int gid = first - i * dof_ + i * nx_ * dof_ +
-                    j * dof_ + j * nx_ * dof_ + 
-                    k * nx_ * ny_ * dof_ + d + shift * nx_;
-                  if ((d == pvar_ && !i && !j && !k))
+                    j * dof_ + j * nx_ * dof_ +
+                    k * nx_ * ny_ * dof_ + d + shift * nx_ * dof_;
+                  if (d == pvar_ && !retained_nodes.size())
                     {
                     // Retained pressure nodes
                     retained_nodes.append(gid);
                     }
                   else
                     {
-                    int gsd2 = operator()(gid);
-                    if (gsd2 == gsd ||
-                      (itype == -1 and gsd2 == gsd - npx_ / 2 and
-                      gsd % npx_ != npx_ / 2 * 2) ||
-                      (jtype == -1 and gsd2 == gsd - npx_ / 2 - 1 and
-                      gsd % npx_ != npx_ / 2) ||
-                      (itype == -1 and itype == -1 and gsd2 == gsd - npx_))
+                    // int gsdNode = operator()(gid);
+                    int gsdNode = operator()(first - i * dof_ + i * nx_ * dof_ +
+                      j * dof_ + j * nx_ * dof_ -
+                      (ktype < 0) * sz_ * nx_ * ny_ * dof_ + d + shift * nx_ * dof_);
+                    if (gsdNode == gsdLayer ||
+                      (itype == -1 and gsdNode % npl_ == gsdLayer % npl_ - npx_ / 2 and
+                      (gsdLayer % npl_) % npx_ != npx_ / 2 * 2) ||
+                      (jtype == -1 and gsdNode % npl_ == gsdLayer % npl_ - npx_ / 2 - 1 and
+                      (gsdLayer % npl_) % npx_ != npx_ / 2) ||
+                      (itype == -1 and jtype == -1 and gsdNode % npl_ == gsdLayer % npl_ - npx_))
                       {
                       // Normal nodes in interiors and on separators
                       nodes->append(gid);

@@ -873,3 +873,141 @@ TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewLaplace2D, 2, 16, 16, 4, 4);
 TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewLaplace2D, 3, 16, 8, 4, 4);
 TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewLaplace2D, 4, 4, 4, 2, 2);
 TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewLaplace2D, 5, 64, 64, 16, 16);
+
+
+TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewLaplace3D, nx, ny, nz, sx, sy, sz)
+  {
+  Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
+  HYMLS::Tools::InitializeIO(Comm);
+
+
+  int nsx = nx / sx + 1;
+  int nsy = ny / sy / 2;
+  int nsl = nsx * nsy + nsx / 2;
+
+  int dof = 1;
+  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(nx*ny*nz*dof, 0, *Comm));
+
+  Teuchos::RCP<HYMLS::SkewCartesianPartitioner> part = Teuchos::rcp(
+    new HYMLS::SkewCartesianPartitioner(map, nx, ny, nz, dof));
+  part->Partition(sx, sy, sz, true);
+  *map = *part->GetMap();
+
+  Teuchos::RCP<Teuchos::ParameterList> paramList = Teuchos::rcp(new Teuchos::ParameterList);
+  Teuchos::ParameterList &problemList = paramList->sublist("Problem");
+  problemList.set("nx", nx);
+  problemList.set("ny", ny);
+  problemList.set("nz", nz);
+
+  Teuchos::RCP<Epetra_CrsMatrix> matrix = Teuchos::rcp(
+    Galeri::CreateCrsMatrix("Laplace3D", map.get(), problemList));
+
+  problemList.set("Dimension", 3);
+  problemList.set("Degrees of Freedom", dof);
+
+  Teuchos::ParameterList &solverList = paramList->sublist("Preconditioner");
+  solverList.set("Separator Length", sx);
+  solverList.set("Coarsening Factor", 2);
+  solverList.set("Partitioner", "Skew Cartesian");
+
+  Teuchos::RCP<HYMLS::OverlappingPartitioner> opart2 = Teuchos::rcp(
+    new HYMLS::OverlappingPartitioner(matrix, paramList, 0));
+
+  for (int sd = 0; sd < opart2->NumMySubdomains(); sd++)
+    {
+    int gsd = opart2->Partitioner().SubdomainMap().GID(sd);
+    int substart = part->First(sd);
+
+    // Compute the number of groups we expect
+    int numGrps = 9 + 9 + 9;
+    int leftOver = 9;
+    // Right
+    if ((gsd % nsl) % nsx == nsx / 2 * 2)
+      {
+      numGrps -= 9;
+      leftOver -= 3;
+      }
+    // Bottom
+    if ((gsd % nsl) > (nsl - nsx / 2 - 1))
+      {
+      numGrps -= 9;
+      leftOver -= 3;
+      }
+    // Left
+    if ((gsd % nsl) % nsx == nsx / 2)
+      {
+      numGrps -= 15;
+      leftOver -= 5;
+      }
+    if ((gsd % nsl) % nsx == 0)
+      {
+      numGrps -= 3;
+      leftOver -= 1;
+      }
+    // Top
+    if ((gsd % nsl) < nsx / 2)
+      {
+      numGrps -= 15;
+      leftOver -= 5;
+      }
+    if ((gsd % nsl) >= nsx / 2 and (gsd % nsl) < nsx)
+      {
+      numGrps -= 3;
+      leftOver -= 1;
+      }
+
+    if (numGrps < 12)
+      {
+      numGrps = 12;
+      leftOver = 4;
+      }
+
+    // Front
+    if (gsd / nsl == 0)
+      {
+      numGrps -= leftOver;
+      }
+
+    TEST_EQUALITY(opart2->NumGroups(sd), numGrps);
+
+    int totalNodes = 0;
+    for (int grp = 0; grp < opart2->NumGroups(sd); grp++)
+      {
+      totalNodes += opart2->NumElements(sd, grp);
+      if (grp == 0)
+        {
+        // Interior
+        if (numGrps == 27)
+          {
+          // Center
+          TEST_EQUALITY(opart2->NumElements(sd, grp), (2 * sy * sy - sy - sy + 1) * (sz - 1));
+          int pos = 0;
+          for (int k = 0; k < sz - 1; k++)
+            {
+            int m = 0;
+            for (int j = 0; j < sx * 2 - 1; j++)
+              {
+              for (int i = -m; i <= m; i++)
+                {
+                TEST_EQUALITY(opart2->GID(sd, grp, pos), substart + i + j * nx + k * nx * ny);
+                pos++;
+                }
+              if (j < sx - 1)
+                m++;
+              else
+                m--;
+              }
+            }
+          }
+        }
+      }
+    if (numGrps == 27)
+      {
+      TEST_EQUALITY(totalNodes, sy * sy * 2 * (sz + 1) + (sz + 1) * (sy + sy + 1));
+      }
+    }
+  }
+
+TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewLaplace3D, 1, 8, 8, 8, 4, 4, 4);
+TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewLaplace3D, 2, 16, 16, 16, 4, 4, 4);
+TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewLaplace3D, 3, 16, 8, 8, 4, 4, 4);
