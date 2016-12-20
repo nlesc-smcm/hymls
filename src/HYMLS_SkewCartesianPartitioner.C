@@ -191,7 +191,7 @@ int SkewCartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
 
 // create redistributed map:
   cartesianMap_ = baseMap_;
-  
+
 // repartitioning may occur for two reasons, typically on coarser levels:
 // a) the number of subdomains becomes smaller than the number of processes,
 // b) the subdomains can't be nicely distributed among the processes.
@@ -289,7 +289,7 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_no
 
     // int gsdLayer = gsd - (ktype == -1 ? npl_ : 0);
     int gsdLayer = gsd - (ktype == -1 ? npl_ : 0);
- 
+
     for (int jtype = -1; jtype < 2; jtype++)
       {
       if (jtype == 1)
@@ -305,55 +305,110 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_no
           if (d == pvar_ && (itype == -1 || jtype == -1 || ktype == -1))
             continue;
           else if ((itype == 0 && jtype == 0 && ktype == 0) || d == pvar_)
+          // if (itype == 0 && jtype == 0 && ktype == 0)
             nodes = &interior_nodes;
           else
             {
             separator_nodes.append(Teuchos::Array<int>());
             nodes = &separator_nodes.back();
             }
-          for (int shift = !(itype == 0 && jtype == 0); shift < 2; shift++)
-            {
-            int jend = jtype + 1;
-            if (jtype == 0 and shift == 0)
-              jend = sy_;
-            else if (jtype == 0)
-              jend = sy_ - 1;
-
-            int iend = itype + 1;
-            if (itype == 0 and shift == 0)
-              iend = sy_;
-            else if (itype == 0)
-              iend = sy_ - 1;
-
-            for (int k = ktype; k < ((ktype || nz_ <= 1) ? ktype+1 : sz_-1); k++)
+          if (d != 0 || pvar_ < 0)
+            for (int shift = !(itype == 0 && jtype == 0); shift < 2; shift++)
               {
-              for (int j = jtype; j < jend; j++)
-                {
-                for (int i = itype; i < iend; i++)
-                  {
-                  int gid = first - i * dof_ + i * nx_ * dof_ +
-                    j * dof_ + j * nx_ * dof_ +
-                    k * nx_ * ny_ * dof_ + d + shift * nx_ * dof_;
+              int jend = jtype + 1;
+              if (jtype == 0 and shift == 0)
+                jend = sy_;
+              else if (jtype == 0)
+                jend = sy_ - 1;
 
-                  int gsdNode = operator()(first - i * dof_ + i * nx_ * dof_ +
-                    j * dof_ + j * nx_ * dof_ -
-                    (ktype < 0) * sz_ * nx_ * ny_ * dof_ + d + shift * nx_ * dof_);
-                  // Check if this is actually in this domain or a neighbouring domain
-                  if (gsdNode == gsdLayer ||
-                      (itype == -1 and gsdNode % npl_ == gsdLayer % npl_ - npx_ / 2 and
-                      (gsdLayer % npl_) % npx_ != npx_ / 2 * 2) ||
-                      (jtype == -1 and gsdNode % npl_ == gsdLayer % npl_ - npx_ / 2 - 1 and
-                      (gsdLayer % npl_) % npx_ != npx_ / 2) ||
-                    (itype == -1 and jtype == -1 and gsdNode % npl_ == gsdLayer % npl_ - npx_))
+              int iend = itype + 1;
+              if (itype == 0 and shift == 0)
+                iend = sy_;
+              else if (itype == 0)
+                iend = sy_ - 1;
+
+              for (int k = ktype; k < ((ktype || nz_ <= 1) ? ktype+1 : sz_-1); k++)
+                {
+                for (int j = jtype; j < jend; j++)
+                  {
+                  for (int i = itype; i < iend; i++)
                     {
-                    if (d == pvar_ && !retained_nodes.size())
+                    int gid = first - i * dof_ + i * nx_ * dof_ +
+                      j * dof_ + j * nx_ * dof_ +
+                      k * nx_ * ny_ * dof_ + d + shift * nx_ * dof_;
+
+                    int gsdNode = operator()(first - i * dof_ + i * nx_ * dof_ +
+                      j * dof_ + j * nx_ * dof_ -
+                      (ktype < 0) * sz_ * nx_ * ny_ * dof_ + d + shift * nx_ * dof_);
+                    // Check if this is actually in this domain or a neighbouring domain
+                    if (gsdNode == gsdLayer ||
+                        (itype == -1 and gsdNode % npl_ == gsdLayer % npl_ - npx_ / 2 and
+                        (gsdLayer % npl_) % npx_ != npx_ / 2 * 2) ||
+                        (jtype == -1 and gsdNode % npl_ == gsdLayer % npl_ - npx_ / 2 - 1 and
+                        (gsdLayer % npl_) % npx_ != npx_ / 2) ||
+                      (itype == -1 and jtype == -1 and gsdNode % npl_ == gsdLayer % npl_ - npx_))
                       {
-                      // Retained pressure nodes
-                      retained_nodes.append(gid);
+                      if (d == pvar_ && !retained_nodes.size())
+                        {
+                        // Retained pressure nodes
+                        retained_nodes.append(gid);
+                        // retained_nodes.append(dof_ * nx_ * ny_ * nz_ - gid - (dof_ - d) + d);
+                        }
+                      else
+                        {
+                        // Normal nodes in interiors and on separators
+                        nodes->append(gid);
+                        // nodes->append(dof_ * nx_ * ny_ * nz_ - gid - (dof_ - d) + d);
+                        }
                       }
-                    else
+                    }
+                  }
+                }
+              }
+          else
+            for (int shift = 0; shift < 2; shift++)
+              {
+              int jend = jtype + 1;
+              if (jtype == 0 and shift == 0)
+                jend = sy_;
+              else if (jtype == 0)
+                jend = sy_ - 1;
+
+              int iend = itype + 1;
+              if (itype == 0 and shift == 0)
+                iend = sy_ - 1;
+              else if (itype == 0)
+                iend = sy_;
+
+              if (!(itype == 0 || jtype == 0))
+                continue;
+
+              if (shift == 1 and itype != 0)
+                continue;
+
+              if (shift == 0 and jtype != 0)
+                continue;
+
+              for (int k = ktype; k < ((ktype || nz_ <= 1) ? ktype+1 : sz_-1); k++)
+                {
+                for (int j = jtype; j < jend; j++)
+                  {
+                  for (int i = itype; i < iend; i++)
+                    {
+                    int gid = first - i * dof_ + i * nx_ * dof_ +
+                      j * dof_ + j * nx_ * dof_ +
+                      k * nx_ * ny_ * dof_ + d + nx_ * dof_ - dof_ + shift * dof_;
+
+                    int gsdNode = operator()(first - i * dof_ + i * nx_ * dof_ +
+                      j * dof_ + j * nx_ * dof_ -
+                      (ktype < 0) * sz_ * nx_ * ny_ * dof_ + d + nx_ * dof_ - dof_ + shift * dof_);
+                    // Check if this is actually in this domain or a neighbouring domain
+                    if (gsdNode == gsdLayer ||
+                        (itype == sy_-1 and gsdNode % npl_ == gsdLayer % npl_ + npx_ / 2 and
+                        (gsdLayer % npl_) % npx_ != npx_ / 2) ||
+                        (jtype == -1 and gsdNode % npl_ == gsdLayer % npl_ - npx_ / 2 - 1 and
+                        (gsdLayer % npl_) % npx_ != npx_ / 2))
                       {
-                      // int gsdNode = operator()(gid);
                       // Normal nodes in interiors and on separators
                       nodes->append(gid);
                       }
@@ -361,7 +416,6 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_no
                   }
                 }
               }
-            }
           }
         }
       }

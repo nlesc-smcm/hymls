@@ -1707,6 +1707,8 @@ int MatrixUtils::PutDirichlet(Epetra_CrsMatrix& A, int gid)
 
   int lid, pid;
 
+  gid = 5;
+
   CHECK_ZERO(A.RowMap().RemoteIDList(1, &gid, &pid, &lid));
 
   if (lid < 0)
