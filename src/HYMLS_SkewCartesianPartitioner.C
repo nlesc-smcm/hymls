@@ -334,24 +334,26 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_no
                   int gid = first - i * dof_ + i * nx_ * dof_ +
                     j * dof_ + j * nx_ * dof_ +
                     k * nx_ * ny_ * dof_ + d + shift * nx_ * dof_;
-                  if (d == pvar_ && !retained_nodes.size())
-                    {
-                    // Retained pressure nodes
-                    retained_nodes.append(gid);
-                    }
-                  else
-                    {
-                    // int gsdNode = operator()(gid);
-                    int gsdNode = operator()(first - i * dof_ + i * nx_ * dof_ +
-                      j * dof_ + j * nx_ * dof_ -
-                      (ktype < 0) * sz_ * nx_ * ny_ * dof_ + d + shift * nx_ * dof_);
-                    if (gsdNode == gsdLayer ||
+
+                  int gsdNode = operator()(first - i * dof_ + i * nx_ * dof_ +
+                    j * dof_ + j * nx_ * dof_ -
+                    (ktype < 0) * sz_ * nx_ * ny_ * dof_ + d + shift * nx_ * dof_);
+                  // Check if this is actually in this domain or a neighbouring domain
+                  if (gsdNode == gsdLayer ||
                       (itype == -1 and gsdNode % npl_ == gsdLayer % npl_ - npx_ / 2 and
                       (gsdLayer % npl_) % npx_ != npx_ / 2 * 2) ||
                       (jtype == -1 and gsdNode % npl_ == gsdLayer % npl_ - npx_ / 2 - 1 and
                       (gsdLayer % npl_) % npx_ != npx_ / 2) ||
-                      (itype == -1 and jtype == -1 and gsdNode % npl_ == gsdLayer % npl_ - npx_))
+                    (itype == -1 and jtype == -1 and gsdNode % npl_ == gsdLayer % npl_ - npx_))
+                    {
+                    if (d == pvar_ && !retained_nodes.size())
                       {
+                      // Retained pressure nodes
+                      retained_nodes.append(gid);
+                      }
+                    else
+                      {
+                      // int gsdNode = operator()(gid);
                       // Normal nodes in interiors and on separators
                       nodes->append(gid);
                       }
