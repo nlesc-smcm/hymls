@@ -416,7 +416,6 @@ HYMLS_DEBVAR(*b);
         Epetra_MultiVector(*map,numRhs));
     CHECK_ZERO(K->Multiply(false,*x,*res));
     CHECK_ZERO(res->Update(1.0,*b,-1));
-  
     CHECK_ZERO(err->Update(1.0,*x,-1.0,*x_ex,0.0));
   
     double *errNorm,*resNorm,*rhsNorm;

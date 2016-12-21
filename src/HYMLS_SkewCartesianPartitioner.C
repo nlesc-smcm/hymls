@@ -287,7 +287,6 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_no
     if (ktype == -1 && (first / dof_ / nx_ / ny_) % nz_ == 0)
       continue;
 
-    // int gsdLayer = gsd - (ktype == -1 ? npl_ : 0);
     int gsdLayer = gsd - (ktype == -1 ? npl_ : 0);
 
     for (int jtype = -1; jtype < 2; jtype++)
@@ -305,7 +304,6 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_no
           if (d == pvar_ && (itype == -1 || jtype == -1 || ktype == -1))
             continue;
           else if ((itype == 0 && jtype == 0 && ktype == 0) || d == pvar_)
-          // if (itype == 0 && jtype == 0 && ktype == 0)
             nodes = &interior_nodes;
           else
             {
@@ -348,17 +346,15 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_no
                         (gsdLayer % npl_) % npx_ != npx_ / 2) ||
                       (itype == -1 and jtype == -1 and gsdNode % npl_ == gsdLayer % npl_ - npx_))
                       {
-                      if (d == pvar_ && !retained_nodes.size())
+                      if (d == pvar_ && (!i || itype > 0) && !retained_nodes.size())
                         {
                         // Retained pressure nodes
                         retained_nodes.append(gid);
-                        // retained_nodes.append(dof_ * nx_ * ny_ * nz_ - gid - (dof_ - d) + d);
                         }
                       else
                         {
                         // Normal nodes in interiors and on separators
                         nodes->append(gid);
-                        // nodes->append(dof_ * nx_ * ny_ * nz_ - gid - (dof_ - d) + d);
                         }
                       }
                     }

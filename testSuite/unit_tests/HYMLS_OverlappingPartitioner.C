@@ -1084,8 +1084,10 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes2D, nx, ny, sx, sy)
 
     TEST_EQUALITY(opart2->NumGroups(sd), numGrps);
 
+    int totalNodes = 0;
     for (int grp = 0; grp < opart2->NumGroups(sd); grp++)
       {
+      totalNodes += opart2->NumElements(sd, grp);
       if (grp == 0)
         {
         // Interior
@@ -1177,7 +1179,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes2D, nx, ny, sx, sy)
               for (int d = 0; d < dof; d++)
                 {
                 // First p-node in the interior
-                if (d == 2 && j == 0 && i == -m+1)
+                if (d == 2 && j == 0 && i == -m)
                   continue;
                 if ((d == 1 && (i == -m || i == m)) || (d == 0 && (i == m)))
                   continue;
@@ -1284,6 +1286,10 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes2D, nx, ny, sx, sy)
         // Corner
         TEST_EQUALITY(opart2->NumElements(sd, grp), 1);
         }
+      }
+    if (numGrps == 14)
+      {
+      TEST_EQUALITY(totalNodes, sx * sy * 2 * 3 + (sx + sx + 1) + (sx + sx));
       }
     }
   }
