@@ -149,8 +149,9 @@ int SkewCartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
   Tools::Out("Number of Subdomains: " + s2);
   Tools::Out("Subdomain size: " + s3);
 
+  int npl = npx_ / 2 * npy_ * 2;
   // case where there are more processor partitions than subdomains (experimental)
-  if (comm_->MyPID() >= npl_ * npz_)
+  if (comm_->MyPID() >= npl * npz_)
     active_ = false;
 
   int color = active_? 1: 0;
@@ -159,7 +160,7 @@ int SkewCartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
 
   while (nprocs_)
     {
-    if ((((npl_ * npz_) / nprocs_) * nprocs_) == npl_ * npz_)
+    if ((((npl * npz_) / nprocs_) * nprocs_) == npl * npz_)
       {
       break;
       }
@@ -376,9 +377,6 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_no
                 iend = sy_ - 1;
               else if (itype == 0)
                 iend = sy_;
-
-              if (!(itype == 0 || jtype == 0))
-                continue;
 
               if (shift == 1 and itype != 0)
                 continue;
