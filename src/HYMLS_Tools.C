@@ -215,7 +215,7 @@ void Tools::ind2sub(int nx, int ny, int nz, int dof,
   int idx, int& i, int& j, int& k, int& var)
   {
 #ifdef HYMLS_TESTING
-  if (idx < 0 || idx >= x * ny * nz * dof)
+  if (idx < 0 || idx >= nx * ny * nz * dof)
     {
     std::cerr << "dim=["<<nx<<","<<ny<<","<<nz<<"], dof="<<dof<<": ind="<<idx<<std::endl;
     Tools::Error("ind2sub: Index out of range!",__FILE__,__LINE__);

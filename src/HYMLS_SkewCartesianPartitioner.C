@@ -242,7 +242,6 @@ int SkewCartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
     cartesianMap_ = Teuchos::rcp(new Epetra_Map(-1, pos,
         myGlobalElements, baseMap_->IndexBase(), *comm_));
 
-    HYMLS_DEBVAR(*repartitionedMap);
     if (myGlobalElements)
       delete [] myGlobalElements;
     }
@@ -269,7 +268,7 @@ int SkewCartesianPartitioner::First(int sd, int &i, int &j, int &k) const
     -(1 - ((xpos + 1) / (npx_ / 2 + 1))) * sy_; // shift first row sy up
   k = zpos * sz_; // z-direction
   return 0;
- } 
+ }
 
 int SkewCartesianPartitioner::First(int sd) const
   {
@@ -346,9 +345,8 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_no
                     if (x < 0 || x >= nx_ || y < 0 || y >= ny_)
                       continue;
 
-                    int gid = first - i * dof_ + i * nx_ * dof_ +
-                      j * dof_ + j * nx_ * dof_ +
-                      k * nx_ * ny_ * dof_ + d + shift * nx_ * dof_;
+                    int gid = first + (j - i) * dof_ + (i + j + shift) * nx_ * dof_ +
+                      k * nx_ * ny_ * dof_ + d;
 
                     if (d == pvar_ && (!i || itype > 0) && !retained_nodes.size())
                       {
@@ -399,9 +397,8 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_no
                     if (x < 0 || x >= nx_ || y < 0 || y >= ny_)
                       continue;
 
-                    int gid = first - i * dof_ + i * nx_ * dof_ +
-                      j * dof_ + j * nx_ * dof_ +
-                      k * nx_ * ny_ * dof_ + d + nx_ * dof_ - dof_ + shift * dof_;
+                    int gid = first + (j - i + shift - 1) * dof_ + (i + j + 1) * nx_ * dof_ +
+                      k * nx_ * ny_ * dof_ + d;
 
                     // Normal nodes in interiors and on separators
                     nodes->append(gid);
