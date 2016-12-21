@@ -54,6 +54,10 @@ public:
   // element outside of the domain. It should always be the center top one
   int First(int sd) const;
 
+  //! Get the first element of the subdomain. This can also be a non-existant
+  // element outside of the domain. It should always be the center top one
+  int First(int sd, int &i, int &j, int &k) const;
+
   //! Get interior and separator groups of the subdomain sd
   int GetGroups(int sd, Teuchos::Array<int> &interior_nodes,
     Teuchos::Array<Teuchos::Array<int> > &separator_nodes);

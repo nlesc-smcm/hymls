@@ -255,17 +255,27 @@ int SkewCartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
   return 0;
   }
 
-int SkewCartesianPartitioner::First(int sd) const
+int SkewCartesianPartitioner::First(int sd, int &i, int &j, int &k) const
   {
   int gsd = sdMap_->GID(sd);
   int xpos = (gsd % npl_) % npx_;
   int ypos = (gsd % npl_) / npx_;
-  return -dof_ +
-    ((xpos + 1) % (npx_ / 2 + 1)) * sx_ * dof_ + // shift to the right
-    -(1 - ((xpos + 1) / (npx_ / 2 + 1))) * sy_ * dof_ + // shift first row to the left
-    ypos * nx_ * sx_ * dof_ + // shift down
-    -(1 - ((xpos + 1) / (npx_ / 2 + 1))) * nx_ * sy_ * dof_ + // shift first row sy up
-    ((gsd / npl_) % npz_) * nx_ * ny_ * sz_ * dof_; // z-direction
+  int zpos = gsd / npl_;
+
+  i = -1 +
+    (xpos + 1) % (npx_ / 2 + 1) * sx_ + // shift to the right
+    -(1 - ((xpos + 1) / (npx_ / 2 + 1))) * sy_; // shift first row to the left
+  j = ypos * sx_ + // shift down
+    -(1 - ((xpos + 1) / (npx_ / 2 + 1))) * sy_; // shift first row sy up
+  k = zpos * sz_; // z-direction
+  return 0;
+ } 
+
+int SkewCartesianPartitioner::First(int sd) const
+  {
+  int i, j, k;
+  First(sd, i, j, k);
+  return i * dof_ + j * nx_ * dof_ + k * nx_ * ny_ * dof_; // z-direction
   }
 
 int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_nodes,
@@ -278,16 +288,16 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_no
 
   Teuchos::Array<int> *nodes;
 
-  int gsd = sdMap_->GID(sd);
   int first = First(sd);
+  int xpos, ypos, zpos;
+  First(sd, xpos, ypos, zpos);
+
   for (int ktype = (nz_ > 1 ? -1 : 0); ktype < (nz_ > 1 ? 2 : 1); ktype++)
     {
     if (ktype == 1)
       ktype = sz_ - 1;
     if (ktype == -1 && (first / dof_ / nx_ / ny_) % nz_ == 0)
       continue;
-
-    int gsdLayer = gsd - (ktype == -1 ? npl_ : 0);
 
     for (int jtype = -1; jtype < 2; jtype++)
       {
@@ -331,31 +341,24 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_no
                   {
                   for (int i = itype; i < iend; i++)
                     {
+                    int x = xpos - i + j;
+                    int y = ypos + i + j + shift;
+                    if (x < 0 || x >= nx_ || y < 0 || y >= ny_)
+                      continue;
+
                     int gid = first - i * dof_ + i * nx_ * dof_ +
                       j * dof_ + j * nx_ * dof_ +
                       k * nx_ * ny_ * dof_ + d + shift * nx_ * dof_;
 
-                    int gsdNode = operator()(first - i * dof_ + i * nx_ * dof_ +
-                      j * dof_ + j * nx_ * dof_ -
-                      (ktype < 0) * sz_ * nx_ * ny_ * dof_ + d + shift * nx_ * dof_);
-                    // Check if this is actually in this domain or a neighbouring domain
-                    if (gsdNode == gsdLayer ||
-                        (itype == -1 and gsdNode % npl_ == gsdLayer % npl_ - npx_ / 2 and
-                        (gsdLayer % npl_) % npx_ != npx_ / 2 * 2) ||
-                        (jtype == -1 and gsdNode % npl_ == gsdLayer % npl_ - npx_ / 2 - 1 and
-                        (gsdLayer % npl_) % npx_ != npx_ / 2) ||
-                      (itype == -1 and jtype == -1 and gsdNode % npl_ == gsdLayer % npl_ - npx_))
+                    if (d == pvar_ && (!i || itype > 0) && !retained_nodes.size())
                       {
-                      if (d == pvar_ && (!i || itype > 0) && !retained_nodes.size())
-                        {
-                        // Retained pressure nodes
-                        retained_nodes.append(gid);
-                        }
-                      else
-                        {
-                        // Normal nodes in interiors and on separators
-                        nodes->append(gid);
-                        }
+                      // Retained pressure nodes
+                      retained_nodes.append(gid);
+                      }
+                    else
+                      {
+                      // Normal nodes in interiors and on separators
+                      nodes->append(gid);
                       }
                     }
                   }
@@ -391,23 +394,17 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_no
                   {
                   for (int i = itype; i < iend; i++)
                     {
+                    int x = xpos - i + j + shift - 1;
+                    int y = ypos + i + j + 1;
+                    if (x < 0 || x >= nx_ || y < 0 || y >= ny_)
+                      continue;
+
                     int gid = first - i * dof_ + i * nx_ * dof_ +
                       j * dof_ + j * nx_ * dof_ +
                       k * nx_ * ny_ * dof_ + d + nx_ * dof_ - dof_ + shift * dof_;
 
-                    int gsdNode = operator()(first - i * dof_ + i * nx_ * dof_ +
-                      j * dof_ + j * nx_ * dof_ -
-                      (ktype < 0) * sz_ * nx_ * ny_ * dof_ + d + nx_ * dof_ - dof_ + shift * dof_);
-                    // Check if this is actually in this domain or a neighbouring domain
-                    if (gsdNode == gsdLayer ||
-                        (itype == sy_-1 and gsdNode % npl_ == gsdLayer % npl_ + npx_ / 2 and
-                        (gsdLayer % npl_) % npx_ != npx_ / 2) ||
-                        (jtype == -1 and gsdNode % npl_ == gsdLayer % npl_ - npx_ / 2 - 1 and
-                        (gsdLayer % npl_) % npx_ != npx_ / 2))
-                      {
-                      // Normal nodes in interiors and on separators
-                      nodes->append(gid);
-                      }
+                    // Normal nodes in interiors and on separators
+                    nodes->append(gid);
                     }
                   }
                 }

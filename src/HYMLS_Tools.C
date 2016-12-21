@@ -211,6 +211,26 @@ std::ostream& Tools::printFunctionStack(std::ostream& os)
   return os;
   }
 
+void Tools::ind2sub(int nx, int ny, int nz, int dof, 
+  int idx, int& i, int& j, int& k, int& var)
+  {
+#ifdef HYMLS_TESTING
+  if (idx < 0 || idx >= x * ny * nz * dof)
+    {
+    std::cerr << "dim=["<<nx<<","<<ny<<","<<nz<<"], dof="<<dof<<": ind="<<idx<<std::endl;
+    Tools::Error("ind2sub: Index out of range!",__FILE__,__LINE__);
+    }
+#endif
+  int rem = idx;
+  var = rem % dof;
+  rem = rem / dof;
+  i = rem % nx;
+  rem = rem / nx;
+  j = rem % ny;
+  rem = rem / ny;
+  k = rem % nz;
+  }
+
 #ifdef HYMLS_DEBUGGING
 void Tools::SetCheckPoint(std::string fname, std::string msg,
         std::string file, int line)

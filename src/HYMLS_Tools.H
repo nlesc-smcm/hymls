@@ -179,25 +179,8 @@ Teuchos::print_stack_on_segfault();
       }
 
   //! converts linear index to cartesian subscripts
-  static inline void ind2sub(int nx, int ny, int nz, int dof, 
-        int idx, int& i, int& j, int& k, int& var)
-    {
-#ifdef HYMLS_TESTING    
-    if ((idx<0)||(idx>=(nx*ny*nz*dof)))
-      {
-      std::cerr << "dim=["<<nx<<","<<ny<<","<<nz<<"], dof="<<dof<<": ind="<<idx<<std::endl;
-      Tools::Error("ind2sub: Index out of range!",__FILE__,__LINE__);
-      }
-#endif      
-    int rem=idx;
-    var=MOD(rem,dof);
-    rem=(rem-var)/dof;
-    i=MOD(rem,nx);
-    rem=(rem-i)/nx;
-    j=MOD(rem,ny);
-    rem=(rem-j)/ny;
-    k=MOD(rem,nz);
-    }
+  static void ind2sub(int nx, int ny, int nz, int dof, 
+    int idx, int& i, int& j, int& k, int& var);
 
 static void SignalHandler(int signum)
   {
