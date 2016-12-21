@@ -1067,20 +1067,20 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes2D, nx, ny, sx, sy)
     int substart = part->First(sd);
 
     // Compute the number of groups we expect
-    int numGrps = 18;
+    int numGrps = 8 + 4 + 1 + 1;
     // Right
-    numGrps -= (gsd % nsx == nsx / 2 * 2) * 6;
+    numGrps -= (gsd % nsx == nsx / 2 * 2) * 3;
     // Bottom
-    numGrps -= (gsd > (nsl - nsx / 2 - 1)) * 6;
+    numGrps -= (gsd > (nsl - nsx / 2 - 1)) * 5;
     // Left
-    numGrps -= (gsd % nsx == nsx / 2) * 10;
-    numGrps -= (gsd % nsx == 0) * 2;
+    numGrps -= (gsd % nsx == nsx / 2) * 7;
+    numGrps -= (gsd % nsx == 0);
     // Top
-    numGrps -= (gsd < nsx / 2) * 10;
-    numGrps -= (gsd >= nsx / 2 and gsd < nsx) * 2;
+    numGrps -= (gsd < nsx / 2) * 7;
+    numGrps -= (gsd >= nsx / 2 and gsd < nsx);
 
-    if (numGrps < 8)
-      numGrps = 8;
+    if (numGrps < 7)
+      numGrps = 7;
 
     TEST_EQUALITY(opart2->NumGroups(sd), numGrps);
 
@@ -1092,7 +1092,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes2D, nx, ny, sx, sy)
         if (gsd % nsx == nsx / 2 * 2)
           {
           // Right
-          TEST_EQUALITY(opart2->NumElements(sd, grp), sx * sy * 3 + sy - 1);
+          TEST_EQUALITY(opart2->NumElements(sd, grp), sx * sy * 3 + sy - 1 - 1 + sy  - 1);
           int m = 0;
           int pos = 0;
           for (int j = 0; j < sx * 2 - 1; j++)
@@ -1103,7 +1103,9 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes2D, nx, ny, sx, sy)
                 // First p-node in the interior
                 if (d == 2 && j == 0 && i == -m)
                   continue;
-                if (d != 2 && i == -m && j > sx - 1)
+                if (d == 1 && i == -m && j > sx - 1)
+                  continue;
+                if (d == 0 && i == -m && j == 0)
                   continue;
                 TEST_EQUALITY(opart2->GID(sd, grp, pos), substart + i * dof + j * nx * dof + d);
                 pos++;
@@ -1117,7 +1119,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes2D, nx, ny, sx, sy)
         else if (gsd > (nsl - nsx / 2 - 1))
           {
           // Bottom
-          TEST_EQUALITY(opart2->NumElements(sd, grp), sy * sx * 3 - 1);
+          TEST_EQUALITY(opart2->NumElements(sd, grp), sy * sx * 3 - 1 - sx);
           int m = 0;
           int pos = 0;
           for (int j = 0; j < sx; j++)
@@ -1128,6 +1130,8 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes2D, nx, ny, sx, sy)
                 // First p-node in the interior
                 if (d == 2 && j == 0 && i == -m)
                   continue;
+                if (d == 0 && i == m)
+                  continue;
                 TEST_EQUALITY(opart2->GID(sd, grp, pos), substart + i * dof + j * nx * dof + d);
                 pos++;
                 }
@@ -1137,7 +1141,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes2D, nx, ny, sx, sy)
         else if (gsd % nsx == nsx / 2)
           {
           // Left
-          TEST_EQUALITY(opart2->NumElements(sd, grp), (sy * sx - sx - (sx - 1)) * 3 + sx - 2);
+          TEST_EQUALITY(opart2->NumElements(sd, grp), (sy * sx - sx - (sx - 1)) * 3 - 1);
           int m = 1;
           int pos = 0;
           for (int j = 0; j < sx * 2 - 1; j++)
@@ -1147,6 +1151,8 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes2D, nx, ny, sx, sy)
                 {
                 // First p-node in the interior
                 if (d == 2 && j == 1 && i == 1)
+                  continue;
+                if (d == 0 && i == m-1 && j <= sx - 1)
                   continue;
                 if (d != 2 && i == m-1 && j > sx - 1)
                   continue;
@@ -1162,7 +1168,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes2D, nx, ny, sx, sy)
         else if (gsd < nsx / 2)
           {
           // Top
-          TEST_EQUALITY(opart2->NumElements(sd, grp), (sy * sx - sx - (sx - 1)) * 3 + 2 * sx - 2);
+          TEST_EQUALITY(opart2->NumElements(sd, grp), (sy * sx - sx - (sx - 1)) * 3 + 2 * sx - 2 + sx - 1);
           int m = sx - 1;
           int pos = 0;
           for (int j = 0; j < sx - 1; j++)
@@ -1173,7 +1179,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes2D, nx, ny, sx, sy)
                 // First p-node in the interior
                 if (d == 2 && j == 0 && i == -m+1)
                   continue;
-                if (d != 2 && (i == -m || i == m))
+                if ((d == 1 && (i == -m || i == m)) || (d == 0 && (i == m)))
                   continue;
                 TEST_EQUALITY(opart2->GID(sd, grp, pos), substart + nx * sy * dof + i * dof + j * nx * dof + d);
                 pos++;
@@ -1183,7 +1189,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes2D, nx, ny, sx, sy)
           }
         else
           {
-          TEST_EQUALITY(opart2->NumElements(sd, grp), (2 * sx * sy - sx - (sx - 1)) * 3 + 2 * sx - 2);
+          TEST_EQUALITY(opart2->NumElements(sd, grp), sy * sy * 2 * 3 - (sx + sx - 1) - 1 - sx * 2);
           int m = 0;
           int pos = 0;
           for (int j = 0; j < sx * 2 - 1; j++)
@@ -1194,7 +1200,9 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes2D, nx, ny, sx, sy)
                 // First p-node in the interior
                 if (d == 2 && j == 0 && i == -m)
                   continue;
-                if (d != 2 && (i == -m || i == m) && j > sx - 1)
+                if (d == 1 && (i == -m || i == m) && j > sx - 1)
+                  continue;
+                if (d == 0 && ((i == m && j <= sx - 1) || (i == m && j > sx - 1)))
                   continue;
                 TEST_EQUALITY(opart2->GID(sd, grp, pos), substart + i * dof + j * nx * dof + d);
                 pos++;
@@ -1206,8 +1214,9 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes2D, nx, ny, sx, sy)
             }
           }
         }
-      else if (std::abs(opart2->GID(sd, grp, 0) - (substart + dof) - 0.5) < 1 ||
-        std::abs(opart2->GID(sd, grp, 0) - (substart + nx * sy * dof - sy * dof + dof) - 0.5) < 1)
+      else if (opart2->GID(sd, grp, 0) % dof != 0 &&
+          (std::abs(opart2->GID(sd, grp, 0) - (substart + dof) - 0.5) < 1 ||
+          std::abs(opart2->GID(sd, grp, 0) - (substart + nx * sy * dof - sy * dof + dof) - 0.5) < 1))
         {
         // Top left to bottom right
         TEST_EQUALITY(opart2->NumElements(sd, grp), sy - 1);
@@ -1216,11 +1225,55 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes2D, nx, ny, sx, sy)
           TEST_EQUALITY(opart2->GID(sd, grp, i), opart2->GID(sd, grp, 0) + dof * i * (nx + 1));
           }
         }
-      else if (std::abs(opart2->GID(sd, grp, 0) - (substart - dof) - 0.5) < 1 ||
-        std::abs(opart2->GID(sd, grp, 0) - (substart + nx * sy * dof + sy * dof - dof) - 0.5) < 1)
+      else if (opart2->GID(sd, grp, 0) % dof != 0 &&
+          (std::abs(opart2->GID(sd, grp, 0) - (substart - dof) - 0.5) < 1 ||
+          std::abs(opart2->GID(sd, grp, 0) - (substart + nx * sy * dof + sy * dof - dof) - 0.5) < 1))
         {
         // Top right to bottom left
         TEST_EQUALITY(opart2->NumElements(sd, grp), sy - 1);
+        for (int i = 0; i < opart2->NumElements(sd, grp); i++)
+          {
+          TEST_EQUALITY(opart2->GID(sd, grp, i), opart2->GID(sd, grp, 0) + dof * i * (nx - 1));
+          }
+        }
+      else if (opart2->GID(sd, grp, 0) % dof == 0 &&
+          (opart2->GID(sd, grp, 0) == substart ||
+          opart2->GID(sd, grp, 0) == substart + dof * (nx+1) ||
+          opart2->GID(sd, grp, 0) == substart + nx * sy * dof - sy * dof ||
+          opart2->GID(sd, grp, 0) == substart + nx * sy * dof - sy * dof + dof * (nx+1)))
+        {
+        // Top left to bottom right
+        if (gsd % nsx == nsx / 2 * 2 && opart2->GID(sd, grp, 0) == substart)
+          {
+          TEST_EQUALITY(opart2->NumElements(sd, grp), 1);
+          }
+        else if (opart2->GID(sd, grp, 0) == substart + dof * (nx+1) ||
+          opart2->GID(sd, grp, 0) == substart + nx * sy * dof - sy * dof + dof * (nx+1))
+          {
+          TEST_EQUALITY(opart2->NumElements(sd, grp), sy-1);
+          }
+        else
+          {
+          TEST_EQUALITY(opart2->NumElements(sd, grp), sy);
+          }
+        for (int i = 0; i < opart2->NumElements(sd, grp); i++)
+          {
+          TEST_EQUALITY(opart2->GID(sd, grp, i), opart2->GID(sd, grp, 0) + dof * i * (nx + 1));
+          }
+        }
+      else if (opart2->GID(sd, grp, 0) % dof == 0 &&
+          (opart2->GID(sd, grp, 0) == substart - dof ||
+          opart2->GID(sd, grp, 0) == substart + nx * sy * dof + sy * dof - dof))
+        {
+        // Top right to bottom left
+        if (gsd % nsx == nsx / 2 || (gsd % nsx == 0 && opart2->GID(sd, grp, 0) == substart - dof))
+          {
+          TEST_EQUALITY(opart2->NumElements(sd, grp), sy-1);
+          }
+        else
+          {
+          TEST_EQUALITY(opart2->NumElements(sd, grp), sy);
+          }
         for (int i = 0; i < opart2->NumElements(sd, grp); i++)
           {
           TEST_EQUALITY(opart2->GID(sd, grp, i), opart2->GID(sd, grp, 0) + dof * i * (nx - 1));
