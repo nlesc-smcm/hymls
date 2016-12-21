@@ -1299,3 +1299,126 @@ TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewStokes2D, 2, 16, 16, 4, 4);
 TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewStokes2D, 3, 16, 8, 4, 4);
 TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewStokes2D, 4, 4, 4, 2, 2);
 TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewStokes2D, 5, 64, 64, 16, 16);
+
+TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes3D, nx, ny, nz, sx, sy, sz)
+  {
+  Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
+  HYMLS::Tools::InitializeIO(Comm);
+
+  int nsx = nx / sx + 1;
+  int nsy = ny / sy / 2;
+  int nsl = nsx * nsy + nsx / 2;
+
+  int dof = 4;
+  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(nx*ny*nz*dof, 0, *Comm));
+
+  Teuchos::RCP<HYMLS::SkewCartesianPartitioner> part = Teuchos::rcp(new HYMLS::SkewCartesianPartitioner(map, nx, ny, nz, dof));
+  part->Partition(sx, sy, sz, true);
+  *map = *part->GetMap();
+
+  Teuchos::RCP<Teuchos::ParameterList> paramList = Teuchos::rcp(new Teuchos::ParameterList);
+  Teuchos::ParameterList &problemList = paramList->sublist("Problem");
+  problemList.set("nx", nx);
+  problemList.set("ny", ny);
+  problemList.set("nz", nz);
+  
+  Teuchos::ParameterList problemListCopy = problemList;
+  Teuchos::RCP<Epetra_CrsMatrix> matrix = Teuchos::rcp(
+    GaleriExt::CreateCrsMatrix("Stokes3D", map.get(), problemListCopy));
+
+  for (int i = 0; i < 3; i++)
+      {
+      Teuchos::ParameterList& velList =
+        problemList.sublist("Variable " + Teuchos::toString(i));
+      velList.set("Variable Type", "Laplace");
+      }
+
+  Teuchos::ParameterList& presList =
+    problemList.sublist("Variable "+Teuchos::toString(3));
+  presList.set("Variable Type", "Retain 1");
+  presList.set("Retain Isolated", true);
+
+  problemList.set("Dimension", 3);
+  problemList.set("Degrees of Freedom", dof);
+
+  Teuchos::ParameterList &solverList = paramList->sublist("Preconditioner");
+  solverList.set("Separator Length", sx);
+  solverList.set("Coarsening Factor", 2);
+  solverList.set("Partitioner", "Skew Cartesian");
+
+  Teuchos::RCP<HYMLS::OverlappingPartitioner> opart2 = Teuchos::rcp(
+    new HYMLS::OverlappingPartitioner(matrix, paramList, 0));
+
+  for (int sd = 0; sd < opart2->NumMySubdomains(); sd++)
+    {
+    int gsd = opart2->Partitioner().SubdomainMap().GID(sd);
+
+    // Compute the number of groups we expect
+    int numGrps = 23 + 21 + 23 + 1;
+    int leftOver = 23;
+    // Right
+    if ((gsd % nsl) % nsx == nsx / 2 * 2)
+      {
+      numGrps -= 18;
+      leftOver -= 6;
+      }
+    // Bottom
+    if ((gsd % nsl) > (nsl - nsx / 2 - 1))
+      {
+      numGrps -= 24;
+      leftOver -= 8;
+      }
+    // Left
+    if ((gsd % nsl) % nsx == nsx / 2)
+      {
+      numGrps -= 36;
+      leftOver -= 12;
+      }
+    if ((gsd % nsl) % nsx == 0)
+      {
+      numGrps -= 6;
+      leftOver -= 2;
+      }
+    // Top
+    if ((gsd % nsl) < nsx / 2)
+      {
+      numGrps -= 36;
+      leftOver -= 12;
+      }
+    if ((gsd % nsl) >= nsx / 2 and (gsd % nsl) < nsx)
+      {
+      numGrps -= 6;
+      leftOver -= 2;
+      }
+
+    if (numGrps < 32)
+      {
+      numGrps = 32;
+      leftOver = 11;
+      }
+
+    // Front
+    if (gsd / nsl == 0)
+      {
+      numGrps -= leftOver;
+      }
+
+    TEST_EQUALITY(opart2->NumGroups(sd), numGrps);
+
+    int totalNodes = 0;
+    for (int grp = 0; grp < opart2->NumGroups(sd); grp++)
+      {
+      totalNodes += opart2->NumElements(sd, grp);
+      }
+    if (numGrps == 23 + 21 + 23 + 1)
+      {
+      TEST_EQUALITY(totalNodes,
+        (sx * sy * 2 * 3 + 2 * (sx + sx + 1) + (sx + sx)) * (sz + 1) +
+        sx * sy * 2 * sz);
+      }
+    }
+  }
+
+TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewStokes3D, 1, 8, 8, 8, 4, 4, 4);
+TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewStokes3D, 2, 16, 16, 16, 4, 4, 4);
+TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewStokes3D, 3, 16, 8, 8, 4, 4, 4);
