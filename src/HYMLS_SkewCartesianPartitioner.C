@@ -294,8 +294,17 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_no
 
   for (int ktype = (nz_ > 1 ? -1 : 0); ktype < (nz_ > 1 ? 2 : 1); ktype++)
     {
-    if (ktype == 1)
+    if (ktype == 1 && nz_ > 1 && zpos + sz_ == nz_)
+      continue;
+    else if (ktype == 1)
       ktype = sz_ - 1;
+
+    int kend = ktype + 1;
+    if (ktype == 0 && nz_ > 1 && zpos + sz_ == nz_)
+      kend = sz_;
+    else if (ktype == 0 && nz_ > 1)
+      kend = sz_ - 1;
+
     if (ktype == -1 && (first / dof_ / nx_ / ny_) % nz_ == 0)
       continue;
 
@@ -311,10 +320,12 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_no
 
         for (int d = 0; d < dof_; d++)
           {
-          if (d == pvar_ && (itype == -1 || jtype == -1 || ktype == -1))
+          if (d == pvar_ && ((itype == 0 && jtype == 0 && ktype == -1) ||
+              (ktype != -1 && (itype == -1 || jtype == -1))))
             continue;
-          else if ((itype == 0 && jtype == 0 && ktype == 0) || d == pvar_)
-            nodes = &interior_nodes;
+          else if ((itype == 0 && jtype == 0 && ktype == 0) ||
+            (d == pvar_ && (ktype == 0 || (itype == 0 && jtype == 0))))
+             nodes = &interior_nodes;
           else
             {
             separator_nodes.append(Teuchos::Array<int>());
@@ -335,7 +346,7 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_no
               else if (itype == 0)
                 iend = sy_ - 1;
 
-              for (int k = ktype; k < ((ktype || nz_ <= 1) ? ktype+1 : sz_-1); k++)
+              for (int k = ktype; k < kend; k++)
                 {
                 for (int j = jtype; j < jend; j++)
                   {
@@ -349,7 +360,7 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_no
                     int gid = first + (j - i) * dof_ + (i + j + shift) * nx_ * dof_ +
                       k * nx_ * ny_ * dof_ + d;
 
-                    if (d == pvar_ && (!i || itype > 0) && !retained_nodes.size())
+                    if (d == pvar_ && ktype == 0 && (!i || itype > 0) && !retained_nodes.size())
                       {
                       // Retained pressure nodes
                       retained_nodes.append(gid);
@@ -384,7 +395,7 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_no
               if (shift == 0 and jtype != 0)
                 continue;
 
-              for (int k = ktype; k < ((ktype || nz_ <= 1) ? ktype+1 : sz_-1); k++)
+              for (int k = ktype; k < kend; k++)
                 {
                 for (int j = jtype; j < jend; j++)
                   {
