@@ -17,7 +17,7 @@
     <Parameter name="Store Solution" type="bool" value="0"/>
     <Parameter name="Store Matrix" type="bool" value="0"/>
     <ParameterList name="Eigenvalues">
-      <Parameter name="Which" type="string" value="SM"/>
+      <Parameter name="Which" type="string" value="LR"/>
       <Parameter name="How Many" type="int" value="6"/>
       <Parameter name="Convergence Tolerance" type="double" value="1.0e-5"/>
       <Parameter name="Test Space" type="string" value="V"/>
@@ -35,8 +35,8 @@
     <Parameter name="Mass Matrix Available" type="bool" value="0"/>
 
     <!-- read null space from nullSpace.mtx if dim0>0 -->
-    <Parameter name="Null Space Type" type="string" value="File"/>
-    <Parameter name="Null Space Dimension" type="int" value="2"/>
+    <Parameter name="Null Space Type" type="string" value="None"/>
+    <Parameter name="Null Space Dimension" type="int" value="0"/>
     
     <Parameter name="Store Final Parameter List" type="bool" value="1"/>
   </ParameterList>
@@ -54,6 +54,9 @@
     <Parameter name="nx" type="int" value="32"/>
     <Parameter name="ny" type="int" value="32"/>
     <Parameter name="nz" type="int" value="1"/>
+    
+    <Parameter name="x-periodic" type="bool" value="true"/>
+    <Parameter name="y-periodic" type="bool" value="true"/>
     
     <ParameterList name="Variable 0">
       <Parameter name="Variable Type" type="string" value="Laplace"/>
