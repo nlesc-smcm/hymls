@@ -29,7 +29,7 @@
 
     <Parameter name="Read Linear System" type="bool" value="1"/>
     <Parameter name="Data Directory" type="string" 
-    value="${PROJECT_SOURCE_DIR}/testSuite/data/Turing/32x32"/>
+    value="/home/song_we/repo/hymls/testSuite/data/Turing/32x32"/>
     <Parameter name="File Format" type="string" value="MatrixMarket"/>
     <Parameter name="Exact Solution Available" type="bool" value="0"/>
     <Parameter name="Mass Matrix Available" type="bool" value="0"/>
@@ -80,7 +80,7 @@
     <Parameter name="Initial Vector" type="string" value="Previous"/>
     
     <!-- apply preconditioning from left or right (if Krylov Method!="None") -->
-    <Parameter name="Left or Right Preconditioning" type="string" value="Left"/>
+    <Parameter name="Left or Right Preconditioning" type="string" value="Right"/>
     
     <!-- this is not necessary for Laplace, of course, but we can test the eigensolver: -->
     <Parameter name="Deflated Subspace Dimension" type="int" value="0"/>
@@ -94,7 +94,7 @@
       <Parameter name="Num Blocks" type="int" value="50"/>
       <Parameter name="Flexible Gmres" type="bool" value="0"/>
       <Parameter name="Explicit Residual Test" type="bool" value="false"/>
-      <Parameter name="Convergence Tolerance" type="double" value="1.0e-9"/>
+      <Parameter name="Convergence Tolerance" type="double" value="1.0e-8"/>
       <Parameter name="Output Frequency" type="int" value="1"/>
       <Parameter name="Show Maximum Residual Norm Only" type="bool" value="1"/>
     </ParameterList>
