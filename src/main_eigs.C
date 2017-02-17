@@ -36,6 +36,10 @@
 #include "AnasaziPhistSolMgr.hpp"
 #endif
 
+#ifdef EPETRA_HAVE_OMP
+#include <omp.h>
+#endif
+
 /*
 #include "EpetraExt_HDF5.h"
 #include "EpetraExt_Exception.h"
@@ -72,6 +76,14 @@ bool status=true;
   HYMLS::HyperCube Topology;
   Teuchos::RCP<const Epetra_MpiComm> comm = Teuchos::rcp
         (&Topology.Comm(), false);
+
+#ifdef EPETRA_HAVE_OMP
+#warning "Epetra is installed with OpenMP support, make sure to set OMP_NUM_THREADS=1"
+  // If Epetra tries to parallelize local ops this causes
+  // massive problems because many of our data tructures 
+  // are so small.
+  omp_set_num_threads(1);
+#endif
     
   // construct file streams, otherwise the output won't work correctly
   HYMLS::Tools::InitializeIO(comm);
