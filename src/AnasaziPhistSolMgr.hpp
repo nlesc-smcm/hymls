@@ -166,6 +166,8 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
     // Initialize phist options
     phist_jadaOpts_setDefaults(&d_opts);
     d_opts.numEigs = d_problem->getNEV();
+    d_opts.symmetry = d_problem->isHermitian()?phist_HERMITIAN:phist_GENERAL;
+    d_opts.innerSolvType = d_problem->isHermitian()?phist_MINRES:phist_GMRES;
 
     if( !pl.isType<int>("Block Size") )
     {
