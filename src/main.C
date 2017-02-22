@@ -3,6 +3,7 @@
 
 #include <mpi.h>
 
+#include "Epetra_config.h"
 #include "Epetra_MpiComm.h"
 #include "Epetra_Map.h"
 #include "Epetra_Vector.h"
@@ -19,6 +20,10 @@
 #endif
 
 #include "main_utils.H"
+
+#ifdef EPETRA_HAVE_OMP
+#include <omp.h>
+#endif
 
 /*
 #include "EpetraExt_HDF5.h"
@@ -52,6 +57,14 @@ bool status=true;
   HYMLS::HyperCube Topology;
   Teuchos::RCP<const Epetra_MpiComm> comm = Teuchos::rcp
         (&Topology.Comm(), false);
+
+#ifdef EPETRA_HAVE_OMP
+#warning "Epetra is installed with OpenMP support, make sure to set OMP_NUM_THREADS=1"
+  // If Epetra tries to parallelize local ops this causes
+  // massive problems because many of our data tructures 
+  // are so small.
+  omp_set_num_threads(1);
+#endif
     
   // construct file streams, otherwise the output won't work correctly
   HYMLS::Tools::InitializeIO(comm);
@@ -152,6 +165,34 @@ bool status=true;
     int ny=probl_params.get("ny",nx);
     int nz=probl_params.get("nz",dim>2?nx:1);
 
+    GaleriExt::PERIO_Flag perio=probl_params.get("Periodicity",GaleriExt::NO_PERIO);
+    if (probl_params.isParameter("x-periodic"))
+    {
+      if (probl_params.get("x-periodic",false)==true)
+      {
+        (uint32_t&)perio |= (uint32_t)GaleriExt::X_PERIO;
+      }
+      if (read_problem) probl_params.remove("x-periodic");
+    }
+    if (probl_params.isParameter("y-periodic"))
+    {
+      if (probl_params.get("y-periodic",false)==true)
+      {
+        (uint32_t&)perio |= (uint32_t)GaleriExt::Y_PERIO;
+      }
+      if (read_problem) probl_params.remove("y-periodic");
+    }
+    if (probl_params.isParameter("z-periodic"))
+    {
+      if (probl_params.get("z-periodic",false)==true)
+      {
+        (uint32_t&)perio |= (uint32_t)GaleriExt::Z_PERIO;
+      }
+      if (read_problem) probl_params.remove("z-periodic");
+    }
+    
+    if (read_problem) probl_params.set("Periodicity",perio);
+      
     // copy problem sublist so that the main utils don't modify the original
     Teuchos::ParameterList probl_params_cpy = probl_params;
   

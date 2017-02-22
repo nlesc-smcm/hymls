@@ -16,9 +16,9 @@
 #include "phist_macros.h"
 #include "phist_kernels.h"
 #include "phist_operator.h"
-#include "phist_jdqr.h"
+#include "phist_precon.h"
 #include "phist_jadaOpts.h"
-#include "phist_orthog.h"
+#include "phist_subspacejada.h"
 
 #include "HYMLS_Solver.H"
 #include "HYMLS_Tester.H"
@@ -101,9 +101,11 @@ class PhistSolMgr : public SolverManager<ScalarType,MV,OP>
         typedef Teuchos::ScalarTraits<MagnitudeType> MT;
 
         RCP< Eigenproblem<ScalarType,MV,OP> >           d_problem;
+        RCP< const Epetra_CrsMatrix >                   d_Amat;
+        RCP< const Epetra_CrsMatrix >                   d_Bmat;
         RCP< PREC >                                     d_prec;
         // used to pass HYMLS object to phist
-        RCP<phist_hymls_wrapper>                        d_wrapper;
+        Teuchos::RCP<phist_DlinearOp>                   d_preconOp, d_preconPointers;
         phist_jadaOpts                                  d_opts;
 
         bool borderedSolver;
@@ -150,9 +152,22 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
     TEUCHOS_TEST_FOR_EXCEPTION( d_problem->getInitVec() == Teuchos::null,  std::invalid_argument, "No vector to clone from on Eigenproblem." );
     TEUCHOS_TEST_FOR_EXCEPTION( d_problem->getNEV() <= 0,                  std::invalid_argument, "Number of requested eigenvalues must be positive.");
 
+    d_Amat=Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(d_problem->getA());
+    if (d_Amat==Teuchos::null)
+    {
+      d_Bmat=Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(d_problem->getM());
+    }
+    else
+    {
+      d_Amat=Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(d_problem->getOperator());
+    }
+    TEUCHOS_TEST_FOR_EXCEPTION(d_Amat==Teuchos::null,std::invalid_argument,"problem->getA() is null or not an Epetra_CrsMatrix!");
+
     // Initialize phist options
     phist_jadaOpts_setDefaults(&d_opts);
     d_opts.numEigs = d_problem->getNEV();
+    d_opts.symmetry = d_problem->isHermitian()?phist_HERMITIAN:phist_GENERAL;
+    d_opts.innerSolvType = d_problem->isHermitian()?phist_MINRES:phist_GMRES;
 
     if( !pl.isType<int>("Block Size") )
     {
@@ -177,6 +192,10 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
                                 std::invalid_argument, "Convergence Tolerance must be greater than zero." );
 
     d_opts.convTol = tol;
+    d_opts.numEigs = pl.get<int>("How Many");
+    d_opts.minBas = d_opts.numEigs + 2;
+    d_opts.blockSize = pl.get<int>("Block Size");
+
 
     // Get maximum restarts
     d_opts.maxBas = pl.get<int>("Restart Dimension",d_problem->getNEV());
@@ -213,7 +232,7 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
     }
     else
     {
-        borderedSolver = true;
+        borderedSolver = false;
     }
 
     // Get sort type
@@ -232,16 +251,38 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
         d_opts.which = phist_LM;
     }
 
-  d_wrapper = Teuchos::rcp(new phist_hymls_wrapper);
-  d_wrapper->solver = d_prec;
-  d_wrapper->borderedSolver = borderedSolver;
+    // the preconOp is the phist preconditioning object, the
+    // preconPointers are just used to define how our user-
+    // defined preconditioner can be applied or updated.
+    d_preconOp=Teuchos::rcp(new phist_DlinearOp);
+    d_preconPointers=Teuchos::rcp(new phist_DlinearOp);
 
-  // tell phist to use a custom solver provided in d_opts->custom_solver;
-  d_opts.innerSolvType = phist_USER_DEFINED;
-  d_opts.customSolver = (void*)d_wrapper.get();
-  d_opts.customSolver_run = HYMLS_jadaCorrectionSolver_run;
-  d_opts.customSolver_run1 = HYMLS_jadaCorrectionSolver_run1;
-  d_opts.custom_computeResidual = HYMLS_computeResidual;
+    d_preconPointers->A=d_prec.get();
+    d_preconPointers->aux=d_prec.get();
+    d_preconPointers->range_map=&(d_prec->OperatorRangeMap());
+    d_preconPointers->domain_map=&(d_prec->OperatorDomainMap());
+    d_preconPointers->apply=HYMLS::phist_precon_apply;
+    d_preconPointers->apply_shifted=HYMLS::phist_precon_apply_shifted;
+    d_preconPointers->update=HYMLS::phist_precon_update;
+        
+    // this function just wraps the user-defined preconditioner, so the input args don't matter
+    // too much. A must not be NULL because the function tries to get its range and domain map.
+    int iflag;
+    phist_Dprecon_create(d_preconOp.get(),d_Amat.get(),0.,d_Bmat.get(),NULL,NULL,
+        "user_defined",NULL,d_preconPointers.get(),&iflag);
+
+    TEUCHOS_TEST_FOR_EXCEPTION(iflag!=0,std::runtime_error,"iflag!=0 returned from phist_Dprecon_create");
+
+    // tell phist to use a custom solver provided in d_opts->custom_solver;
+    d_opts.innerSolvType = phist_GMRES;
+    d_opts.preconOp=d_preconOp.get();
+    d_opts.preconType=phist_USER_PRECON;
+    // if the parameter "Bordered Solver" is set we use HYMLS' bordering
+    // functionality for assuring t \orth r when solving the JaDa correction
+    // equation. So we ask phist *not* to skew-project and to call the 
+    // preconditioner's update function before each linear solve.
+    d_opts.preconSkewProject=borderedSolver?0:1;
+    d_opts.preconUpdate=borderedSolver?1:0;
 }
 
 template <class ScalarType>
@@ -267,23 +308,23 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
 
   // create operator wrapper for computing Y=A*X using a CRS matrix
   Teuchos::RCP<phist_DlinearOp> A_op = Teuchos::rcp(new phist_DlinearOp);
-  phist_DlinearOp_wrap_sparseMat(A_op.get(), Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(d_problem->getOperator()).get(), &iflag);
-  TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
-    "PhistSolMgr::solve: phist_DlinearOp_wrap_sparseMat returned nonzero error code "+Teuchos::toString(iflag));
-
   Teuchos::RCP<phist_DlinearOp> B_op = Teuchos::null;
-  if (d_problem->getM() != Teuchos::null)
+  
+  if (d_Bmat != Teuchos::null)
   {
-    Teuchos::RCP<const Epetra_CrsMatrix> B_rcp=Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(d_problem->getM());
-    const Epetra_CrsMatrix* B=B_rcp.get();
     B_op = Teuchos::rcp(new phist_DlinearOp());
-    phist_DlinearOp_wrap_sparseMat(B_op.get(), B, &iflag);
+    phist_DlinearOp_wrap_sparseMat_pair(A_op.get(), d_Amat.get(), d_Bmat.get(),&iflag);
+    TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
+    "PhistSolMgr::solve: phist_DlinearOp_wrap_sparseMat returned nonzero error code "+Teuchos::toString(iflag));
+    phist_DlinearOp_wrap_sparseMat(B_op.get(), d_Bmat.get(), &iflag);
     TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
       "PhistSolMgr::solve: phist_DlinearOp_wrap_sparseMat returned nonzero error code "+Teuchos::toString(iflag));
-    //       Use the 'free' field aux in the B operator to pass the solver to ComputeResidual. We need to do 
-    //  this right now because there is no systematic way in hymls to provide an 'additional projection space'
-    B_op->aux=d_opts.customSolver;
-    d_prec->SetMassMatrix(B_rcp);
+  }
+  else
+  {
+    phist_DlinearOp_wrap_sparseMat(A_op.get(), d_Amat.get(), &iflag);
+    TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
+      "PhistSolMgr::solve: phist_DlinearOp_wrap_sparseMat returned nonzero error code "+Teuchos::toString(iflag));
   }
 
 
@@ -299,45 +340,57 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
   TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
     "PhistSolMgr::solve: phist_Dmvec_normalize returned nonzero error code "+Teuchos::toString(iflag));
 
-  int num_eigs;
-
-  phist_Djdqr(A_op.get(), B_op.get(), X.get(), Q.get(), NULL, &evals[0], &resid[0], &is_cmplx[0],
-        d_opts, &num_eigs, &numIters_, &iflag);
-  TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
-    "PhistSolMgr::solve: phist_Djdqr returned nonzero error code "+Teuchos::toString(iflag));
-
   Eigensolution<ScalarType,MV> sol;
+  int num_eigs, block_dim;
+  num_eigs = d_opts.numEigs;
+  block_dim = d_opts.blockSize; 
+  
+  std::complex<double> *ev = new std::complex<double>[num_eigs+block_dim-1];
+   
+  //phist_Djdqr(A_op.get(), B_op.get(), X.get(), Q.get(), NULL, &evals[0], &resid[0], &is_cmplx[0],
+    //    d_opts, &num_eigs, &numIters_, &iflag);
+  
+  //using Djdqr, R could be NULL. But using subspacejada, we need to create R
+  phist_DsdMat_ptr  R = NULL;
+  phist_const_comm_ptr comm = NULL;
+  phist_Dmvec_get_comm(Q.get(),&comm,&iflag);
+
+  //phist_Dmvec_get_comm(X.get(),&comm,&iflag); //need const_comm
+  // wrap MPI_COMM_WORLD
+  
+  phist_DsdMat_create(&R,num_eigs+block_dim-1,num_eigs+block_dim-1,comm,&iflag); 
+
+  phist_Dsubspacejada(A_op.get(), B_op.get(), d_opts, Q.get(), R, ev, &resid[0],  &num_eigs, &numIters_, &iflag);
+  TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
+    "PhistSolMgr::solve: phist_Dsubspacejada returned nonzero error code "+Teuchos::toString(iflag));
+
   sol.numVecs = num_eigs;
 
   sol.index.resize(sol.numVecs);
   sol.Evals.resize(sol.numVecs);
 
-  int i = 0;
-  while (i < sol.numVecs)
+  for (int i = 0; i < sol.numVecs; i++)
   {
     sol.index[i] = i;
     sol.Evals[i].realpart = evals[i];
-    if (is_cmplx[i]) {
-      sol.Evals[i].imagpart = evals[i+1];
-      sol.Evals[i+1].realpart = evals[i];
-      sol.Evals[i+1].imagpart = -evals[i+1];
-      i++;
-    }
-    i++;
+    sol.Evals[i].realpart = ev[i].real();
+    sol.Evals[i].imagpart = ev[i].imag();
   }
-
-  std::sort(sol.Evals.begin(), sol.Evals.end(), eigSort<ScalarType>);
 
   if (sol.numVecs)
   {
-    sol.Evecs = MVT::CloneCopy(*X, Teuchos::Range1D(0, sol.numVecs-1));
+    //sol.Evecs = MVT::CloneCopy(*X, Teuchos::Range1D(0, sol.numVecs-1));
     sol.Espace = MVT::CloneCopy(*Q, Teuchos::Range1D(0, sol.numVecs-1));
   }
   d_problem->setSolution(sol);
 
+  phist_DsdMat_create(&R,num_eigs+block_dim-1,num_eigs+block_dim-1,comm,&iflag); 
+
   // Return convergence status
   if( sol.numVecs < d_problem->getNEV() )
+  {
     return Unconverged;
+  }
 
   return Converged;
 }

@@ -19,6 +19,8 @@
 
 #include <BelosIMGSOrthoManager.hpp>
 
+#include "HYMLS_config.h"
+
 #ifdef HYMLS_DEBUGGING
 #include <signal.h>
 #endif
@@ -32,6 +34,10 @@
 
 #ifdef HYMLS_USE_PHIST
 #include "AnasaziPhistSolMgr.hpp"
+#endif
+
+#ifdef EPETRA_HAVE_OMP
+#include <omp.h>
 #endif
 
 /*
@@ -48,7 +54,7 @@
 typedef double ST;
 typedef Epetra_MultiVector MV;
 typedef Epetra_Operator OP;
-typedef HYMLS::Solver PREC;
+typedef HYMLS::Preconditioner PREC;
 
 int main(int argc, char* argv[])
   {
@@ -70,6 +76,14 @@ bool status=true;
   HYMLS::HyperCube Topology;
   Teuchos::RCP<const Epetra_MpiComm> comm = Teuchos::rcp
         (&Topology.Comm(), false);
+
+#ifdef EPETRA_HAVE_OMP
+#warning "Epetra is installed with OpenMP support, make sure to set OMP_NUM_THREADS=1"
+  // If Epetra tries to parallelize local ops this causes
+  // massive problems because many of our data tructures 
+  // are so small.
+  omp_set_num_threads(1);
+#endif
     
   // construct file streams, otherwise the output won't work correctly
   HYMLS::Tools::InitializeIO(comm);
@@ -172,6 +186,35 @@ bool status=true;
     int ny=probl_params.get("ny",nx);
     int nz=probl_params.get("nz",dim>2?nx:1);
     int dof=probl_params.get("Degrees of Freedom",2);   
+
+    GaleriExt::PERIO_Flag perio=probl_params.get("Periodicity",GaleriExt::NO_PERIO);
+    if (probl_params.isParameter("x-periodic"))
+    {
+      if (probl_params.get("x-periodic",false)==true)
+      {
+        (uint32_t&)perio |= (uint32_t)GaleriExt::X_PERIO;
+      }
+      if (read_problem) probl_params.remove("x-periodic");
+    }
+    if (probl_params.isParameter("y-periodic"))
+    {
+      if (probl_params.get("y-periodic",false)==true)
+      {
+        (uint32_t&)perio |= (uint32_t)GaleriExt::Y_PERIO;
+      }
+      if (read_problem) probl_params.remove("y-periodic");
+    }
+    if (probl_params.isParameter("z-periodic"))
+    {
+      if (probl_params.get("z-periodic",false)==true)
+      {
+        (uint32_t&)perio |= (uint32_t)GaleriExt::Z_PERIO;
+      }
+      if (read_problem) probl_params.remove("z-periodic");
+    }
+    
+    if (read_problem) probl_params.set("Periodicity",perio);
+
  
     std::string eqn=probl_params_cpy.get("Equations","Laplace");
 
@@ -278,39 +321,15 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     HYMLS::Tools::StopTiming("main: Initialize Preconditioner",true);
     }
   
-  cout << "dof=" << dof <<endl;
-
-  HYMLS::Tools::Out("Create Solver");
-  Teuchos::RCP<HYMLS::Solver> solver = Teuchos::rcp(new HYMLS::Solver(K, precond, params,1));
-
-  // get the null space (if any), as specified in the xml-file
-  Teuchos::RCP<const Epetra_MultiVector> Nul = solver->getNullSpace();
-
   REPORT_MEM("main","before HYMLS",0,0);
   
-  if (precond!=Teuchos::null) 
+  if (precond!=Teuchos::null)
     {
     HYMLS::Tools::StartTiming("main: Compute Preconditioner");
     CHECK_ZERO(precond->Compute());
     HYMLS::Tools::StopTiming("main: Compute Preconditioner",true);
     }
 
-  if (M!=Teuchos::null)
-    {
-    solver->SetMassMatrix(M);
-    }
-
-  if (nullSpace!=Teuchos::null)
-    {
-    CHECK_ZERO(solver->setNullSpace(nullSpace));
-    }
-
-  if (do_deflation)
-    {
-    //~ solver->SetMassMatrix(M);
-    CHECK_ZERO(solver->SetupDeflation());
-    }
-  
   // Set verbosity level
   int verbosity = Anasazi::Errors + Anasazi::Warnings;
   verbosity += Anasazi::IterationDetails;
@@ -370,9 +389,13 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
   // Create the eigenproblem.
   HYMLS_DEBUG("create eigen-problem");
   Teuchos::RCP<Anasazi::BasicEigenproblem<ST, MV, OP> > eigProblem;
-  eigProblem = Teuchos::rcp( new Anasazi::BasicEigenproblem<ST,MV,OP>(K, M, x) );
-  eigProblem->setHermitian(false);
-  eigProblem->setNEV(numEigs);
+  // note: use the default constructor because otherwise only Op and not AOp gets set
+  eigProblem = Teuchos::rcp( new Anasazi::BasicEigenproblem<ST,MV,OP>() );
+    eigProblem->setA(K);
+    eigProblem->setM(M);
+    eigProblem->setInitVec(x);
+    eigProblem->setHermitian(false);
+    eigProblem->setNEV(numEigs);
 
 #ifndef HYMLS_USE_PHIST
   eigProblem->setPrec(precond);
@@ -384,15 +407,15 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     }
 
 #ifdef HYMLS_USE_PHIST
-  Anasazi::PhistSolMgr<ST,MV,OP,PREC> jada(eigProblem,solver,eigList);
+  Anasazi::PhistSolMgr<ST,MV,OP,PREC> esolver(eigProblem,precond,eigList);
 #else
-  Anasazi::BlockKrylovSchurSolMgr<ST,MV,OP> jada(eigProblem,eigList);
+  Anasazi::BlockKrylovSchurSolMgr<ST,MV,OP> esolver(eigProblem,eigList);
 #endif
 
   // Solve the problem to the specified tolerances or length
   Anasazi::ReturnType returnCode;
   HYMLS_DEBUG("solve eigenproblem");
-  returnCode = jada.solve();
+  returnCode = esolver.solve();
   if (returnCode != Anasazi::Converged)
 
     HYMLS::Tools::Warning("Anasazi::EigensolverMgr::solve() returned unconverged.",
@@ -438,16 +461,8 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     {
     if (comm->MyPID()==0)
       {
-      Teuchos::RCP<const Teuchos::ParameterList> finalList
-        = solver->getParameterList();
-      std::string filename1 = param_file+".final";        
-      HYMLS::Tools::out() << "final parameter list is written to '" << filename1<<"'"<<std::endl;
-      writeParameterListToXmlFile(*finalList,filename1);
-
       HYMLS::Tools::out() << "parameter documentation is written to file param_doc.txt" << std::endl;
-      std::ofstream ofs("paramDoc.txt");
-      ofs << "valid parameters for HYMLS::Solver "<<std::endl;
-      printValidParameters(*solver,ofs);
+      std::ofstream ofs("param_doc.txt");
       ofs << "valid parameters for HYMLS::Preconditioner "<<std::endl;
       printValidParameters(*precond,ofs);
       }

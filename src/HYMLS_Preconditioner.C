@@ -532,13 +532,10 @@ HYMLS_TEST(Label(),isDDcorrect(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix
 
   HYMLS_DEBUG("Create Schur-complement");  
 
-  if (Schur_==Teuchos::null)
-    {
-    // construct the Schur-complement operator (no computations, just
-    // pass in pointers of the LU's)
-      Schur_ = Teuchos::rcp(new SchurComplement(
-          A11_, A12_, A21_, A22_, myLevel_));
-    }
+  // construct the Schur-complement operator (no computations, just
+  // pass in pointers of the LU's)
+  Schur_ = Teuchos::rcp(new SchurComplement(
+      A11_, A12_, A21_, A22_, myLevel_));
 Tools::out() << "=============================="<<std::endl;
 Tools::out() << "LEVEL "<< myLevel_<<std::endl;
 Tools::out() << "SIZE OF A: "<< matrix_->NumGlobalRows()<<std::endl;
@@ -588,12 +585,9 @@ Tools::out() << "=============================="<<std::endl;
   MatrixUtils::Dump(*testVector2, "testVecDrop"+Teuchos::toString(myLevel_)+".txt");
 #endif
 
-  if (schurPrec_==Teuchos::null)
-    {
-    HYMLS_DEBUG("Construct schur-preconditioner");
-    schurPrec_=Teuchos::rcp(new SchurPreconditioner(Schur_,hid_,
-              getMyNonconstParamList(), myLevel_, testVector2));
-    }
+  HYMLS_DEBUG("Construct schur-preconditioner");
+  schurPrec_=Teuchos::rcp(new SchurPreconditioner(Schur_,hid_,
+      getMyNonconstParamList(), myLevel_, testVector2));
   
   CHECK_ZERO(schurPrec_->Initialize());
 
@@ -1315,15 +1309,15 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
 //////////////////////////////////
 
   // add a border to the preconditioner
-  int Preconditioner::addBorder(
+  int Preconditioner::setBorder(
                Teuchos::RCP<const Epetra_MultiVector> V, 
                Teuchos::RCP<const Epetra_MultiVector> W,
                Teuchos::RCP<const Epetra_SerialDenseMatrix> C)
     {
-    HYMLS_LPROF2(label_,"addBorder");
+    HYMLS_LPROF2(label_,"setBorder");
 
     Teuchos::RCP<const Epetra_MultiVector> _V=V;
-    Teuchos::RCP<const Epetra_MultiVector> _W=W;
+    Teuchos::RCP<const Epetra_MultiVector> _W= (W==Teuchos::null)?V:W;
     Teuchos::RCP<const Epetra_SerialDenseMatrix> _C=C;
 
     if (!IsComputed())
@@ -1332,23 +1326,35 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
       // by adding some of these computations to Compute(),
       // but I think it is OK to compute the prec first and
       // set the bordering afterwards.
-      Tools::Error("addBorder: requires preconditioner to be computed",
+      Tools::Error("setBorder: requires preconditioner to be computed",
         __FILE__,__LINE__);
       }
-    if (_V==Teuchos::null)
+
+    if (V==Teuchos::null)
       {
-      Tools::Error("addBorder: V can't be null",__FILE__,__LINE__);
+      borderV_=Teuchos::null;
+      borderW_=Teuchos::null;
+      borderC_=Teuchos::null;
+      borderSchurV_=Teuchos::null;
+      borderSchurW_=Teuchos::null;
+      borderSchurC_=Teuchos::null;
+      borderQ1_=Teuchos::null;
+      Teuchos::RCP<HYMLS::BorderedSolver> borderedSchurSolver = 
+    Teuchos::rcp_dynamic_cast<HYMLS::BorderedSolver>(schurPrec_);
+    if (!Teuchos::is_null(borderedSchurSolver))
+      {
+      CHECK_ZERO(borderedSchurSolver->setBorder(borderSchurV_,borderSchurW_,borderSchurC_));
       }
+    return 0;
+    }
+
     int m = _V->NumVectors();
-    HYMLS_DEBVAR(m);
     if (_W==Teuchos::null)
       {
-      HYMLS_DEBUG("Using W=V");
       _W=_V;
       }
     if (_C==Teuchos::null)
       {
-      HYMLS_DEBUG("Using C=0");
       _C=Teuchos::rcp(new Epetra_SerialDenseMatrix(m,m));
       }
     
@@ -1449,7 +1455,7 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
       Tools::Error("cannot handle bordered Schur problem",__FILE__,__LINE__);
       }
     HYMLS_DEBVAR(borderSchurV_->MyLength());
-    CHECK_ZERO(borderedSchurSolver->addBorder(borderSchurV_,borderSchurW_,borderSchurC_));
+    CHECK_ZERO(borderedSchurSolver->setBorder(borderSchurV_,borderSchurW_,borderSchurC_));
     return 0;
     }
 

@@ -53,6 +53,13 @@ INTERNAL_TESTS_FAILED=32,
 SKIPPED=8192
 } ReturnCode;
 
+template <class ScalarType>
+bool eigSort(Anasazi::Value<ScalarType> const &a, Anasazi::Value<ScalarType> const &b)
+{
+  return (a.realpart * a.realpart + a.imagpart * a.imagpart) <
+         (b.realpart * b.realpart + b.imagpart * b.imagpart);
+}
+
 
 int runTest(Teuchos::RCP<const Epetra_Comm> comm,
                    Teuchos::RCP<Teuchos::ParameterList> params);
@@ -641,10 +648,13 @@ int testEigenSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
   typedef double ST;
   typedef Epetra_MultiVector MV;
   typedef Epetra_Operator OP;
-  typedef HYMLS::Solver PREC;
+  typedef HYMLS::Preconditioner PREC;
 
   Teuchos::RCP<Anasazi::BasicEigenproblem<ST, MV, OP> > eigProblem;
-  eigProblem = Teuchos::rcp(new Anasazi::BasicEigenproblem<ST,MV,OP>(K, M, x));
+  eigProblem = Teuchos::rcp(new Anasazi::BasicEigenproblem<ST,MV,OP>());
+  eigProblem->setA(K);
+  eigProblem->setM(M);
+  eigProblem->setInitVec(x);
   eigProblem->setHermitian(false);
   eigProblem->setNEV(eigList.get("How Many", 10));
 
@@ -658,7 +668,7 @@ int testEigenSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
     }
 
 #ifdef HYMLS_USE_PHIST
-  Anasazi::PhistSolMgr<ST,MV,OP,PREC> jada(eigProblem, solver, eigList);
+  Anasazi::PhistSolMgr<ST,MV,OP,PREC> jada(eigProblem, precond, eigList);
 #else
   Anasazi::BlockKrylovSchurSolMgr<ST,MV,OP> jada(eigProblem,eigList);
 #endif
@@ -674,7 +684,7 @@ int testEigenSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
 
   const Anasazi::Eigensolution<ST,MV>& eigSol = eigProblem->getSolution();
 
-  const std::vector<Anasazi::Value<ST> >& evals = eigSol.Evals;
+  std::vector<Anasazi::Value<ST> > evals = eigSol.Evals;
   int numEigs = evals.size();
 
   // We can compute the exact eigenvaleus for Laplace
@@ -708,6 +718,7 @@ int testEigenSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
 
     // Sort them so the smallest ones are first
     std::sort(ev_list.begin(), ev_list.end());
+    std::sort(evals.begin(), evals.end(),eigSort<ST>);
 
     // Now compare with the computed eigenvalues. We do numEigs-1, because
     // depending on the random starting vector it may sometimes happen
