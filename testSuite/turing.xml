@@ -84,7 +84,7 @@
     
     <!-- this is not necessary for Laplace, of course, but we can test the eigensolver: -->
     <Parameter name="Use Deflation" type="bool" value="true"/>
-    <Parameter name="Deflated Subspace Dimension" type="int" value="0"/>
+    <Parameter name="Deflated Subspace Dimension" type="int" value="2"/>
     <Parameter name="Deflation Threshold" type="double" value="0.0"/>
 
     <!-- parameters for the iterative solver (Belos) -->
