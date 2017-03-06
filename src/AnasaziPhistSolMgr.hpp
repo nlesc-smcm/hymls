@@ -193,19 +193,18 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
 
     d_opts.convTol = tol;
     d_opts.numEigs = pl.get<int>("How Many");
-    d_opts.minBas = d_opts.numEigs + 2;
     d_opts.blockSize = pl.get<int>("Block Size");
+    d_opts.minBas = pl.get<int>("Restart Dimension");
+    d_opts.maxBas = pl.get<int>("Maximum Subspace Dimension");
 
 
-    // Get maximum restarts
-    d_opts.maxBas = pl.get<int>("Restart Dimension",d_problem->getNEV());
-    TEUCHOS_TEST_FOR_EXCEPTION( d_opts.maxBas < d_problem->getNEV(),
-            std::invalid_argument, "Restart Dimension must be at least NEV" );
+    TEUCHOS_TEST_FOR_EXCEPTION( d_opts.minBas < d_opts.numEigs+d_opts.blockSize,
+            std::invalid_argument, "Restart Dimension must be at least NEV+blockSize" );
 
     // Get maximum restarts
     if( pl.isType<int>("Maximum Restarts") )
     {
-        d_opts.maxIters = d_opts.maxBas * pl.get<int>("Maximum Restarts");
+        d_opts.maxIters = (d_opts.maxBas-d_opts.minBas+1) * pl.get<int>("Maximum Restarts");
         TEUCHOS_TEST_FOR_EXCEPTION( d_opts.maxIters < 0, std::invalid_argument, "Maximum Restarts must be non-negative" );
     }
     else
@@ -275,6 +274,7 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
 
     // tell phist to use a custom solver provided in d_opts->custom_solver;
     d_opts.innerSolvType = phist_GMRES;
+    d_opts.innerSolvBlockSize=d_opts.blockSize;
     d_opts.preconOp=d_preconOp.get();
     d_opts.preconType=phist_USER_PRECON;
     // if the parameter "Bordered Solver" is set we use HYMLS' bordering
@@ -346,6 +346,9 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
   block_dim = d_opts.blockSize; 
   
   std::complex<double> *ev = new std::complex<double>[num_eigs+block_dim-1];
+
+  HYMLS::Tools::out() << "jadaOpts before subspacejada:\n";
+  phist_jadaOpts_toFile(&d_opts,stdout);
    
   //phist_Djdqr(A_op.get(), B_op.get(), X.get(), Q.get(), NULL, &evals[0], &resid[0], &is_cmplx[0],
     //    d_opts, &num_eigs, &numIters_, &iflag);
