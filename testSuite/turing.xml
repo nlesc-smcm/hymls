@@ -18,13 +18,14 @@
     <Parameter name="Store Matrix" type="bool" value="0"/>
     <ParameterList name="Eigenvalues">
       <Parameter name="Which" type="string" value="LR"/>
-      <Parameter name="How Many" type="int" value="6"/>
-      <Parameter name="Convergence Tolerance" type="double" value="1.0e-5"/>
+      <Parameter name="How Many" type="int" value="12"/>
+      <Parameter name="Convergence Tolerance" type="double" value="1.0e-8"/>
       <Parameter name="Test Space" type="string" value="V"/>
-      <Parameter name="Block Size" type="int" value="2"/>
-      <Parameter name="Maximum Subspace Dimension" type="int" value="40"/>
-      <Parameter name="Restart Dimension" type="int" value="20"/>
-      <Parameter name="Relative Convergence Tolerance" type="bool" value="false"/>
+      <Parameter name="Block Size" type="int" value="8"/>
+      <Parameter name="Maximum Subspace Dimension" type="int" value="60"/>
+      <Parameter name="Restart Dimension" type="int" value="28"/>
+      <Parameter name="Maximum Restarts" type="int" value="50"/>
+      <Parameter name="Inner Iterations" type="int" value="25"/>
     </ParameterList>  
 
     <Parameter name="Read Linear System" type="bool" value="1"/>

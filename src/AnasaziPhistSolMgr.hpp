@@ -274,6 +274,7 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
 
     // tell phist to use a custom solver provided in d_opts->custom_solver;
     d_opts.innerSolvType = phist_GMRES;
+    d_opts.innerSolvMaxIters = pl.get("Inner Iterations",d_opts.innerSolvMaxIters);
     d_opts.innerSolvBlockSize=d_opts.blockSize;
     d_opts.preconOp=d_preconOp.get();
     d_opts.preconType=phist_USER_PRECON;
