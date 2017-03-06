@@ -26,6 +26,7 @@
       <Parameter name="Restart Dimension" type="int" value="28"/>
       <Parameter name="Maximum Restarts" type="int" value="50"/>
       <Parameter name="Inner Iterations" type="int" value="25"/>
+      <Parameter name="Bordered Solver" type="bool" value="true"/>
     </ParameterList>  
 
     <Parameter name="Read Linear System" type="bool" value="1"/>
