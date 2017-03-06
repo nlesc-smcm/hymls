@@ -29,7 +29,7 @@
 
     <Parameter name="Read Linear System" type="bool" value="1"/>
     <Parameter name="Data Directory" type="string" 
-    value="${PROJECT_SOURCE_DIR}/testSuite/data/Turing/32x32"/>
+    value="${PROJECT_SOURCE_DIR}/testSuite/data/Turing/S1/32x32"/>
     <Parameter name="File Format" type="string" value="MatrixMarket"/>
     <Parameter name="RHS Available" type="bool" value="1"/>
     <Parameter name="Exact Solution Available" type="bool" value="0"/>
