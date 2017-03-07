@@ -171,9 +171,9 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
 
     if( !pl.isType<int>("Block Size") )
     {
-        pl.set<int>("Block Size",1);
-        d_opts.blockSize = pl.get<int>("Block Size");
+        pl.set<int>("Block Size",2);
     }
+
 
     if( !pl.isType<int>("Maximum Subspace Dimension") )
     {
@@ -300,12 +300,6 @@ template <class ScalarType, class MV, class OP, class PREC>
 ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
 {
   int iflag;
-  Teuchos::RCP<MV> X = MVT::Clone(*d_problem->getInitVec(), d_problem->getNEV()+1);
-  Teuchos::RCP<MV> Q = MVT::Clone(*d_problem->getInitVec(), d_problem->getNEV()+1);
-  Teuchos::RCP<MV> v0 = MVT::CloneCopy(*d_problem->getInitVec());
-
-  d_opts.v0 = v0.get();
-  d_opts.arno = 0;
 
   // create operator wrapper for computing Y=A*X using a CRS matrix
   Teuchos::RCP<phist_DlinearOp> A_op = Teuchos::rcp(new phist_DlinearOp);
@@ -329,28 +323,42 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
   }
 
 
+  int num_eigs, block_dim;
+  num_eigs = d_problem->getNEV();
+  block_dim = d_opts.blockSize;
+
   // allocate memory for eigenvalues and residuals. We allocate
   // one extra entry because in the real case we may get that the
   // last EV to converge is a complex pair (requirement of JDQR)
-  std::vector<ScalarType> evals(d_problem->getNEV()+1);
-  std::vector<MagnitudeType> resid(d_problem->getNEV()+1);
-  std::vector<int> is_cmplx(d_problem->getNEV()+1);
+  std::vector<ScalarType> evals(num_eigs+1);
+  std::vector<MagnitudeType> resid(num_eigs+1);
+  std::vector<int> is_cmplx(num_eigs+1);
 
-  std::vector<ScalarType> nrmX0(d_problem->getNEV()+1);
+  Teuchos::RCP<MV> X = MVT::Clone(*d_problem->getInitVec(), num_eigs+1);
+  Teuchos::RCP<MV> v0 = MVT::CloneCopy(*d_problem->getInitVec());
+
+  d_opts.v0 = v0.get();
+  d_opts.arno = 0;
+
+  int nQ=num_eigs+block_dim-1;
+  Teuchos::RCP<MV> Q = MVT::Clone(*d_problem->getInitVec(), nQ);
+
+  std::vector<ScalarType> nrmX0(num_eigs+1);
   phist_Dmvec_normalize(X.get(), &nrmX0[0], &iflag);
   TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
     "PhistSolMgr::solve: phist_Dmvec_normalize returned nonzero error code "+Teuchos::toString(iflag));
 
   Eigensolution<ScalarType,MV> sol;
-  int num_eigs, block_dim;
-  num_eigs = d_opts.numEigs;
-  block_dim = d_opts.blockSize; 
   
-  std::complex<double> *ev = new std::complex<double>[num_eigs+block_dim-1];
+  std::complex<double> *ev = new std::complex<double>[nQ];
 
+#ifdef HYMLS_TESTING
   HYMLS::Tools::out() << "jadaOpts before subspacejada:\n";
-  phist_jadaOpts_toFile(&d_opts,stdout);
-   
+  if (Q->Comm().MyPID()==0)
+  {
+    phist_jadaOpts_toFile(&d_opts,stdout);
+  }
+#endif   
   //phist_Djdqr(A_op.get(), B_op.get(), X.get(), Q.get(), NULL, &evals[0], &resid[0], &is_cmplx[0],
     //    d_opts, &num_eigs, &numIters_, &iflag);
   
@@ -362,7 +370,7 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
   //phist_Dmvec_get_comm(X.get(),&comm,&iflag); //need const_comm
   // wrap MPI_COMM_WORLD
   
-  phist_DsdMat_create(&R,num_eigs+block_dim-1,num_eigs+block_dim-1,comm,&iflag); 
+  phist_DsdMat_create(&R,nQ,nQ,comm,&iflag); 
 
   phist_Dsubspacejada(A_op.get(), B_op.get(), d_opts, Q.get(), R, ev, &resid[0],  &num_eigs, &numIters_, &iflag);
   TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
@@ -376,19 +384,15 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
   for (int i = 0; i < sol.numVecs; i++)
   {
     sol.index[i] = i;
-    sol.Evals[i].realpart = evals[i];
     sol.Evals[i].realpart = ev[i].real();
     sol.Evals[i].imagpart = ev[i].imag();
   }
 
   if (sol.numVecs)
   {
-    //sol.Evecs = MVT::CloneCopy(*X, Teuchos::Range1D(0, sol.numVecs-1));
-    sol.Espace = MVT::CloneCopy(*Q, Teuchos::Range1D(0, sol.numVecs-1));
+    sol.Espace = MVT::CloneCopy(*Q, Teuchos::Range1D(0, nQ-1));
   }
   d_problem->setSolution(sol);
-
-  phist_DsdMat_create(&R,num_eigs+block_dim-1,num_eigs+block_dim-1,comm,&iflag); 
 
   // Return convergence status
   if( sol.numVecs < d_problem->getNEV() )
