@@ -69,7 +69,7 @@ class PhistSolMgr : public SolverManager<ScalarType,MV,OP>
          * - "Verbosity" -- a sum of MsgType specifying the verbosity.  Default: AnasaziErrors
          * - "Convergence Tolerance" -- a MagnitudeType specifying the level that residual norms must
          *  reach to decide convergence.  Default: machine precision
-         * - "Initial Guess" -- how should initial vector be selected: "Random" or "User".
+         * - "Inner Iterations" - maximum number of inner GMRES or MINRES iterations allowed
          *   If "User," the value in problem->getInitVec() will be used.  Default: "Random".
          * - "Print Number of Ritz Values" -- an int specifying how many Ritz values should be printed
          *   at each iteration.  Default: "NEV".
@@ -213,19 +213,6 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
         d_opts.maxIters = d_opts.maxBas * 20;
     }
 
-    // Get initial guess type
-    std::string initType;
-    if( pl.isType<std::string>("Initial Guess") )
-    {
-        initType = pl.get<std::string>("Initial Guess");
-        TEUCHOS_TEST_FOR_EXCEPTION( initType!="User" && initType!="Random", std::invalid_argument,
-                                    "Initial Guess type must be 'User' or 'Random'." );
-    }
-    else
-    {
-        initType = "User";
-    }
-
     if (pl.isType<bool>("Bordered Solver"))
     {
         borderedSolver = pl.get<bool>("Bordered Solver");
@@ -335,19 +322,18 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
   std::vector<MagnitudeType> resid(num_eigs+1);
   std::vector<int> is_cmplx(num_eigs+1);
 
-  Teuchos::RCP<MV> X = MVT::Clone(*d_problem->getInitVec(), num_eigs+1);
-  Teuchos::RCP<MV> v0 = MVT::CloneCopy(*d_problem->getInitVec());
+  Teuchos::RCP<MV> v0 = Teuchos::null;
+
+  if (d_problem->getInitVec()!=Teuchos::null)
+  {
+    v0 = MVT::CloneCopy(*d_problem->getInitVec());
+  }
 
   d_opts.v0 = v0.get();
   d_opts.arno = 0;
 
-  int nQ=num_eigs+block_dim-1;
+  int nQ=d_opts.minBas;
   Teuchos::RCP<MV> Q = MVT::Clone(*d_problem->getInitVec(), nQ);
-
-  std::vector<ScalarType> nrmX0(num_eigs+1);
-  phist_Dmvec_normalize(X.get(), &nrmX0[0], &iflag);
-  TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
-    "PhistSolMgr::solve: phist_Dmvec_normalize returned nonzero error code "+Teuchos::toString(iflag));
 
   Eigensolution<ScalarType,MV> sol;
   
@@ -388,16 +374,22 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
     sol.Evals[i].realpart = ev[i].real();
     sol.Evals[i].imagpart = ev[i].imag();
   }
-  
+
+  Teuchos::RCP<MV> X = MVT::Clone(*Q, num_eigs);
+ 
   phist_DComputeEigenvectors(Q.get(),R,X.get(),&iflag);
   TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error,
         "PHIST error "+Teuchos::toString(iflag)+" returned from call phist_Despace_to_evecs");
+
 
   phist_DsdMat_delete(R,&iflag);
 
   if (sol.numVecs)
   {
+    // we return the complete subspace we have available, subsequently we must
+    // remember that dim(Espace)>dim(Evecs)
     sol.Espace = MVT::CloneCopy(*Q, Teuchos::Range1D(0, nQ-1));
+    sol.Evecs = MVT::CloneCopy(*X, Teuchos::Range1D(0, num_eigs-1));
   }
   d_problem->setSolution(sol);
 
