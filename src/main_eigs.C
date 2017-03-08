@@ -367,32 +367,36 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     Teuchos::RCP<MV> v0 = Teuchos::rcp(new Epetra_Vector(x->Map()));
     HYMLS::MatrixUtils::Random(*v0);
 
-    for (int i = 0; i < v0->MyLength(); i++)
+    if (eqn=="Stokes")
       {
-      if (v0->Map().GID(i) % dof == dim-1)
+      for (int i = 0; i < v0->MyLength(); i++)
         {
-        (*v0)[0][i] = 0.0;
+        if (v0->Map().GID(i) % dof == dim-1)
+          {
+          (*v0)[0][i] = 0.0;
+          }
         }
+      
+
+        precond->ApplyInverse(*v0, *x);
+
+        // Make x B-orthogonal
+        double result;
+        M->Multiply(false, *x, *v0);
+        x->Dot(*v0, &result);
+        x->Scale(1.0/sqrt(result));
       }
-
-    precond->ApplyInverse(*v0, *x);
-
-    // Make x B-orthogonal
-    double result;
-    M->Multiply(false, *x, *v0);
-    x->Dot(*v0, &result);
-    x->Scale(1.0/sqrt(result));
     }
-
+  
   HYMLS_TEST("main_eigs",isDivFree(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(K), *x, dof, dim),__FILE__,__LINE__);
-
+  
   // Create the eigenproblem.
   HYMLS_DEBUG("create eigen-problem");
   Teuchos::RCP<Anasazi::BasicEigenproblem<ST, MV, OP> > eigProblem;
   // note: use the default constructor because otherwise only Op and not AOp gets set
   eigProblem = Teuchos::rcp( new Anasazi::BasicEigenproblem<ST,MV,OP>() );
     eigProblem->setA(K);
-    eigProblem->setM(M);
+    if (M!=Teuchos::null) eigProblem->setM(M);
     eigProblem->setInitVec(x);
     eigProblem->setHermitian(false);
     eigProblem->setNEV(numEigs);
@@ -403,7 +407,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
 
   if (eigProblem->setProblem()==false)
     {
-    HYMLS::Tools::Error("eigProblem->setPoroblem returned 'false'",__FILE__,__LINE__);
+    HYMLS::Tools::Error("eigProblem->setProblem returned 'false'",__FILE__,__LINE__);
     }
 
 #ifdef HYMLS_USE_PHIST
