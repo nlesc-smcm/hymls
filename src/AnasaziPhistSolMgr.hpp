@@ -318,9 +318,8 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
   // allocate memory for eigenvalues and residuals. We allocate
   // one extra entry because in the real case we may get that the
   // last EV to converge is a complex pair (requirement of JDQR)
-  std::vector<ScalarType> evals(num_eigs+1);
-  std::vector<MagnitudeType> resid(num_eigs+1);
-  std::vector<int> is_cmplx(num_eigs+1);
+  std::vector<ScalarType> evals(num_eigs+block_dim+1);
+  std::vector<MagnitudeType> resid(num_eigs+block_dim+1);
 
   Teuchos::RCP<MV> v0 = Teuchos::null;
 
@@ -346,8 +345,6 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
     phist_jadaOpts_toFile(&d_opts,stdout);
   }
 #endif   
-  //phist_Djdqr(A_op.get(), B_op.get(), X.get(), Q.get(), NULL, &evals[0], &resid[0], &is_cmplx[0],
-    //    d_opts, &num_eigs, &numIters_, &iflag);
   
   //using Djdqr, R could be NULL. But using subspacejada, we need to create R
   phist_DsdMat_ptr  R = NULL;
