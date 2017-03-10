@@ -134,6 +134,24 @@ namespace HYMLS {
     sdSolverType_ = PL().get("Subdomain Solver Type", "Sparse");
     numThreadsSD_ = PL().get("Subdomain Solver Num Threads", numThreadsSD_);
 
+    bool xperio = false;
+    bool yperio = false;
+    bool zperio = false;
+    xperio = probList_.get("x-periodic", xperio);
+    if (dim_>=1) yperio = probList_.get("y-periodic", yperio);
+    if (dim_>=2) zperio = probList_.get("z-periodic", zperio);
+
+    GaleriExt::PERIO_Flag perio = GaleriExt::NO_PERIO;
+
+    if (xperio) perio = (GaleriExt::PERIO_Flag)(perio|GaleriExt::X_PERIO);
+    if (yperio) perio = (GaleriExt::PERIO_Flag)(perio|GaleriExt::Y_PERIO);
+    if (zperio) perio = (GaleriExt::PERIO_Flag)(perio|GaleriExt::Z_PERIO);
+
+    probList_.set("Periodicity", perio);
+    probList_.remove("x-periodic");
+    probList_.remove("y-periodic");
+    probList_.remove("z-periodic");
+
     // the entire "Problem" list used by the overlapping partiitioner
     // is fairly complex, but we implement a set of default cases like
     // "Laplace", "Stokes-C" etc to make it easier for the user.
@@ -1050,24 +1068,6 @@ int Preconditioner::SetProblemDefinition(std::string eqn, Teuchos::ParameterList
     HYMLS_LPROF3(label_,"SetProblemDefinition");
   Teuchos::ParameterList& probList=list.sublist("Problem");
   Teuchos::ParameterList& precList=list.sublist("Preconditioner");
-
-  bool xperio=false;
-  bool yperio=false;
-  bool zperio=false;
-  xperio=probList.get("x-periodic",xperio);
-  if (dim_>=1) yperio=probList.get("y-periodic",yperio);
-  if (dim_>=2) zperio=probList.get("z-periodic",zperio);
-  
-  GaleriExt::PERIO_Flag perio=GaleriExt::NO_PERIO;
-  
-  if (xperio) perio=(GaleriExt::PERIO_Flag)(perio|GaleriExt::X_PERIO);
-  if (yperio) perio=(GaleriExt::PERIO_Flag)(perio|GaleriExt::Y_PERIO);
-  if (zperio) perio=(GaleriExt::PERIO_Flag)(perio|GaleriExt::Z_PERIO);
-  
-  probList.set("Periodicity",perio);
-  probList.remove("x-periodic");
-  probList.remove("y-periodic");
-  probList.remove("z-periodic");
   
   bool is_complex = probList.get("Complex Arithmetic",false);
 
