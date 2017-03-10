@@ -367,7 +367,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     Teuchos::RCP<MV> v0 = Teuchos::rcp(new Epetra_Vector(x->Map()));
     HYMLS::MatrixUtils::Random(*v0);
 
-    if (eqn=="Stokes")
+    if (eqn=="Stokes-C")
       {
       for (int i = 0; i < v0->MyLength(); i++)
         {
