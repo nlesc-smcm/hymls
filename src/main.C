@@ -385,13 +385,7 @@ for (int f=0;f<numComputes;f++)
 
   if (do_deflation)
     {
-    // -2 means: only deflate exact nullspace
-    int num_deflate = solver_params.get("Deflated Subspace Dimension", nullSpace!=Teuchos::null?-2:2);
-    if (nullSpace!=Teuchos::null || num_deflate>0)
-      {
-//      CHECK_ZERO(solver->SetupDeflation(num_deflate));
-      solver->SetupDeflation(num_deflate);
-      }
+    CHECK_ZERO(solver->SetupDeflation());
     }
 
  // std::cout << *solver << std::endl;

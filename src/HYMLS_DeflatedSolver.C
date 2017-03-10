@@ -24,7 +24,8 @@ DeflatedSolver::DeflatedSolver(Teuchos::RCP<const Epetra_RowMatrix> K,
   :
   BaseSolver(K, P, params, numRhs, validate),
   label_("HYMLS::DeflatedSolver"),
-  deflationComputed_(false), numEigs_(0)
+  numEigs_(0),
+  deflationComputed_(false)
   {
   HYMLS_PROF3(label_, "Constructor");
   }
@@ -73,13 +74,9 @@ Teuchos::RCP<const Teuchos::ParameterList> DeflatedSolver::getValidParameters() 
 
 int DeflatedSolver::SetupDeflation(int numEigs)
   {
-
-  if (numEigs>=0) numEigs_=numEigs;
-
   if (numEigs_ <= 0)
     return -1;
-    
-    
+
   precEigs_ = EigsPrec(numEigs_);
   numEigs_ = precEigs_->numVecs;
 
