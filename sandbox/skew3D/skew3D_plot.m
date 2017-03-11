@@ -5,8 +5,9 @@ L=nx-1;
 % what to plot
 octree_numbering=true;
 split_cube=false;
-diag_boxes=true;
+diag_boxes=false;
 diag_lines=true;
+diag_surf=true;
 
 figure(1),view(3), hold on;
 axis([0,L,0,L,0,L]);
@@ -47,6 +48,28 @@ if (diag_lines)
   plot3([0 L],[0 L],[0 L],'b-');
   plot3([0 L],[L 0],[0 L],'b-');
   plot3([L 0],[0 L],[0 L],'b-');
+  
+end
+
+if (diag_surf)
+
+  X=[0 0.5 1].*L;
+  Y=[0 0.5 0].*L;
+  Z=[0 0.5 0].*L;
+  C=[1 1 1].*0.7;
+  patch('XData',X,'YData',Y,'ZData',Z,'FaceColor',C);
+
+  Z=[1 0.5 1].*L;
+  patch('XData',X,'YData',Y,'ZData',Z,'FaceColor',C);
+
+  X=[0 0.5 0].*L;
+  Y=[0 0.5 0].*L;
+  Z=[0 0.5 1].*L;
+  C=[1 1 1].*0.85;
+  patch('XData',X,'YData',Y,'ZData',Z,'FaceColor',C);
+  
+  X=[1 0.5 1].*L;
+  patch('XData',X,'YData',Y,'ZData',Z,'FaceColor',C);
 
 end
 
