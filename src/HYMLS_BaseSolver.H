@@ -6,7 +6,6 @@
 
 #include "Teuchos_RCP.hpp"
 #include "Epetra_Operator.h"
-#include "Ifpack_Preconditioner.h"
 
 #include "BelosLinearProblem.hpp"
 #include "BelosSolverManager.hpp"

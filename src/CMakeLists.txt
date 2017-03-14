@@ -43,7 +43,7 @@ set(HEADERS ${HEADERS}
   GaleriExt_Star3D.h
   HYMLS_BaseNodeClassifier.H
   HYMLS_BasePartitioner.H
-  HYMLS_BorderedSolver.H
+  HYMLS_BorderedPreconditioner.H
   HYMLS_Macros.H
   HYMLS_no_debug.H
   HYMLS_OrthogonalTransform.H

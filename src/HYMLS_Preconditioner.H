@@ -21,7 +21,7 @@
 #include "HYMLS_DenseUtils.H"
 #include "HYMLS_PLA.H"
 
-#include "HYMLS_BorderedSolver.H"
+#include "HYMLS_BorderedPreconditioner.H"
 #include "HYMLS_MatrixBlock.H"
 
 // forward declarations
@@ -76,7 +76,7 @@ namespace HYMLS {
   
 */
 class Preconditioner : public Ifpack_Preconditioner, 
-                       public BorderedSolver,
+                       public BorderedPreconditioner,
                        public PLA
   {
   
@@ -222,7 +222,7 @@ public:
 
   //@}
 
-  //!\name HYMLS::BorderedSolver interface
+  //!\name HYMLS::BorderedPreconditioner interface
   //@{
   
   //! set a border on the preconditioner. So instead of solving 

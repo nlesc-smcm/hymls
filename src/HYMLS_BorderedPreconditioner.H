@@ -1,5 +1,5 @@
-#ifndef HYMLS_BORDERED_SOLVER_H
-#define HYMLS_BORDERED_SOLVER_H
+#ifndef HYMLS_BORDERED_PRECONDITIONER_H
+#define HYMLS_BORDERED_PRECONDITIONER_H
 
 #include "HYMLS_config.h"
 
@@ -29,7 +29,7 @@ namespace HYMLS
   //! |K  V| |x|   |b|                                            
   //! |W' C| |s| = |c|.                                           
   //!                                                             
-  class BorderedSolver
+  class BorderedPreconditioner
     {
     public:
     
