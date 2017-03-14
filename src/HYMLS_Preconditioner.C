@@ -845,21 +845,11 @@ if (dumpVectors_)
     }
   if (borderV_!=Teuchos::null)
     {
-    Teuchos::RCP<HYMLS::BorderedSolver> borderedSchurSolver
-        = Teuchos::rcp_dynamic_cast<HYMLS::BorderedSolver>(schurPrec_);
-    if (borderedSchurSolver==Teuchos::null)
-      {
-      Tools::Error("cannot handle bordered Schur system!",__FILE__,__LINE__);
-      }
-    else
-      {
-      CHECK_ZERO(borderedSchurSolver->ApplyInverse(*schurRhs_,q,*schurSol_,s));  
-      HYMLS_DEBUG("successfully applied bordered Schur precond");
-      }
+    CHECK_ZERO(schurPrec_->ApplyInverse(*schurRhs_,q,*schurSol_,s));
     }
   else
     {
-    CHECK_ZERO(schurPrec_->ApplyInverse(*schurRhs_,*schurSol_));  
+    CHECK_ZERO(schurPrec_->ApplyInverse(*schurRhs_,*schurSol_));
     }
   // unscale rhs with schurScaRight_
   if (scaleSchur_)
@@ -1339,13 +1329,9 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
       borderSchurW_=Teuchos::null;
       borderSchurC_=Teuchos::null;
       borderQ1_=Teuchos::null;
-      Teuchos::RCP<HYMLS::BorderedSolver> borderedSchurSolver = 
-    Teuchos::rcp_dynamic_cast<HYMLS::BorderedSolver>(schurPrec_);
-    if (!Teuchos::is_null(borderedSchurSolver))
-      {
-      CHECK_ZERO(borderedSchurSolver->setBorder(borderSchurV_,borderSchurW_,borderSchurC_));
-      }
-    return 0;
+
+      CHECK_ZERO(schurPrec_->setBorder(borderSchurV_, borderSchurW_, borderSchurC_));
+      return 0;
     }
 
     int m = _V->NumVectors();
@@ -1448,14 +1434,8 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
       Tools::Error("not implemented!",__FILE__,__LINE__);
       }
 
-    Teuchos::RCP<HYMLS::BorderedSolver> borderedSchurSolver = 
-    Teuchos::rcp_dynamic_cast<HYMLS::BorderedSolver>(schurPrec_);
-    if (Teuchos::is_null(borderedSchurSolver))
-      {
-      Tools::Error("cannot handle bordered Schur problem",__FILE__,__LINE__);
-      }
     HYMLS_DEBVAR(borderSchurV_->MyLength());
-    CHECK_ZERO(borderedSchurSolver->setBorder(borderSchurV_,borderSchurW_,borderSchurC_));
+    CHECK_ZERO(schurPrec_->setBorder(borderSchurV_,borderSchurW_,borderSchurC_));
     return 0;
     }
 
@@ -1572,17 +1552,7 @@ if (dumpVectors_)
     CHECK_ZERO(schurRhs_->Multiply(1.0, *schurScaLeft_, *schurRhs_, 0.0))
     }
 
-  Teuchos::RCP<HYMLS::BorderedSolver> borderedSchurSolver
-        = Teuchos::rcp_dynamic_cast<HYMLS::BorderedSolver>(schurPrec_);
-  if (borderedSchurSolver==Teuchos::null)
-    {
-    Tools::Error("cannot handle bordered Schur system!",__FILE__,__LINE__);
-    }
-  else
-    {
-    CHECK_ZERO(borderedSchurSolver->ApplyInverse(*schurRhs_,q,*schurSol_,S));  
-    HYMLS_DEBUG("successfully applied bordered Schur precond");
-    }
+  CHECK_ZERO(schurPrec_->ApplyInverse(*schurRhs_,q,*schurSol_,S));
 
   // unscale rhs with schurScaRight_
   if (scaleSchur_)
