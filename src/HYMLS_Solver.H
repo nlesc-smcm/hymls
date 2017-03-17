@@ -14,6 +14,7 @@
 class Epetra_MultiVector;
 class Epetra_Comm;
 class Epetra_Map;
+class Epetra_SerialDenseMatrix;
 
 namespace Teuchos
   {
@@ -201,6 +202,13 @@ public:
     return solver_->addBorder(V, W);
     }
 
+  int setBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
+    Teuchos::RCP<const Epetra_MultiVector> const &W=Teuchos::null,
+    Teuchos::RCP<const Epetra_SerialDenseMatrix> const &C=Teuchos::null)
+    {
+    return solver_->setBorder(V, W, C);
+    }
+
   //! use same preconditioner but operator (I-VV')A
   int setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V,
     Teuchos::RCP<const Epetra_MultiVector> W = Teuchos::null)
@@ -230,6 +238,9 @@ private:
 
   //! Used to determine if we want to use the deflated HYMLS solver class
   bool useDeflation_;
+
+  //! Used to determine if we want to use the bordered HYMLS solver class
+  bool useBordering_;
 
   };
 

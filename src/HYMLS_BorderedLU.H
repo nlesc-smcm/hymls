@@ -4,7 +4,7 @@
 #include "HYMLS_config.h"
 
 #include "Teuchos_RCP.hpp"
-#include "HYMLS_BorderedPreconditioner.H"
+#include "HYMLS_BorderedOperator.H"
 #include "Epetra_Operator.h"
 #include "Epetra_SerialDenseSVD.h"
 
@@ -21,9 +21,9 @@ namespace HYMLS
   //! |W' C| = | W', C-W'A\V | |0  I |                            
   //!                                                             
   //! The class implements an Epetra_Operator acting on the same  
-  //! space as K and a HYMLS::BorderedPreconditioner for setting the V,W  
+  //! space as K and a HYMLS::BorderedOperator for setting the V,W  
   //! and C blocks and for solving the complete system.           
-  class BorderedLU: public BorderedPreconditioner, public Epetra_Operator
+  class BorderedLU: public BorderedOperator, public Epetra_Operator
     {
     public:
 

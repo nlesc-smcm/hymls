@@ -835,7 +835,7 @@ if (dumpVectors_)
       {
       CHECK_ZERO(DenseUtils::MatMul(*borderW1_,*x1,q));
       CHECK_ZERO(q.Scale(-1));
-      s.Reshape(q.M(),q.N());
+      s.Shape(q.M(),q.N());
       }
 
   if (scaleSchur_)

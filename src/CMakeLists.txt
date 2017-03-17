@@ -2,6 +2,9 @@
 set(HYMLS_SOURCE HYMLS_Solver
     HYMLS_BaseSolver
     HYMLS_DeflatedSolver
+    HYMLS_BorderedSolver
+    HYMLS_BorderedOperator
+    HYMLS_BorderedVector
     HYMLS_Preconditioner
     HYMLS_SchurComplement
     HYMLS_SchurPreconditioner
@@ -16,7 +19,6 @@ set(HYMLS_SOURCE HYMLS_Solver
     HYMLS_MatrixUtils
     HYMLS_DenseUtils
     HYMLS_ProjectedOperator
-    HYMLS_BorderedLU
     HYMLS_BelosEpetraOperator
     HYMLS_Epetra_Time
     HYMLS_View_MultiVector
@@ -43,7 +45,7 @@ set(HEADERS ${HEADERS}
   GaleriExt_Star3D.h
   HYMLS_BaseNodeClassifier.H
   HYMLS_BasePartitioner.H
-  HYMLS_BorderedPreconditioner.H
+  HYMLS_BorderedLU.H
   HYMLS_Macros.H
   HYMLS_no_debug.H
   HYMLS_OrthogonalTransform.H

@@ -466,7 +466,7 @@ int testSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
     CHECK_ZERO(precond->Compute());
     if (nullSpace!=Teuchos::null)
       {
-        solver->setNullSpace(nullSpace);
+        solver->setBorder(nullSpace);
       }
     if (doDeflation)
       {

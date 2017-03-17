@@ -4,7 +4,7 @@
 #include "HYMLS_Tools.H"
 #include "HYMLS_MatrixUtils.H"
 #include "HYMLS_DenseUtils.H"
-#include "HYMLS_BorderedPreconditioner.H"
+#include "HYMLS_BorderedOperator.H"
 #include "HYMLS_BorderedLU.H"
 #include "HYMLS_ProjectedOperator.H"
 #include "HYMLS_ShiftedOperator.H"
@@ -341,8 +341,8 @@ int BaseSolver::addBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
     }
 
   // Set the border for the matrix and the preconditioner
-  Teuchos::RCP<HYMLS::BorderedPreconditioner> bprec
-    = Teuchos::rcp_dynamic_cast<BorderedPreconditioner>(precond_);
+  Teuchos::RCP<HYMLS::BorderedOperator> bprec
+    = Teuchos::rcp_dynamic_cast<BorderedOperator>(precond_);
   if (bprec!=Teuchos::null)
     {
     CHECK_ZERO(bprec->setBorder(V_, W_));
@@ -374,8 +374,8 @@ int BaseSolver::SetupDeflation(int maxEigs)
   if (V_!=Teuchos::null)
     {
     // we compute eigs of the operator [K N; N' 0] to make the operator nonsingular
-    Teuchos::RCP<HYMLS::BorderedPreconditioner> bprec
-      = Teuchos::rcp_dynamic_cast<BorderedPreconditioner>(precond_);
+    Teuchos::RCP<HYMLS::BorderedOperator> bprec
+      = Teuchos::rcp_dynamic_cast<BorderedOperator>(precond_);
     if (bprec!=Teuchos::null)
       {
       CHECK_ZERO(bprec->setBorder(V_,W_));
@@ -583,8 +583,8 @@ int BaseSolver::SetupDeflation(int maxEigs)
   // |A  V| |x|   |b|                                         
   // |V' O| |s| = |0| now to maintain orthogonality wrt V.    
   //                                                          
-  Teuchos::RCP<HYMLS::BorderedPreconditioner> borderedPrec =
-    Teuchos::rcp_dynamic_cast<HYMLS::BorderedPreconditioner>(precond_);
+  Teuchos::RCP<HYMLS::BorderedOperator> borderedPrec =
+    Teuchos::rcp_dynamic_cast<HYMLS::BorderedOperator>(precond_);
     
   if (Teuchos::is_null(borderedPrec) && (precond_!=Teuchos::null))
     {

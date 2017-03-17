@@ -79,13 +79,13 @@ public:
   virtual Teuchos::RCP<const Teuchos::ParameterList> getValidParameters() const;
   
   //! set matrix for solve
-  void SetMatrix(Teuchos::RCP<const Epetra_RowMatrix> A);
+  virtual void SetMatrix(Teuchos::RCP<const Epetra_RowMatrix> A);
 
   //! set preconditioner for solve
-  void SetPrecond(Teuchos::RCP<Epetra_Operator> P);
+  virtual void SetPrecond(Teuchos::RCP<Epetra_Operator> P);
 
   //! for eigenvalue computations - set mass matrix
-  void SetMassMatrix(Teuchos::RCP<const Epetra_RowMatrix> B);
+  virtual void SetMassMatrix(Teuchos::RCP<const Epetra_RowMatrix> B);
 
   //! Applies the operator
   int Apply(const Epetra_MultiVector& X,
@@ -148,9 +148,9 @@ public:
   //@}
 
   //! setup the solver to solve (shiftA*A+shiftB*B)x=b
-  void setShift(double shiftA, double shiftB);
+  virtual void setShift(double shiftA, double shiftB);
 
-  void SetTolerance(double tol);
+  virtual void SetTolerance(double tol);
 
   //! get number of iterations performed in last ApplyInverse() call
   inline int getNumIter() const {return numIter_;}
@@ -183,6 +183,13 @@ public:
 
 
     Teuchos::RCP<const Epetra_MultiVector> const &W);
+
+  virtual int setBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
+    Teuchos::RCP<const Epetra_MultiVector> const &W=Teuchos::null,
+    Teuchos::RCP<const Epetra_SerialDenseMatrix> const &C=Teuchos::null)
+    {
+    return -99;
+    }
 
   //! use same preconditioner but operator (I-VV')A
   virtual int setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V,
@@ -289,8 +296,6 @@ Teuchos::RCP<BorderedLU> LU_;
   
   //! label
   std::string label_;
-  
-  private:
 
   //! default value for the "Left or Right Preconditioning" parameter
   const std::string lor_default_;

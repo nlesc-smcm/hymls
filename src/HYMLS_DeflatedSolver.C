@@ -37,9 +37,9 @@ DeflatedSolver::~DeflatedSolver()
   }
 
 // Sets all parameters for the solver
-void DeflatedSolver::setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& List)
+void DeflatedSolver::setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& params)
   {
-  setParameterList(List, validateParameters_);
+  setParameterList(params, validateParameters_);
   }
 
 //! set solver parameters (the list is the "HYMLS"->"Solver" sublist)

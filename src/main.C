@@ -166,7 +166,7 @@ bool status=true;
     int nx=probl_params.get("nx",32);
     int ny=probl_params.get("ny",nx);
     int nz=probl_params.get("nz",dim>2?nx:1);
-
+    
     // copy problem sublist so that the main utils don't modify the original
     Teuchos::ParameterList probl_params_cpy = probl_params;
   
@@ -352,7 +352,7 @@ for (int f=0;f<numComputes;f++)
 
   if (nullSpace!=Teuchos::null)
     {
-    CHECK_ZERO(solver->setNullSpace(nullSpace));
+    CHECK_ZERO(solver->setBorder(nullSpace));
     }
 
   if (do_deflation)

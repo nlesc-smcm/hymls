@@ -1364,7 +1364,7 @@ int SchurPreconditioner::InitializeOT()
     if (HaveBorder())
       {
       // this is the expected behavior for standard ApplyInverse() of
-      // a BorderedPreconditioner in HYMLS: solve with rhs 0 for border.
+      // a BorderedOperator in HYMLS: solve with rhs 0 for border.
       int m = borderV_->NumVectors();
       int n = X.NumVectors();
       Epetra_SerialDenseMatrix C(m,n);
@@ -1957,7 +1957,7 @@ int SchurPreconditioner::UpdateVsumRhs(const Epetra_MultiVector& B, Epetra_Multi
   }
 
 ////////////////////////////////////////////////////
-// implementation of the BorderedPreconditioner interface //
+// implementation of the BorderedOperator interface //
 ////////////////////////////////////////////////////
 
     // set the operators V, W and C to solve systems with
@@ -2052,8 +2052,8 @@ int SchurPreconditioner::UpdateVsumRhs(const Epetra_MultiVector& B, Epetra_Multi
     CHECK_ZERO(borderV2_->Import(*borderV_,*vsumImporter_,Insert));
     CHECK_ZERO(borderW2_->Import(*borderW_,*vsumImporter_,Insert));
     // set border in next level problem
-    Teuchos::RCP<HYMLS::BorderedPreconditioner> borderedNextLevel =
-        Teuchos::rcp_dynamic_cast<HYMLS::BorderedPreconditioner>(reducedSchurSolver_);
+    Teuchos::RCP<HYMLS::BorderedOperator> borderedNextLevel =
+        Teuchos::rcp_dynamic_cast<HYMLS::BorderedOperator>(reducedSchurSolver_);
     if (Teuchos::is_null(borderedNextLevel))
       {
       HYMLS::Tools::Error("next level solver can't handle border!",__FILE__,__LINE__);
@@ -2218,7 +2218,7 @@ HYMLS::MatrixUtils::Dump(*linearSol_,"CoarseLevelSol.txt");
 
       // solve reduced Schur-complement problem.
       // We do not have to form the augmented vectors here as
-      // we use the BorderedPreconditioner interface's ApplyInverse()
+      // we use the BorderedOperator interface's ApplyInverse()
       // function recursively.
       if (X.NumVectors()!=vsumRhs_->NumVectors())
         {
@@ -2246,8 +2246,8 @@ HYMLS::MatrixUtils::Dump(*linearSol_,"CoarseLevelSol.txt");
         {
         CHECK_ZERO(vsumRhs_->Multiply(1.0,*reducedSchurScaLeft_,*vsumRhs_,0.0));
         }
-      Teuchos::RCP<const HYMLS::BorderedPreconditioner> borderedNextLevel =
-        Teuchos::rcp_dynamic_cast<const HYMLS::BorderedPreconditioner>(reducedSchurSolver_);
+      Teuchos::RCP<const HYMLS::BorderedOperator> borderedNextLevel =
+        Teuchos::rcp_dynamic_cast<const HYMLS::BorderedOperator>(reducedSchurSolver_);
       if (Teuchos::is_null(borderedNextLevel))
         {
         Tools::Error("cannot handle next level bordered system!",__FILE__,__LINE__);

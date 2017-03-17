@@ -1,6 +1,7 @@
 #include "HYMLS_Solver.H"
 #include "HYMLS_BaseSolver.H"
 #include "HYMLS_DeflatedSolver.H"
+#include "HYMLS_BorderedSolver.H"
 
 namespace HYMLS {
 
@@ -20,6 +21,8 @@ Solver::Solver(Teuchos::RCP<const Epetra_RowMatrix> K,
 
   if (useDeflation_)
     solver_ = Teuchos::rcp(new DeflatedSolver(K, P, params, numRhs, false));
+  else if (useBordering_)
+    solver_ = Teuchos::rcp(new BorderedSolver(K, P, params, numRhs, false));
   else
     solver_ = Teuchos::rcp(new BaseSolver(K, P, params, numRhs, false));
 
@@ -40,6 +43,8 @@ void Solver::setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& params
   setMyParamList(params);
 
   useDeflation_ = PL().get("Use Deflation", false);
+
+  useBordering_ = PL().get("Use Bordering", false);
 
   if (solver_.is_null())
     return;
@@ -66,6 +71,9 @@ Teuchos::RCP<const Teuchos::ParameterList> Solver::getValidParameters() const
 
   VPL().set("Use Deflation", false,
     "Use deflation to improve the conditioning of the problem.");
+
+  VPL().set("Use Bordering", false,
+    "Use bordering instead of projections when projecting out vectors.");
 
   return validParams_;
   }

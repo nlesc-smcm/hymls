@@ -8,7 +8,6 @@
 #include "Epetra_RowMatrix.h"
 #include "AnasaziTypes.hpp"
 
-#include "HYMLS_PLA.H"
 #include "HYMLS_BaseSolver.H"
 
   // forward declarations

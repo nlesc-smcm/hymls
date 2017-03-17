@@ -217,13 +217,9 @@ int DenseUtils::Orthogonalize(Epetra_SerialDenseMatrix& A)
 Teuchos::RCP<Epetra_MultiVector> DenseUtils::CreateView(Epetra_SerialDenseMatrix& A)
   {
   HYMLS_PROF3(Label(),"CreateView");
-  int nrows = A.M();
-  int ncols = A.N();
   Epetra_SerialComm comm;
-  Epetra_LocalMap tinyMap(nrows,0,comm);
-  Teuchos::RCP<Epetra_MultiVector> MV = 
-        Teuchos::rcp(new Epetra_MultiVector(View,tinyMap,A.A(),A.LDA(),ncols));
-  return MV;
+  Epetra_LocalMap tinyMap(A.M(), 0, comm);
+  return Teuchos::rcp(new Epetra_MultiVector(View, tinyMap, A.A(), A.LDA(), A.N()));
   }
 
 //! create a multivector view of a dense matrix
@@ -231,28 +227,23 @@ Teuchos::RCP<const Epetra_MultiVector> DenseUtils::CreateView
         (const Epetra_SerialDenseMatrix& A)
   {
   HYMLS_PROF3(Label(),"CreateView");
-  int n = A.N();
   Epetra_SerialComm comm;
-  Epetra_LocalMap tinyMap(n,0,comm);
-  Teuchos::RCP<const Epetra_MultiVector> MV = 
-        Teuchos::rcp(new Epetra_MultiVector(View,tinyMap,A.A(),A.LDA(),n));
-  return MV;
+  Epetra_LocalMap tinyMap(A.M(), 0, comm);
+  return Teuchos::rcp(new Epetra_MultiVector(View, tinyMap, A.A(), A.LDA(), A.N()));
   }
 
 //! create a dense matrix view of a multivector
 Teuchos::RCP<Epetra_SerialDenseMatrix> DenseUtils::CreateView(Epetra_MultiVector& A)
   {
   HYMLS_PROF3(Label(),"CreateView");
-  int n = A.NumVectors();
-  if (A.DistributedGlobal())
+  if (A.DistributedGlobal() || !A.ConstantStride())
     {
     Tools::Error("Cannot convert this MV to a serial dense matrix!",
-                __FILE__,__LINE__);
+      __FILE__, __LINE__);
     }
-  Teuchos::RCP<Epetra_SerialDenseMatrix> DM = 
-        Teuchos::rcp(new 
-        Epetra_SerialDenseMatrix(View,A.Values(),A.MyLength(),n,n));
-  return DM;
+
+  return Teuchos::rcp(new Epetra_SerialDenseMatrix(View, A.Values(), A.MyLength(),
+      A.Stride(), A.MyLength(), A.NumVectors()));
   }
 
 //! create a dense matrix view of a multivector
@@ -260,16 +251,14 @@ Teuchos::RCP<const Epetra_SerialDenseMatrix> DenseUtils::CreateView
         (const Epetra_MultiVector& A)
   {
   HYMLS_PROF3(Label(),"CreateView");
-  int n = A.NumVectors();
-  if (A.DistributedGlobal())
+  if (A.DistributedGlobal() || !A.ConstantStride())
     {
     Tools::Error("Cannot convert this MV to a serial dense matrix!",
-                __FILE__,__LINE__);
+      __FILE__, __LINE__);
     }
-  Teuchos::RCP<const Epetra_SerialDenseMatrix> DM = 
-        Teuchos::rcp(new 
-        Epetra_SerialDenseMatrix(View,A.Values(),A.MyLength(),n,n));
-  return DM;
+
+  return Teuchos::rcp(new Epetra_SerialDenseMatrix(View, A.Values(), A.MyLength(),
+      A.Stride(), A.MyLength(), A.NumVectors()));
   }
 
 

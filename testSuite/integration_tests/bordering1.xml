@@ -46,6 +46,8 @@
 
     <!-- vector to start the Krylov sequence: "Zero", "Random", "Previous" -->
     <Parameter name="Initial Vector" type="string" value="Random"/>
+
+    <Parameter name="Use Bordering" type="bool" value="true"/>
         
     <!-- parameters for the iterative solver (Belos) -->
     <ParameterList name="Iterative Solver">
