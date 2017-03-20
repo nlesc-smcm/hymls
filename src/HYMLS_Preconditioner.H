@@ -234,7 +234,7 @@ public:
                 Teuchos::RCP<const Epetra_SerialDenseMatrix> C=Teuchos::null);
 
   //! returns true if a border has been added
-  bool HaveBorder() const {return borderV_ != Teuchos::null;}
+  bool HaveBorder() const {return V_ != Teuchos::null;}
 
   //! if a border has been added, apply [Y T]' = [P V; W' C] [X S]'
   int Apply(const Epetra_MultiVector& X, const Epetra_SerialDenseMatrix& S,
@@ -327,13 +327,7 @@ protected:
 
   //! \name data structures for solving a 'bordered' system
   //@{
-
-  //! bordering: if addBorder has been called, we solve [P V; W' C] [x; s] = [b; O].
-  Teuchos::RCP<Epetra_MultiVector> borderV_, borderW_;
-  
-  //! bordering: block C
-  Teuchos::RCP<const Epetra_SerialDenseMatrix> borderC_;
-  
+ 
   //! bordering: if addBorder has been called, we solve [K V; W' C] [x; s] = [b; O].
   Teuchos::RCP<Epetra_MultiVector> borderV1_, borderV2_, borderW1_, borderW2_;
 

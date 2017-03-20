@@ -5,10 +5,11 @@
 #include "HYMLS_BorderedVector.H"
 #include "HYMLS_DenseUtils.H"
 
+#include "Epetra_Import.h"
 #include "Epetra_MultiVector.h"
 #include "Epetra_SerialDenseMatrix.h"
 
-namespace HYMLS 
+namespace HYMLS
   {
 BorderedOperator::BorderedOperator()
   :
@@ -48,14 +49,47 @@ BorderedOperator::BorderedOperator(Teuchos::RCP<const Epetra_Operator> A,
 int BorderedOperator::Apply(const BorderedVector& X, BorderedVector& Y) const
   {
   HYMLS_PROF3("BorderedOperator", "Apply");
-  return Apply(*X.Vector(), *X.Border(), *Y.Vector(), *Y.Border());
+  Epetra_SerialDenseMatrix T(Y.Border()->M(), Y.Border()->N());
+
+  // FIXME: We have to communicate S here so we can
+  // compute Y properly. Use bordered vectors everywhere
+  // to avoid this.
+  Epetra_Map map(X.Second()->GlobalLength(), X.Second()->GlobalLength(), 0, X.Second()->Comm());
+  Epetra_Import Simport(map, X.Second()->Map());
+  Epetra_MultiVector Svec(map, X.Second()->NumVectors());
+  Svec.Import(*X.Second(), Simport, Add);
+  Epetra_SerialDenseMatrix S(View, Svec.Values(),
+    Svec.Stride(), Svec.MyLength(), Svec.NumVectors());
+
+  int ierr = Apply(*X.Vector(), S, *Y.Vector(), T);
+  CHECK_ZERO(Y.SetBorder(T));
+
+  return ierr;
   }
 
 int BorderedOperator::ApplyInverse(const BorderedVector& X, BorderedVector& Y) const
   {
   HYMLS_PROF3("BorderedOperator", "ApplyInverse");
+  Epetra_SerialDenseMatrix T(Y.Border()->M(), Y.Border()->N());
 
-  return ApplyInverse(*X.Vector(), *X.Border(), *Y.Vector(), *Y.Border());
+  // FIXME: We have to do a lot of communication here because the
+  // Preconditioner puts T on some random processor.
+  Epetra_Map map(X.Second()->GlobalLength(), X.Second()->GlobalLength(), 0, X.Second()->Comm());
+  Epetra_Import Simport(map, X.Second()->Map());
+  Epetra_MultiVector Svec(map, X.Second()->NumVectors());
+  Svec.Import(*X.Second(), Simport, Add);
+  Epetra_SerialDenseMatrix S(View, Svec.Values(),
+    Svec.Stride(), Svec.MyLength(), Svec.NumVectors());
+  int ierr = ApplyInverse(*X.Vector(), S, *Y.Vector(), T);
+
+  if (T.LDA() != T.M())
+    Tools::Error("Unsupported communication: " + Teuchos::toString(T.M()) + " "
+      + Teuchos::toString(T.LDA()), __FILE__, __LINE__);
+  Epetra_SerialDenseMatrix T2(T.M(), T.N());
+  X.Second()->Comm().SumAll(T.A(), T2.A(), T.M() * T.N());
+  CHECK_ZERO(Y.SetBorder(T2));
+
+  return ierr;
   }
 
 int BorderedOperator::setBorder(Teuchos::RCP<const Epetra_MultiVector> V,
@@ -87,19 +121,21 @@ int BorderedOperator::Apply(
 
   CHECK_ZERO(Y.Multiply('N', 'N', 1.0, *V_, *DenseUtils::CreateView(S), 1.0));
 
-  Teuchos::RCP<Epetra_MultiVector> Tview = DenseUtils::CreateView(T);
-  if (!C_.is_null())
+  Epetra_SerialDenseMatrix tmp;
+  DenseUtils::MatMul(*W_, X, tmp);
+
+  CHECK_ZERO(T.Shape(S.M(), Y.NumVectors()));
+  if (Y.Comm().MyPID() == Y.Comm().NumProc()-1)
     {
-    // Apply for a SerialDenseMatrix is non-const. No clue why
-    // CHECK_ZERO(C_->Apply(S, T));
-    Epetra_SerialDenseMatrix C(*C_);
-    CHECK_ZERO(C.Apply(S, T));
+    if (!C_.is_null())
+      {
+      // Apply for a SerialDenseMatrix is non-const. No clue why
+      // CHECK_ZERO(C_->Apply(S, T));
+      Epetra_SerialDenseMatrix C(*C_);
+      CHECK_ZERO(C.Apply(S, T));
+      }
+    T += tmp;
     }
-  else
-    {
-    CHECK_ZERO(Tview->PutScalar(0.0));
-    }
-  CHECK_ZERO(Tview->Multiply('T', 'N', 1.0, *W_, X, 1.0));
 
   return 0;
   }

@@ -159,6 +159,7 @@ int BorderedSolver::ApplyInverse(const Epetra_MultiVector& X,
     if (!V_.is_null())
       {
       CHECK_ZERO(S.Shape(V_->NumVectors(), X.NumVectors()));
+      CHECK_ZERO(T.Shape(V_->NumVectors(), Y.NumVectors()));
       }
 
     return ApplyInverse(X, S, Y, T);
@@ -181,7 +182,6 @@ int BorderedSolver::ApplyInverse(const Epetra_MultiVector& X, const Epetra_Seria
   Teuchos::RCP<BorderedOperator> op = Teuchos::rcp(new BorderedOperator(operator_, V_, W_, C_));
   belosProblemPtr_->setOperator(op);
 
-  CHECK_ZERO(T.Shape(V_->NumVectors(), Y.NumVectors()));
   Teuchos::RCP<BorderedVector> sol = Teuchos::rcp(new BorderedVector(Y, T));
   Teuchos::RCP<BorderedVector> rhs = Teuchos::rcp(new BorderedVector(X, S));
 

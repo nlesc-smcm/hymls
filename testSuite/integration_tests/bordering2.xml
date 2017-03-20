@@ -48,6 +48,8 @@
   
     <!-- "CG", "GMRES", "PCPG" (only GMRES actually supported by our solver right now) -->
     <Parameter name="Krylov Method" type="string" value="GMRES"/>  
+
+    <Parameter name="Use Bordering" type="bool" value="true"/>
     <!-- parameters for the iterative solver (Belos) -->
     <ParameterList name="Iterative Solver">
       <Parameter name="Maximum Iterations" type="int" value="100"/>

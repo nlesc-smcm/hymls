@@ -78,6 +78,10 @@ public:
   Teuchos::RCP<Epetra_MultiVector> Vector() const;
   Teuchos::RCP<Epetra_SerialDenseMatrix> Border() const;
 
+  // Method to set the border since the assignment operator does not work
+  // properly with the views that we use
+  int SetBorder(const Epetra_SerialDenseMatrix &mv2);
+
   // Get number of vectors in each multivector
   int NumVecs() const;
 

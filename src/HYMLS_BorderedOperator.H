@@ -47,8 +47,7 @@ public:
   virtual int ApplyInverse(const Epetra_MultiVector& X, const Epetra_SerialDenseMatrix& S,
     Epetra_MultiVector& Y, Epetra_SerialDenseMatrix& T) const;
 
-private:
-
+protected:
   //! original operator
   Teuchos::RCP<const Epetra_Operator> A_;
 
@@ -57,6 +56,7 @@ private:
 
   Teuchos::RCP<const Epetra_SerialDenseMatrix> C_;
 
+private:
   //! label
   std::string label_;
 
