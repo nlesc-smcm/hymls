@@ -154,36 +154,16 @@ public:
 
   //! get number of iterations performed in last ApplyInverse() call
   inline int getNumIter() const {return numIter_;}
-  
-  //! get the null space (or approximate null space) of the operator
-  Teuchos::RCP<const Epetra_MultiVector> getNullSpace() {return nullSpace_;}
-  
+
   //! For singular problems with a known null space, add the null space
   //! as a border so that in fact the linear system
   //!
-  //! |A   V0||x |   |b|
-  //! |V0'  0||x0| = |0|
+  //! |A   V||x |   |b|
+  //! |W'  C||x0| = |0|
   //!
-  //! is being solved. This means that the solution will be perpendicular to V0
-  //! If the function is called repeatedly, the 'old' vectors are replaced.
-  int setNullSpace(Teuchos::RCP<const Epetra_MultiVector> const &V = Teuchos::null);
-
-  //! Set the border of the matrix or expand the null space with this
-
-  //! border when a null space is present
-  int addBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
-
-  //! border when a null space is present. If setNullSpace has not been
-  //! called, this function is equivalent to setNullSpace.
-  //! If the function is called repeatedly, the vectors added by setNullSpace are preserved
-  //! but those added by a previous call to SetBorder are overwritten.
-  //!
-  //! \todo rename this function addBorder and clarify who takes care of adding the border to
-  //! the preconditioner: HYMLS::Solver or NOX::Epetra::LinearSystemHymls.
-
-
-    Teuchos::RCP<const Epetra_MultiVector> const &W);
-
+  //! is being solved with W=V and C=0. This means that the solution will
+  //! be perpendicular to V. If the function is called repeatedly,
+  //! the 'old' vectors are replaced.
   virtual int setBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
     Teuchos::RCP<const Epetra_MultiVector> const &W=Teuchos::null,
     Teuchos::RCP<const Epetra_SerialDenseMatrix> const &C=Teuchos::null)
@@ -203,8 +183,10 @@ public:
   //! preconditioner to make it non-singular.
   //!
   //! \todo see todo in addBorder
-  virtual int SetupDeflation(int maxEigs=-2);
-  
+  virtual int SetupDeflation(int maxEigs=-2)
+    {
+    return -99;
+    }
 
 protected: 
 
@@ -259,29 +241,14 @@ BorderedLU.
 //! standard eigenproblem is solved.
 Teuchos::RCP<const Epetra_RowMatrix> massMatrix_;
 
-//! default null space to be removed from matrix before deflation (the parameter
-//! "Solver"->"Null Space" can be used to construct this, e.g. set it to "Constant P"
-//! for Stokes-C etc.), or the method setNullSpace can be used
-Teuchos::RCP<const Epetra_MultiVector> nullSpace_;
-
 //! Borders of the matrix, which might be the eigenspace
   Teuchos::RCP<const Epetra_MultiVector> V_, W_;
-
-//! V_orth'AV and V'AV_orth (border of the block system)
-//! borderV_ = V_orth'AV, borderW_ = (V'AV_orth)'.
-Teuchos::RCP<Epetra_MultiVector> borderV_, borderW_;
-
-//! VAV
-Teuchos::RCP<Epetra_SerialDenseMatrix> borderC_;
 
 //! projected operator (V_orth' A V_orth)
 Teuchos::RCP<Epetra_Operator> Aorth_;
 
 //! a belos solver for Aorth_, disguised as an Epetra_Operator
 Teuchos::RCP<Belos::EpetraOperator> AorthSolver_;
-
-//! object handling the bordered solve
-Teuchos::RCP<BorderedLU> LU_;
 
 //@}
 

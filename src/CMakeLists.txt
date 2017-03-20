@@ -45,13 +45,11 @@ set(HEADERS ${HEADERS}
   GaleriExt_Star3D.h
   HYMLS_BaseNodeClassifier.H
   HYMLS_BasePartitioner.H
-  HYMLS_BorderedLU.H
   HYMLS_Macros.H
   HYMLS_no_debug.H
   HYMLS_OrthogonalTransform.H
   HYMLS_RestrictedOT.H
   HYMLS_ShiftedOperator.H
-  HYMLS_MatrixBlock.H
   )
 
 include_directories(${PROJECT_SOURCE_DIR})

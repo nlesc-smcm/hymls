@@ -168,40 +168,15 @@ public:
     return solver_->getNumIter();
     }
 
-  //! get the null space (or approximate null space) of the operator
-  Teuchos::RCP<const Epetra_MultiVector> getNullSpace()
-    {
-    return solver_->getNullSpace();
-    }
-
   //! For singular problems with a known null space, add the null space
   //! as a border so that in fact the linear system
   //!
-  //! |A   V0||x |   |b|
-  //! |V0'  0||x0| = |0|
+  //! |A   V||x |   |b|
+  //! |W'  C||x0| = |0|
   //!
-  //! is being solved. This means that the solution will be perpendicular to V0
-  //! If the function is called repeatedly, the 'old' vectors are replaced.
-  int setNullSpace(Teuchos::RCP<const Epetra_MultiVector> const &V = Teuchos::null)
-    {
-    return solver_->setNullSpace(V);
-    }
-
-  //! Set the border of the matrix or expand the null space with this
-  //! border when a null space is present. If setNullSpace has not been
-  //! called, this function is equivalent to setNullSpace.
-  //! If the function is called repeatedly, the vectors added by setNullSpace are preserved
-  //! but those added by a previous call to SetBorder are overwritten.
-  //!
-  //! \todo rename this function addBorder and clarify who takes care of adding the border to
-  //! the preconditioner: HYMLS::Solver or NOX::Epetra::LinearSystemHymls.
-
-  int addBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
-    Teuchos::RCP<const Epetra_MultiVector> const &W)
-    {
-    return solver_->addBorder(V, W);
-    }
-
+  //! is being solved with W=V and C=0. This means that the solution will
+  //! be perpendicular to V. If the function is called repeatedly,
+  //! the 'old' vectors are replaced.
   int setBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
     Teuchos::RCP<const Epetra_MultiVector> const &W=Teuchos::null,
     Teuchos::RCP<const Epetra_SerialDenseMatrix> const &C=Teuchos::null)

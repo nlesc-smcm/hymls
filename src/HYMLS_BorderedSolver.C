@@ -155,14 +155,14 @@ void BorderedSolver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)
 int BorderedSolver::ApplyInverse(const Epetra_MultiVector& X,
   Epetra_MultiVector& Y) const
   {
-    Epetra_SerialDenseMatrix S, T;
-    if (!V_.is_null())
-      {
-      CHECK_ZERO(S.Shape(V_->NumVectors(), X.NumVectors()));
-      CHECK_ZERO(T.Shape(V_->NumVectors(), Y.NumVectors()));
-      }
+  Epetra_SerialDenseMatrix S, T;
+  if (!V_.is_null())
+    {
+    CHECK_ZERO(S.Shape(V_->NumVectors(), X.NumVectors()));
+    CHECK_ZERO(T.Shape(V_->NumVectors(), Y.NumVectors()));
+    }
 
-    return ApplyInverse(X, S, Y, T);
+  return ApplyInverse(X, S, Y, T);
   }
 
 //! Applies the solver to [Y T]' = [K V;W' C]\[X S]'
@@ -232,7 +232,104 @@ int BorderedSolver::ApplyInverse(const Epetra_MultiVector& X, const Epetra_Seria
     Tools::Out("");
     }
 
+#ifdef HYMLS_TESTING
+  Tools::Out("explicit residual test");
+  Tools::out() << "we were solving (a*A*x+b*B)*x=rhs\n" <<
+    "   with " << X.NumVectors() << " rhs\n" <<
+    "        a = " << shiftA_<<"\n" <<
+    "        b = " << shiftB_<<"\n";
+  if (massMatrix_ == Teuchos::null)
+    Tools::out() <<
+      "        B = I\n";
+  // compute explicit residual
+  int dim = PL("Problem").get<int>("Dimension");
+  int dof = PL("Problem").get<int>("Degrees of Freedom");
+
+  Epetra_MultiVector resid(X.Map(),X.NumVectors());
+  CHECK_ZERO(matrix_->Apply(X,resid));
+  if (shiftB_ != 0.0)
+    {
+    Epetra_MultiVector Bx=X;
+
+    if (massMatrix_ != Teuchos::null)
+      {
+      CHECK_ZERO(massMatrix_->Apply(X, Bx));
+      }
+    CHECK_ZERO(resid.Update(shiftB_, Bx, shiftA_));
+    }
+  else if (shiftA_ != 1.0)
+    {
+    CHECK_ZERO(resid.Scale(shiftA_));
+    }
+  CHECK_ZERO(resid.Update(1.0, B, -1.0));
+  double *resNorm, *rhsNorm, *resNormV, *resNormP;
+  resNorm  = new double[resid.NumVectors()];
+  resNormV = new double[resid.NumVectors()];
+  resNormP = new double[resid.NumVectors()];
+  rhsNorm  = new double[resid.NumVectors()];
+  B.Norm2(rhsNorm);
+  resid.Norm2(resNorm);
+
+  if (dof>=dim)
+    {
+    Epetra_MultiVector residV = resid;
+    Epetra_MultiVector residP = resid;
+    for (int i = 0; i < resid.MyLength(); i += dof)
+      {
+      for (int j = 0; j < resid.NumVectors(); j++)
+        {
+        for (int k = 0; k < dim; k++)
+          {
+          residP[j][i+k]=0.0;
+          }
+        for (int k = dim+1; k < dof; k++)
+          {
+          residP[j][i+k] = 0.0;
+          }
+        residV[j][i+dim] = 0.0;
+        }
+      }
+    residV.Norm2(resNormV);
+    residP.Norm2(resNormP);
+    }
+
+  if (comm_->MyPID() == 0)
+    {
+    Tools::out() << "Exp. res. norm(s): ";
+    for (int ii = 0; ii < resid.NumVectors(); ii++)
+      {
+      Tools::out() << resNorm[ii] << " ";
+      }
+    Tools::out() << std::endl;
+    Tools::out() << "Rhs norm(s): ";
+    for (int ii = 0; ii < resid.NumVectors(); ii++)
+      {
+      Tools::out() << rhsNorm[ii] << " ";
+      }
+    Tools::out() << std::endl;
+    if (dof >= dim)
+      {
+      Tools::out() << "Exp. res. norm(s) of V-part: ";
+      for (int ii = 0; ii < resid.NumVectors(); ii++)
+        {
+        Tools::out() << resNormV[ii] << " ";
+        }
+      Tools::out() << std::endl;
+      Tools::out() << "Exp. res. norm(s) of P-part: ";
+      for (int ii = 0; ii < resid.NumVectors(); ii++)
+        {
+        Tools::out() << resNormP[ii] << " ";
+        }
+      Tools::out() << std::endl;
+      }
+    }
+  delete [] resNorm;
+  delete [] rhsNorm;
+  delete [] resNormV;
+  delete [] resNormP;
+#endif
+
   return ierr;
   }
 
-}//namespace HYMLS
+  }//namespace HYMLS
