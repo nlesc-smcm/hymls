@@ -5,7 +5,6 @@
 #include "HYMLS_MatrixUtils.H"
 #include "HYMLS_DenseUtils.H"
 #include "HYMLS_BorderedOperator.H"
-#include "HYMLS_BorderedLU.H"
 #include "HYMLS_ProjectedOperator.H"
 #include "HYMLS_ShiftedOperator.H"
 

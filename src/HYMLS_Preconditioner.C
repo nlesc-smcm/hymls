@@ -10,7 +10,6 @@
 
 #include "HYMLS_SchurComplement.H"
 #include "HYMLS_SchurPreconditioner.H"
-#include "HYMLS_BorderedLU.H"
 #include "HYMLS_MatrixBlock.H"
 
 #include <Epetra_Time.h> 

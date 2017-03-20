@@ -31,8 +31,6 @@ namespace Teuchos
 
 namespace HYMLS {
 
-class BorderedLU;
-
 namespace Belos {
 class EpetraOperator;
 }
@@ -226,14 +224,6 @@ protected:
   Teuchos::RCP<belosSolverType_> belosSolverPtr_;
 
 //@}
-
-//!\name data structures to monitor and deflate unstable modes
-
-/*! we compute a number of delicate eigenmodes and form their basis V.
-We then solve [V_orth'AV_orth   V_orth'AV; V'AV_orth   V'AV] [v; v_orth]=[V_orth'b;V'b]
-and form the solution as V*v+V_orth v_orth. The solution is computed using the class
-BorderedLU.
-*/
 
 //@{
 
