@@ -40,7 +40,7 @@ class BorderedVector;
    an Epetra wrapper for Belos extended with
    some bordering and deflation functionality.
 */
-class BorderedSolver : public BaseSolver
+class BorderedSolver : public virtual BaseSolver
   {
 
 public:
@@ -78,7 +78,7 @@ public:
   virtual int ApplyInverse(const Epetra_MultiVector& X,
     Epetra_MultiVector& Y) const;
 
-  int ApplyInverse(const Epetra_MultiVector& X, const Epetra_SerialDenseMatrix& S,
+  virtual int ApplyInverse(const Epetra_MultiVector& X, const Epetra_SerialDenseMatrix& S,
     Epetra_MultiVector& Y, Epetra_SerialDenseMatrix& T) const;
 
   //! For singular problems with a known null space, add the null space
