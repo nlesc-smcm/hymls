@@ -49,7 +49,8 @@ LinearSystemHymls(
  const NOX::Epetra::Vector& cloneVector,
  const Teuchos::RCP<NOX::Epetra::Scaling> s):
  LinearSystemAztecOO(printParams, linearSolverParams,
-                     iReq, cloneVector, s)
+   iReq, cloneVector, s),
+ V_(Teuchos::null)
 {
   // this is not tested and should not be used.
   std::cerr << "this constructor should not be used"<<std::endl;
@@ -68,7 +69,8 @@ LinearSystemHymls(
  const NOX::Epetra::Vector& cloneVector,
  const Teuchos::RCP<NOX::Epetra::Scaling> s):
   LinearSystemAztecOO(printParams, linearSolverParams,
-                      iReq, iJac, jacobian, cloneVector, s)
+    iReq, iJac, jacobian, cloneVector, s),
+  V_(Teuchos::null)
 {  
   // this is not tested and should not be used.
   std::cerr << "this constructor should not be used"<<std::endl;
@@ -88,8 +90,9 @@ LinearSystemHymls(
  const Teuchos::RCP<NOX::Epetra::Scaling> s,
  Teuchos::RCP<Epetra_CrsMatrix> massMatrix):
    LinearSystemAztecOO(printParams, linearSolverParams,
-            iReq, iPrec, preconditioner, cloneVector, s),
-            massMatrix_(massMatrix)
+     iReq, iPrec, preconditioner, cloneVector, s),
+   massMatrix_(massMatrix),
+   V_(Teuchos::null)
 {  
   reset(linearSolverParams);
 }
@@ -106,10 +109,11 @@ LinearSystemHymls(
  const NOX::Epetra::Vector& cloneVector,
  const Teuchos::RCP<NOX::Epetra::Scaling> s,
  Teuchos::RCP<Epetra_CrsMatrix> massMatrix):
-   LinearSystemAztecOO(printParams, linearSolverParams, 
-            iJac, jacobian, iPrec, preconditioner, cloneVector, s),
-            massMatrix_(massMatrix)
-{  
+  LinearSystemAztecOO(printParams, linearSolverParams, 
+    iJac, jacobian, iPrec, preconditioner, cloneVector, s),
+  massMatrix_(massMatrix),
+  V_(Teuchos::null)
+{
   reset(linearSolverParams);
 }
 
@@ -182,6 +186,13 @@ reset(Teuchos::ParameterList& p)
     
 }
 
+int NOX::Epetra::LinearSystemHymls::
+setBorder(Teuchos::RCP<const Epetra_MultiVector> const &V)
+  {
+  V_ = V;
+  return 0;
+  }
+
 bool NOX::Epetra::LinearSystemHymls::
 createPreconditioner(const NOX::Epetra::Vector& x, Teuchos::ParameterList& p, 
                      bool recomputeGraph) const
@@ -189,10 +200,9 @@ createPreconditioner(const NOX::Epetra::Vector& x, Teuchos::ParameterList& p,
   LinearSystemAztecOO::createPreconditioner(x,p,recomputeGraph);
   // setup deflation in the solver
   if (massMatrix_!=Teuchos::null)
-    {
     hymls_->SetMassMatrix(massMatrix_);
-    }
-  hymls_->SetupDeflation();
+  if (V_ != Teuchos::null)
+    hymls_->setBorder(V_);
   return true;
   }
 
@@ -202,10 +212,9 @@ recomputePreconditioner(const NOX::Epetra::Vector& x, Teuchos::ParameterList& p)
   LinearSystemAztecOO::recomputePreconditioner(x,p);
   // setup deflation in the solver
   if (massMatrix_!=Teuchos::null)
-    {
     hymls_->SetMassMatrix(massMatrix_);
-    }
-  hymls_->SetupDeflation();
+  if (V_ != Teuchos::null)
+    hymls_->setBorder(V_);
   return true;
   }
 
