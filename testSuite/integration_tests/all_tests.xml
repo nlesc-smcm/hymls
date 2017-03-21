@@ -1,26 +1,4 @@
 <ParameterList name="HYMLS Unit Tests">
-  <!-- Stokes problem, 1-level method (direct method) -->
-  <Parameter name="Test 1a" type="string" value="stokes0.xml"/>
-  <!-- 2D test problems, 2-level method -->
-  <Parameter name="Test 1b" type="string" value="laplace1.xml"/>
-  <Parameter name="Test 1c" type="string" value="stokes1.xml"/>
-  <Parameter name="Test 1d" type="string" value="laplace1_eigs.xml"/>
-  <Parameter name="Test 1d" type="string" value="laplace2_eigs.xml"/>
-  <Parameter name="Test 1e" type="string" value="laplace1_deflation.xml"/>
-  <Parameter name="Test 1f" type="string" value="laplace1_eigs_deflation.xml"/>
-  <!-- 2D test problems, 3- and 4-level methods -->
-  <Parameter name="Test 2a" type="string" value="laplace2.xml"/>
-  <Parameter name="Test 2b" type="string" value="stokes2.xml"/>
-  <!-- Laplace with multiple RHS (this test fails for Trilinos 10.10 because of a bug in Ifpack) -->
-  <Parameter name="Test 3" type="string" value="laplace3.xml"/>
-  <!-- solve singular problems with bordering -->
-  <Parameter name="Test 4a" type="string" value="bordering1.xml"/>
-  <Parameter name="Test 4b" type="string" value="bordering2.xml"/>
   <!-- Solve ill conditioned problems with deflation -->
-  <Parameter name="Test 5a" type="string" value="deflation1.xml"/>
-  <!-- 3D Laplace problem -->
-  <Parameter name="3D Test 1" type="string" value="threeD1.xml"/>
-  <!-- 3D Stokes problems -->
-  <Parameter name="3D Test 2" type="string" value="stokes0_3D.xml"/>
-  <Parameter name="3D Test 3" type="string" value="stokes1_3D.xml"/>
+  <Parameter name="Test 5a" type="string" value="deflation1_bordering.xml"/>
 </ParameterList>

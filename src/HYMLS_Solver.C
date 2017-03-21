@@ -1,7 +1,8 @@
 #include "HYMLS_Solver.H"
 #include "HYMLS_BaseSolver.H"
-#include "HYMLS_DeflatedSolver.H"
 #include "HYMLS_BorderedSolver.H"
+#include "HYMLS_DeflatedSolver.H"
+#include "HYMLS_BorderedDeflatedSolver.H"
 
 namespace HYMLS {
 
@@ -19,7 +20,9 @@ Solver::Solver(Teuchos::RCP<const Epetra_RowMatrix> K,
 
   setParameterList(params);
 
-  if (useDeflation_)
+  if (useDeflation_ && useBordering_)
+    solver_ = Teuchos::rcp(new BorderedDeflatedSolver(K, P, params, numRhs, false));
+  else if (useDeflation_)
     solver_ = Teuchos::rcp(new DeflatedSolver(K, P, params, numRhs, false));
   else if (useBordering_)
     solver_ = Teuchos::rcp(new BorderedSolver(K, P, params, numRhs, false));

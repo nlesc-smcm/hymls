@@ -2102,7 +2102,7 @@ int SchurPreconditioner::UpdateVsumRhs(const Epetra_MultiVector& B, Epetra_Multi
       
     if (!HaveBorder())
       {
-      Tools::Warning("border not set!",__FILE__,__LINE__);
+      HYMLS_DEBUG("border not set!");
       return this->ApplyInverse(X,Y);
       }
 
@@ -2146,7 +2146,7 @@ if (dumpVectors_)
             }
           }
 /* in augmented systems we do not fix any GIDs, I guess...
-      for (int i=0;i<fix_gid_.length();i++)
+      Wfor (int i=0;i<fix_gid_.length();i++)
         {
         int lid = X.Map().LID(fix_gid_[i]);
         if (lid>0)

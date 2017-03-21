@@ -28,7 +28,7 @@ namespace HYMLS {
    an Epetra wrapper for Belos extended with
    some bordering and deflation functionality.
 */
-class DeflatedSolver : public BaseSolver
+class DeflatedSolver : virtual public BaseSolver
   {
 public:
   //!
@@ -77,6 +77,7 @@ private:
   //! label
   std::string label_;
 
+protected:
   //! number of eigenvalues computed initially
   int numEigs_;
 

@@ -3,6 +3,7 @@ set(HYMLS_SOURCE HYMLS_Solver
     HYMLS_BaseSolver
     HYMLS_DeflatedSolver
     HYMLS_BorderedSolver
+    HYMLS_BorderedDeflatedSolver
     HYMLS_BorderedOperator
     HYMLS_BorderedVector
     HYMLS_Preconditioner
