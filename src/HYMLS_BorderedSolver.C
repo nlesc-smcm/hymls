@@ -174,9 +174,8 @@ int BorderedSolver::ApplyInverse(const Epetra_MultiVector& X, const Epetra_Seria
 
   if (V_ == Teuchos::null)
     {
-    HYMLS_DEBUG("no border set");
-    CHECK_ZERO(BaseSolver::ApplyInverse(X, Y));
-    return 1; // border not set
+    Tools::Warning("No border was set in the bordered solver", __FILE__, __LINE__);
+    return BaseSolver::ApplyInverse(X, Y);
     }
 
   Teuchos::RCP<BorderedOperator> op = Teuchos::rcp(new BorderedOperator(operator_, V_, W_, C_));
