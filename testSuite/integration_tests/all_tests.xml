@@ -16,6 +16,8 @@
   <!-- solve singular problems with bordering -->
   <Parameter name="Test 4a" type="string" value="bordering1.xml"/>
   <Parameter name="Test 4b" type="string" value="bordering2.xml"/>
+  <!-- Solve ill conditioned problems with deflation -->
+  <Parameter name="Test 5a" type="string" value="deflation1.xml"/>
   <!-- 3D Laplace problem -->
   <Parameter name="3D Test 1" type="string" value="threeD1.xml"/>
   <!-- 3D Stokes problems -->

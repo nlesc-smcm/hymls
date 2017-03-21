@@ -1,0 +1,73 @@
+<ParameterList name="Stretched 2D laplace problem, 3-level with deflation"><!--{-->
+
+
+  <Parameter name="Description" type="string"
+        value="Stretched 2D laplace problem, 3-level with deflation"/>
+
+  <!-- these first few settings are specific for the driver -->
+  <!-- implemented in 'main.C' and are not passed on to the -->
+  <!-- HYMLS solver classes.                                -->
+  <ParameterList name="Driver"><!--{-->
+    <Parameter name="Number of refinements" type="int" value="0"/>
+
+    <!-- will create a series of slightly perturbed matrices -->
+    <Parameter name="Number of factorizations" type="int" value="2"/>
+    <!-- for each matrix, solve with several right-hand sides in a row -->
+    <Parameter name="Number of solves" type="int" value="2"/>
+     <!-- how to generate the matrix -->
+     <Parameter name="Galeri Label" type="string" value="Stretched2D"/>
+
+     <ParameterList name="Galeri"><!--{-->
+       <Parameter name="epsilon" type="double" value="-0.004"/>
+     </ParameterList><!--}-->
+
+  </ParameterList><!--}-->
+
+  <ParameterList name="Targets"><!--{-->
+    <Parameter name="Number of Iterations" type="int" value="90"/>
+    <Parameter name="Relative Residual 2-Norm" type="double" value="5.0e-9"/>
+    <Parameter name="Relative Error 2-Norm" type="double" value="5.0e-9"/>
+  </ParameterList><!--}-->
+
+  <ParameterList name="Problem"><!--{-->
+
+    <Parameter name="Equations" type="string" value="Laplace"/>
+    <Parameter name="Dimension" type="int" value="2"/>
+
+    <Parameter name="nx" type="int" value="32"/>
+    <Parameter name="ny" type="int" value="32"/>
+
+  </ParameterList><!--}-->
+
+  <ParameterList name="Solver"><!--{-->
+
+    <!-- currently only GMRES works with bordering (CG should as well but doesn't) -->
+    <Parameter name="Krylov Method" type="string" value="GMRES"/>
+
+    <Parameter name="Use Deflation" type="bool" value="true"/>
+    <Parameter name="Deflated Subspace Dimension" type="int" value="10"/>
+    <Parameter name="Deflation Threshold" type="double" value="0.0"/>
+
+    <!-- vector to start the Krylov sequence: "Zero", "Random", "Previous" -->
+    <Parameter name="Initial Vector" type="string" value="Random"/>
+
+    <!-- parameters for the iterative solver (Belos) -->
+    <ParameterList name="Iterative Solver">
+      <Parameter name="Maximum Iterations" type="int" value="100"/>
+      <Parameter name="Convergence Tolerance" type="double" value="1.0e-10"/>
+    </ParameterList>
+  </ParameterList><!--}-->
+
+  <ParameterList name="Preconditioner"><!--{-->
+
+    <!-- you can either set 'Separator Length' or 'Number of Subdomains' -->
+    <Parameter name="Separator Length" type="int" value="4"/>
+
+    <!-- number of levels to be created (1: direct solver for Schur complement, -->
+    <!-- 2: solve Schur iteratively and reduced Schur directly,                 -->
+    <!-- >2: not implemented.                                                   -->
+    <Parameter name="Number of Levels" type="int" value="3"/>
+
+  </ParameterList><!--}-->
+
+</ParameterList><!--}-->
