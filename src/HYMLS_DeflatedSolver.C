@@ -72,7 +72,7 @@ Teuchos::RCP<const Teuchos::ParameterList> DeflatedSolver::getValidParameters() 
   return validParams_;
   }
 
-int DeflatedSolver::SetupDeflation(int numEigs)
+int DeflatedSolver::SetupDeflation()
   {
   if (numEigs_ <= 0)
     return -1;

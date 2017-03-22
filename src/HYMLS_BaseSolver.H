@@ -173,15 +173,8 @@ public:
   virtual int setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V,
     Teuchos::RCP<const Epetra_MultiVector> W = Teuchos::null);
 
-  //! computes the modes closest to 0 and sets up the solver's deflation
-  //! capabilities. If maxEigs==-2, the value "Deflated Subspace Dimension"
-  //! from the "Solver" sublist is used.
-  //!
-  //! If maxEigs==0, this function adds the null space as a border of the
-  //! preconditioner to make it non-singular.
-  //!
-  //! \todo see todo in addBorder
-  virtual int SetupDeflation(int maxEigs=-2)
+  //! Method to setup the deflation in the deflated solvers
+  virtual int SetupDeflation()
     {
     return -99;
     }

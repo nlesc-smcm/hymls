@@ -59,7 +59,7 @@ Teuchos::RCP<const Teuchos::ParameterList> BorderedDeflatedSolver::getValidParam
   return validParams_;
   }
 
-int BorderedDeflatedSolver::SetupDeflation(int numEigs)
+int BorderedDeflatedSolver::SetupDeflation()
   {
   if (numEigs_ <= 0)
     return -1;

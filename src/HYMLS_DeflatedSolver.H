@@ -60,7 +60,7 @@ public:
     Epetra_MultiVector& Y) const;
 
   //! See SetupDeflation in the base solver. Maybe this one works
-  virtual int SetupDeflation(int maxEigs=0);
+  virtual int SetupDeflation();
 
   //! computes dominant eigenpairs of inv(P)
   Teuchos::RCP<Anasazi::Eigensolution<double, Epetra_MultiVector> > EigsPrec(int numEigs) const;

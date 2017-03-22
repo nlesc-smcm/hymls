@@ -199,9 +199,9 @@ public:
   //! preconditioner to make it non-singular.
   //!
   //! \todo see todo in addBorder
-  int SetupDeflation(int maxEigs=-2)
+  int SetupDeflation()
     {
-    return solver_->SetupDeflation(maxEigs);
+    return solver_->SetupDeflation();
     }
 
 private:

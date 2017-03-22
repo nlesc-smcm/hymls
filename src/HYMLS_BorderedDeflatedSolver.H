@@ -49,7 +49,7 @@ public:
   virtual int ApplyInverse(const Epetra_MultiVector& X,
     Epetra_MultiVector& Y) const;
 
-  virtual int SetupDeflation(int maxEigs=0);
+  virtual int SetupDeflation();
 
 protected:
 
