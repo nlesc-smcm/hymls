@@ -204,7 +204,7 @@ public:
     return solver_->SetupDeflation();
     }
 
-private:
+protected:
   //! Actual HYMLS solver without extra functionality
   Teuchos::RCP<BaseSolver> solver_;
 
