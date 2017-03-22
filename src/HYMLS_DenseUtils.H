@@ -58,7 +58,7 @@ static int ApplyOrth(const Epetra_MultiVector& V, const Epetra_MultiVector& W,
 
 //! Check if 2 vectors are orthogonal
 static void CheckOrthogonal(Epetra_MultiVector const &X, Epetra_MultiVector const &Y,
-    const char* file, int line, bool isBasis=false);
+  const char* file, int line, bool isBasis=false, double tol=1e-8);
 
 //! orthogonalize the columns of A using lapack's QR (Q is put into A, in fact)
 static int Orthogonalize(Epetra_SerialDenseMatrix& A);

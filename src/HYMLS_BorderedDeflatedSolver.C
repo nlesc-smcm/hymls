@@ -164,7 +164,8 @@ int BorderedDeflatedSolver::ApplyInverse(const Epetra_MultiVector& X,
 
   ret = BorderedSolver::ApplyInverse(tmp, Wb);
 
-  DenseUtils::CheckOrthogonal(*deflationVectors_, Wb , __FILE__, __LINE__);
+  DenseUtils::CheckOrthogonal(*deflationVectors_, Wb , __FILE__, __LINE__, false,
+    belosSolverPtr_->achievedTol() * 100);
 
   Epetra_SerialDenseMatrix v(deflationMatrix_->N(), X.NumVectors());
   Epetra_SerialDenseMatrix w(deflationMatrix_->N(), X.NumVectors());

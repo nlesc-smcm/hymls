@@ -160,7 +160,7 @@ int DenseUtils::ApplyOrth(const Epetra_MultiVector& V, const Epetra_MultiVector&
   }
 
 void DenseUtils::CheckOrthogonal(Epetra_MultiVector const &X, Epetra_MultiVector const &Y,
-  const char* file, int line, bool isBasis)
+  const char* file, int line, bool isBasis, double tol)
   {
   if (!X.Map().SameAs(Y.Map()))
     Tools::Error("Maps are not the same", file, line);
@@ -176,7 +176,7 @@ void DenseUtils::CheckOrthogonal(Epetra_MultiVector const &X, Epetra_MultiVector
       tmpMat(i, i) -= 1.0;
       }
 
-  if (std::abs(tmpMat.NormInf()) > 1e-8)
+  if (std::abs(tmpMat.NormInf()) > tol)
     {
     Tools::Error("Vectors are not orthogonal. The norm is " +
       Teuchos::toString(tmpMat.NormInf()), file, line);

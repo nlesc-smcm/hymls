@@ -203,6 +203,7 @@ createPreconditioner(const NOX::Epetra::Vector& x, Teuchos::ParameterList& p,
     hymls_->SetMassMatrix(massMatrix_);
   if (V_ != Teuchos::null)
     hymls_->setBorder(V_);
+  hymls_->SetupDeflation();
   return true;
   }
 
@@ -215,6 +216,7 @@ recomputePreconditioner(const NOX::Epetra::Vector& x, Teuchos::ParameterList& p)
     hymls_->SetMassMatrix(massMatrix_);
   if (V_ != Teuchos::null)
     hymls_->setBorder(V_);
+  hymls_->SetupDeflation();
   return true;
   }
 
