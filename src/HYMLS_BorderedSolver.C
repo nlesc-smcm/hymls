@@ -223,13 +223,6 @@ int BorderedSolver::ApplyInverse(const Epetra_MultiVector& X, const Epetra_Seria
     HYMLS::Tools::Warning("Belos returned "+::Belos::convertReturnTypeToString(ret)+
       "'!", __FILE__, __LINE__);
 
-#ifdef HYMLS_TESTING
-    Teuchos::RCP<const Epetra_CrsMatrix> Acrs =
-      Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_);
-    MatrixUtils::Dump(*Acrs, "FailedMatrix.txt");
-    MatrixUtils::Dump(B, "FailedRhs.txt");
-#endif
-
     ierr = -1;
     }
 
@@ -255,14 +248,14 @@ int BorderedSolver::ApplyInverse(const Epetra_MultiVector& X, const Epetra_Seria
   int dof = PL("Problem").get<int>("Degrees of Freedom");
 
   Epetra_MultiVector resid(X.Map(),X.NumVectors());
-  CHECK_ZERO(matrix_->Apply(X,resid));
+  CHECK_ZERO(matrix_->Apply(Y,resid));
   if (shiftB_ != 0.0)
     {
-    Epetra_MultiVector Bx=X;
+    Epetra_MultiVector Bx=Y;
 
     if (massMatrix_ != Teuchos::null)
       {
-      CHECK_ZERO(massMatrix_->Apply(X, Bx));
+      CHECK_ZERO(massMatrix_->Apply(Y, Bx));
       }
     CHECK_ZERO(resid.Update(shiftB_, Bx, shiftA_));
     }
@@ -270,13 +263,13 @@ int BorderedSolver::ApplyInverse(const Epetra_MultiVector& X, const Epetra_Seria
     {
     CHECK_ZERO(resid.Scale(shiftA_));
     }
-  CHECK_ZERO(resid.Update(1.0, B, -1.0));
+  CHECK_ZERO(resid.Update(1.0, X, -1.0));
   double *resNorm, *rhsNorm, *resNormV, *resNormP;
   resNorm  = new double[resid.NumVectors()];
   resNormV = new double[resid.NumVectors()];
   resNormP = new double[resid.NumVectors()];
   rhsNorm  = new double[resid.NumVectors()];
-  B.Norm2(rhsNorm);
+  X.Norm2(rhsNorm);
   resid.Norm2(resNorm);
 
   if (dof>=dim)
