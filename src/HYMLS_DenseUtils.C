@@ -114,7 +114,7 @@ int DenseUtils::MatMul(const Epetra_MultiVector& V, const Epetra_MultiVector& W,
 // as a new MultiVector Z. V, W and Z should have the same maps and numbers
 // of vectors (columns). The product is computed as Z=(I-VV')W.                
 int DenseUtils::ApplyOrth(const Epetra_MultiVector& V, const Epetra_MultiVector& W,
-                           Epetra_MultiVector& Z, Teuchos::RCP<const Epetra_Operator> B,
+                           Epetra_MultiVector& Z, Teuchos::RCP<const Epetra_MultiVector> BV,
                            bool reverse)
   {
   HYMLS_PROF3(Label(),"ApplyOrth");
@@ -134,7 +134,7 @@ int DenseUtils::ApplyOrth(const Epetra_MultiVector& V, const Epetra_MultiVector&
   // this object is replicated on all procs because of the LocalMap:
   Teuchos::RCP<Epetra_MultiVector> VW=CreateView(C);
   //Z=W-VV'W
-  if (B==Teuchos::null)
+  if (BV == Teuchos::null) 
     {
     //VW=V'W
     CHECK_ZERO(MatMul(V,W,C));
@@ -143,11 +143,8 @@ int DenseUtils::ApplyOrth(const Epetra_MultiVector& V, const Epetra_MultiVector&
     }
   else if (reverse)
     {
-    //VVBy
-    Epetra_MultiVector Y(W.Map(), W.NumVectors());
-    CHECK_ZERO(B->Apply(W, Y));
-    //VW=V'W
-    CHECK_ZERO(MatMul(V,Y,C));
+    //VV'BW
+    CHECK_ZERO(MatMul(*BV,W,C));
     Z=W;
     CHECK_ZERO(Z.Multiply('N','N',-1.0,V,*VW,1.0));
     }
@@ -155,13 +152,35 @@ int DenseUtils::ApplyOrth(const Epetra_MultiVector& V, const Epetra_MultiVector&
     {
     //VW=V'W
     CHECK_ZERO(MatMul(V,W,C));
-    //BVV'y
-    Epetra_MultiVector Y(W.Map(), W.NumVectors());
-    CHECK_ZERO(Y.Multiply('N','N',1.0,V,*VW,0.0));
-    CHECK_ZERO(B->Apply(Y, Z));
+    //BVV'W
+    CHECK_ZERO(Z.Multiply('N','N',1.0,*BV,*VW,0.0));
     CHECK_ZERO(Z.Update(1.0,W,-1.0));
     }
   return 0;
+  }
+
+void DenseUtils::CheckOrthogonal(Epetra_MultiVector const &X, Epetra_MultiVector const &Y,
+  const char* file, int line, bool isBasis, double tol)
+  {
+  if (!X.Map().SameAs(Y.Map()))
+    Tools::Error("Maps are not the same", file, line);
+
+  int m = X.NumVectors();
+  int n = X.NumVectors();
+  Epetra_SerialDenseMatrix tmpMat(m, n);
+  CHECK_ZERO(DenseUtils::MatMul(X, Y, tmpMat));
+
+  if (isBasis)
+    for (int i = 0; i < n; i++)
+      {
+      tmpMat(i, i) -= 1.0;
+      }
+
+  if (std::abs(tmpMat.NormInf()) > tol)
+    {
+    Tools::Error("Vectors are not orthogonal. The norm is " +
+      Teuchos::toString(tmpMat.NormInf()), file, line);
+    }
   }
 
 //! returns orthogonal basis for the columns of A.
@@ -198,13 +217,9 @@ int DenseUtils::Orthogonalize(Epetra_SerialDenseMatrix& A)
 Teuchos::RCP<Epetra_MultiVector> DenseUtils::CreateView(Epetra_SerialDenseMatrix& A)
   {
   HYMLS_PROF3(Label(),"CreateView");
-  int nrows = A.M();
-  int ncols = A.N();
   Epetra_SerialComm comm;
-  Epetra_LocalMap tinyMap(nrows,0,comm);
-  Teuchos::RCP<Epetra_MultiVector> MV = 
-        Teuchos::rcp(new Epetra_MultiVector(View,tinyMap,A.A(),A.LDA(),ncols));
-  return MV;
+  Epetra_LocalMap tinyMap(A.M(), 0, comm);
+  return Teuchos::rcp(new Epetra_MultiVector(View, tinyMap, A.A(), A.LDA(), A.N()));
   }
 
 //! create a multivector view of a dense matrix
@@ -212,28 +227,23 @@ Teuchos::RCP<const Epetra_MultiVector> DenseUtils::CreateView
         (const Epetra_SerialDenseMatrix& A)
   {
   HYMLS_PROF3(Label(),"CreateView");
-  int n = A.N();
   Epetra_SerialComm comm;
-  Epetra_LocalMap tinyMap(n,0,comm);
-  Teuchos::RCP<const Epetra_MultiVector> MV = 
-        Teuchos::rcp(new Epetra_MultiVector(View,tinyMap,A.A(),A.LDA(),n));
-  return MV;
+  Epetra_LocalMap tinyMap(A.M(), 0, comm);
+  return Teuchos::rcp(new Epetra_MultiVector(View, tinyMap, A.A(), A.LDA(), A.N()));
   }
 
 //! create a dense matrix view of a multivector
 Teuchos::RCP<Epetra_SerialDenseMatrix> DenseUtils::CreateView(Epetra_MultiVector& A)
   {
   HYMLS_PROF3(Label(),"CreateView");
-  int n = A.NumVectors();
-  if (A.DistributedGlobal())
+  if (A.DistributedGlobal() || !A.ConstantStride())
     {
     Tools::Error("Cannot convert this MV to a serial dense matrix!",
-                __FILE__,__LINE__);
+      __FILE__, __LINE__);
     }
-  Teuchos::RCP<Epetra_SerialDenseMatrix> DM = 
-        Teuchos::rcp(new 
-        Epetra_SerialDenseMatrix(View,A.Values(),A.MyLength(),n,n));
-  return DM;
+
+  return Teuchos::rcp(new Epetra_SerialDenseMatrix(View, A.Values(), A.MyLength(),
+      A.Stride(), A.MyLength(), A.NumVectors()));
   }
 
 //! create a dense matrix view of a multivector
@@ -241,16 +251,14 @@ Teuchos::RCP<const Epetra_SerialDenseMatrix> DenseUtils::CreateView
         (const Epetra_MultiVector& A)
   {
   HYMLS_PROF3(Label(),"CreateView");
-  int n = A.NumVectors();
-  if (A.DistributedGlobal())
+  if (A.DistributedGlobal() || !A.ConstantStride())
     {
     Tools::Error("Cannot convert this MV to a serial dense matrix!",
-                __FILE__,__LINE__);
+      __FILE__, __LINE__);
     }
-  Teuchos::RCP<const Epetra_SerialDenseMatrix> DM = 
-        Teuchos::rcp(new 
-        Epetra_SerialDenseMatrix(View,A.Values(),A.MyLength(),n,n));
-  return DM;
+
+  return Teuchos::rcp(new Epetra_SerialDenseMatrix(View, A.Values(), A.MyLength(),
+      A.Stride(), A.MyLength(), A.NumVectors()));
   }
 
 

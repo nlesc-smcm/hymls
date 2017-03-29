@@ -139,6 +139,8 @@ bool status=true;
     std::string nullSpaceType=driverList.get("Null Space Type","None");
     int dim0=0; // if the problem is read from a file, a null space can be read, too, with dim0 columns.
 
+    Teuchos::ParameterList& solver_params = params->sublist("Solver");
+
     if (read_problem)
       {
       datadir = driverList.get("Data Directory","not specified");
@@ -164,7 +166,7 @@ bool status=true;
     int nx=probl_params.get("nx",32);
     int ny=probl_params.get("ny",nx);
     int nz=probl_params.get("nz",dim>2?nx:1);
-      
+    
     // copy problem sublist so that the main utils don't modify the original
     Teuchos::ParameterList probl_params_cpy = probl_params;
   
@@ -237,7 +239,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     }
 
   //bool do_deflation = (solver_params.get("Deflated Subspace Dimension",0)>0);
-  bool do_deflation = false;
+  bool do_deflation = solver_params.get("Use Deflation", false);
     
   HYMLS::Tools::Out("Create dummy mass matrix");
   Teuchos::RCP<Epetra_CrsMatrix> M = Teuchos::null;
@@ -350,7 +352,7 @@ for (int f=0;f<numComputes;f++)
 
   if (nullSpace!=Teuchos::null)
     {
-    CHECK_ZERO(solver->setNullSpace(nullSpace));
+    CHECK_ZERO(solver->setBorder(nullSpace));
     }
 
   if (do_deflation)

@@ -166,7 +166,7 @@ void HYMLS_jadaCorrectionSolver_run1(void* vme,
     }
     else
     {
-      CHECK_ZERO(solver->setProjectionVectors(Teuchos::rcp<const Epetra_MultiVector>(&vec0, false)));
+    solver->setProjectionVectors(Teuchos::rcp<const Epetra_MultiVector>(&vec0, false), Teuchos::rcp<const Epetra_MultiVector>(&vec1, false));
     }
   }
   else
@@ -178,7 +178,7 @@ void HYMLS_jadaCorrectionSolver_run1(void* vme,
     }
     else
     {
-      CHECK_ZERO(solver->setProjectionVectors(Teuchos::rcp<const Epetra_MultiVector>(Q_ptr, false)));
+    solver->setProjectionVectors(Teuchos::rcp<const Epetra_MultiVector>(Q_ptr, false), Teuchos::rcp<const Epetra_MultiVector>(BQ_ptr, false));
     }
   }
 

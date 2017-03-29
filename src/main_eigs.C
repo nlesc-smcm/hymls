@@ -178,14 +178,14 @@ bool status=true;
     params->remove("Driver");
 
     Teuchos::ParameterList& probl_params = params->sublist("Problem");
-    Teuchos::ParameterList probl_params_cpy = probl_params;
 
     int dim=probl_params.get("Dimension",2);
     int nx=probl_params.get("nx",32);
     int ny=probl_params.get("ny",nx);
     int nz=probl_params.get("nz",dim>2?nx:1);
-    int dof=probl_params.get("Degrees of Freedom",2);
-
+    int dof=probl_params.get("Degrees of Freedom", 1);
+ 
+    Teuchos::ParameterList probl_params_cpy = probl_params;
     std::string eqn=probl_params_cpy.get("Equations","Laplace");
 
     map = HYMLS::MainUtils::create_map(*comm,probl_params_cpy); 
@@ -224,17 +224,16 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
   HYMLS::MatrixUtils::Random(*x);
 
   Teuchos::ParameterList& solver_params = params->sublist("Solver");
-  bool do_deflation = (solver_params.get("Deflated Subspace Dimension",0)>0);
+  //bool do_deflation = (solver_params.get("Deflated Subspace Dimension",0)>0);
+  bool do_deflation = solver_params.get("Use Deflation", false);
 
-  //int dof = 1;
-//  int dof = 2; //for turing system Weiyan
   if (eqn=="Stokes-C")
     {
     dof=dim+1;
     }
 
   Teuchos::RCP<Epetra_CrsMatrix> M = Teuchos::null;
-  if (do_deflation||true) // need a mass matrix
+  if (false) // need a mass matrix
     {
     if (have_massmatrix)
       {
@@ -245,7 +244,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
       HYMLS::Tools::Out("Create dummy mass matrix");
       M=Teuchos::rcp(new Epetra_CrsMatrix(Copy,*map,1,true));
       int gid;
-//      double val1=1.0/(nx*ny*nz);
+      // double val1=1.0/(nx*ny*nz);
       double val1=1.0; //for turing problem Weiyan 
 
       double val0=0.0;
@@ -282,13 +281,12 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     HYMLS::Tools::Out("Initialize Preconditioner...");
     HYMLS::Tools::StartTiming ("main: Initialize Preconditioner");
     REPORT_MEM("main","before Initialize",0,0);
-    cout << "dof=" << dof <<endl;
 
     CHECK_ZERO(precond->Initialize());
     REPORT_MEM("main","after Initialize",0,0);
     HYMLS::Tools::StopTiming("main: Initialize Preconditioner",true);
     }
-  
+
   REPORT_MEM("main","before HYMLS",0,0);
   
   if (precond!=Teuchos::null)
