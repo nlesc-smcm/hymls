@@ -57,6 +57,14 @@
     <!-- "CG", "GMRES", "PCPG" (only GMRES actually supported by our solver right now) -->
     <Parameter name="Krylov Method" type="string" value="GMRES"/>
     
+    <!-- apply preconditioning from left or right (if Krylov Method!="None") -->
+    <Parameter name="Left or Right Preconditioning" type="string" value="Right"/>
+
+    <!-- this is not necessary for Laplace, of course, but we can test the eigensolver: -->
+    <Parameter name="Use Deflation" type="bool" value="true"/>
+    <Parameter name="Deflated Subspace Dimension" type="int" value="5"/>
+    <Parameter name="Deflation Threshold" type="double" value="0.0"/>
+    
     <!-- vector to start the Krylov sequence: "Zero", "Random", "Previous" -->
     <Parameter name="Initial Vector" type="string" value="Zero"/>
         

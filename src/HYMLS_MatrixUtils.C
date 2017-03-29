@@ -1336,7 +1336,7 @@ void MatrixUtils::MatrixProduct(Teuchos::RCP<Epetra_CrsMatrix> AB, bool transA, 
   }
 
 
-Teuchos::RCP<MatrixUtils::Eigensolution> MatrixUtils::Eigs(
+Teuchos::RCP<Anasazi::Eigensolution<double, Epetra_MultiVector> > MatrixUtils::Eigs(
   Teuchos::RCP<const Epetra_Operator> A,
   Teuchos::RCP<const Epetra_Operator> B,
   int howMany,
@@ -1385,7 +1385,7 @@ Teuchos::RCP<MatrixUtils::Eigensolution> MatrixUtils::Eigs(
     verbosity += Anasazi::FinalSummary + Anasazi::TimingDetails;
     }
   if (debug) {
-//    verbosity += Anasazi::Debug;
+   verbosity += Anasazi::Debug;
     }
 
   //
@@ -1485,7 +1485,7 @@ Teuchos::RCP<MatrixUtils::Eigensolution> MatrixUtils::Eigs(
     Tools::out() << "-----------------------------------------------------------" << std::endl;
     }
 
-  return Teuchos::rcp(new Eigensolution(MyProblem->getSolution()));
+  return Teuchos::rcp(new Anasazi::Eigensolution<double, Epetra_MultiVector>(MyProblem->getSolution()));
   }
 
 

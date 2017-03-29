@@ -45,9 +45,9 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   message(STATUS "Using GNU compiler flags")
 
   if (NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_C_FLAGS        "${CMAKE_C_FLAGS} -O2 -g -Wall -Wno-unknown-pragmas")
-    set(CMAKE_CXX_FLAGS      "${CMAKE_CXX_FLAGS} -O2 -g -Wall -Wno-unknown-pragmas")
-    set(CMAKE_Fortran_FLAGS  "${CMAKE_Fortran_FLAGS} -O2 -g -Wall -Wno-unknown-pragmas")
+    set(CMAKE_C_FLAGS        "${CMAKE_C_FLAGS} -O2 -g -Wall -Wno-unknown-pragmas -Wno-deprecated-declarations")
+    set(CMAKE_CXX_FLAGS      "${CMAKE_CXX_FLAGS} -O2 -g -Wall -Wno-unknown-pragmas -Wno-deprecated-declarations")
+    set(CMAKE_Fortran_FLAGS  "${CMAKE_Fortran_FLAGS} -O2 -g -Wall -Wno-unknown-pragmas -Wno-deprecated-declarations")
   endif()
 
   set(CMAKE_C_FLAGS_RELEASE        "-O3 -ffast-math -march=native")

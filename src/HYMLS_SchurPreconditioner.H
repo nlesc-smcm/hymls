@@ -12,7 +12,7 @@
 
 #include "HYMLS_OverlappingPartitioner.H"
 #include "HYMLS_OrthogonalTransform.H"
-#include "HYMLS_BorderedSolver.H"
+#include "HYMLS_BorderedOperator.H"
 #include "HYMLS_PLA.H"
 
 // forward declarations
@@ -59,7 +59,7 @@ class SchurComplement;
     direct solver for the input matrix.
 */
 class SchurPreconditioner : public Ifpack_Preconditioner,
-                            public BorderedSolver,
+                            public BorderedOperator,
                             public PLA
   {
   
@@ -210,7 +210,7 @@ public:
 
   //@}
 
-  //! \name HYMLS BorderedSolver interface
+  //! \name HYMLS BorderedOperator interface
   //@{
   
   //!

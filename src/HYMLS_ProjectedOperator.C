@@ -12,31 +12,40 @@ namespace HYMLS
   {
     
     //!constructor
-    ProjectedOperator::ProjectedOperator(Teuchos::RCP<const Epetra_Operator> A, 
+    ProjectedOperator::ProjectedOperator(Teuchos::RCP<const Epetra_Operator> A,
                       Teuchos::RCP<const Epetra_MultiVector> V,
-                      Teuchos::RCP<const Epetra_Operator> B,
+                      Teuchos::RCP<const Epetra_MultiVector> BV,
                       bool useVorth) :
-  A_(A), V_(V), B_(B),
+  A_(A), V_(V), BV_(BV),
   useVorth_(useVorth),
   leftPrecond_(Teuchos::null),
   useTranspose_(false)
   {
   HYMLS_PROF3("ProjectedOperator", "Constructor");
+
   if (A_->OperatorRangeMap().SameAs(A_->OperatorDomainMap())==false)
     {
     Tools::Error("operator must be 'square'",__FILE__,__LINE__);
-    }  
+    }
+
   if (A_->OperatorRangeMap().SameAs(V_->Map())==false)
     {
     Tools::Error("operator and vector space must have compatible maps",
         __FILE__,__LINE__);
-    }  
+    }
+
+  if (BV_ == Teuchos::null)
+    {
+    BV_ = V_;
+    }
+  DenseUtils::CheckOrthogonal(*V_, *BV_, __FILE__, __LINE__, true);
+
   // re-allocated if Apply(Inverse)() is called with more vectors:
   tmpVector_ = Teuchos::rcp(new Epetra_MultiVector(V_->Map(),1));
   labelV_="V";
-if (useVorth_) labelV_=labelV_+"_orth";
-labelA_="("+std::string(A_->Label())+")";
-labelT_="";
+  if (useVorth_) labelV_=labelV_+"_orth";
+  labelA_="("+std::string(A_->Label())+")";
+  labelT_="";
   }
 
     int ProjectedOperator::Apply(const Epetra_MultiVector& X, Epetra_MultiVector& Y) const
@@ -53,20 +62,22 @@ labelT_="";
         {
         //TODO: this may be optimized in several ways, e.g. keep temporary vectors
         // used inside ApplyOrth etc.
-        //~ CHECK_ZERO(DenseUtils::ApplyOrth(*V_,X,Y, B_, true));
-        //~ CHECK_ZERO(A_->Apply(Y,*tmpVector_));
-        CHECK_ZERO(A_->Apply(X,*tmpVector_));
-        CHECK_ZERO(DenseUtils::ApplyOrth(*V_,*tmpVector_,Y, B_));
+        CHECK_ZERO(DenseUtils::ApplyOrth(*V_,X,Y, BV_, true));
+        CHECK_ZERO(A_->Apply(Y,*tmpVector_));
+        // CHECK_ZERO(A_->Apply(X,*tmpVector_));
+        CHECK_ZERO(DenseUtils::ApplyOrth(*V_,*tmpVector_,Y, BV_));
         }
       else
         {
         Tools::Error("not implemented!",__FILE__,__LINE__);
         }
+
       if (leftPrecond_!=Teuchos::null)
         {
         *tmpVector_=Y;
         CHECK_ZERO(leftPrecond_->ApplyInverse(*tmpVector_,Y));
         }
+
       return 0;
       }
 
@@ -96,18 +107,8 @@ labelT_="";
 
         // H=Q'K^-1Z
         H_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(m, m));
-        if (B_ != Teuchos::null)
-          {
-          Epetra_MultiVector tmpVectorm2(V_->Map(), m);
-          CHECK_ZERO(B_->Apply(*V_, tmpVectorm));
-          CHECK_ZERO(A_->ApplyInverse(tmpVectorm, tmpVectorm2));
-          CHECK_ZERO(B_->Apply(tmpVectorm2, tmpVectorm));
-          }
-        else
-          {
-          CHECK_ZERO(A_->ApplyInverse(*V_, tmpVectorm));
-          }
-        CHECK_ZERO(DenseUtils::MatMul(*V_, tmpVectorm, *H_));
+        CHECK_ZERO(A_->ApplyInverse(*BV_, tmpVectorm));
+        CHECK_ZERO(DenseUtils::MatMul(*BV_, tmpVectorm, *H_));
 
         HSolver_ = Teuchos::rcp(new Epetra_SerialDenseSolver());
         CHECK_ZERO(HSolver_->SetMatrix(*H_));
@@ -120,16 +121,8 @@ labelT_="";
       Epetra_SerialDenseMatrix C(m, k);
       Epetra_SerialDenseMatrix D(m, k);
 
-      if (B_ == Teuchos::null)
-        {
-        //C=Q'K^-1X
-        CHECK_ZERO(DenseUtils::MatMul(*V_, Y, C));
-        }
-      else
-        {
-        CHECK_ZERO(B_->Apply(Y, *tmpVector_));
-        CHECK_ZERO(DenseUtils::MatMul(*V_, *tmpVector_, C));
-        }
+      //C=Q'K^-1X
+      CHECK_ZERO(DenseUtils::MatMul(*BV_, Y, C));
 
       //D=H^-1Q'K^-1X
       CHECK_ZERO(HSolver_->SetVectors(D, C));
@@ -138,17 +131,8 @@ labelT_="";
       Teuchos::RCP<Epetra_MultiVector> HVY = DenseUtils::CreateView(D);
 
       //T=X-ZH^-1Q'K^-1X
-      if (B_ == Teuchos::null)
-        {
-        *tmpVector_ = X;
-        CHECK_ZERO(tmpVector_->Multiply('N', 'N', -1.0, *V_, *HVY, 1.0));
-        }
-      else
-        {
-        CHECK_ZERO(Y.Multiply('N', 'N', 1.0, *V_, *HVY, 0.0));
-        CHECK_ZERO(B_->Apply(Y, *tmpVector_));
-        CHECK_ZERO(tmpVector_->Update(1.0, X, -1.0));
-        }
+      *tmpVector_ = X;
+      CHECK_ZERO(tmpVector_->Multiply('N', 'N', -1.0, *BV_, *HVY, 1.0));
 
       //Y=K^-1(X-ZH^-1Q'K^-1X)
       CHECK_ZERO(A_->ApplyInverse(*tmpVector_, Y));

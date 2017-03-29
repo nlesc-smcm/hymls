@@ -10,7 +10,6 @@
 
 #include "HYMLS_SchurComplement.H"
 #include "HYMLS_SchurPreconditioner.H"
-#include "HYMLS_BorderedLU.H"
 #include "HYMLS_MatrixBlock.H"
 
 #include <Epetra_Time.h> 
@@ -831,11 +830,11 @@ if (dumpVectors_)
 
     Epetra_SerialDenseMatrix q,s;
 
-    if (borderW_!=Teuchos::null)
+    if (W_!=Teuchos::null)
       {
       CHECK_ZERO(DenseUtils::MatMul(*borderW1_,*x1,q));
       CHECK_ZERO(q.Scale(-1));
-      s.Reshape(q.M(),q.N());
+      s.Shape(q.M(),q.N());
       }
 
   if (scaleSchur_)
@@ -843,23 +842,13 @@ if (dumpVectors_)
     // left-scale rhs with schurScaLeft_
     CHECK_ZERO(schurRhs_->Multiply(1.0, *schurScaLeft_, *schurRhs_, 0.0))
     }
-  if (borderV_!=Teuchos::null)
+  if (V_!=Teuchos::null)
     {
-    Teuchos::RCP<HYMLS::BorderedSolver> borderedSchurSolver
-        = Teuchos::rcp_dynamic_cast<HYMLS::BorderedSolver>(schurPrec_);
-    if (borderedSchurSolver==Teuchos::null)
-      {
-      Tools::Error("cannot handle bordered Schur system!",__FILE__,__LINE__);
-      }
-    else
-      {
-      CHECK_ZERO(borderedSchurSolver->ApplyInverse(*schurRhs_,q,*schurSol_,s));  
-      HYMLS_DEBUG("successfully applied bordered Schur precond");
-      }
+    CHECK_ZERO(schurPrec_->ApplyInverse(*schurRhs_,q,*schurSol_,s));
     }
   else
     {
-    CHECK_ZERO(schurPrec_->ApplyInverse(*schurRhs_,*schurSol_));  
+    CHECK_ZERO(schurPrec_->ApplyInverse(*schurRhs_,*schurSol_));
     }
   // unscale rhs with schurScaRight_
   if (scaleSchur_)
@@ -1316,9 +1305,9 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
     {
     HYMLS_LPROF2(label_,"setBorder");
 
-    Teuchos::RCP<const Epetra_MultiVector> _V=V;
-    Teuchos::RCP<const Epetra_MultiVector> _W= (W==Teuchos::null)?V:W;
-    Teuchos::RCP<const Epetra_SerialDenseMatrix> _C=C;
+    Teuchos::RCP<const Epetra_MultiVector> _V = V;
+    Teuchos::RCP<const Epetra_MultiVector> _W = (W==Teuchos::null) ? V : W;
+    Teuchos::RCP<const Epetra_SerialDenseMatrix> _C = C;
 
     if (!IsComputed())
       {
@@ -1332,20 +1321,16 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
 
     if (V==Teuchos::null)
       {
-      borderV_=Teuchos::null;
-      borderW_=Teuchos::null;
-      borderC_=Teuchos::null;
+      V_=Teuchos::null;
+      W_=Teuchos::null;
+      C_=Teuchos::null;
       borderSchurV_=Teuchos::null;
       borderSchurW_=Teuchos::null;
       borderSchurC_=Teuchos::null;
       borderQ1_=Teuchos::null;
-      Teuchos::RCP<HYMLS::BorderedSolver> borderedSchurSolver = 
-    Teuchos::rcp_dynamic_cast<HYMLS::BorderedSolver>(schurPrec_);
-    if (!Teuchos::is_null(borderedSchurSolver))
-      {
-      CHECK_ZERO(borderedSchurSolver->setBorder(borderSchurV_,borderSchurW_,borderSchurC_));
-      }
-    return 0;
+
+      CHECK_ZERO(schurPrec_->setBorder(borderSchurV_, borderSchurW_, borderSchurC_));
+      return 0;
     }
 
     int m = _V->NumVectors();
@@ -1373,17 +1358,19 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
         __FILE__,__LINE__);
       }
     
-    borderV_ = Teuchos::rcp(new Epetra_MultiVector(*rowMap_, m));
-    CHECK_ZERO(borderV_->Import(*_V, *importer_, Insert));
-    
+    Teuchos::RCP<Epetra_MultiVector> importedV = Teuchos::rcp(new Epetra_MultiVector(*rowMap_, m));
+    CHECK_ZERO(importedV->Import(*_V, *importer_, Insert));
+    V_ = importedV;
+
     if (_W.get()==_V.get())
       {
-      borderW_=borderV_;
+      W_=V_;
       }
     else
       {
-      borderW_ = Teuchos::rcp(new Epetra_MultiVector(*rowMap_, m));
-      CHECK_ZERO(borderW_->Import(*_W, *importer_, Insert));
+      Teuchos::RCP<Epetra_MultiVector> importedW = Teuchos::rcp(new Epetra_MultiVector(*rowMap_, m));
+      CHECK_ZERO(importedW->Import(*_W, *importer_, Insert));
+      W_ = importedW;
       }
 
     // TODO: Remove this and also map1_ etc. Those are now part
@@ -1391,15 +1378,15 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
     Teuchos::RCP<Epetra_Import> import1_ = Teuchos::rcp(new Epetra_Import(*map1_,*rowMap_));
     Teuchos::RCP<Epetra_Import> import2_ = Teuchos::rcp(new Epetra_Import(*map2_,*rowMap_));
 
-    borderC_ = _C;
+    C_ = _C;
     
     borderV1_ = Teuchos::rcp(new Epetra_MultiVector(*map1_,m));
     borderV2_ = Teuchos::rcp(new Epetra_MultiVector(*map2_,m));
 
-    CHECK_ZERO(borderV1_->Import(*borderV_,*import1_,Insert));
-    CHECK_ZERO(borderV2_->Import(*borderV_,*import2_,Insert));
+    CHECK_ZERO(borderV1_->Import(*V_,*import1_,Insert));
+    CHECK_ZERO(borderV2_->Import(*V_,*import2_,Insert));
 
-    if (borderV_.get()==borderW_.get())
+    if (V_.get()==W_.get())
       {
       borderW1_=borderV1_;
       borderW2_=borderV2_;
@@ -1408,8 +1395,8 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
       {
       borderW1_ = Teuchos::rcp(new Epetra_MultiVector(*map1_,m));
       borderW2_ = Teuchos::rcp(new Epetra_MultiVector(*map2_,m));
-      CHECK_ZERO(borderW1_->Import(*borderW_,*import1_,Insert));
-      CHECK_ZERO(borderW2_->Import(*borderW_,*import2_,Insert));
+      CHECK_ZERO(borderW1_->Import(*W_,*import1_,Insert));
+      CHECK_ZERO(borderW2_->Import(*W_,*import2_,Insert));
       }
 
     // build the border for the Schur-complement
@@ -1439,7 +1426,7 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
     borderSchurC_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(m,m));
     CHECK_ZERO(DenseUtils::MatMul(*borderW1_,*borderQ1_,*borderSchurC_));
     CHECK_ZERO(borderSchurC_->Scale(-1.0));
-    *borderSchurC_ += *borderC_;
+    *borderSchurC_ += *C_;
     
     //TODO: if the Schur-complement is left- and right-scaled,
     //      we also have to scale the borders
@@ -1448,14 +1435,8 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
       Tools::Error("not implemented!",__FILE__,__LINE__);
       }
 
-    Teuchos::RCP<HYMLS::BorderedSolver> borderedSchurSolver = 
-    Teuchos::rcp_dynamic_cast<HYMLS::BorderedSolver>(schurPrec_);
-    if (Teuchos::is_null(borderedSchurSolver))
-      {
-      Tools::Error("cannot handle bordered Schur problem",__FILE__,__LINE__);
-      }
     HYMLS_DEBVAR(borderSchurV_->MyLength());
-    CHECK_ZERO(borderedSchurSolver->setBorder(borderSchurV_,borderSchurW_,borderSchurC_));
+    CHECK_ZERO(schurPrec_->setBorder(borderSchurV_,borderSchurW_,borderSchurC_));
     return 0;
     }
 
@@ -1572,17 +1553,7 @@ if (dumpVectors_)
     CHECK_ZERO(schurRhs_->Multiply(1.0, *schurScaLeft_, *schurRhs_, 0.0))
     }
 
-  Teuchos::RCP<HYMLS::BorderedSolver> borderedSchurSolver
-        = Teuchos::rcp_dynamic_cast<HYMLS::BorderedSolver>(schurPrec_);
-  if (borderedSchurSolver==Teuchos::null)
-    {
-    Tools::Error("cannot handle bordered Schur system!",__FILE__,__LINE__);
-    }
-  else
-    {
-    CHECK_ZERO(borderedSchurSolver->ApplyInverse(*schurRhs_,q,*schurSol_,S));  
-    HYMLS_DEBUG("successfully applied bordered Schur precond");
-    }
+  CHECK_ZERO(schurPrec_->ApplyInverse(*schurRhs_,q,*schurSol_,S));
 
   // unscale rhs with schurScaRight_
   if (scaleSchur_)

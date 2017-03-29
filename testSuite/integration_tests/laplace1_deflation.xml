@@ -1,30 +1,24 @@
-<ParameterList name="Laplace Neumann problem, 2-level with bordering"><!--{-->
+<ParameterList name="Laplace 2-level deflation convergence test"><!--{-->
 
-
-  <Parameter name="Description" type="string" 
-        value="Laplace Neumann problem, 2-level with bordering"/>
+<Parameter name="Description" type="string"
+        value="Laplace 2-level basic convergence test"/>
 
   <!-- these first few settings are specific for the driver -->
   <!-- implemented in 'main.C' and are not passed on to the -->
   <!-- HYMLS solver classes.                                -->
   <ParameterList name="Driver"><!--{-->
+  
     <Parameter name="Number of refinements" type="int" value="2"/>
 
     <!-- will create a series of slightly perturbed matrices -->
     <Parameter name="Number of factorizations" type="int" value="2"/>
     <!-- for each matrix, solve with several right-hand sides in a row -->
     <Parameter name="Number of solves" type="int" value="2"/>
-     <!-- how to generate the matrix -->
-     <Parameter name="Galeri Label" type="string" value="Laplace Neumann"/> 
-
-     <!-- null space: constant vector will be projected out to  -->
-     <!-- get a non-singular system (for testing the bordering) -->
-     <Parameter name="Null Space Type" type="string" value="Constant"/>
-
+    
   </ParameterList><!--}-->
   
   <ParameterList name="Targets"><!--{-->
-    <Parameter name="Number of Iterations" type="int" value="38"/>
+    <Parameter name="Number of Iterations" type="int" value="21"/>
     <Parameter name="Relative Residual 2-Norm" type="double" value="5.0e-10"/>
     <Parameter name="Relative Error 2-Norm" type="double" value="5.0e-10"/>
   </ParameterList><!--}-->
@@ -41,17 +35,20 @@
   
   <ParameterList name="Solver"><!--{-->
   
-    <!-- currently only GMRES works with bordering (CG should as well but doesn't) -->
+    <!-- "CG", "GMRES", "PCPG" (only GMRES actually supported by our solver right now) -->
     <Parameter name="Krylov Method" type="string" value="GMRES"/>
-
+    
+    <!-- this is not necessary for Laplace, of course, but we can test the eigensolver: -->
+    <Parameter name="Use Deflation" type="bool" value="true"/>
+    <Parameter name="Deflated Subspace Dimension" type="int" value="10"/>
+    <Parameter name="Deflation Threshold" type="double" value="0.0"/>
+    
     <!-- vector to start the Krylov sequence: "Zero", "Random", "Previous" -->
     <Parameter name="Initial Vector" type="string" value="Random"/>
-
-    <Parameter name="Use Bordering" type="bool" value="true"/>
         
     <!-- parameters for the iterative solver (Belos) -->
     <ParameterList name="Iterative Solver">
-      <Parameter name="Maximum Iterations" type="int" value="100"/>
+      <Parameter name="Maximum Iterations" type="int" value="500"/>
       <Parameter name="Convergence Tolerance" type="double" value="1.0e-10"/>
     </ParameterList>
   </ParameterList><!--}-->
@@ -64,7 +61,7 @@
     <!-- number of levels to be created (1: direct solver for Schur complement, -->
     <!-- 2: solve Schur iteratively and reduced Schur directly,                 -->
     <!-- >2: not implemented.                                                   -->
-    <Parameter name="Number of Levels" type="int" value="3"/>
+    <Parameter name="Number of Levels" type="int" value="2"/>
     
   </ParameterList><!--}-->
       
