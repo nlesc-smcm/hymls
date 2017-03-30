@@ -49,6 +49,9 @@
 #if defined(EPETRA_HAVE_OMP)&&defined(HYMLS_USE_OPENMP)
 #include <omp.h>
 #endif
+#ifndef WINGW
+#include <sys/time.h>
+#endif
 
 namespace HYMLS {
 
@@ -73,21 +76,27 @@ Epetra_Time::~Epetra_Time(void)
 double Epetra_Time::WallTime(void) const
 {
 #ifdef EPETRA_MPI
-	return(MPI_Wtime());
-#else
+  int mpiInitialized = 0;
+  MPI_Initialized(&mpiInitialized);
+
+  if (mpiInitialized)
+  {
+    return MPI_Wtime();
+  }
+#endif
 
 #if defined(EPETRA_HAVE_OMP)&&defined(HYMLS_HAVE_OPENMP)
-       return(omp_get_wtime());
-#else
+  return omp_get_wtime();
+#endif
+
 #if ICL || defined(_WIN32)
 
-   clock_t start;
-   //double duration;
+  clock_t start;
+  //double duration;
 
-   start = clock();
+  start = clock();
   return (double)( start ) / CLOCKS_PER_SEC;
-
-#else
+#endif
 
 #ifndef MINGW
    struct timeval tp;
@@ -97,19 +106,13 @@ double Epetra_Time::WallTime(void) const
       gettimeofday(&tp, NULL);
       start = tp.tv_sec;
       startu = tp.tv_usec;
-      return(0.0);
+      return 0.0;
    }
    gettimeofday(&tp, NULL);
-   return( ((double) (tp.tv_sec - start)) + (tp.tv_usec-startu)/1000000.0 );
-#else
-   return( (double) clock() / CLOCKS_PER_SEC );
-#endif // MINGW
+   return ((double)(tp.tv_sec - start)) + (tp.tv_usec - startu) / 1000000.0;
+#endif
 
-#endif // ICL || WIN32
-
-#endif // EPETRA_HAVE_OMP
-#endif // EPETRA_MPI
-
+   return (double)clock() / CLOCKS_PER_SEC;
 }
 //=============================================================================
 void Epetra_Time::ResetStartTime(void)

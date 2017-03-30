@@ -3,6 +3,7 @@
 #include <Teuchos_RCP.hpp>
 #include <Teuchos_ParameterList.hpp>
 
+#include <Epetra_SerialComm.h>
 #include <Epetra_MpiComm.h>
 #include <Epetra_Map.h>
 #include <Epetra_MultiVector.h>
@@ -74,9 +75,9 @@ TEUCHOS_UNIT_TEST(Preconditioner, Blocks)
   Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(new Epetra_CrsMatrix(Copy, map, 2));
   Epetra_Util util;
   for (int i = 0; i < n; i++) {
-    int A_idx = util.RandomInt() % n;
+    // int A_idx = util.RandomInt() % n;
     double A_val = util.RandomDouble();
-    A->InsertGlobalValues(i, 1, &A_val, &A_idx);
+    // A->InsertGlobalValues(i, 1, &A_val, &A_idx);
     A->InsertGlobalValues(i, 1, &A_val, &i);
   }
   A->FillComplete();
@@ -92,4 +93,39 @@ TEUCHOS_UNIT_TEST(Preconditioner, Blocks)
 
   // Make sure the pointers on the preconditioner and Schur complement are the same
   TEST_EQUALITY(&prec.A22(), &TestableSchurComplement(prec.SchurComplement()).A22());
+  }
+
+TEUCHOS_UNIT_TEST(Preconditioner, SerialComm)
+  {
+  // Check if HYMLS can work without MPI
+  Epetra_SerialComm Comm;
+
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(new Teuchos::ParameterList());
+  Teuchos::ParameterList &problemList = params->sublist("Problem");
+  problemList.set("Degrees of Freedom", 4);
+  problemList.set("Dimension", 3);
+  problemList.set("nx", 8);
+  problemList.set("ny", 4);
+  problemList.set("nz", 4);
+  Teuchos::ParameterList &precList = params->sublist("Preconditioner");
+  precList.set("Separator Length", 4);
+  precList.set("Number of Levels", 1);
+
+  int n = problemList.get<int>("Degrees of Freedom") * problemList.get<int>("nx") *
+    problemList.get<int>("ny") * problemList.get<int>("nz");
+  Epetra_Map map(n, 0, Comm);
+
+  Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(new Epetra_CrsMatrix(Copy, map, 2));
+  Epetra_Util util;
+  for (int i = 0; i < n; i++) {
+    // int A_idx = util.RandomInt() % n;
+    double A_val = util.RandomDouble();
+    // A->InsertGlobalValues(i, 1, &A_val, &A_idx);
+    A->InsertGlobalValues(i, 1, &A_val, &i);
+  }
+  A->FillComplete();
+
+  TestablePreconditioner prec(A, params);
+  prec.Initialize();
+  prec.Compute();
   }

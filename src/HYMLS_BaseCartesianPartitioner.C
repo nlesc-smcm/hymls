@@ -354,7 +354,7 @@ Teuchos::RCP<Epetra_Map> repartitionedMap =
 // a) the number of subdomains becomes smaller than the number of processes,
 // b) the subdomains can't be nicely distributed among the processes.
 // In both cases some processes are deactivated.
-if (repart==true)
+if (repart && comm_->NumProc() > 1)
   {
   Tools::Out("repartition for "+s4+" procs");
   HYMLS_PROF3(label_,"repartition map");

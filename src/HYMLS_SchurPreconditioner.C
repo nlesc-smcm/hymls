@@ -387,32 +387,39 @@ namespace HYMLS {
     // passed to direct solver - depends on what exactly we do
     Teuchos::RCP<Epetra_RowMatrix> S2 = Teuchos::null;
 
-#ifdef RESTRICT_ON_COARSE_LEVEL
-    // restrict the matrix to the active processors
-    if (restrictA_==Teuchos::null)
+    int reducedNumProc = -1;
+    if (Teuchos::rcp_dynamic_cast<const Epetra_MpiComm>(comm_) != Teuchos::null)
       {
-      restrictA_ = Teuchos::rcp(new ::EpetraExt::RestrictedCrsMatrixWrapper());
-      restrictX_ = Teuchos::rcp(new ::EpetraExt::RestrictedMultiVectorWrapper());
-      restrictB_ = Teuchos::rcp(new ::EpetraExt::RestrictedMultiVectorWrapper());
-      }
+#ifdef RESTRICT_ON_COARSE_LEVEL
+      // restrict the matrix to the active processors
+      if (restrictA_==Teuchos::null)
+        {
+        restrictA_ = Teuchos::rcp(new ::EpetraExt::RestrictedCrsMatrixWrapper());
+        restrictX_ = Teuchos::rcp(new ::EpetraExt::RestrictedMultiVectorWrapper());
+        restrictB_ = Teuchos::rcp(new ::EpetraExt::RestrictedMultiVectorWrapper());
+        }
       // we have to restrict_comm again because the pointer is no longer
       // valid, it seems
 #ifdef OLD_TRILINOS      
-    // bug in Trilinos 10.10, uninitialized return
-    restrictA_->restrict_comm(linearMatrix_);
+      // bug in Trilinos 10.10, uninitialized return
+      restrictA_->restrict_comm(linearMatrix_);
 #else
-    CHECK_ZERO(restrictA_->restrict_comm(linearMatrix_));      
+      CHECK_ZERO(restrictA_->restrict_comm(linearMatrix_));      
 #endif
-    amActive_=restrictA_->RestrictedProcIsActive();
-    restrictX_->SetMPISubComm(restrictA_->GetMPISubComm());
-    restrictB_->SetMPISubComm(restrictA_->GetMPISubComm());
+      amActive_=restrictA_->RestrictedProcIsActive();
+      restrictX_->SetMPISubComm(restrictA_->GetMPISubComm());
+      restrictB_->SetMPISubComm(restrictA_->GetMPISubComm());
 
-    restrictedMatrix_=restrictA_->RestrictedMatrix();
-    int reducedNumProc = -1;
+      restrictedMatrix_=restrictA_->RestrictedMatrix();
       if (restrictA_->RestrictedProcIsActive())
         {
         reducedNumProc=restrictA_->RestrictedComm().NumProc();
         }
+      }
+    else
+      {
+      restrictedMatrix_ = Teuchos::rcp(new Epetra_CrsMatrix(*linearMatrix_));
+      }
 
     // if we do not set this, Amesos may try to think of its own strategy
     // to reduce the number of procs, which in my experience leads to MPI
@@ -1426,17 +1433,22 @@ if (dumpVectors_)
       if (realloc_vectors)
         {
 #ifdef RESTRICT_ON_COARSE_LEVEL
-        // TODO - CHECK_ZERO at next Trilinos release
+        if (Teuchos::rcp_dynamic_cast<const Epetra_MpiComm>(comm_) != Teuchos::null)
+          {
+          // TODO - CHECK_ZERO at next Trilinos release
 //        CHECK_ZERO(restrictB_->restrict_comm(linearRhs_));
 //        CHECK_ZERO(restrictX_->restrict_comm(linearSol_));
-        restrictB_->restrict_comm(linearRhs_);
-        restrictX_->restrict_comm(linearSol_);
-        restrictedRhs_ = restrictB_->RestrictedMultiVector();
-        restrictedSol_ = restrictX_->RestrictedMultiVector();
-#else
-        restrictedRhs_=linearRhs_;
-        restrictedSol_=linearSol_;
-#endif        
+          restrictB_->restrict_comm(linearRhs_);
+          restrictX_->restrict_comm(linearSol_);
+          restrictedRhs_ = restrictB_->RestrictedMultiVector();
+          restrictedSol_ = restrictX_->RestrictedMultiVector();
+          }
+        else
+#endif
+          {
+          restrictedRhs_=linearRhs_;
+          restrictedSol_=linearSol_;
+          }
         }
       if (amActive_)
         {
@@ -2161,6 +2173,8 @@ if (dumpVectors_)
         if (realloc_vectors)
           {
 #ifdef RESTRICT_ON_COARSE_LEVEL
+          if (Teuchos::rcp_dynamic_cast<const Epetra_MpiComm>(comm_) != Teuchos::null)
+            {
 #ifndef OLD_TRILINOS
           CHECK_ZERO(restrictB_->restrict_comm(linearRhs_));
           CHECK_ZERO(restrictX_->restrict_comm(linearSol_));
@@ -2170,10 +2184,13 @@ if (dumpVectors_)
 #endif
           restrictedRhs_ = restrictB_->RestrictedMultiVector();
           restrictedSol_ = restrictX_->RestrictedMultiVector();
-#else
-          restrictedRhs_=linearRhs_;
-          restrictedSol_=linearSol_;
-#endif        
+            }
+          else
+#endif
+            {
+            restrictedRhs_=linearRhs_;
+            restrictedSol_=linearSol_;
+            }
           }
         HYMLS_DEBUG("coarse level solve");
         CHECK_ZERO(reducedSchurSolver_->ApplyInverse(*restrictedRhs_,*restrictedSol_));
