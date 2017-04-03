@@ -5,7 +5,7 @@ if (CMAKE_MAJOR_VERSION GREATER 2)
   set(CMAKE_CXX_STANDARD 11)
 endif()
 
-find_package(Matlab)
+find_package(Matlab COMPONENTS MAIN_PROGRAM)
 
 include_directories(${PROJECT_SOURCE_DIR}/src)
 
@@ -52,3 +52,11 @@ target_link_libraries(HYMLS_free ${Trilinos_LIBRARIES})
 target_link_libraries(HYMLS_free ${Trilinos_TPL_LIBRARIES})
 target_link_libraries(HYMLS_free ${HYMLS_LIBRARIES})
 target_link_libraries(HYMLS_free ${MPI_LIBRARIES})
+
+enable_testing()
+matlab_add_unit_test(
+    NAME stokes0
+    TIMEOUT 30
+    UNITTEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/test/test_stokes0.m
+    ADDITIONAL_PATH "${CMAKE_CURRENT_BINARY_DIR}:${CMAKE_CURRENT_SOURCE_DIR}"
+)
