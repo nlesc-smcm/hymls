@@ -34,24 +34,29 @@ endif()
 
 set (CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} -g)
 
-matlab_add_mex(NAME HYMLS_init SRC HYMLS_init.C)
-matlab_add_mex(NAME HYMLS_apply SRC HYMLS_apply.C)
-matlab_add_mex(NAME HYMLS_free SRC HYMLS_free.C)
+set(HYMLS_MEX_FILES
+  HYMLS_init
+  HYMLS_apply
+  HYMLS_free)
 
-target_link_libraries(HYMLS_init ${Trilinos_LIBRARIES})
-target_link_libraries(HYMLS_init ${Trilinos_TPL_LIBRARIES})
-target_link_libraries(HYMLS_init ${HYMLS_LIBRARIES})
-target_link_libraries(HYMLS_init ${MPI_LIBRARIES})
+foreach(i ${HYMLS_MEX_FILES})
+  matlab_add_mex(NAME "${i}" SRC "${i}.C")
 
-target_link_libraries(HYMLS_apply ${Trilinos_LIBRARIES})
-target_link_libraries(HYMLS_apply ${Trilinos_TPL_LIBRARIES})
-target_link_libraries(HYMLS_apply ${HYMLS_LIBRARIES})
-target_link_libraries(HYMLS_apply ${MPI_LIBRARIES})
+  target_link_libraries(${i} ${Trilinos_LIBRARIES})
+  target_link_libraries(${i} ${Trilinos_TPL_LIBRARIES})
+  target_link_libraries(${i} ${HYMLS_LIBRARIES})
+  target_link_libraries(${i} ${MPI_LIBRARIES})
 
-target_link_libraries(HYMLS_free ${Trilinos_LIBRARIES})
-target_link_libraries(HYMLS_free ${Trilinos_TPL_LIBRARIES})
-target_link_libraries(HYMLS_free ${HYMLS_LIBRARIES})
-target_link_libraries(HYMLS_free ${MPI_LIBRARIES})
+  install(TARGETS ${i} DESTINATION matlab)
+endforeach()
+
+set(HYMLS_MATLAB_FILES
+  HYMLS.m
+  mminfo.m
+  mmread.m
+  mmwrite.m)
+
+install(FILES ${HYMLS_MATLAB_FILES} DESTINATION matlab)
 
 enable_testing()
 matlab_add_unit_test(
