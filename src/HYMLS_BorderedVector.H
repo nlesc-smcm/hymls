@@ -320,6 +320,7 @@ public:
       }
     return Teuchos::rcp (new HYMLS::BorderedVector(View, mv, index.lbound(), index.size()));
     }
+  static int  GetGlobalLength     (const HYMLS::BorderedVector& mv ) { return mv.GlobalLength(); }
   static int  GetVecLength     (const HYMLS::BorderedVector& mv ) { return mv.GlobalLength(); }
   static int  GetNumberVecs    (const HYMLS::BorderedVector& mv ) { return mv.NumVecs(); }
   static bool HasConstantStride(const HYMLS::BorderedVector& mv ) { return mv.ConstantStride(); }
