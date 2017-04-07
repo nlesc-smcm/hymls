@@ -3,11 +3,8 @@
 #include "HYMLS_Preconditioner.H"
 
 #include "Teuchos_RCP.hpp"
-#include "Teuchos_ParameterList.hpp"
-#include "Teuchos_XMLParameterListHelpers.hpp"
 
-#include "Epetra_Map.h"
-#include "Epetra_CrsMatrix.h"
+#include "Epetra_MultiVector.h"
 
 void mexFunction(int nlhs, mxArray *plhs[],
                  int nrhs, const mxArray *prhs[])
