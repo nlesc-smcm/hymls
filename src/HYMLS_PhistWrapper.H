@@ -18,6 +18,10 @@
 
 #include "phist_gen_d.h"
 
+// alternative preconditioning options
+#include "Ifpack_Preconditioner.h"
+#include "ml_MultiLevelPreconditioner.h"
+
 namespace HYMLS {
 
 //! \name functions used to wrap a HYMLS::Preconditioner as a phist_DlinearOp
@@ -103,6 +107,71 @@ void PhistPreconTraits<HYMLS::Preconditioner>::update(void const* P, void* aux, 
     }
   
   PHIST_CHK_IERR(*iflag=Prec->setBorder(PinvV,BV,C),*iflag);
+  *iflag=0;
+}
+
+
+///////////////////////////////
+// ML interface              //
+///////////////////////////////
+
+template<>
+void PhistPreconTraits<ML_Epetra::MultiLevelPreconditioner>::apply(_ST_ alpha, const void* vP, 
+        TYPE(const_mvec_ptr) vX, _ST_ beta,  TYPE(mvec_ptr) vY, int* iflag)
+{
+  PHIST_CAST_PTR_FROM_VOID(const ML_Epetra::MultiLevelPreconditioner,P,vP,*iflag);
+  PHIST_CAST_PTR_FROM_VOID(const Epetra_MultiVector,X,vX,*iflag);
+  PHIST_CAST_PTR_FROM_VOID(Epetra_MultiVector,Y,vY,*iflag);
+  PHIST_CHK_IERR(*iflag=(alpha!=1.0 || beta!=0.0)?PHIST_NOT_IMPLEMENTED:0,*iflag);
+  PHIST_CHK_IERR(*iflag=P->ApplyInverse(*X,*Y),*iflag); 
+}
+ //!
+template<>   
+void PhistPreconTraits<ML_Epetra::MultiLevelPreconditioner>::apply_shifted(_ST_ alpha, const void* P, _ST_ const sigma[],
+        TYPE(const_mvec_ptr) X, _ST_ beta,  TYPE(mvec_ptr) Y, int* iflag)
+{
+  // our preconditioner does nothing special ith the shifts, so call the regular apply instead
+  PHIST_CHK_IERR(apply(alpha,P,X,beta,Y,iflag),*iflag);
+}
+
+template<>   
+void PhistPreconTraits<ML_Epetra::MultiLevelPreconditioner>::update(void const* P, void* aux, _ST_ sigma,
+                   TYPE(const_mvec_ptr) Vkern,
+                   TYPE(const_mvec_ptr) BVkern,
+                   int* iflag)
+{
+  *iflag=0;
+}
+
+///////////////////////////////////////////
+// general Ifpack interface              //
+///////////////////////////////////////////
+
+template<>
+void PhistPreconTraits<Ifpack_Preconditioner>::apply(_ST_ alpha, const void* vP, 
+        TYPE(const_mvec_ptr) vX, _ST_ beta,  TYPE(mvec_ptr) vY, int* iflag)
+{
+  PHIST_CAST_PTR_FROM_VOID(const Ifpack_Preconditioner,P,vP,*iflag);
+  PHIST_CAST_PTR_FROM_VOID(const Epetra_MultiVector,X,vX,*iflag);
+  PHIST_CAST_PTR_FROM_VOID(Epetra_MultiVector,Y,vY,*iflag);
+  PHIST_CHK_IERR(*iflag=(alpha!=1.0 || beta!=0.0)?PHIST_NOT_IMPLEMENTED:0,*iflag);
+  PHIST_CHK_IERR(*iflag=P->ApplyInverse(*X,*Y),*iflag); 
+}
+ //!
+template<>   
+void PhistPreconTraits<Ifpack_Preconditioner>::apply_shifted(_ST_ alpha, const void* P, _ST_ const sigma[],
+        TYPE(const_mvec_ptr) X, _ST_ beta,  TYPE(mvec_ptr) Y, int* iflag)
+{
+  // our preconditioner does nothing special ith the shifts, so call the regular apply instead
+  PHIST_CHK_IERR(apply(alpha,P,X,beta,Y,iflag),*iflag);
+}
+
+template<>   
+void PhistPreconTraits<Ifpack_Preconditioner>::update(void const* P, void* aux, _ST_ sigma,
+                   TYPE(const_mvec_ptr) Vkern,
+                   TYPE(const_mvec_ptr) BVkern,
+                   int* iflag)
+{
   *iflag=0;
 }
 
