@@ -169,6 +169,7 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
     d_opts.numEigs = d_problem->getNEV();
     d_opts.symmetry = d_problem->isHermitian()?phist_HERMITIAN:phist_GENERAL;
     d_opts.innerSolvType = d_problem->isHermitian()?phist_MINRES:phist_GMRES;
+    d_opts.innerSolvStopAfterFirstConverged=true;
 
     if( !pl.isType<int>("Block Size") )
     {
@@ -244,6 +245,7 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
     d_preconOp=Teuchos::rcp(new phist_DlinearOp);
     d_preconPointers=Teuchos::rcp(new phist_DlinearOp);
 
+/*
     d_preconPointers->A=d_prec.get();
     d_preconPointers->aux=d_prec.get();
     d_preconPointers->range_map=&(d_prec->OperatorRangeMap());
@@ -251,12 +253,12 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
     d_preconPointers->apply=&::HYMLS::PhistPreconTraits<PREC>::apply;
     d_preconPointers->apply_shifted=&::HYMLS::PhistPreconTraits<PREC>::apply_shifted;
     d_preconPointers->update=&::HYMLS::PhistPreconTraits<PREC>::update;
-        
+*/        
     // this function just wraps the user-defined preconditioner, so the input args don't matter
     // too much. A must not be NULL because the function tries to get its range and domain map.
     int iflag;
     phist_Dprecon_create(d_preconOp.get(),d_Amat.get(),0.,d_Bmat.get(),NULL,NULL,
-        "user_defined",NULL,d_preconPointers.get(),&iflag);
+                "ML","ml_options.xml",NULL,&iflag);
 
     TEUCHOS_TEST_FOR_EXCEPTION(iflag!=0,std::runtime_error,"iflag!=0 returned from phist_Dprecon_create");
 
@@ -265,13 +267,13 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
     d_opts.innerSolvMaxIters = pl.get("Inner Iterations",d_opts.innerSolvMaxIters);
     d_opts.innerSolvBlockSize=d_opts.blockSize;
     d_opts.preconOp=d_preconOp.get();
-    d_opts.preconType=phist_USER_PRECON;
+    d_opts.preconType=phist_ML;
+    d_opts.preconUpdate=1;
     // if the parameter "Bordered Solver" is set we use HYMLS' bordering
     // functionality for assuring t \orth r when solving the JaDa correction
     // equation. So we ask phist *not* to skew-project and to call the 
     // preconditioner's update function before each linear solve.
     d_opts.preconSkewProject=borderedSolver?0:1;
-    d_opts.preconUpdate=borderedSolver?1:0;
 }
 
 template <class ScalarType>
