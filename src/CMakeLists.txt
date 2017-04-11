@@ -59,6 +59,7 @@ if (${phist_FOUND})
   message(STATUS "phist found in ${PHIST_INCLUDE_DIRS}")
 
   list(APPEND HEADERS
+    HYMLS_PhistWrapper.H
     AnasaziPhistSolMgr.hpp)
 endif()
 

@@ -1,5 +1,5 @@
-#ifndef PHIST_JADACORRECTIONSOLVERIMPL_H
-#define PHIST_JADACORRECTIONSOLVERIMPL_H
+#ifndef HYMLS_PHIST_WRAPPER_H_H
+#define HYMLS_PHIST_WRAPPER_H_H
 
 // Get the HYMLS implementation of SCOREP_USER_REGION
 #include "phist_macros.h"
