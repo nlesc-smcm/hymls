@@ -248,9 +248,9 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
     d_preconPointers->aux=d_prec.get();
     d_preconPointers->range_map=&(d_prec->OperatorRangeMap());
     d_preconPointers->domain_map=&(d_prec->OperatorDomainMap());
-    d_preconPointers->apply=HYMLS::phist_precon_apply;
-    d_preconPointers->apply_shifted=HYMLS::phist_precon_apply_shifted;
-    d_preconPointers->update=HYMLS::phist_precon_update;
+    d_preconPointers->apply=HYMLS::PhistPreconTraits<PREC>::apply;
+    d_preconPointers->apply_shifted=&HYMLS::PhistPreconTraits<PREC>::apply_shifted;
+    d_preconPointers->update=&HYMLS::PhistPreconTraits<PREC>::update;
         
     // this function just wraps the user-defined preconditioner, so the input args don't matter
     // too much. A must not be NULL because the function tries to get its range and domain map.
