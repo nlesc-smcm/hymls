@@ -37,6 +37,7 @@ set (CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} -g)
 set(HYMLS_MEX_FILES
   HYMLS_init
   HYMLS_apply
+  HYMLS_set_border
   HYMLS_free)
 
 foreach(i ${HYMLS_MEX_FILES})
