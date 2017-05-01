@@ -1088,12 +1088,15 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
       return 0;
       }
 
+    if (!V->Map().SameAs(OperatorRangeMap()) || (W != Teuchos::null &&
+        !V->Map().SameAs(W->Map())))
+      {
+      Tools::Error("incompatible maps found", __FILE__, __LINE__);
+      }
+
     int m = V->NumVectors();
 
-    Teuchos::RCP<Epetra_MultiVector> importedV = Teuchos::rcp(
-      new Epetra_MultiVector(*rowMap_, m));
-    CHECK_ZERO(importedV->Import(*V_, *importer_, Insert));
-    V_ = importedV;
+    V_ = Teuchos::rcp(new Epetra_MultiVector(*V));
 
     if (W == Teuchos::null || W.get() == V.get())
       {
@@ -1101,22 +1104,13 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
       }
     else
       {
-      Teuchos::RCP<Epetra_MultiVector> importedW = Teuchos::rcp(
-        new Epetra_MultiVector(*rowMap_, m));
-      CHECK_ZERO(importedW->Import(*W_, *importer_, Insert));
-      W_ = importedW;
+      W_ = Teuchos::rcp(new Epetra_MultiVector(*W));
       }
 
     if (W_->NumVectors() != m)
       {
       Tools::Error("bordering: V and W must have same number of columns",
         __FILE__, __LINE__);
-      }
-
-    if (!(V_->Map().SameAs(OperatorRangeMap()) &&
-        V_->Map().SameAs(W_->Map())))
-      {
-      Tools::Error("incompatible maps found", __FILE__, __LINE__);
       }
 
     if (C == Teuchos::null)
@@ -1284,7 +1278,7 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
       CHECK_ZERO(schurRhs_->Multiply(1.0, *schurScaLeft_, *schurRhs_, 0.0));
       }
 
-    CHECK_ZERO(schurPrec_->ApplyInverse(*schurRhs_,*schurSol_));
+    CHECK_ZERO(schurPrec_->ApplyInverse(*schurRhs_, q, *schurSol_, S));
 
     if (scaleSchur_)
       {

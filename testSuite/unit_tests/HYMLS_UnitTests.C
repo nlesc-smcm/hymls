@@ -3,6 +3,7 @@
 #include "Epetra_Map.h"
 #include "Epetra_Comm.h"
 #include "Epetra_IntVector.h"
+#include "Epetra_MultiVector.h"
 
 namespace HYMLS {
 namespace UnitTests {
@@ -44,6 +45,26 @@ int NormInfAminusB(const Epetra_IntVector& A, const Epetra_IntVector& B)
   }
   int global_value;
   A.Map().Comm().MaxAll(&value,&global_value,1);
+  return global_value;
+}
+
+// helper function for comparing Epetra_MultiVectors
+double NormInfAminusB(const Epetra_MultiVector& A, const Epetra_MultiVector& B)
+{
+  if (!A.Map().SameAs(B.Map()))
+    return 1;
+
+  double value = 0;
+  for (int i = 0; i < A.MyLength(); i++)
+    {
+    for (int j = 0; j < A.NumVectors(); j++)
+      {
+      value = std::max(value, std::abs(A[j][i]-B[j][i]));
+      }
+    }
+
+  double global_value;
+  A.Map().Comm().MaxAll(&value, &global_value, 1);
   return global_value;
 }
 
