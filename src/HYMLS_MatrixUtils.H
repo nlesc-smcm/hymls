@@ -73,8 +73,6 @@ class MatrixUtils
   GATHER,       // collect to root and dump in ascii file (may require lots of memory on one proc)
   HDF5          // not implemented, probably the best thing to do as it is portable
   } PrintMethod;
-  
-  typedef Anasazi::Eigensolution<double,Epetra_MultiVector> Eigensolution;
 
     //! extract a map with 1 variable from a map with dof variables per node. 'var'
     //! is the variable to be extracted, i.e. 0, 1,...dof-1 
@@ -277,7 +275,7 @@ class MatrixUtils
     //!                                                               
     //! The eigenvectors returned are the right eigenvectors of [A,B].
     //!                                                               
-    static Teuchos::RCP<Eigensolution> Eigs(
+    static Teuchos::RCP<Anasazi::Eigensolution<double, Epetra_MultiVector> > Eigs(
                 Teuchos::RCP<const Epetra_Operator> A, 
                 Teuchos::RCP<const Epetra_Operator> B, 
                 int howMany=6,

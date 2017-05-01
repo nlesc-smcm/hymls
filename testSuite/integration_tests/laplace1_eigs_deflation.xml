@@ -1,0 +1,90 @@
+<!-- note that this test is run both with just the linear solver and with the eigensolver, the -->
+<!-- targets given below apply to one of the runs in general                                   -->
+<ParameterList name="Laplace 2-level eigenvalue convergence test"><!--{-->
+
+<Parameter name="Description" type="string"
+        value="Laplace 2-level eigenvalue solver test"/>
+
+  <!-- these first few settings are specific for the driver -->
+  <!-- implemented in 'main.C' and are not passed on to the -->
+  <!-- HYMLS solver classes.                                -->
+  <ParameterList name="Driver"><!--{-->
+  
+    <Parameter name="Number of refinements" type="int" value="2"/>
+
+    <!-- will create a series of slightly perturbed matrices -->
+    <Parameter name="Number of factorizations" type="int" value="2"/>
+    <!-- for each matrix, solve with several right-hand sides in a row -->
+    <Parameter name="Number of solves" type="int" value="2"/>
+
+    <ParameterList name="Eigenvalues">
+      <Parameter name="Which" type="string" value="SM"/>
+      <Parameter name="How Many" type="int" value="10"/>
+      <Parameter name="Convergence Tolerance" type="double" value="1.0e-8"/>
+      <Parameter name="Number of Iterations" type="int" value="50"/>
+      <Parameter name="Test Space" type="string" value="V"/>
+      <Parameter name="Block Size" type="int" value="1"/>
+      <Parameter name="Maximum Subspace Dimension" type="int" value="40"/>
+      <Parameter name="Restart Dimension" type="int" value="20"/>
+      <Parameter name="Relative Convergence Tolerance" type="bool" value="false"/>
+    </ParameterList>
+    
+  </ParameterList><!--}-->
+  
+  <ParameterList name="Targets"><!--{-->
+    <!-- targets for pure linear solver run -->
+    <Parameter name="Number of Iterations" type="int" value="25"/>
+    <Parameter name="Relative Residual 2-Norm" type="double" value="5.0e-10"/>
+    <Parameter name="Relative Error 2-Norm" type="double" value="5.0e-10"/>
+    <!-- target for eigensolver run, note that we limit the number of eigensolver iterations -->
+    <!-- above so this is also tested in a way.                                              -->
+    <Parameter name="Error Eigenvalues" type="double" value="1.0e-8"/>
+    <Parameter name="Number of Eigenvalue Iterations" type="int" value="70"/>
+  </ParameterList><!--}-->
+
+  <ParameterList name="Problem"><!--{-->
+
+    <Parameter name="Equations" type="string" value="Laplace"/>
+    <Parameter name="Dimension" type="int" value="2"/>
+
+    <Parameter name="nx" type="int" value="32"/>
+    <Parameter name="ny" type="int" value="32"/>
+    
+  </ParameterList><!--}-->
+  
+  <ParameterList name="Solver"><!--{-->
+  
+    <!-- "CG", "GMRES", "PCPG" (only GMRES actually supported by our solver right now) -->
+    <Parameter name="Krylov Method" type="string" value="GMRES"/>
+    
+    <!-- apply preconditioning from left or right (if Krylov Method!="None") -->
+    <Parameter name="Left or Right Preconditioning" type="string" value="Right"/>
+
+    <!-- this is not necessary for Laplace, of course, but we can test the eigensolver: -->
+    <Parameter name="Use Deflation" type="bool" value="true"/>
+    <Parameter name="Deflated Subspace Dimension" type="int" value="5"/>
+    <Parameter name="Deflation Threshold" type="double" value="0.0"/>
+    
+    <!-- vector to start the Krylov sequence: "Zero", "Random", "Previous" -->
+    <Parameter name="Initial Vector" type="string" value="Zero"/>
+        
+    <!-- parameters for the iterative solver (Belos) -->
+    <ParameterList name="Iterative Solver">
+      <Parameter name="Maximum Iterations" type="int" value="100"/>
+      <Parameter name="Convergence Tolerance" type="double" value="1.0e-10"/>
+    </ParameterList>
+  </ParameterList><!--}-->
+
+  <ParameterList name="Preconditioner"><!--{-->
+    
+    <!-- you can either set 'Separator Length' or 'Number of Subdomains' -->
+    <Parameter name="Separator Length" type="int" value="4"/>
+    
+    <!-- number of levels to be created (1: direct solver for Schur complement, -->
+    <!-- 2: solve Schur iteratively and reduced Schur directly,                 -->
+    <!-- >2: not implemented.                                                   -->
+    <Parameter name="Number of Levels" type="int" value="2"/>
+    
+  </ParameterList><!--}-->
+      
+</ParameterList><!--}-->

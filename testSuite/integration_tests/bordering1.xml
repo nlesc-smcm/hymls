@@ -20,9 +20,6 @@
      <!-- null space: constant vector will be projected out to  -->
      <!-- get a non-singular system (for testing the bordering) -->
      <Parameter name="Null Space Type" type="string" value="Constant"/>
-    
-     <!-- additional vectors to deflate: none for this test -->
-     <Parameter name="Deflated Subspace Dimension" type="int" value="0"/>
 
   </ParameterList><!--}-->
   
@@ -49,6 +46,8 @@
 
     <!-- vector to start the Krylov sequence: "Zero", "Random", "Previous" -->
     <Parameter name="Initial Vector" type="string" value="Random"/>
+
+    <Parameter name="Use Bordering" type="bool" value="true"/>
         
     <!-- parameters for the iterative solver (Belos) -->
     <ParameterList name="Iterative Solver">

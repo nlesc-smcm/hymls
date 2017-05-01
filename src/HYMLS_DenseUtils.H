@@ -53,9 +53,12 @@ static int MatMul(const Epetra_MultiVector& V, const Epetra_MultiVector& W,
 //! as a new MultiVector Z. V, W and Z should have the same maps and numbers
 //! of vectors (columns). The product is computed as Z=(I-VV')W.            
 static int ApplyOrth(const Epetra_MultiVector& V, const Epetra_MultiVector& W,
-                           Epetra_MultiVector& Z, Teuchos::RCP<const Epetra_Operator> B=Teuchos::null,
+                           Epetra_MultiVector& Z, Teuchos::RCP<const Epetra_MultiVector> BV=Teuchos::null,
                            bool reverse=false);
 
+//! Check if 2 vectors are orthogonal
+static void CheckOrthogonal(Epetra_MultiVector const &X, Epetra_MultiVector const &Y,
+  const char* file, int line, bool isBasis=false, double tol=1e-8);
 
 //! orthogonalize the columns of A using lapack's QR (Q is put into A, in fact)
 static int Orthogonalize(Epetra_SerialDenseMatrix& A);

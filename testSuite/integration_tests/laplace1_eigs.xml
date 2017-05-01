@@ -1,6 +1,6 @@
 <!-- note that this test is run both with just the linear solver and with the eigensolver, the -->
 <!-- targets given below apply to one of the runs in general                                   -->
-<ParameterList name="Laplace 2-level basic convergence test"><!--{-->
+<ParameterList name="Laplace 2-level eigenvalue convergence test"><!--{-->
 
 <Parameter name="Description" type="string"
         value="Laplace 2-level eigenvalue solver test"/>
@@ -39,6 +39,7 @@
     <!-- target for eigensolver run, note that we limit the number of eigensolver iterations -->
     <!-- above so this is also tested in a way.                                              -->
     <Parameter name="Error Eigenvalues" type="double" value="1.0e-8"/>
+    <Parameter name="Number of Eigenvalue Iterations" type="int" value="70"/>
   </ParameterList><!--}-->
 
   <ParameterList name="Problem"><!--{-->

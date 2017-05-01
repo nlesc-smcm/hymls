@@ -3,6 +3,7 @@
 
 #include <mpi.h>
 
+#include "Epetra_config.h"
 #include "Epetra_MpiComm.h"
 #include "Epetra_Map.h"
 #include "Epetra_Vector.h"
@@ -19,6 +20,10 @@
 #endif
 
 #include "main_utils.H"
+
+#ifdef EPETRA_HAVE_OMP
+#include <omp.h>
+#endif
 
 /*
 #include "EpetraExt_HDF5.h"
@@ -52,6 +57,14 @@ bool status=true;
   HYMLS::HyperCube Topology;
   Teuchos::RCP<const Epetra_MpiComm> comm = Teuchos::rcp
         (&Topology.Comm(), false);
+
+#ifdef EPETRA_HAVE_OMP
+#warning "Epetra is installed with OpenMP support, make sure to set OMP_NUM_THREADS=1"
+  // If Epetra tries to parallelize local ops this causes
+  // massive problems because many of our data tructures 
+  // are so small.
+  omp_set_num_threads(1);
+#endif
     
   // construct file streams, otherwise the output won't work correctly
   HYMLS::Tools::InitializeIO(comm);
@@ -126,6 +139,8 @@ bool status=true;
     std::string nullSpaceType=driverList.get("Null Space Type","None");
     int dim0=0; // if the problem is read from a file, a null space can be read, too, with dim0 columns.
 
+    Teuchos::ParameterList& solver_params = params->sublist("Solver");
+
     if (read_problem)
       {
       datadir = driverList.get("Data Directory","not specified");
@@ -151,7 +166,7 @@ bool status=true;
     int nx=probl_params.get("nx",32);
     int ny=probl_params.get("ny",nx);
     int nz=probl_params.get("nz",dim>2?nx:1);
-
+    
     // copy problem sublist so that the main utils don't modify the original
     Teuchos::ParameterList probl_params_cpy = probl_params;
     // also need the preconditioner sublist for the partitioning.
@@ -175,7 +190,6 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     K=HYMLS::MainUtils::create_matrix(*map,probl_params_cpy,
         galeriLabel, galeriList);
     }
- 
 
   // create a random exact solution
   Teuchos::RCP<Epetra_MultiVector> x_ex = Teuchos::rcp(new Epetra_MultiVector(*map,numRhs));
@@ -228,7 +242,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     }
 
   //bool do_deflation = (solver_params.get("Deflated Subspace Dimension",0)>0);
-  bool do_deflation = false;
+  bool do_deflation = solver_params.get("Use Deflation", false);
     
   HYMLS::Tools::Out("Create dummy mass matrix");
   Teuchos::RCP<Epetra_CrsMatrix> M = Teuchos::null;
@@ -341,7 +355,7 @@ for (int f=0;f<numComputes;f++)
 
   if (nullSpace!=Teuchos::null)
     {
-    CHECK_ZERO(solver->setNullSpace(nullSpace));
+    CHECK_ZERO(solver->setBorder(nullSpace));
     }
 
   if (do_deflation)

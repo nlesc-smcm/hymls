@@ -8,6 +8,9 @@ set(SOURCES
   HYMLS_DenseUtils
   HYMLS_HierarchicalMap
   HYMLS_OverlappingPartitioner
+  HYMLS_Preconditioner
+  HYMLS_ProjectedOperator
+  HYMLS_Solver
   HYMLS_Tester
   HYMLS_Tools
   HYMLS_UnitTests

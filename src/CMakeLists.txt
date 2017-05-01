@@ -1,5 +1,11 @@
 
 set(HYMLS_SOURCE HYMLS_Solver
+    HYMLS_BaseSolver
+    HYMLS_DeflatedSolver
+    HYMLS_BorderedSolver
+    HYMLS_BorderedDeflatedSolver
+    HYMLS_BorderedOperator
+    HYMLS_BorderedVector
     HYMLS_Preconditioner
     HYMLS_SchurComplement
     HYMLS_SchurPreconditioner
@@ -11,7 +17,6 @@ set(HYMLS_SOURCE HYMLS_Solver
     HYMLS_MatrixUtils
     HYMLS_DenseUtils
     HYMLS_ProjectedOperator
-    HYMLS_BorderedLU
     HYMLS_BelosEpetraOperator
     HYMLS_Epetra_Time
     HYMLS_EpetraExt_ProductOperator
@@ -37,13 +42,11 @@ set(HEADERS ${HEADERS}
   GaleriExt_Darcy3D.h
   GaleriExt_Star3D.h
   HYMLS_BasePartitioner.H
-  HYMLS_BorderedSolver.H
   HYMLS_Macros.H
   HYMLS_no_debug.H
   HYMLS_OrthogonalTransform.H
   HYMLS_RestrictedOT.H
   HYMLS_ShiftedOperator.H
-  HYMLS_MatrixBlock.H
   )
 
 include_directories(${PROJECT_SOURCE_DIR})

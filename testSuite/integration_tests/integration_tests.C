@@ -53,6 +53,13 @@ INTERNAL_TESTS_FAILED=32,
 SKIPPED=8192
 } ReturnCode;
 
+template <class ScalarType>
+bool eigSort(Anasazi::Value<ScalarType> const &a, Anasazi::Value<ScalarType> const &b)
+{
+  return (a.realpart * a.realpart + a.imagpart * a.imagpart) <
+         (b.realpart * b.realpart + b.imagpart * b.imagpart);
+}
+
 
 int runTest(Teuchos::RCP<const Epetra_Comm> comm,
                    Teuchos::RCP<Teuchos::ParameterList> params);
@@ -357,7 +364,7 @@ int runTest(Teuchos::RCP<const Epetra_Comm> comm,
           = Teuchos::rcp(new Teuchos::ParameterList(*params));
 
     // we pass in params_copy here because in case of Laplace-Neumann
-    // the "Problem" list is adjusted for the solver, which we do not
+    // the "Problem" list is adjusted for the solver which we do not
     // want in the original list.
     getLinearSystem(comm, params_copy, K, M, b, x_ex, nullSpace);
 
@@ -454,19 +461,14 @@ int testSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
   // approximate solution
   Teuchos::RCP<Epetra_MultiVector> x = Teuchos::rcp(new Epetra_MultiVector(map, numRhs));
 
-  bool doDeflation = false;
-
-  if (params->sublist("Solver").get("Deflated Subspace Dimension", 0) > 0)
-    {
-    doDeflation = true;
-    }
+  bool doDeflation = params->sublist("Solver").get("Use Deflation", false);
 
   for (int f=0;f<numComputes;f++)
     {
     CHECK_ZERO(precond->Compute());
     if (nullSpace!=Teuchos::null)
       {
-        solver->setNullSpace(nullSpace);
+        solver->setBorder(nullSpace);
       }
     if (doDeflation)
       {
@@ -606,6 +608,7 @@ int testEigenSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
 
   Teuchos::ParameterList& targetList = params->sublist("Targets");
   double target_err = targetList.get("Error Eigenvalues", 1.0);
+  int target_num_iter = targetList.get("Number of Eigenvalue Iterations", 9999);
 
   Teuchos::ParameterList& probl_params = params->sublist("Problem");
   Teuchos::ParameterList& probl_params_cpy = probl_params;
@@ -643,10 +646,13 @@ int testEigenSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
   typedef double ST;
   typedef Epetra_MultiVector MV;
   typedef Epetra_Operator OP;
-  typedef HYMLS::Solver PREC;
+  typedef HYMLS::Preconditioner PREC;
 
   Teuchos::RCP<Anasazi::BasicEigenproblem<ST, MV, OP> > eigProblem;
-  eigProblem = Teuchos::rcp(new Anasazi::BasicEigenproblem<ST,MV,OP>(K, M, x));
+  eigProblem = Teuchos::rcp(new Anasazi::BasicEigenproblem<ST,MV,OP>());
+  eigProblem->setA(K);
+  eigProblem->setM(M);
+  eigProblem->setInitVec(x);
   eigProblem->setHermitian(false);
   eigProblem->setNEV(eigList.get("How Many", 10));
 
@@ -660,7 +666,7 @@ int testEigenSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
     }
 
 #ifdef HYMLS_USE_PHIST
-  Anasazi::PhistSolMgr<ST,MV,OP,PREC> jada(eigProblem, solver, eigList);
+  Anasazi::PhistSolMgr<ST,MV,OP,PREC> jada(eigProblem, precond, eigList);
 #else
   Anasazi::BlockKrylovSchurSolMgr<ST,MV,OP> jada(eigProblem,eigList);
 #endif
@@ -676,14 +682,13 @@ int testEigenSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
 
   const Anasazi::Eigensolution<ST,MV>& eigSol = eigProblem->getSolution();
 
-  const std::vector<Anasazi::Value<ST> >& evals = eigSol.Evals;
+  std::vector<Anasazi::Value<ST> > evals = eigSol.Evals;
   int numEigs = evals.size();
 
   // We can compute the exact eigenvaleus for Laplace
   if (eqn == "Laplace")
     {
     Teuchos::ParameterList& problemList = params->sublist("Problem");
-    Teuchos::ParameterList& problemList_cpy = problemList;
 
     int nx = problemList.get("nx", 32);
     int ny = problemList.get("ny", nx);
@@ -710,6 +715,7 @@ int testEigenSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
 
     // Sort them so the smallest ones are first
     std::sort(ev_list.begin(), ev_list.end());
+    std::sort(evals.begin(), evals.end(),eigSort<ST>);
 
     // Now compare with the computed eigenvalues. We do numEigs-1, because
     // depending on the random starting vector it may sometimes happen
@@ -726,6 +732,15 @@ int testEigenSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
            + ", expected: " + Teuchos::toString(-ev_list[i]) + "\n";
       }
     }
+  Teuchos::RCP<const Teuchos::ParameterList> finalList
+    = solver->getParameterList();
+  std::string filename1 = "params.xml.final";
+  writeParameterListToXmlFile(*finalList, filename1);
+
+  int num_iter = jada.getNumIters();
+  if (num_iter > target_num_iter) ierr = ierr | MAX_ITER_EXCEEDED;
+  message += "num iter: " + Teuchos::toString(num_iter)
+    + ", expected: " + Teuchos::toString(target_num_iter) + "\n";
 
   message += "------------------------------------------\n";
 

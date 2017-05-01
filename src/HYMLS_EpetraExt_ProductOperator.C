@@ -124,7 +124,7 @@ void ProductOperator::applyConstituent(
         ,Epetra_MultiVector        *Y_k
         ) const
 {
-  Epetra_Operator &Op_k = const_cast<Epetra_Operator&>(*Op_[k]); // Okay since we put back UseTranspose!
+Epetra_Operator &Op_k = const_cast<Epetra_Operator&>(*Op_[k]); // Okay since we put back UseTranspose!
   bool oldUseTranspose = Op_k.UseTranspose();
         Op_k.SetUseTranspose((Op_trans==Teuchos::NO_TRANS)!=(Op_trans_[k]==Teuchos::NO_TRANS));
         const bool applyInverse_k = (Op_inverse==APPLY_MODE_APPLY)!=(Op_inverse_[k]==APPLY_MODE_APPLY);
@@ -270,7 +270,7 @@ void ProductOperator::initializeTempVecs(bool applyInverse, int numVecs) const
     // precedence over ||, but I didn't want to change the meaning of
     // the original code.
     if (((! UseTranspose_ && ! applyInverse) || (UseTranspose_ && applyInverse))
-        && range_vecs_.size () == 0) {
+      && range_vecs_.size () == 0 || (range_vecs_.size() && range_vecs_[0]->NumVectors() != numVecs)) {
       //
       // Forward Mat-vec
       //
@@ -296,7 +296,7 @@ void ProductOperator::initializeTempVecs(bool applyInverse, int numVecs) const
     // precedence over ||, but I didn't want to change the meaning of
     // the original code.
     else if (((UseTranspose_ && ! applyInverse) || (! UseTranspose_ && applyInverse))
-             && domain_vecs_.size () == 0) {
+      && domain_vecs_.size () == 0 || (domain_vecs_.size() && domain_vecs_[0]->NumVectors() != numVecs)) {
       //
       // Adjoint Mat-vec
       //

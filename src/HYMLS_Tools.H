@@ -165,9 +165,12 @@ Teuchos::print_stack_on_segfault();
       out()<<std::flush;
       output_stream=Teuchos::null;
       debug_stream=Teuchos::null;
-      
-      MPI_Abort(MPI_COMM_WORLD,-1);
-      exit(-1);      
+
+      int initialized = 0;
+      MPI_Initialized(&initialized);
+      if (initialized)
+        MPI_Abort(MPI_COMM_WORLD, -1);
+      exit(-1);
       }
 
     static void Warning(std::string msg, const char* file, int line)

@@ -1,0 +1,165 @@
+<ParameterList name="Trilinos HYMLS"><!--{-->
+
+  <!-- these first few settings are specific for the driver -->
+  <!-- implemented in 'main.C' and are not passed on to the -->
+  <!-- HYMLS solver classes.                                -->
+  <ParameterList name="Driver">
+
+    <!-- will create a series of slightly perturbed matrices -->
+    <Parameter name="Number of factorizations" type="int" value="1"/>
+    <!-- for each matrix, solve with several right-hand sides in a row -->
+    <Parameter name="Number of solves" type="int" value="1"/>
+    <!-- number of right-hand sides per solve -->
+    <Parameter name="Number of rhs" type="int" value="1"/>
+    <!-- add random perturbation to the diagonal? -->
+    <Parameter name="Diagonal Perturbation" type="double" value="0.0"/>
+  
+    <Parameter name="Store Solution" type="bool" value="0"/>
+    <Parameter name="Store Matrix" type="bool" value="0"/>
+    <ParameterList name="Eigenvalues">
+      <Parameter name="Which" type="string" value="LR"/>
+      <Parameter name="How Many" type="int" value="6"/>
+      <Parameter name="Convergence Tolerance" type="double" value="1.0e-5"/>
+      <Parameter name="Test Space" type="string" value="V"/>
+      <Parameter name="Block Size" type="int" value="2"/>
+      <Parameter name="Maximum Subspace Dimension" type="int" value="40"/>
+      <Parameter name="Restart Dimension" type="int" value="20"/>
+      <Parameter name="Relative Convergence Tolerance" type="bool" value="false"/>
+    </ParameterList>  
+
+    <Parameter name="Read Linear System" type="bool" value="1"/>
+    <Parameter name="Data Directory" type="string" 
+    value="/home/song_we/repo/hymls/testSuite/data/Turing/32x32"/>
+    <Parameter name="File Format" type="string" value="MatrixMarket"/>
+    <Parameter name="Exact Solution Available" type="bool" value="0"/>
+    <Parameter name="Mass Matrix Available" type="bool" value="0"/>
+    <Parameter name="RHS Available" type="bool" value="0"/>
+                
+    
+
+    <!-- read null space from nullSpace.mtx if dim0>0 -->
+    <Parameter name="Null Space Type" type="string" value="None"/>
+    <Parameter name="Null Space Dimension" type="int" value="0"/>
+    
+    <Parameter name="Store Final Parameter List" type="bool" value="1"/>
+  </ParameterList>
+
+  <ParameterList name="Problem"><!--{-->
+
+    <!-- this problem consists of two coupled variables of "Laplace" type, -->
+    <!-- i.e. 5- resp. 7-point stencils. We do not have a standard problem -->
+    <!-- definition for this ("Laplace" assumes just one equation), so we  -->
+    <!-- set the sublists for each variable manually                       -->
+         
+    <Parameter name="Dimension" type="int" value="2"/>
+    <Parameter name="Degrees of Freedom" type="int" value="2"/>
+    
+    <Parameter name="nx" type="int" value="32"/>
+    <Parameter name="ny" type="int" value="32"/>
+    <Parameter name="nz" type="int" value="1"/>
+    
+    <Parameter name="x-periodic" type="bool" value="true"/>
+    <Parameter name="y-periodic" type="bool" value="true"/>
+    
+    <ParameterList name="Variable 0">
+      <Parameter name="Variable Type" type="string" value="Laplace"/>
+    </ParameterList>
+
+    <ParameterList name="Variable 1">
+      <Parameter name="Variable Type" type="string" value="Laplace"/>
+    </ParameterList>
+ 
+  </ParameterList><!--}-->
+  
+  <ParameterList name="Solver">
+  
+    <!-- "CG", "GMRES", "PCPG" (only GMRES actually supported by our solver right now) -->
+    <Parameter name="Krylov Method" type="string" value="GMRES"/>
+    
+    <!-- vector to start the Krylov sequence: "Zero", "Random", "Previous" -->
+    <Parameter name="Initial Vector" type="string" value="Previous"/>
+    
+    <!-- apply preconditioning from left or right (if Krylov Method!="None") -->
+    <Parameter name="Left or Right Preconditioning" type="string" value="Right"/>
+    
+    <!-- this is not necessary for Laplace, of course, but we can test the eigensolver: -->
+    <Parameter name="Deflated Subspace Dimension" type="int" value="0"/>
+    
+    <Parameter name="Deflation Threshold" type="double" value="0.0"/>
+
+    <!-- parameters for the iterative solver (Belos) -->
+    <ParameterList name="Iterative Solver">
+      <Parameter name="Maximum Iterations" type="int" value="600"/>
+      <Parameter name="Maximum Restarts" type="int" value="20"/>
+      <Parameter name="Num Blocks" type="int" value="50"/>
+      <Parameter name="Flexible Gmres" type="bool" value="0"/>
+      <Parameter name="Explicit Residual Test" type="bool" value="false"/>
+      <Parameter name="Convergence Tolerance" type="double" value="1.0e-8"/>
+      <Parameter name="Output Frequency" type="int" value="1"/>
+      <Parameter name="Show Maximum Residual Norm Only" type="bool" value="1"/>
+    </ParameterList>
+  </ParameterList><!--}-->
+
+  <ParameterList name="Preconditioner">
+    
+    <Parameter name="Partitioner" type="string" value="Cartesian"/>
+
+    <Parameter name="Classifier" type="string" value="Standard"/>
+
+    <Parameter name="Visualize Solver" type="bool" value="0"/>
+        
+    <Parameter name="Preconditioner Variant" type="string" value="Block Diagonal"/>
+        
+    <!-- you can either set 'Separator Length' or 'Number of Subdomains' -->
+    <Parameter name="Separator Length" type="int" value="4"/>
+    <Parameter name="Base Separator Length" type="int" value="2"/>
+    
+    <!-- number of levels to be created (1: direct solver for Schur complement, -->
+    <!-- 2: solve Schur iteratively and reduced Schur directly,                 -->
+    <!-- >2: not implemented.                                                   -->
+    <Parameter name="Number of Levels" type="int" value="2"/>
+    
+    <Parameter name="Scale Schur-Complement" type="bool" value="0"/>
+
+    <!-- parameters for the direct solvers (Ifpack_Amesos) -->
+
+    <!-- you can either make direct solver settings in a single list            -->
+    <!-- called "Direct Solver" or in separate lists for each level, like this: -->
+ 
+    <!-- settings for subdomain solver -->
+    <ParameterList name="Sparse Solver">
+      <!-- "Klu" is the default here. These systems are always sequential -->
+      <Parameter name="amesos: solver type" type="string" value="KLU"/>
+      <Parameter name="Custom Ordering" type="bool" value="1"/>
+      <Parameter name="Custom Scaling" type="bool" value="0"/>
+    </ParameterList>
+
+    <!-- settings for reduced problem (Vsum) solver -->
+    <ParameterList name="Coarse Solver">
+      <!-- "Amesos_Klu" is the default here. This system is distributed, and  -->
+      <!-- it may be worthwile using Amesos_Mumps, for instance.              -->
+      <Parameter name="amesos: solver type" type="string" value="Amesos_Superludist"/>
+      <!--Parameter name="MaxProcs" type="int" value="4"/-->
+      <!--Parameter name="OutputLevel" type="int" value="5"/-->
+      <!--Parameter name="PrintTiming" type="bool" value="1"/!-->
+      <!--Parameter name="PrintStatus" type="bool" value="1"/-->
+      <ParameterList name="Superludist">
+        <Parameter name="PrintNonzeros" type="bool" value="1"/>
+      </ParameterList>
+      <ParameterList name="mumps">
+        <!-- output stream: stdout=6, none=-1 -->
+        <Parameter name="ICNTL(1)" type="int" value="6"/>
+        <!-- error stream: stdout=6, none=-1 -->
+        <Parameter name="ICNTL(2)" type="int" value="6"/>
+        <!-- global info stream: stdout=6, none=-1 -->
+        <Parameter name="ICNTL(3)" type="int" value="6"/>
+        <!-- verbosity (-1..3) -->
+        <Parameter name="ICNTL(4)" type="int" value="3"/>
+        <!-- collect statistics (for optimal performance set it to 0!) -->
+        <Parameter name="ICNTL(11)" type="int" value="0"/>
+      </ParameterList>      
+    </ParameterList>
+  </ParameterList><!--}-->
+  
+  
+</ParameterList><!--}-->

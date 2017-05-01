@@ -11,9 +11,11 @@
 #include "HYMLS_HierarchicalMap.H"
 #include "HYMLS_SparseDirectSolver.H"
 
-#include "Ifpack_SparseContainer.h"
 #include "Ifpack_DenseContainer.h"
 #include "Ifpack_Amesos.h"
+
+#undef HAVE_MPI
+#include "Ifpack_SparseContainer.h"
 
 #ifdef HYMLS_USE_MKL
 #include <mkl.h>

@@ -2,55 +2,136 @@
 #define HYMLS_BORDERED_SOLVER_H
 
 #include "HYMLS_config.h"
+#include "HYMLS_Macros.H"
 
+#include "Teuchos_RCP.hpp"
+#include "Epetra_Operator.h"
+
+#include "HYMLS_BaseSolver.H"
+
+// forward declarations
 class Epetra_MultiVector;
+class Epetra_Comm;
 class Epetra_SerialDenseMatrix;
+class Epetra_SerialDenseSVD;
+class Epetra_Map;
+class Epetra_Import;
 
-namespace HYMLS
+namespace Belos
+  {
+class EpetraPrecOp;
+template<typename, typename, typename>
+class LinearProblem;
+template<typename, typename, typename>
+class SolverManager;
+  }
+
+namespace Teuchos
+  {
+  class ParameterList;
+  }
+
+namespace HYMLS {
+
+class BorderedOperator;
+class BorderedVector;
+
+/*! iterative solver class, basically
+   an Epetra wrapper for Belos extended with
+   some bordering and deflation functionality.
+*/
+class BorderedSolver : public virtual BaseSolver
   {
 
-  //!                                                             
-  //! virtual base class to implement an operator of the form     
-  //!                                                             
-  //! |K  V|                                                      
-  //! |W' C|.                                                     
-  //!                                                             
-  //! Once a border has been added, the standard ApplyInverse()   
-  //! function will solve                                         
-  //!                                                             
-  //! |K  V| |x|   |b|                                            
-  //! |W' C| |s| = |0|.                                           
-  //!                                                             
-  //! (if Epetra_Operator is implemented, which is not mandatory).
-  //!                                                             
-  //! An additional function ApplyInverse() with four arguments   
-  //! can be used to solve                                        
-  //!                                                             
-  //! |K  V| |x|   |b|                                            
-  //! |W' C| |s| = |c|.                                           
-  //!                                                             
-  class BorderedSolver
-    {
-    public:
-    
-    //! set the operators V and W. Currently we only allow one border 
-    //! to be set (one could think of a more general interface that   
-    //! allows adding several borders, i.e. for doing pseudo-arclength
-    //! continuation with a projected preconditioner).                
-    virtual int addBorder(Teuchos::RCP<const Epetra_MultiVector> V,
-                          Teuchos::RCP<const Epetra_MultiVector> W=Teuchos::null,
-                          Teuchos::RCP<const Epetra_SerialDenseMatrix> C=Teuchos::null) = 0;
+public:
 
-    //! compute [Y T]' = [K V;W' C]*[X S]'
-    virtual int Apply(const Epetra_MultiVector& X, const Epetra_SerialDenseMatrix& S,
-                    Epetra_MultiVector& Y,       Epetra_SerialDenseMatrix& T) const = 0;
+  //!
+  //! Constructor
+  //!
+  //! arguments: matrix, preconditioner and belos params.
+  //!
+  BorderedSolver(Teuchos::RCP<const Epetra_RowMatrix> K,
+    Teuchos::RCP<Epetra_Operator> P,
+    Teuchos::RCP<Teuchos::ParameterList> params,
+    int numRhs=1, bool validate=true);
 
-    //! compute [X S]' = [K V;W' C]\[Y T]'
-    virtual int ApplyInverse(const Epetra_MultiVector& Y, const Epetra_SerialDenseMatrix& T,
-                           Epetra_MultiVector& X,       Epetra_SerialDenseMatrix& S) const = 0;
-    
-    };
-  
-  }
+  //! destructor
+  virtual ~BorderedSolver();
+
+  //! set solver parameters (the list is the "HYMLS"->"Solver" sublist)
+  virtual void setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& params);
+
+  //! set solver parameters (the list is the "HYMLS"->"Solver" sublist)
+  //! The extra argument is so it can be used by the actual Solver class
+  virtual void setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& params,
+    bool validateParameters);
+
+  //! get a list of valid parameters for this object
+  virtual Teuchos::RCP<const Teuchos::ParameterList> getValidParameters() const;
+
+  //! set preconditioner for solve
+  virtual void SetPrecond(Teuchos::RCP<Epetra_Operator> P);
+
+  virtual void SetTolerance(double tol);
+
+  //! Applies the preconditioner to vector X, returns the result in Y.
+  virtual int ApplyInverse(const Epetra_MultiVector& X,
+    Epetra_MultiVector& Y) const;
+
+  virtual int ApplyInverse(const Epetra_MultiVector& X, const Epetra_SerialDenseMatrix& S,
+    Epetra_MultiVector& Y, Epetra_SerialDenseMatrix& T) const;
+
+  //! For singular problems with a known null space, add the null space
+  //! as a border so that in fact the linear system
+  //!
+  //! |A   V0||x |   |b|
+  //! |V0'  0||x0| = |0|
+  //!
+  //! is being solved. This means that the solution will be perpendicular to V0
+  //! If the function is called repeatedly, the 'old' vectors are replaced.
+  virtual int setBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
+    Teuchos::RCP<const Epetra_MultiVector> const &W=Teuchos::null,
+    Teuchos::RCP<const Epetra_SerialDenseMatrix> const &C=Teuchos::null);
+
+protected:
+
+//@}
+
+//!\name data structures to monitor and deflate unstable modes
+
+//@{
+
+//! Borders of the matrix, which might be the eigenspace
+  Teuchos::RCP<const Epetra_MultiVector> V_, W_;
+
+  Teuchos::RCP<const Epetra_SerialDenseMatrix> C_;
+
+  //! block A \ V
+  Teuchos::RCP<Epetra_MultiVector> Q_;
+
+  //! Schur-complement (LU-factored in place)
+  Teuchos::RCP<Epetra_SerialDenseMatrix> S_;
+
+  //! solver for the Schur-complement (emtpy lapack interface)
+  Teuchos::RCP<Epetra_SerialDenseSVD> SVD_;
+
+//@}
+
+  //! label
+  std::string label_;
+
+  //! Belos preconditioner interface
+  Teuchos::RCP<BorderedOperator> belosPrecPtr_;
+
+  //! Belos linear problem interface
+  Teuchos::RCP<::Belos::LinearProblem<double, BorderedVector, BorderedOperator> > belosProblemPtr_;
+
+  //! Belos solver
+  Teuchos::RCP<::Belos::SolverManager<double, BorderedVector, BorderedOperator> > belosSolverPtr_;
+
+  };
+
+
+}
 
 #endif

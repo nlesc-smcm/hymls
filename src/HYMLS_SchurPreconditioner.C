@@ -385,32 +385,39 @@ namespace HYMLS {
     // passed to direct solver - depends on what exactly we do
     Teuchos::RCP<Epetra_RowMatrix> S2 = Teuchos::null;
 
-#ifdef RESTRICT_ON_COARSE_LEVEL
-    // restrict the matrix to the active processors
-    if (restrictA_==Teuchos::null)
+    int reducedNumProc = -1;
+    if (Teuchos::rcp_dynamic_cast<const Epetra_MpiComm>(comm_) != Teuchos::null)
       {
-      restrictA_ = Teuchos::rcp(new ::EpetraExt::RestrictedCrsMatrixWrapper());
-      restrictX_ = Teuchos::rcp(new ::EpetraExt::RestrictedMultiVectorWrapper());
-      restrictB_ = Teuchos::rcp(new ::EpetraExt::RestrictedMultiVectorWrapper());
-      }
+#ifdef RESTRICT_ON_COARSE_LEVEL
+      // restrict the matrix to the active processors
+      if (restrictA_==Teuchos::null)
+        {
+        restrictA_ = Teuchos::rcp(new ::EpetraExt::RestrictedCrsMatrixWrapper());
+        restrictX_ = Teuchos::rcp(new ::EpetraExt::RestrictedMultiVectorWrapper());
+        restrictB_ = Teuchos::rcp(new ::EpetraExt::RestrictedMultiVectorWrapper());
+        }
       // we have to restrict_comm again because the pointer is no longer
       // valid, it seems
 #ifdef OLD_TRILINOS      
-    // bug in Trilinos 10.10, uninitialized return
-    restrictA_->restrict_comm(linearMatrix_);
+      // bug in Trilinos 10.10, uninitialized return
+      restrictA_->restrict_comm(linearMatrix_);
 #else
-    CHECK_ZERO(restrictA_->restrict_comm(linearMatrix_));      
+      CHECK_ZERO(restrictA_->restrict_comm(linearMatrix_));      
 #endif
-    amActive_=restrictA_->RestrictedProcIsActive();
-    restrictX_->SetMPISubComm(restrictA_->GetMPISubComm());
-    restrictB_->SetMPISubComm(restrictA_->GetMPISubComm());
+      amActive_=restrictA_->RestrictedProcIsActive();
+      restrictX_->SetMPISubComm(restrictA_->GetMPISubComm());
+      restrictB_->SetMPISubComm(restrictA_->GetMPISubComm());
 
-    restrictedMatrix_=restrictA_->RestrictedMatrix();
-    int reducedNumProc = -1;
+      restrictedMatrix_=restrictA_->RestrictedMatrix();
       if (restrictA_->RestrictedProcIsActive())
         {
         reducedNumProc=restrictA_->RestrictedComm().NumProc();
         }
+      }
+    else
+      {
+      restrictedMatrix_ = Teuchos::rcp(new Epetra_CrsMatrix(*linearMatrix_));
+      }
 
     // if we do not set this, Amesos may try to think of its own strategy
     // to reduce the number of procs, which in my experience leads to MPI
@@ -1271,7 +1278,7 @@ int SchurPreconditioner::InitializeOT()
     if (HaveBorder())
       {
       // this is the expected behavior for standard ApplyInverse() of
-      // a BorderedSolver in HYMLS: solve with rhs 0 for border.
+      // a BorderedOperator in HYMLS: solve with rhs 0 for border.
       int m = borderV_->NumVectors();
       int n = X.NumVectors();
       Epetra_SerialDenseMatrix C(m,n);
@@ -1333,17 +1340,22 @@ if (dumpVectors_)
       if (realloc_vectors)
         {
 #ifdef RESTRICT_ON_COARSE_LEVEL
-        // TODO - CHECK_ZERO at next Trilinos release
+        if (Teuchos::rcp_dynamic_cast<const Epetra_MpiComm>(comm_) != Teuchos::null)
+          {
+          // TODO - CHECK_ZERO at next Trilinos release
 //        CHECK_ZERO(restrictB_->restrict_comm(linearRhs_));
 //        CHECK_ZERO(restrictX_->restrict_comm(linearSol_));
-        restrictB_->restrict_comm(linearRhs_);
-        restrictX_->restrict_comm(linearSol_);
-        restrictedRhs_ = restrictB_->RestrictedMultiVector();
-        restrictedSol_ = restrictX_->RestrictedMultiVector();
-#else
-        restrictedRhs_=linearRhs_;
-        restrictedSol_=linearSol_;
-#endif        
+          restrictB_->restrict_comm(linearRhs_);
+          restrictX_->restrict_comm(linearSol_);
+          restrictedRhs_ = restrictB_->RestrictedMultiVector();
+          restrictedSol_ = restrictX_->RestrictedMultiVector();
+          }
+        else
+#endif
+          {
+          restrictedRhs_=linearRhs_;
+          restrictedSol_=linearSol_;
+          }
         }
       if (amActive_)
         {
@@ -1864,7 +1876,7 @@ int SchurPreconditioner::UpdateVsumRhs(const Epetra_MultiVector& B, Epetra_Multi
   }
 
 ////////////////////////////////////////////////////
-// implementation of the BorderedSolver interface //
+// implementation of the BorderedOperator interface //
 ////////////////////////////////////////////////////
 
     // set the operators V, W and C to solve systems with
@@ -1876,11 +1888,11 @@ int SchurPreconditioner::UpdateVsumRhs(const Epetra_MultiVector& B, Epetra_Multi
     // the border for M22 and pass it to the next level. M12 and M21
     // are currently assumed to be zero (block diagonal preconditioner)
     //                                          
-    int SchurPreconditioner::addBorder(Teuchos::RCP<const Epetra_MultiVector> V,
+    int SchurPreconditioner::setBorder(Teuchos::RCP<const Epetra_MultiVector> V,
                           Teuchos::RCP<const Epetra_MultiVector> W,
                           Teuchos::RCP<const Epetra_SerialDenseMatrix> C)
   {
-  HYMLS_LPROF(label_,"addBorder");
+  HYMLS_LPROF(label_,"setBorder");
   int ierr=0;
   if (V==Teuchos::null) 
     {
@@ -1959,14 +1971,14 @@ int SchurPreconditioner::UpdateVsumRhs(const Epetra_MultiVector& B, Epetra_Multi
     CHECK_ZERO(borderV2_->Import(*borderV_,*vsumImporter_,Insert));
     CHECK_ZERO(borderW2_->Import(*borderW_,*vsumImporter_,Insert));
     // set border in next level problem
-    Teuchos::RCP<HYMLS::BorderedSolver> borderedNextLevel =
-        Teuchos::rcp_dynamic_cast<HYMLS::BorderedSolver>(reducedSchurSolver_);
+    Teuchos::RCP<HYMLS::BorderedOperator> borderedNextLevel =
+        Teuchos::rcp_dynamic_cast<HYMLS::BorderedOperator>(reducedSchurSolver_);
     if (Teuchos::is_null(borderedNextLevel))
       {
       HYMLS::Tools::Error("next level solver can't handle border!",__FILE__,__LINE__);
       }
-    HYMLS_DEBUG("call addBorder in next level precond");
-    borderedNextLevel->addBorder(borderV2_,borderW2_,borderC_);
+    HYMLS_DEBUG("call setBorder in next level precond");
+    borderedNextLevel->setBorder(borderV2_,borderW2_,borderC_);
     }
   haveBorder_=true;
   return ierr;
@@ -2009,7 +2021,7 @@ int SchurPreconditioner::UpdateVsumRhs(const Epetra_MultiVector& B, Epetra_Multi
       
     if (!HaveBorder())
       {
-      Tools::Warning("border not set!",__FILE__,__LINE__);
+      HYMLS_DEBUG("border not set!");
       return this->ApplyInverse(X,Y);
       }
 
@@ -2053,7 +2065,7 @@ if (dumpVectors_)
             }
           }
 /* in augmented systems we do not fix any GIDs, I guess...
-      for (int i=0;i<fix_gid_.length();i++)
+      Wfor (int i=0;i<fix_gid_.length();i++)
         {
         int lid = X.Map().LID(fix_gid_[i]);
         if (lid>0)
@@ -2068,6 +2080,8 @@ if (dumpVectors_)
         if (realloc_vectors)
           {
 #ifdef RESTRICT_ON_COARSE_LEVEL
+          if (Teuchos::rcp_dynamic_cast<const Epetra_MpiComm>(comm_) != Teuchos::null)
+            {
 #ifndef OLD_TRILINOS
           CHECK_ZERO(restrictB_->restrict_comm(linearRhs_));
           CHECK_ZERO(restrictX_->restrict_comm(linearSol_));
@@ -2077,10 +2091,13 @@ if (dumpVectors_)
 #endif
           restrictedRhs_ = restrictB_->RestrictedMultiVector();
           restrictedSol_ = restrictX_->RestrictedMultiVector();
-#else
-          restrictedRhs_=linearRhs_;
-          restrictedSol_=linearSol_;
-#endif        
+            }
+          else
+#endif
+            {
+            restrictedRhs_=linearRhs_;
+            restrictedSol_=linearSol_;
+            }
           }
         HYMLS_DEBUG("coarse level solve");
         CHECK_ZERO(reducedSchurSolver_->ApplyInverse(*restrictedRhs_,*restrictedSol_));
@@ -2125,7 +2142,7 @@ HYMLS::MatrixUtils::Dump(*linearSol_,"CoarseLevelSol.txt");
 
       // solve reduced Schur-complement problem.
       // We do not have to form the augmented vectors here as
-      // we use the BorderedSolver interface's ApplyInverse()
+      // we use the BorderedOperator interface's ApplyInverse()
       // function recursively.
       if (X.NumVectors()!=vsumRhs_->NumVectors())
         {
@@ -2153,8 +2170,8 @@ HYMLS::MatrixUtils::Dump(*linearSol_,"CoarseLevelSol.txt");
         {
         CHECK_ZERO(vsumRhs_->Multiply(1.0,*reducedSchurScaLeft_,*vsumRhs_,0.0));
         }
-      Teuchos::RCP<const HYMLS::BorderedSolver> borderedNextLevel =
-        Teuchos::rcp_dynamic_cast<const HYMLS::BorderedSolver>(reducedSchurSolver_);
+      Teuchos::RCP<const HYMLS::BorderedOperator> borderedNextLevel =
+        Teuchos::rcp_dynamic_cast<const HYMLS::BorderedOperator>(reducedSchurSolver_);
       if (Teuchos::is_null(borderedNextLevel))
         {
         Tools::Error("cannot handle next level bordered system!",__FILE__,__LINE__);

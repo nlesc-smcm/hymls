@@ -10,7 +10,6 @@
 
 #include "HYMLS_SchurComplement.H"
 #include "HYMLS_SchurPreconditioner.H"
-#include "HYMLS_BorderedLU.H"
 #include "HYMLS_MatrixBlock.H"
 
 #include <Epetra_Time.h> 
@@ -64,7 +63,7 @@ namespace HYMLS {
     HYMLS_LPROF3(label_,"Constructor");
     REPORT_SUM_MEM(label_,"Matrix",K->NumMyNonzeros(),K->NumMyNonzeros(),comm_);
     serialComm_=Teuchos::rcp(new Epetra_SerialComm());
-//    serialComm_=Teuchos::rcp(new Epetra_MpiComm(MPIborderC_OMM_SELF));
+//    serialComm_=Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_SELF));
     time_=Teuchos::rcp(new Epetra_Time(K->Comm()));
 
     setParameterList(params);
@@ -131,6 +130,24 @@ namespace HYMLS {
 
     sdSolverType_ = PL().get("Subdomain Solver Type", "Sparse");
     numThreadsSD_ = PL().get("Subdomain Solver Num Threads", numThreadsSD_);
+
+    bool xperio = false;
+    bool yperio = false;
+    bool zperio = false;
+    xperio = probList_.get("x-periodic", xperio);
+    if (dim_>=1) yperio = probList_.get("y-periodic", yperio);
+    if (dim_>=2) zperio = probList_.get("z-periodic", zperio);
+
+    GaleriExt::PERIO_Flag perio = GaleriExt::NO_PERIO;
+
+    if (xperio) perio = (GaleriExt::PERIO_Flag)(perio|GaleriExt::X_PERIO);
+    if (yperio) perio = (GaleriExt::PERIO_Flag)(perio|GaleriExt::Y_PERIO);
+    if (zperio) perio = (GaleriExt::PERIO_Flag)(perio|GaleriExt::Z_PERIO);
+
+    probList_.set("Periodicity", perio);
+    probList_.remove("x-periodic");
+    probList_.remove("y-periodic");
+    probList_.remove("z-periodic");
 
     // the entire "Problem" list used by the overlapping partiitioner
     // is fairly complex, but we implement a set of default cases like
@@ -642,7 +659,7 @@ REPORT_SUM_MEM(label_,"before schurprec",0,0, comm_);
     Epetra_SerialDenseMatrix S, T;
     if (HaveBorder())
       {
-      CHECK_ZERO(T.Reshape(borderV_->NumVectors(), B.NumVectors()));
+      CHECK_ZERO(T.Reshape(V_->NumVectors(), B.NumVectors()));
       }
 
     return ApplyInverse(B, T, X, S);
@@ -799,24 +816,6 @@ int Preconditioner::SetProblemDefinition(std::string eqn, Teuchos::ParameterList
     HYMLS_LPROF3(label_,"SetProblemDefinition");
   Teuchos::ParameterList& probList=list.sublist("Problem");
   Teuchos::ParameterList& precList=list.sublist("Preconditioner");
-
-  bool xperio=false;
-  bool yperio=false;
-  bool zperio=false;
-  xperio=probList.get("x-periodic",xperio);
-  if (dim_>=1) yperio=probList.get("y-periodic",yperio);
-  if (dim_>=2) zperio=probList.get("z-periodic",zperio);
-  
-  GaleriExt::PERIO_Flag perio=GaleriExt::NO_PERIO;
-  
-  if (xperio) perio=(GaleriExt::PERIO_Flag)(perio|GaleriExt::X_PERIO);
-  if (yperio) perio=(GaleriExt::PERIO_Flag)(perio|GaleriExt::Y_PERIO);
-  if (zperio) perio=(GaleriExt::PERIO_Flag)(perio|GaleriExt::Z_PERIO);
-  
-  probList.set("Periodicity",perio);
-  probList.remove("x-periodic");
-  probList.remove("y-periodic");
-  probList.remove("z-periodic");
   
   bool is_complex = probList.get("Complex Arithmetic",false);
 
@@ -1057,16 +1056,16 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
 //////////////////////////////////
 
   // add a border to the preconditioner
-  int Preconditioner::addBorder(
+  int Preconditioner::setBorder(
                Teuchos::RCP<const Epetra_MultiVector> V, 
                Teuchos::RCP<const Epetra_MultiVector> W,
                Teuchos::RCP<const Epetra_SerialDenseMatrix> C)
     {
-    HYMLS_LPROF2(label_,"addBorder");
+    HYMLS_LPROF2(label_,"setBorder");
 
-    borderV_ = Teuchos::null;
-    borderW_ = Teuchos::null;
-    borderC_ = Teuchos::null;
+    V_ = Teuchos::null;
+    W_ = Teuchos::null;
+    C_ = Teuchos::null;
 
     if (!IsComputed())
       {
@@ -1074,52 +1073,62 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
       // by adding some of these computations to Compute(),
       // but I think it is OK to compute the prec first and
       // set the bordering afterwards.
-      Tools::Error("addBorder: requires preconditioner to be computed",
+      Tools::Error("setBorder: requires preconditioner to be computed",
         __FILE__,__LINE__);
       }
 
     if (V == Teuchos::null)
       {
-      Tools::Error("addBorder: V can't be null", __FILE__, __LINE__);
+      borderSchurV_ = Teuchos::null;
+      borderSchurW_ = Teuchos::null;
+      borderSchurC_ = Teuchos::null;
+      borderQ1_ = Teuchos::null;
+
+      CHECK_ZERO(schurPrec_->setBorder(borderSchurV_, borderSchurW_, borderSchurC_));
+      return 0;
       }
 
-    borderV_ = Teuchos::rcp(new Epetra_MultiVector(*V));
+    int m = V->NumVectors();
 
-    int m = borderV_->NumVectors();
-    HYMLS_DEBVAR(m);
-    if (W == Teuchos::null)
+    Teuchos::RCP<Epetra_MultiVector> importedV = Teuchos::rcp(
+      new Epetra_MultiVector(*rowMap_, m));
+    CHECK_ZERO(importedV->Import(*V_, *importer_, Insert));
+    V_ = importedV;
+
+    if (W == Teuchos::null || W.get() == V.get())
       {
-      HYMLS_DEBUG("Using W=V");
-      borderW_ = borderV_;
+      W_ = V_;
       }
     else
       {
-      borderW_ = Teuchos::rcp(new Epetra_MultiVector(*W));
+      Teuchos::RCP<Epetra_MultiVector> importedW = Teuchos::rcp(
+        new Epetra_MultiVector(*rowMap_, m));
+      CHECK_ZERO(importedW->Import(*W_, *importer_, Insert));
+      W_ = importedW;
       }
 
-    if (C == Teuchos::null)
+    if (W_->NumVectors() != m)
       {
-      HYMLS_DEBUG("Using C=0");
-      borderC_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(m,m));
-      }
-    else
-      {
-      borderC_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(*C));
+      Tools::Error("bordering: V and W must have same number of columns",
+        __FILE__, __LINE__);
       }
 
-    if (!(borderV_->Map().SameAs(OperatorRangeMap()) &&
-        borderV_->Map().SameAs(borderW_->Map())))
+    if (!(V_->Map().SameAs(OperatorRangeMap()) &&
+        V_->Map().SameAs(W_->Map())))
       {
       Tools::Error("incompatible maps found", __FILE__, __LINE__);
       }
 
-    if (borderW_->NumVectors() != m)
+    if (C == Teuchos::null)
       {
-      Tools::Error("bordering: V and W must have same number of columns",
-        __FILE__, __LINE__); 
+      C_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(m,m));
+      }
+    else
+      {
+      C_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(*C));
       }
 
-    if ((borderC_->N() != borderC_->M()) || (borderC_->N() != m))
+    if ((C_->N() != C_->M()) || (C_->N() != m))
       {
       Tools::Error("bordering: C block must be square and compatible with V and W",
         __FILE__, __LINE__);
@@ -1130,24 +1139,24 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
 
     Epetra_Map const &map1 = A12_->RowMap();
     Epetra_Map const &map2 = A21_->RowMap();
-    
-    borderV1_ = Teuchos::rcp(new Epetra_MultiVector(map1,m));
-    borderV2_ = Teuchos::rcp(new Epetra_MultiVector(map2,m));
 
-    CHECK_ZERO(borderV1_->Import(*borderV_,import1,Insert));
-    CHECK_ZERO(borderV2_->Import(*borderV_,import2,Insert));
+    borderV1_ = Teuchos::rcp(new Epetra_MultiVector(map1, m));
+    borderV2_ = Teuchos::rcp(new Epetra_MultiVector(map2, m));
 
-    if (borderV_.get()==borderW_.get())
+    CHECK_ZERO(borderV1_->Import(*V_, import1, Insert));
+    CHECK_ZERO(borderV2_->Import(*V_, import2, Insert));
+
+    if (V_.get() == W_.get())
       {
-      borderW1_=borderV1_;
-      borderW2_=borderV2_;
+      borderW1_ = borderV1_;
+      borderW2_ = borderV2_;
       }
     else
       {
-      borderW1_ = Teuchos::rcp(new Epetra_MultiVector(map1,m));
-      borderW2_ = Teuchos::rcp(new Epetra_MultiVector(map2,m));
-      CHECK_ZERO(borderW1_->Import(*borderW_,import1,Insert));
-      CHECK_ZERO(borderW2_->Import(*borderW_,import2,Insert));
+      borderW1_ = Teuchos::rcp(new Epetra_MultiVector(map1, m));
+      borderW2_ = Teuchos::rcp(new Epetra_MultiVector(map2, m));
+      CHECK_ZERO(borderW1_->Import(*W_, import1, Insert));
+      CHECK_ZERO(borderW2_->Import(*W_, import2, Insert));
       }
 
     // build the border for the Schur-complement
@@ -1177,7 +1186,7 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
     borderSchurC_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(m,m));
     CHECK_ZERO(DenseUtils::MatMul(*borderW1_,*borderQ1_,*borderSchurC_));
     CHECK_ZERO(borderSchurC_->Scale(-1.0));
-    *borderSchurC_ += *borderC_;
+    *borderSchurC_ += *C_;
     
     //TODO: if the Schur-complement is left- and right-scaled,
     //      we also have to scale the borders
@@ -1186,14 +1195,8 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
       Tools::Error("not implemented!",__FILE__,__LINE__);
       }
 
-    Teuchos::RCP<HYMLS::BorderedSolver> borderedSchurSolver = 
-    Teuchos::rcp_dynamic_cast<HYMLS::BorderedSolver>(schurPrec_);
-    if (Teuchos::is_null(borderedSchurSolver))
-      {
-      Tools::Error("cannot handle bordered Schur problem",__FILE__,__LINE__);
-      }
     HYMLS_DEBVAR(borderSchurV_->MyLength());
-    CHECK_ZERO(borderedSchurSolver->addBorder(borderSchurV_,borderSchurW_,borderSchurC_));
+    CHECK_ZERO(schurPrec_->setBorder(borderSchurV_,borderSchurW_,borderSchurC_));
     return 0;
     }
 
@@ -1266,7 +1269,7 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
 
     // We now compute the border in case it is present
     Epetra_SerialDenseMatrix q;
-    if (borderW_!=Teuchos::null)
+    if (W_!=Teuchos::null)
       {
       CHECK_ZERO(DenseUtils::MatMul(*borderW1_, x1, q));
       CHECK_ZERO(q.Scale(-1));
@@ -1278,26 +1281,10 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
     if (scaleSchur_)
       {
       // left-scale rhs with schurScaLeft_
-      CHECK_ZERO(schurRhs_->Multiply(1.0, *schurScaLeft_, *schurRhs_, 0.0))
-        }
-    if (borderV_!=Teuchos::null)
-      {
-      Teuchos::RCP<HYMLS::BorderedSolver> borderedSchurSolver
-        = Teuchos::rcp_dynamic_cast<HYMLS::BorderedSolver>(schurPrec_);
-      if (borderedSchurSolver==Teuchos::null)
-        {
-        Tools::Error("cannot handle bordered Schur system!",__FILE__,__LINE__);
-        }
-      else
-        {
-        CHECK_ZERO(borderedSchurSolver->ApplyInverse(*schurRhs_, q, *schurSol_, S));
-        HYMLS_DEBUG("successfully applied bordered Schur precond");
-        }
+      CHECK_ZERO(schurRhs_->Multiply(1.0, *schurScaLeft_, *schurRhs_, 0.0));
       }
-    else
-      {
-      CHECK_ZERO(schurPrec_->ApplyInverse(*schurRhs_,*schurSol_));
-      }
+
+    CHECK_ZERO(schurPrec_->ApplyInverse(*schurRhs_,*schurSol_));
 
     if (scaleSchur_)
       {
