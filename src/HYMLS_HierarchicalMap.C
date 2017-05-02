@@ -261,9 +261,9 @@ Teuchos::Array<int> HierarchicalMap::GetGroup(int sd, int grp) const
     
     if (rank==0)
       {
-      os << "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"<<std::endl;
-      os << "% Domain decomposition and separators, level "<<myLevel_<< "       %"<<std::endl;
-      os << "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"<<std::endl;
+      os << "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" << std::endl;
+      os << "% Domain decomposition and separators, level " << myLevel_ << "       %" << std::endl;
+      os << "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" << std::endl;
       os << std::endl;
       }
 
@@ -271,28 +271,27 @@ Teuchos::Array<int> HierarchicalMap::GetGroup(int sd, int grp) const
       {
       if (proc==rank)
         {
-        os << "%Partition "<<rank<<std::endl;
-        os << "%============="<<std::endl;
+        os << "%Partition " << rank << std::endl;
+        os << "%=============" << std::endl;
         //os << "% Number of rows in groupPointer: " << (*groupPointer_).size() << std::endl;
         for (int sd=0;sd<NumMySubdomains();sd++)
           {
-          os << "p{"<<myLevel_<<"}{"<<rank+1<<"}.grpPtr{"<<sd+1<<"}=["; 
-          int offset = (*groupPointer_)[sd][0];
+          os << "p{" << myLevel_ << "}{" << rank+1 << "}.grpPtr{" << sd+1 << "}=[";
           for (int i=0;i<(*groupPointer_)[sd].size()-1;i++)
             {
-            os<<(*groupPointer_)[sd][i]-offset<<",";
+            os << (*groupPointer_)[sd][i] << ",";
             }
-          os<<*((*groupPointer_)[sd].end()-1)-offset<<"];"<<std::endl;
-          os << "   p{"<<myLevel_<<"}{"<<rank+1<<"}.sd{"<<sd+1<<"} = [";
+          os << *((*groupPointer_)[sd].end()-1) << "];" << std::endl;
+          os << "   p{" << myLevel_ << "}{" << rank+1 << "}.sd{" << sd+1 << "} = [";
           for (int grp=0;grp<(*groupPointer_)[sd].size()-1;grp++)
             {
             for (int i=(*groupPointer_)[sd][grp]; i<(*groupPointer_)[sd][grp+1];i++)
               {
-              os << " " << overlappingMap_->GID(i);
+              os << " " << (*gidList_)[sd][i];
               }
             os << " ..." << std::endl;
             }
-          os << "];"<<std::endl<<std::endl;
+          os << "];" << std::endl << std::endl;
           }
         }//rank
       comm_->Barrier();
@@ -300,7 +299,7 @@ Teuchos::Array<int> HierarchicalMap::GetGroup(int sd, int grp) const
 
     if (rank==0)
       {
-      os << "%$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$%"<<std::endl;
+      os << "%$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$%\n" << std::endl;
       }
 
     comm_->Barrier();
@@ -336,7 +335,7 @@ Teuchos::Array<int> HierarchicalMap::GetGroup(int sd, int grp) const
 
     if (rank==0)
       {
-      os << "%$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$%"<<std::endl;
+      os << "%$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$%" << std::endl;
       }
   return os;
   }
@@ -567,7 +566,7 @@ HierarchicalMap::SpawnLocalSeparators() const
     
     if (map==Teuchos::null)
       {
-      HYMLS_DEBUG("Spawn map for subdomain "<<sd);
+      HYMLS_DEBUG("Spawn map for subdomain " << sd);
       // int* MyElements = overlappingMap_->MyGlobalElements();      
       int offset = -1;
       int length = -1;
@@ -602,7 +601,7 @@ HierarchicalMap::SpawnLocalSeparators() const
     }
 
 // this doesn't formally belong to this class but has to be implemented somewhere
-std::ostream & operator<<(std::ostream& os, const HierarchicalMap& h)
+std::ostream & operator << (std::ostream& os, const HierarchicalMap& h)
   {
   return h.Print(os);
   }
