@@ -297,8 +297,42 @@ Teuchos::Array<int> HierarchicalMap::GetGroup(int sd, int grp) const
         }//rank
       comm_->Barrier();
       }//proc
-   
+
+    if (rank==0)
+      {
+      os << "%$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$%"<<std::endl;
+      }
+
     comm_->Barrier();
+
+    for (int proc = 0; proc < comm_->NumProc(); proc++)
+      {
+      if (proc == rank)
+        {
+        os << "%Partition " << rank << std::endl;
+        os << "%=============" << std::endl;
+        for (int sd = 0; sd < NumMySubdomains(); sd++)
+          {
+          os << "p{" << myLevel_ << "}{" << rank + 1 << "}.groups{" << sd + 1 << "} = {";
+          for (int grp = 0; grp < NumGroups(sd); grp++)
+            {
+            Teuchos::Array<int> gidList = GetGroup(sd, grp);
+            if (grp > 0)
+              {
+              os << ",..." << std::endl;
+              }
+            os << "[";
+            for (int i = 0; i < NumElements(sd, grp); i++)
+              {
+              os << gidList[i] << ",";
+              }
+            os << "]";
+            }
+          os << "};\n" << std::endl;
+          }
+        }//rank
+      comm_->Barrier();
+      }//proc
 
     if (rank==0)
       {
