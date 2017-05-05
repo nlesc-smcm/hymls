@@ -66,12 +66,14 @@ namespace HYMLS {
   {
     //Teuchos::RCP<Epetra_RowMatrix> A = Teuchos::rcp(problem.GetMatrix());
     Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(dynamic_cast<Epetra_CrsMatrix *>(problem.GetMatrix())); 
-    if (A==Teuchos::null)
-      {std::cout << "Cast to a null pointer" << std::endl;
-       throw "HYMLS Error";
-      }
+    CHECK_TRUE(A!=Teuchos::null);
+     
     Teuchos::RCP<Epetra_MultiVector> rhs = Teuchos::rcp(problem.GetRHS());
     Teuchos::RCP<Epetra_MultiVector> sol = Teuchos::rcp(problem.GetLHS());
+
+    CHECK_TRUE(rhs!=Teuchos::null);
+
+  
     // again, loop over all elements with stride 2, apply left scaling to rhs
     // and sol, and left and right scaling to the matrix
     for (int i=0; i< A->NumMyRows(); i+=2)
