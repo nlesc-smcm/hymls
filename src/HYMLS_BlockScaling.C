@@ -1,0 +1,244 @@
+#include "HYMLS_config.h"
+#include "HYMLS_Tools.H"
+#include "HYMLS_Macros.H"
+#include "HYMLS_BlockScaling.H"
+#include "BelosConfigDefs.hpp"
+#include "NOX_Epetra_Scaling.H"
+
+#include "Epetra_MultiVector.h"
+#include "Epetra_Vector.h"
+#include "Epetra_CrsMatrix.h"
+#include "Epetra_LinearProblem.h"
+
+
+namespace HYMLS {
+
+  //!Constructor
+  BlockScaling::BlockScaling()
+    {
+    Sl11_=1.0;
+    Sl12_=0.0;
+    Sl21_=0.0;
+    Sl22_=1.0;
+    Sr11_=1.0;
+    Sr12_=0.0;
+    Sr21_=0.0;
+    Sr22_=1.0;
+
+    }
+ //!Destuctor
+  BlockScaling::~BlockScaling()
+  {
+  }
+
+ //! Computes Row Sum scaling diagonal vectors.  Only needs to be called if a row or column sum scaling has been requested.
+  void BlockScaling::computeScaling(const Epetra_LinearProblem& problem)
+  {
+  }
+
+  //! set the coefficients for the left scaling [Sl11 Sl12; Sl21 Sl22] and right scaling
+  //! [Sr11 Sr12; Sr21 Sr22]. Formally they are placed on the block 2x2 diagonal of matrices
+  //! Sl and Sr, and the linear system is scaled as Sl*A*Sr (Sr\x) = Sl*b
+  void BlockScaling::setCoefficients(double Sl11, double Sl12, double Sl21, double Sl22,
+                       double Sr11, double Sr12, double Sr21, double Sr22)
+   {
+     Sl11_=Sl11;
+     Sl12_=Sl12;
+     Sl21_=Sl21;
+     Sl22_=Sl22;
+     Sr11_=Sr11;
+     Sr12_=Sr12;
+     Sr21_=Sr21;
+     Sr22_=Sr22;
+     // compute inverse of Sl and Sr
+     double detSl, detSr;
+     detSl=Sl11_*Sl22_-Sl12_*Sl21_;
+     iSl11_=Sl22_/detSl; iSl12_=-Sl12_/detSl;
+     iSl21_=-Sl21_/detSl; iSl22_=Sl11_/detSl;
+     
+     detSr=Sr11_*Sr22_-Sr12_*Sr21_;
+     iSr11_=Sr22_/detSr; iSr12_=-Sr12_/detSr;
+     iSr21_=-Sr21_/detSr; iSr22_=Sr11_/detSr;
+     
+   }
+  //! Scales the linear system.
+  void BlockScaling::scaleLinearSystem(Epetra_LinearProblem& problem) 
+  {
+    //Teuchos::RCP<Epetra_RowMatrix> A = Teuchos::rcp(problem.GetMatrix());
+    Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(dynamic_cast<Epetra_CrsMatrix *>(problem.GetMatrix())); 
+    if (A==Teuchos::null)
+      {std::cout << "Cast to a null pointer" << std::endl;
+       throw "HYMLS Error";
+      }
+    Teuchos::RCP<Epetra_MultiVector> rhs = Teuchos::rcp(problem.GetRHS());
+    Teuchos::RCP<Epetra_MultiVector> sol = Teuchos::rcp(problem.GetLHS());
+    // again, loop over all elements with stride 2, apply left scaling to rhs
+    // and sol, and left and right scaling to the matrix
+    for (int i=0; i< A->NumMyRows(); i+=2)
+    {
+         //get matrixblock
+    int row1=A->GRID(i);
+    int row2=A->GRID(i+1);
+    int len1, len2;
+    double *values1, *values2;
+    int *cols1, *cols2;
+    CHECK_ZERO(A->ExtractMyRowView(i,len1,values1,cols1));
+    CHECK_ZERO(A->ExtractMyRowView(i+1,len2,values2,cols2));
+    CHECK_ZERO(len1-len2);
+
+    double *a11,*a12,*a21,*a22;
+    double t11,t12,t21,t22;
+    for (int j=0; j<len1; j++)
+     {
+      //get global column index
+      int col1=A->GCID(cols1[j]);
+      int col2=A->GCID(cols2[j]);
+
+      if (col1==row1)
+      {
+         a11=&values1[j];
+      }
+      if (col1==row1+1)
+      {
+         a12=&values1[j];
+      }
+      if (col2==row2-1)
+      {
+         a21=&values2[j];
+      }
+      if (col2==row2)
+      {
+         a22=&values2[j];
+      }
+     }
+   //perform Sl*A*Sr
+    //1. T=A*Sr
+    t11=(*a11)*Sr11_+(*a12)*Sr21_;
+    t12=(*a11)*Sr12_+(*a12)*Sr22_;
+    t21=(*a21)*Sr11_+(*a22)*Sr21_;
+    t22=(*a21)*Sr12_+(*a22)*Sr22_;
+    //2. A=Sl*T
+    *a11=Sl11_*t11+Sl12_*t21;
+    *a12=Sl11_*t12+Sl12_*t22;
+    *a21=Sl21_*t11+Sl22_*t21;
+    *a22=Sl21_*t12+Sl22_*t22;
+
+    }
+      
+  //left scale the rhs by rhs=Sl*rhs
+  for (int j=0; j< rhs->NumVectors(); j++)
+  {
+    for (int i=0; i< rhs->MyLength(); i+=2)
+     {   
+      double temp = (*rhs)[j][i];
+      (*rhs)[j][i]=Sl11_*(*rhs)[j][i]+Sl12_*(*rhs)[j][i+1];
+      (*rhs)[j][i+1]=Sl21_*temp+Sl22_*(*rhs)[j][i+1];  
+     }
+  }
+ // scale the initail guess from the linear solver by sol=inv(Sr)*sol
+ for (int j =0; j< sol->NumVectors(); j++)
+  {
+   for (int i=0; i< sol->MyLength(); i+=2)
+    {
+      double tempsol = (*sol)[j][i];
+      (*sol)[j][i]=iSr11_*(*sol)[j][i]+iSr12_*(*sol)[j][i+1];
+      (*sol)[j][i+1]=iSr21_*tempsol+iSr22_*(*sol)[j][i+1];
+    }
+ }
+
+  
+   
+  }
+
+  //! Remove the scaling from the linear system.
+  void BlockScaling::unscaleLinearSystem(Epetra_LinearProblem& problem) 
+  {
+    Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(dynamic_cast<Epetra_CrsMatrix *>(problem.GetMatrix()));
+    CHECK_TRUE (A!=Teuchos::null);
+    
+    Teuchos::RCP<Epetra_MultiVector> rhs = Teuchos::rcp(problem.GetRHS());
+    Teuchos::RCP<Epetra_MultiVector> sol = Teuchos::rcp(problem.GetLHS());
+    // again, loop over all elements with stride 2, remove left scaling to rhs
+    // and sol, and left and right scaling to the matrix
+    for (int i=0; i< A->NumMyRows(); i+=2)
+    {
+         //get matrixblock
+    int row1=A->GRID(i);
+    int row2=A->GRID(i+1);
+    int len1, len2;
+    double *values1, *values2;
+    int *cols1, *cols2;
+    CHECK_ZERO(A->ExtractMyRowView(i,len1,values1,cols1));
+    CHECK_ZERO(A->ExtractMyRowView(i+1,len2,values2,cols2));
+    CHECK_ZERO(len1-len2);
+
+    double *a11,*a12,*a21,*a22;
+    double t11,t12,t21,t22;
+    for (int j=0; j<len1; j++)
+     {
+      //get global column index
+      int col1=A->GCID(cols1[j]);
+      int col2=A->GCID(cols2[j]);
+
+      if (col1==row1)
+      {
+         a11=&values1[j];
+      }
+      if (col1==row1+1)
+      {
+         a12=&values1[j];
+      }
+      if (col2==row2-1)
+      {
+         a21=&values2[j];
+      }
+      if (col2==row2)
+      {
+         a22=&values2[j];
+      }
+     }
+   //Now the matrix is A=Sl*A*Sr, to scale back first right multiply by inv(Sr)
+    //1. T=A*inv(Sr)
+    t11=(*a11)*iSr11_+(*a12)*iSr21_;
+    t12=(*a11)*iSr12_+(*a12)*iSr22_;
+    t21=(*a21)*iSr11_+(*a22)*iSr21_;
+    t22=(*a21)*iSr12_+(*a22)*iSr22_;
+    //2. then left multiply by inv(Sl)
+    *a11=iSl11_*t11+iSl12_*t21;
+    *a12=iSl11_*t12+iSl12_*t22;
+    *a21=iSl21_*t11+iSl22_*t21;
+    *a22=iSl21_*t12+iSl22_*t22;
+
+    }
+
+    //remove scale of the rhs by rhs=inv(Sl)*rhs
+  for (int j=0; j< rhs->NumVectors(); j++)
+  {
+    for (int i=0; i< rhs->MyLength(); i+=2)
+    {
+      double temp = (*rhs)[j][i];
+      (*rhs)[j][i]=iSl11_*(*rhs)[j][i]+iSl12_*(*rhs)[j][i+1];
+      (*rhs)[j][i+1]=iSl21_*temp+iSl22_*(*rhs)[j][i+1];
+    }
+  }
+ // remove the scale of the solution from the linear solver by sol=Sr*sol
+  for (int j=0; j< sol->NumVectors(); j++)
+  {
+    for (int i=0; i< sol->MyLength(); i+=2)
+    {
+      double tempsol = (*sol)[j][i];
+      (*sol)[j][i]=Sr11_*(*sol)[j][i]+Sr12_*(*sol)[j][i+1];
+      (*sol)[j][i+1]=Sr21_*tempsol+Sr22_*(*sol)[j][i+1];
+    }
+  }
+
+
+
+  }
+
+
+
+
+
+
+}
