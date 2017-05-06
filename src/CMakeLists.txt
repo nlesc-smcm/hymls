@@ -1,5 +1,6 @@
 
 set(HYMLS_SOURCE HYMLS_Solver
+    HYMLS_BlockScaling
     HYMLS_BaseSolver
     HYMLS_DeflatedSolver
     HYMLS_BorderedSolver
