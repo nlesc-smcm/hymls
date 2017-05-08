@@ -1,3 +1,6 @@
+#ifndef HYMLS_BLOCKSCALING_H
+#define HYMLS_BLOCKSCALING_H
+
 #include "HYMLS_config.h"
 
 #include "BelosConfigDefs.hpp"
@@ -28,15 +31,16 @@ public:
 
   //get the scaling coeefcients from the model
   void setCoefficients(double Sl11, double Sl12, double Sl21, double Sl22,
-                       double Sr11, double Sr12, double Sr21, double Sr22);
+                       double Sr11, double Sr12, double Sr21, double Sr22, double factor);
   //! Scales the linear system.
   void scaleLinearSystem(Epetra_LinearProblem& problem);
 
   //! Remove the scaling from the linear system.
   void unscaleLinearSystem(Epetra_LinearProblem& problem);
 
-protected:
-
+protected: 
+  // sacling one factor to the second variable 
+  double factor_; 
   //2x2 right scaling Sr
   double Sr11_, Sr12_, Sr21_, Sr22_;
   //inverse of Sr
@@ -56,3 +60,4 @@ protected:
 
 
 }
+#endif

@@ -24,6 +24,16 @@ namespace HYMLS {
     Sr12_=0.0;
     Sr21_=0.0;
     Sr22_=1.0;
+    factor_=1.0;
+    
+    iSl11_=1.0;
+    iSl12_=0.0;
+    iSl21_=0.0;
+    iSl22_=1.0;
+    iSr11_=1.0;
+    iSr12_=0.0;
+    iSr21_=0.0;
+    iSr22_=1.0;
 
     }
  //!Destuctor
@@ -40,7 +50,7 @@ namespace HYMLS {
   //! [Sr11 Sr12; Sr21 Sr22]. Formally they are placed on the block 2x2 diagonal of matrices
   //! Sl and Sr, and the linear system is scaled as Sl*A*Sr (Sr\x) = Sl*b
   void BlockScaling::setCoefficients(double Sl11, double Sl12, double Sl21, double Sl22,
-                       double Sr11, double Sr12, double Sr21, double Sr22)
+                       double Sr11, double Sr12, double Sr21, double Sr22, double factor)
    {
      Sl11_=Sl11;
      Sl12_=Sl12;
@@ -50,6 +60,7 @@ namespace HYMLS {
      Sr12_=Sr12;
      Sr21_=Sr21;
      Sr22_=Sr22;
+     factor_=factor;
      // compute inverse of Sl and Sr
      double detSl, detSr;
      detSl=Sl11_*Sl22_-Sl12_*Sl21_;
@@ -65,11 +76,11 @@ namespace HYMLS {
   void BlockScaling::scaleLinearSystem(Epetra_LinearProblem& problem) 
   {
     //Teuchos::RCP<Epetra_RowMatrix> A = Teuchos::rcp(problem.GetMatrix());
-    Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(dynamic_cast<Epetra_CrsMatrix *>(problem.GetMatrix())); 
+    Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(dynamic_cast<Epetra_CrsMatrix *>(problem.GetMatrix()),false); 
     CHECK_TRUE(A!=Teuchos::null);
      
-    Teuchos::RCP<Epetra_MultiVector> rhs = Teuchos::rcp(problem.GetRHS());
-    Teuchos::RCP<Epetra_MultiVector> sol = Teuchos::rcp(problem.GetLHS());
+    Teuchos::RCP<Epetra_MultiVector> rhs = Teuchos::rcp(problem.GetRHS(),false);
+    Teuchos::RCP<Epetra_MultiVector> sol = Teuchos::rcp(problem.GetLHS(),false);
 
     CHECK_TRUE(rhs!=Teuchos::null);
 
@@ -95,7 +106,7 @@ namespace HYMLS {
       //get global column index
       int col1=A->GCID(cols1[j]);
       int col2=A->GCID(cols2[j]);
-
+      values2[j]=values2[j]*factor_;
       if (col1==row1)
       {
          a11=&values1[j];
@@ -107,10 +118,12 @@ namespace HYMLS {
       if (col2==row2-1)
       {
          a21=&values2[j];
+         *a21=(*a21)/factor_;
       }
       if (col2==row2)
       {
          a22=&values2[j];
+         *a22=(*a22)/factor_;
       }
      }
    //perform Sl*A*Sr
@@ -155,11 +168,11 @@ namespace HYMLS {
   //! Remove the scaling from the linear system.
   void BlockScaling::unscaleLinearSystem(Epetra_LinearProblem& problem) 
   {
-    Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(dynamic_cast<Epetra_CrsMatrix *>(problem.GetMatrix()));
+    Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(dynamic_cast<Epetra_CrsMatrix *>(problem.GetMatrix()),false);
     CHECK_TRUE (A!=Teuchos::null);
     
-    Teuchos::RCP<Epetra_MultiVector> rhs = Teuchos::rcp(problem.GetRHS());
-    Teuchos::RCP<Epetra_MultiVector> sol = Teuchos::rcp(problem.GetLHS());
+    Teuchos::RCP<Epetra_MultiVector> rhs = Teuchos::rcp(problem.GetRHS(),false);
+    Teuchos::RCP<Epetra_MultiVector> sol = Teuchos::rcp(problem.GetLHS(),false);
     // again, loop over all elements with stride 2, remove left scaling to rhs
     // and sol, and left and right scaling to the matrix
     for (int i=0; i< A->NumMyRows(); i+=2)
@@ -194,9 +207,16 @@ namespace HYMLS {
       {
          a21=&values2[j];
       }
-      if (col2==row2)
+      else
       {
-         a22=&values2[j];
+        if (col2==row2)
+        {
+           a22=&values2[j];
+        }
+        else 
+        { 
+           values2[j]=values2[j]/factor_;
+        }      
       }
      }
    //Now the matrix is A=Sl*A*Sr, to scale back first right multiply by inv(Sr)
