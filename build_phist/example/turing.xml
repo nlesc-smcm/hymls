@@ -1,0 +1,299 @@
+<ParameterList name="3D Turing using LOCA/HYMLS/PHIST"><!--{-->
+
+  <ParameterList name="Model"><!--{-->
+    
+    <!-- grid size -->
+    <Parameter name="nx" type="int" value="32"/>
+    <Parameter name="ny" type="int" value="32"/>
+    <Parameter name="nz" type="int" value="32"/>
+    <Parameter name="dim" type="int" value="3"/>
+    <Parameter name="lx" type="double" value="30.0"/>
+
+    <Parameter name="x-periodic" type="bool" value="true"/> 
+    <Parameter name="y-periodic" type="bool" value="true"/>
+    <Parameter name="z-periodic" type="bool" value="true"/>
+
+    <Parameter name="Output Frequency" type="double" value="1.0"/>
+	  	 
+    <!--{--> 
+    <ParameterList name="Starting Parameters">    
+      <Parameter name="r1" type="double" value="3.5"/>
+      <Parameter name="r2" type="double" value="0.0"/>
+      <Parameter name="D" type="double" value="0.516"/>
+      <Parameter name="sigma" type="double" value="2.0"/>
+      <Parameter name="alpha" type="double" value="0.899"/>
+      <Parameter name="beta" type="double" value="-0.91"/>
+      <!-- restarts from the data specified in the XML file 'Restart File' -->
+      <!-- set to "None" to start from zero solution and default params    -->
+      <!-- the standard name for a restart file of cavity iis restart.xml   -->
+      <Parameter name="Restart File" type="string" value="None"/>
+      <!-- decide which branch's initial solution. Now for 2D there are 6 branches and 7 branches for 3D.     -->
+      <!-- Can choose "1","2","3","4" and "6" when dim = 2; besides that, when dim=3, it can also choose "7". -->
+      <!--   Branch 5 can use "restart" from the sum of solution of branch 2 and its eigenvector              -->
+      <Parameter name="Follow Branch" type="int" value="4"/>
+    </ParameterList><!--}-->
+  </ParameterList><!--}-->
+	  
+  <!-- LOCA parameters - anything that concerns the continuation process { -->
+  <ParameterList name="LOCA">
+
+    <!-- We do not do bifurcation analysis yet, but here is the place -->
+    <!-- the parameters for it:                                     { -->
+    <ParameterList name="Bifurcation">
+      <Parameter name="Method" type="string" value="Turning Point"/>
+      <Parameter name="Bifurcation Parameter" type="string" value="r2"/>
+    </ParameterList> <!-- } Bifurcation -->
+	    
+    <!-- Parameters for the predictor method {-->
+    <ParameterList name="Predictor">
+      <!-- choices are "Constant","Tangent" and "Secant" here -->
+      <Parameter name="Method" type="string" value="Constant"/>
+      <ParameterList name="First Step Predictor"> <!-- { -->
+	<Parameter name="Method" type="string" value="Constant"/>
+      </ParameterList> <!-- } First Step Predictor -->
+    </ParameterList> <!-- } Predictor -->
+	    
+    <!-- Parameters influencing step size control in the continuation { -->
+    <ParameterList name="Step Size">
+
+      <!-- possible choices are "Constant" or "Adaptive" -->
+      <Parameter name="Method" type="string" value="Adaptive"/>
+
+      <Parameter name="Initial Step Size" type="double" value="0.1"/>
+      <Parameter name="Min Step Size" type="double" value="0.0001"/>
+      <Parameter name="Max Step Size" type="double" value="0.1"/>
+	      <Parameter name="Failed Step Reduction Factor" type="double" value="0.5"/>
+
+      <!-- This affects the "Adaptive" mode only -->
+      <Parameter name="Aggressiveness" type="double" value="0.5"/>
+
+      <!-- This affects the "Constant" mode only -->
+      <Parameter name="Successful Step Increase Factor" type="double" value="1.95"/>
+    </ParameterList><!-- } Step Size -->
+	    
+    <!-- Parameters for the parameter advancing during the continuation { -->
+    <ParameterList name="Stepper">
+      <!-- "Natural" or "Arc Length" -->
+      <Parameter name="Continuation Method" type="string" value="Arc Length"/>
+      <!-- continuation parameter (see list of starting values above)-->
+      <Parameter name="Continuation Parameter" type="string" value="r2"/>
+      <Parameter name="Initial Value" type="double" value="0.0"/>
+      <Parameter name="Min Value" type="double" value="0.0"/>
+      <Parameter name="Max Value" type="double" value="0.2"/>
+      <Parameter name="Max Steps" type="int" value="250"/>
+      <!-- I think this is irrelevant, use "Line Search"->"Max Iters" instead -->
+      <Parameter name="Max Nonlinear Iterations" type="int" value="12"/>
+      <Parameter name="Compute Eigenvalues" type="bool" value="1"/>
+      <!-- these settings have _not_ been tested at all { -->
+      <ParameterList name="Eigensolver">
+	<!-- "Anasazi" (Arnoldi) or "Default" (means no eigensolver) -->
+	<Parameter name="Method" type="string" value="Default"/>
+	<Parameter name="Reuse Basis" type="bool" value="true"/>
+	
+	<!-- block size -->
+        <Parameter name="Block Size" type="int" value="2"/>
+        <Parameter name="Convergence Tolerance" type="double" value="1e-8"/>
+       
+        <!--Jacobian Davidson -->
+        <Parameter name="Which" type="string" value="LR"/>
+        <Parameter name="How Many" type="int" value="10"/>
+        <Parameter name="Test Space" type="string" value="V"/>
+        <Parameter name="Maximum Subspace Dimension" type="int" value="60"/>
+        <Parameter name="Restart Dimension" type="int" value="20"/>
+
+        <Parameter name="Inner Iterations" type="int" value="25" />
+        <Parameter name="Bordered Solver" type="bool" value="false" />
+        <Parameter name="Update Preconditioner" type="bool" value="false"/>
+      </ParameterList> <!-- } Eigensolver -->
+      
+      <!-- "Bordering" (default), "Householder" (prec reuse not working) -->
+      <Parameter name="Bordered Solver Method" type="string" value="Bordering"/>
+      <Parameter name="Enable Arc Length Scaling" type="bool" value="1"/>
+      <Parameter name="Initial Scale Factor" type="double" value="1"/>
+      <Parameter name="Min Scale Factor" type="double" value="1e-08"/>
+      <Parameter name="Goal Arc Length Parameter Contribution" type="double" value="0.5"/>
+      <Parameter name="Max Arc Length Parameter Contribution" type="double" value="0.7"/>
+      <Parameter name="Enable Tangent Factor Step Size Scaling" type="bool" value="0"/>
+      <Parameter name="Min Tangent Factor" type="double" value="0.1"/>
+      <Parameter name="Tangent Factor Exponent" type="double" value="1"/>
+    </ParameterList> <!-- } Stepper -->
+  </ParameterList><!-- } LOCA -->
+    
+    
+  <!-- Nonlinear solver parameters { -->
+  <ParameterList name="NOX">
+
+    <!-- "Line Search Based" or "Trust Region Based" (not tested) -->
+    <Parameter name="Nonlinear Solver" type="string" value="Line Search Based"/>
+    <!-- convergence tolerance for the Newton process -->
+    <Parameter name="Convergence Tolerance" type="double" value="1.0e-7"/>
+
+    <!-- Line Search parameters { -->
+    <ParameterList name="Line Search">
+      <!-- "Full Step" is standard Newton's, "Backtrack" is a line search, -->
+      <!-- others exist as well -->
+      <Parameter name="Method" type="string" value="Full Step"/>
+      
+      <!-- maximum number of Newton iterations -->
+      <Parameter name="Max Iters" type="int" value="30"/>
+      
+      <ParameterList name="Backtrack">
+        <Parameter name="Default Step" type="double" value="1.0"/>
+        <Parameter name="Max Iters" type="int" value="10"/>
+        <Parameter name="Minimum Step" type="double" value="1e-6"/>
+        <Parameter name="Recovery Step" type="double" value="1e-3"/>
+      </ParameterList>
+    </ParameterList><!-- } Line Search -->
+    
+    <!-- Parameters for the actual Newton solver { -->
+    <ParameterList name="Direction">
+      <Parameter name="Method" type="string" value="Newton"/>
+      
+      <!-- { -->
+      <ParameterList name="Newton">
+        
+        <!-- Method to determine convergence tolerance for linear solver -->
+        <!-- "Constant", "Type 1" (fails!) or "Type 2" -->
+        <Parameter name="Forcing Term Method" type="string" value="Type 2"/>
+        <Parameter name="Forcing Term Initial Tolerance" type="double" value="1.0e-3"/>
+        <Parameter name="Forcing Term Maximum Tolerance" type="double" value="1.0e-2"/>
+        <Parameter name="Forcing Term Minimum Tolerance" type="double" value="1.0e-8"/>
+        
+        <!-- Use Newton step even if linear solve failed (default 1)-->
+        <!-- If you say "0" here the continuation run _stops_ when  -->
+        <!-- the linear solver fails to achieve the requested tol   -->
+        <Parameter name="Rescue Bad Newton Solve" type="bool" value="1"/>
+        
+        <!-- Note: the docu for this list is in class NOX::Epetra::LinearSystemAztecOO { -->
+        <ParameterList name="Linear Solver">
+        
+          <Parameter name="Tolerance" type="double" value="1.0e-6"/>
+
+          <Parameter name="Write Linear System" type="bool" value="0"/>
+
+          <!-- choose a preconditioner for the linear solves during Newton steps        -->
+          <!-- "User Defined": hymls (see 'HYMLS' sublist)                              -->
+          <!-- "New Ifpack": incomplete factorizations, parameters are set below        -->
+          <!-- "ML": algebraic multigrid, parameters are set below                      -->
+          <Parameter name="Preconditioner" type="string" value="User Defined"/>
+
+          <!-- can be "Reuse", "Rebuild" or "Recompute"        -->
+          
+          <!-- "Rebuild" and "Recompute" are the same for most methods.           -->
+          <!-- "Reuse" keeps the preconditioner for k linear system solves.       -->
+          <!-- If you want to reuse the preconditioner at all, set this to "Reuse"-->
+          <Parameter name="Preconditioner Reuse Policy" type="string" value="Rebuild"/>
+         
+ 
+          <!-- recompute preconditioner after K linear system solves. -->
+          
+          <!-- We have our own reuse-policy, controlled by the option -->
+          <!-- with the same name in thcm_params.xml. If you want to  -->
+          <!-- reuse the preconditioner, it's best to set this to -2  -->
+          <!-- and use that option to control the maximum age.        -->
+          <Parameter name="Max Age Of Prec" type="int" value="8"/>
+       
+          <!-- linear solver parameters                                         -->
+          <!-- the solver has a number of options that are set in class         -->
+          <!-- DrivenCavity and you shouldn't have to worry about them.         -->
+          <ParameterList name="HYMLS"><!--{-->
+          
+          <ParameterList name="Problem">
+            <Parameter name="Dimension" type="int" value="3"/>
+            <!-- note: nx/y/z will be copied into this list by the driver routne so that -->
+            <!-- we have them only once in this file -->
+
+            <Parameter name="Degrees of Freedom" type="int" value="2"/>
+            <ParameterList name="Variable 0">
+              <Parameter name="Variable Type" type="string" value="Laplace"/>
+            </ParameterList>
+            <ParameterList name="Variable 1">
+              <Parameter name="Variable Type" type="string" value="Laplace"/>
+            </ParameterList>
+          </ParameterList>
+
+            <!-- { -->
+            <ParameterList name="Solver">
+            
+              <!-- use deflation to handle the null space -->
+              <!--Parameter name="Null Space" type="string" value="Constant P"/-->
+
+              <!-- "CG", "GMRES", "PCPG" (only GMRES actually supported by our solver right now) -->
+              <Parameter name="Krylov Method" type="string" value="GMRES"/>
+              
+              <!-- start vector to use for the Krylov sequence ("Zero","Previous","Random")-->
+              <Parameter name="Initial Vector" type="string" value="Zero"/>
+
+              <!-- parameters for the iterative solver (Belos) { -->
+              <ParameterList name="Iterative Solver">
+                <Parameter name="Maximum Iterations" type="int" value="1000"/>
+                <Parameter name="Maximum Restarts" type="int" value="5"/>
+                <Parameter name="Flexible Gmres" type="bool" value="0"/>
+                <Parameter name="Convergence Tolerance" type="double" value="1.0e-8"/>
+                <Parameter name="Output Frequency" type="int" value="1"/>
+                <Parameter name="Show Maximum Residual Norm Only" type="bool" value="1"/>
+              </ParameterList><!--}-->
+            </ParameterList><!--}-->
+
+            <!-- { -->
+            <ParameterList name="Preconditioner">
+              <!-- choose basic partitioning method. The only choice -->
+              <!-- available right now is 'Cartesian'                -->
+              <Parameter name="Partitioner" type="string" value="Cartesian"/>
+              <!-- this defines how separator nodes are classified. -->
+              <!-- the default is 'Standard', which gives full con- -->
+              <!-- servation cells all along the edges of the 3D    -->
+              <!-- subdomains. A 3D Stokes specific variant is also -->
+              <!-- available as 'Stokes', which eliminates the in-  -->
+              <!-- terior of the edges (full conservation tubes)    -->
+              <!-- and is therefore much faster. We can also use'Hybrid'                   -->
+              <Parameter name="Classifier" type="string" value="Standard"/>
+             
+              <!-- write file hid_data.m -->
+              <Parameter name="Visualize Solver" type="bool" value="false"/>
+                
+              <!-- this defines the size of the subdomains -->
+              <Parameter name="Separator Length" type="int" value="4"/>
+              <Parameter name="Base Separator Length" type="int" value="4"/>
+
+              <!-- number of levels to be created.                      -->
+              <!-- 1: direct solver for Schur complement,               -->
+              <!-- 2: compute SC, transform+drop, solve directly.       -->
+              <!-- 3: recursive application                             -->
+              <Parameter name="Number of Levels" type="int" value="2"/>
+
+              <!-- scale those rows of the Schur complement that are not coupled to -->
+              <!-- P-nodes so that they have ones on the diagonal                   -->
+              <Parameter name="Scale Schur-Complement" type="bool" value="0"/>
+
+              <ParameterList name="Sparse Solver"><!--{-->
+                <Parameter name="amesos: solver type" type="string" value="KLU"/>
+                <Parameter name="Custom Ordering" type="bool" value="1"/>
+                <Parameter name="Custom Scaling" type="bool" value="1"/>
+                <Parameter name="OutputLevel" type="int" value="0"/>
+              </ParameterList><!--}-->
+
+              <ParameterList name="Dense Solver"><!--{-->
+              </ParameterList><!--}-->
+
+              <ParameterList name="Coarse Solver"><!--{-->
+                <Parameter name="amesos: solver type" type="string" 
+                        value="Amesos_Klu"/>
+                <Parameter name="OutputLevel" type="int" value="0"/>
+                <Parameter name="PrintTiming" type="bool" value="1"/>
+                <Parameter name="PrintStatus" type="bool" value="0"/>
+                <Parameter name="Redistribute" type="bool" value="1"/>
+                <Parameter name="MaxProcs" type="int" value="16"/>
+                <ParameterList name="Superludist">
+                  <Parameter name="PrintNonzeros" type="bool" value="1"/>
+                  <Parameter name="IterRefine" type="string" value="NONE"/>
+                </ParameterList>
+              </ParameterList><!--}-->
+            </ParameterList><!--}-->
+          </ParameterList><!--}-->
+          
+        </ParameterList><!-- } Linear Solver -->
+      </ParameterList><!-- } Newton -->
+    </ParameterList><!-- } direction -->    
+  </ParameterList><!-- } NOX -->
+</ParameterList><!--}-->

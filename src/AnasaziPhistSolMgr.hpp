@@ -17,6 +17,7 @@
 #include "HYMLS_PhistWrapper.H"
 
 #include "phist_macros.h"
+#include "phist_enums.h"
 #include "phist_kernels.h"
 #include "phist_operator.h"
 #include "phist_precon.h"
@@ -24,30 +25,30 @@
 #include "phist_subspacejada.h"
 #include "phist_schur_decomp.h"
 
-#include "HYMLS_Solver.H"
 #include "HYMLS_Tester.H"
 #include "Epetra_Util.h"
 
-using Teuchos::RCP;
-
-namespace Anasazi {
-
-namespace hymls_phist {
 
 //! small static helper to get the phist type for the preconditioner right
-template <class PREC>
-static phist_Eprecon get_phist_Eprecon(){return phist_INVALID_PRECON;}
+template<class PREC>
+class hymls_phist {
+
+public:
+
+  static phist_Eprecon get_phist_Eprecon(){return phist_INVALID_PRECON;}
+};
 
 template <>
-phist_Eprecon get_phist_Eprecon<HYMLS::Preconditioner>(){return phist_USER_PRECON;}
+phist_Eprecon hymls_phist<::HYMLS::Preconditioner>::get_phist_Eprecon(){return phist_USER_PRECON;}
 
 template <>
-phist_Eprecon get_phist_Eprecon<Ifpack_Preconditioner>(){return phist_IFPACK;}
+phist_Eprecon hymls_phist<Ifpack_Preconditioner>::get_phist_Eprecon(){return phist_IFPACK;}
 
 template <>
-phist_Eprecon get_phist_Eprecon<ML_Epetra::MultiLevelPreconditioner>(){return phist_ML;}
-}//namespace
+phist_Eprecon hymls_phist<::ML_Epetra::MultiLevelPreconditioner>::get_phist_Eprecon(){return phist_ML;}
 
+
+namespace Anasazi {
 
 
 /*!
@@ -95,8 +96,8 @@ class PhistSolMgr : public SolverManager<ScalarType,MV,OP>
          * - "Print Number of Ritz Values" -- an int specifying how many Ritz values should be printed
          *   at each iteration.  Default: "NEV".
          */
-        PhistSolMgr( const RCP< Eigenproblem<ScalarType,MV,OP> > &problem,
-                                   const RCP<PREC> &prec,
+        PhistSolMgr( const Teuchos::RCP< Eigenproblem<ScalarType,MV,OP> > &problem,
+                                   const Teuchos::RCP<PREC> &prec,
                                    Teuchos::ParameterList &pl );
 
         /*!
@@ -122,10 +123,10 @@ class PhistSolMgr : public SolverManager<ScalarType,MV,OP>
         typedef typename ST::magnitudeType           MagnitudeType;
         typedef Teuchos::ScalarTraits<MagnitudeType> MT;
 
-        RCP< Eigenproblem<ScalarType,MV,OP> >           d_problem;
-        RCP< const Epetra_CrsMatrix >                   d_Amat;
-        RCP< const Epetra_CrsMatrix >                   d_Bmat;
-        RCP< PREC >                                     d_prec;
+        Teuchos::RCP< Eigenproblem<ScalarType,MV,OP> >           d_problem;
+        Teuchos::RCP< const Epetra_CrsMatrix >                   d_Amat;
+        Teuchos::RCP< const Epetra_CrsMatrix >                   d_Bmat;
+        Teuchos::RCP< PREC >                                     d_prec;
         // used to pass HYMLS object to phist
         Teuchos::RCP<phist_DlinearOp>                   d_preconOp, d_preconPointers;
         phist_jadaOpts                                  d_opts;
@@ -145,7 +146,7 @@ class PhistSolMgr<std::complex<MagnitudeType>,MV,OP,PREC>
 
     typedef std::complex<MagnitudeType> ScalarType;
     PhistSolMgr(
-            const RCP<Eigenproblem<ScalarType,MV,OP> > &problem,
+            const Teuchos::RCP<Eigenproblem<ScalarType,MV,OP> > &problem,
             Teuchos::ParameterList &pl )
     {
         // Provide a compile error when attempting to instantiate on complex type
@@ -162,8 +163,8 @@ class PhistSolMgr<std::complex<MagnitudeType>,MV,OP,PREC>
 //---------------------------------------------------------------------------//
 template <class ScalarType, class MV, class OP, class PREC>
 PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
-        const RCP<Eigenproblem<ScalarType,MV,OP> > &problem,
-        const RCP<PREC> &prec,
+        const Teuchos::RCP<Eigenproblem<ScalarType,MV,OP> > &problem,
+        const Teuchos::RCP<PREC> &prec,
         Teuchos::ParameterList &pl )
    : d_problem(problem), d_prec(prec), numIters_(0)
 {
@@ -220,6 +221,18 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
     d_opts.minBas = pl.get<int>("Restart Dimension");
     d_opts.maxBas = pl.get<int>("Maximum Subspace Dimension");
 
+    d_opts.innerSolvType = phist_GMRES;
+    d_opts.innerSolvMaxIters = pl.get("Inner Iterations",d_opts.innerSolvMaxIters);
+    d_opts.innerSolvBlockSize=d_opts.blockSize;
+    d_opts.preconOp=d_preconOp.get();
+    d_opts.preconType=hymls_phist<PREC>::get_phist_Eprecon();
+    d_opts.preconUpdate=pl.get("Update Preconditioner",false);
+    // if the parameter "Bordered Solver" is set we use HYMLS' bordering
+    // functionality for assuring t \orth r when solving the JaDa correction
+    // equation. So we ask phist *not* to skew-project and to call the 
+    // preconditioner's update function before each linear solve.
+    d_opts.preconSkewProject=borderedSolver?0:1;
+
 
     TEUCHOS_TEST_FOR_EXCEPTION( d_opts.minBas < d_opts.numEigs+d_opts.blockSize,
             std::invalid_argument, "Restart Dimension must be at least NEV+blockSize" );
@@ -263,38 +276,31 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
     // the preconOp is the phist preconditioning object, the
     // preconPointers are just used to define how our user-
     // defined preconditioner can be applied or updated.
-    d_preconOp=Teuchos::rcp(new phist_DlinearOp);
-    d_preconPointers=Teuchos::rcp(new phist_DlinearOp);
-
-/*
-    d_preconPointers->A=d_prec.get();
-    d_preconPointers->aux=d_prec.get();
-    d_preconPointers->range_map=&(d_prec->OperatorRangeMap());
-    d_preconPointers->domain_map=&(d_prec->OperatorDomainMap());
-    d_preconPointers->apply=&::HYMLS::PhistPreconTraits<PREC>::apply;
-    d_preconPointers->apply_shifted=&::HYMLS::PhistPreconTraits<PREC>::apply_shifted;
-    d_preconPointers->update=&::HYMLS::PhistPreconTraits<PREC>::update;
-*/        
-    // this function just wraps the user-defined preconditioner, so the input args don't matter
-    // too much. A must not be NULL because the function tries to get its range and domain map.
     int iflag;
-    phist_Dprecon_create(d_preconOp.get(),d_Amat.get(),0.,d_Bmat.get(),NULL,NULL,
-                "ML","ml_options.xml",NULL,&iflag);
-
+    d_preconOp=Teuchos::rcp(new phist_DlinearOp);
+    if (d_opts.preconType==phist_USER_PRECON)
+    {
+      d_preconPointers=Teuchos::rcp(new phist_DlinearOp);
+      d_preconPointers->A=d_prec.get();
+      d_preconPointers->aux=d_prec.get();
+      d_preconPointers->range_map=&(d_prec->OperatorRangeMap());
+      d_preconPointers->domain_map=&(d_prec->OperatorDomainMap());
+      d_preconPointers->apply=&::HYMLS::PhistPreconTraits<PREC>::apply;
+      d_preconPointers->apply_shifted=&::HYMLS::PhistPreconTraits<PREC>::apply_shifted;
+      d_preconPointers->update=&::HYMLS::PhistPreconTraits<PREC>::update;
+      // this function just wraps the preconditioner, if NULL is given as the options string.
+       phist_Dprecon_create(d_preconOp.get(),d_Amat.get(),0.,d_Bmat.get(),NULL,NULL,
+              precon2str(d_opts.preconType),NULL,d_preconPointers.get(),&iflag);
+    }
+    else
+    {
+      // this function just wraps the preconditioner, if NULL is given as the options string.
+       phist_Dprecon_create(d_preconOp.get(),d_Amat.get(),0.,d_Bmat.get(),NULL,NULL,
+                              precon2str(d_opts.preconType),NULL,d_prec.get(),&iflag);
+    }
     TEUCHOS_TEST_FOR_EXCEPTION(iflag!=0,std::runtime_error,"iflag!=0 returned from phist_Dprecon_create");
 
-    // tell phist to use a custom solver provided in d_opts->custom_solver;
-    d_opts.innerSolvType = phist_GMRES;
-    d_opts.innerSolvMaxIters = pl.get("Inner Iterations",d_opts.innerSolvMaxIters);
-    d_opts.innerSolvBlockSize=d_opts.blockSize;
-    d_opts.preconOp=d_preconOp.get();
-    d_opts.preconType=hymls_phist::get_phist_Eprecon<PREC>();
-    d_opts.preconUpdate=1;
-    // if the parameter "Bordered Solver" is set we use HYMLS' bordering
-    // functionality for assuring t \orth r when solving the JaDa correction
-    // equation. So we ask phist *not* to skew-project and to call the 
-    // preconditioner's update function before each linear solve.
-    d_opts.preconSkewProject=borderedSolver?0:1;
+
 }
 
 template <class ScalarType>
