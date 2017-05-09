@@ -10,6 +10,9 @@
 #include "AnasaziEigenproblem.hpp"
 #include "AnasaziSolverManager.hpp"
 
+#include <Ifpack_Preconditioner.h>
+#include <ml_MultiLevelPreconditioner.h>
+
 // Include this before phist
 #include "HYMLS_PhistWrapper.H"
 
@@ -28,6 +31,24 @@
 using Teuchos::RCP;
 
 namespace Anasazi {
+
+namespace hymls_phist {
+
+//! small static helper to get the phist type for the preconditioner right
+template <class PREC>
+static phist_Eprecon get_phist_Eprecon(){return phist_INVALID_PRECON;}
+
+template <>
+phist_Eprecon get_phist_Eprecon<HYMLS::Preconditioner>(){return phist_USER_PRECON;}
+
+template <>
+phist_Eprecon get_phist_Eprecon<Ifpack_Preconditioner>(){return phist_IFPACK;}
+
+template <>
+phist_Eprecon get_phist_Eprecon<ML_Epetra::MultiLevelPreconditioner>(){return phist_ML;}
+}//namespace
+
+
 
 /*!
  * \class PhistSolMgr
@@ -267,7 +288,7 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
     d_opts.innerSolvMaxIters = pl.get("Inner Iterations",d_opts.innerSolvMaxIters);
     d_opts.innerSolvBlockSize=d_opts.blockSize;
     d_opts.preconOp=d_preconOp.get();
-    d_opts.preconType=phist_ML;
+    d_opts.preconType=hymls_phist::get_phist_Eprecon<PREC>();
     d_opts.preconUpdate=1;
     // if the parameter "Bordered Solver" is set we use HYMLS' bordering
     // functionality for assuring t \orth r when solving the JaDa correction
