@@ -330,9 +330,8 @@ applyJacobianInverse(Teuchos::ParameterList &p,
   // it is set by NOX if "Forcing Term Method" is not "Constant, for instance.
   double tol = p.get("Tolerance",1.0e-6);
   Teuchos::ParameterList& hymlsList = p.sublist("HYMLS");
-  Teuchos::ParameterList& belosList = hymlsList.sublist("Iterative Solver");
+  Teuchos::ParameterList& belosList=hymlsList.sublist("Solver").sublist("Iterative Solver");
   belosList.set("Convergence Tolerance",tol);
-  
   hymls_->setParameterList(Teuchos::rcp(&hymlsList, false));
   
   Epetra_Vector& sol = result.getEpetraVector();
