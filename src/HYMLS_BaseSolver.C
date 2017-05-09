@@ -208,6 +208,12 @@ void BaseSolver::setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& Li
   startVec_=PL().get("Initial Vector","Random");
   PL().get("Left or Right Preconditioning",lor_default_);
 
+  if (belosSolverPtr_!=Teuchos::null)
+    {
+    Teuchos::RCP<Teuchos::ParameterList> belosListPtr = Teuchos::rcp(&(PL().sublist("Iterative Solver")),false);
+    belosSolverPtr_->setParameters(belosListPtr);
+    }
+
   // this is the place where we check for
   // valid parameters for the iterative solver
   if (validateParameters)
