@@ -14,8 +14,12 @@
 #ifdef USE_SCOREP
 #include "SCOREP_User.h"
 #else
-#define SCOREP_USER_REGION(s,t)
-#define SCOREP_USER_PARAMETER_INT64(s,p)
+# ifndef SCOREP_USER_REGION
+# define SCOREP_USER_REGION(s,t)
+# endif
+# ifndef SCOREP_USER_PARAMETER_INT64
+# define SCOREP_USER_PARAMETER_INT64(s,p)
+# endif
 #endif
 
 #ifndef HYMLS_SMALL_ENTRY
