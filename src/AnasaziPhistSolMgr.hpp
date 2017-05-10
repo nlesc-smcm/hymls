@@ -227,12 +227,6 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
     d_opts.preconOp=NULL;
     d_opts.preconType=hymls_phist<PREC>::get_phist_Eprecon();
     d_opts.preconUpdate=pl.get("Update Preconditioner",false);
-    // if the parameter "Bordered Solver" is set we use HYMLS' bordering
-    // functionality for assuring t \orth r when solving the JaDa correction
-    // equation. So we ask phist *not* to skew-project and to call the 
-    // preconditioner's update function before each linear solve.
-    d_opts.preconSkewProject=borderedSolver?0:1;
-
 
     TEUCHOS_TEST_FOR_EXCEPTION( d_opts.minBas < d_opts.numEigs+d_opts.blockSize,
             std::invalid_argument, "Restart Dimension must be at least NEV+blockSize" );
@@ -256,6 +250,13 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
     {
         borderedSolver = false;
     }
+
+    // if the parameter "Bordered Solver" is set we use HYMLS' bordering
+    // functionality for assuring t \orth r when solving the JaDa correction
+    // equation. So we ask phist *not* to skew-project and to call the 
+    // preconditioner's update function before each linear solve.
+    d_opts.preconSkewProject=borderedSolver?0:1;
+
 
     // Get sort type
     std::string which;
