@@ -224,7 +224,7 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
     d_opts.innerSolvType = phist_GMRES;
     d_opts.innerSolvMaxIters = pl.get("Inner Iterations",d_opts.innerSolvMaxIters);
     d_opts.innerSolvBlockSize=d_opts.blockSize;
-    d_opts.preconOp=d_preconOp.get();
+    d_opts.preconOp=NULL;
     d_opts.preconType=hymls_phist<PREC>::get_phist_Eprecon();
     d_opts.preconUpdate=pl.get("Update Preconditioner",false);
     // if the parameter "Bordered Solver" is set we use HYMLS' bordering
@@ -299,6 +299,7 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
                               precon2str(d_opts.preconType),NULL,d_prec.get(),&iflag);
     }
     TEUCHOS_TEST_FOR_EXCEPTION(iflag!=0,std::runtime_error,"iflag!=0 returned from phist_Dprecon_create");
+    d_opts.preconOp=d_preconOp.get();
 
 
 }
