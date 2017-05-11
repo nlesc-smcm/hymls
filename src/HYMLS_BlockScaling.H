@@ -63,6 +63,12 @@ public:
   //! apply right scaling Sr to a (block)vector (in place, x<-Sr*x)
   int applyRightScaling(Epetra_MultiVector& x);
 
+  //! apply inverse of left scaling Sl to a (block)vector (in place, x<-Sl\x)
+  int applyInverseLeftScaling(Epetra_MultiVector& x);
+
+  //! apply inverse of right scaling Sr to a (block)vector (in place, x<-Sr\x)
+  int applyInverseRightScaling(Epetra_MultiVector& x);
+
 
 protected: 
   //! sacling one factor to the second variable 

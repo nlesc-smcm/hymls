@@ -255,16 +255,28 @@ namespace HYMLS {
     }
     }
 
-  //! apply left scaling Sl to a (block)vector (in place, x<-Sl*x)
+  // apply left scaling Sl to a (block)vector (in place, x<-Sl*x)
   int BlockScaling::applyLeftScaling(Epetra_MultiVector& x)
     {
     this->apply(x,Sl11_,Sl12_,Sl21_,Sl22_);
     }
 
-  //! apply right scaling Sr to a (block)vector (in place, x<-Sr*x)
+  // apply right scaling Sr to a (block)vector (in place, x<-Sr*x)
   int BlockScaling::applyRightScaling(Epetra_MultiVector& x)
     {
     this->apply(x,Sr11_,Sr12_,Sr21_,Sr22_);
+    }
+
+  // apply inverse of left scaling Sl to a (block)vector (in place, x<-Sl\x)
+  int BlockScaling::applyInverseLeftScaling(Epetra_MultiVector& x)
+    {
+    this->apply(x,iSl11_,iSl12_,iSl21_,iSl22_);
+    }
+
+  // apply inverse of right scaling Sr to a (block)vector (in place, x<-Sr\x)
+  int BlockScaling::applyInverseRightScaling(Epetra_MultiVector& x)
+    {
+    this->apply(x,iSr11_,iSr12_,iSr21_,iSr22_);
     }
 
 }
