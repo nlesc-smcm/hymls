@@ -23,6 +23,7 @@
 
 #include "HYMLS_BorderedOperator.H"
 #include "HYMLS_MatrixBlock.H"
+#include "HYMLS_BlockScaling.H"
 
 // forward declarations
 class Epetra_Comm;
@@ -280,7 +281,7 @@ protected:
   Teuchos::RCP<const Epetra_RowMatrix> matrix_;
   
   //! scaling (if any).
-  Teuchos::RCP<const HYMLS::BlockScaling> scaling;
+  Teuchos::RCP<const HYMLS::BlockScaling> scaling_;
   
   //! internal reordered matrix (first interior and then separator vars)
   Teuchos::RCP<Epetra_CrsMatrix> reorderedMatrix_;

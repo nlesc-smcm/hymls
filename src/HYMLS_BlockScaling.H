@@ -58,16 +58,16 @@ public:
   void unscaleLinearSystem(Epetra_LinearProblem& problem);
 
   //! apply left scaling Sl to a (block)vector (in place, x<-Sl*x)
-  int applyLeftScaling(Epetra_MultiVector& x);
+  int applyLeftScaling(Epetra_MultiVector& x) const;
 
   //! apply right scaling Sr to a (block)vector (in place, x<-Sr*x)
-  int applyRightScaling(Epetra_MultiVector& x);
+  int applyRightScaling(Epetra_MultiVector& x) const;
 
   //! apply inverse of left scaling Sl to a (block)vector (in place, x<-Sl\x)
-  int applyInverseLeftScaling(Epetra_MultiVector& x);
+  int applyInverseLeftScaling(Epetra_MultiVector& x) const;
 
   //! apply inverse of right scaling Sr to a (block)vector (in place, x<-Sr\x)
-  int applyInverseRightScaling(Epetra_MultiVector& x);
+  int applyInverseRightScaling(Epetra_MultiVector& x) const;
 
 
 protected: 
@@ -93,7 +93,7 @@ protected:
   //! apply x <- S*x, S=kron(I,[s11 s12; s21 s22])
   int apply(Epetra_MultiVector& x, 
             double s11, double s12,
-            double s21, double s22);
+            double s21, double s22) const;
 
 };
 

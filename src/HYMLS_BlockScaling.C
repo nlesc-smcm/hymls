@@ -242,7 +242,7 @@ namespace HYMLS {
   // apply x <- S*x, S=kron(I,[s11 s12; s21 s22])
   int BlockScaling::apply(Epetra_MultiVector& x, 
             double s11, double s12,
-            double s21, double s22)
+            double s21, double s22) const
     {
       for (int j=0; j< x.NumVectors(); j++)
       {
@@ -256,25 +256,25 @@ namespace HYMLS {
     }
 
   // apply left scaling Sl to a (block)vector (in place, x<-Sl*x)
-  int BlockScaling::applyLeftScaling(Epetra_MultiVector& x)
+  int BlockScaling::applyLeftScaling(Epetra_MultiVector& x) const
     {
     this->apply(x,Sl11_,Sl12_,Sl21_,Sl22_);
     }
 
   // apply right scaling Sr to a (block)vector (in place, x<-Sr*x)
-  int BlockScaling::applyRightScaling(Epetra_MultiVector& x)
+  int BlockScaling::applyRightScaling(Epetra_MultiVector& x) const
     {
     this->apply(x,Sr11_,Sr12_,Sr21_,Sr22_);
     }
 
   // apply inverse of left scaling Sl to a (block)vector (in place, x<-Sl\x)
-  int BlockScaling::applyInverseLeftScaling(Epetra_MultiVector& x)
+  int BlockScaling::applyInverseLeftScaling(Epetra_MultiVector& x) const
     {
     this->apply(x,iSl11_,iSl12_,iSl21_,iSl22_);
     }
 
   // apply inverse of right scaling Sr to a (block)vector (in place, x<-Sr\x)
-  int BlockScaling::applyInverseRightScaling(Epetra_MultiVector& x)
+  int BlockScaling::applyInverseRightScaling(Epetra_MultiVector& x) const
     {
     this->apply(x,iSr11_,iSr12_,iSr21_,iSr22_);
     }
