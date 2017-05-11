@@ -256,7 +256,17 @@ public:
     matrix_=matrix;
     initialized_=false;
     }
-  
+
+    //! specify that the matrix on which this preconditioner was created was actually  
+    //! Sl*A*Sr and that the ApplyInverse() function should perform y <- Sr\(P\(Sl\x)).
+    //! If scaling==Teuchos::null, the scaling (if any) is removed.
+    //!
+    //! *note* that you only need to set the scaling object here if you want to use the
+    //! preconditioner to solve an *unscaled linear system*!
+    void SetBlockScaling(Teuchos::RCP<const HYMLS::BlockScaling> scaling)
+      {
+      scaling_=scaling;
+      }
 
 protected:
 
@@ -268,6 +278,9 @@ protected:
   
   //! matrix based on range map
   Teuchos::RCP<const Epetra_RowMatrix> matrix_;
+  
+  //! scaling (if any).
+  Teuchos::RCP<const HYMLS::BlockScaling> scaling;
   
   //! internal reordered matrix (first interior and then separator vars)
   Teuchos::RCP<Epetra_CrsMatrix> reorderedMatrix_;

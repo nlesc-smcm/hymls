@@ -146,7 +146,7 @@ namespace HYMLS {
       }
 
     //left scale the rhs by rhs=Sl*rhs
-    this->apply(*sol,Sl11_,Sl12_,Sl21_,Sl22_);
+    this->apply(*rhs,Sl11_,Sl12_,Sl21_,Sl22_);
 
     // scale the current solution, sol=inv(Sr)*sol
     this->apply(*sol,iSr11_,iSr12_,iSr21_,iSr22_);
@@ -244,15 +244,15 @@ namespace HYMLS {
             double s11, double s12,
             double s21, double s22)
     {
-    for (int j=0; j< x.NumVectors(); j++)
-    {
-    for (int i=0; i< x.MyLength(); i+=2)
+      for (int j=0; j< x.NumVectors(); j++)
       {
-      double tmp = x[j][i];
-      x[j][i]=s11*x[j][i]+s12*x[j][i+1];
-      x[j][i+1]=s21*tmp+s22*x[j][i+1];
+      for (int i=0; i< x.MyLength(); i+=2)
+        {
+        double tmp = x[j][i];
+        x[j][i]=s11*x[j][i]+s12*x[j][i+1];
+        x[j][i+1]=s21*tmp+s22*x[j][i+1];
+        }
       }
-    }
     }
 
   // apply left scaling Sl to a (block)vector (in place, x<-Sl*x)
