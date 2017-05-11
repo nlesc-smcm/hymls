@@ -14,8 +14,10 @@
 namespace HYMLS {
 
   //!Constructor
-  BlockScaling::BlockScaling()
+  BlockScaling::BlockScaling(bool diagOnly)
     {
+    diagOnly_=diagOnly;
+
     Sl11_=1.0;
     Sl12_=0.0;
     Sl21_=0.0;
@@ -75,6 +77,12 @@ namespace HYMLS {
   //! Scales the linear system.
   void BlockScaling::scaleLinearSystem(Epetra_LinearProblem& problem) 
   {
+    if (diagOnly_==false)
+    {
+      HYMLS::Tools::Error("general 2x2 scaling is not implemented,\n"
+                          "currently it only works for 'diagOnly==true'.",
+                          __FILE__,__LINE__);
+    }
     //Teuchos::RCP<Epetra_RowMatrix> A = Teuchos::rcp(problem.GetMatrix());
     Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(dynamic_cast<Epetra_CrsMatrix *>(problem.GetMatrix()),false); 
     CHECK_TRUE(A!=Teuchos::null);
