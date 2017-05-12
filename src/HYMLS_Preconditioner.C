@@ -54,6 +54,7 @@ namespace HYMLS {
         comm_(Teuchos::rcp(&(K->Comm()), false)), matrix_(K),
         rangeMap_(Teuchos::rcp(&(K->RowMatrixRowMap()), false)),
         hid_(hid), myLevel_(myLevel), testVector_(testVector),
+        scaling_(Teuchos::null),
         useTranspose_(false), normInf_(-1.0),
         label_("Preconditioner"),
         initialized_(false), computed_(false),
@@ -811,13 +812,16 @@ if (dumpVectors_)
     // in that case we need the 'Insert' here for     
     // the repartitioning, whereas otherwise a Zero   
     // would be enough and no communication required. 
-    CHECK_ZERO(b->Import(B,*importer_,Insert)); 
-    
     if (scaling_!=Teuchos::null)
       {
-      scaling_->applyInverseLeftScaling(*b);
+      Epetra_MultiVector B_scaled=B;
+      scaling_->applyLeftScaling(B_scaled);
+      CHECK_ZERO(b->Import(B_scaled,*importer_,Insert)); 
       }
-     
+    else
+      {
+      CHECK_ZERO(b->Import(B,*importer_,Insert)); 
+      }
     HYMLS_DEBUG("solve subdomains...");
     CHECK_ZERO(A11_->ApplyInverse(*b, *x));
     
@@ -891,11 +895,6 @@ if (dumpVectors_)
 
   HYMLS_DEBUG("export solution.");
 
-  if (scaling_!=Teuchos::null)
-    {
-    scaling_->applyInverseRightScaling(*x);
-    }
-  
   //'Zero' would disable repartitioning here (some
   // ranks may have a part of the vector but not  
   // of the preconditioner), and
@@ -904,6 +903,12 @@ if (dumpVectors_)
   // and 'Add' instead.
   CHECK_ZERO(X.PutScalar(0.0));
   CHECK_ZERO(X.Export(*x,*importer_,Add)); 
+
+  if (scaling_!=Teuchos::null)
+    {
+    scaling_->applyRightScaling(X);
+    }
+  
 
 #ifdef HYMLS_DEBUGGING
   if (dumpVectors_)
