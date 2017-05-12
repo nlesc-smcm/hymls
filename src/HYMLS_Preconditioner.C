@@ -812,6 +812,11 @@ if (dumpVectors_)
     // the repartitioning, whereas otherwise a Zero   
     // would be enough and no communication required. 
     CHECK_ZERO(b->Import(B,*importer_,Insert)); 
+    
+    if (scaling_!=Teuchos::null)
+      {
+      scaling_->applyInverseLeftScaling(*b);
+      }
      
     HYMLS_DEBUG("solve subdomains...");
     CHECK_ZERO(A11_->ApplyInverse(*b, *x));
@@ -885,6 +890,11 @@ if (dumpVectors_)
     }   
 
   HYMLS_DEBUG("export solution.");
+
+  if (scaling_!=Teuchos::null)
+    {
+    scaling_->applyInverseRightScaling(*x);
+    }
   
   //'Zero' would disable repartitioning here (some
   // ranks may have a part of the vector but not  
