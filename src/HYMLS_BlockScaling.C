@@ -10,7 +10,6 @@
 #include "Epetra_CrsMatrix.h"
 #include "Epetra_LinearProblem.h"
 
-
 namespace HYMLS {
 
   //!Constructor
@@ -76,48 +75,36 @@ namespace HYMLS {
   //! Scales the linear system.
   void BlockScaling::scaleLinearSystem(Epetra_LinearProblem& problem) 
     {
-    if (diagOnly_==false)
-      {
-      HYMLS::Tools::Error("general 2x2 scaling is not implemented,\n"
-                          "currently it only works for 'diagOnly==true'.",
-                          __FILE__,__LINE__);
-      }
-    Teuchos::RCP<Epetra_RowMatrix> A = Teuchos::rcp(problem.GetMatrix());
+    Teuchos::RCP<Epetra_RowMatrix> A = Teuchos::rcp(problem.GetMatrix(),false);
     Teuchos::RCP<Epetra_MultiVector> rhs = Teuchos::rcp(problem.GetRHS(),false);
     Teuchos::RCP<Epetra_MultiVector> sol = Teuchos::rcp(problem.GetLHS(),false);
 
     //left and right scale the matrix
-    if (A!=Teuchos::null) this->applyScaling(*A);
+    if (A!=Teuchos::null) CHECK_ZERO(this->applyScaling(*A));
 
     //left scale the rhs by rhs=Sl*rhs
-    if (rhs!=Teuchos::null) this->applyLeftScaling(*rhs);
+    if (rhs!=Teuchos::null) CHECK_ZERO(this->applyLeftScaling(*rhs));
 
     // scale the current solution, sol=inv(Sr)*sol
-    if (sol!=Teuchos::null) this->applyInverseRightScaling(*sol);
+    if (sol!=Teuchos::null) CHECK_ZERO(this->applyInverseRightScaling(*sol));
 
     }
 
   //! Remove the scaling from the linear system.
   void BlockScaling::unscaleLinearSystem(Epetra_LinearProblem& problem) 
     {
-    if (diagOnly_==false)
-      {
-      HYMLS::Tools::Error("general 2x2 scaling is not implemented,\n"
-                          "currently it only works for 'diagOnly==true'.",
-                          __FILE__,__LINE__);
-      }
-    Teuchos::RCP<Epetra_RowMatrix> A = Teuchos::rcp(problem.GetMatrix());
+    Teuchos::RCP<Epetra_RowMatrix> A = Teuchos::rcp(problem.GetMatrix(),false);
     Teuchos::RCP<Epetra_MultiVector> rhs = Teuchos::rcp(problem.GetRHS(),false);
     Teuchos::RCP<Epetra_MultiVector> sol = Teuchos::rcp(problem.GetLHS(),false);
 
     //unscale the matrix, A<- iSl * (Sl*A*Sr) * iSr
-    if (A!=Teuchos::null) this->applyInverseScaling(*A);
+    if (A!=Teuchos::null) CHECK_ZERO(this->applyInverseScaling(*A));
 
     //unscale the rhs by rhs=Sl\(Sl*rhs)
-    if (rhs!=Teuchos::null) this->applyInverseLeftScaling(*rhs);
+    if (rhs!=Teuchos::null) CHECK_ZERO(this->applyInverseLeftScaling(*rhs));
 
     // scale the current solution, sol=Sr*(Sr\sol)
-    if (sol!=Teuchos::null) this->applyRightScaling(*sol);
+    if (sol!=Teuchos::null) CHECK_ZERO(this->applyRightScaling(*sol));
 
     }
 
@@ -191,6 +178,7 @@ namespace HYMLS {
         x[j][i+1]=s21*tmp+s22*x[j][i+1];
         }
       }
+    return 0;
     }
     
     
@@ -206,6 +194,13 @@ namespace HYMLS {
     Teuchos::RCP<Epetra_RowMatrix> A_row=Teuchos::rcpFromRef(A_row_ref);
     Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp_dynamic_cast<Epetra_CrsMatrix>(A_row);
     if (A==Teuchos::null) HYMLS::Tools::Error("only implemented for Epetra_CrsMatrix objects right now",__FILE__,__LINE__);
+
+    if (diagOnly_==false)
+      {
+      HYMLS::Tools::Error("general 2x2 scaling is not implemented,\n"
+                          "currently it only works for 'diagOnly==true'.",
+                          __FILE__,__LINE__);
+      }
     
     for (int i=0; i< A->NumMyRows(); i+=2)
       {
@@ -217,6 +212,9 @@ namespace HYMLS {
       int *cols1, *cols2;
       CHECK_ZERO(A->ExtractMyRowView(i,len1,values1,cols1));
       CHECK_ZERO(A->ExtractMyRowView(i+1,len2,values2,cols2));
+      // make sure we're not missing any entries, we assume that
+      // both rows have the same number of entries and throw an 
+      // error if not.
       CHECK_ZERO(len1-len2);
 
       double *a11,*a12,*a21,*a22;
@@ -262,7 +260,6 @@ namespace HYMLS {
       *a21=Sl21*t11+Sl22*t21;
       *a22=Sl21*t12+Sl22*t22;
       }
+    return 0;
     }
-
-
 }
