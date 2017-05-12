@@ -351,6 +351,13 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
   int num_eigs, block_dim;
   num_eigs = d_problem->getNEV();
   block_dim = d_opts.blockSize;
+  
+  if (num_eigs!=d_opts.numEigs)
+  {
+    HYMLS:Tools::Warning("numEigs in jadaOpts and Eigenproblem differ, using the one from Eigenproblem",
+        __FILE__,__LINE__);
+    d_opts.numEigs=num_eigs;
+  }
 
   // allocate memory for eigenvalues and residuals. We allocate
   // one extra entry because in the real case we may get that the
