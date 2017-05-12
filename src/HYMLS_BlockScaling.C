@@ -82,74 +82,19 @@ namespace HYMLS {
                           "currently it only works for 'diagOnly==true'.",
                           __FILE__,__LINE__);
       }
-    //Teuchos::RCP<Epetra_RowMatrix> A = Teuchos::rcp(problem.GetMatrix());
-    Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(dynamic_cast<Epetra_CrsMatrix *>(problem.GetMatrix()),false); 
-    CHECK_TRUE(A!=Teuchos::null);
-     
+    Teuchos::RCP<Epetra_RowMatrix> A = Teuchos::rcp(problem.GetMatrix());
     Teuchos::RCP<Epetra_MultiVector> rhs = Teuchos::rcp(problem.GetRHS(),false);
     Teuchos::RCP<Epetra_MultiVector> sol = Teuchos::rcp(problem.GetLHS(),false);
 
-    CHECK_TRUE(rhs!=Teuchos::null);
-  
-    // again, loop over all elements with stride 2, apply left scaling to rhs
-    // and sol, and left and right scaling to the matrix
-    for (int i=0; i< A->NumMyRows(); i+=2)
-      {
-      //get matrixblock
-      int row1=A->GRID(i);
-      int row2=A->GRID(i+1);
-      int len1, len2;
-      double *values1, *values2;
-      int *cols1, *cols2;
-      CHECK_ZERO(A->ExtractMyRowView(i,len1,values1,cols1));
-      CHECK_ZERO(A->ExtractMyRowView(i+1,len2,values2,cols2));
-      CHECK_ZERO(len1-len2);
-
-      double *a11,*a12,*a21,*a22;
-      double t11,t12,t21,t22;
-      for (int j=0; j<len1; j++)
-        {
-        //get global column index
-        int col1=A->GCID(cols1[j]);
-        int col2=A->GCID(cols2[j]);
-        values2[j]=values2[j]*factor_;
-        if (col1==row1)
-          {
-          a11=&values1[j];
-          }
-        if (col1==row1+1)
-          {
-          a12=&values1[j];
-          }
-        if (col2==row2-1)
-          {
-          a21=&values2[j];
-          *a21=(*a21)/factor_;
-          }
-        if (col2==row2)
-          {
-          a22=&values2[j];
-          *a22=(*a22)/factor_;
-          }
-        }
-      //perform Sl*A*Sr
-      //1. T=A*Sr
-      t11=(*a11)*Sr11_+(*a12)*Sr21_;
-      t12=(*a11)*Sr12_+(*a12)*Sr22_;
-      t21=(*a21)*Sr11_+(*a22)*Sr21_;
-      t22=(*a21)*Sr12_+(*a22)*Sr22_;
-      //2. A=Sl*T
-      *a11=Sl11_*t11+Sl12_*t21;
-      *a12=Sl11_*t12+Sl12_*t22;
-      *a21=Sl21_*t11+Sl22_*t21;
-      *a22=Sl21_*t12+Sl22_*t22;
-      }
+    //left and right scale the matrix
+    if (A!=Teuchos::null) this->applyScaling(*A);
 
     //left scale the rhs by rhs=Sl*rhs
-    this->apply(*rhs,Sl11_,Sl12_,Sl21_,Sl22_);
+    if (rhs!=Teuchos::null) this->applyLeftScaling(*rhs);
 
     // scale the current solution, sol=inv(Sr)*sol
-    this->apply(*sol,iSr11_,iSr12_,iSr21_,iSr22_);
+    if (sol!=Teuchos::null) this->applyInverseRightScaling(*sol);
+
     }
 
   //! Remove the scaling from the linear system.
@@ -161,13 +106,107 @@ namespace HYMLS {
                           "currently it only works for 'diagOnly==true'.",
                           __FILE__,__LINE__);
       }
-    Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(dynamic_cast<Epetra_CrsMatrix *>(problem.GetMatrix()),false);
-    CHECK_TRUE (A!=Teuchos::null);
-    
+    Teuchos::RCP<Epetra_RowMatrix> A = Teuchos::rcp(problem.GetMatrix());
     Teuchos::RCP<Epetra_MultiVector> rhs = Teuchos::rcp(problem.GetRHS(),false);
     Teuchos::RCP<Epetra_MultiVector> sol = Teuchos::rcp(problem.GetLHS(),false);
-    // again, loop over all elements with stride 2, remove left scaling to rhs
-    // and sol, and left and right scaling to the matrix
+
+    //unscale the matrix, A<- iSl * (Sl*A*Sr) * iSr
+    if (A!=Teuchos::null) this->applyInverseScaling(*A);
+
+    //unscale the rhs by rhs=Sl\(Sl*rhs)
+    if (rhs!=Teuchos::null) this->applyInverseLeftScaling(*rhs);
+
+    // scale the current solution, sol=Sr*(Sr\sol)
+    if (sol!=Teuchos::null) this->applyRightScaling(*sol);
+
+    }
+
+  // apply left scaling Sl to a (block)vector (in place, x<-Sl*x)
+  int BlockScaling::applyLeftScaling(Epetra_MultiVector& x) const
+    {
+    return this->apply(x,Sl11_,Sl12_,Sl21_,Sl22_);
+    }
+
+  // apply right scaling Sr to a (block)vector (in place, x<-Sr*x)
+  int BlockScaling::applyRightScaling(Epetra_MultiVector& x) const
+    {
+    return this->apply(x,Sr11_,Sr12_,Sr21_,Sr22_);
+    }
+
+  // apply inverse of left scaling Sl to a (block)vector (in place, x<-Sl\x)
+  int BlockScaling::applyInverseLeftScaling(Epetra_MultiVector& x) const
+    {
+    return this->apply(x,iSl11_,iSl12_,iSl21_,iSl22_);
+    }
+
+  // apply inverse of right scaling Sr to a (block)vector (in place, x<-Sr\x)
+  int BlockScaling::applyInverseRightScaling(Epetra_MultiVector& x) const
+    {
+    return this->apply(x,iSr11_,iSr12_,iSr21_,iSr22_);
+    }
+
+  //! apply left and right scaling Sl to a matrix (in place, A<-Sl*A*Sr)
+  int BlockScaling::applyScaling(Epetra_RowMatrix& A) const
+    {
+    return this->apply(A, Sl11_, Sl12_, Sl21_, Sl22_,
+                          Sr11_, Sr12_, Sr21_, Sr22_, factor_);
+    }
+
+  //! undo left and right scaling Sl of a matrix (in place, A<-Sl\A/Sr)
+  int BlockScaling::applyInverseScaling(Epetra_RowMatrix& A) const
+    {
+    return this->apply(A, iSl11_, iSl12_, iSl21_, iSl22_,
+                          iSr11_, iSr12_, iSr21_, iSr22_, 1.0/factor_);
+    }
+
+
+  // private helper function:
+  // apply x <- S*x, S=kron(I,[s11 s12; s21 s22])
+  int BlockScaling::apply(Epetra_MultiVector& x, 
+            double s11, double s12,
+            double s21, double s22) const
+    {
+      if (x.MyLength()%2!=0)
+        {
+        HYMLS::Tools::out() << "bad vector: "<<x<<std::endl;
+        HYMLS::Tools::Error("our 2x2 scaling object assumes consistent interleaved storage of variables in the vector!",
+              __FILE__,__LINE__);
+        }
+      for (int j=0; j< x.NumVectors(); j++)
+      {
+      for (int i=0; i< x.MyLength(); i+=2)
+        {
+#ifdef HYMLS_TESTING
+        if (x.Map().GID(i+1)!=x.Map().GID(i)+1)
+          {
+          HYMLS::Tools::out() << "bad entries local row "<<i<<" (GID "<<x.Map().GID(i)<<") and "<<i+1<<" (GID "<<x.Map().GID(i+1)<<")\n";
+          HYMLS::Tools::out() << "bad map: "<<x.Map()<<std::endl;
+          HYMLS::Tools::out() << "bad vector: "<<x<<std::endl;
+          HYMLS::Tools::Error("our 2x2 scaling object assumes consistent interleaved storage of variables in the vector!",
+                __FILE__,__LINE__);
+          }
+#endif
+        double tmp = x[j][i];
+        x[j][i]=s11*x[j][i]+s12*x[j][i+1];
+        x[j][i+1]=s21*tmp+s22*x[j][i+1];
+        }
+      }
+    }
+    
+    
+  // internal helper function to implement scaling and unscaling of a matrix in one place
+  int BlockScaling::apply(Epetra_RowMatrix& A_row_ref, 
+            double Sl11, double Sl12,
+            double Sl21, double Sl22,
+            double Sr11, double Sr12,
+            double Sr21, double Sr22,
+            double factor) const
+    {
+    // currently only implemented for CrsMatrices
+    Teuchos::RCP<Epetra_RowMatrix> A_row=Teuchos::rcpFromRef(A_row_ref);
+    Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp_dynamic_cast<Epetra_CrsMatrix>(A_row);
+    if (A==Teuchos::null) HYMLS::Tools::Error("only implemented for Epetra_CrsMatrix objects right now",__FILE__,__LINE__);
+    
     for (int i=0; i< A->NumMyRows(); i+=2)
       {
       //get matrixblock
@@ -187,7 +226,6 @@ namespace HYMLS {
         //get global column index
         int col1=A->GCID(cols1[j]);
         int col2=A->GCID(cols2[j]);
-
         if (col1==row1)
           {
           a11=&values1[j];
@@ -208,75 +246,23 @@ namespace HYMLS {
             }
           else 
             { 
-            values2[j]=values2[j]/factor_;
+            values2[j]=values2[j]*factor;
             }
           }
         }
-      //Now the matrix is A=Sl*A*Sr, to scale back first right multiply by inv(Sr)
-      //1. T=A*inv(Sr)
-      t11=(*a11)*iSr11_+(*a12)*iSr21_;
-      t12=(*a11)*iSr12_+(*a12)*iSr22_;
-      t21=(*a21)*iSr11_+(*a22)*iSr21_;
-      t22=(*a21)*iSr12_+(*a22)*iSr22_;
-      //2. then left multiply by inv(Sl)
-      *a11=iSl11_*t11+iSl12_*t21;
-      *a12=iSl11_*t12+iSl12_*t22;
-      *a21=iSl21_*t11+iSl22_*t21;
-      *a22=iSl21_*t12+iSl22_*t22;
-    }
-
-    // unscale the rhs by rhs=inv(Sl)*rhs
-    this->apply(*rhs,iSl11_,iSl12_,iSl21_,iSl22_);
-
-    // unscale  sol=Sr*sol
-    this->apply(*sol,Sr11_,Sr12_,Sr21_,Sr22_);
-    }
-
-
-
-
-
-
-
-  // private helper function:
-  // apply x <- S*x, S=kron(I,[s11 s12; s21 s22])
-  int BlockScaling::apply(Epetra_MultiVector& x, 
-            double s11, double s12,
-            double s21, double s22) const
-    {
-      for (int j=0; j< x.NumVectors(); j++)
-      {
-      for (int i=0; i< x.MyLength(); i+=2)
-        {
-        double tmp = x[j][i];
-        x[j][i]=s11*x[j][i]+s12*x[j][i+1];
-        x[j][i+1]=s21*tmp+s22*x[j][i+1];
-        }
+      //perform Sl*A*Sr
+      //1. T=A*Sr
+      t11=(*a11)*Sr11+(*a12)*Sr21;
+      t12=(*a11)*Sr12+(*a12)*Sr22;
+      t21=(*a21)*Sr11+(*a22)*Sr21;
+      t22=(*a21)*Sr12+(*a22)*Sr22;
+      //2. A=Sl*T
+      *a11=Sl11*t11+Sl12*t21;
+      *a12=Sl11*t12+Sl12*t22;
+      *a21=Sl21*t11+Sl22*t21;
+      *a22=Sl21*t12+Sl22*t22;
       }
     }
 
-  // apply left scaling Sl to a (block)vector (in place, x<-Sl*x)
-  int BlockScaling::applyLeftScaling(Epetra_MultiVector& x) const
-    {
-    this->apply(x,Sl11_,Sl12_,Sl21_,Sl22_);
-    }
-
-  // apply right scaling Sr to a (block)vector (in place, x<-Sr*x)
-  int BlockScaling::applyRightScaling(Epetra_MultiVector& x) const
-    {
-    this->apply(x,Sr11_,Sr12_,Sr21_,Sr22_);
-    }
-
-  // apply inverse of left scaling Sl to a (block)vector (in place, x<-Sl\x)
-  int BlockScaling::applyInverseLeftScaling(Epetra_MultiVector& x) const
-    {
-    this->apply(x,iSl11_,iSl12_,iSl21_,iSl22_);
-    }
-
-  // apply inverse of right scaling Sr to a (block)vector (in place, x<-Sr\x)
-  int BlockScaling::applyInverseRightScaling(Epetra_MultiVector& x) const
-    {
-    this->apply(x,iSr11_,iSr12_,iSr21_,iSr22_);
-    }
 
 }
