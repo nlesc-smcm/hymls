@@ -354,7 +354,7 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
   
   if (num_eigs!=d_opts.numEigs)
   {
-    HYMLS:Tools::Warning("numEigs in jadaOpts and Eigenproblem differ, using the one from Eigenproblem",
+    HYMLS::Tools::Warning("numEigs in jadaOpts and Eigenproblem differ, using the one from Eigenproblem",
         __FILE__,__LINE__);
     d_opts.numEigs=num_eigs;
   }
