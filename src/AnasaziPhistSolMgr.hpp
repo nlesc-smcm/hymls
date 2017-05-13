@@ -13,6 +13,11 @@
 #include <Ifpack_Preconditioner.h>
 #include <ml_MultiLevelPreconditioner.h>
 
+#include "phist_config.h"
+#ifndef PHIST_KERNEL_LIB_EPETRA
+#error "Your PHIST installation is incompatible, maybe you used the wrong PHIST_KERNEL_LIB when building it?"
+#endif
+
 // Include this before phist
 #include "HYMLS_PhistWrapper.H"
 
@@ -306,8 +311,26 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
     std::string jadaOptsOverrideFile = pl.get("Override JadaOpts from File","None");
     if (jadaOptsOverrideFile!="None")
     {
+      HYMLS::Tools::out() << "updating jadaOpts from file "<<jadaOptsOverrideFile<<std::endl;
+      phist_Eprecon pt=d_opts.preconType;
       phist_jadaOpts_fromFile(&d_opts, jadaOptsOverrideFile.c_str(), &iflag);
+      // the user may want to disable the preconditioner
+      if (pt!=d_opts.preconType)
+      {
+        if (d_opts.preconType==phist_NO_PRECON)
+        { 
+          HYMLS::Tools::out() << "disabling preconditioner after update from file "<<jadaOptsOverrideFile<<std::endl;
+          d_opts.preconOp=NULL;
+        }
+        else
+        {
+          HYMLS::Tools::Warning("cannot change preconType in override file for phist!",__FILE__,__LINE__);
+          d_opts.preconType=pt;
+        }
+        
+      }
     }
+    
     pl.unused(HYMLS::Tools::out());
   }
 
