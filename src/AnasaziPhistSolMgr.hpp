@@ -231,7 +231,6 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
     d_opts.innerSolvBlockSize=d_opts.blockSize;
     d_opts.preconOp=NULL;
     d_opts.preconType=hymls_phist<PREC>::get_phist_Eprecon();
-    // Switch off all the preconditioner
     d_opts.preconUpdate=pl.get("Update Preconditioner",false);
 
     TEUCHOS_TEST_FOR_EXCEPTION( d_opts.minBas < d_opts.numEigs+d_opts.blockSize,
