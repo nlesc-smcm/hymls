@@ -5,6 +5,7 @@
 #include "HYMLS_Macros.H"
 
 #include "Teuchos_RCP.hpp"
+#include "Teuchos_ParameterList.hpp"
 #include "Epetra_Operator.h"
 
 #include "BelosLinearProblem.hpp"
@@ -23,11 +24,6 @@ class Epetra_SerialDenseMatrix;
 class Epetra_Map;
 class Epetra_Import;
 
-
-namespace Teuchos 
-  {
-  class ParameterList;
-  }
 
 namespace HYMLS {
 
@@ -148,6 +144,7 @@ public:
   //! setup the solver to solve (shiftA*A+shiftB*B)x=b
   virtual void setShift(double shiftA, double shiftB);
 
+  //! set convergence tolerance for Krylov solver
   virtual void SetTolerance(double tol);
 
   //! get number of iterations performed in last ApplyInverse() call
