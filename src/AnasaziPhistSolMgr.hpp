@@ -105,6 +105,9 @@ class PhistSolMgr : public SolverManager<ScalarType,MV,OP>
                                    const Teuchos::RCP<PREC> &prec,
                                    Teuchos::ParameterList &pl );
 
+         //! destructor
+         ~PhistSolMgr();
+
         /*!
          * \brief Return the eigenvalue problem.
          */
@@ -332,6 +335,13 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
     
     pl.unused(HYMLS::Tools::out());
   }
+
+template <class ScalarType, class MV, class OP, class PREC>
+PhistSolMgr<ScalarType,MV,OP,PREC>::~PhistSolMgr()
+{
+       int iflag=0;
+       if (d_preconOp!=Teuchos::null) phist_Dprecon_delete(d_preconOp.get(),&iflag);
+}
 
 template <class ScalarType>
 bool eigSort(Anasazi::Value<ScalarType> const &a, Anasazi::Value<ScalarType> const &b)

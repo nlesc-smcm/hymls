@@ -318,7 +318,7 @@ protected:
   Teuchos::RCP<EpetraExt::RestrictedCrsMatrixWrapper> restrictA_;
     
   //! restrict corresponding vectors
-  Teuchos::RCP<EpetraExt::RestrictedMultiVectorWrapper> restrictX_, restrictB_;
+  mutable Teuchos::RCP<EpetraExt::RestrictedMultiVectorWrapper> restrictX_, restrictB_;
   
   //! partitioner for the next level
   Teuchos::RCP<const OverlappingPartitioner> nextLevelHID_;
@@ -428,6 +428,9 @@ protected:
   Teuchos::RCP<Epetra_RowMatrix> augmentedMatrix_;
   
 private:
+
+  //! a private setup function
+  void rebuildVectorRestrictors() const;
 
   //! this function does the initialization things that have to be done
   //! before each Compute(), like rebuilding some solvers because the  
