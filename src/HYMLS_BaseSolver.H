@@ -5,6 +5,7 @@
 #include "HYMLS_Macros.H"
 
 #include "Teuchos_RCP.hpp"
+#include "Teuchos_ParameterList.hpp"
 #include "Epetra_Operator.h"
 
 #include "BelosLinearProblem.hpp"
@@ -23,11 +24,6 @@ class Epetra_SerialDenseMatrix;
 class Epetra_Map;
 class Epetra_Import;
 
-
-namespace Teuchos 
-  {
-  class ParameterList;
-  }
 
 namespace HYMLS {
 
