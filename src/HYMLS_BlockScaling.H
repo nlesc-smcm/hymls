@@ -57,6 +57,12 @@ public:
   //! Remove the scaling from the linear system.
   void unscaleLinearSystem(Epetra_LinearProblem& problem);
 
+  //! apply left and right scaling Sl to a matrix (in place, A<-Sl*A*Sr)
+  int applyScaling(Epetra_RowMatrix& A) const;
+
+  //! undo left and right scaling Sl of a matrix (in place, A<-Sl\A/Sr)
+  int applyInverseScaling(Epetra_RowMatrix& x) const;
+
   //! apply left scaling Sl to a (block)vector (in place, x<-Sl*x)
   int applyLeftScaling(Epetra_MultiVector& x) const;
 
@@ -94,6 +100,14 @@ protected:
   int apply(Epetra_MultiVector& x, 
             double s11, double s12,
             double s21, double s22) const;
+
+  //! internal helper function to implement scaling and unscaling of a matrix in one place
+  int apply(Epetra_RowMatrix& A, 
+            double sL11, double sL12,
+            double sL21, double sL22,
+            double sR11, double sR12,
+            double sR21, double sR22,
+            double factor) const;
 
 };
 

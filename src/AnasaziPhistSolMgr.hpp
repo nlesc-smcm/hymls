@@ -13,6 +13,11 @@
 #include <Ifpack_Preconditioner.h>
 #include <ml_MultiLevelPreconditioner.h>
 
+#include "phist_config.h"
+#ifndef PHIST_KERNEL_LIB_EPETRA
+#error "Your PHIST installation is incompatible, maybe you used the wrong PHIST_KERNEL_LIB when building it?"
+#endif
+
 // Include this before phist
 #include "HYMLS_PhistWrapper.H"
 
@@ -100,6 +105,9 @@ class PhistSolMgr : public SolverManager<ScalarType,MV,OP>
                                    const Teuchos::RCP<PREC> &prec,
                                    Teuchos::ParameterList &pl );
 
+         //! destructor
+         ~PhistSolMgr();
+
         /*!
          * \brief Return the eigenvalue problem.
          */
@@ -167,7 +175,7 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
         const Teuchos::RCP<PREC> &prec,
         Teuchos::ParameterList &pl )
    : d_problem(problem), d_prec(prec), numIters_(0)
-{
+  {
     TEUCHOS_TEST_FOR_EXCEPTION( d_problem == Teuchos::null,                std::invalid_argument, "Problem not given to solver manager." );
     TEUCHOS_TEST_FOR_EXCEPTION( !d_problem->isProblemSet(),                std::invalid_argument, "Problem not set." );
     TEUCHOS_TEST_FOR_EXCEPTION( d_problem->getA() == Teuchos::null &&
@@ -226,8 +234,6 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
     d_opts.innerSolvBlockSize=d_opts.blockSize;
     d_opts.preconOp=NULL;
     d_opts.preconType=hymls_phist<PREC>::get_phist_Eprecon();
-    // Switch off all the preconditioner
-    //d_opts.preconType=phist_NO_PRECON;
     d_opts.preconUpdate=pl.get("Update Preconditioner",false);
 
     TEUCHOS_TEST_FOR_EXCEPTION( d_opts.minBas < d_opts.numEigs+d_opts.blockSize,
@@ -298,13 +304,43 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
     else
     {
       //this function just wraps the preconditioner, if NULL is given as the options string.
-       phist_Dprecon_create(d_preconOp.get(),d_Amat.get(),0.,d_Bmat.get(),NULL,NULL,
+      phist_Dprecon_create(d_preconOp.get(),d_Amat.get(),0.,d_Bmat.get(),NULL,NULL,
                               precon2str(d_opts.preconType),NULL,d_prec.get(),&iflag);
     }
     TEUCHOS_TEST_FOR_EXCEPTION(iflag!=0,std::runtime_error,"iflag!=0 returned from phist_Dprecon_create");
     d_opts.preconOp=d_preconOp.get();
 
+    std::string jadaOptsOverrideFile = pl.get("Override JadaOpts from File","None");
+    if (jadaOptsOverrideFile!="None")
+    {
+      HYMLS::Tools::out() << "updating jadaOpts from file "<<jadaOptsOverrideFile<<std::endl;
+      phist_Eprecon pt=d_opts.preconType;
+      phist_jadaOpts_fromFile(&d_opts, jadaOptsOverrideFile.c_str(), &iflag);
+      // the user may want to disable the preconditioner
+      if (pt!=d_opts.preconType)
+      {
+        if (d_opts.preconType==phist_NO_PRECON)
+        { 
+          HYMLS::Tools::out() << "disabling preconditioner after update from file "<<jadaOptsOverrideFile<<std::endl;
+          d_opts.preconOp=NULL;
+        }
+        else
+        {
+          HYMLS::Tools::Warning("cannot change preconType in override file for phist!",__FILE__,__LINE__);
+          d_opts.preconType=pt;
+        }
+        
+      }
+    }
+    
+    pl.unused(HYMLS::Tools::out());
+  }
 
+template <class ScalarType, class MV, class OP, class PREC>
+PhistSolMgr<ScalarType,MV,OP,PREC>::~PhistSolMgr()
+{
+       int iflag=0;
+       if (d_preconOp!=Teuchos::null) phist_Dprecon_delete(d_preconOp.get(),&iflag);
 }
 
 template <class ScalarType>
@@ -347,13 +383,19 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
   int num_eigs, block_dim;
   num_eigs = d_problem->getNEV();
   block_dim = d_opts.blockSize;
+  
+  if (num_eigs!=d_opts.numEigs)
+  {
+    HYMLS::Tools::Warning("numEigs in jadaOpts and Eigenproblem differ, using the one from Eigenproblem",
+        __FILE__,__LINE__);
+    d_opts.numEigs=num_eigs;
+  }
 
   // allocate memory for eigenvalues and residuals. We allocate
   // one extra entry because in the real case we may get that the
   // last EV to converge is a complex pair (requirement of JDQR)
   std::vector<MagnitudeType> resid(num_eigs+block_dim-1);
   std::vector<std::complex<double> > ev(nEig+block_dim-1);
-
 
   Teuchos::RCP<MV> v0 = Teuchos::null;
 
