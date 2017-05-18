@@ -395,7 +395,7 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
   // one extra entry because in the real case we may get that the
   // last EV to converge is a complex pair (requirement of JDQR)
   std::vector<MagnitudeType> resid(num_eigs+block_dim-1);
-  std::vector<std::complex<double> > ev(nEig+block_dim-1);
+  std::vector<std::complex<double> > ev(num_eigs+block_dim-1);
 
   Teuchos::RCP<MV> v0 = Teuchos::null;
 
