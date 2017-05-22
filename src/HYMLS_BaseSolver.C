@@ -22,7 +22,7 @@
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_Utils.hpp"
 
-#include "BelosBlockGmresSolMgr.hpp"
+#include "BelosExtBlockGmresSolMgr.hpp"
 #include "BelosTypes.hpp"
 #include "BelosBlockCGSolMgr.hpp"
 //#include "BelosPCPGSolMgr.hpp"
@@ -93,7 +93,7 @@ BaseSolver::BaseSolver(Teuchos::RCP<const Epetra_RowMatrix> K,
   else if (solverType_=="GMRES")
     {
     belosSolverPtr_ = Teuchos::rcp(new 
-      ::Belos::BlockGmresSolMgr<ST,MV,OP>
+      ::BelosExt::BlockGmresSolMgr<ST,MV,OP>
       (belosProblemPtr_,belosListPtr));
     int blockSize=belosList.get("Block Size",1);
     int numBlocks=belosList.get("Num Blocks",300);
