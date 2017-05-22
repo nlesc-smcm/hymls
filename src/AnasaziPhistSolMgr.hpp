@@ -394,8 +394,8 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
   // allocate memory for eigenvalues and residuals. We allocate
   // one extra entry because in the real case we may get that the
   // last EV to converge is a complex pair (requirement of JDQR)
-  std::vector<std::complex<ScalarType> > ev(num_eigs+block_dim-1);
   std::vector<MagnitudeType> resid(num_eigs+block_dim-1);
+  std::vector<std::complex<double> > ev(num_eigs+block_dim-1);
 
   Teuchos::RCP<MV> v0 = Teuchos::null;
 
@@ -405,7 +405,6 @@ ReturnType PhistSolMgr<ScalarType,MV,OP,PREC>::solve()
   }
 
   d_opts.v0 = v0.get();
-  d_opts.arno = 0;
 
   int nQ=d_opts.minBas;
   Teuchos::RCP<MV> Q = MVT::Clone(*d_problem->getInitVec(), nQ);
