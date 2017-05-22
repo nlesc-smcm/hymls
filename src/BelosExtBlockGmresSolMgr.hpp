@@ -273,7 +273,7 @@ public:
   Teuchos::RCP<const MV> getGmresBasis()
   {
     Teuchos::RCP<const MV> basis=Teuchos::null;
-    if (block_gmres_iter) basis=block_gmres_iter->getState().V;
+    if (block_gmres_iter!=Teuchos::null) basis=block_gmres_iter->getState().V;
     return basis;
   }
 
