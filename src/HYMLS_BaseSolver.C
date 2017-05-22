@@ -22,6 +22,8 @@
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_Utils.hpp"
 
+#include "Trilinos_version.h"
+
 #if TRILINOS_MAJOR_MINOR_VERSION>=120601
 #include "BelosExtBlockGmresSolMgr.hpp"
 #define OWN_GMRES 1
