@@ -22,7 +22,13 @@
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_Utils.hpp"
 
+#if TRILINOS_MAJOR_MINOR_VERSION>=120601
+#include "BelosExtBlockGmresSolMgr.hpp"
+#define OWN_GMRES 1
+#else
 #include "BelosBlockGmresSolMgr.hpp"
+#warning "we cannot reuse GMRES basis information with older Trilinos versions than 12.6.1"
+#endif
 #include "BelosTypes.hpp"
 #include "BelosBlockCGSolMgr.hpp"
 //#include "BelosPCPGSolMgr.hpp"
@@ -33,7 +39,11 @@
 
 #include "HYMLS_no_debug.H"
 
-
+#ifdef OWN_GMRES
+typedef ::BelosExt::BlockGmresSolMgr<double,Epetra_MultiVector,Epetra_Operator> gmresSolMgrType;
+#else
+typedef ::Belos::BlockGmresSolMgr<double,Epetra_MultiVector,Epetra_Operator> gmresSolMgrType;
+#endif
 namespace HYMLS {
 
 // constructor
@@ -92,8 +102,7 @@ BaseSolver::BaseSolver(Teuchos::RCP<const Epetra_RowMatrix> K,
     }
   else if (solverType_=="GMRES")
     {
-    belosSolverPtr_ = Teuchos::rcp(new 
-      ::Belos::BlockGmresSolMgr<ST,MV,OP>
+    belosSolverPtr_ = Teuchos::rcp(new gmresSolMgrType
       (belosProblemPtr_,belosListPtr));
     int blockSize=belosList.get("Block Size",1);
     int numBlocks=belosList.get("Num Blocks",300);
