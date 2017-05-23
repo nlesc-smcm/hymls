@@ -297,6 +297,7 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
       d_preconPointers->apply=&::HYMLS::PhistPreconTraits<PREC>::apply;
       d_preconPointers->apply_shifted=&::HYMLS::PhistPreconTraits<PREC>::apply_shifted;
       d_preconPointers->update=&::HYMLS::PhistPreconTraits<PREC>::update;
+      d_preconPointers->destroy=NULL;
       // this function just wraps the preconditioner, if NULL is given as the options string.
        phist_Dprecon_create(d_preconOp.get(),d_Amat.get(),0.,d_Bmat.get(),NULL,NULL,
               precon2str(d_opts.preconType),NULL,d_preconPointers.get(),&iflag);

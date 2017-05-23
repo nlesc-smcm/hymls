@@ -45,6 +45,8 @@
 /*! \file BelosBlockGmresSolMgr.hpp
  *  \brief The Belos::BlockGmresSolMgr provides a solver manager for the BlockGmres linear solver.
  */
+
+#include "Trilinos_version.h"
  
 // This slight modification of the original file from Trilinos 12.6.1 stores the iteration state object (BlockGmresIter)
 // and allows the user to retrieve the final subspace after the solve is done.
@@ -130,7 +132,11 @@ class BlockGmresSolMgr : public SolverManager<ScalarType,MV,OP> {
 
 private:
   typedef MultiVecTraits<ScalarType,MV> MVT;
+#if TRILINOS_MAJOR_VERSION<12
   typedef MultiVecTraitsExt<ScalarType,MV> MVText;
+#else
+  typedef MultiVecTraits<ScalarType,MV> MVText;
+#endif
   typedef OperatorTraits<ScalarType,MV,OP> OPT;
   typedef Teuchos::ScalarTraits<ScalarType> SCT;
   typedef typename Teuchos::ScalarTraits<ScalarType>::magnitudeType MagnitudeType;
@@ -267,7 +273,7 @@ public:
   Teuchos::RCP<const MV> getGmresBasis()
   {
     Teuchos::RCP<const MV> basis=Teuchos::null;
-    if (block_gmres_iter) basis=block_gmres_iter->getState().V;
+    if (block_gmres_iter!=Teuchos::null) basis=block_gmres_iter->getState().V;
     return basis;
   }
 
