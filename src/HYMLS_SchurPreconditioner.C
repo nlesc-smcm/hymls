@@ -398,7 +398,6 @@ namespace HYMLS {
         }
       // we have to restrict_comm again because the pointer is no longer
       // valid, it seems
-      rebuildVectorRestrictors();
 #ifdef OLD_TRILINOS      
       // bug in Trilinos 10.10, uninitialized return
       restrictA_->restrict_comm(linearMatrix_);
@@ -2178,7 +2177,6 @@ if (dumpVectors_)
 #ifdef RESTRICT_ON_COARSE_LEVEL
           if (Teuchos::rcp_dynamic_cast<const Epetra_MpiComm>(comm_) != Teuchos::null)
             {
-            rebuildVectorRestrictors();
 #ifndef OLD_TRILINOS
           CHECK_ZERO(restrictB_->restrict_comm(linearRhs_));
           CHECK_ZERO(restrictX_->restrict_comm(linearSol_));
