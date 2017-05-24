@@ -785,6 +785,8 @@ if (dumpVectors_)
 
     if (realloc)
       {
+      interior_->releaseViewedObjects();
+      separators_->releaseViewedObjects();
       for (int i=0;i<4;i++)
         {
         tmpVec_[i] = Teuchos::rcp( new Epetra_MultiVector(*rowMap_,X.NumVectors()) );

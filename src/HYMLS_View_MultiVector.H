@@ -20,7 +20,9 @@ namespace HYMLS {
 //! of the old map, but it may start anywhere inside the old map. A typical use of this
 //! would be to view a block of a vector, i.e. v(5:18).
 //! In contrast to the EpetraExt view classes, this object is memory safe and returns RCP's
-//! rather than references to internal raw pointers.
+//! rather than references to internal raw pointers. It also implements 'persistent views',
+//! that is, it stores an RCP to the original viewed object so that the view remains valid 
+//! at least throughout the lifetime of this object (or until releaseViewedObjects() is called).
 class MultiVector_View 
   {
   const Epetra_BlockMap & OrigMap_;
@@ -69,6 +71,11 @@ class MultiVector_View
   //! Transformation Operator (const version)
   Teuchos::RCP<const Epetra_MultiVector> operator()
         (const Epetra_MultiVector& orig );
+
+  //! release the stored pointers to the viewed objects, if a viewed object
+  //! is deleted afterwards, the views created by this object will be invalid
+  //! and their behavior undefined.
+  void releaseViewedObjects();
 
 private:
 

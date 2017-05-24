@@ -66,6 +66,11 @@ MultiVector_View::operator()(const Epetra_MultiVector& orig )
   return this->operator()(Teuchos::rcp(&orig,false));
   }
 
+void MultiVector_View::
+releaseViewedObjects()
+{
+  origObj_.clear();;
+}
 
 } // namespace HYMLS
 
