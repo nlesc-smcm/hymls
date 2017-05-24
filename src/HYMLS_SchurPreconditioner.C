@@ -33,10 +33,10 @@
 #include "Ifpack_SparseContainer.h" 
 #include "Ifpack_Amesos.h"
 
-#include "EpetraExt_Reindex_CrsMatrix.h" 
+#include "./EpetraExt_Reindex_CrsMatrix.h" 
 #include "EpetraExt_Reindex_MultiVector.h" 
-#include "EpetraExt_RestrictedCrsMatrixWrapper.h"
-#include "EpetraExt_RestrictedMultiVectorWrapper.h"
+#include "./EpetraExt_RestrictedCrsMatrixWrapper.h"
+#include "./EpetraExt_RestrictedMultiVectorWrapper.h"
 #include "EpetraExt_MatrixMatrix.h"
 
 #include "HYMLS_AugmentedMatrix.H"
@@ -394,7 +394,7 @@ namespace HYMLS {
       // restrict the matrix to the active processors
       if (restrictA_==Teuchos::null)
         {
-        restrictA_ = Teuchos::rcp(new ::EpetraExt::RestrictedCrsMatrixWrapper());
+        restrictA_ = Teuchos::rcp(new ::HYMLS::EpetraExt::RestrictedCrsMatrixWrapper());
         }
       // we have to restrict_comm again because the pointer is no longer
       // valid, it seems
@@ -2344,8 +2344,8 @@ void SchurPreconditioner::Visualize(std::string mfilename,bool recurse) const
   void SchurPreconditioner::rebuildVectorRestrictors() const
   {
       if (restrictA_==Teuchos::null) HYMLS::Tools::Error("function rebuildVectorRestrictors called before restrictA_ was built!",__FILE__,__LINE__);
-      restrictX_ = Teuchos::rcp(new ::EpetraExt::RestrictedMultiVectorWrapper());
-      restrictB_ = Teuchos::rcp(new ::EpetraExt::RestrictedMultiVectorWrapper());
+      restrictX_ = Teuchos::rcp(new ::HYMLS::EpetraExt::RestrictedMultiVectorWrapper());
+      restrictB_ = Teuchos::rcp(new ::HYMLS::EpetraExt::RestrictedMultiVectorWrapper());
       restrictX_->SetMPISubComm(restrictA_->GetMPISubComm());
       restrictB_->SetMPISubComm(restrictA_->GetMPISubComm());
   }

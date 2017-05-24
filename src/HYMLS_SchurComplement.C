@@ -188,7 +188,7 @@ int SchurComplement::Construct(Teuchos::RCP<Epetra_FECrsMatrix> S) const
     }
   HYMLS_DEBUG("SchurComplement - GlobalAssembly");
   CHECK_ZERO(S->GlobalAssemble(false));
-  CHECK_ZERO(EpetraExt::MatrixMatrix::Add(*A22_->Block(), false, 1.0,
+  CHECK_ZERO(::EpetraExt::MatrixMatrix::Add(*A22_->Block(), false, 1.0,
       *S, -1.0));
   // finish construction by creating local IDs:
   CHECK_ZERO(S->FillComplete());

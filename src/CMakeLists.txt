@@ -35,6 +35,8 @@ set(HYMLS_SOURCE HYMLS_Solver
     HYMLS_MatrixBlock
     NOX_Epetra_LinearSystem_Hymls
     GaleriExt_Periodic
+    EpetraExt_RestrictedCrsMatrixWrapper
+    EpetraExt_RestrictedMultiVectorWrapper
     main_utils)
 
 set(HEADERS)
