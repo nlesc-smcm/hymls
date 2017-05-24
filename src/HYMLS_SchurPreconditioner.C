@@ -395,18 +395,15 @@ namespace HYMLS {
       if (restrictA_==Teuchos::null)
         {
         restrictA_ = Teuchos::rcp(new ::HYMLS::EpetraExt::RestrictedCrsMatrixWrapper());
+        restrictX_ = Teuchos::rcp(new ::HYMLS::EpetraExt::RestrictedMultiVectorWrapper());
+        restrictB_ = Teuchos::rcp(new ::HYMLS::EpetraExt::RestrictedMultiVectorWrapper());
         }
       // we have to restrict_comm again because the pointer is no longer
       // valid, it seems
-#ifdef OLD_TRILINOS      
-      // bug in Trilinos 10.10, uninitialized return
-      restrictA_->restrict_comm(linearMatrix_);
-#else
       CHECK_ZERO(restrictA_->restrict_comm(linearMatrix_));      
-#endif
       amActive_=restrictA_->RestrictedProcIsActive();
-      rebuildVectorRestrictors();
-
+      restrictX_->SetMPISubComm(restrictA_->GetMPISubComm());
+      restrictB_->SetMPISubComm(restrictA_->GetMPISubComm());
       restrictedMatrix_=restrictA_->RestrictedMatrix();
       if (restrictA_->RestrictedProcIsActive())
         {
@@ -1436,10 +1433,6 @@ if (dumpVectors_)
 //        CHECK_ZERO(restrictB_->restrict_comm(linearRhs_));
 //        CHECK_ZERO(restrictX_->restrict_comm(linearSol_));
 
-          // note: if we do not delete the restrict objects, each time
-          // the restrict_comm function is called memory is allocated
-          // (memory leak as of Trilinos 12.6.1)
-          rebuildVectorRestrictors();
           restrictB_->restrict_comm(linearRhs_);
           restrictX_->restrict_comm(linearSol_);
           restrictedRhs_ = restrictB_->RestrictedMultiVector();
@@ -2337,15 +2330,6 @@ void SchurPreconditioner::Visualize(std::string mfilename,bool recurse) const
       if (!Teuchos::is_null(hymls)) hymls->Visualize(mfilename);
       }
     }
-  }
-
-  void SchurPreconditioner::rebuildVectorRestrictors() const
-  {
-      if (restrictA_==Teuchos::null) HYMLS::Tools::Error("function rebuildVectorRestrictors called before restrictA_ was built!",__FILE__,__LINE__);
-      restrictX_ = Teuchos::rcp(new ::HYMLS::EpetraExt::RestrictedMultiVectorWrapper());
-      restrictB_ = Teuchos::rcp(new ::HYMLS::EpetraExt::RestrictedMultiVectorWrapper());
-      restrictX_->SetMPISubComm(restrictA_->GetMPISubComm());
-      restrictB_->SetMPISubComm(restrictA_->GetMPISubComm());
   }
 
 }// namespace
