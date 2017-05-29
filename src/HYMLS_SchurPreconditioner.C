@@ -172,6 +172,11 @@ namespace HYMLS {
       
     HYMLS_DEBVAR(fix_gid_);
     
+    if (reducedSchurSolver_!=Teuchos::null)
+      {
+      CHECK_ZERO(reducedSchurSolver_->SetParameters(List);
+      }
+    
     return 0;
     }
 
