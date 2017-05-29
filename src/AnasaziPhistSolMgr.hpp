@@ -231,6 +231,7 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
 
     d_opts.innerSolvType = phist_GMRES;
     d_opts.innerSolvMaxIters = pl.get("Inner Iterations",d_opts.innerSolvMaxIters);
+    d_opts.innerSolvMaxBas   = d_opts.innerSolvMaxIters;
     d_opts.innerSolvBlockSize=d_opts.blockSize;
     d_opts.preconOp=NULL;
     d_opts.preconType=hymls_phist<PREC>::get_phist_Eprecon();
