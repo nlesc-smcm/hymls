@@ -174,7 +174,7 @@ namespace HYMLS {
     
     if (reducedSchurSolver_!=Teuchos::null)
       {
-      CHECK_ZERO(reducedSchurSolver_->SetParameters(List);
+      CHECK_ZERO(reducedSchurSolver_->SetParameters(List));
       }
     
     return 0;

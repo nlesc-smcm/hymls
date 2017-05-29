@@ -205,7 +205,7 @@ HYMLS_DEBVAR(probList_);
 
     if (schurPrec_!=Teuchos::null)
       {
-      CHECK_ZERO(schurPrec_->SetParameters(List);
+      CHECK_ZERO(schurPrec_->SetParameters(List));
       }
 
     return 0;
