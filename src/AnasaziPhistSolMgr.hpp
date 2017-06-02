@@ -183,6 +183,11 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
     TEUCHOS_TEST_FOR_EXCEPTION( d_problem->getInitVec() == Teuchos::null,  std::invalid_argument, "No vector to clone from on Eigenproblem." );
     TEUCHOS_TEST_FOR_EXCEPTION( d_problem->getNEV() <= 0,                  std::invalid_argument, "Number of requested eigenvalues must be positive.");
 
+    int iflag=0;
+int argc=0;
+    phist_kernels_init(&argc, NULL, &iflag);
+    TEUCHOS_TEST_FOR_EXCEPTION( iflag!=0, std::runtime_error, "Could not initialize PHIST!");
+
     d_Amat=Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(d_problem->getA());
     if (d_Amat==Teuchos::null)
     {
@@ -286,7 +291,6 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
     // the preconOp is the phist preconditioning object, the
     // preconPointers are just used to define how our user-
     // defined preconditioner can be applied or updated.
-    int iflag;
     d_preconOp=Teuchos::rcp(new phist_DlinearOp);
     if (d_opts.preconType==phist_USER_PRECON)
     {
@@ -343,6 +347,9 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::~PhistSolMgr()
 {
        int iflag=0;
        if (d_preconOp!=Teuchos::null) phist_Dprecon_delete(d_preconOp.get(),&iflag);
+       // print phist timing results etc.
+       iflag=0;
+       phist_kernels_finalize(&iflag);
 }
 
 template <class ScalarType>
