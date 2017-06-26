@@ -49,14 +49,30 @@ protected:
   //! may assume that npx_, sx_ etc. are already set so that operator() works.
   int CreateSubdomainMap();
 
-public:
-  //! Get the first element of the subdomain. This can also be a non-existant
-  // element outside of the domain. It should always be the center top one
-  int First(int sd) const;
+  std::vector<std::vector<int> > buildMatrix(int c_11, int c_1n, int c_m1,
+    int colskip, int rowskip, int offset, int var) const;
 
-  //! Get the first element of the subdomain. This can also be a non-existant
-  // element outside of the domain. It should always be the center top one
-  int First(int sd, int &i, int &j, int &k) const;
+  int removeOverlappingVNodes(std::vector<std::vector<int> > &plane, int type) const;
+
+  std::vector<std::vector<std::vector<std::vector<int> > > > domainTemplate(char type) const;
+
+  int getDomainInfo(int sd, int &x, int &y, int &z, char &type) const;
+
+  std::vector<int> template2list(
+    std::vector<std::vector<std::vector<std::vector<int> > > > const &temp) const;
+
+  std::vector<std::vector<int> > solveGroups(char type,
+  std::vector<std::vector<std::vector<std::vector<int> > > > const &tempX,
+  std::vector<std::vector<std::vector<std::vector<int> > > > const &tempY,
+  std::vector<std::vector<std::vector<std::vector<int> > > > const &tempZ,
+    int directions[3]) const;
+
+  std::vector<std::vector<int> > createSubdomain(
+    int x, int y, int z, char type,
+    std::vector<std::vector<std::vector<std::vector<int> > > > temp,
+    std::vector<std::vector<int> > groups) const;
+
+public:
 
   //! Get interior and separator groups of the subdomain sd
   int GetGroups(int sd, Teuchos::Array<int> &interior_nodes,
@@ -107,14 +123,21 @@ protected:
   //! exactly one process/belong to only one partition)
   Teuchos::RCP<const Epetra_Map> cartesianMap_;
 
+  //! Subdomain templates
+  std::vector<std::vector<std::vector<std::vector<int> > > > templateX_,
+    templateY_, templateZ_;
+
+  //! Subdomain template groups
+  std::vector<std::vector<int> > groupsX_, groupsY_, groupsZ_;
+
   //! global grid size
   int nx_, ny_, nz_;
 
   //! number of subdomains
-  int npx_, npy_, npz_, npl_;
+  int npx_, npy_, npz_;
 
   //! processor distribution
-  int nprocs_;
+  int nprocs_, nprocx_, nprocy_, nprocz_;
 
   //! number of subdomains on this proc
   int numLocalSubdomains_;

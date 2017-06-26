@@ -4,10 +4,10 @@ set(SOURCES
   GaleriExt_Stokes2D
   GaleriExt_Stokes3D
   HYMLS_CartesianPartitioner
-  HYMLS_SkewCartesianPartitioner
+  # HYMLS_SkewCartesianPartitioner
   HYMLS_DenseUtils
   HYMLS_HierarchicalMap
-  HYMLS_OverlappingPartitioner
+  # HYMLS_OverlappingPartitioner
   HYMLS_Preconditioner
   HYMLS_ProjectedOperator
   HYMLS_Solver
