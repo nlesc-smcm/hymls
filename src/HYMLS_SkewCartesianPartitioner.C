@@ -8,6 +8,63 @@
 
 using Teuchos::toString;
 
+struct Plane {
+  std::vector<int> ptr;
+  std::vector<int> plane;
+  };
+
+Plane buildPlane45(int firstNode, int length, int dirX, int dirY, int dof, int pvar)
+  {
+  int left = firstNode;
+  int right = firstNode;
+  int height = 2 * length;
+  bool extraLayer = false;
+
+  // Skew direction in xy-plane
+  int dir1 = dirY + dirX;
+  int dir2 = dirY - dirX;
+
+  // correction for u nodes
+  if (((firstNode % dof) + dof) % dof  == 0)
+    {
+    left -= dirX;
+    height++;
+    extraLayer = true;
+    }
+  else if (((firstNode % dof) + dof) % dof  == pvar)
+    {
+    height++;
+    extraLayer = true;
+    }
+
+  // Build the plane
+  Plane plane;
+  plane.ptr.push_back(0);
+  for (int i = 0; i < height-1; i++)
+    {
+    for (int j = left; j <= right; j += dirX)
+      plane.plane.push_back(j);
+    plane.ptr.push_back(plane.plane.size());
+
+    if (i < length-1)
+      {
+      left += dir2;
+      right += dir1;
+      }
+    else if (extraLayer && i == length-1)
+      {
+      left += dirY;
+      right += dirY;
+      }
+    else
+      {
+      left += dir1;
+      right += dir2;
+      }
+    }
+  return plane;
+  }
+
 namespace HYMLS {
 
 // by default, everyone is assumed to own a part of the domain.
@@ -44,7 +101,7 @@ SkewCartesianPartitioner::~SkewCartesianPartitioner()
   }
 
 // get non-overlapping subdomain id
-int SkewCartesianPartitioner::operator()(int i, int j, int k) const
+int SkewCartesianPartitioner::operator()(int x, int y, int z) const
   {
 #ifdef HYMLS_TESTING
   if (!Partitioned())
@@ -52,38 +109,55 @@ int SkewCartesianPartitioner::operator()(int i, int j, int k) const
     Tools::Error("Partition() not yet called!", __FILE__, __LINE__);
     }
 #endif
-  int x = i / sx_;
-  int y = j / sx_;
-  int z = k / sx_;
+  int dir1 = npx_ + 1;
+  int dir2 = npx_;
+  int dir3 = 2*npx_*npy_ + npx_ + npy_;
 
-  // Get position within the cube
-  i = i - sx_ * x;
-  j = j - sx_ * y;
-  k = k - sx_ * z;
+  // which cube
+  int xcube = x / sx_;
+  int ycube = y / sx_;
+  int zcube = z / sx_;
 
-  int totDomsPerLayer = (npx_ * npy_ + npx_ * (npy_+1) + (npx_+1) * npy_);
+  // first domain in the cube
+  int sd = zcube * dir3 + ycube*(dir2 + dir1) + xcube;
 
-  int sd = z * totDomsPerLayer + y * npx_ + x;
-
-  // Find type of domain; based on cube
-  if (i <= sx_/2 - 2 &&
-    j >= i + 1 && j <= sx_-(i+2) &&
-    k >= i + 1 && k <= sx_-(i+2))
-    sd += npx_*npy_ + npx_ + y*(npx_+1)*(y>0);
-  else if (i >= sx_/2 &&
-    j <= i && j >= sx_-(i+1) &&
-    k <= i && k >= sx_-(i+1))
-    sd += npx_*npy_ + npx_ + y*(npx_+1) + 1;
-  else if (j <= sx_/2 - 2 &&
-    i >= j && i <= sx_-(j+2) &&
-    k >= j + 1 && k <= sx_-(j+2)) 
-    sd += npx_*npy_ + y*(npx_+1)*(y>0);
-  else if (j >= sx_/2 &&
-    i <= j - 1 && i >= sx_-(j+1) &&
-    k <= j && k >= sx_-(j+1))
-    sd += npx_*npy_ + y*(npx_+1) + 2*npx_ + 1;
-  else if (k >= sx_/2)
-    sd += npy_*(3*npx_+1) + npx_;
+  // relative coordinates
+  x -= xcube * sx_;
+  y -= ycube * sx_;
+  z -= zcube * sx_;
+  
+  if (y < sx_-x) // red
+    {
+    if (y < x) // green
+      {
+      if (!(z <= sx_ + y-x)) // blue
+        sd += dir3;
+      }
+    else
+      {
+      if (z <= y-x) // blue
+        sd += dir2;
+      else
+        sd += dir2+dir3;
+      }
+    }
+  else
+    {
+    if (y < x) // green
+      {
+      if (z <= sx_ + y-x) // blue
+        sd += dir1;
+      else 
+        sd += dir1+dir3;
+      }
+    else
+      {
+      if (z <= y-x) // blue
+        sd += dir1+dir2;
+      else 
+        sd += dir1+dir2+dir3;
+      }
+    }
   return sd;
   }
 
@@ -113,8 +187,12 @@ int SkewCartesianPartitioner::NumLocalParts() const
 
 int SkewCartesianPartitioner::CreateSubdomainMap()
   {
+  int totNum2DCubes = npx_ * npy_; // number of cubes for fixed z
+  int numPerLayer = 2 * totNum2DCubes + npx_ + npy_; // domains for fixed z
+  int numPerRow = 2 * npx_ + 1; // domains in a row (both lattices); fixed y
+
   int NumMyElements = 0;
-  int NumGlobalElements = 3 * npx_ * npy_ * npz_ + npx_ * npy_ + npy_ * npz_ + npz_ * npx_;
+  int NumGlobalElements = (npz_ + 1) * numPerLayer - 1;
   int *MyGlobalElements = new int[NumGlobalElements];
 
   for (int k = 0; k < nz_; k++)
@@ -215,14 +293,8 @@ int SkewCartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
 
   CHECK_ZERO(CreateSubdomainMap());
 
-  templateX_ = domainTemplate('x');
-  templateY_ = domainTemplate('y');
-  templateZ_ = domainTemplate('z');
-
-  int directions[3] = {1, nx_, nx_*ny_};
-  groupsX_ = solveGroups('x', templateX_, templateY_, templateZ_, directions);
-  groupsY_ = solveGroups('y', templateX_, templateY_, templateZ_, directions);
-  groupsZ_ = solveGroups('z', templateX_, templateY_, templateZ_, directions);
+  template_ = getTemplate();
+  groups_ = solveGroups(template_);
 
   HYMLS_DEBVAR(*sdMap_);
 
@@ -293,388 +365,195 @@ int SkewCartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
   return 0;
   }
 
-
-// Builds m by n matrix with specified coefficients (1,1), (1,n) and (m,1)
-// elements and 'gaps' colskip and rowskip;
-std::vector<std::vector<int> > SkewCartesianPartitioner::buildMatrix(int c_11,
-  int c_1n, int c_m1, int colskip, int rowskip, int offset, int var) const
-  {
-  std::vector<std::vector<int> > matrix;
-  int numrows = (c_m1 - c_11) / rowskip + 1;
-  int numcols = (c_1n - c_11) / colskip + 1;
-  for (int i = 0; i < numrows; i++)
-    {
-    matrix.emplace_back(numcols, offset * dof_ + var);
-    for (int j = 0; j < numcols; j++)
-      matrix[i][j] += (c_11 + i * rowskip + j * colskip) * dof_;
-    }
-  return matrix;
-  }
-
-
-int SkewCartesianPartitioner::removeOverlappingVNodes(
-  std::vector<std::vector<int> > &plane, int type) const
-  {
-  if (type == 0)
-    {
-    plane.front().erase(plane.front().begin(), plane.front().begin() + plane.front().size() / 2);
-    plane.back().erase(plane.back().begin(), plane.back().begin() + plane.back().size() / 2);
-    }
-  else if (type == 2)
-    {
-    for (int i = plane.size() / 2; i < plane.size(); i++)
-      {
-      plane[i].pop_back();
-      plane[i].erase(plane[i].begin());
-      }
-    }
-  return 0;
-  }
-
 // Builds a domain 'template' of given type at the origin. The template can
 // be moved around to create the proper domain.
-std::vector<std::vector<std::vector<std::vector<int> > > >
-SkewCartesianPartitioner::domainTemplate(char type) const
+std::vector<std::vector<int> > SkewCartesianPartitioner::getTemplate() const
   {
-  int center = sx_ / 2 + 1;
-  std::vector<std::vector<std::vector<std::vector<int> > > > nodes(dof_);
+  HYMLS_PROF2(label_, "getTemplate");
+  // Principal directions
 
-  switch (type)
+  // Cartesian directions
+  int dirX = dof_;
+  int dirY = dof_*nx_;
+  int dirZ = dof_*nx_*ny_;
+
+  // Info for each node type
+  int firstNode[4] = {dof_*sx_/2 + 0 + dirY - dirY*(sx_/2+1),
+                         dof_*sx_/2 + 1 - 0    - dirY*(sx_/2+1),
+                         dof_*sx_/2 + 2 - dirZ - dirY*(sx_/2+1),
+                         dof_*sx_/2 + 3 + dirY - dirY*(sx_/2+1)};
+  int baseLength[4] = {sx_/2, sx_/2 + 1, sx_/2 + 1, sx_/2};
+
+  std::vector<std::vector<std::vector<int> > > nodes;
+
+  for (int type = 0; type < dof_; type++)
     {
-    case 'x':
-    {
-      //Directions
-      int dir1 = nx_;
-      int dir2 = nx_ * ny_;
-      int dir3 = 1;
+    nodes.emplace_back(2 * sx_ + 1);
 
-      // Baseplane offset
-      int offset = -(dir1 + dir2 + dir3);
+    // Get central layer
+    Plane plane = buildPlane45(firstNode[type], baseLength[type], dirX, dirY, dof_, pvar_);
+    if (type != 3)
+      nodes[type][sx_] = plane.plane;
 
-      // u nodes
-      for (int i = 1; i < center; i++)
-        nodes[0].insert(nodes[0].begin(), buildMatrix(i*dir1+i*dir2,
-            (sx_-i+1)*dir1+i*dir2, (sx_-i+1)*dir2+i*dir1,
-            dir1, dir2, offset-i*dir3, 0));
+    std::vector<int> bottom;
+    std::vector<int> top = plane.plane;
 
-      for (int i = 1; i < center; i++)
-        nodes[0].push_back(buildMatrix(i*dir1+i*dir2,
-            (sx_-i+1)*dir1+i*dir2, (sx_-i+1)*dir2+i*dir1,
-            dir1, dir2, offset+(i-1)*dir3, 0));
+    // Used in the loop to determine which nodes to assign to each layer
+    std::vector<int> rowLength;
+    for (int i = 0; i < plane.ptr.size()-1; i++)
+      rowLength.push_back(plane.ptr[i+1] - plane.ptr[i] - 1); // -1 ???
 
-      // v nodes
-      for (int i = 1; i < center; i++)
-        {
-        nodes[1].insert(nodes[1].begin(), buildMatrix(i*dir1+i*dir2,
-            (sx_-i)*dir1+i*dir2, (sx_-i+1)*dir2+i*dir1,
-            dir1, dir2, offset-i*dir3, 1));
-        removeOverlappingVNodes(nodes[1].front(), 0);
-        }
+    std::vector<int> activePtrs;
+    for (int i = 0; i < baseLength[type]; i++)
+      activePtrs.push_back(i);
 
-      nodes[1].push_back(buildMatrix(dir2,
-          sx_*dir1+dir2, sx_*dir2,
-          dir1, dir2, offset, 1));
+    std::vector<int> offset;
+    for (auto i: activePtrs)
+      offset.push_back(rowLength[i]);
 
-      for (int i = 1; i < center; i++)
-        {
-        nodes[1].push_back(buildMatrix(i*dir1+i*dir2,
-            (sx_-i)*dir1+i*dir2, (sx_-i+1)*dir2+i*dir1,
-            dir1, dir2, offset+i*dir3, 1));
-        removeOverlappingVNodes(nodes[1].back(), 0);
-        }
-
-      // w nodes
-      for (int i = 1; i < center; i++)
-        nodes[2].insert(nodes[2].begin(), buildMatrix(i*dir1+i*dir2,
-            (sx_-i)*dir1+i*dir2, (sx_-i)*dir2+i*dir1,
-            dir1, dir2, offset-i*dir3, 2));
-
-      nodes[2].push_back(buildMatrix(0,
-          sx_*dir1, sx_*dir2,
-          dir1, dir2, offset, 2));
-
-      for (int i = 1; i < center; i++)
-        nodes[2].push_back(buildMatrix(i*dir1+i*dir2,
-            (sx_-i)*dir1+i*dir2, (sx_-i)*dir2+i*dir1,
-            dir1, dir2, offset+i*dir3, 2));
-
-      // p nodes
-      for (int i = 1; i < center; i++)
-        nodes[3].insert(nodes[3].begin(), buildMatrix(i*dir1+i*dir2,
-            (sx_-i+1)*dir1+i*dir2, (sx_-i+1)*dir2+i*dir1,
-            dir1, dir2, offset-(i-1)*dir3, 3));
-
-      for (int i = 2; i < center; i++)
-        nodes[3].push_back(buildMatrix(i*dir1+i*dir2,
-            (sx_-i+1)*dir1+i*dir2, (sx_-i+1)*dir2+i*dir1,
-            dir1, dir2, offset+(i-1)*dir3, 3));
-    }
-    break;
-    case 'y':
-    {
-      // Directions
-      int dir1 = 1;
-      int dir2 = nx_ * ny_;
-      int dir3 = nx_;
-    
-      // Baseplane offset
-      int offset = -(dir1 + dir2 + dir3);
-
-      // u nodes
-      for (int i = 1; i < center; i++)
-        nodes[0].insert(nodes[0].begin(), buildMatrix((i-1)*dir1+i*dir2,
-            (sx_-i)*dir1+i*dir2, (sx_-i+1)*dir2+(i-1)*dir1,
-            dir1, dir2, offset-(i-1)*dir3, 0));
-
-      for (int i = 1; i < center; i++)
-        nodes[0].push_back(buildMatrix((i-1)*dir1+i*dir2,
-            (sx_-i)*dir1+i*dir2, (sx_-i+1)*dir2+(i-1)*dir1,
-            dir1, dir2, offset+i*dir3, 0));
-
-      // v nodes
-      for (int i = 1; i < center; i++)
-        nodes[1].insert(nodes[1].begin(), buildMatrix(i*dir1+i*dir2,
-            (sx_-i)*dir1+i*dir2,(sx_-i+1)*dir2+i*dir1,
-            dir1, dir2, offset-i*dir3, 1));
-
-      for (int i = 1; i < center; i++)
-        nodes[1].push_back(buildMatrix((i-1)*dir1+i*dir2,
-            (sx_-i+1)*dir1+i*dir2, (sx_-i+1)*dir2+(i-1)*dir1,
-            dir1, dir2, offset+(i-1)*dir3, 1));
-
-      // w nodes
-      for (int i = 1; i < center; i++)
-        nodes[2].insert(nodes[2].begin(), buildMatrix(i*dir1+i*dir2,
-            (sx_-i)*dir1+i*dir2, (sx_-i)*dir2+i*dir1,
-            dir1, dir2, offset-i*dir3, 2));
-
-      nodes[2].push_back(buildMatrix(0,
-          sx_*dir1, sx_*dir2,
-          dir1, dir2, offset, 2));
-
-      for (int i = 1; i < center; i++)
-        nodes[2].push_back(buildMatrix(i*dir1+i*dir2,
-            (sx_-i)*dir1+i*dir2, (sx_-i)*dir2+i*dir1,
-            dir1, dir2, offset+i*dir3, 2));
-
-      // p nodes
-      for (int i = 1; i < center; i++)
-        nodes[3].insert(nodes[3].begin(), buildMatrix(i*dir1+i*dir2,
-            (sx_-i)*dir1+i*dir2, (sx_-i+1)*dir2+i*dir1,
-            dir1, dir2, offset-(i-1)*dir3, 3));
-
-      for (int i = 2; i < center; i++)
-        nodes[3].push_back(buildMatrix((i-1)*dir1+i*dir2,
-            (sx_-i+1)*dir1+i*dir2, (sx_-i+1)*dir2+(i-1)*dir1,
-            dir1, dir2, offset+(i-1)*dir3, 3));
-    }
-    break;
-    case 'z':
-    {
-      // Directions
-      int dir1 = 1;
-      int dir2 = nx_;
-      int dir3 = nx_ * ny_;
-      
-      // Baseplane
-      int offset = -(dir1 + dir2 + dir3);
-
-      // u nodes
-      for (int i = 1; i < center; i++)
-        nodes[0].insert(nodes[0].begin(), buildMatrix((i-1)*dir1+i*dir2,
-            (sx_-i)*dir1+i*dir2, (sx_-i+1)*dir2+(i-1)*dir1,
-            dir1, dir2, offset-(i-1)*dir3, 0));
-
-      for (int i = 1; i < center; i++)
-        nodes[0].push_back(buildMatrix((i-1)*dir1+i*dir2,
-            (sx_-i)*dir1+i*dir2, (sx_-i+1)*dir2+(i-1)*dir1,
-            dir1, dir2, offset+i*dir3, 0));
-
-      // v nodes
-      for (int i = 1; i < center; i++)
-        {
-        nodes[1].insert(nodes[1].begin(), buildMatrix((i-1)*dir1+(i-1)*dir2,
-            (sx_-i+1)*dir1+(i-1)*dir2, (sx_-i)*dir2+(i-1)*dir1,
-            dir1, dir2, offset-(i-1)*dir3, 1));
-        removeOverlappingVNodes(nodes[1].front(), 2);
-        }
-
-      for (int i = 1; i < center; i++)
-        {
-        nodes[1].push_back(buildMatrix((i-1)*dir1+(i-1)*dir2,
-            (sx_-i+1)*dir1+(i-1)*dir2, (sx_-i)*dir2+(i-1)*dir1,
-            dir1, dir2, offset+i*dir3, 1));
-        removeOverlappingVNodes(nodes[1].back(), 2);
-        }
-
-      // w nodes
-      for (int i = 1; i < center; i++)
-        nodes[2].insert(nodes[2].begin(), buildMatrix(i*dir1+i*dir2,
-            (sx_-i)*dir1+i*dir2, (sx_-i)*dir2+i*dir1,
-            dir1, dir2, offset-i*dir3, 2));
-
-      nodes[2].push_back(buildMatrix(0,
-          sx_*dir1, sx_*dir2,
-          dir1, dir2, offset, 2));
-
-      for (int i = 1; i < center; i++)
-        nodes[2].push_back(buildMatrix(i*dir1+i*dir2,
-            (sx_-i)*dir1+i*dir2, (sx_-i)*dir2+i*dir1,
-            dir1, dir2, offset+i*dir3, 2));
-
-      // p nodes
-      for (int i = 1; i < center; i++)
-        nodes[3].insert(nodes[3].begin(), buildMatrix(i*dir1+i*dir2,
-            (sx_-i)*dir1+i*dir2, (sx_-i)*dir2+i*dir1,
-            dir1, dir2, offset-(i-1)*dir3, 3));
-
-      for (int i = 1; i < center; i++)
-        nodes[3].push_back(buildMatrix(i*dir1+i*dir2,
-            (sx_-i)*dir1+i*dir2, (sx_-i)*dir2+i*dir1,
-            dir1, dir2, offset+i*dir3, 3));
-    }
-    break;
-    }
-  return nodes;
-  }
-
-int SkewCartesianPartitioner::getDomainInfo(int sd, int &x, int &y, int &z, char &type) const
-  {
-  // Find z of layer that contains the subdomain
-  int totDomsPerLayer = npx_*npy_ + npx_ * (npy_+1) + (npx_+1) * npy_;
-  z = sd / totDomsPerLayer;
-
-  // first z-domain in the layer
-  int firstDomain = z * totDomsPerLayer;
-
-  // number of z-domains in the layer
-  int zDomsPerLayer = npx_ * npy_;
-
-  if (sd >= firstDomain && sd <= firstDomain + zDomsPerLayer - 1)
-    {
-    // The first zDomsPerLayer are z-domains
-    type = 'z';
-  
-    // Find x and y location
-    y = (sd - firstDomain) / npx_;
-    x = (sd - firstDomain) % npx_;
-    }
-  else
-    {
-    // First non-z-domain (this is always a y-domain)
-    int yStart = firstDomain + zDomsPerLayer;
-  
-    // Find y location
-    y = (sd - yStart) / (2*npx_+1);
-  
-    // Find x location (will be updated for x type)
-    x = (sd - yStart) % (2*npx_+1);
-  
-    // Note: for fixed y, we have npx_ y-domains, then (npx_+1) x-domains
-    // so x numbering is 0, 1, 2,, npx_-1, 0, 1, ..., npx_
-    // Therefore we have to subtract npx_ from x that was found above
-    // if we have an x-domain!
-    if (x < npx_)
-      type = 'y';
-    else
+    for (int i = 0; i < sx_; i++)
       {
-      type = 'x';
-    
-      // Update x location
-      x = x - npx_;
+      // Get indices for the layers
+      auto last = top.end();
+      for (int j = 0; j < activePtrs.size(); j++)
+        {
+        int val = plane.plane[plane.ptr[activePtrs[j]] + offset[j]];
+        bottom.push_back(val);
+        last = std::remove(top.begin(), last, val);
+        }
+      top.erase(last, top.end());
+
+      // Add layers
+      if (type == 2)
+        {
+        // w layers are an exception with odd/even layers
+        if (i % 2 == 1)
+          {
+          for (int j: nodes[type][i - 1])
+            nodes[type][i].push_back(j + dirY + dirZ);
+          for (int j: top)
+            nodes[type][sx_ + 1 + i].push_back(j + (i + 1) * dirZ);
+          }
+        else
+          {
+          for (int j: bottom)
+            nodes[type][i].push_back(j - (sx_ - i) * dirZ);
+          for (int j: nodes[type][sx_ + i])
+            nodes[type][sx_ + 1 + i].push_back(j + dirY + dirZ);
+          }
+        }
+      else
+        {
+        int isPvar = type == pvar_;
+        for (int j: bottom)
+          nodes[type][i + isPvar].push_back(j - (sx_ - i - isPvar) * dirZ);
+        for (int j: top)
+          nodes[type][sx_ + 1 + i].push_back(j + (i + 1) * dirZ);
+        }
+
+      if (i < sx_ - 1)
+        {
+        // Update pointers and offset
+        std::for_each(offset.begin(), offset.end(), [](int& d) { d--;});
+        if (type == pvar_)
+          {
+          // pressure nodes are an exception
+          if (offset[0] < 0)
+            {
+            activePtrs.erase(activePtrs.begin());
+            activePtrs.push_back(activePtrs.back() + 1);
+            offset.erase(offset.begin());
+            offset.push_back(rowLength[activePtrs.back()]);
+            }
+          }
+        else
+          {
+          if (offset[0] < 0)
+            {
+            activePtrs.erase(activePtrs.begin());
+            offset.erase(offset.begin());
+            }
+          else if (offset[0] == 0)
+            {
+            activePtrs.push_back(activePtrs.back() + 1);
+            offset.push_back(rowLength[activePtrs.back()]);
+            }
+          }
+        }
       }
     }
-  return 0;
-  }
 
-std::vector<int> SkewCartesianPartitioner::template2list(
-  std::vector<std::vector<std::vector<std::vector<int> > > > const &temp) const
-  {
-  std::vector<int> out;
-  for (auto &it: temp)
-    for (auto &it2: it)
-      for (auto &it3: it2)
-        for (auto &it4: it3)
-          out.push_back(it4);
+  // As turns out, there are some unnecessary nodes, so we remove them
+  // afterwards. Should be implemented with conditionals in main loop soon
+  // Remove top and bottop single wall
+  nodes[0].pop_back();
+  nodes[0].erase(nodes[0].begin());
 
-  std::sort(out.begin(), out.end());
-  return out;
-  }
+  nodes[1].pop_back();
+  nodes[1].erase(nodes[1].begin());
 
-std::vector<std::vector<int> > SkewCartesianPartitioner::solveGroups(char type,
-  std::vector<std::vector<std::vector<std::vector<int> > > > const &tempX,
-  std::vector<std::vector<std::vector<std::vector<int> > > > const &tempY,
-  std::vector<std::vector<std::vector<std::vector<int> > > > const &tempZ,
-  int directions[3]) const
-  {
-  int sx_ = tempX[2].size() - 1; // Just so we do not have to provide this as input
+  nodes[2].erase(nodes[2].begin());
 
-  std::vector<int> template1;
-  std::vector<int> template2;
-  std::vector<int> template3;
+  nodes[3].pop_back();
+  nodes[3].erase(nodes[3].begin());
 
-  int dir1, dir2, dir3;
-
-  switch (type)
+  // Remove more unnecessary separators, located at second and second-last
+  // layers of original template
+  for (int i = 0; i < 3; i++)
     {
-    case 'x':
-      template1 = template2list(tempX);
-      dir1 = directions[1];
-      template2 = template2list(tempY);
-      dir2 = directions[2];
-      template3 = template2list(tempZ);
-      dir3 = directions[0];
-      break;
-    case 'y':
-      template1 = template2list(tempY);
-      dir1 = directions[2];
-      template2 = template2list(tempZ);
-      dir2 = directions[0];
-      template3 = template2list(tempX);
-      dir3 = directions[1];
-      break;
-    case 'z':
-      template1 = template2list(tempZ);
-      dir1 = directions[0];
-      template2 = template2list(tempX);
-      dir2 = directions[1];
-      template3 = template2list(tempY);
-      dir3 = directions[2];
-      break;
+    nodes[i].front().erase(std::max_element(nodes[i].front().begin(), nodes[i].front().end()));
+    nodes[i].back().erase(std::min_element(nodes[i].back().begin(), nodes[i].back().end()));
     }
 
-  // Create model problem
-  // same type domains
-  int pos1[11] = {0, dir1, dir2, dir3, -dir1, -dir2, -dir3, dir1+dir2,
-                  -dir1+dir2, dir1-dir2, -dir1-dir2};
+  // Merge the template layers
+  std::vector<std::vector<int> > newNodes;
+  newNodes.push_back(nodes[2].front());
+  nodes[2].erase(nodes[2].begin());
+  for (int j = 0; j < nodes[0].size(); j++)
+    {
+    newNodes.emplace_back();
+    for (int i = 0; i < nodes.size(); i++)
+      std::copy(nodes[i][j].begin(), nodes[i][j].end(), std::back_inserter(newNodes.back()));
+    }
 
-  // different types
-  int pos2[12] = {0, dir2, -dir2, -dir3, dir2-dir3, -dir2-dir3, dir1,
-                  dir1+dir2, dir1-dir2, dir1-dir3, dir1+dir2-dir3, dir1-dir2-dir3};
-  int pos3[12] = {0, -dir1, dir1, -dir3, -dir1-dir3, dir1-dir3, dir2,
-                  -dir1+dir2, dir1+dir2, dir2-dir3, -dir1+dir2-dir3, dir1+dir2-dir3};
+  return newNodes;
+  }
+
+std::vector<std::vector<int> > SkewCartesianPartitioner::solveGroups(
+  std::vector<std::vector<int> > const &temp) const
+  {
+  HYMLS_PROF2(label_, "solveGroups");
+  // Principal directios for domain displacements
+  int dirX = dof_*sx_;
+  int dirY = dof_*nx_*sx_;
+  int dirZ = dof_*nx_*ny_*sx_;
+
+  int dir1 = (dirY + dirX)/2; 
+  int dir2 = (dirY - dirX)/2 + dirZ; 
+  int dir3 = dirZ;
+
+  // Create model problem
+  int positions[27] = {0, -dir3, dir3, -dir2, -dir2-dir3,
+                       -dir2+dir3, dir2, dir2-dir3, dir2+dir3,
+                       -dir1, -dir1-dir3, -dir1+dir3, -dir1-dir2,
+                       -dir1-dir2-dir3, -dir1-dir2+dir3, -dir1+dir2,
+                       -dir1+dir2-dir3, -dir1+dir2+dir3, dir1,
+                       dir1-dir3, dir1+dir3, dir1-dir2,
+                       dir1-dir2-dir3, dir1-dir2+dir3, dir1+dir2,
+                       dir1+dir2-dir3, dir1+dir2+dir3};
+
+  // Turn the template into a list
+  std::vector<int> tempList;
+  for (auto &it: temp)
+    for (auto &it2: it)
+      tempList.push_back(it2);
 
   // Setup all domains in the test problem
   std::vector<std::vector<int> > domain;
-  for (auto &it: pos1)
+  for (auto &it: positions)
     {
-    domain.emplace_back(template1);
-    std::for_each(domain.back().begin(), domain.back().end(),
-      [this, it](int& d) {d += this->dof_ * this->sx_ * it;});
-    }
-
-  for (auto &it: pos2)
-    {
-    domain.emplace_back(template2);
-    std::for_each(domain.back().begin(), domain.back().end(),
-      [this, it](int& d) {d += this->dof_ * this->sx_ * it;});
-    }
-
-  for (auto &it: pos3)
-    {
-    domain.emplace_back(template3);
-    std::for_each(domain.back().begin(), domain.back().end(),
-      [this, it](int& d) {d += this->dof_ * this->sx_ * it;});
+    domain.emplace_back(tempList);
+    std::for_each(domain.back().begin(), domain.back().end(), [it](int& d) { d += it;});
     }
 
   // Find groups. Note that domain[0] is the domain that we want to solve for
@@ -733,177 +612,264 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::solveGroups(char type,
   return groups;
   }
 
-std::vector<std::vector<int> > SkewCartesianPartitioner::createSubdomain(
-  int x, int y, int z, char type,
-  std::vector<std::vector<std::vector<std::vector<int> > > > temp,
+void SkewCartesianPartitioner::removeFromList(
+  std::vector<std::vector<int> > &in,
+  std::vector<std::vector<int> > const &toRemove) const
+  {
+  for (auto &l: in)
+    {
+    auto last = l.end();
+    for (auto &removeList: toRemove)
+      for (auto &node: removeList)
+        last = std::remove(l.begin(), last, node);
+    l.erase(last, l.end());
+    }
+  }
+
+std::vector<std::vector<int> > SkewCartesianPartitioner::createSubdomain(int sd,
+  std::vector<std::vector<int> > temp,
   std::vector<std::vector<int> > groups) const
   {
-  std::vector<int> numFirstHalf;
-  std::vector<int> coordinates;
-  std::vector<std::vector<int> > removeInfo;
+  HYMLS_PROF2(label_, "createSubdomain");
+  // Get top and bottom half of template
+  std::vector<std::vector<int> > topHalf;
+  std::vector<std::vector<int> > bottomHalf;
+  std::copy(temp.begin(), temp.begin() + sx_, std::back_inserter(bottomHalf));
+  std::copy(temp.begin() + sx_, temp.end(), std::back_inserter(topHalf));
 
-  int firstCell = sx_ * (x + y * nx_ + z * nx_ * ny_);
-  int coordMax = -1;
+  std::vector<std::vector<int> > removeCols(1);
+  int first = dof_ * sx_ / 2 - sx_ * dof_ * nx_ * ny_ - dof_ * (sx_/2+1) * nx_;
+  for (int i = 0; i < sx_+1; i++)
+    removeCols.back().push_back(first + i * dof_ * nx_ * ny_);
 
-  switch (type)
-    {
-    case 'x':
-      // Number of layers
-      numFirstHalf.push_back(sx_ / 2 + 1);
-      numFirstHalf.push_back(sx_ / 2 + 1);
-      numFirstHalf.push_back(sx_ / 2 + 1);
-      numFirstHalf.push_back(sx_ / 2);
+  removeCols.emplace_back(removeCols[0]);
+  std::for_each(removeCols.back().begin(), removeCols.back().end(), [](int& d) {d += 1;});
+  removeCols.emplace_back(removeCols[0]);
+  std::for_each(removeCols.back().begin(), removeCols.back().end(), [](int& d) {d += 2;});
+  removeCols.emplace_back(removeCols[0]);
+  std::for_each(removeCols.back().begin(), removeCols.back().end(),
+    [this](int& d) {d += 2 + this->dof_*(this->sx_-1)*this->nx_*this->ny_
+        + this->dof_*(this->sx_+1)*this->nx_;});
 
-      // Order of coordinates
-      coordinates.push_back(x);
-      coordinates.push_back(y);
-      coordinates.push_back(z);
+  removeCols.emplace_back(removeCols[0]);
+  std::for_each(removeCols.back().begin(), removeCols.back().end(),
+    [this](int& d) {d += 1 + this->dof_*(this->sx_ / 2) +
+        this->dof_ * (this->sx_ / 2) * this->nx_ + this->dof_ * this->nx_ * this->ny_;});
+  removeCols.emplace_back(removeCols[4]);
+  std::for_each(removeCols.back().begin(), removeCols.back().end(), [](int& d) {d += 1;});
+  removeCols.emplace_back(removeCols[5]);
+  std::for_each(removeCols.back().begin(), removeCols.back().end(),
+    [this](int& d) {d += this->dof_ * this->nx_;});
 
-      coordMax = npx_;
-
-      // From which node types to remove a row/col. {i,j} contains 
-      // nodes (1u, 2=v, 3=w, 4=p) to remove from half i and coordinate j
-      removeInfo.emplace_back();
-      removeInfo.back().push_back(1);
-      removeInfo.back().push_back(2);
-      removeInfo.emplace_back(1, 2);
-      removeInfo.emplace_back();
-      removeInfo.emplace_back();
-      break;
-    case 'y':
-      // Number of layers
-      numFirstHalf.push_back(sx_ / 2);
-      numFirstHalf.push_back(sx_ / 2 + 1);
-      numFirstHalf.push_back(sx_ / 2 + 1);
-      numFirstHalf.push_back(sx_ / 2);
-
-      // Order of coordinates
-      coordinates.push_back(y);
-      coordinates.push_back(x);
-      coordinates.push_back(z);
-
-      coordMax = npy_;
-
-      // From which node types to remove a row/col. {i,j} contains 
-      // nodes (1u, 2=v, 3=w, 4=p) to remove from half i and coordinate j
-      removeInfo.emplace_back();
-      removeInfo.back().push_back(0);
-      removeInfo.back().push_back(1);
-      removeInfo.back().push_back(2);
-      removeInfo.emplace_back(1, 2);
-      removeInfo.emplace_back(1, 0);
-      removeInfo.emplace_back();
-      break;
-    case 'z':
-      // Number of layers
-      numFirstHalf.push_back(sx_ / 2);
-      numFirstHalf.push_back(sx_ / 2);
-      numFirstHalf.push_back(sx_ / 2 + 1);
-      numFirstHalf.push_back(sx_ / 2);
-
-      // Order of coordinates
-      coordinates.push_back(z);
-      coordinates.push_back(x);
-      coordinates.push_back(y);
-
-      coordMax = npz_;
-
-      // From which node types to remove a row/col. {i,j} contains 
-      // nodes (1=u, 2=v, 3=w, 4=p) to remove from half i and coordinate j
-      removeInfo.emplace_back();
-      removeInfo.back().push_back(0);
-      removeInfo.back().push_back(1);
-      removeInfo.back().push_back(2);
-      removeInfo.emplace_back();
-      removeInfo.back().push_back(1);
-      removeInfo.back().push_back(2);
-      removeInfo.emplace_back();
-      removeInfo.back().push_back(0);
-      removeInfo.back().push_back(1);
-      removeInfo.emplace_back(1, 1);
-      break;
-    }
-
-  
-  // Get first and second half of template
-  std::vector<std::vector<std::vector<std::vector<int> > > > firstHalf;
-  std::vector<std::vector<std::vector<std::vector<int> > > > secondHalf;
-  std::vector<int> removeList;
-
-  // Move the template and the groups
-  for (int i = 0; i < temp.size(); i++)
-    for (int j = 0; j < temp[i].size(); j++)
-      for (int k = 0; k < temp[i][j].size(); k++)
-        std::for_each(temp[i][j][k].begin(), temp[i][j][k].end(),
-          [this, firstCell](int& d) { d += this->dof_ * firstCell;});
-
-  for (int i = 0; i < groups.size(); i++)
-    std::for_each(groups[i].begin(), groups[i].end(),
-      [this, firstCell](int& d) { d += this->dof_ * firstCell;});
-
-  for (int i = 0; i < temp.size(); i++)
-    {
-    firstHalf.emplace_back();
-    std::copy(temp[i].begin(), temp[i].begin() + numFirstHalf[i],
-      std::back_inserter(firstHalf[i]));
-    secondHalf.emplace_back();
-    std::copy(temp[i].begin() + numFirstHalf[i], temp[i].end(),
-      std::back_inserter(secondHalf[i]));
-    }
-
-  std::vector<std::vector<std::vector<std::vector<int> > > > &tempRef = temp;
-  std::vector<std::vector<int> > removePos;
-  // Check whether to throw away a half
-  if (coordinates[0] == 0)
-    {
-    tempRef = secondHalf;
-    removeList = template2list(firstHalf);
-    removePos.emplace_back();
-    removePos.emplace_back(dof_, 0);
-    }
-  else if (coordinates[0] == coordMax)
-    {
-    tempRef = firstHalf;
-    removeList = template2list(secondHalf);
-    removePos.emplace_back(numFirstHalf);
-    std::for_each(removePos.back().begin(), removePos.back().end(), [](int& d) {d--;});
-    removePos.emplace_back();
-    }
-  else // Both halves
-    {
-    removePos.emplace_back(numFirstHalf);
-    std::for_each(removePos.back().begin(), removePos.back().end(), [](int& d) {d--;});
-    removePos.emplace_back(numFirstHalf);
-    }
-
-  // Add excess nodes to RemoveList
-  for (int half = 0; half < removePos.size(); half++)
-    {
-    if (!removePos[half].empty())
+  std::vector<std::vector<int> > NSintersect(1);
+  std::vector<std::vector<int> > EWintersect(1);
+  for (int type = 0; type < dof_; type++)
+    for (int jj = 0; jj < sx_; jj++)
       {
-      for (int coord = 1; coord < 3; coord++)
+      // South
+      for (int i = 0; i < sx_/2+1; i++)
+        for (int j = 0; j < sx_ + 1; j++)
+          NSintersect[0].push_back(dof_ * j + i * dof_ * nx_ - sx_ * dof_ * nx_ * ny_
+            - dof_ * (sx_/2+1) * nx_ + jj * dof_ * nx_ * ny_ + type);
+      // West
+      for (int i = 0; i < sx_+2; i++)
+        for (int j = 0; j < sx_/2; j++)
+          EWintersect[0].push_back(dof_ * j + i * dof_ * nx_ - sx_ * dof_ * nx_ * ny_
+            - dof_ * (sx_/2+1) * nx_ + jj * dof_ * nx_ * ny_ + type);
+      }
+
+  std::vector<std::vector<std::vector<int> > > north;
+  std::vector<std::vector<std::vector<int> > > west;
+  std::vector<std::vector<std::vector<int> > > south;
+  std::vector<std::vector<std::vector<int> > > east;
+
+  north.emplace_back(bottomHalf);
+  removeFromList(north[0], NSintersect);
+  south.emplace_back(bottomHalf);
+  removeFromList(south[0], north[0]);
+  east.emplace_back(bottomHalf);
+  removeFromList(east[0], EWintersect);
+  west.emplace_back(bottomHalf);
+  removeFromList(west[0], east[0]);
+
+  std::for_each(NSintersect[0].begin(), NSintersect[0].end(),
+    [this](int& d) {d += this->sx_ * this->dof_ * this->nx_ * this->ny_;});
+  std::for_each(EWintersect[0].begin(), EWintersect[0].end(),
+    [this](int& d) {d += this->sx_ * this->dof_ * this->nx_ * this->ny_;});
+
+  north.emplace_back(topHalf);
+  removeFromList(north[1], NSintersect);
+  south.emplace_back(topHalf);
+  removeFromList(south[1], north[1]);
+  east.emplace_back(topHalf);
+  removeFromList(east[1], EWintersect);
+  west.emplace_back(topHalf);
+  removeFromList(west[1], east[1]);
+
+  int totNum2DCubes = npx_ * npy_; // number of cubes for fixed z
+  int numPerLayer = 2 * totNum2DCubes + npx_ + npy_; // domains for fixed z
+  int numPerRow = 2*npx_ + 1; // domains in a row (both lattices); fixed y
+
+  // Get domain coordinates and its first node
+  // Considers 'superposed lattices
+  int Z = sd / numPerLayer;
+  double Y = ((sd - Z * numPerLayer) / numPerRow) - 0.5;
+  double X = (sd - Z * numPerLayer) % numPerRow;
+  int lattice = 1;
+  if (X >= npx_)
+    {
+    X -= npx_ + 0.5;
+    Y += 0.5;
+    lattice = 2;
+    }
+
+  int firstNode = dof_ * sx_ * (X + Y * nx_) + dof_ * nx_ * (sx_/2) + dof_ * nx_ * ny_ * sx_ * Z;
+
+  double eps = 1e-8;
+  std::vector<std::vector<int> const *> toRemove;
+  if (lattice == 1)
+    {
+    if (std::abs(Y + 0.5) < eps)
+      {
+      if (Z == 0)
         {
-        if (coordinates[coord] == 0)
-          {
-          for (int &n: removeInfo[half * 2 + coord - 1])
-            {
-            if (coord == 1)
-              {
-              // Compute the maximum length to account for v-domains that miss
-              // half of a column
-              size_t maxLen = 0;
-              for (int i = 0; i < tempRef[n][removePos[half][n]].size(); i++)
-                maxLen = std::max(maxLen, tempRef[n][removePos[half][n]][i].size());
-              for (int i = 0; i < tempRef[n][removePos[half][n]].size(); i++)
-                if (tempRef[n][removePos[half][n]][i].size() == maxLen)
-                  removeList.push_back(tempRef[n][removePos[half][n]][i][0]);
-              }
-            else if (coord == 2)
-              for (int i = 0; i < tempRef[n][removePos[half][n]][0].size(); i++)
-                removeList.push_back(tempRef[n][removePos[half][n]][0][i]);
-            }
-          }
+        std::for_each(bottomHalf.begin(), bottomHalf.end(),
+          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
+        std::for_each(south[1].begin(), south[1].end(),
+          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
         }
+      else if (Z == npz_)
+        {
+        std::for_each(topHalf.begin(), topHalf.end(),
+          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
+        std::for_each(south[0].begin(), south[0].end(),
+          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
+        }
+      else
+        {
+        std::for_each(south[0].begin(), south[0].end(),
+          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
+        std::for_each(south[1].begin(), south[1].end(),
+          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
+        }
+      }
+    else if (std::abs(Y - npy_ + 0.5) < eps)
+      {
+      if (Z == 0)
+        {
+        std::for_each(bottomHalf.begin(), bottomHalf.end(),
+          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
+        std::for_each(north[1].begin(), north[1].end(),
+          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
+        }
+      else if (Z == npz_)
+        {
+        std::for_each(topHalf.begin(), topHalf.end(),
+          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
+        std::for_each(north[0].begin(), north[0].end(),
+          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
+        }
+      else
+        {
+        std::for_each(north[0].begin(), north[0].end(),
+          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
+        std::for_each(north[1].begin(), north[1].end(),
+          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
+        }
+      }
+    else
+      {
+      if (Z == 0)
+        {
+        std::for_each(bottomHalf.begin(), bottomHalf.end(),
+          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
+        }
+      else if (Z == npz_)
+        {
+        std::for_each(topHalf.begin(), topHalf.end(),
+          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
+        }
+      }
+
+    if (std::abs(X - npx_ + 1) < eps)
+      {
+      toRemove.push_back(&removeCols[4]);
+      toRemove.push_back(&removeCols[5]);
+      toRemove.push_back(&removeCols[6]);
+      }
+    }
+  else if (lattice == 2)
+    {
+    if (std::abs(X + 0.5) < eps)
+      {
+      if (Z == 0)
+        {
+        std::for_each(bottomHalf.begin(), bottomHalf.end(),
+          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
+        std::for_each(west[1].begin(), west[1].end(),
+          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
+        }
+      else if (Z == npz_)
+        {
+        std::for_each(topHalf.begin(), topHalf.end(),
+          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
+        std::for_each(west[0].begin(), west[0].end(),
+          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
+        }
+      else
+        {
+        std::for_each(west[0].begin(), west[0].end(),
+          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
+        std::for_each(west[1].begin(), west[1].end(),
+          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
+        }
+      }
+    else if (std::abs(X - npx_ + 0.5) < eps)
+      {
+      if (Z == 0)
+        {
+        std::for_each(bottomHalf.begin(), bottomHalf.end(),
+          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
+        std::for_each(east[1].begin(), east[1].end(),
+          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
+        }
+      else if (Z == npz_)
+        {
+        std::for_each(topHalf.begin(), topHalf.end(),
+          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
+        std::for_each(east[0].begin(), east[0].end(),
+          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
+        }
+      else
+        {
+        std::for_each(east[0].begin(), east[0].end(),
+          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
+        std::for_each(east[1].begin(), east[1].end(),
+          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
+        }
+      }
+    else
+      {
+      if (Z == 0)
+        {
+        std::for_each(bottomHalf.begin(), bottomHalf.end(),
+          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
+        }
+      else if (Z == npz_)
+        {
+        std::for_each(topHalf.begin(), topHalf.end(),
+          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
+        }
+      }
+
+    if (std::abs(Y) < eps)
+      {
+      toRemove.push_back(&removeCols[1]);
+      toRemove.push_back(&removeCols[2]);
+      }
+    else if (std::abs(Y - npy_ + 1) < eps)
+      {
+      toRemove.push_back(&removeCols[3]);
       }
     }
 
@@ -911,15 +877,16 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::createSubdomain(
   for (auto &group: groups)
     {
     auto last = group.end();
-    for (int &toRemove: removeList)
-      last = std::remove(group.begin(), last, toRemove);
+    for (auto &removeList: toRemove)
+      for (int const &node: *removeList)
+        last = std::remove(group.begin(), last, node);
     group.erase(last, group.end());
     }
 
   // Get first pressure node from interior to a new group.
   // Assumes ordering of groups by size!
   for (int &node: groups[0])
-    if (node % dof_ == pvar_)
+    if (((node % dof_) + dof_) % dof_ == pvar_)
       {
       groups.emplace_back(1, node);
       groups[0].erase(std::remove(groups[0].begin(), groups[0].end(), node), groups[0].end());
@@ -930,6 +897,11 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::createSubdomain(
   groups.erase(std::remove_if(groups.begin(), groups.end(),
       [](std::vector<int> &i){return i.empty();}), groups.end());
 
+  // Move the groups to the right position
+  for (int i = 0; i < groups.size(); i++)
+    std::for_each(groups[i].begin(), groups[i].end(),
+      [firstNode](int& d) { d += firstNode;});
+
   return groups;
   }
 
@@ -938,24 +910,7 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_no
   {
   HYMLS_PROF2(label_,"GetGroups");
 
-  char type;
-  int x, y, z;
-  getDomainInfo(sd, x, y, z, type);
-  std::vector<std::vector<int> > nodes;
-  
-  switch (type)
-    {
-    case 'x':
-      nodes = createSubdomain(x, y, z, type, templateX_, groupsX_);
-      break;
-    case 'y':
-      nodes = createSubdomain(x, y, z, type, templateY_, groupsY_);
-      break;
-    case 'z':
-      nodes = createSubdomain(x, y, z, type, templateZ_, groupsZ_);
-      break;
-    }
-
+  std::vector<std::vector<int> > nodes = createSubdomain(sd, template_, groups_);
   interior_nodes = nodes[0];
   std::copy(nodes.begin() + 1, nodes.end(), std::back_inserter(separator_nodes));
 

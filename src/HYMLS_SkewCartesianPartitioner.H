@@ -49,27 +49,17 @@ protected:
   //! may assume that npx_, sx_ etc. are already set so that operator() works.
   int CreateSubdomainMap();
 
-  std::vector<std::vector<int> > buildMatrix(int c_11, int c_1n, int c_m1,
-    int colskip, int rowskip, int offset, int var) const;
+  std::vector<std::vector<int> > getTemplate() const;
 
-  int removeOverlappingVNodes(std::vector<std::vector<int> > &plane, int type) const;
+  std::vector<std::vector<int> > solveGroups(
+    std::vector<std::vector<int> > const &temp) const;
 
-  std::vector<std::vector<std::vector<std::vector<int> > > > domainTemplate(char type) const;
+  void removeFromList(
+    std::vector<std::vector<int> > &in,
+    std::vector<std::vector<int> > const &toRemove) const;
 
-  int getDomainInfo(int sd, int &x, int &y, int &z, char &type) const;
-
-  std::vector<int> template2list(
-    std::vector<std::vector<std::vector<std::vector<int> > > > const &temp) const;
-
-  std::vector<std::vector<int> > solveGroups(char type,
-  std::vector<std::vector<std::vector<std::vector<int> > > > const &tempX,
-  std::vector<std::vector<std::vector<std::vector<int> > > > const &tempY,
-  std::vector<std::vector<std::vector<std::vector<int> > > > const &tempZ,
-    int directions[3]) const;
-
-  std::vector<std::vector<int> > createSubdomain(
-    int x, int y, int z, char type,
-    std::vector<std::vector<std::vector<std::vector<int> > > > temp,
+  std::vector<std::vector<int> > createSubdomain(int sd,
+    std::vector<std::vector<int> > temp,
     std::vector<std::vector<int> > groups) const;
 
 public:
@@ -124,11 +114,10 @@ protected:
   Teuchos::RCP<const Epetra_Map> cartesianMap_;
 
   //! Subdomain templates
-  std::vector<std::vector<std::vector<std::vector<int> > > > templateX_,
-    templateY_, templateZ_;
+  std::vector<std::vector<int> > template_;
 
   //! Subdomain template groups
-  std::vector<std::vector<int> > groupsX_, groupsY_, groupsZ_;
+  std::vector<std::vector<int> > groups_;
 
   //! global grid size
   int nx_, ny_, nz_;
