@@ -49,15 +49,22 @@ protected:
   //! may assume that npx_, sx_ etc. are already set so that operator() works.
   int CreateSubdomainMap();
 
+  //! Get a template for the different subdomains
   std::vector<std::vector<int> > getTemplate() const;
 
+  //! Get the groups from the template
   std::vector<std::vector<int> > solveGroups(
     std::vector<std::vector<int> > const &temp) const;
 
+  //! Remove some items from a list in the template
   void removeFromList(
     std::vector<std::vector<int> > &in,
     std::vector<std::vector<int> > const &toRemove) const;
 
+  //! Split the templte into different parts (for boundary cases)
+  void splitTemplate();
+
+  //! Create the subdomain from the template
   std::vector<std::vector<int> > createSubdomain(int sd,
     std::vector<std::vector<int> > temp,
     std::vector<std::vector<int> > groups) const;
@@ -113,11 +120,20 @@ protected:
   //! exactly one process/belong to only one partition)
   Teuchos::RCP<const Epetra_Map> cartesianMap_;
 
-  //! Subdomain templates
+  //! Subdomain template
   std::vector<std::vector<int> > template_;
 
   //! Subdomain template groups
   std::vector<std::vector<int> > groups_;
+
+  //! Different parts of the template
+  std::vector<std::vector<int> > topHalf_;
+  std::vector<std::vector<int> > bottomHalf_;
+  std::vector<std::vector<int> > removeCols_;
+  std::vector<std::vector<std::vector<int> > > north_;
+  std::vector<std::vector<std::vector<int> > > west_;
+  std::vector<std::vector<std::vector<int> > > south_;
+  std::vector<std::vector<std::vector<int> > > east_;
 
   //! global grid size
   int nx_, ny_, nz_;
