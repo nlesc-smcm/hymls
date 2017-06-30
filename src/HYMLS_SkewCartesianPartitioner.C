@@ -192,7 +192,7 @@ int SkewCartesianPartitioner::CreateSubdomainMap()
   int numPerRow = 2 * npx_ + 1; // domains in a row (both lattices); fixed y
 
   int NumMyElements = 0;
-  int NumGlobalElements = (npz_ + 1) * numPerLayer - 1;
+  int NumGlobalElements = (npz_ + 1) * numPerLayer;
   int *MyGlobalElements = new int[NumGlobalElements];
 
   for (int k = 0; k < nz_; k++)
@@ -498,6 +498,14 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::getTemplate() const
   nodes[3].pop_back();
   nodes[3].erase(nodes[3].begin());
 
+  // Remove more unnecessary separators, located at second and second-last
+  // layers of original template
+  for (int i = 0; i < 3; i++)
+    {
+    nodes[i].front().erase(std::max_element(nodes[i].front().begin(), nodes[i].front().end()));
+    nodes[i].back().erase(std::min_element(nodes[i].back().begin(), nodes[i].back().end()));
+    }
+
   // Merge the template layers
   std::vector<std::vector<int> > newNodes;
   newNodes.push_back(nodes[2].front());
@@ -597,12 +605,12 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::solveGroups(
   // Remove empty groups from newGroups and place them after
   // the interior in groups
   groups.resize(1);
-  // std::sort(groups[0].begin(), groups[0].end());
+  std::sort(groups[0].begin(), groups[0].end());
   for (auto &cats: newGroups)
     for (auto &group: cats)
       if (!group.empty())
         {
-        // std::sort(group.begin(), group.end());
+        std::sort(group.begin(), group.end());
         groups.push_back(group);
         }
 
@@ -886,6 +894,15 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::createSubdomain(int sd,
     group.erase(last, group.end());
     }
 
+  // Remove empty groups
+  groups.erase(std::remove_if(groups.begin(), groups.end(),
+      [](std::vector<int> &i){return i.empty();}), groups.end());
+
+  // Move the groups to the right position
+  for (int i = 0; i < groups.size(); i++)
+    std::for_each(groups[i].begin(), groups[i].end(),
+      [firstNode](int& d) { d += firstNode;});
+
   // Get first pressure node from interior to a new group.
   // Assumes ordering of groups by size!
   for (int &node: groups[0])
@@ -896,14 +913,63 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::createSubdomain(int sd,
       break;
       }
 
+  // Split separator groups that that do not belong to the same subdomain.
+  // This may happen for the w-groups since the w-separators are staggered
+  std::vector<std::vector<int> > oldGroups;
+  std::copy(groups.begin() + 1, groups.end(), std::back_inserter(oldGroups));
+  groups.resize(1);
+  for (auto &group: oldGroups)
+    {
+    std::map<int, std::vector<int> > newGroups;
+    for (int node: group)
+      {
+      int gsd = operator()((node / dof_) % nx_,
+        (node / dof_ / nx_) % ny_, node / dof_ / nx_ / ny_);
+      auto newGroup = newGroups.find(gsd);
+      if (newGroup != newGroups.end())
+        newGroup->second.push_back(node);
+      else
+        newGroups.emplace(gsd, std::vector<int>(1, node));
+      }
+    for (auto &newGroup: newGroups)
+      groups.push_back(newGroup.second);
+    }
+
+  // Remove separator nodes that lie on the boundary of the domain.
+  // We need this because those nodes don't actually border any interior
+  // nodes of the other subdomain
+  for (auto group = groups.begin() + 1; group != groups.end(); ++group)
+    {
+    std::vector<int> groupCopy = *group;
+    for (int node: groupCopy)
+      {
+      int x = (node / dof_) % nx_;
+      int y = (node / dof_ / nx_) % ny_;
+      int z = node / dof_ / nx_ / ny_;
+      if (x == nx_ - 1 && node % dof_ == 0)
+        {
+        if (operator()(x, y, z) == sd)
+          groups[0].push_back(node);
+        group->erase(std::remove(group->begin(), group->end(), node));
+        }
+      else if (y == ny_ - 1 && node % dof_ == 1)
+        {
+        if (operator()(x, y, z) == sd)
+          groups[0].push_back(node);
+        group->erase(std::remove(group->begin(), group->end(), node));
+        }
+      else if (z == nz_ - 1 && node % dof_ == 2)
+        {
+        if (operator()(x, y, z) == sd)
+          groups[0].push_back(node);
+        group->erase(std::remove(group->begin(), group->end(), node));
+        }
+      }
+    }
+
   // Remove empty groups
   groups.erase(std::remove_if(groups.begin(), groups.end(),
       [](std::vector<int> &i){return i.empty();}), groups.end());
-
-  // Move the groups to the right position
-  for (int i = 0; i < groups.size(); i++)
-    std::for_each(groups[i].begin(), groups[i].end(),
-      [firstNode](int& d) { d += firstNode;});
 
   return groups;
   }

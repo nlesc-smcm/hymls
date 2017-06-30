@@ -165,9 +165,6 @@ protected:
   //! type of periodicity in the problem
   GaleriExt::PERIO_Flag perio_;
 
-  //! pointers into map
-  Teuchos::Array<int> subdomainPointer_;
-
 protected:
 
   //! get processor on which a grid point is located
