@@ -207,7 +207,8 @@ int SkewCartesianPartitioner::CreateSubdomainMap()
         }
 
   std::sort(MyGlobalElements, MyGlobalElements + NumMyElements);
-  sdMap_ = Teuchos::rcp(new Epetra_Map(-1, NumMyElements, MyGlobalElements, 0, *comm_));
+  sdMap_ = Teuchos::rcp(new Epetra_Map(NumGlobalElements,
+      NumMyElements, MyGlobalElements, 0, *comm_));
 
   delete [] MyGlobalElements;
   return 0;
@@ -215,10 +216,10 @@ int SkewCartesianPartitioner::CreateSubdomainMap()
 
 int SkewCartesianPartitioner::Partition(int nparts, bool repart)
   {
-  HYMLS_PROF3(label_,"Partition");
-  int npx,npy,npz;
-  Tools::SplitBox(nx_,ny_,nz_,nparts,npx,npy,npz);
-  return this->Partition(npx,npy,npz,repart);
+  HYMLS_PROF3(label_, "Partition");
+  int npx, npy, npz;
+  Tools::SplitBox(nx_, ny_, nz_, nparts, npx, npy, npz);
+  return Partition(nx_ / npx, ny_ / npy, nz_ / npz, repart);
   }
 
 // partition an [nx x ny x nz] grid with one DoF per node
@@ -923,8 +924,7 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::createSubdomain(int sd,
     std::map<int, std::vector<int> > newGroups;
     for (int node: group)
       {
-      int gsd = operator()((node / dof_) % nx_,
-        (node / dof_ / nx_) % ny_, node / dof_ / nx_ / ny_);
+      int gsd = operator()(node);
       auto newGroup = newGroups.find(gsd);
       if (newGroup != newGroups.end())
         newGroup->second.push_back(node);
@@ -979,7 +979,9 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_no
   {
   HYMLS_PROF2(label_,"GetGroups");
 
-  std::vector<std::vector<int> > nodes = createSubdomain(sd, template_, groups_);
+  int gsd = sdMap_->GID(sd);
+
+  std::vector<std::vector<int> > nodes = createSubdomain(gsd, template_, groups_);
   interior_nodes = nodes[0];
   std::copy(nodes.begin() + 1, nodes.end(), std::back_inserter(separator_nodes));
 
@@ -995,7 +997,101 @@ int SkewCartesianPartitioner::VariableType(int gid) const
 //! get processor on which a grid point is located
 int SkewCartesianPartitioner::PID(int i, int j, int k) const
   {
-  return 0;
+  #ifdef HYMLS_TESTING
+  if (!Partitioned())
+    {
+    Tools::Error("Partition() not yet called!", __FILE__, __LINE__);
+    }
+#endif
+  int dir1 = nprocx_ + 1;
+  int dir2 = nprocx_;
+  int dir3 = 2*nprocx_*nprocy_ + nprocx_ + nprocy_;
+
+  int sx = nx_ / nprocx_;
+  int sy = ny_ / nprocy_;
+  int sz = nz_ / nprocz_;
+
+  int cl = std::max(sx, sy);
+  cl = std::max(cl, sz);
+
+  // which cube
+  int xcube = i / cl;
+  int ycube = j / cl;
+  int zcube = k / cl;
+
+  // first domain in the cube
+  int sd = zcube * dir3 + ycube * (dir2 + dir1) + xcube;
+
+  // relative coordinates
+  i -= xcube * cl;
+  j -= ycube * cl;
+  k -= zcube * cl;
+
+  if (j < cl - i) // red
+    {
+    if (j < i) // green
+      {
+      if (!(k <= cl + j - i)) // blue
+        sd += dir3;
+      }
+    else
+      {
+      if (k <= j - i) // blue
+        sd += dir2;
+      else
+        sd += dir2+dir3;
+      }
+    }
+  else
+    {
+    if (j < i) // green
+      {
+      if (k <= cl + j - i) // blue
+        sd += dir1;
+      else 
+        sd += dir1+dir3;
+      }
+    else
+      {
+      if (k <= j - i) // blue
+        sd += dir1+dir2;
+      else 
+        sd += dir1+dir2+dir3;
+      }
+    }
+
+  int totNum2DCubes = nprocx_ * nprocy_; // number of cubes for fixed z
+  int numPerLayer = 2 * totNum2DCubes + nprocx_ + nprocy_; // domains for fixed z
+  int numPerRow = 2 * nprocx_ + 1; // domains in a row (both lattices); fixed y
+
+  int Z = sd / numPerLayer;
+  double Y = ((sd - Z * numPerLayer) / numPerRow) - 0.5;
+  double X = (sd - Z * numPerLayer) % numPerRow;
+  if (X >= nprocx_)
+    {
+    X -= nprocx_ + 0.5;
+    Y += 0.5;
+    }
+
+  int firstNode = cl * (X + Y * nx_) + nx_ * (cl/2) + nx_ * ny_ * cl * Z;
+  i = ((firstNode % nx_) + nx_) % nx_;
+  j = (((firstNode / nx_) % ny_) + ny_) % ny_;
+  k = (((firstNode / nx_ / ny_) % nz_) + nz_) % nz_;
+
+  // In which cube is the cell?
+  int sdx = i / sx;
+  int sdy = j / sy;
+  int sdz = k / sz;
+
+  int pid = (sdz * nprocy_ + sdy) * nprocx_ + sdx;
+
+#ifdef HYMLS_TESTING
+  if (pid < 0 || pid >= nprocx_ * nprocy_ * nprocz_)
+    Tools::Error("Invalid PID "+Teuchos::toString(pid),
+      __FILE__, __LINE__);
+#endif
+
+  return pid;
   }
 
   }
