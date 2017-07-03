@@ -516,6 +516,7 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::getTemplate() const
     newNodes.emplace_back();
     for (int i = 0; i < nodes.size(); i++)
       std::copy(nodes[i][j].begin(), nodes[i][j].end(), std::back_inserter(newNodes.back()));
+    std::sort(newNodes.back().begin(), newNodes.back().end());
     }
 
   return newNodes;
@@ -571,8 +572,11 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::solveGroups(
     // For each node, first check to which domains it belongs and store it as bits
     unsigned long long listOfDomains = 0;
     for (int i = 0; i < domain.size(); i++)
-      if (std::find(domain[i].begin(), domain[i].end(), node) != domain[i].end())
+      {
+      auto it = std::lower_bound(domain[i].begin(), domain[i].end(), node);
+      if (it != domain[i].end() && *it == node)
         listOfDomains += 1 << i;
+      }
 
     // Now check whether a group for this list was already created, and if
     // not, create it. Then add the nodes+domains to this group
