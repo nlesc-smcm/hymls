@@ -56,11 +56,6 @@ protected:
   std::vector<std::vector<int> > solveGroups(
     std::vector<std::vector<int> > const &temp) const;
 
-  //! Remove some items from a list in the template
-  void removeFromList(
-    std::vector<std::vector<int> > &in,
-    std::vector<std::vector<int> > const &toRemove) const;
-
   //! Split the templte into different parts (for boundary cases)
   void splitTemplate();
 

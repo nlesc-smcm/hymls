@@ -65,6 +65,48 @@ Plane buildPlane45(int firstNode, int length, int dirX, int dirY, int dof, int p
   return plane;
   }
 
+void removeFromList(std::vector<int> &in,
+  std::vector<int> const &toRemove)
+  {
+  auto current = in.begin();
+  auto last = in.begin();
+  auto remove = toRemove.begin();
+
+  while (current != in.end())
+    {
+    bool endReached = remove == toRemove.end() || current == in.end();
+    if (!endReached && *remove < *current)
+      ++remove;
+    else if (!endReached && *remove == *current)
+      ++current;
+    else
+      {
+      *last = *current;
+      ++current;
+      ++last;
+      }
+    }
+  in.erase(last, in.end());
+  }
+
+void removeFromList(
+  std::vector<std::vector<int> > &in,
+  std::vector<std::vector<int> > const &toRemove)
+  {
+  for (auto &l: in)
+    for (auto &removeList: toRemove)
+      removeFromList(l, removeList);
+  }
+
+void removeFromList(
+  std::vector<std::vector<int> > &in,
+  std::vector<std::vector<int> const *> const &toRemove)
+  {
+  for (auto &l: in)
+    for (auto &removeList: toRemove)
+      removeFromList(l, *removeList);
+  }
+
 namespace HYMLS {
 
 // by default, everyone is assumed to own a part of the domain.
@@ -622,37 +664,6 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::solveGroups(
   return groups;
   }
 
-void SkewCartesianPartitioner::removeFromList(
-  std::vector<std::vector<int> > &in,
-  std::vector<std::vector<int> > const &toRemove) const
-  {
-  for (auto &l: in)
-    {
-    for (auto &removeList: toRemove)
-      {
-      auto current = l.begin();
-      auto last = l.begin();
-      auto remove = removeList.begin();
-
-      while (current != l.end())
-        {
-        bool endReached = remove == removeList.end() || current == l.end();
-        if (!endReached && *remove < *current)
-          ++remove;
-        else if (!endReached && *remove == *current)
-          ++current;
-        else
-          {
-          *last = *current;
-          ++current;
-          ++last;
-          }
-        }
-      l.erase(last, l.end());
-      }
-    }
-  }
-
 void SkewCartesianPartitioner::splitTemplate()
   {
   HYMLS_PROF2(label_, "splitTemplate");
@@ -910,14 +921,7 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::createSubdomain(int sd,
     }
 
   // Get all groups, and remove the entries that are on removeList
-  for (auto &group: groups)
-    {
-    auto last = group.end();
-    for (auto &removeList: toRemove)
-      for (int const &node: *removeList)
-        last = std::remove(group.begin(), last, node);
-    group.erase(last, group.end());
-    }
+  removeFromList(groups, toRemove);
 
   // Remove empty groups
   groups.erase(std::remove_if(groups.begin(), groups.end(),
