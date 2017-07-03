@@ -628,11 +628,28 @@ void SkewCartesianPartitioner::removeFromList(
   {
   for (auto &l: in)
     {
-    auto last = l.end();
     for (auto &removeList: toRemove)
-      for (auto &node: removeList)
-        last = std::remove(l.begin(), last, node);
-    l.erase(last, l.end());
+      {
+      auto current = l.begin();
+      auto last = l.begin();
+      auto remove = removeList.begin();
+
+      while (current != l.end())
+        {
+        bool endReached = remove == removeList.end() || current == l.end();
+        if (!endReached && *remove < *current)
+          ++remove;
+        else if (!endReached && *remove == *current)
+          ++current;
+        else
+          {
+          *last = *current;
+          ++current;
+          ++last;
+          }
+        }
+      l.erase(last, l.end());
+      }
     }
   }
 
@@ -686,6 +703,9 @@ void SkewCartesianPartitioner::splitTemplate()
           EWintersect[0].push_back(dof_ * j + i * dof_ * nx_ - sx_ * dof_ * nx_ * ny_
             - dof_ * (sx_/2+1) * nx_ + jj * dof_ * nx_ * ny_ + type);
       }
+
+  std::sort(NSintersect[0].begin(), NSintersect[0].end());
+  std::sort(EWintersect[0].begin(), EWintersect[0].end());
 
   north_.resize(0);
   west_.resize(0);
