@@ -416,16 +416,18 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::getTemplate() const
   HYMLS_PROF2(label_, "getTemplate");
   // Principal directions
 
+  int nx = sx_ * 4;
+
   // Cartesian directions
   int dirX = dof_;
-  int dirY = dof_*nx_;
-  int dirZ = dof_*nx_*ny_;
+  int dirY = dof_*nx;
+  int dirZ = dof_*nx*nx;
 
   // Info for each node type
-  int firstNode[4] = {dof_*sx_/2 + 0 + dirY - dirY*(sx_/2+1),
-                      dof_*sx_/2 + 1 - 0    - dirY*(sx_/2+1),
-                      dof_*sx_/2 + 2 - dirZ - dirY*(sx_/2+1),
-                      dof_*sx_/2 + 3 + dirY - dirY*(sx_/2+1)};
+  int firstNode[4] = {dof_*sx_/2 + 0 + dirY + dirZ * sx_,
+                      dof_*sx_/2 + 1 - 0    + dirZ * sx_,
+                      dof_*sx_/2 + 2 - dirZ + dirZ * sx_,
+                      dof_*sx_/2 + 3 + dirY + dirZ * sx_};
   int baseLength[4] = {sx_/2, sx_/2 + 1, sx_/2 + 1, sx_/2};
 
   std::vector<std::vector<std::vector<int> > > nodes;
@@ -559,7 +561,7 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::getTemplate() const
     for (int i = 0; i < nodes.size(); i++)
       std::copy(nodes[i][j].begin(), nodes[i][j].end(), std::back_inserter(newNodes.back()));
     std::sort(newNodes.back().begin(), newNodes.back().end());
-    }
+    }\
 
   return newNodes;
   }
@@ -568,10 +570,13 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::solveGroups(
   std::vector<std::vector<int> > const &temp) const
   {
   HYMLS_PROF2(label_, "solveGroups");
-  // Principal directios for domain displacements
+
+  int nx = sx_ * 4;
+
+  // Principal directions for domain displacements
   int dirX = dof_*sx_;
-  int dirY = dof_*nx_*sx_;
-  int dirZ = dof_*nx_*ny_*sx_;
+  int dirY = dof_*nx*sx_;
+  int dirZ = dof_*nx*nx*sx_;
 
   int dir1 = (dirY + dirX)/2; 
   int dir2 = (dirY - dirX)/2 + dirZ; 
@@ -667,6 +672,8 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::solveGroups(
 void SkewCartesianPartitioner::splitTemplate()
   {
   HYMLS_PROF2(label_, "splitTemplate");
+  int nx = sx_ * 4;
+
   // Get top and bottom half of template
   topHalf_.resize(0);
   bottomHalf_.resize(0);
@@ -675,9 +682,9 @@ void SkewCartesianPartitioner::splitTemplate()
 
   removeCols_.resize(0);
   removeCols_.emplace_back();
-  int first = dof_ * sx_ / 2 - sx_ * dof_ * nx_ * ny_ - dof_ * (sx_/2+1) * nx_;
+  int first = dof_ * sx_ / 2;
   for (int i = 0; i < sx_+2; i++)
-    removeCols_.back().push_back(first + i * dof_ * nx_ * ny_);
+    removeCols_.back().push_back(first + i * dof_ * nx * nx);
 
   removeCols_.emplace_back(removeCols_[0]);
   std::for_each(removeCols_.back().begin(), removeCols_.back().end(), [](int& d) {d += 1;});
@@ -685,18 +692,18 @@ void SkewCartesianPartitioner::splitTemplate()
   std::for_each(removeCols_.back().begin(), removeCols_.back().end(), [](int& d) {d += 2;});
   removeCols_.emplace_back(removeCols_[0]);
   std::for_each(removeCols_.back().begin(), removeCols_.back().end(),
-    [this](int& d) {d += 2 + this->dof_*(this->sx_-1)*this->nx_*this->ny_
-        + this->dof_*(this->sx_+1)*this->nx_;});
+    [this, nx](int& d) {d += 2 + this->dof_*(this->sx_-1) * nx * nx
+        + this->dof_*(this->sx_+1)*nx;});
 
   removeCols_.emplace_back(removeCols_[0]);
   std::for_each(removeCols_.back().begin(), removeCols_.back().end(),
-    [this](int& d) {d += 1 + this->dof_*(this->sx_ / 2) +
-        this->dof_ * (this->sx_ / 2) * this->nx_;});
+    [this, nx](int& d) {d += 1 + this->dof_*(this->sx_ / 2) +
+        this->dof_ * (this->sx_ / 2) * nx;});
   removeCols_.emplace_back(removeCols_[4]);
   std::for_each(removeCols_.back().begin(), removeCols_.back().end(), [](int& d) {d += 1;});
   removeCols_.emplace_back(removeCols_[5]);
   std::for_each(removeCols_.back().begin(), removeCols_.back().end(),
-    [this](int& d) {d += this->dof_ * this->nx_;});
+    [this, nx](int& d) {d += this->dof_ * nx;});
 
   std::vector<std::vector<int> > NSintersect(1);
   std::vector<std::vector<int> > EWintersect(1);
@@ -706,13 +713,11 @@ void SkewCartesianPartitioner::splitTemplate()
       // South
       for (int i = 0; i < sx_/2+1; i++)
         for (int j = 0; j < sx_ + 1; j++)
-          NSintersect[0].push_back(dof_ * j + i * dof_ * nx_ - sx_ * dof_ * nx_ * ny_
-            - dof_ * (sx_/2+1) * nx_ + jj * dof_ * nx_ * ny_ + type);
+          NSintersect[0].push_back(dof_ * j + i * dof_ * nx + jj * dof_ * nx * nx + type);
       // West
       for (int i = 0; i < sx_+2; i++)
         for (int j = 0; j < sx_/2; j++)
-          EWintersect[0].push_back(dof_ * j + i * dof_ * nx_ - sx_ * dof_ * nx_ * ny_
-            - dof_ * (sx_/2+1) * nx_ + jj * dof_ * nx_ * ny_ + type);
+          EWintersect[0].push_back(dof_ * j + i * dof_ * nx + jj * dof_ * nx * nx + type);
       }
 
   std::sort(NSintersect[0].begin(), NSintersect[0].end());
@@ -733,9 +738,9 @@ void SkewCartesianPartitioner::splitTemplate()
   removeFromList(west_[0], east_[0]);
 
   std::for_each(NSintersect[0].begin(), NSintersect[0].end(),
-    [this](int& d) {d += this->sx_ * this->dof_ * this->nx_ * this->ny_;});
+    [this, nx](int& d) {d += this->sx_ * this->dof_ * nx * nx;});
   std::for_each(EWintersect[0].begin(), EWintersect[0].end(),
-    [this](int& d) {d += this->sx_ * this->dof_ * this->nx_ * this->ny_;});
+    [this, nx](int& d) {d += this->sx_ * this->dof_ * nx * nx;});
 
   north_.emplace_back(topHalf_);
   removeFromList(north_[1], NSintersect);
@@ -770,7 +775,7 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::createSubdomain(int sd,
     lattice = 2;
     }
 
-  int firstNode = dof_ * sx_ * (X + Y * nx_) + dof_ * nx_ * (sx_/2) + dof_ * nx_ * ny_ * sx_ * Z;
+  int firstNode = dof_ * sx_ * (X + Y * nx_) + dof_ * nx_ * ny_ * sx_ * (Z - 1) - dof_ * nx_;
 
   double eps = 1e-8;
   std::vector<std::vector<int> const *> toRemove;
@@ -928,9 +933,16 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::createSubdomain(int sd,
       [](std::vector<int> &i){return i.empty();}), groups.end());
 
   // Move the groups to the right position
-  for (int i = 0; i < groups.size(); i++)
-    std::for_each(groups[i].begin(), groups[i].end(),
-      [firstNode](int& d) { d += firstNode;});
+  int nx = 4 * sx_;
+  for (auto &group: groups)
+    for (int &node: group)
+      {
+      int var = node % dof_;
+      int x = (node / dof_) % nx;
+      int y = (node / dof_ / nx) % nx;
+      int z = node / dof_ / nx / nx;
+      node = x * dof_ + nx_ * y * dof_ + nx_ * ny_ * z * dof_ + var + firstNode;
+      }
 
   // Get first pressure node from interior to a new group.
   // Assumes ordering of groups by size!
