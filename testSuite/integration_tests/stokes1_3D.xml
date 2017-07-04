@@ -10,9 +10,9 @@
 
     <Parameter name="Number of refinements" type="int" value="1"/>
     <!-- will create a series of slightly perturbed matrices -->
-    <Parameter name="Number of factorizations" type="int" value="2"/>
+    <Parameter name="Number of factorizations" type="int" value="1"/>
     <!-- for each matrix, solve with several right-hand sides in a row -->
-    <Parameter name="Number of solves" type="int" value="2"/>
+    <Parameter name="Number of solves" type="int" value="1"/>
   
     <Parameter name="Read Linear System" type="bool" value="1"/>
     <Parameter name="Data Directory" type="string" 
@@ -23,7 +23,7 @@
   </ParameterList>
 
   <ParameterList name="Targets">
-    <Parameter name="Number of Iterations" type="int" value="65"/>
+    <Parameter name="Number of Iterations" type="int" value="130"/>
     <Parameter name="Relative Residual 2-Norm" type="double" value="1.0e-5"/>
     <Parameter name="Relative Error 2-Norm" type="double" value="1.0e-5"/>
   </ParameterList>
@@ -49,7 +49,7 @@
 
     <!-- parameters for the iterative solver (Belos) -->
     <ParameterList name="Iterative Solver">
-      <Parameter name="Maximum Iterations" type="int" value="70"/>
+      <Parameter name="Maximum Iterations" type="int" value="150"/>
       <Parameter name="Maximum Restarts" type="int" value="1"/>
       <Parameter name="Convergence Tolerance" type="double" value="1.0e-8"/>
       <Parameter name="Flexible Gmres" type="bool" value="0"/>
@@ -63,8 +63,7 @@
   <ParameterList name="Preconditioner"><!--{-->
 
     <!-- cartesian partitioner for Stokes-C problems -->
-    <Parameter name="Partitioner" type="string" value="Cartesian"/>
-    <Parameter name="Classifier" type="string" value="Stokes"/>
+    <Parameter name="Partitioner" type="string" value="Skew Cartesian"/>
     
     <!-- you can either set 'Separator Length' or 'Number of Subdomains' -->
     <Parameter name="Separator Length" type="int" value="8"/>

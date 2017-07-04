@@ -10,12 +10,12 @@
   <!-- HYMLS solver classes.                                -->
   <ParameterList name="Driver"><!--{-->
   
-    <Parameter name="Number of refinements" type="int" value="2"/>
+    <Parameter name="Number of refinements" type="int" value="1"/>
 
     <!-- will create a series of slightly perturbed matrices -->
-    <Parameter name="Number of factorizations" type="int" value="2"/>
+    <Parameter name="Number of factorizations" type="int" value="1"/>
     <!-- for each matrix, solve with several right-hand sides in a row -->
-    <Parameter name="Number of solves" type="int" value="2"/>
+    <Parameter name="Number of solves" type="int" value="1"/>
 
     <ParameterList name="Eigenvalues">
       <Parameter name="Which" type="string" value="SM"/>

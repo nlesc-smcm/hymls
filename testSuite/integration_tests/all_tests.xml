@@ -21,6 +21,7 @@
   <!-- 3D Laplace problem -->
   <Parameter name="3D Test 1" type="string" value="threeD1.xml"/>
   <!-- 3D Stokes problems -->
-  <!-- <Parameter name="3D Test 2" type="string" value="stokes0_3D.xml"/> -->
-  <!-- <Parameter name="3D Test 3" type="string" value="stokes1_3D.xml"/> -->
+  <Parameter name="3D Test 2" type="string" value="stokes0_3D.xml"/>
+  <Parameter name="3D Test 3" type="string" value="stokes1_3D.xml"/>
+  <Parameter name="3D Test 4" type="string" value="stokes2_3D.xml"/>
 </ParameterList>
