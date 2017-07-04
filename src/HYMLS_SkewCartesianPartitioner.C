@@ -578,6 +578,9 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::solveGroups(
   int dirY = dof_*nx*sx_;
   int dirZ = dof_*nx*nx*sx_;
 
+  // Shift the central domain by 1,1,1
+  int first = dirX + dirY + dirZ;
+
   int dir1 = (dirY + dirX)/2; 
   int dir2 = (dirY - dirX)/2 + dirZ; 
   int dir3 = dirZ;
@@ -603,7 +606,8 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::solveGroups(
   for (auto &it: positions)
     {
     domain.emplace_back(tempList);
-    std::for_each(domain.back().begin(), domain.back().end(), [it](int& d) { d += it;});
+    std::for_each(domain.back().begin(), domain.back().end(),
+      [it, first](int& d) { d += it + first;});
     }
 
   // Find groups. Note that domain[0] is the domain that we want to solve for
@@ -665,6 +669,13 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::solveGroups(
         std::sort(group.begin(), group.end());
         groups.push_back(group);
         }
+
+  // Shift back the groups from the central position
+  for (auto &group: groups)
+    {
+    std::for_each(group.begin(), group.end(),
+      [first](int& d) { d -= first;});
+    }
 
   return groups;
   }
