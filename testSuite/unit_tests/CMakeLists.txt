@@ -7,7 +7,7 @@ set(SOURCES
   # HYMLS_SkewCartesianPartitioner
   HYMLS_DenseUtils
   HYMLS_HierarchicalMap
-  # HYMLS_OverlappingPartitioner
+  HYMLS_OverlappingPartitioner
   HYMLS_Preconditioner
   HYMLS_ProjectedOperator
   HYMLS_Solver
