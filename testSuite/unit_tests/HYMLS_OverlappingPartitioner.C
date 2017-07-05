@@ -1353,7 +1353,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes3D, nx, ny, nz, sx, sy,
 
   int nsx = nx / sx;
   int nsy = ny / sy;
-  int nsl = 1;
+  int nsz = nz / sz;
   int totNum2DCubes = nsx * nsy; // number of cubes for fixed z
   int numPerLayer = 2 * totNum2DCubes + nsx + nsy; // domains for fixed z
   int numPerRow = 2*nsx + 1; // domains in a row (both lattices); fixed y
@@ -1400,76 +1400,30 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes3D, nx, ny, nz, sx, sy,
 
   for (int sd = 0; sd < opart2->NumMySubdomains(); sd++)
     {
-    int gsd = opart2->Partitioner().SubdomainMap().GID(sd);
-
-    // Compute the number of groups we expect
-    int numGrps = 23 + 21 + 23 + 1;
-    int leftOver = 23;
-    // Right
-    if ((gsd % nsl) % nsx == nsx / 2 * 2)
-      {
-      numGrps -= 18;
-      leftOver -= 6;
-      }
-    // Bottom
-    if ((gsd % nsl) > (nsl - nsx / 2 - 1))
-      {
-      numGrps -= 24;
-      leftOver -= 8;
-      }
-    // Left
-    if ((gsd % nsl) % nsx == nsx / 2)
-      {
-      numGrps -= 36;
-      leftOver -= 12;
-      }
-    if ((gsd % nsl) % nsx == 0)
-      {
-      numGrps -= 6;
-      leftOver -= 2;
-      }
-    // Top
-    if ((gsd % nsl) < nsx / 2)
-      {
-      numGrps -= 36;
-      leftOver -= 12;
-      }
-    if ((gsd % nsl) >= nsx / 2 and (gsd % nsl) < nsx)
-      {
-      numGrps -= 6;
-      leftOver -= 2;
-      }
-
-    if (numGrps < 32)
-      {
-      numGrps = 32;
-      leftOver = 11;
-      }
-
-    // Front
-    if (gsd / nsl == 0)
-      {
-      numGrps -= leftOver;
-      }
-
-    TEST_EQUALITY(opart2->NumGroups(sd), numGrps);
-
-    int totalNodes = 0;
+    int totalNodes[4] = {0, 0, 0, 0};
     for (int grp = 0; grp < opart2->NumGroups(sd); grp++)
       {
-      totalNodes += opart2->NumElements(sd, grp);
+      for (int pos = 0; pos < opart2->NumElements(sd, grp); pos++)
+        totalNodes[opart2->GID(sd, grp, pos) % dof]++;
       }
-    if (numGrps == 23 + 21 + 23 + 1)
+    if (opart2->NumGroups(sd) == 84)
       {
-      TEST_EQUALITY(totalNodes,
-        (sx * sy * 2 * 3 + 2 * (sx + sx + 1) + (sx + sx)) * (sz + 1) +
-        sx * sy * 2 * sz);
+      TEST_EQUALITY(totalNodes[0],
+        sx / 2 * ((sx - 1) * sx + sx ) +
+        2 + (sx / 2 + 2 + sx ) /2 * (sx / 2-1) * 4 + sx / 2 * 2);
+      TEST_EQUALITY(totalNodes[1],
+        sx / 2 * ((sx - 1) * sx + sx ) +
+        sx + 1 + (sx / 2 + 2 + sx ) /2 * (sx / 2-1) * 4 + sx / 2 * 2);
+      TEST_EQUALITY(totalNodes[2],
+        sx / 2 * ((sx - 1) * sx + sx ) + (sx / 2 + 1) * (sx * 3-2));
+      TEST_EQUALITY(totalNodes[3],
+        sx / 2 * ((sx - 1) * sx + sx ));
       }
     }
   }
 
 // TODO!
-// TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewStokes3D, 1, 8, 8, 8, 4, 4, 4);
-// TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewStokes3D, 2, 16, 16, 16, 4, 4, 4);
-// TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewStokes3D, 3, 16, 8, 8, 4, 4, 4);
-// TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewStokes3D, 4, 16, 16, 16, 8, 8, 8);
+TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewStokes3D, 1, 8, 8, 8, 4, 4, 4);
+TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewStokes3D, 2, 16, 16, 16, 4, 4, 4);
+TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewStokes3D, 3, 16, 8, 8, 4, 4, 4);
+TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewStokes3D, 4, 16, 16, 16, 8, 8, 8);
