@@ -61,7 +61,6 @@ protected:
 
   //! Create the subdomain from the template
   std::vector<std::vector<int> > createSubdomain(int sd,
-    std::vector<std::vector<int> > temp,
     std::vector<std::vector<int> > groups) const;
 
 public:

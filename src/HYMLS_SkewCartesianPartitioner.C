@@ -764,7 +764,6 @@ void SkewCartesianPartitioner::splitTemplate()
   }
 
 std::vector<std::vector<int> > SkewCartesianPartitioner::createSubdomain(int sd,
-  std::vector<std::vector<int> > temp,
   std::vector<std::vector<int> > groups) const
   {
   HYMLS_PROF2(label_, "createSubdomain");
@@ -1032,7 +1031,7 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_no
 
   int gsd = sdMap_->GID(sd);
 
-  std::vector<std::vector<int> > nodes = createSubdomain(gsd, template_, groups_);
+  std::vector<std::vector<int> > nodes = createSubdomain(gsd, groups_);
   interior_nodes = nodes[0];
   std::copy(nodes.begin() + 1, nodes.end(), std::back_inserter(separator_nodes));
 
