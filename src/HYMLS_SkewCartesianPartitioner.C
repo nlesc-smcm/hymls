@@ -249,7 +249,7 @@ int SkewCartesianPartitioner::CreateSubdomainMap()
         }
 
   std::sort(MyGlobalElements, MyGlobalElements + NumMyElements);
-  sdMap_ = Teuchos::rcp(new Epetra_Map(NumGlobalElements,
+  sdMap_ = Teuchos::rcp(new Epetra_Map(-1,
       NumMyElements, MyGlobalElements, 0, *comm_));
 
   delete [] MyGlobalElements;
@@ -1061,8 +1061,8 @@ int SkewCartesianPartitioner::PID(int i, int j, int k) const
   int sy = ny_ / nprocy_;
   int sz = nz_ / nprocz_;
 
-  int cl = std::max(sx, sy);
-  cl = std::max(cl, sz);
+  int cl = std::min(sx, sy);
+  cl = std::min(cl, sz);
 
   // which cube
   int xcube = i / cl;

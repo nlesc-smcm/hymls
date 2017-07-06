@@ -58,13 +58,13 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, operator)
   TestableSkewCartesianPartitioner part(Teuchos::rcp(&map, false), nx, ny, nz, dof);
   part.Partition(sx, sy, sz, false);
 
-  TEST_EQUALITY(part(0, 0, 0), 0);
-  TEST_EQUALITY(part(0, 1, 0), 1);
-  TEST_EQUALITY(part(7, 0, 0), 2);
-  TEST_EQUALITY(part(3, 4, 0), 3);
-  TEST_EQUALITY(part(3, 4, 3), 3);
-  TEST_EQUALITY(part(3, 4, 4), 7);
-  TEST_EQUALITY(part(0, 0, 4), 4);
+  TEST_EQUALITY(part(0, 0, 0), 2);
+  TEST_EQUALITY(part(0, 1, 0), 2);
+  TEST_EQUALITY(part(7, 0, 0), 1);
+  TEST_EQUALITY(part(3, 4, 0), 5);
+  TEST_EQUALITY(part(3, 4, 3), 17);
+  TEST_EQUALITY(part(3, 4, 4), 17);
+  TEST_EQUALITY(part(0, 0, 4), 14);
   }
 
 TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, PID)
@@ -86,16 +86,16 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, PID)
   part.Partition(sx, sy, sz, false);
 
   TEST_EQUALITY(part.PID(0, 0, 0), 0);
-  TEST_EQUALITY(part.PID(0, 1, 0), 1);
-  TEST_EQUALITY(part.PID(7, 0, 0), 1);
-  TEST_EQUALITY(part.PID(3, 4, 0), 0);
-  TEST_EQUALITY(part.PID(3, 4, 3), 0);
-  TEST_EQUALITY(part.PID(3, 4, 4), 2);
+  TEST_EQUALITY(part.PID(0, 1, 0), 0);
+  TEST_EQUALITY(part.PID(7, 0, 0), 0);
+  TEST_EQUALITY(part.PID(3, 4, 0), 1);
+  TEST_EQUALITY(part.PID(3, 4, 3), 3);
+  TEST_EQUALITY(part.PID(3, 4, 4), 3);
   TEST_EQUALITY(part.PID(0, 0, 4), 2);
+  TEST_EQUALITY(part.PID(7, 7, 7), 2);
   }
 
-
-TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, First)
+TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 3DNodes)
   {
   FakeComm comm;
   comm.SetNumProc(1);
@@ -106,15 +106,28 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, First)
   int sx = 4;
   int sy = 4;
   int sz = 4;
-  int dof = 1;
+  int dof = 3;
   int n = nx * ny * nz * dof;
 
   Epetra_Map map(n, 0, comm);
   TestableSkewCartesianPartitioner part(Teuchos::rcp(&map, false), nx, ny, nz, dof);
   part.Partition(sx, sy, sz, false);
 
-  TEST_EQUALITY(part.First(0), (-nx * sx + sx - 1) * dof);
-  TEST_EQUALITY(part.First(1), -1 * dof);
-  TEST_EQUALITY(part.First(2), (nx-1) * dof);
-  TEST_EQUALITY(part.First(3), (nx * sx + sx - 1) * dof);
+  std::vector<int> gids(n, 0);
+  for (int sd = 0; sd < part.NumLocalParts(); sd++)
+    {
+    Teuchos::Array<int> interior_nodes;
+    Teuchos::Array<Teuchos::Array<int> > separator_nodes;
+    part.GetGroups(sd, interior_nodes, separator_nodes);
+
+    for (int &i: interior_nodes)
+      gids[i] = 1;
+
+    for (auto &group: separator_nodes)
+      for (int &i: group)
+        gids[i] = 1;
+    }
+  
+  for (int i = 0; i < n; i++)
+    TEST_EQUALITY(gids[i], 1);
   }
