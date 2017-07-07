@@ -65,48 +65,6 @@ Plane buildPlane45(int firstNode, int length, int dirX, int dirY, int dof, int p
   return plane;
   }
 
-void removeFromList(std::vector<int> &in,
-  std::vector<int> const &toRemove)
-  {
-  auto current = in.begin();
-  auto last = in.begin();
-  auto remove = toRemove.begin();
-
-  while (current != in.end())
-    {
-    bool endReached = remove == toRemove.end() || current == in.end();
-    if (!endReached && *remove < *current)
-      ++remove;
-    else if (!endReached && *remove == *current)
-      ++current;
-    else
-      {
-      *last = *current;
-      ++current;
-      ++last;
-      }
-    }
-  in.erase(last, in.end());
-  }
-
-void removeFromList(
-  std::vector<std::vector<int> > &in,
-  std::vector<std::vector<int> > const &toRemove)
-  {
-  for (auto &l: in)
-    for (auto &removeList: toRemove)
-      removeFromList(l, removeList);
-  }
-
-void removeFromList(
-  std::vector<std::vector<int> > &in,
-  std::vector<std::vector<int> const *> const &toRemove)
-  {
-  for (auto &l: in)
-    for (auto &removeList: toRemove)
-      removeFromList(l, *removeList);
-  }
-
 namespace HYMLS {
 
 // by default, everyone is assumed to own a part of the domain.
@@ -792,7 +750,7 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::createSubdomain(int sd,
           groups[0].push_back(node);
         group->erase(std::remove(group->begin(), group->end(), node));
         }
-      else if (nz_ > 1 && z == nz_ - 1 && node % dof_ == 2)
+      else if (dof_ > 1 && nz_ > 1 && z == nz_ - 1 && node % dof_ == 2)
         {
         if (operator()(x, y, z) == sd)
           groups[0].push_back(node);
