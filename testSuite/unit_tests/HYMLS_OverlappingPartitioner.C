@@ -1122,7 +1122,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes2D, nx, ny, sx, sy)
       X -= npx + 0.5;
       Y += 0.5;
       }
-    int substart = dof * sx * (X + Y * nx) + dof;
+    int substart = dof * sx * (X + Y * nx) + dof * (sx / 2 - 1);
     bool somewhatBottom = gsd <= (nsl - nsx / 2 - 1) and gsd > nsl - nsx;
 
     // Compute the number of groups we expect
@@ -1353,10 +1353,11 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes2D, nx, ny, sx, sy)
   }
 
 TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewStokes2D, 1, 8, 8, 4, 4);
-// TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewStokes2D, 2, 16, 16, 4, 4);
-// TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewStokes2D, 3, 16, 8, 4, 4);
+TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewStokes2D, 2, 16, 16, 4, 4);
+TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewStokes2D, 3, 16, 8, 4, 4);
 // TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewStokes2D, 4, 4, 4, 2, 2);
-// TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewStokes2D, 5, 64, 64, 16, 16);
+TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewStokes2D, 5, 16, 16, 8, 8);
+TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewStokes2D, 6, 64, 64, 16, 16);
 
 TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes3D, nx, ny, nz, sx, sy, sz)
   {
@@ -1434,7 +1435,6 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes3D, nx, ny, nz, sx, sy,
     }
   }
 
-// TODO!
 TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewStokes3D, 1, 8, 8, 8, 4, 4, 4);
 TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewStokes3D, 2, 16, 16, 16, 4, 4, 4);
 TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewStokes3D, 3, 16, 8, 8, 4, 4, 4);
