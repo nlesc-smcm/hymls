@@ -866,9 +866,9 @@ int SkewCartesianPartitioner::PID(int i, int j, int k) const
     Y += 0.5;
     }
 
-  i = (int)(X * cl - 1 + nx_) % nx_;
-  j = (int)(Y * cl - 1 + ny_) % ny_;
-  k = (int)((Z - 1) * cl + nz_) % nz_;
+  i = (int)(X * cl - 1 + cl * nx_) % nx_;
+  j = (int)(Y * cl - 1 + cl * ny_) % ny_;
+  k = (int)((Z - 1) * cl + cl * nz_) % nz_;
 
   // In which cube is the cell?
   int sdx = i / sx;

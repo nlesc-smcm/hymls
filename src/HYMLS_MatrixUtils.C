@@ -1840,7 +1840,7 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
   HYMLS_DEBVAR(n);
   HYMLS_DEBVAR(m);
 
-  bool indefinite = (m > 0);
+  bool indefinite = m > 0;
   HYMLS_DEBVAR(indefinite);
 
   bool fmatrix = false;
@@ -1885,7 +1885,7 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
     CHECK_ZERO(B.FillComplete(*map2, *map1));
     CHECK_ZERO(Bt.FillComplete(*map1, *map2));
 
-    fmatrix = (B.MaxNumEntries() == 2);
+    fmatrix = (B.MaxNumEntries() == 2) || B.NumMyRows() == 1;
     HYMLS_DEBVAR(fmatrix);
 
     if (!fmatrix)
