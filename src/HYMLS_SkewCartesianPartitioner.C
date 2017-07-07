@@ -25,13 +25,13 @@ Plane buildPlane45(int firstNode, int length, int dirX, int dirY, int dof, int p
   int dir2 = dirY - dirX;
 
   // correction for u nodes
-  if (((firstNode % dof) + dof) % dof  == 0)
+  if (dof > 1 && ((firstNode % dof) + dof) % dof  == 0)
     {
     left -= dirX;
     height++;
     extraLayer = true;
     }
-  else if (((firstNode % dof) + dof) % dof  == pvar)
+  else if (dof > 1 && pvar != -1 && ((firstNode % dof) + dof) % dof  == pvar)
     {
     height++;
     extraLayer = true;
@@ -424,7 +424,7 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::getTemplate() const
 
   // Info for each node type
   int firstNode[4] = {dof_*sx_/2 + 0 + dirY + dirZ * sx_,
-                      dof_*sx_/2 + 1 - 0    + dirZ * sx_,
+                      dof_*sx_/2 + (dof_ > 1) - 0    + dirZ * sx_,
                       dof_*sx_/2 + 2 - dirZ + dirZ * sx_,
                       dof_*sx_/2 + pvar_ + dirY + dirZ * sx_};
   int baseLength[4] = {sx_/2, sx_/2 + 1, sx_/2 + 1, sx_/2};
@@ -780,7 +780,7 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::createSubdomain(int sd,
       int x = (node / dof_) % nx_;
       int y = (node / dof_ / nx_) % ny_;
       int z = node / dof_ / nx_ / ny_;
-      if (x == nx_ - 1 && node % dof_ == 0)
+      if (dof_ > 1 && x == nx_ - 1 && node % dof_ == 0)
         {
         if (operator()(x, y, z) == sd)
           groups[0].push_back(node);
