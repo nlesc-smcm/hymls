@@ -85,14 +85,14 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, PID)
   TestableSkewCartesianPartitioner part(Teuchos::rcp(&map, false), nx, ny, nz, dof);
   part.Partition(sx, sy, sz, false);
 
-  TEST_EQUALITY(part.PID(0, 0, 0), 0);
-  TEST_EQUALITY(part.PID(0, 1, 0), 0);
-  TEST_EQUALITY(part.PID(7, 0, 0), 1);
-  TEST_EQUALITY(part.PID(3, 4, 0), 1);
-  TEST_EQUALITY(part.PID(3, 4, 3), 3);
-  TEST_EQUALITY(part.PID(3, 4, 4), 3);
-  TEST_EQUALITY(part.PID(0, 0, 4), 2);
-  TEST_EQUALITY(part.PID(7, 7, 7), 2);
+  TEST_EQUALITY(part.PID(0, 0, 0), 3);
+  TEST_EQUALITY(part.PID(0, 1, 0), 3);
+  TEST_EQUALITY(part.PID(7, 0, 0), 2);
+  TEST_EQUALITY(part.PID(3, 4, 0), 2);
+  TEST_EQUALITY(part.PID(3, 4, 3), 0);
+  TEST_EQUALITY(part.PID(3, 4, 4), 0);
+  TEST_EQUALITY(part.PID(0, 0, 4), 1);
+  TEST_EQUALITY(part.PID(7, 7, 7), 1);
   }
 
 TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 2DNodes)
