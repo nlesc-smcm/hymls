@@ -56,9 +56,6 @@ protected:
   std::vector<std::vector<int> > solveGroups(
     std::vector<std::vector<int> > const &temp) const;
 
-  //! Split the templte into different parts (for boundary cases)
-  void splitTemplate();
-
   //! Create the subdomain from the template
   std::vector<std::vector<int> > createSubdomain(int sd,
     std::vector<std::vector<int> > groups) const;
@@ -119,15 +116,6 @@ protected:
 
   //! Subdomain template groups
   std::vector<std::vector<int> > groups_;
-
-  //! Different parts of the template
-  std::vector<std::vector<int> > topHalf_;
-  std::vector<std::vector<int> > bottomHalf_;
-  std::vector<std::vector<int> > removeCols_;
-  std::vector<std::vector<std::vector<int> > > north_;
-  std::vector<std::vector<std::vector<int> > > west_;
-  std::vector<std::vector<std::vector<int> > > south_;
-  std::vector<std::vector<std::vector<int> > > east_;
 
   //! global grid size
   int nx_, ny_, nz_;

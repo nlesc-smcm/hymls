@@ -338,7 +338,6 @@ int SkewCartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
 
   template_ = getTemplate();
   groups_ = solveGroups(template_);
-  splitTemplate();
 
   HYMLS_DEBVAR(*sdMap_);
 
@@ -696,94 +695,6 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::solveGroups(
   return groups;
   }
 
-void SkewCartesianPartitioner::splitTemplate()
-  {
-  HYMLS_PROF2(label_, "splitTemplate");
-  int nx = sx_ * 4;
-
-  // Get top and bottom half of template
-  topHalf_.resize(0);
-  bottomHalf_.resize(0);
-  std::copy(template_.begin(), template_.begin() + sx_, std::back_inserter(bottomHalf_));
-  std::copy(template_.begin() + sx_, template_.end(), std::back_inserter(topHalf_));
-
-  removeCols_.resize(0);
-  removeCols_.emplace_back();
-  int first = dof_ * sx_ / 2;
-  for (int i = 0; i < sx_+2; i++)
-    removeCols_.back().push_back(first + i * dof_ * nx * nx);
-
-  removeCols_.emplace_back(removeCols_[0]);
-  std::for_each(removeCols_.back().begin(), removeCols_.back().end(), [](int& d) {d += 1;});
-  removeCols_.emplace_back(removeCols_[0]);
-  std::for_each(removeCols_.back().begin(), removeCols_.back().end(), [](int& d) {d += 2;});
-  removeCols_.emplace_back(removeCols_[0]);
-  std::for_each(removeCols_.back().begin(), removeCols_.back().end(),
-    [this, nx](int& d) {d += 2 + this->dof_*(this->sx_-1) * nx * nx
-        + this->dof_*(this->sx_+1)*nx;});
-
-  removeCols_.emplace_back(removeCols_[0]);
-  std::for_each(removeCols_.back().begin(), removeCols_.back().end(),
-    [this, nx](int& d) {d += - this->dof_*(this->sx_ / 2) +
-        this->dof_ * (this->sx_ / 2) * nx +
-        this->dof_ * (this->sx_ - 1) * nx * nx;});
-  removeCols_.emplace_back(removeCols_[4]);
-  std::for_each(removeCols_.back().begin(), removeCols_.back().end(), [](int& d) {d += 1;});
-  removeCols_.emplace_back(removeCols_[4]);
-  std::for_each(removeCols_.back().begin(), removeCols_.back().end(), [](int& d) {d += 2;});
-  removeCols_.emplace_back(removeCols_[4]);
-  std::for_each(removeCols_.back().begin(), removeCols_.back().end(),
-    [this, nx](int& d) {d += this->dof_ * nx;});
-  removeCols_.emplace_back(removeCols_[7]);
-  std::for_each(removeCols_.back().begin(), removeCols_.back().end(), [](int& d) {d += 2;});
-
-  std::vector<std::vector<int> > NSintersect(1);
-  std::vector<std::vector<int> > EWintersect(1);
-  for (int type = 0; type < dof_; type++)
-    for (int jj = 0; jj < sx_; jj++)
-      {
-      // South
-      for (int i = 0; i < sx_/2+1; i++)
-        for (int j = 0; j < sx_ + 1; j++)
-          NSintersect[0].push_back(dof_ * j + i * dof_ * nx + jj * dof_ * nx * nx + type);
-      // West
-      for (int i = 0; i < sx_+2; i++)
-        for (int j = 0; j < sx_/2+1; j++)
-          EWintersect[0].push_back(dof_ * j + i * dof_ * nx + jj * dof_ * nx * nx + type);
-      }
-
-  std::sort(NSintersect[0].begin(), NSintersect[0].end());
-  std::sort(EWintersect[0].begin(), EWintersect[0].end());
-
-  north_.resize(0);
-  west_.resize(0);
-  south_.resize(0);
-  east_.resize(0);
-
-  north_.emplace_back(bottomHalf_);
-  removeFromList(north_[0], NSintersect);
-  south_.emplace_back(bottomHalf_);
-  removeFromList(south_[0], north_[0]);
-  east_.emplace_back(bottomHalf_);
-  removeFromList(east_[0], EWintersect);
-  west_.emplace_back(bottomHalf_);
-  removeFromList(west_[0], east_[0]);
-
-  std::for_each(NSintersect[0].begin(), NSintersect[0].end(),
-    [this, nx](int& d) {d += this->sx_ * this->dof_ * nx * nx;});
-  std::for_each(EWintersect[0].begin(), EWintersect[0].end(),
-    [this, nx](int& d) {d += this->sx_ * this->dof_ * nx * nx;});
-
-  north_.emplace_back(topHalf_);
-  removeFromList(north_[1], NSintersect);
-  south_.emplace_back(topHalf_);
-  removeFromList(south_[1], north_[1]);
-  east_.emplace_back(topHalf_);
-  removeFromList(east_[1], EWintersect);
-  west_.emplace_back(topHalf_);
-  removeFromList(west_[1], east_[1]);
-  }
-
 std::vector<std::vector<int> > SkewCartesianPartitioner::createSubdomain(int sd,
   std::vector<std::vector<int> > groups) const
   {
@@ -798,184 +709,34 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::createSubdomain(int sd,
   int Z = sd / numPerLayer;
   double Y = ((sd - Z * numPerLayer) / numPerRow) - 0.5;
   double X = (sd - Z * numPerLayer) % numPerRow;
-  int lattice = 1;
   if (X >= npx_)
     {
     X -= npx_ + 0.5;
     Y += 0.5;
-    lattice = 2;
     }
 
-  int firstNode = dof_ * sx_ * (X + Y * nx_) + dof_ * nx_ * ny_ * sx_ * (Z - 1) - dof_ * nx_ - dof_;
-
-  double eps = 1e-8;
-  std::vector<std::vector<int> const *> toRemove;
-  if (lattice == 1)
+  int nx = 4 * sx_;
+  // Move the groups to the right position and cut off parts that fall
+  // outside of the domain
+  std::vector<std::vector<int> > newGroups;
+  for (auto &group: groups)
     {
-    if (std::abs(Y + 0.5) < eps)
+    newGroups.emplace_back();
+    for (int &node: group)
       {
-      if (Z == 0)
-        {
-        std::for_each(bottomHalf_.begin(), bottomHalf_.end(),
-          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
-        std::for_each(south_[1].begin(), south_[1].end(),
-          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
-        }
-      else if (Z == npz_)
-        {
-        std::for_each(topHalf_.begin(), topHalf_.end(),
-          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
-        std::for_each(south_[0].begin(), south_[0].end(),
-          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
-        }
-      else
-        {
-        std::for_each(south_[0].begin(), south_[0].end(),
-          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
-        std::for_each(south_[1].begin(), south_[1].end(),
-          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
-        }
-      }
-    else if (std::abs(Y - npy_ + 0.5) < eps)
-      {
-      if (Z == 0)
-        {
-        std::for_each(bottomHalf_.begin(), bottomHalf_.end(),
-          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
-        std::for_each(north_[1].begin(), north_[1].end(),
-          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
-        }
-      else if (Z == npz_)
-        {
-        std::for_each(topHalf_.begin(), topHalf_.end(),
-          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
-        std::for_each(north_[0].begin(), north_[0].end(),
-          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
-        }
-      else
-        {
-        std::for_each(north_[0].begin(), north_[0].end(),
-          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
-        std::for_each(north_[1].begin(), north_[1].end(),
-          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
-        }
-      }
-    else
-      {
-      if (Z == 0)
-        {
-        std::for_each(bottomHalf_.begin(), bottomHalf_.end(),
-          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
-        }
-      else if (Z == npz_)
-        {
-        std::for_each(topHalf_.begin(), topHalf_.end(),
-          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
-        }
-      }
-
-    if (std::abs(X) < eps)
-      {
-      toRemove.push_back(&removeCols_[4]);
-      toRemove.push_back(&removeCols_[5]);
-      toRemove.push_back(&removeCols_[6]);
-      toRemove.push_back(&removeCols_[7]);
-      toRemove.push_back(&removeCols_[8]);
+      int var = node % dof_;
+      int x = (node / dof_) % nx + X * sx_ - 1;
+      int y = (node / dof_ / nx) % nx + Y * sx_ - 1;
+      int z = node / dof_ / nx / nx + sx_ * (Z - 1);
+      if (x >= 0 && x < nx_ && y >= 0 && y < ny_ && z >= 0 && z < nz_)
+        newGroups.back().push_back(x * dof_ + nx_ * y * dof_ + nx_ * ny_ * z * dof_ + var);
       }
     }
-  else if (lattice == 2)
-    {
-    if (std::abs(X + 0.5) < eps)
-      {
-      if (Z == 0)
-        {
-        std::for_each(bottomHalf_.begin(), bottomHalf_.end(),
-          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
-        std::for_each(west_[1].begin(), west_[1].end(),
-          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
-        }
-      else if (Z == npz_)
-        {
-        std::for_each(topHalf_.begin(), topHalf_.end(),
-          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
-        std::for_each(west_[0].begin(), west_[0].end(),
-          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
-        }
-      else
-        {
-        std::for_each(west_[0].begin(), west_[0].end(),
-          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
-        std::for_each(west_[1].begin(), west_[1].end(),
-          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
-        }
-      }
-    else if (std::abs(X - npx_ + 0.5) < eps)
-      {
-      if (Z == 0)
-        {
-        std::for_each(bottomHalf_.begin(), bottomHalf_.end(),
-          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
-        std::for_each(east_[1].begin(), east_[1].end(),
-          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
-        }
-      else if (Z == npz_)
-        {
-        std::for_each(topHalf_.begin(), topHalf_.end(),
-          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
-        std::for_each(east_[0].begin(), east_[0].end(),
-          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
-        }
-      else
-        {
-        std::for_each(east_[0].begin(), east_[0].end(),
-          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
-        std::for_each(east_[1].begin(), east_[1].end(),
-          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
-        }
-      }
-    else
-      {
-      if (Z == 0)
-        {
-        std::for_each(bottomHalf_.begin(), bottomHalf_.end(),
-          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
-        }
-      else if (Z == npz_)
-        {
-        std::for_each(topHalf_.begin(), topHalf_.end(),
-          [&toRemove](std::vector<int> const &d) {toRemove.push_back(&d);});
-        }
-      }
-
-    if (std::abs(Y) < eps)
-      {
-      toRemove.push_back(&removeCols_[1]);
-      toRemove.push_back(&removeCols_[2]);
-      }
-    else if (std::abs(Y - npy_ + 1) < eps)
-      {
-      toRemove.push_back(&removeCols_[3]);
-      }
-    }
-
-  // Get all groups, and remove the entries that are on removeList
-  removeFromList(groups, toRemove);
+  groups = newGroups;
 
   // Remove empty groups
   groups.erase(std::remove_if(groups.begin(), groups.end(),
       [](std::vector<int> &i){return i.empty();}), groups.end());
-
-  // Move the groups to the right position
-  int nx = 4 * sx_;
-  for (auto &group: groups)
-    for (int &node: group)
-      {
-      int var = node % dof_;
-      int x = (node / dof_) % nx;
-      int y = (node / dof_ / nx) % nx;
-      int z = node / dof_ / nx / nx;
-      node = x * dof_ + nx_ * y * dof_ + nx_ * ny_ * z * dof_ + var + firstNode;
-      }
 
   // Get first pressure node from interior to a new group.
   // Assumes ordering of groups by size!
