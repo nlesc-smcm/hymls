@@ -164,7 +164,7 @@ int SkewCartesianPartitioner::operator()(int x, int y, int z) const
   int sd = zcube * dir3 + ycube*(dir2 + dir1) + xcube;
 
   // relative coordinates
-  x -= xcube * sx_;
+  x -= xcube * sx_ - 1;
   y -= ycube * sx_;
   z -= zcube * sx_;
   
@@ -172,7 +172,7 @@ int SkewCartesianPartitioner::operator()(int x, int y, int z) const
     {
     if (y < x) // green
       {
-      if (!(z <= sx_ + y-x)) // blue
+      if (!(z <= sx_ + y-x))
         sd += dir3;
       }
     else
@@ -427,19 +427,21 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::getTemplate() const
   int firstNode[4] = {dof_*sx_/2 + 0 + dirY + dirZ * sx_,
                       dof_*sx_/2 + 1 - 0    + dirZ * sx_,
                       dof_*sx_/2 + 2 - dirZ + dirZ * sx_,
-                      dof_*sx_/2 + 3 + dirY + dirZ * sx_};
+                      dof_*sx_/2 + pvar_ + dirY + dirZ * sx_};
   int baseLength[4] = {sx_/2, sx_/2 + 1, sx_/2 + 1, sx_/2};
 
   std::vector<std::vector<std::vector<int> > > nodes;
 
-  for (int type = 0; type < dof_; type++)
+  for (int type = 0; type < 4; type++)
     {
     nodes.emplace_back(2 * sx_ + 1);
 
     // Get central layer
     Plane plane = buildPlane45(firstNode[type], baseLength[type], dirX, dirY, dof_, pvar_);
-    if (type != 3)
-      nodes[type][sx_] = plane.plane;
+    nodes[type][sx_] = plane.plane;
+
+    if (nz_ <= 1)
+      continue;
 
     std::vector<int> bottom;
     std::vector<int> top = plane.plane;
@@ -491,8 +493,9 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::getTemplate() const
       else
         {
         int isPvar = type == pvar_;
-        for (int j: bottom)
-          nodes[type][i + isPvar].push_back(j - (sx_ - i - isPvar) * dirZ);
+        if (i < sx_-isPvar)
+          for (int j: bottom)
+            nodes[type][i + isPvar].push_back(j - (sx_ - i - isPvar) * dirZ);
         for (int j: top)
           nodes[type][sx_ + 1 + i].push_back(j + (i + 1) * dirZ);
         }
@@ -543,25 +546,38 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::getTemplate() const
   nodes[3].pop_back();
   nodes[3].erase(nodes[3].begin());
 
-  // Remove more unnecessary separators, located at second and second-last
-  // layers of original template
-  for (int i = 0; i < 3; i++)
-    {
-    nodes[i].front().erase(std::max_element(nodes[i].front().begin(), nodes[i].front().end()));
-    nodes[i].back().erase(std::min_element(nodes[i].back().begin(), nodes[i].back().end()));
-    }
+  // // Remove more unnecessary separators, located at second and second-last
+  // // layers of original template
+  // for (int i = 0; i < 3; i++)
+  //   {
+  //   if (nodes[i].front().size())
+  //     nodes[i].front().erase(std::max_element(nodes[i].front().begin(), nodes[i].front().end()));
+  //   if (nodes[i].back().size())
+  //     nodes[i].back().erase(std::min_element(nodes[i].back().begin(), nodes[i].back().end()));
+  //   }
 
   // Merge the template layers
   std::vector<std::vector<int> > newNodes;
-  newNodes.push_back(nodes[2].front());
-  nodes[2].erase(nodes[2].begin());
-  for (int j = 0; j < nodes[0].size(); j++)
+  if (nz_ > 1 && dof_ > 1)
+    {
+    newNodes.push_back(nodes[2].front());
+    nodes[2].erase(nodes[2].begin());
+    }
+  else
+    newNodes.emplace_back();
+
+  for (int j = 0; j < 2 * sx_ - 1; j++)
     {
     newNodes.emplace_back();
-    for (int i = 0; i < nodes.size(); i++)
-      std::copy(nodes[i][j].begin(), nodes[i][j].end(), std::back_inserter(newNodes.back()));
+    if (dof_ > 1)
+      std::copy(nodes[0][j].begin(), nodes[0][j].end(), std::back_inserter(newNodes.back()));
+    std::copy(nodes[1][j].begin(), nodes[1][j].end(), std::back_inserter(newNodes.back()));
+    if (nz_ > 1 && dof_ > 1)
+      std::copy(nodes[2][j].begin(), nodes[2][j].end(), std::back_inserter(newNodes.back()));
+    if (pvar_ != -1)
+      std::copy(nodes[3][j].begin(), nodes[3][j].end(), std::back_inserter(newNodes.back()));
     std::sort(newNodes.back().begin(), newNodes.back().end());
-    }\
+    }
 
   return newNodes;
   }
@@ -708,13 +724,18 @@ void SkewCartesianPartitioner::splitTemplate()
 
   removeCols_.emplace_back(removeCols_[0]);
   std::for_each(removeCols_.back().begin(), removeCols_.back().end(),
-    [this, nx](int& d) {d += 1 + this->dof_*(this->sx_ / 2) +
-        this->dof_ * (this->sx_ / 2) * nx;});
+    [this, nx](int& d) {d += - this->dof_*(this->sx_ / 2) +
+        this->dof_ * (this->sx_ / 2) * nx +
+        this->dof_ * (this->sx_ - 1) * nx * nx;});
   removeCols_.emplace_back(removeCols_[4]);
   std::for_each(removeCols_.back().begin(), removeCols_.back().end(), [](int& d) {d += 1;});
-  removeCols_.emplace_back(removeCols_[5]);
+  removeCols_.emplace_back(removeCols_[4]);
+  std::for_each(removeCols_.back().begin(), removeCols_.back().end(), [](int& d) {d += 2;});
+  removeCols_.emplace_back(removeCols_[4]);
   std::for_each(removeCols_.back().begin(), removeCols_.back().end(),
     [this, nx](int& d) {d += this->dof_ * nx;});
+  removeCols_.emplace_back(removeCols_[7]);
+  std::for_each(removeCols_.back().begin(), removeCols_.back().end(), [](int& d) {d += 2;});
 
   std::vector<std::vector<int> > NSintersect(1);
   std::vector<std::vector<int> > EWintersect(1);
@@ -727,7 +748,7 @@ void SkewCartesianPartitioner::splitTemplate()
           NSintersect[0].push_back(dof_ * j + i * dof_ * nx + jj * dof_ * nx * nx + type);
       // West
       for (int i = 0; i < sx_+2; i++)
-        for (int j = 0; j < sx_/2; j++)
+        for (int j = 0; j < sx_/2+1; j++)
           EWintersect[0].push_back(dof_ * j + i * dof_ * nx + jj * dof_ * nx * nx + type);
       }
 
@@ -773,7 +794,7 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::createSubdomain(int sd,
   int numPerRow = 2*npx_ + 1; // domains in a row (both lattices); fixed y
 
   // Get domain coordinates and its first node
-  // Considers 'superposed lattices
+  // Considers superposed lattices
   int Z = sd / numPerLayer;
   double Y = ((sd - Z * numPerLayer) / numPerRow) - 0.5;
   double X = (sd - Z * numPerLayer) % numPerRow;
@@ -785,7 +806,7 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::createSubdomain(int sd,
     lattice = 2;
     }
 
-  int firstNode = dof_ * sx_ * (X + Y * nx_) + dof_ * nx_ * ny_ * sx_ * (Z - 1) - dof_ * nx_;
+  int firstNode = dof_ * sx_ * (X + Y * nx_) + dof_ * nx_ * ny_ * sx_ * (Z - 1) - dof_ * nx_ - dof_;
 
   double eps = 1e-8;
   std::vector<std::vector<int> const *> toRemove;
@@ -853,11 +874,13 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::createSubdomain(int sd,
         }
       }
 
-    if (std::abs(X - npx_ + 1) < eps)
+    if (std::abs(X) < eps)
       {
       toRemove.push_back(&removeCols_[4]);
       toRemove.push_back(&removeCols_[5]);
       toRemove.push_back(&removeCols_[6]);
+      toRemove.push_back(&removeCols_[7]);
+      toRemove.push_back(&removeCols_[8]);
       }
     }
   else if (lattice == 2)
@@ -1008,7 +1031,7 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::createSubdomain(int sd,
           groups[0].push_back(node);
         group->erase(std::remove(group->begin(), group->end(), node));
         }
-      else if (z == nz_ - 1 && node % dof_ == 2)
+      else if (nz_ > 1 && z == nz_ - 1 && node % dof_ == 2)
         {
         if (operator()(x, y, z) == sd)
           groups[0].push_back(node);
@@ -1062,7 +1085,8 @@ int SkewCartesianPartitioner::PID(int i, int j, int k) const
   int sz = nz_ / nprocz_;
 
   int cl = std::min(sx, sy);
-  cl = std::min(cl, sz);
+  if (nz_ > 1)
+    cl = std::min(cl, sz);
 
   // which cube
   int xcube = i / cl;
@@ -1073,7 +1097,7 @@ int SkewCartesianPartitioner::PID(int i, int j, int k) const
   int sd = zcube * dir3 + ycube * (dir2 + dir1) + xcube;
 
   // relative coordinates
-  i -= xcube * cl;
+  i -= xcube * cl - 1;
   j -= ycube * cl;
   k -= zcube * cl;
 
