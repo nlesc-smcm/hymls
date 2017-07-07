@@ -187,6 +187,7 @@ Teuchos::RCP<Epetra_Map> create_map(const Epetra_Comm& comm,
   Teuchos::ParameterList& probl_params,
   Teuchos::ParameterList& prec_params)
   {
+  int pvar = -1;
   int dim = probl_params.get("Dimension",2);
   int nx=probl_params.get("nx",32);
   int ny=probl_params.get("ny",nx);
@@ -212,9 +213,10 @@ Teuchos::RCP<Epetra_Map> create_map(const Epetra_Comm& comm,
   int dof=probl_params.get("Degrees of Freedom",1);
   bool is_complex=probl_params.get("Complex Arithmetic",false);
 
-  if (eqn=="Stokes-C")
+  if (eqn == "Stokes-C")
     {
-    dof=dim+1;
+    dof = dim + 1;
+    pvar = dim;
     }
   else if (eqn!="Laplace" && eqn=="Laplace Neumann")
     {
@@ -232,14 +234,14 @@ Teuchos::RCP<Epetra_Map> create_map(const Epetra_Comm& comm,
   if (partMethod == "Cartesian")
     {
     Teuchos::RCP<HYMLS::CartesianPartitioner> cartPart =
-      Teuchos::rcp(new HYMLS::CartesianPartitioner(map, nx, ny, nz, dof));
+      Teuchos::rcp(new HYMLS::CartesianPartitioner(map, nx, ny, nz, dof, pvar));
     cartPart->Partition(sx, sy, sz, true);
     part = cartPart;
     }
   else if (partMethod == "Skew Cartesian")
     {
     Teuchos::RCP<HYMLS::SkewCartesianPartitioner> cartPart =
-      Teuchos::rcp(new HYMLS::SkewCartesianPartitioner(map, nx, ny, nz, dof));
+      Teuchos::rcp(new HYMLS::SkewCartesianPartitioner(map, nx, ny, nz, dof, pvar));
     cartPart->Partition(sx, sy, sz, true);
     part = cartPart;
     }
