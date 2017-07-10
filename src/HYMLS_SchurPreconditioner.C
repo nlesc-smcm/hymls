@@ -994,12 +994,8 @@ int SchurPreconditioner::InitializeOT()
     HYMLS_LPROF2(label_, timerLabel);
 
     int nzest = 0;
-    if (hid_->NumMySubdomains()>0)
-      {
-      nzest = hid_->NumElements(0);
-      if (hid_->NumGroups(0) > 0)
-        nzest -= hid_->NumElements(0,0);
-      }
+    for (int sd = 0; sd < hid_->NumMySubdomains(); sd++)
+      nzest = std::max(nzest, hid_->NumSeparatorElements(sd));
     matrix = Teuchos::rcp(new Epetra_FECrsMatrix(Copy, *map_, nzest));
     matrix_ = matrix;
 
