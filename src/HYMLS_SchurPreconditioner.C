@@ -985,225 +985,115 @@ int SchurPreconditioner::InitializeOT()
 
     if (SchurComplement_==Teuchos::null) Tools::Error("SC not available in unassembled form", __FILE__,__LINE__);
 
-    Teuchos::RCP<Epetra_FECrsMatrix> matrix = 
+    Teuchos::RCP<Epetra_FECrsMatrix> matrix =
         Teuchos::rcp_dynamic_cast<Epetra_FECrsMatrix>(matrix_);
 
-    if (matrix==Teuchos::null)
-      {
+    if (matrix == Teuchos::null)
       timerLabel=timerLabel+" (first call)";
-      }
 
-    HYMLS_LPROF2(label_,timerLabel);
-        
-    if (matrix==Teuchos::null)
+    HYMLS_LPROF2(label_, timerLabel);
+
+    int nzest = 0;
+    if (hid_->NumMySubdomains()>0)
       {
-      int nzest = 0;
-      if (hid_->NumMySubdomains()>0)
-        {
-        nzest = hid_->NumElements(0);
-        if (hid_->NumGroups(0)>0) nzest -= hid_->NumElements(0,0);
-        }
-      matrix = Teuchos::rcp(new Epetra_FECrsMatrix(Copy,*map_,nzest));
-      matrix_=matrix;
+      nzest = hid_->NumElements(0);
+      if (hid_->NumGroups(0) > 0)
+        nzest -= hid_->NumElements(0,0);
       }
-    
+    matrix = Teuchos::rcp(new Epetra_FECrsMatrix(Copy, *map_, nzest));
+    matrix_ = matrix;
+
     Epetra_IntSerialDenseVector indices;
     Epetra_IntSerialDenseVector sep;
     Epetra_SerialDenseVector v;
     Epetra_SerialDenseMatrix Sk;
-        
+
     // part remaining after dropping
     Epetra_SerialDenseMatrix Spart;
     Epetra_IntSerialDenseVector indsPart;
 
     Teuchos::RCP<Epetra_CrsMatrix> transformedA22 =
-    OT->Apply(*sparseMatrixOT_,SchurComplement_->A22());
-    
+      OT->Apply(*sparseMatrixOT_, SchurComplement_->A22());
+
 #ifdef HYMLS_DEBUGGING
-  std::string s1 = "SchurPrecond"+Teuchos::toString(myLevel_)+"_";
 /*
-  MatrixUtils::Dump(*matrix_,s1+"Pattern.txt");
-  // not Filled yet
-  //MatrixUtils::Dump(*transformedA22,s1+"TransformedA22.txt");
+    std::string s1 = "SchurPrecond"+Teuchos::toString(myLevel_)+"_";
+    MatrixUtils::Dump(*matrix_,s1+"Pattern.txt");
+    // not Filled yet
+    //MatrixUtils::Dump(*transformedA22,s1+"TransformedA22.txt");
 */
 #endif
 
-    if (transformedA22->RowMap().SameAs(matrix->RowMap())==false)
-      {
+    if (!transformedA22->RowMap().SameAs(matrix->RowMap()))
       HYMLS::Tools::Error("mismatched maps",__FILE__,__LINE__);
-      }
 
     int len;
     int maxlen = transformedA22->GlobalMaxNumEntries();
     int* cols = new int[maxlen];
     double* values = new double[maxlen];
 
-    // put H'*A22*H into matrix_
-    if (!matrix->Filled())
-      {
-      // start out by just putting the structure together.
-      // I do this because the SumInto function will fail 
-      // unless the values have been put in already. On the
-      // other hand, the Insert function will overwrite stuff
-      // we put in previously.
-      //
-      // NOTE: this is where the 'dropping' occurs, so if we
-      //       want to implement different schemes we have  
-      //       to adjust this loop in the first place.      
-      for (int sd=0;sd<hid_->NumMySubdomains();sd++)
-        {
-        // put in the Vsum-Vsum couplings
-        int numVsums = hid_->NumGroups(sd)-1;
-        indsPart.Resize(numVsums);
-        if (numVsums>Spart.N()) Spart.Reshape(2*numVsums,2*numVsums);
-        numVsums=0;
-        for (int grp=1;grp<hid_->NumGroups(sd);grp++)
-          {
-          if (hid_->NumElements(sd,grp)>0)
-            {
-            indsPart[numVsums++]=hid_->GID(sd,grp,0);
-            }
-          }
-        indsPart.Resize(numVsums);
-        //HYMLS_DEBVAR(sd);
-        //HYMLS_DEBVAR(indsPart);
-        CHECK_NONNEG(matrix->InsertGlobalValues(indsPart.Length(),
-                indsPart.Values(), Spart.A()));
-        // now the non-Vsums
-        for (int grp=1;grp<hid_->NumGroups(sd);grp++)
-          {
-          int len = hid_->NumElements(sd,grp)-1;
-          indsPart.Resize(len);
-          if (Spart.N()<len) Spart.Reshape(2*len,2*len);
-          for (int j=0;j<len;j++)
-            {
-            indsPart[j]=hid_->GID(sd,grp,1+j);
-            }//j
-          //HYMLS_DEBVAR(indsPart);
-          CHECK_NONNEG(matrix->InsertGlobalValues(indsPart.Length(),
-                        indsPart.Values(),Spart.A()));
-          }
-        }
-      // assemble with all zeros
-      HYMLS_DEBVAR("assemble pattern of transformed SC");
-      CHECK_ZERO(matrix->GlobalAssemble(false));
+    // Put H'*A22*H into matrix_
+    // NOTE: this is where the 'dropping' occurs, so if we
+    //       want to implement different schemes we have
+    //       to adjust this loop in the first place.
 
-      // now fill with H'*A22*H
-      for (int i=0;i<matrix_->NumMyRows();i++)
-        {
-        //global row id
-        int grid = transformedA22->GRID(i);
-        CHECK_ZERO(transformedA22->ExtractGlobalRowCopy(grid,maxlen,len,values,cols));
+    // Fill with H'*A22*H
+    for (int i=0;i<matrix->NumMyRows();i++)
+      {
+      //global row id
+      int grid = transformedA22->GRID(i);
+      CHECK_ZERO(transformedA22->ExtractGlobalRowCopy(
+          grid, maxlen, len, values, cols));
 
 #ifdef HYMLS_TESTING
-        //before we would sum the value because of duplicate entries,
-        //but here we check that they don't exist and instead just insert them
-        std::vector<int> colvec(len);
-        colvec.assign(cols, cols+len);
-        std::sort(colvec.begin(), colvec.end());
-        for (int j = 0; j < len - 1; j++)
-          {
-          if (colvec[j] == colvec[j + 1])
-            {
-            Tools::Error("Duplicate entries on row "+Teuchos::toString(grid)+ " column "+Teuchos::toString(colvec[j]),__FILE__,__LINE__);
-            }
-          }
-#endif
-        CHECK_NONNEG(matrix_->InsertGlobalValues(grid,len,values,cols));
-        }
-      CHECK_ZERO(matrix_->FillComplete());
-      }
-    else
-      {
-      CHECK_ZERO(matrix->PutScalar(0.0));
-
-      for (int i=0;i<matrix_->NumMyRows();i++)
+      // Before, we would sum the value because of duplicate entries,
+      // but here we check that they don't exist and instead just insert them
+      std::vector<int> colvec(len);
+      colvec.assign(cols, cols+len);
+      std::sort(colvec.begin(), colvec.end());
+      for (int j = 0; j < len - 1; j++)
         {
-        //global row id
-        int grid = transformedA22->GRID(i);
-        CHECK_ZERO(transformedA22->ExtractGlobalRowCopy(grid,maxlen,len,values,cols));
-
-#ifdef HYMLS_TESTING
-        //check that the pattern didn't change
-        int len2;
-        int maxlen2 = matrix_->GlobalMaxNumEntries();
-        int* cols2 = new int[maxlen2];
-        double* values2 = new double[maxlen2];
-        CHECK_ZERO(matrix_->ExtractGlobalRowCopy(grid,maxlen2,len2,values2,cols2));
-
-        std::vector<int> colvec(len);
-        colvec.assign(cols, cols+len);
-        std::sort(colvec.begin(), colvec.end());
-
-        std::vector<int> colvec2(len2);
-        colvec2.assign(cols2, cols2+len2);
-        std::sort(colvec2.begin(), colvec2.end());
-
-        int j2 = 0;
-        for (int j = 0; j < len; j++)
+        if (colvec[j] == colvec[j + 1])
           {
-          for (; j2 < len2; j2++)
-            {
-            if (colvec[j] == colvec2[j2])
-              break;
-
-            // We iterated past the number in colvec[j] so it is not in colvec2
-            if (colvec2[j2] > colvec[j])
-              break;
-            }
-          // colvec[j] is not anywhere before the last number in colvec2
-          if (j2 == len2 || colvec2[j2] > colvec[j])
-            {
-            // Find the index of the value
-            for (int j3 = 0; j3 < len; j3++)
-              if (colvec[j] == cols[j3])
-                {
-                Tools::Warning("Pattern is different on row "
-                  + Teuchos::toString(grid) + " column "
-                  + Teuchos::toString(colvec[j]) + " value "
-                  + Teuchos::toString(values[j3]), __FILE__, __LINE__);
-                break;
-                }
-            }
+          Tools::Error("Duplicate entries on row "+Teuchos::toString(grid)+
+            " column "+Teuchos::toString(colvec[j]), __FILE__, __LINE__);
           }
-
-        delete [] cols2;
-        delete [] values2;
-#endif
-        CHECK_NONNEG(matrix_->ReplaceGlobalValues(grid,len,values,cols));
         }
+#endif
+      CHECK_NONNEG(matrix->InsertGlobalValues(grid, len, values, cols));
       }
 
-    // free temporary storage
+    // Free temporary storage
     delete [] values;
     delete [] cols;
-    transformedA22=Teuchos::null;
+    transformedA22 = Teuchos::null;
+
 #ifdef HYMLS_STORE_MATRICES
 //  HYMLS::MatrixUtils::Dump(*matrix_,s1+"_TransDroppedA22.txt");
 #endif
 
     // Get an object with all separators connected to local subdomains
     Teuchos::RCP<const HierarchicalMap> sepObject
-        = hid_->Spawn(HierarchicalMap::Separators);
-        
+      = hid_->Spawn(HierarchicalMap::Separators);
+
     // import our test vector into the map of this object (to get the off-processor
-    // separators connected to local subdomains). The separators are unique in this object, 
+    // separators connected to local subdomains). The separators are unique in this object,
     // so the Map() and OverlappingMap() are the same.
     const Epetra_Map& sepMap = sepObject->OverlappingMap();
-    Epetra_Import import(sepMap,*map_);
+    Epetra_Import import(sepMap, *map_);
     Epetra_Vector localTestVector(sepMap);
-    CHECK_ZERO(localTestVector.Import(*testVector_,import,Insert));
+    CHECK_ZERO(localTestVector.Import(*testVector_, import, Insert));
 
-    // now for each subdomain construct the SC part A21*A11\A12 for the      
-    // surrounding separators, apply orthogonal transforms to each separator 
+    // now for each subdomain construct the SC part A21*A11\A12 for the
+    // surrounding separators, apply orthogonal transforms to each separator
     // group and sum them into the pattern defined above, dropping everything
     // that is not defined in the matrix pattern.
-     
+
     // loop over all subdomains
     for (int sd=0;sd<hid_->NumMySubdomains();sd++)
       {
       // construct the local contribution of the SC
-      // (for all separators around the subdomain) 
+      // (for all separators around the subdomain)
 
       // Get the global indices of the separators
       CHECK_ZERO(hid_->getSeparatorGIDs(sd, indices));
@@ -1235,24 +1125,23 @@ int SchurPreconditioner::InitializeOT()
         pos += len;
         }
 
-      CHECK_NONNEG(matrix->SumIntoGlobalValues(indices,Sk));
+      CHECK_NONNEG(matrix->InsertGlobalValues(indices, Sk));
       }//sd
 
     HYMLS_DEBUG("assemble transformed/dropped SC");
-    CHECK_ZERO(matrix->GlobalAssemble(true));
+    CHECK_ZERO(matrix->GlobalAssemble());
 
 #ifdef HYMLS_STORE_MATRICES
-    MatrixUtils::Dump(*matrix_,"SchurPreconditioner"+Teuchos::toString(myLevel_)+".txt");
+    MatrixUtils::Dump(*matrix_, "SchurPreconditioner"+Teuchos::toString(myLevel_)+".txt");
 #endif
-    REPORT_SUM_MEM(label_,"Transformed SC",matrix_->NumMyNonzeros(),
-                                           matrix_->NumMyNonzeros(),comm_);
+    REPORT_SUM_MEM(label_, "Transformed SC", matrix_->NumMyNonzeros(),
+      matrix_->NumMyNonzeros(), comm_);
 
     HYMLS_TEST(Label(),
-            noPcouplingsDropped(*matrix_,*hid_->Spawn(HierarchicalMap::LocalSeparators)),
-            __FILE__,__LINE__);
+      noPcouplingsDropped(*matrix_, *hid_->Spawn(HierarchicalMap::LocalSeparators)),
+      __FILE__, __LINE__);
     return 0;
     }
-
 
   // Returns true if the  preconditioner has been successfully initialized, false otherwise.
   bool SchurPreconditioner::IsInitialized() const {return initialized_;}
