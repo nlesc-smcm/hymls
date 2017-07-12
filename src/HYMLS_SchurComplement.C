@@ -294,9 +294,9 @@ int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
   Epetra_MultiVector Aloc(A21.RowMap(), B.NumVectors());
   for (int j = 0; j < B.MyLength(); j++)
     {
+    const int lrid = A12.LRID(A11_->ExtendedMatrix()->GRID(A11.ID(j)));
     for (int k = 0; k < nrows; k++)
       {
-      const int lrid = A12.LRID(A11_->ExtendedMatrix()->GRID(A11.ID(j)));
       B[k][lrid] = A11.LHS(j, k);
       }
     }
