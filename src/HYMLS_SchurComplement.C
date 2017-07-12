@@ -247,37 +247,35 @@ int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
   HYMLS_DEBVAR(nrows);
 
   int int_elems = hid.NumInteriorElements(sd);
-  int *len = new int[int_elems];
-  int **indices = new int*[int_elems];
-  double **values = new double*[int_elems];
-  // loop over all rows in this subdomain
+  int len;
+  int *indices;
+  double *values;
+
+  // Loop over all interior elements
   for (int i = 0; i < int_elems; i++)
     {
-    // get a view of the matrix row (with all separator couplings)
-    CHECK_ZERO(A12.ExtractMyRowView(i, len[i], values[i], indices[i]));
-    }
+    const int lrid = A12.LRID(A11_->ExtendedMatrix()->GRID(A11.ID(i)));
 
-  // Loop over all GIDs of separators around this subdomain
-  for (int pos = 0; pos < nrows; pos++)
-    {
-    int gcid = inds[pos];
-    // loop over all rows in this subdomain
-    for (int i = 0; i < int_elems; i++)
+    // Get a view of the matrix row (with all separator couplings)
+    CHECK_ZERO(A12.ExtractMyRowView(i, len, values, indices));
+
+    // A11 ID stores local indices of the original matrix
+    // loop over the matrix row and look for matching entries
+    for (int k = 0 ; k < len; k++)
       {
-      // A11 ID stores local indices of the original matrix
-      const int lrid = A12.LRID(A11_->ExtendedMatrix()->GRID(A11.ID(i)));
-      // loop over the matrix row and look for matching entries
-      for (int k = 0 ; k < len[lrid]; k++)
+      const int gcid = A12.GCID(indices[k]);
+
+      // Loop over all GIDs of separators around this subdomain
+      for (int j = 0; j < nrows; j++)
         {
-        if (gcid == A12.GCID(indices[lrid][k]))
-          A11.RHS(i, pos) = values[lrid][k];
+        if (gcid == inds[j])
+          {
+          A11.RHS(i, j) = values[k];
+          break;
+          }
         }
       }
     }
-
-  delete[] len;
-  delete[] indices;
-  delete[] values;
 
 //    HYMLS_DEBUG("Apply A11 inverse...");
 #ifdef FLOPS_COUNT
