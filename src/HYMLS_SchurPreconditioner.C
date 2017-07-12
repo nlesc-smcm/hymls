@@ -1008,7 +1008,6 @@ int SchurPreconditioner::InitializeOT()
       }
     
     Epetra_IntSerialDenseVector indices;
-    Epetra_IntSerialDenseVector sep;
     Epetra_SerialDenseVector v;
     Epetra_SerialDenseMatrix Sk;
         
@@ -1041,6 +1040,7 @@ int SchurPreconditioner::InitializeOT()
     // put H'*A22*H into matrix_
     if (!matrix->Filled())
       {
+      HYMLS_LPROF2(label_,"Fill matrix");
       // start out by just putting the structure together.
       // I do this because the SumInto function will fail 
       // unless the values have been put in already. On the
@@ -1086,7 +1086,7 @@ int SchurPreconditioner::InitializeOT()
         }
       // assemble with all zeros
       HYMLS_DEBVAR("assemble pattern of transformed SC");
-      CHECK_ZERO(matrix->GlobalAssemble(false));
+      CHECK_ZERO(matrix->GlobalAssemble());
 
       // now fill with H'*A22*H
       for (int i=0;i<matrix_->NumMyRows();i++)
@@ -1111,7 +1111,6 @@ int SchurPreconditioner::InitializeOT()
 #endif
         CHECK_NONNEG(matrix_->SumIntoGlobalValues(grid,len,values,cols));
         }
-      CHECK_ZERO(matrix_->FillComplete());
       }
     else
       {
@@ -1202,8 +1201,11 @@ int SchurPreconditioner::InitializeOT()
     // loop over all subdomains
     for (int sd=0;sd<hid_->NumMySubdomains();sd++)
       {
+      HYMLS_LPROF2(label_,"Add A21A11A12 part");
       // construct the local contribution of the SC
-      // (for all separators around the subdomain) 
+      // (for all separators around the subdomain)
+
+      int numGroups = hid_->NumGroups(sd);
 
       // Get the global indices of the separators
       CHECK_ZERO(hid_->getSeparatorGIDs(sd, indices));
@@ -1221,10 +1223,16 @@ int SchurPreconditioner::InitializeOT()
         v[i] = localTestVector[sepMap.LID(gid)];
         }
 
+      int numVsums = numGroups - 1;
+      indsPart.Resize(numVsums);
+      numVsums = 0;
+
       int pos = 0;
+      int maxlen = 0;
       // Loop over all separators of the subdomain sd
-      for (int grp = 1; grp < hid_->NumGroups(sd); grp++)
+      for (int grp = 1; grp < numGroups; grp++)
         {
+        HYMLS_LPROF2(label_,"Apply OT");
         int len = hid_->NumElements(sd, grp);
         Epetra_SerialDenseVector vView(View, &v[pos], len);
 
@@ -1232,14 +1240,64 @@ int SchurPreconditioner::InitializeOT()
         // separately
         RestrictedOT::Apply(Sk, pos, *OT, vView);
 
+        if (len > 0)
+          indsPart[numVsums++] = indices[pos];
+
         pos += len;
+        maxlen = std::max(len, maxlen);
+        }
+      indsPart.Resize(numVsums);
+
+      // Only add Vsum-Vsum couplings and non-Vsums. This is way faster than
+      // than trying to add all the values and letting SumIntoGlobalValues
+      // decide which ones to drop.
+      double *SkVsum = new double[numVsums * numVsums];
+      double *SkNonVsum = new double[maxlen * maxlen];
+
+      int pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+      for (int grp = 1; grp < numGroups; grp++)
+        {
+        HYMLS_LPROF2(label_,"Compute non-dropped part");
+        int len = hid_->NumElements(sd, grp);
+        if (len > 0)
+          {
+          pos2 = 0;
+          pos4 = 0;
+          for (int grp2 = 1; grp2 < numGroups; grp2++)
+            {
+            int len2 = hid_->NumElements(sd, grp2);
+            if (len2 > 0)
+              {
+              SkVsum[pos2 * numVsums + pos1] = Sk(pos3, pos4);
+              pos2++;
+              pos4 += len2;
+              }
+            }
+
+          pos1++;
+          if (len > 1)
+            {
+            for (int i = 0; i < len-1; i++)
+              for (int j = 0; j < len-1; j++)
+                SkNonVsum[j*(len-1)+i] = Sk(pos3+i+1, pos3+j+1);
+
+            CHECK_ZERO(matrix->SumIntoGlobalValues(len-1, &indices[pos3+1], SkNonVsum));
+            }
+          pos3 += len;
+          }
         }
 
-      CHECK_NONNEG(matrix->SumIntoGlobalValues(indices,Sk));
+        {
+        HYMLS_LPROF2(label_,"Add Vsum nodes");
+        CHECK_ZERO(matrix->SumIntoGlobalValues(numVsums, indsPart.Values(), SkVsum));
+        }
+
+      delete[] SkVsum;
+      delete[] SkNonVsum;
       }//sd
 
     HYMLS_DEBUG("assemble transformed/dropped SC");
-    CHECK_ZERO(matrix->GlobalAssemble(true));
+    CHECK_ZERO(matrix->GlobalAssemble());
 
 #ifdef HYMLS_STORE_MATRICES
     MatrixUtils::Dump(*matrix_,"SchurPreconditioner"+Teuchos::toString(myLevel_)+".txt");
