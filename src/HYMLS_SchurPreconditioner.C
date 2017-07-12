@@ -1,7 +1,5 @@
 #define RESTRICT_ON_COARSE_LEVEL
 
-#include "HYMLS_no_debug.H"
-
 #include "HYMLS_SchurPreconditioner.H"
 
 #include "HYMLS_Macros.H" 
@@ -1040,7 +1038,7 @@ int SchurPreconditioner::InitializeOT()
     // put H'*A22*H into matrix_
     if (!matrix->Filled())
       {
-      HYMLS_LPROF2(label_,"Fill matrix");
+      HYMLS_LPROF3(label_,"Fill matrix");
       // start out by just putting the structure together.
       // I do this because the SumInto function will fail 
       // unless the values have been put in already. On the
@@ -1201,7 +1199,7 @@ int SchurPreconditioner::InitializeOT()
     // loop over all subdomains
     for (int sd=0;sd<hid_->NumMySubdomains();sd++)
       {
-      HYMLS_LPROF2(label_,"Add A21A11A12 part");
+      HYMLS_LPROF3(label_,"Add A21A11A12 part");
       // construct the local contribution of the SC
       // (for all separators around the subdomain)
 
@@ -1232,7 +1230,7 @@ int SchurPreconditioner::InitializeOT()
       // Loop over all separators of the subdomain sd
       for (int grp = 1; grp < numGroups; grp++)
         {
-        HYMLS_LPROF2(label_,"Apply OT");
+        HYMLS_LPROF3(label_,"Apply OT");
         int len = hid_->NumElements(sd, grp);
         Epetra_SerialDenseVector vView(View, &v[pos], len);
 
@@ -1257,7 +1255,7 @@ int SchurPreconditioner::InitializeOT()
       int pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
       for (int grp = 1; grp < numGroups; grp++)
         {
-        HYMLS_LPROF2(label_,"Compute non-dropped part");
+        HYMLS_LPROF3(label_,"Compute non-dropped part");
         int len = hid_->NumElements(sd, grp);
         if (len > 0)
           {
@@ -1288,7 +1286,7 @@ int SchurPreconditioner::InitializeOT()
         }
 
         {
-        HYMLS_LPROF2(label_,"Add Vsum nodes");
+        HYMLS_LPROF3(label_,"Add Vsum nodes");
         CHECK_ZERO(matrix->SumIntoGlobalValues(numVsums, indsPart.Values(), SkVsum));
         }
 
