@@ -160,7 +160,7 @@ int MatrixBlock::InitializeSubdomainSolvers(std::string const &solverType,
       // copy parameter list
       Teuchos::ParameterList tmp_sd_list = *sd_list;
 
-#if TIMING_LEVEL>2
+#if HYMLS_TIMING_LEVEL>2
       tmp_sd_list.set("Label", "direct solver (lev "+Teuchos::toString(myLevel_)+", sd "+Teuchos::toString(sd)+")");
 #else
       tmp_sd_list.set("Label", "direct solver (lev "+Teuchos::toString(myLevel_)+")");

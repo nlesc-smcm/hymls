@@ -26,15 +26,15 @@
 
 // the timing macro's are also used for function tracing, so enable them all:
 #ifdef HYMLS_DEBUGGING
-#ifndef TIMING_LEVEL
-#define TIMING_LEVEL 10
+#ifndef HYMLS_TIMING_LEVEL
+#define HYMLS_TIMING_LEVEL 10
 #endif
 #ifndef PRINT_TIMING
 #define PRINT_TIMING false
 #endif
 #else
-#ifndef TIMING_LEVEL
-#define TIMING_LEVEL 2
+#ifndef HYMLS_TIMING_LEVEL
+#define HYMLS_TIMING_LEVEL 2
 #endif
 #ifndef PRINT_TIMING
 #define PRINT_TIMING false
@@ -47,7 +47,7 @@
 #endif
 #endif
 
-// the TIMING_LEVEL macro defines how many functions are included
+// the HYMLS_TIMING_LEVEL macro defines how many functions are included
 // in the timing output at the end of the run.
 //
 // 0: no timing at all
@@ -75,7 +75,7 @@
 //  }
 
 
-#if TIMING_LEVEL>0
+#if HYMLS_TIMING_LEVEL>0
 /*! @def HYMLS_PROF - start profiling region
 
  s1 and s2 are concatenated to form the profiler/timer label.
@@ -107,7 +107,7 @@ HYMLS::Tools::Fatal("aborting at check point '"+msg+"'",file.c_str(),line);}}
 #define BREAK_ON_CHECKPOINT(s1,s2)
 #endif
 
-#if TIMING_LEVEL>1
+#if HYMLS_TIMING_LEVEL>1
 #define HYMLS_PROF2(s1,s2) HYMLS_PROF(s1,s2)
 #define HYMLS_LPROF2(s1,s2) HYMLS_LPROF(s1,s2)
 #else
@@ -115,7 +115,7 @@ HYMLS::Tools::Fatal("aborting at check point '"+msg+"'",file.c_str(),line);}}
 #define HYMLS_LPROF2(s1,s2)
 #endif
 
-#if TIMING_LEVEL>2
+#if HYMLS_TIMING_LEVEL>2
 #define HYMLS_PROF3(s1,s2) HYMLS_PROF(s1,s2)
 #define HYMLS_LPROF3(s1,s2) HYMLS_LPROF(s1,s2)
 #else
