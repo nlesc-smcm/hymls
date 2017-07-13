@@ -795,10 +795,6 @@ int SkewCartesianPartitioner::PID(int i, int j, int k) const
     Tools::Error("Partition() not yet called!", __FILE__, __LINE__);
     }
 #endif
-  int dir1 = nprocx_ + 1;
-  int dir2 = nprocx_;
-  int dir3 = 2*nprocx_*nprocy_ + nprocx_ + nprocy_;
-
   int sx = nx_ / nprocx_;
   int sy = ny_ / nprocy_;
   int sz = nz_ / nprocz_;
@@ -806,6 +802,14 @@ int SkewCartesianPartitioner::PID(int i, int j, int k) const
   int cl = std::min(sx, sy);
   if (nz_ > 1)
     cl = std::min(cl, sz);
+
+  int npx = nx_ / cl;
+  int npy = ny_ / cl;
+  int npz = nz_ / cl;
+
+  int dir1 = npx + 1;
+  int dir2 = npx;
+  int dir3 = 2*npx*npy + npx + npy;
 
   // which cube
   int xcube = i / cl;
@@ -853,16 +857,16 @@ int SkewCartesianPartitioner::PID(int i, int j, int k) const
       }
     }
 
-  int totNum2DCubes = nprocx_ * nprocy_; // number of cubes for fixed z
-  int numPerLayer = 2 * totNum2DCubes + nprocx_ + nprocy_; // domains for fixed z
-  int numPerRow = 2 * nprocx_ + 1; // domains in a row (both lattices); fixed y
+  int totNum2DCubes = npx * npy; // number of cubes for fixed z
+  int numPerLayer = 2 * totNum2DCubes + npx + npy; // domains for fixed z
+  int numPerRow = 2 * npx + 1; // domains in a row (both lattices); fixed y
 
   int Z = sd / numPerLayer;
   double Y = ((sd - Z * numPerLayer) / numPerRow) - 0.5;
   double X = (sd - Z * numPerLayer) % numPerRow;
-  if (X >= nprocx_)
+  if (X >= npx)
     {
-    X -= nprocx_ + 0.5;
+    X -= npx + 0.5;
     Y += 0.5;
     }
 

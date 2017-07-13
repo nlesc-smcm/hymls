@@ -12,17 +12,29 @@
 class FakeComm: public Epetra_SerialComm
   {
   int numProc_;
+  int pid_;
 public:
-  FakeComm(): Epetra_SerialComm(), numProc_() {}
-  FakeComm(const FakeComm& Comm): Epetra_SerialComm(Comm), numProc_(Comm.numProc_) {}
+  FakeComm(): Epetra_SerialComm(), numProc_(0), pid_(0) {}
+  FakeComm(const FakeComm& Comm):
+    Epetra_SerialComm(Comm),
+    numProc_(Comm.numProc_),
+    pid_(Comm.pid_)
+    {}
   Epetra_Comm *Clone() const
     {return dynamic_cast<Epetra_Comm *>(new FakeComm(*this));}
+
   int NumProc() const
     {return numProc_;}
-  int SumAll(int *PartialSums, int *GlobalSums, int Count) const
-    {*GlobalSums = *PartialSums * numProc_; return 0;};
   void SetNumProc(int num)
     {numProc_ = num;}
+
+  int SumAll(int *PartialSums, int *GlobalSums, int Count) const
+    {*GlobalSums = *PartialSums * numProc_; return 0;};
+
+  int MyPID() const
+    {return pid_;}
+  int SetMyPID(int pid)
+    {pid_ = pid;}
   };
 
 class TestableSkewCartesianPartitioner: public HYMLS::SkewCartesianPartitioner
@@ -87,12 +99,12 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, PID)
 
   TEST_EQUALITY(part.PID(0, 0, 0), 3);
   TEST_EQUALITY(part.PID(0, 1, 0), 3);
-  TEST_EQUALITY(part.PID(7, 0, 0), 2);
+  TEST_EQUALITY(part.PID(7, 0, 0), 3);
   TEST_EQUALITY(part.PID(3, 4, 0), 2);
   TEST_EQUALITY(part.PID(3, 4, 3), 0);
   TEST_EQUALITY(part.PID(3, 4, 4), 0);
   TEST_EQUALITY(part.PID(0, 0, 4), 1);
-  TEST_EQUALITY(part.PID(7, 7, 7), 1);
+  TEST_EQUALITY(part.PID(7, 7, 7), 0);
   }
 
 TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 2DNodes)
@@ -235,4 +247,99 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 1PSepPerDomain3D)
           numPNodes++;
     TEST_EQUALITY(numPNodes, 1);
     }
+  }
+
+TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NoEmptyProcs16)
+  {
+  int nprocs = 16;
+  FakeComm comm;
+
+  comm.SetNumProc(nprocs);
+  for (int i = 0; i < nprocs; i++)
+    {
+    comm.SetMyPID(i);
+
+    int nx = 16;
+    int ny = 16;
+    int nz = 16;
+    int sx = 4;
+    int sy = 4;
+    int sz = 4;
+    int dof = 4;
+    int n = nx * ny * nz * dof;
+
+    Epetra_Map map(n, 0, comm);
+    TestableSkewCartesianPartitioner part(Teuchos::rcp(&map, false), nx, ny, nz, dof, 3);
+    part.Partition(sx, sy, sz, false);
+
+    TEST_INEQUALITY(part.NumLocalParts(), 0);
+    }
+  }
+
+TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NoEmptyProcs128)
+  {
+  int nprocs = 128;
+  FakeComm comm;
+
+  comm.SetNumProc(nprocs);
+  for (int i = 0; i < nprocs; i++)
+    {
+    comm.SetMyPID(i);
+
+    int nx = 32;
+    int ny = 32;
+    int nz = 32;
+    int sx = 4;
+    int sy = 4;
+    int sz = 4;
+    int dof = 4;
+    int n = nx * ny * nz * dof;
+
+    Epetra_Map map(n, 0, comm);
+    TestableSkewCartesianPartitioner part(Teuchos::rcp(&map, false), nx, ny, nz, dof, 3);
+    part.Partition(sx, sy, sz, false);
+
+    TEST_INEQUALITY(part.NumLocalParts(), 0);
+    }
+  }
+
+TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, SameNumSubdomains)
+  {
+  FakeComm comm;
+
+  int nprocs = 16;
+  comm.SetNumProc(nprocs);
+
+  int nx = 16;
+  int ny = 16;
+  int nz = 16;
+  int sx = 4;
+  int sy = 4;
+  int sz = 4;
+  int dof = 4;
+  int n = nx * ny * nz * dof;
+
+  Epetra_Map map(n, 0, comm);
+  TestableSkewCartesianPartitioner part(Teuchos::rcp(&map, false), nx, ny, nz, dof, 3);
+  part.Partition(sx, sy, sz, false);
+
+  int num = part.NumLocalParts();
+
+  nprocs = 128;
+  comm.SetNumProc(nprocs);
+
+  nx = 32;
+  ny = 32;
+  nz = 32;
+  sx = 4;
+  sy = 4;
+  sz = 4;
+  dof = 4;
+  n = nx * ny * nz * dof;
+
+  Epetra_Map map2(n, 0, comm);
+  TestableSkewCartesianPartitioner part2(Teuchos::rcp(&map2, false), nx, ny, nz, dof, 3);
+  part2.Partition(sx, sy, sz, false);
+
+  TEST_EQUALITY(part.NumLocalParts(), num);
   }
