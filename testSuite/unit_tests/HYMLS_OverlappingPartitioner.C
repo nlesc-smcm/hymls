@@ -112,7 +112,6 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Laplace2D, nx, ny, sx, sy)
 
   int nsx = nx / sx;
   int nsy = ny / sy;
-  int nsl = 1;
 
   int dof = 1;
   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(nx*ny*dof, 0, *Comm));
@@ -254,7 +253,6 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Laplace3D, nx, ny, nz, sx, sy, sz
 
   int nsx = nx / sx;
   int nsy = ny / sy;
-  int nsl = 1;
   int nsz = nz / sz;
 
   int dof = 1;
@@ -376,7 +374,6 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Stokes2D, nx, ny, sx, sy)
 
   int nsx = nx / sx;
   int nsy = ny / sy;
-  int nsl = 1;
 
   int dof = 3;
   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(nx*ny*dof, 0, *Comm));
@@ -553,7 +550,6 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Stokes3D, nx, ny, nz, sx, sy, sz)
 
   int nsx = nx / sx;
   int nsy = ny / sy;
-  int nsl = 1;
   int nsz = nz / sz;
 
   int dof = 4;
@@ -1221,13 +1217,6 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes3D, nx, ny, nz, sx, sy,
   {
   Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
   HYMLS::Tools::InitializeIO(Comm);
-
-  int nsx = nx / sx;
-  int nsy = ny / sy;
-  int nsz = nz / sz;
-  int totNum2DCubes = nsx * nsy; // number of cubes for fixed z
-  int numPerLayer = 2 * totNum2DCubes + nsx + nsy; // domains for fixed z
-  int numPerRow = 2*nsx + 1; // domains in a row (both lattices); fixed y
 
   int dof = 4;
   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(nx*ny*nz*dof, 0, *Comm));

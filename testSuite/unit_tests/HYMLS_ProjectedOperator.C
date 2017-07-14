@@ -227,7 +227,7 @@ TEUCHOS_UNIT_TEST(ProjectedOperator, ApplyInverse)
 
   Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(new Epetra_CrsMatrix(Copy, map, 2));
   for (int i = 0; i < n; i++) {
-    int A_idx = n - 1 - util.RandomInt() % (n - i);
+    // int A_idx = n - 1 - util.RandomInt() % (n - i);
     double A_val = util.RandomDouble();
 
     // Check if we own the index
@@ -282,7 +282,7 @@ TEUCHOS_UNIT_TEST(ProjectedOperator, ApplyInverseWithB)
   Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(new Epetra_CrsMatrix(Copy, map, 2));
   Teuchos::RCP<Epetra_CrsMatrix> B = Teuchos::rcp(new Epetra_CrsMatrix(Copy, map, 1));
   for (int i = 0; i < n; i++) {
-    int A_idx = n - 1 - util.RandomInt() % (n - i);
+    // int A_idx = n - 1 - util.RandomInt() % (n - i);
     double A_val = util.RandomDouble();
 
     // Check if we own the index

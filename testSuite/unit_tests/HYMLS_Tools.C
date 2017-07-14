@@ -14,7 +14,7 @@ public:
     SplitBoxComm(const SplitBoxComm& Comm): Epetra_SerialComm(Comm), numProc_(Comm.numProc_) {};
     Epetra_Comm *Clone() const {return dynamic_cast<Epetra_Comm *>(new SplitBoxComm(*this));};
     int NumProc() const {return numProc_;}
-    int SetNumProc(int num) {numProc_ = num;}
+    void SetNumProc(int num) {numProc_ = num;}
 };
 
 TEUCHOS_UNIT_TEST(Tools, SplitBox)

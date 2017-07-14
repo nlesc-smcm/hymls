@@ -89,7 +89,7 @@ TEUCHOS_UNIT_TEST(Preconditioner, Blocks)
 
   Epetra_Util util;
   for (int i = 0; i < n; i++) {
-    int A_idx = util.RandomInt() % n;
+    // int A_idx = util.RandomInt() % n;
     // double A_val = -std::abs(util.RandomDouble());
     double A_val2 = std::abs(util.RandomDouble());
 

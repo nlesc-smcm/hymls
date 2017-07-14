@@ -254,8 +254,6 @@ int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
   // Loop over all interior elements
   for (int i = 0; i < int_elems; i++)
     {
-    const int lrid = A12.LRID(A11_->ExtendedMatrix()->GRID(A11.ID(i)));
-
     // Get a view of the matrix row (with all separator couplings)
     CHECK_ZERO(A12.ExtractMyRowView(i, len, values, indices));
 

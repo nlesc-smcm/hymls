@@ -33,7 +33,7 @@ public:
 
   int MyPID() const
     {return pid_;}
-  int SetMyPID(int pid)
+  void SetMyPID(int pid)
     {pid_ = pid;}
   };
 

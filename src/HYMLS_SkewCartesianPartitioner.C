@@ -189,7 +189,6 @@ int SkewCartesianPartitioner::CreateSubdomainMap()
   {
   int totNum2DCubes = npx_ * npy_; // number of cubes for fixed z
   int numPerLayer = 2 * totNum2DCubes + npx_ + npy_; // domains for fixed z
-  int numPerRow = 2 * npx_ + 1; // domains in a row (both lattices); fixed y
 
   int NumMyElements = 0;
   int NumGlobalElements = (npz_ + 1) * numPerLayer;
@@ -405,7 +404,7 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::getTemplate() const
 
     // Used in the loop to determine which nodes to assign to each layer
     std::vector<int> rowLength;
-    for (int i = 0; i < plane.ptr.size()-1; i++)
+    for (size_t i = 0; i < plane.ptr.size()-1; i++)
       rowLength.push_back(plane.ptr[i+1] - plane.ptr[i] - 1); // -1 ???
 
     std::vector<int> activePtrs;
@@ -420,7 +419,7 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::getTemplate() const
       {
       // Get indices for the layers
       auto last = top.end();
-      for (int j = 0; j < activePtrs.size(); j++)
+      for (size_t j = 0; j < activePtrs.size(); j++)
         {
         int val = plane.plane[plane.ptr[activePtrs[j]] + offset[j]];
         bottom.push_back(val);
@@ -595,7 +594,7 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::solveGroups(
     {
     // For each node, first check to which domains it belongs and store it as bits
     unsigned long long listOfDomains = 0;
-    for (int i = 0; i < domain.size(); i++)
+    for (size_t i = 0; i < domain.size(); i++)
       {
       auto it = std::lower_bound(domain[i].begin(), domain[i].end(), node);
       if (it != domain[i].end() && *it == node)
@@ -605,7 +604,7 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::solveGroups(
     // Now check whether a group for this list was already created, and if
     // not, create it. Then add the nodes+domains to this group
     bool newGroup = true;
-    for (int i = 0; i < groups.size(); i++)
+    for (size_t i = 0; i < groups.size(); i++)
       if (groupDomains[i] == listOfDomains)
         {
         newGroup = false;
@@ -622,7 +621,7 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::solveGroups(
 
   // Now separate the u, v, w and p, skip the interior
   std::vector<std::vector<std::vector<int> > > newGroups;
-  for (int i = 1; i < groups.size(); i++)
+  for (size_t i = 1; i < groups.size(); i++)
     {
     auto group = groups[i];
     newGroups.emplace_back(dof_);
@@ -805,7 +804,6 @@ int SkewCartesianPartitioner::PID(int i, int j, int k) const
 
   int npx = nx_ / cl;
   int npy = ny_ / cl;
-  int npz = nz_ / cl;
 
   int dir1 = npx + 1;
   int dir2 = npx;

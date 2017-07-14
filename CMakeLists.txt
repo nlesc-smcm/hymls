@@ -54,9 +54,9 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   set(CMAKE_CXX_FLAGS_RELEASE      "-O3 -ffast-math -march=native")
   set(CMAKE_Fortran_FLAGS_RELEASE  "-O3 -ffast-math -march=native")
 
-  set (CMAKE_C_FLAGS_DEBUG       "-O0 -g")
-  set (CMAKE_CXX_FLAGS_DEBUG     "-O0 -g")
-  set (CMAKE_Fortran_FLAGS_DEBUG "-O0 -g")
+  set (CMAKE_C_FLAGS_DEBUG       "-O0 -g -Wall -Wno-unknown-pragmas -Wno-deprecated-declarations")
+  set (CMAKE_CXX_FLAGS_DEBUG     "-O0 -g -Wall -Wno-unknown-pragmas -Wno-deprecated-declarations")
+  set (CMAKE_Fortran_FLAGS_DEBUG "-O0 -g -Wall -Wno-unknown-pragmas -Wno-deprecated-declarations")
 
   set (CMAKE_C_FLAGS_RELWITHDEBINFO       "${CMAKE_C_FLAGS_RELEASE}       -g")
   set (CMAKE_CXX_FLAGS_RELWITHDEBINFO     "${CMAKE_CXX_FLAGS_RELEASE}     -g")
