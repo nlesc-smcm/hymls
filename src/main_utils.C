@@ -268,63 +268,73 @@ Teuchos::RCP<Epetra_CrsMatrix> create_matrix(const Epetra_Map& map,
   galeriList.set("ny",ny);
   galeriList.set("nz",nz);
 
-    if (galeriLabel=="Laplace Neumann")
+  bool xperio = probl_params.get("x-periodic", false);
+  bool yperio = probl_params.get("y-periodic", false);
+  bool zperio = probl_params.get("z-periodic", false);
+
+  GaleriExt::PERIO_Flag perio = GaleriExt::NO_PERIO;
+
+  if (xperio) perio = (GaleriExt::PERIO_Flag)(perio | GaleriExt::X_PERIO);
+  if (yperio) perio = (GaleriExt::PERIO_Flag)(perio | GaleriExt::Y_PERIO);
+  if (zperio) perio = (GaleriExt::PERIO_Flag)(perio | GaleriExt::Z_PERIO);
+
+  if (galeriLabel == "Laplace Neumann")
+    {
+    if (dim==2)
       {
-      if (dim==2)
-        {
-        matrix = Teuchos::rcp(GaleriExt::Matrices::Cross2DN(&map,
-                nx, ny, 4, -1, -1, -1, -1), true);
-        }
+      matrix = Teuchos::rcp(GaleriExt::Matrices::Cross2DN(&map,
+          nx, ny, 4, -1, -1, -1, -1), true);
       }
-    else if (galeriLabel=="Darcy")
+    }
+  else if (galeriLabel == "Darcy")
+    {
+    if (dim == 2)
       {
-      if (dim==2)
-        {
-        matrix = Teuchos::rcp(GaleriExt::Matrices::Darcy2D(&map,
-                nx, ny, 1, -1), true);
-        }
-      else if (dim==3)
-        {
-        matrix = Teuchos::rcp(GaleriExt::Matrices::Darcy3D(&map,
-                nx, ny, nz, 1, -1), true);
-        }
+      matrix = Teuchos::rcp(GaleriExt::Matrices::Darcy2D(&map,
+          nx, ny, 1, -1, perio), true);
       }
-    else if (galeriLabel=="Stokes-C")
+    else if (dim == 3)
       {
-      if (dim==2)
-        {
-        if (nx!=ny) HYMLS::Tools::Warning("GaleriExt::Stokes2D only gives correct matrix entries if nx=ny, but the graph is corret\n",__FILE__,__LINE__);
-        matrix = Teuchos::rcp(GaleriExt::Matrices::Stokes2D(&map,
-                nx, ny, nx*nx, 1), true);
-        }
-      else if (dim==3)
-        {
-        if (nx!=ny||nx!=nz) HYMLS::Tools::Warning("GaleriExt::Stokes3D only gives correct matrix entries if nx=ny, but the graph is corret\n",__FILE__,__LINE__);
-        matrix = Teuchos::rcp(GaleriExt::Matrices::Stokes3D(&map,
-                nx, ny, nz, nx*nx, 1), true);
-        }
-      else
-        {
-        HYMLS::Tools::Error("not implemented!",__FILE__,__LINE__);
-        }
+      matrix = Teuchos::rcp(GaleriExt::Matrices::Darcy3D(&map,
+          nx, ny, nz, 1, -1, perio), true);
+      }
+    }
+  else if (galeriLabel == "Stokes-C")
+    {
+    if (dim == 2)
+      {
+      if (nx!=ny) HYMLS::Tools::Warning("GaleriExt::Stokes2D only gives correct matrix entries if nx=ny, but the graph is corret\n",__FILE__,__LINE__);
+      matrix = Teuchos::rcp(GaleriExt::Matrices::Stokes2D(&map,
+          nx, ny, nx*nx, 1, perio), true);
+      }
+    else if (dim == 3)
+      {
+      if (nx!=ny||nx!=nz) HYMLS::Tools::Warning("GaleriExt::Stokes3D only gives correct matrix entries if nx=ny, but the graph is corret\n",__FILE__,__LINE__);
+      matrix = Teuchos::rcp(GaleriExt::Matrices::Stokes3D(&map,
+          nx, ny, nz, nx*nx, 1, perio), true);
       }
     else
       {
-      std::string matrixType=galeriLabel;
-      if (galeriLabel=="")
-        {
-        matrixType=eqn+Teuchos::toString(dim)+"D";
-        }
-      try {
-        matrix= Teuchos::rcp(Galeri::CreateCrsMatrix(matrixType, &map, galeriList));
-        } catch (Galeri::Exception G) {G.Print();}
+      HYMLS::Tools::Error("not implemented!",__FILE__,__LINE__);
       }
-    if (probl_params.get("Equations","Laplace")=="Laplace")
+    }
+  else
+    {
+    std::string matrixType = galeriLabel;
+    if (galeriLabel == "")
       {
-      matrix->Scale(-1.0); // we like our matrix negative definite
-             // (just to conform with the diffusion operator in the NSE,
-             // the solver works anyway, of course).
+      matrixType = eqn + Teuchos::toString(dim)+"D";
       }
+    try {
+      matrix = Teuchos::rcp(Galeri::CreateCrsMatrix(matrixType, &map, galeriList));
+      } catch (Galeri::Exception G) {G.Print();}
+    }
+  if (probl_params.get("Equations","Laplace")=="Laplace")
+    {
+    matrix->Scale(-1.0); // we like our matrix negative definite
+    // (just to conform with the diffusion operator in the NSE,
+    // the solver works anyway, of course).
+    }
   return matrix;
   }
 
@@ -333,37 +343,48 @@ Teuchos::RCP<Epetra_CrsMatrix> create_matrix(const Epetra_Map& map,
                                                     const std::string& nullSpaceType,
                                                           Teuchos::ParameterList& probl_params)
   {
+  int dim  = probl_params.get("Dimension", -1);
+  int dof = probl_params.get("Degrees of Freedom", -1);
+
   Teuchos::RCP<Epetra_MultiVector> nullSpace = Teuchos::null;
   if (nullSpaceType == "Constant")
     {
-    nullSpace = Teuchos::rcp(new Epetra_Vector(A.OperatorDomainMap()));
-    CHECK_ZERO(nullSpace->PutScalar(1.0));
+    if (dof == -1)
+      {
+      Tools::Error("'Degrees of Freedom' not set in 'Problem' sublist",
+        __FILE__, __LINE__);
+      }
+
+    nullSpace = Teuchos::rcp(new Epetra_MultiVector(A.OperatorDomainMap(), dof));
+    CHECK_ZERO(nullSpace->PutScalar(0.0));
+
+    for (int lid = 0; lid < nullSpace->MyLength(); lid++)
+      {
+      int gid = nullSpace->Map().GID(lid);
+      (*nullSpace)[gid % dof][lid] = 1.0 / sqrt(nullSpace->GlobalLength() / dof);
+      }
     }
   else if (nullSpaceType == "Constant P")
     {
+    int pvar = probl_params.get("Pressure Variable", dim);
     // NOTE: we assume u/v/w/p[/T] ordering here, it works for 2D and 3D as long
     // as var[dim]=P
     nullSpace = Teuchos::rcp(new Epetra_Vector(A.OperatorDomainMap()));
-    int dim = probl_params.get("Dimension", -1);
-    int pvar= probl_params.get("Pressure Variable",dim);
-    int dof=probl_params.get("Degrees of Freedom", -1);
     // TODO: this is all a bit ad-hoc
     if (pvar == -1 || dof == -1)
       {
       Tools::Error("'Dimension' or 'Degrees of Freedom' not set in 'Problem' sublist",
         __FILE__, __LINE__);
       }
-    CHECK_ZERO(nullSpace->PutScalar(0.0))
-      for (int i = dof - 1; i < nullSpace->MyLength(); i+= dof)
-        {
-        (*nullSpace)[0][i] = 1.0;
-        }
+    CHECK_ZERO(nullSpace->PutScalar(0.0));
+    for (int i = dof - 1; i < nullSpace->MyLength(); i+= dof)
+      {
+      (*nullSpace)[0][i] = 1.0;
+      }
     }
   else if (nullSpaceType == "Checkerboard")
     {
     nullSpace = Teuchos::rcp(new Epetra_MultiVector(A.OperatorDomainMap(), 3));
-    int dof = probl_params.get("Degrees of Freedom", -1);
-    int dim = probl_params.get("Dimension", -1);
     int nx = probl_params.get("nx", 1);
     int ny = probl_params.get("ny", nx);
     int nz = probl_params.get("nz", dim > 2 ? nx : 1);

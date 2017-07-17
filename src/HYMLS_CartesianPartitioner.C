@@ -263,19 +263,19 @@ int CartesianPartitioner::RemoveBoundarySeparators(Teuchos::Array<int> &interior
     Teuchos::Array<int> &nodes = *sep;
     if (nodes.size() == 0)
       separator_nodes.erase(sep);
-    else if ((nodes[0] / dof_ + 1) % nx_ == 0)
+    else if ((nodes[0] / dof_ + 1) % nx_ == 0 && !(perio_ & GaleriExt::X_PERIO))
       {
       // Remove right side
       interior_nodes.insert(interior_nodes.end(), nodes.begin(), nodes.end());
       separator_nodes.erase(sep);
       }
-    else if (ny_ > 1 && (nodes[0] / dof_ / nx_ + 1) % ny_ == 0)
+    else if (ny_ > 1 && (nodes[0] / dof_ / nx_ + 1) % ny_ == 0 && !(perio_ & GaleriExt::Y_PERIO))
       {
       // Remove bottom side
       interior_nodes.insert(interior_nodes.end(), nodes.begin(), nodes.end());
       separator_nodes.erase(sep);
       }
-    else if (nz_ > 1 && (nodes[0] / dof_ / nx_ / ny_ + 1) % nz_ == 0)
+    else if (nz_ > 1 && (nodes[0] / dof_ / nx_ / ny_ + 1) % nz_ == 0 && !(perio_ & GaleriExt::Z_PERIO))
       {
       // Remove back side
       interior_nodes.insert(interior_nodes.end(), nodes.begin(), nodes.end());
@@ -293,7 +293,7 @@ int CartesianPartitioner::RemoveBoundarySeparators(Teuchos::Array<int> &interior
     Teuchos::Array<int> &nodes = *sep;
     for (int i = 0; i < nodes.size(); i++)
       {
-      if ((nodes[i] / dof_) % nx_ + 2 == nx_)
+      if ((nodes[i] / dof_) % nx_ + 2 == nx_ && !(perio_ & GaleriExt::X_PERIO))
         {
         nodeID = nodes[i] + dof_;
         Teuchos::Array<int>::iterator it = std::find(
@@ -304,7 +304,7 @@ int CartesianPartitioner::RemoveBoundarySeparators(Teuchos::Array<int> &interior
           interior_nodes.erase(it);
           }
         }
-      if (ny_ > 1 && (nodes[i] / dof_ / nx_) % ny_ + 2 == ny_)
+      if (ny_ > 1 && (nodes[i] / dof_ / nx_) % ny_ + 2 == ny_ && !(perio_ & GaleriExt::Y_PERIO))
         {
         nodeID = nodes[i] + dof_ * nx_;
         Teuchos::Array<int>::iterator it = std::find(
@@ -315,7 +315,7 @@ int CartesianPartitioner::RemoveBoundarySeparators(Teuchos::Array<int> &interior
           interior_nodes.erase(it);
           }
         }
-      if (nz_ > 1 && (nodes[i] / dof_ / nx_ / ny_) % nz_ + 2 == nz_)
+      if (nz_ > 1 && (nodes[i] / dof_ / nx_ / ny_) % nz_ + 2 == nz_ && !(perio_ & GaleriExt::Z_PERIO))
         {
         nodeID = nodes[i] + dof_ * nx_ * ny_;
         Teuchos::Array<int>::iterator it = std::find(
@@ -348,29 +348,29 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_nodes,
   Teuchos::Array<int> *nodes;
 
   int gsd = sdMap_->GID(sd);
-  int first = (gsd % npx_) * sx_ * dof_ +
-    ((gsd / npx_) % npy_) * nx_ * sy_ * dof_ +
-    ((gsd / npx_ / npy_) % npz_) * nx_ * ny_ * sz_ * dof_;
+  int xpos = (gsd % npx_) * sx_;
+  int ypos = ((gsd / npx_) % npy_) * sy_;
+  int zpos = ((gsd / npx_ / npy_) % npz_) * sz_;
 
   for (int ktype = (nz_ > 1 ? -1 : 0); ktype < (nz_ > 1 ? 2 : 1); ktype++)
     {
     if (ktype == 1)
       ktype = sz_ - 1;
-    if (ktype == -1 && (first / dof_ / nx_ / ny_) % nz_ == 0)
+    if (ktype == -1 && zpos == 0 && !(perio_ & GaleriExt::Z_PERIO))
       continue;
  
     for (int jtype = -1; jtype < 2; jtype++)
       {
       if (jtype == 1)
         jtype = sy_ - 1;
-      if (jtype == -1 && (first / dof_ / nx_) % ny_ == 0)
+      if (jtype == -1 && ypos == 0 && !(perio_ & GaleriExt::Y_PERIO))
         continue;
 
       for (int itype = -1; itype < 2; itype++)
         {
         if (itype == 1)
           itype = sx_ - 1;
-        if (itype == -1 && (first / dof_) % nx_ == 0)
+        if (itype == -1 && xpos == 0 && !(perio_ & GaleriExt::X_PERIO))
           continue;
 
         for (int d = 0; d < dof_; d++)
@@ -392,7 +392,10 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_nodes,
               {
               for (int i = itype; i < (itype ? itype+1 : sx_-1); i++)
                 {
-                int gid = first + i * dof_ + j * nx_ * dof_ + k * nx_ * ny_ * dof_ + d;
+                int gid = d +
+                  ((i + xpos + nx_) % nx_) * dof_ +
+                  ((j + ypos + ny_) % ny_) * nx_ * dof_ +
+                  ((k + zpos + nz_) % nz_) * nx_ * ny_ * dof_;
                 if ((d == pvar_ && !i && !j && !k))
                   {
                   // Retained pressure nodes

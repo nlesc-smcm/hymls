@@ -24,4 +24,6 @@
   <Parameter name="3D Test 2" type="string" value="stokes0_3D.xml"/>
   <Parameter name="3D Test 3" type="string" value="stokes1_3D.xml"/>
   <Parameter name="3D Test 4" type="string" value="stokes2_3D.xml"/>
+  <!-- Periodic problems -->
+  <Parameter name="Test 6a" type="string" value="stokes3.xml"/>
 </ParameterList>

@@ -566,6 +566,7 @@ int testSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
         HYMLS::MatrixUtils::Dump(*b,"BadRhs.txt");
         HYMLS::MatrixUtils::Dump(*res,"BadRes.txt");
         HYMLS::MatrixUtils::Dump(*err,"BadErr.txt");
+        HYMLS::MatrixUtils::Dump(*nullSpace,"BadNullSpace.txt");
         }
 #endif
       if (num_iter > target_num_iter) ierr = ierr | MAX_ITER_EXCEEDED;
