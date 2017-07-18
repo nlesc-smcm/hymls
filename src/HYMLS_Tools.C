@@ -231,6 +231,54 @@ void Tools::ind2sub(int nx, int ny, int nz, int dof,
   k = rem % nz;
   }
 
+  //! converts linear index to cartesian subscripts
+void Tools::ind2sub(int nx, int ny, int nz, int idx, int& i, int& j, int& k)
+  {
+  int dummy;
+  ind2sub(nx,ny,nz,1,idx,i,j,k,dummy);
+  return;
+  }
+
+  //! converts cartesian subscripts to linear index
+int Tools::sub2ind(int nx, int ny, int nz, int dof, int i, int j, int k, int var)
+  {
+#ifdef HYMLS_TESTING
+  std::string msg1 = "sub2ind: ";
+  std::string msg3 = " out of range ";
+  if ((i<0)||(i>=nx))
+    {
+    std::string msg2 = "i-Index "+Teuchos::toString(i);
+    std::string msg4 = "[0,"+Teuchos::toString(nx)+"]";
+    Tools::Error(msg1+msg2+msg3+msg4,__FILE__,__LINE__);
+    }
+  if ((j<0)||(j>=ny))
+    {
+    std::string msg2 = "j-Index "+Teuchos::toString(j);
+    std::string msg4 = "[0,"+Teuchos::toString(ny)+"]";
+    Tools::Error(msg1+msg2+msg3+msg4,__FILE__,__LINE__);
+    }
+  if ((k<0)||(k>=nz))
+    {
+    std::string msg2 = "k-Index "+Teuchos::toString(j);
+    std::string msg4 = "[0,"+Teuchos::toString(nz)+"]";
+    Tools::Error(msg1+msg2+msg3+msg4,__FILE__,__LINE__);
+    }
+  if ((var<0)||(var>=dof))
+    {
+    std::string msg2 = "var-Index "+Teuchos::toString(j);
+    std::string msg4 = "[0,"+Teuchos::toString(dof)+"]";
+    Tools::Error(msg1+msg2+msg3+msg4,__FILE__,__LINE__);
+    }
+#endif
+  return ((k*ny+j)*nx+i)*dof+var;
+  }
+
+//! converts cartesian subscripts to linear index
+int Tools::sub2ind(int nx, int ny, int nz, int i, int j, int k)
+  {
+  return sub2ind(nx,ny,nz,1,i,j,k,0);
+  }
+
 #ifdef HYMLS_DEBUGGING
 void Tools::SetCheckPoint(std::string fname, std::string msg,
         std::string file, int line)
