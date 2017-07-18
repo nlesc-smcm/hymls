@@ -1030,12 +1030,7 @@ int SchurPreconditioner::InitializeOT()
       HYMLS::Tools::Error("mismatched maps",__FILE__,__LINE__);
       }
 
-    int len;
-    int maxlen = transformedA22->GlobalMaxNumEntries();
-    int* cols = new int[maxlen];
-    double* values = new double[maxlen];
-
-    // put H'*A22*H into matrix_
+    // put the pattern into matrix_
     if (!matrix->Filled())
       {
       HYMLS_LPROF3(label_,"Fill matrix");
@@ -1085,90 +1080,22 @@ int SchurPreconditioner::InitializeOT()
       // assemble with all zeros
       HYMLS_DEBVAR("assemble pattern of transformed SC");
       CHECK_ZERO(matrix->GlobalAssemble());
-
-      // now fill with H'*A22*H
-      for (int i=0;i<matrix_->NumMyRows();i++)
-        {
-        //global row id
-        int grid = transformedA22->GRID(i);
-        CHECK_ZERO(transformedA22->ExtractGlobalRowCopy(grid,maxlen,len,values,cols));
-
-#ifdef HYMLS_TESTING
-        //before we would sum the value because of duplicate entries,
-        //but here we check that they don't exist and instead just insert them
-        std::vector<int> colvec(len);
-        colvec.assign(cols, cols+len);
-        std::sort(colvec.begin(), colvec.end());
-        for (int j = 0; j < len - 1; j++)
-          {
-          if (colvec[j] == colvec[j + 1])
-            {
-            Tools::Error("Duplicate entries on row "+Teuchos::toString(grid)+ " column "+Teuchos::toString(colvec[j]),__FILE__,__LINE__);
-            }
-          }
-#endif
-        CHECK_NONNEG(matrix_->SumIntoGlobalValues(grid,len,values,cols));
-        }
       }
-    else
+
+    // now fill with H'*A22*H
+    int len;
+    int maxlen = transformedA22->GlobalMaxNumEntries();
+    int* cols = new int[maxlen];
+    double* values = new double[maxlen];
+
+    CHECK_ZERO(matrix->PutScalar(0.0));
+    for (int i=0;i<matrix_->NumMyRows();i++)
       {
-      CHECK_ZERO(matrix->PutScalar(0.0));
+      //global row id
+      int grid = transformedA22->GRID(i);
+      CHECK_ZERO(transformedA22->ExtractGlobalRowCopy(grid,maxlen,len,values,cols));
 
-      for (int i=0;i<matrix_->NumMyRows();i++)
-        {
-        //global row id
-        int grid = transformedA22->GRID(i);
-        CHECK_ZERO(transformedA22->ExtractGlobalRowCopy(grid,maxlen,len,values,cols));
-
-#ifdef HYMLS_TESTING
-        //check that the pattern didn't change
-        int len2;
-        int maxlen2 = matrix_->GlobalMaxNumEntries();
-        int* cols2 = new int[maxlen2];
-        double* values2 = new double[maxlen2];
-        CHECK_ZERO(matrix_->ExtractGlobalRowCopy(grid,maxlen2,len2,values2,cols2));
-
-        std::vector<int> colvec(len);
-        colvec.assign(cols, cols+len);
-        std::sort(colvec.begin(), colvec.end());
-
-        std::vector<int> colvec2(len2);
-        colvec2.assign(cols2, cols2+len2);
-        std::sort(colvec2.begin(), colvec2.end());
-
-        int j2 = 0;
-        for (int j = 0; j < len; j++)
-          {
-          for (; j2 < len2; j2++)
-            {
-            if (colvec[j] == colvec2[j2])
-              break;
-
-            // We iterated past the number in colvec[j] so it is not in colvec2
-            if (colvec2[j2] > colvec[j])
-              break;
-            }
-          // colvec[j] is not anywhere before the last number in colvec2
-          if (j2 == len2 || colvec2[j2] > colvec[j])
-            {
-            // Find the index of the value
-            for (int j3 = 0; j3 < len; j3++)
-              if (colvec[j] == cols[j3])
-                {
-                Tools::Warning("Pattern is different on row "
-                  + Teuchos::toString(grid) + " column "
-                  + Teuchos::toString(colvec[j]) + " value "
-                  + Teuchos::toString(values[j3]), __FILE__, __LINE__);
-                break;
-                }
-            }
-          }
-
-        delete [] cols2;
-        delete [] values2;
-#endif
-        CHECK_NONNEG(matrix_->SumIntoGlobalValues(grid,len,values,cols));
-        }
+      CHECK_NONNEG(matrix_->SumIntoGlobalValues(grid,len,values,cols));
       }
 
     // free temporary storage
