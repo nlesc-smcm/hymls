@@ -38,9 +38,12 @@ set(HEADERS)
 # Manually add headers without source file
 set(HEADERS ${HEADERS}
   GaleriExt_Cross2DN.h
+  GaleriExt_Cross3DN.h
   GaleriExt_Darcy2D.h
   GaleriExt_Darcy3D.h
   GaleriExt_Star3D.h
+  GaleriExt_Stokes2D.h
+  GaleriExt_Stokes3D.h
   HYMLS_BasePartitioner.H
   HYMLS_Macros.H
   HYMLS_no_debug.H

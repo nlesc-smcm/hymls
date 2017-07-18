@@ -27,4 +27,5 @@
   <!-- Periodic problems -->
   <Parameter name="Test 6a" type="string" value="stokes3.xml"/>
   <Parameter name="Test 6b" type="string" value="stokes4.xml"/>
+  <Parameter name="Test 6c" type="string" value="stokes4_3D.xml"/>
 </ParameterList>

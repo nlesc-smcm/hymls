@@ -37,7 +37,9 @@
 #include "Epetra_CrsMatrix.h"
 
 #include "GaleriExt_Periodic.h"
+
 #include "Galeri_Cross3D.h"
+#include "GaleriExt_Cross3DN.h"
 #include "GaleriExt_Darcy3D.h"
 
 #include <Teuchos_RCP.hpp>
@@ -74,9 +76,7 @@ inline Teuchos::RCP<Epetra_CrsMatrix>
   Teuchos::RCP<Epetra_CrsMatrix> Laplace = Teuchos::null;
   if (perio != NO_PERIO)
   {
-    throw "GaleriExt::Stokes3D doesn't work with periodic BC yet";
-    //Laplace=Teuchos::rcp(Cross3DN(Map1.get(),nx,ny,4,-1,-1,-1,-1,-1,-1));
-    return Teuchos::null;
+    return Teuchos::rcp(Cross3DN(map1.get(),nx,ny,nz,6,-1,-1,-1,-1,-1,-1));
   }
   return Teuchos::rcp(Galeri::Matrices::Cross3D(map1.get(), nx, ny, nz,
                                                 6, -1, -1, -1, -1, -1, -1));
