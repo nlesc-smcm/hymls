@@ -125,39 +125,28 @@ int SkewCartesianPartitioner::operator()(int x, int y, int z) const
   x -= xcube * sx_ - 1;
   y -= ycube * sx_;
   z -= zcube * sx_;
-  
-  if (y < sx_-x) // red
-    {
-    if (y < x) // green
-      {
-      if (!(z <= sx_ + y-x))
-        sd += dir3;
-      }
-    else
-      {
-      if (z <= y-x) // blue
-        sd += dir2;
-      else
-        sd += dir2+dir3;
-      }
-    }
-  else
-    {
-    if (y < x) // green
-      {
-      if (z <= sx_ + y-x) // blue
-        sd += dir1;
-      else 
-        sd += dir1+dir3;
-      }
-    else
-      {
-      if (z <= y-x) // blue
-        sd += dir1+dir2;
-      else 
-        sd += dir1+dir2+dir3;
-      }
-    }
+
+  bool front = y < sx_-x; // In front of the red plane
+  bool right = y < x; // Right of the green plane;
+  bool below = z <= y-x; // Below the blue plane left of the green plane
+  if (right) below = z <= sx_ + y-x; // Below the blue plane right of the green plane
+
+  if (!front)
+    sd += dir1;
+  if (!right)
+    sd += dir2;
+  if (!below)
+    sd += dir3;
+
+  if (!front && right && perio_ & GaleriExt::X_PERIO && xcube == npx_-1)
+    sd -= dir2;
+
+  if (!front && !right && perio_ & GaleriExt::Y_PERIO && ycube == npy_-1)
+    sd -= dir3 - dir2;
+
+  if (!below && perio_ & GaleriExt::Z_PERIO && zcube == npz_-1)
+    sd -= npz_ * dir3;
+
   return sd;
   }
 
@@ -685,6 +674,9 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::createSubdomain(int sd,
       int x = (node / dof_) % nx + X * sx_ - 1;
       int y = (node / dof_ / nx) % nx + Y * sx_ - 1;
       int z = node / dof_ / nx / nx + sx_ * (Z - 1);
+      if (perio_ & GaleriExt::X_PERIO) x = (x + nx_) % nx_;
+      if (perio_ & GaleriExt::Y_PERIO) y = (y + ny_) % ny_;
+      if (perio_ & GaleriExt::Z_PERIO) z = (z + nz_) % nz_;
       if (x >= 0 && x < nx_ && y >= 0 && y < ny_ && z >= 0 && z < nz_)
         newGroups.back().push_back(x * dof_ + nx_ * y * dof_ + nx_ * ny_ * z * dof_ + var);
       }
@@ -737,19 +729,22 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::createSubdomain(int sd,
       int x = (node / dof_) % nx_;
       int y = (node / dof_ / nx_) % ny_;
       int z = node / dof_ / nx_ / ny_;
-      if (dof_ > 1 && x == nx_ - 1 && node % dof_ == 0)
+      if (dof_ > 1 && x == nx_ - 1 && node % dof_ == 0 &&
+        !(perio_ & GaleriExt::X_PERIO))
         {
         if (operator()(x, y, z) == sd)
           groups[0].push_back(node);
         group->erase(std::remove(group->begin(), group->end(), node));
         }
-      else if (y == ny_ - 1 && node % dof_ == 1)
+      else if (y == ny_ - 1 && node % dof_ == 1 &&
+        !(perio_ & GaleriExt::Y_PERIO))
         {
         if (operator()(x, y, z) == sd)
           groups[0].push_back(node);
         group->erase(std::remove(group->begin(), group->end(), node));
         }
-      else if (dof_ > 1 && nz_ > 1 && z == nz_ - 1 && node % dof_ == 2)
+      else if (dof_ > 1 && nz_ > 1 && z == nz_ - 1 && node % dof_ == 2 &&
+        !(perio_ & GaleriExt::Z_PERIO))
         {
         if (operator()(x, y, z) == sd)
           groups[0].push_back(node);
