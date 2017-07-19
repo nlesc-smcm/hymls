@@ -108,7 +108,10 @@ public:
 TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Laplace2D, nx, ny, sx, sy)
   {
   Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
-  HYMLS::Tools::InitializeIO(Comm);
+
+  Teuchos::RCP<std::ostream> no_output
+    = Teuchos::rcp(new Teuchos::oblackholestream());
+  HYMLS::Tools::InitializeIO_std(Comm, no_output, no_output);
 
   int nsx = nx / sx;
   int nsy = ny / sy;
@@ -139,6 +142,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Laplace2D, nx, ny, sx, sy)
   TestableOverlappingPartitioner opart(matrix, paramList, 0);
   Teuchos::RCP<TestableOverlappingPartitioner> opart2 = opart.RemoveCornerSeparators();
 
+  HYMLS::Tools::InitializeIO(Comm);
   for (int sd = 0; sd < opart2->NumMySubdomains(); sd++)
     {
     int gsd = opart2->Partitioner().SubdomainMap().GID(sd);
@@ -249,7 +253,10 @@ TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, Laplace2D, 5, 64, 64, 16, 16);
 TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Laplace3D, nx, ny, nz, sx, sy, sz)
   {
   Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
-  HYMLS::Tools::InitializeIO(Comm);
+
+  Teuchos::RCP<std::ostream> no_output
+    = Teuchos::rcp(new Teuchos::oblackholestream());
+  HYMLS::Tools::InitializeIO_std(Comm, no_output, no_output);
 
   int nsx = nx / sx;
   int nsy = ny / sy;
@@ -281,6 +288,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Laplace3D, nx, ny, nz, sx, sy, sz
   TestableOverlappingPartitioner opart(matrix, paramList, 0);
   Teuchos::RCP<TestableOverlappingPartitioner> opart2 = opart.RemoveCornerSeparators();
 
+  HYMLS::Tools::InitializeIO(Comm);
   for (int sd = 0; sd < opart2->NumMySubdomains(); sd++)
     {
     int gsd = opart2->Partitioner().SubdomainMap().GID(sd);
@@ -370,7 +378,10 @@ TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, Laplace3D, 5, 8, 4, 4, 4, 4, 4);
 TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Stokes2D, nx, ny, sx, sy)
   {
   Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
-  HYMLS::Tools::InitializeIO(Comm);
+
+  Teuchos::RCP<std::ostream> no_output
+    = Teuchos::rcp(new Teuchos::oblackholestream());
+  HYMLS::Tools::InitializeIO_std(Comm, no_output, no_output);
 
   int nsx = nx / sx;
   int nsy = ny / sy;
@@ -414,6 +425,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Stokes2D, nx, ny, sx, sy)
   TestableOverlappingPartitioner opart(matrix, paramList, 0);
   Teuchos::RCP<TestableOverlappingPartitioner> opart2 = opart.RemoveCornerSeparators();
 
+  HYMLS::Tools::InitializeIO(Comm);
   for (int sd = 0; sd < opart2->NumMySubdomains(); sd++)
     {
     int gsd = opart2->Partitioner().SubdomainMap().GID(sd);
@@ -546,7 +558,10 @@ TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, Stokes2D, 5, 64, 64, 16, 16);
 TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Stokes3D, nx, ny, nz, sx, sy, sz)
   {
   Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
-  HYMLS::Tools::InitializeIO(Comm);
+
+  Teuchos::RCP<std::ostream> no_output
+    = Teuchos::rcp(new Teuchos::oblackholestream());
+  HYMLS::Tools::InitializeIO_std(Comm, no_output, no_output);
 
   int nsx = nx / sx;
   int nsy = ny / sy;
@@ -591,6 +606,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Stokes3D, nx, ny, nz, sx, sy, sz)
   TestableOverlappingPartitioner opart(matrix, paramList, 0);
   Teuchos::RCP<TestableOverlappingPartitioner> opart2 = opart.RemoveCornerSeparators();
 
+  HYMLS::Tools::InitializeIO(Comm);
   for (int sd = 0; sd < opart2->NumMySubdomains(); sd++)
     {
     int gsd = opart2->Partitioner().SubdomainMap().GID(sd);
@@ -691,7 +707,10 @@ TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, Stokes3D, 5, 8, 4, 4, 4, 4, 4);
 TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewLaplace2D, nx, ny, sx, sy)
   {
   Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
-  HYMLS::Tools::InitializeIO(Comm);
+
+  Teuchos::RCP<std::ostream> no_output
+    = Teuchos::rcp(new Teuchos::oblackholestream());
+  HYMLS::Tools::InitializeIO_std(Comm, no_output, no_output);
 
   // Old sx size (the version of before July 2017). Should give the same subdomains
   // as the new version with sx = old sx * 2
@@ -736,6 +755,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewLaplace2D, nx, ny, sx, sy)
   Teuchos::RCP<HYMLS::OverlappingPartitioner> opart2 = Teuchos::rcp(
     new HYMLS::OverlappingPartitioner(matrix, paramList, 0));
 
+  HYMLS::Tools::InitializeIO(Comm);
   for (int sd = 0; sd < opart2->NumMySubdomains(); sd++)
     {
     int gsd = opart2->Partitioner().SubdomainMap().GID(sd);
@@ -902,7 +922,10 @@ TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewLaplace2D, 6, 64, 64, 16, 16)
 TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes2D, nx, ny, sx, sy)
   {
   Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
-  HYMLS::Tools::InitializeIO(Comm);
+
+  Teuchos::RCP<std::ostream> no_output
+    = Teuchos::rcp(new Teuchos::oblackholestream());
+  HYMLS::Tools::InitializeIO_std(Comm, no_output, no_output);
 
   // Old sx size (the version of before July 2017). Should give the same subdomains
   // as the new version with sx = old sx * 2
@@ -960,6 +983,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes2D, nx, ny, sx, sy)
   Teuchos::RCP<HYMLS::OverlappingPartitioner> opart2 = Teuchos::rcp(
     new HYMLS::OverlappingPartitioner(matrix, paramList, 0));
 
+  HYMLS::Tools::InitializeIO(Comm);
   for (int sd = 0; sd < opart2->NumMySubdomains(); sd++)
     {
     int gsd = opart2->Partitioner().SubdomainMap().GID(sd);
@@ -1216,7 +1240,10 @@ TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, SkewStokes2D, 6, 64, 64, 16, 16);
 TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes3D, nx, ny, nz, sx, sy, sz)
   {
   Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
-  HYMLS::Tools::InitializeIO(Comm);
+
+  Teuchos::RCP<std::ostream> no_output
+    = Teuchos::rcp(new Teuchos::oblackholestream());
+  HYMLS::Tools::InitializeIO_std(Comm, no_output, no_output);
 
   int dof = 4;
   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(nx*ny*nz*dof, 0, *Comm));
@@ -1258,6 +1285,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes3D, nx, ny, nz, sx, sy,
   Teuchos::RCP<HYMLS::OverlappingPartitioner> opart2 = Teuchos::rcp(
     new HYMLS::OverlappingPartitioner(matrix, paramList, 0));
 
+  HYMLS::Tools::InitializeIO(Comm);
   for (int sd = 0; sd < opart2->NumMySubdomains(); sd++)
     {
     int totalNodes[4] = {0, 0, 0, 0};
