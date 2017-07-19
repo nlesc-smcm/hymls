@@ -29,7 +29,7 @@ public:
   int operator()(int i, int j, int k) const;
 
   //! get non-overlapping subdomain id
-  int operator()(int gid) const;
+  int operator()(hymls_gidx gid) const;
 
   //! partition an [nx x ny x nz] grid with (possibly) several DoF per node
   //! into nparts global subdomains.
@@ -50,21 +50,21 @@ protected:
   int CreateSubdomainMap();
 
   //! Get a template for the different subdomains
-  std::vector<std::vector<int> > getTemplate() const;
+  std::vector<std::vector<hymls_gidx> > getTemplate() const;
 
   //! Get the groups from the template
-  std::vector<std::vector<int> > solveGroups(
-    std::vector<std::vector<int> > const &temp) const;
+  std::vector<std::vector<hymls_gidx> > solveGroups(
+    std::vector<std::vector<hymls_gidx> > const &temp) const;
 
   //! Create the subdomain from the template
-  std::vector<std::vector<int> > createSubdomain(int sd,
-    std::vector<std::vector<int> > groups) const;
+  std::vector<std::vector<hymls_gidx> > createSubdomain(int sd,
+    std::vector<std::vector<hymls_gidx> > groups) const;
 
 public:
 
   //! Get interior and separator groups of the subdomain sd
-  int GetGroups(int sd, Teuchos::Array<int> &interior_nodes,
-    Teuchos::Array<Teuchos::Array<int> > &separator_nodes);
+  int GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior_nodes,
+    Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes);
 
   //! is this class fully set up?
   inline bool Partitioned() const
@@ -79,7 +79,7 @@ public:
     }
 
   //! get the type of a variable (if more than 1 dof per node, otherwise just 0)
-  int VariableType(int gid) const;
+  int VariableType(hymls_gidx gid) const;
 
   //! return the repartitioned/reordered map
   inline const Epetra_Map& Map() const
@@ -112,10 +112,10 @@ protected:
   Teuchos::RCP<const Epetra_Map> cartesianMap_;
 
   //! Subdomain template
-  std::vector<std::vector<int> > template_;
+  std::vector<std::vector<hymls_gidx> > template_;
 
   //! Subdomain template groups
-  std::vector<std::vector<int> > groups_;
+  std::vector<std::vector<hymls_gidx> > groups_;
 
   //! global grid size
   int nx_, ny_, nz_;

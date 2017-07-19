@@ -53,20 +53,23 @@ namespace GaleriExt {
 namespace Matrices {
 
 //! like Cross2D from Galeri, but with Neumann boundaries
+template<typename int_type>
 inline
 Epetra_CrsMatrix* 
-Cross2DN(const Epetra_Map* Map, const int nx, const int ny,
-        const double a, const double b, const double c, 
+Cross2DN(const Epetra_Map* Map, 
+        const int nx, const int ny,
+        const double a, const double b, const double c,
         const double d, const double e)
 {
   Epetra_CrsMatrix* Matrix = new Epetra_CrsMatrix(Copy, *Map,  5);
 
   int NumMyElements = Map->NumMyElements();
-  int* MyGlobalElements = Map->MyGlobalElements();
+  int_type* MyGlobalElements = 0;
+  Map->MyGlobalElementsPtr(MyGlobalElements);
 
   int left, right, lower, upper;
   std::vector<double> Values(4);
-  std::vector<int> Indices(4);
+  std::vector<int_type> Indices(4);
 
   //    e
   //  b a c
@@ -131,6 +134,28 @@ Cross2DN(const Epetra_Map* Map, const int nx, const int ny,
   Matrix->OptimizeStorage();
 
   return(Matrix);
+}
+
+inline
+Epetra_CrsMatrix* 
+Cross2DN(const Epetra_Map* Map, 
+        const int nx, const int ny,
+        const double a, const double b, const double c,
+        const double d, const double e)
+{
+#ifndef EPETRA_NO_32BIT_GLOBAL_INDICES
+  if(Map->GlobalIndicesInt()) {
+	  return Cross2DN<int>(Map, nx, ny, a, b, c, d, e);
+  }
+  else
+#endif
+#ifndef EPETRA_NO_64BIT_GLOBAL_INDICES
+  if(Map->GlobalIndicesLongLong()) {
+	  return Cross2DN<long long>(Map, nx, ny, a, b, c, d, e);
+  }
+  else
+#endif
+    throw "GaleriExt::Matrices::Cross2DN: GlobalIndices type unknown";
 }
 
 } // namespace Matrices

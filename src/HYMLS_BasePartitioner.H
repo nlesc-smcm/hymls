@@ -31,8 +31,8 @@ class BasePartitioner
   virtual int Partition(int nparts, bool repart) = 0;
 
   //! Get interior and separator groups of the subdomain sd
-  virtual int GetGroups(int sd, Teuchos::Array<int> &interior_nodes,
-    Teuchos::Array<Teuchos::Array<int> > &separator_nodes) = 0;
+  virtual int GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior_nodes,
+    Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes) = 0;
   
   //! get number of local partitions
   virtual int NumLocalParts() const = 0;
@@ -48,10 +48,10 @@ class BasePartitioner
   //! integer indicating which variable type a gid has
   //! (this is used in HID to group separators by type)
   //! default implementation returns 0
-  virtual int VariableType(int gid) const {return 0;}
+  virtual int VariableType(hymls_gidx gid) const {return 0;}
   
   //! get non-overlapping global subdomain id 
-  virtual int operator()(int gid) const = 0;
+  virtual int operator()(hymls_gidx gid) const = 0;
   
   //! get the (re-)partitioned map (here elements belonging
   //! to a subdomain have contiguous local indexing)

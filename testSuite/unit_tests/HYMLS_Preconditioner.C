@@ -75,7 +75,7 @@ TestablePreconditioner createPreconditioner(Epetra_Map &map)
   precList.set("Separator Length", 4);
   precList.set("Number of Levels", 1);
 
-  int n = problemList.get<int>("Degrees of Freedom") * problemList.get<int>("nx") *
+  hymls_gidx n = problemList.get<int>("Degrees of Freedom") * problemList.get<int>("nx") *
     problemList.get<int>("ny") * problemList.get<int>("nz");
 
   HYMLS::CartesianPartitioner part(Teuchos::rcp(&map, false),
@@ -87,7 +87,7 @@ TestablePreconditioner createPreconditioner(Epetra_Map &map)
   Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(new Epetra_CrsMatrix(Copy, map, 2));
 
   Epetra_Util util;
-  for (int i = 0; i < n; i++) {
+  for (hymls_gidx i = 0; i < n; i++) {
     // int A_idx = util.RandomInt() % n;
     // double A_val = -std::abs(util.RandomDouble());
     double A_val2 = std::abs(util.RandomDouble());
@@ -110,7 +110,7 @@ TEUCHOS_UNIT_TEST(Preconditioner, Blocks)
   Epetra_MpiComm Comm(MPI_COMM_WORLD);
   DISABLE_OUTPUT;
 
-  int n = 8 * 4 * 4 * 4;
+  hymls_gidx n = 8 * 4 * 4 * 4;
   Epetra_Map map(n, 0, Comm);
   TestablePreconditioner prec = createPreconditioner(map);
   prec.Initialize();
@@ -132,7 +132,7 @@ TEUCHOS_UNIT_TEST(Preconditioner, SerialComm)
   Epetra_SerialComm Comm;
   DISABLE_OUTPUT;
 
-  int n = 8 * 4 * 4 * 4;
+  hymls_gidx n = 8 * 4 * 4 * 4;
   Epetra_Map map(n, 0, Comm);
   TestablePreconditioner prec = createPreconditioner(map);
   prec.Initialize();
@@ -144,7 +144,7 @@ TEUCHOS_UNIT_TEST(Preconditioner, setBorder)
   Epetra_MpiComm Comm(MPI_COMM_WORLD);
   DISABLE_OUTPUT;
 
-  int n = 8 * 4 * 4 * 4;
+  hymls_gidx n = 8 * 4 * 4 * 4;
   Epetra_Map map(n, 0, Comm);
   TestablePreconditioner prec = createPreconditioner(map);
   prec.Initialize();
@@ -170,7 +170,7 @@ TEUCHOS_UNIT_TEST(Preconditioner, setBorderNull)
   Epetra_MpiComm Comm(MPI_COMM_WORLD);
   DISABLE_OUTPUT;
 
-  int n = 8 * 4 * 4 * 4;
+  hymls_gidx n = 8 * 4 * 4 * 4;
   Epetra_Map map(n, 0, Comm);
   TestablePreconditioner prec = createPreconditioner(map);
   prec.Initialize();

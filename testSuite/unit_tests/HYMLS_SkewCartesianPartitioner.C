@@ -6,6 +6,7 @@
 #include "Epetra_SerialComm.h"
 #include "Epetra_Map.h"
 
+#include "HYMLS_config.h"
 #include "HYMLS_UnitTests.H"
 #include "HYMLS_Tools.H"
 
@@ -136,18 +137,18 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 2DNodes)
   TestableSkewCartesianPartitioner part(Teuchos::rcp(&map, false), nx, ny, nz, dof, 2);
   part.Partition(sx, sy, sz, false);
 
-  std::vector<int> gids(n, 0);
+  std::vector<hymls_gidx> gids(n, 0);
   for (int sd = 0; sd < part.NumLocalParts(); sd++)
     {
-    Teuchos::Array<int> interior_nodes;
-    Teuchos::Array<Teuchos::Array<int> > separator_nodes;
+    Teuchos::Array<hymls_gidx> interior_nodes;
+    Teuchos::Array<Teuchos::Array<hymls_gidx> > separator_nodes;
     part.GetGroups(sd, interior_nodes, separator_nodes);
 
-    for (int &i: interior_nodes)
+    for (hymls_gidx &i: interior_nodes)
       gids[i] = i;
 
     for (auto &group: separator_nodes)
-      for (int &i: group)
+      for (hymls_gidx &i: group)
         gids[i] = i;
     }
 
@@ -177,16 +178,16 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 1PSepPerDomain2D)
   part.Partition(sx, sy, sz, false);
 
   ENABLE_OUTPUT;
-  std::vector<int> gids(n, 0);
+  std::vector<hymls_gidx> gids(n, 0);
   for (int sd = 0; sd < part.NumLocalParts(); sd++)
     {
     int numPNodes = 0;
-    Teuchos::Array<int> interior_nodes;
-    Teuchos::Array<Teuchos::Array<int> > separator_nodes;
+    Teuchos::Array<hymls_gidx> interior_nodes;
+    Teuchos::Array<Teuchos::Array<hymls_gidx> > separator_nodes;
     part.GetGroups(sd, interior_nodes, separator_nodes);
 
     for (auto &group: separator_nodes)
-      for (int &i: group)
+      for (hymls_gidx &i: group)
         if (i % 3 == 2)
           numPNodes++;
     TEST_EQUALITY(numPNodes, 1);
@@ -214,18 +215,18 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 3DNodes)
   part.Partition(sx, sy, sz, false);
 
   ENABLE_OUTPUT;
-  std::vector<int> gids(n, 0);
+  std::vector<hymls_gidx> gids(n, 0);
   for (int sd = 0; sd < part.NumLocalParts(); sd++)
     {
-    Teuchos::Array<int> interior_nodes;
-    Teuchos::Array<Teuchos::Array<int> > separator_nodes;
+    Teuchos::Array<hymls_gidx> interior_nodes;
+    Teuchos::Array<Teuchos::Array<hymls_gidx> > separator_nodes;
     part.GetGroups(sd, interior_nodes, separator_nodes);
 
-    for (int &i: interior_nodes)
+    for (hymls_gidx &i: interior_nodes)
       gids[i] = i;
 
     for (auto &group: separator_nodes)
-      for (int &i: group)
+      for (hymls_gidx &i: group)
         gids[i] = i;
     }
   
@@ -254,16 +255,16 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 1PSepPerDomain3D)
   part.Partition(sx, sy, sz, false);
 
   ENABLE_OUTPUT;
-  std::vector<int> gids(n, 0);
+  std::vector<hymls_gidx> gids(n, 0);
   for (int sd = 0; sd < part.NumLocalParts(); sd++)
     {
     int numPNodes = 0;
-    Teuchos::Array<int> interior_nodes;
-    Teuchos::Array<Teuchos::Array<int> > separator_nodes;
+    Teuchos::Array<hymls_gidx> interior_nodes;
+    Teuchos::Array<Teuchos::Array<hymls_gidx> > separator_nodes;
     part.GetGroups(sd, interior_nodes, separator_nodes);
 
     for (auto &group: separator_nodes)
-      for (int &i: group)
+      for (hymls_gidx &i: group)
         if (i % 4 == 3)
           numPNodes++;
     TEST_EQUALITY(numPNodes, 1);

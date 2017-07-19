@@ -70,23 +70,25 @@ public:
     // Walk over subdomains
     for (int sd = 0; sd < partitioner_->NumLocalParts(); sd++)
       {
-      Teuchos::Array<int> interior = GetGroup(sd, 0);
+      Teuchos::Array<hymls_gidx> interior = GetGroup(sd, 0);
       newPart->AddGroup(sd, interior);
       int gsd = (*partitioner_)(interior[0]);
       // And groups
       for (int grp = 1; grp < NumGroups(sd); grp++)
         {
         int found = 0;
-        Teuchos::Array<int> group = GetGroup(sd, grp);
+        Teuchos::Array<hymls_gidx> group = GetGroup(sd, grp);
         // Check if the node is in the domain
         if ((*partitioner_)(group[0]) == gsd)
           found = 4;
 
         // See if moving a separator 1 step puts it inside the interior
-        int search[3] = {group[0] + dof_, group[0] + dof_ * nx_, group[0] + dof_ * nx_ * ny_};
+        hymls_gidx search[3] = {group[0] + dof_,
+                                group[0] + dof_ * nx_,
+                                group[0] + dof_ * nx_ * ny_};
         for (int i = 0; i < 3; i++)
           {
-          Teuchos::Array<int>::iterator it = std::find(interior.begin(), interior.end(), search[i]);
+          Teuchos::Array<hymls_gidx>::iterator it = std::find(interior.begin(), interior.end(), search[i]);
           if (it != interior.end())
             {
             // It is a direct neighbour in 1 direction
@@ -115,7 +117,8 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Laplace2D, nx, ny, sx, sy)
   int nsy = ny / sy;
 
   int dof = 1;
-  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(nx*ny*dof, 0, *Comm));
+  hymls_gidx n = nx*ny*dof;
+  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
 
   Teuchos::RCP<HYMLS::CartesianPartitioner> part = Teuchos::rcp(new HYMLS::CartesianPartitioner(map, nx, ny, 1, dof));
   part->Partition(nsx * nsy, true);
@@ -144,7 +147,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Laplace2D, nx, ny, sx, sy)
   for (int sd = 0; sd < opart2->NumMySubdomains(); sd++)
     {
     int gsd = opart2->Partitioner().SubdomainMap().GID(sd);
-    int substart = gsd % nsx * nx / nsx * dof +
+    hymls_gidx substart = gsd % nsx * nx / nsx * dof +
       gsd / nsx * ny / nsy * dof * nx;
 
     // Compute the number of groups we expect
@@ -259,7 +262,8 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Laplace3D, nx, ny, nz, sx, sy, sz
   int nsz = nz / sz;
 
   int dof = 1;
-  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(nx*ny*nz*dof, 0, *Comm));
+  hymls_gidx n = nx*ny*nz*dof;
+  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
 
   Teuchos::RCP<HYMLS::CartesianPartitioner> part = Teuchos::rcp(new HYMLS::CartesianPartitioner(map, nx, ny, nz, dof));
   part->Partition(nsx * nsy * nsz, true);
@@ -288,7 +292,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Laplace3D, nx, ny, nz, sx, sy, sz
   for (int sd = 0; sd < opart2->NumMySubdomains(); sd++)
     {
     int gsd = opart2->Partitioner().SubdomainMap().GID(sd);
-    int substart = gsd % nsx * nx / nsx * dof +
+    hymls_gidx substart = gsd % nsx * nx / nsx * dof +
       (gsd % (nsx * nsy)) / nsx * ny / nsy * dof * nx +
       gsd / (nsx * nsy) * nz / nsz * dof * nx * ny;
 
@@ -381,7 +385,8 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Stokes2D, nx, ny, sx, sy)
   int nsy = ny / sy;
 
   int dof = 3;
-  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(nx*ny*dof, 0, *Comm));
+  hymls_gidx n = nx*ny*dof;
+  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
 
   Teuchos::RCP<HYMLS::CartesianPartitioner> part = Teuchos::rcp(new HYMLS::CartesianPartitioner(map, nx, ny, 1, dof));
   part->Partition(nsx * nsy, true);
@@ -423,7 +428,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Stokes2D, nx, ny, sx, sy)
   for (int sd = 0; sd < opart2->NumMySubdomains(); sd++)
     {
     int gsd = opart2->Partitioner().SubdomainMap().GID(sd);
-    int substart = gsd % nsx * nx / nsx * dof +
+    hymls_gidx substart = gsd % nsx * nx / nsx * dof +
       gsd / nsx * ny / nsy * dof * nx;
 
     // Compute the number of groups we expect
@@ -560,7 +565,8 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Stokes3D, nx, ny, nz, sx, sy, sz)
   int nsz = nz / sz;
 
   int dof = 4;
-  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(nx*ny*nz*dof, 0, *Comm));
+  hymls_gidx n = nx*ny*nz*dof;
+  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
 
   Teuchos::RCP<HYMLS::CartesianPartitioner> part = Teuchos::rcp(new HYMLS::CartesianPartitioner(map, nx, ny, nz, dof));
   part->Partition(nsx * nsy * nsz, true);
@@ -602,7 +608,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Stokes3D, nx, ny, nz, sx, sy, sz)
   for (int sd = 0; sd < opart2->NumMySubdomains(); sd++)
     {
     int gsd = opart2->Partitioner().SubdomainMap().GID(sd);
-    int substart = gsd % nsx * nx / nsx * dof +
+    hymls_gidx substart = gsd % nsx * nx / nsx * dof +
       (gsd % (nsx * nsy)) / nsx * ny / nsy * dof * nx +
       gsd / (nsx * nsy) * nz / nsz * dof * nx * ny;
 
@@ -719,7 +725,8 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewLaplace2D, nx, ny, sx, sy)
   int numPerRow = 2*npx + 1; // domains in a row (both lattices); fixed y
 
   int dof = 1;
-  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(nx*ny*dof, 0, *Comm));
+  hymls_gidx n = nx*ny*dof;
+  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
 
   Teuchos::RCP<HYMLS::SkewCartesianPartitioner> part = Teuchos::rcp(new HYMLS::SkewCartesianPartitioner(map, nx, ny, 1, dof));
   part->Partition(sx, sy, 1, true);
@@ -761,7 +768,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewLaplace2D, nx, ny, sx, sy)
       Y += 0.5;
       }
 
-    int substart = dof * sx * (X + Y * nx) + dof * (sx / 2 - 1);
+    hymls_gidx substart = dof * sx * (X + Y * nx) + dof * (sx / 2 - 1);
 
     // Compute the number of groups we expect
     int numGrps = 9;
@@ -932,7 +939,8 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes2D, nx, ny, sx, sy)
   int numPerRow = 2*npx + 1; // domains in a row (both lattices); fixed y
 
   int dof = 3;
-  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(nx*ny*dof, 0, *Comm));
+  hymls_gidx n = nx*ny*dof;
+  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
 
   Teuchos::RCP<HYMLS::SkewCartesianPartitioner> part = Teuchos::rcp(new HYMLS::SkewCartesianPartitioner(map, nx, ny, 1, dof, 2));
   part->Partition(sx, sy, 1, true);
@@ -989,7 +997,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes2D, nx, ny, sx, sy)
       X -= npx + 0.5;
       Y += 0.5;
       }
-    int substart = dof * sx * (X + Y * nx) + dof * (sx / 2 - 1);
+    hymls_gidx substart = dof * sx * (X + Y * nx) + dof * (sx / 2 - 1);
     bool somewhatBottom = gsd <= (nsl - nsx / 2 - 1) and gsd > nsl - nsx;
 
     // Compute the number of groups we expect
@@ -1232,7 +1240,8 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes3D, nx, ny, nz, sx, sy,
   DISABLE_OUTPUT;
 
   int dof = 4;
-  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(nx*ny*nz*dof, 0, *Comm));
+  hymls_gidx n = nx*ny*nz*dof;
+  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
 
   Teuchos::RCP<HYMLS::SkewCartesianPartitioner> part = Teuchos::rcp(new HYMLS::SkewCartesianPartitioner(map, nx, ny, nz, dof));
   part->Partition(sx, sy, sz, true);

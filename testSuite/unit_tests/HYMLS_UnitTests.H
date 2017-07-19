@@ -1,6 +1,8 @@
 #ifndef HYMLS_UNITTESTS_H
 #define HYMLS_UNITTESTS_H
 
+#include "HYMLS_config.h"
+
 #include "Teuchos_UnitTestHarness.hpp"
 #include "Teuchos_RCP.hpp"
 
@@ -35,6 +37,7 @@ public:
 //! create a Galeri random map with n global IDs and ndof consecutive
 //! nodes always on the same partition.
 Teuchos::RCP<Epetra_Map> create_random_map(const Epetra_Comm& comm, int n, int ndof);
+Teuchos::RCP<Epetra_Map> create_random_map(const Epetra_Comm& comm, long long n, int ndof);
 
 //! compute the inf-norm of the difference of two IntVectors
 int NormInfAminusB(const Epetra_IntVector& A, const Epetra_IntVector& B);

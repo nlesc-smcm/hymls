@@ -49,6 +49,7 @@ namespace GaleriExt {
 namespace Matrices {
 
 // Helper function
+template<typename int_type>
 inline Teuchos::RCP<Epetra_CrsMatrix>
   get3DLaplaceMatrixForVar(Epetra_Map const *map,
                            int nx, int ny, int nz, int var,
@@ -56,22 +57,22 @@ inline Teuchos::RCP<Epetra_CrsMatrix>
 {
   int dof = 4;
   int MaxNumMyElements1 = map->NumMyElements() / dof + 1;
-  int NumGlobalElements1 = map->NumGlobalElements() / dof;
-  Teuchos::ArrayRCP<int> MyGlobalElements1;
+  int_type NumGlobalElements1 = map->NumGlobalElements64() / dof;
+  Teuchos::ArrayRCP<int_type> MyGlobalElements1;
   MyGlobalElements1.resize(MaxNumMyElements1);
   int NumMyElements1 = 0;
 
   for (int i = 0; i<map->NumMyElements();i++)
   {
-    int gid = map->GID(i);
+    int_type gid = map->GID64(i);
     if (gid % dof == var)
       MyGlobalElements1[NumMyElements1++] = gid / dof;
   }
 
   Teuchos::RCP<Epetra_Map> map1 = Teuchos::rcp(
     new Epetra_Map(NumGlobalElements1, NumMyElements1,
-                   &MyGlobalElements1[0], map->IndexBase(),
-                   map->Comm()));
+      &MyGlobalElements1[0], (int_type)map->IndexBase64(),
+      map->Comm()));
  
   Teuchos::RCP<Epetra_CrsMatrix> Laplace = Teuchos::null;
   if (perio != NO_PERIO)
@@ -85,6 +86,7 @@ inline Teuchos::RCP<Epetra_CrsMatrix>
 //! generate Stokes problem on a C grid with
 //! the A part scaled by a and the B part scaled
 //! by b, K=[A B; B' 0];
+template<typename int_type>
 inline Epetra_CrsMatrix* 
 Stokes3D(const Epetra_Map* Map, 
         const int nx, const int ny, const int nz,
@@ -97,16 +99,16 @@ Stokes3D(const Epetra_Map* Map,
   Teuchos::RCP<Epetra_CrsMatrix> Matrix = Teuchos::rcp(new Epetra_CrsMatrix(Copy, *Map,  9));
   Teuchos::RCP<Epetra_CrsMatrix> Darcy  = Teuchos::rcp(Darcy3D(Map,nx,ny,nz,0.0,-b,perio));
   Teuchos::Array<Teuchos::RCP<Epetra_CrsMatrix> > Laplace(3);
-  Laplace[0] = get3DLaplaceMatrixForVar(Map, nx, ny, nz, 0, perio);
-  Laplace[1] = get3DLaplaceMatrixForVar(Map, nx, ny, nz, 1, perio);
-  Laplace[2] = get3DLaplaceMatrixForVar(Map, nx, ny, nz, 2, perio);
+  Laplace[0] = get3DLaplaceMatrixForVar<int_type>(Map, nx, ny, nz, 0, perio);
+  Laplace[1] = get3DLaplaceMatrixForVar<int_type>(Map, nx, ny, nz, 1, perio);
+  Laplace[2] = get3DLaplaceMatrixForVar<int_type>(Map, nx, ny, nz, 2, perio);
 
   // now create the combined Stokes matrix [A B'; B 0] from A=[Laplace 0; 0 Laplace] and Darcy=[I B'; B 0];
   for (int i=0; i<Map->NumMyElements(); i++)
   {
-    int row = Map->GID(i);
+    int_type row = Map->GID64(i);
     const int max_len=9;
-    int cols[max_len], cols_laplace[max_len];
+    int_type cols[max_len], cols_laplace[max_len];
     double vals[max_len],vals_laplace[max_len];
     int lenDarcy=0;
     int lenLaplace=0;
@@ -115,7 +117,7 @@ Stokes3D(const Epetra_Map* Map,
     int lenTotal=lenDarcy;
     if ((row+1) % dof)
     {
-      int row0 = row / dof;
+      int_type row0 = row / dof;
       Laplace[row % dof]->ExtractGlobalRowCopy(row0,max_len,lenLaplace,vals_laplace,cols_laplace);
       // compensation for missing nodes at the boundary (gives Dirichlet boundary conditions)
       double add_to_diag = 0.0;
@@ -205,7 +207,7 @@ Stokes3D(const Epetra_Map* Map,
       for (int j=0; j<lenLaplace; j++)
       {
         // column index in final Stokes matrix
-        int c=cols_laplace[j]*dof + row%dof;
+        int_type c=cols_laplace[j]*dof + row%dof;
         if (c==row)
         {
           // find entry in existing values and replace it
@@ -227,6 +229,28 @@ Stokes3D(const Epetra_Map* Map,
   }
   Matrix->FillComplete();
   return Matrix.release().get();
+}
+
+inline
+Epetra_CrsMatrix* 
+Stokes3D(const Epetra_Map* Map, 
+  const int nx, const int ny, const int nz,
+  const double a, const double b, 
+  PERIO_Flag perio=NO_PERIO)
+{
+#ifndef EPETRA_NO_32BIT_GLOBAL_INDICES
+  if(Map->GlobalIndicesInt()) {
+    return Stokes3D<int>(Map, nx, ny, nz, a, b, perio);
+  }
+  else
+#endif
+#ifndef EPETRA_NO_64BIT_GLOBAL_INDICES
+  if(Map->GlobalIndicesLongLong()) {
+    return Stokes3D<long long>(Map, nx, ny, nz, a, b, perio);
+  }
+  else
+#endif
+    throw "GaleriExt::Matrices::Stokes2D: GlobalIndices type unknown";
 }
 
 } // namespace Matrices

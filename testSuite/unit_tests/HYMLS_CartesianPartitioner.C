@@ -17,7 +17,7 @@ TEUCHOS_UNIT_TEST(CartesianPartitioner, Partition2D)
   int ny = 8;
   int nz = 1;
   int dof = 4;
-  int n = nx * ny * nz * dof;
+  hymls_gidx n = nx * ny * nz * dof;
   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, Comm));
 
   HYMLS::CartesianPartitioner part(map, nx, ny, nz, dof);
@@ -39,7 +39,7 @@ TEUCHOS_UNIT_TEST(CartesianPartitioner, Partition3D)
   int ny = 8;
   int nz = 2;
   int dof = 4;
-  int n = nx * ny * nz * dof;
+  hymls_gidx n = nx * ny * nz * dof;
   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, Comm));
 
   HYMLS::CartesianPartitioner part(map, nx, ny, nz, dof);

@@ -39,15 +39,39 @@ Teuchos::RCP<Epetra_Map> create_random_map(const Epetra_Comm& comm, int n, int n
   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(Galeri::Maps::Random(comm,n1));
   int nloc=map->NumMyElements()*ndof;
   int ibase=map->IndexBase();
-  int my_gids[map->NumMyElements()*ndof];
+  int *my_gids = new int[nloc];
   for (int i=0; i<map->NumMyElements(); i++)
   {
     for (int j=0; j<ndof; j++)
     {
-      my_gids[i*ndof+j]=map->GID(i)*ndof+j;
+      my_gids[i*ndof+j] = map->GID(i)*ndof+j;
     }
   }
-  map=Teuchos::rcp(new Epetra_Map(n,nloc,my_gids,ibase,comm));
+  map = Teuchos::rcp(new Epetra_Map(n,nloc,my_gids,ibase,comm));
+  delete[] my_gids;
+  return map;
+}
+
+Teuchos::RCP<Epetra_Map> create_random_map(const Epetra_Comm& comm, long long n, int ndof)
+{
+  int n1=n/ndof;
+  if (n1*ndof!=n) 
+  {
+    throw "n must be a multiple of ndof!";
+  }
+  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(Galeri::Maps::Random(comm,n1));
+  int nloc=map->NumMyElements()*ndof;
+  long long ibase=map->IndexBase64();
+  long long *my_gids = new long long[nloc];
+  for (int i=0; i<map->NumMyElements(); i++)
+  {
+    for (int j=0; j<ndof; j++)
+    {
+      my_gids[i*ndof+j] = map->GID64(i)*ndof+j;
+    }
+  }
+  map = Teuchos::rcp(new Epetra_Map(n,nloc,my_gids,ibase,comm));
+  delete[] my_gids;
   return map;
 }
 

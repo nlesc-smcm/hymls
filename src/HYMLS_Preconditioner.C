@@ -39,8 +39,6 @@
 
 #include "GaleriExt_Periodic.h"
 
-typedef Teuchos::Array<int>::iterator int_i;
-
 namespace HYMLS {
 
   // constructor
@@ -434,13 +432,13 @@ HYMLS_DEBVAR(probList_);
       HierarchicalMap::Separators, HierarchicalMap::Separators, myLevel_));
 
   // Compute the A12, A21, A22 blocks
-  A12_->Compute();
-  A21_->Compute();
-  A22_->Compute();
+  CHECK_ZERO(A12_->Compute());
+  CHECK_ZERO(A21_->Compute());
+  CHECK_ZERO(A22_->Compute());
 
   // Also construct the subdomain blocks separately for A12 and A21
-  A12_->ComputeSubdomainBlocks();
-  A21_->ComputeSubdomainBlocks();
+  CHECK_ZERO(A12_->ComputeSubdomainBlocks());
+  CHECK_ZERO(A21_->ComputeSubdomainBlocks());
 
 #ifdef HYMLS_STORE_MATRICES
   MatrixUtils::Dump(*A12_->Block(), "Precond"+Teuchos::toString(myLevel_)+"_A12.txt");
@@ -452,7 +450,7 @@ HYMLS_DEBVAR(probList_);
     Teuchos::ParameterList(PL().sublist("Sparse Solver")));
 
   // Initialize the subdomain solvers for the A11 block
-  A11_->InitializeSubdomainSolvers(sdSolverType_, sd_list, numThreadsSD_);
+  CHECK_ZERO(A11_->InitializeSubdomainSolvers(sdSolverType_, sd_list, numThreadsSD_));
 
   HYMLS_DEBUG("Create Schur-complement");
 
@@ -464,8 +462,8 @@ HYMLS_DEBVAR(probList_);
       A11_, A12_, A21_, A22_, myLevel_));
 Tools::out() << "=============================="<<std::endl;
 Tools::out() << "LEVEL "<< myLevel_<<std::endl;
-Tools::out() << "SIZE OF A: "<< matrix_->NumGlobalRows()<<std::endl;
-Tools::out() << "SIZE OF S: "<< map2.NumGlobalElements()<<std::endl;
+Tools::out() << "SIZE OF A: "<< matrix_->NumGlobalRows64()<<std::endl;
+Tools::out() << "SIZE OF S: "<< map2.NumGlobalElements64()<<std::endl;
 if (sdSolverType_=="Dense")
   {
     Tools::out() << "*** USING DENSE SUBDOMAIN SOLVERS ***"<<std::endl;
@@ -537,21 +535,20 @@ int Preconditioner::InitializeCompute()
   // (1) import values of matrix into local data structures.
   //     This certainly has to be done before any Compute()
 
-    Teuchos::RCP<const Epetra_CrsMatrix> Acrs = 
-       Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_);
+  Teuchos::RCP<const Epetra_CrsMatrix> Acrs = 
+    Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_);
 
-    CHECK_ZERO(reorderedMatrix_->PutScalar(0.0));
-    CHECK_ZERO(reorderedMatrix_->Import(*Acrs,*importer_,Insert));
-    
+  CHECK_ZERO(reorderedMatrix_->PutScalar(0.0));
+  CHECK_ZERO(reorderedMatrix_->Import(*Acrs,*importer_,Insert));
 
 #ifdef HYMLS_STORE_MATRICES
-    MatrixUtils::Dump(*Acrs,"originalMatrix"+Teuchos::toString(myLevel_)+".txt");
-#endif    
+  MatrixUtils::Dump(*Acrs,"originalMatrix"+Teuchos::toString(myLevel_)+".txt");
+#endif
 
-  A11_->Recompute(Acrs, reorderedMatrix_);
-  A12_->Recompute(Acrs, reorderedMatrix_);
-  A21_->Recompute(Acrs, reorderedMatrix_);
-  A22_->Recompute(Acrs, reorderedMatrix_);
+  CHECK_ZERO(A11_->Recompute(Acrs, reorderedMatrix_));
+  CHECK_ZERO(A12_->Recompute(Acrs, reorderedMatrix_));
+  CHECK_ZERO(A21_->Recompute(Acrs, reorderedMatrix_));
+  CHECK_ZERO(A22_->Recompute(Acrs, reorderedMatrix_));
   return 0;
   }
 

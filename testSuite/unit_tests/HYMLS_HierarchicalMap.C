@@ -19,7 +19,7 @@ public:
     HierarchicalMap(comm, baseMap)
     {}
 
-  int AddGroup(int sd, Teuchos::Array<int>& gidList)
+  int AddGroup(int sd, Teuchos::Array<hymls_gidx>& gidList)
     {
     return HYMLS::HierarchicalMap::AddGroup(sd, gidList);
     }
@@ -34,10 +34,10 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, AddGroup)
   {
   Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
 
-  int n = 100;
+  hymls_gidx n = 100;
   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
 
-  Teuchos::Array<int> gidList(n);
+  Teuchos::Array<hymls_gidx> gidList(n);
   for (int i = 0; i < n; i++)
     {
     gidList[i] = i;
@@ -62,7 +62,7 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumMySubdomains)
   {
   Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
 
-  int n = 100;
+  hymls_gidx n = 100;
   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
   TestableHierarchicalMap hmap(Comm, map);
 
@@ -75,10 +75,10 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumMyElements)
   {
   Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
 
-  int n = 100;
+  hymls_gidx n = 100;
   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
 
-  Teuchos::Array<int> gidList(n);
+  Teuchos::Array<hymls_gidx> gidList(n);
   for (int i = 0; i < n; i++)
     {
     gidList[i] = i;
@@ -98,10 +98,10 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumMyInteriorElements)
   {
   Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
 
-  int n = 100;
+  hymls_gidx n = 100;
   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
 
-  Teuchos::Array<int> gidList(n);
+  Teuchos::Array<hymls_gidx> gidList(n);
   for (int i = 0; i < n; i++)
     {
     gidList[i] = i;
@@ -121,10 +121,10 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumElements)
   {
   Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
 
-  int n = 100;
+  hymls_gidx n = 100;
   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
 
-  Teuchos::Array<int> gidList(n);
+  Teuchos::Array<hymls_gidx> gidList(n);
   for (int i = 0; i < n; i++)
     {
     gidList[i] = i;
@@ -144,10 +144,10 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumInteriorElements)
   {
   Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
 
-  int n = 100;
+  hymls_gidx n = 100;
   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
 
-  Teuchos::Array<int> gidList(n);
+  Teuchos::Array<hymls_gidx> gidList(n);
   for (int i = 0; i < n; i++)
     {
     gidList[i] = i;
@@ -167,10 +167,10 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumSeparatorElements)
   {
   Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
 
-  int n = 100;
+  hymls_gidx n = 100;
   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
 
-  Teuchos::Array<int> gidList(n);
+  Teuchos::Array<hymls_gidx> gidList(n);
   for (int i = 0; i < n; i++)
     {
     gidList[i] = i;
@@ -192,10 +192,10 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumGroups)
   {
   Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
 
-  int n = 100;
+  hymls_gidx n = 100;
   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
 
-  Teuchos::Array<int> gidList(n);
+  Teuchos::Array<hymls_gidx> gidList(n);
   for (int i = 0; i < n; i++)
     {
     gidList[i] = i;
@@ -217,10 +217,10 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumSeparatorGroups)
   {
   Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
 
-  int n = 100;
+  hymls_gidx n = 100;
   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
 
-  Teuchos::Array<int> gidList(n);
+  Teuchos::Array<hymls_gidx> gidList(n);
   for (int i = 0; i < n; i++)
     {
     gidList[i] = i;
@@ -242,10 +242,10 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumElements2)
   {
   Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
 
-  int n = 100;
+  hymls_gidx n = 100;
   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
 
-  Teuchos::Array<int> gidList(n);
+  Teuchos::Array<hymls_gidx> gidList(n);
   for (int i = 0; i < n; i++)
     {
     gidList[i] = i;
@@ -270,7 +270,7 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumElements2)
 //   int n = 100;
 //   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
 
-//   Teuchos::Array<int> gidList(n);
+//   Teuchos::Array<hymls_gidx> gidList(n);
 //   for (int i = 0; i < n; i++)
 //     {
 //     gidList[i] = i;

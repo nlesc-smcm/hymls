@@ -88,13 +88,12 @@ namespace HYMLS {
       {
       // reindex the reduced system, this seems to be a good idea when
       // solving it using Ifpack_Amesos
-      linearMap_ = Teuchos::rcp(new Epetra_Map(map_->NumGlobalElements(),
-                                                  map_->NumMyElements(),
-                                                  0, map_->Comm()) );
+      linearMap_ = Teuchos::rcp(new Epetra_Map((hymls_gidx)map_->NumGlobalElements64(),
+          map_->NumMyElements(), 0, map_->Comm()));
 
       reindexA_ = Teuchos::rcp(new ::EpetraExt::CrsMatrix_Reindex(*linearMap_));
       reindexX_ = Teuchos::rcp(new ::EpetraExt::MultiVector_Reindex(*linearMap_));
-      reindexB_ = Teuchos::rcp(new ::EpetraExt::MultiVector_Reindex(*linearMap_));      
+      reindexB_ = Teuchos::rcp(new ::EpetraExt::MultiVector_Reindex(*linearMap_));
       }
     else
       {
@@ -105,7 +104,7 @@ namespace HYMLS {
         }
       }
 
-  isEmpty_ = (map_->NumGlobalElements()==0);
+  isEmpty_ = (map_->NumGlobalElements64()==0);
 
   OT=Teuchos::rcp(new Householder(myLevel_));
   dumpVectors_=false;
@@ -502,7 +501,7 @@ HYMLS_DEBVAR(*borderC_);
     if (linear_indices)
       {
       int myLength = map_->NumMyElements();
-      newMap=Teuchos::rcp(new Epetra_Map(-1,myLength,0,*comm_));
+      newMap=Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1),myLength,0,*comm_));
       }
       
     int off = 0;
@@ -524,13 +523,13 @@ HYMLS_DEBVAR(*borderC_);
         //begS << sepObject->LID(sep,grp,0)<<std::endl;
         
         // V-sum nodes
-        ofs << newMap->GID(map_->LID(sepObject->GID(sep,grp,0))) << std::endl;
-        ofs2 << newMap->GID(map_->LID(sepObject->GID(sep,grp,0))) << std::endl;
+        ofs << newMap->GID64(map_->LID(sepObject->GID(sep,grp,0))) << std::endl;
+        ofs2 << newMap->GID64(map_->LID(sepObject->GID(sep,grp,0))) << std::endl;
         // non-Vsum nodes
         for (int j=1;j<sepObject->NumElements(sep,grp);j++)
           {
-          ofs << newMap->GID(map_->LID(sepObject->GID(sep,grp,j))) << std::endl;
-          ofs1 << newMap->GID(map_->LID(sepObject->GID(sep,grp,j))) << std::endl;
+          ofs << newMap->GID64(map_->LID(sepObject->GID(sep,grp,j))) << std::endl;
+          ofs1 << newMap->GID64(map_->LID(sepObject->GID(sep,grp,j))) << std::endl;
           }
         }
       }
@@ -657,7 +656,7 @@ int SchurPreconditioner::InitializeBlocks()
       {
       // in the spawned sepObject, each local separator is a group of a subdomain.
       // -1 because we remove one Vsum node from each block
-      int numRows=std::max(sepObject->NumElements(sep,grp)-1,0);
+      int numRows=std::max((int)sepObject->NumElements(sep,grp)-1,0);
       nnz+=numRows*numRows; 
       blockSolver_[blk]=Teuchos::rcp(new 
              Ifpack_DenseContainer(numRows));
@@ -668,8 +667,8 @@ int SchurPreconditioner::InitializeBlocks()
 
       for (int j=0; j<numRows; j++)
         {
-        int gid=sepObject->GID(sep,grp,j+1); // skip first element, which is a Vsum
-        int LRID = map_->LID(gid);
+        // skip first element, which is a Vsum
+        int LRID = map_->LID(sepObject->GID(sep,grp,j+1));
         blockSolver_[blk]->ID(j) = LRID;
         }
       blk++;
@@ -712,8 +711,7 @@ int SchurPreconditioner::InitializeSingleBlock()
       // skip first element, which is a Vsum
       for (int j=1; j<sepObject->NumElements(sep,grp); j++)
         {
-        int gid=sepObject->GID(sep,grp,j);
-        int LRID = map_->LID(gid);
+        int LRID = map_->LID(sepObject->GID(sep,grp,j));
         blockSolver_[0]->ID(pos++) = LRID;
         }
       }
@@ -742,9 +740,13 @@ int SchurPreconditioner::InitializeOT()
     Epetra_Vector localTestVector(sepMap);
     CHECK_ZERO(localTestVector.Import(*testVector_,import,Insert));
 
+#ifdef HYMLS_LONG_LONG
+    Epetra_LongLongSerialDenseVector inds;
+#else
     Epetra_IntSerialDenseVector inds;
+#endif
     Epetra_SerialDenseVector vec;
-    
+
     int nnzPerRow = sepObject->NumMySubdomains()>0? sepObject->NumSeparatorElements(0) : 0;
 
     sparseMatrixOT_ = Teuchos::rcp(new Epetra_CrsMatrix(Copy,*map_,nnzPerRow));
@@ -768,7 +770,7 @@ int SchurPreconditioner::InitializeOT()
         int pos = 0;
         for (int j=0;j<len;j++)
           {
-          int gid = sepObject->GID(sep,grp,j);
+          hymls_gidx gid = sepObject->GID(sep,grp,j);
           int lid = sepMap.LID(gid);
           if (lid != -1)
             {
@@ -824,7 +826,7 @@ int SchurPreconditioner::InitializeOT()
       // create a map for the reduced Schur-complement. Note that this is a distributed
       // matrix, in contrast to the other diagonal blocks, so we can't use an Ifpack 
       // container.
-      int *MyVsumElements = new int[numBlocks]; // one Vsum per block
+      hymls_gidx *MyVsumElements = new hymls_gidx[numBlocks]; // one Vsum per block
       int pos=0;
       for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
         {
@@ -838,8 +840,9 @@ int SchurPreconditioner::InitializeOT()
           }
         }
 
-      vsumMap_=Teuchos::rcp(new Epetra_Map(-1,numBlocks,MyVsumElements,
-                                map_->IndexBase(), map_->Comm()));
+      vsumMap_=Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1),
+          numBlocks, MyVsumElements,
+          (hymls_gidx)map_->IndexBase64(), map_->Comm()));
       
       delete [] MyVsumElements;
       HYMLS_DEBUG(label_);
@@ -1005,13 +1008,18 @@ int SchurPreconditioner::InitializeOT()
       matrix_=matrix;
       }
     
-    Epetra_IntSerialDenseVector indices;
     Epetra_SerialDenseVector v;
     Epetra_SerialDenseMatrix Sk;
         
     // part remaining after dropping
     Epetra_SerialDenseMatrix Spart;
+#ifdef HYMLS_LONG_LONG
+    Epetra_LongLongSerialDenseVector indices;
+    Epetra_LongLongSerialDenseVector indsPart;
+#else
+    Epetra_IntSerialDenseVector indices;
     Epetra_IntSerialDenseVector indsPart;
+#endif
 
     Teuchos::RCP<Epetra_CrsMatrix> transformedA22 =
     OT->Apply(*sparseMatrixOT_,SchurComplement_->A22());
@@ -1092,7 +1100,7 @@ int SchurPreconditioner::InitializeOT()
     for (int i=0;i<matrix_->NumMyRows();i++)
       {
       //global row id
-      int grid = transformedA22->GRID(i);
+      hymls_gidx grid = transformedA22->GRID64(i);
       CHECK_ZERO(transformedA22->ExtractGlobalRowCopy(grid,maxlen,len,values,cols));
 
       CHECK_NONNEG(matrix_->SumIntoGlobalValues(grid,len,values,cols));
@@ -1143,10 +1151,7 @@ int SchurPreconditioner::InitializeOT()
       // separators
       v.Resize(indices.Length());
       for (int i = 0; i < indices.Length(); i++)
-        {
-        int gid = indices[i];
-        v[i] = localTestVector[sepMap.LID(gid)];
-        }
+        v[i] = localTestVector[sepMap.LID(indices[i])];
 
       int numVsums = numGroups - 1;
       indsPart.Resize(numVsums);
@@ -1628,7 +1633,7 @@ int SchurPreconditioner::ApplyOT(bool trans, Epetra_MultiVector& v, double* flop
     if (flops!=NULL)
       {
       //TODO: make this general for all OTs
-      *flops += sparseMatrixOT_->NumGlobalNonzeros() * 4 + v.MyLength();
+      *flops += sparseMatrixOT_->NumGlobalNonzeros64() * 4 + v.MyLength();
       }
     // }
   return 0;
@@ -1689,7 +1694,7 @@ int SchurPreconditioner::ComputeScaling(const Epetra_CrsMatrix& A,
       p_entry=0.0;
       for (int j=0;j<len;j++)
         {
-        if (BP.VariableType(A.GCID(ind[j]))==p_node)
+        if (BP.VariableType(A.GCID64(ind[j]))==p_node)
           {
           p_entry=std::abs(val[j]);
           }
@@ -1839,7 +1844,7 @@ int SchurPreconditioner::UpdateVsumRhs(const Epetra_MultiVector& B, Epetra_Multi
   // update the RHS for the V-sum solve
   for (int i=0;i<vsumMap_->NumMyElements();i++)
     {
-    int lid = Y.Map().LID(vsumMap_->GID(i));
+    int lid = Y.Map().LID(vsumMap_->GID64(i));
     for (int k=0;k<Y.NumVectors();k++)
       {
       Y[k][lid] = B[k][lid];
@@ -2168,12 +2173,11 @@ HYMLS::MatrixUtils::Dump(*linearSol_,"CoarseLevelSol.txt");
       for (int j=0;j<Y.NumVectors();j++)
         for (int i=0;i<vsumSol_->MyLength();i++)
           {
-          int gid = vsumMap_->GID(i);
-          int lid = Y.Map().LID(gid);
+          int lid = Y.Map().LID(vsumMap_->GID64(i));
 #ifdef HYMLS_TESTING
-              // something's fishy, should just be a copy operation.
-              if (lid<0) Tools::Error("inconsistent maps",__FILE__,__LINE__);
-#endif          
+          // something's fishy, should just be a copy operation.
+          if (lid<0) Tools::Error("inconsistent maps",__FILE__,__LINE__);
+#endif
           Y[j][lid] = (*vsumSol_)[j][i];
           }
       
@@ -2211,7 +2215,7 @@ void SchurPreconditioner::Visualize(std::string mfilename,bool recurse) const
         ofs << "p{"<<myLevel_<<"}{"<<1+i<<"}.vsums=[";
         for (int j=0;j<vsumMap_->NumMyElements();j++)
           {
-          ofs << vsumMap_->GID(j) << " ";
+          ofs << vsumMap_->GID64(j) << " ";
           }
         ofs << "];"<<std::endl;
         }

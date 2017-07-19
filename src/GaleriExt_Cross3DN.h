@@ -165,7 +165,7 @@ Cross3DN(const Epetra_Map* Map,
   }
   else
 #endif
-    throw "GaleriExt::Matrices::Cross3D: GlobalIndices type unknown";
+    throw "GaleriExt::Matrices::Cross3DN: GlobalIndices type unknown";
 }
 
 } // namespace Matrices

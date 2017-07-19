@@ -29,7 +29,7 @@ public:
   int operator()(int i, int j, int k) const;
 
   //! get non-overlapping subdomain id
-  int operator()(int gid) const;
+  int operator()(hymls_gidx gid) const;
 
   //! partition an [nx x ny x nz] grid with (possibly) several DoF per node
   //! into nparts global subdomains.
@@ -51,13 +51,13 @@ private:
   //! Method to remove separators at the boundary when they are not
   //! strictly needed. This is when there are no periodic boundary
   //! conditions
-  int RemoveBoundarySeparators(Teuchos::Array<int> &interior_nodes,
-    Teuchos::Array<Teuchos::Array<int> > &separator_nodes) const;
+  int RemoveBoundarySeparators(Teuchos::Array<hymls_gidx> &interior_nodes,
+    Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes) const;
 
 public:
   //! Get interior and separator groups of the subdomain sd
-  int GetGroups(int sd, Teuchos::Array<int> &interior_nodes,
-    Teuchos::Array<Teuchos::Array<int> > &separator_nodes);
+  int GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior_nodes,
+    Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes);
 
   //! is this class fully set up?
   inline bool Partitioned() const
@@ -72,7 +72,7 @@ public:
     }
 
   //! get the type of a variable (if more than 1 dof per node, otherwise just 0)
-  int VariableType(int gid) const;
+  int VariableType(hymls_gidx gid) const;
 
   //! return the repartitioned/reordered map
   inline const Epetra_Map& Map() const
@@ -133,9 +133,6 @@ protected:
 
   //! type of periodicity in the problem
   GaleriExt::PERIO_Flag perio_;
-
-  //! pointers into map
-  Teuchos::Array<int> subdomainPointer_;
 
 protected:
 

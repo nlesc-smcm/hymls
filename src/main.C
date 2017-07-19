@@ -248,7 +248,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
   Teuchos::RCP<Epetra_CrsMatrix> M = Teuchos::null;
   M= Teuchos::rcp(new Epetra_CrsMatrix(Copy,*map,1,true));
 
-  int gid;
+  hymls_gidx gid;
   double val1=1.0/(nx*ny*nz);
   double val0=0.0;
   if (eqn=="Stokes-C")
@@ -258,10 +258,10 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
       {
       for (int j=i;j<i+dof-1;j++)
         {
-        gid = map->GID(j);
+        gid = map->GID64(j);
         CHECK_ZERO(M->InsertGlobalValues(gid,1,&val1,&gid));
         }
-      gid = map->GID(i+dof-1);
+      gid = map->GID64(i+dof-1);
       CHECK_ZERO(M->InsertGlobalValues(gid,1,&val0,&gid));
       }
     }
@@ -269,7 +269,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     {
     for (int i=0;i<M->NumMyRows();i++)
       {
-      gid = map->GID(i);
+      gid = map->GID64(i);
       CHECK_ZERO(M->InsertGlobalValues(gid,1,&val1,&gid));
       }
     }
@@ -293,7 +293,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
         CHECK_ZERO(M->ExtractMyRowView(i,lenM,valM,indM));
         if (lenA==1)
           {
-          if (K->GCID(indA[0])==K->GRID(i))
+          if (K->GCID64(indA[0])==K->GRID64(i))
             {
             for (int j=0;j<lenM;j++)
               {

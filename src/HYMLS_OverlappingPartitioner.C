@@ -267,7 +267,7 @@ int OverlappingPartitioner::Partition()
 HYMLS_DEBUG("Partition numbers:");
 for (int i=0;i<Map().NumMyElements();i++)
   {
-  int gid=Map().GID(i);
+  hymls_gidx gid = Map().GID64(i);
   HYMLS_DEBUG(gid << " " << (*partitioner_)(gid));
   }
 #endif
@@ -283,11 +283,11 @@ int OverlappingPartitioner::DetectSeparators()
   HYMLS_PROF2(Label(),"DetectSeparators");
 
   // nodes to be eliminated exactly in the next step
-  Teuchos::Array<int> interior_nodes;
+  Teuchos::Array<hymls_gidx> interior_nodes;
   // separator nodes
-  Teuchos::Array<Teuchos::Array<int> > separator_nodes;
+  Teuchos::Array<Teuchos::Array<hymls_gidx> > separator_nodes;
   // presure nodes that need to be retained
-  Teuchos::Array<int> retained_nodes;
+  Teuchos::Array<hymls_gidx> retained_nodes;
 
   for (int sd = 0; sd < partitioner_->NumLocalParts(); sd++)
     {
@@ -295,7 +295,7 @@ int OverlappingPartitioner::DetectSeparators()
     separator_nodes.resize(0);
     retained_nodes.resize(0);
 
-    partitioner_->GetGroups(sd, interior_nodes, separator_nodes);
+    CHECK_ZERO(partitioner_->GetGroups(sd, interior_nodes, separator_nodes));
 
     std::sort(interior_nodes.begin(), interior_nodes.end());
     AddGroup(sd, interior_nodes);

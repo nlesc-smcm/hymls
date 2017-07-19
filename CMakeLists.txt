@@ -14,6 +14,7 @@ option(HYMLS_USE_PHIST OFF "try to find PHIST and enable it as eigensolver with 
 option(HYMLS_STORE_MATRICES "dump all matrices, maps etc. encountered (huge overhead)" OFF)
 option(HYMLS_DEBUGGING "turns on verbose debugging output" OFF)
 option(HYMLS_FUNCTION_TRACING "turns on very verbose output on every function entered/left" OFF)
+option(HYMLS_LONG_LONG "use long long global indices" OFF)
 
 # HYMLS version
 execute_process(COMMAND git rev-parse --short --sq HEAD WORKING_DIRECTORY ${PROJECT_SOURCE_DIR} OUTPUT_VARIABLE rev)

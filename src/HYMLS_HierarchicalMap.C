@@ -24,6 +24,7 @@
 #include "Epetra_IntVector.h"
 #include "Epetra_Import.h"
 #include "Epetra_IntSerialDenseVector.h"
+#include "Epetra_LongLongSerialDenseVector.h"
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_StrUtils.hpp"
 #include "Epetra_Util.h"
@@ -54,8 +55,8 @@ namespace HYMLS {
         Teuchos::RCP<const Epetra_Comm> comm, 
         Teuchos::RCP<const Epetra_Map> baseMap,
         Teuchos::RCP<const Epetra_Map> overlappingMap,
-        Teuchos::RCP<Teuchos::Array< Teuchos::Array<int> > > groupPointer,
-        Teuchos::RCP<Teuchos::Array< Teuchos::Array<int> > > gidList,
+        Teuchos::RCP<Teuchos::Array< Teuchos::Array<hymls_gidx> > > groupPointer,
+        Teuchos::RCP<Teuchos::Array< Teuchos::Array<hymls_gidx> > > gidList,
         std::string label, int level)
   : comm_(comm),
     label_(label),
@@ -89,8 +90,8 @@ namespace HYMLS {
   int HierarchicalMap::Reset(int numMySubdomains)
     {
     HYMLS_PROF2(label_,"Reset");
-    groupPointer_=Teuchos::rcp(new Teuchos::Array<Teuchos::Array<int> >(numMySubdomains));
-    gidList_=Teuchos::rcp(new Teuchos::Array<Teuchos::Array<int> >(numMySubdomains));
+    groupPointer_=Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >(numMySubdomains));
+    gidList_=Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >(numMySubdomains));
     for (int i=0;i<numMySubdomains;i++)
       {
       (*gidList_)[i].resize(0);
@@ -121,13 +122,13 @@ int HierarchicalMap::FillComplete()
       }
     }
 
-  Teuchos::RCP<Teuchos::Array<Teuchos::Array<int> > > newGroupPointer =
-    Teuchos::rcp(new Teuchos::Array<Teuchos::Array<int> >());
-  Teuchos::RCP<Teuchos::Array<Teuchos::Array<int> > > newGidList =
-    Teuchos::rcp(new Teuchos::Array<Teuchos::Array<int> >());
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > newGroupPointer =
+    Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >());
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > newGidList =
+    Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >());
 
   // Merge all GIDs on this processor into one list
-  Teuchos::Array<int> allGids;
+  Teuchos::Array<hymls_gidx> allGids;
   for (int sd = 0; sd < NumMySubdomains(); sd++)
     {
     std::copy((*gidList_)[sd].begin(), (*gidList_)[sd].end(),
@@ -136,7 +137,7 @@ int HierarchicalMap::FillComplete()
 
   // Make sure there is only one entry of each of them
   std::sort(allGids.begin(), allGids.end());
-  Teuchos::Array<int>::iterator end = std::unique(allGids.begin(), allGids.end());
+  auto end = std::unique(allGids.begin(), allGids.end());
 
   // Communicate between processors which elements are actually present in the
   // baseMap_ of the processor that owns the nodes. This is because the
@@ -144,32 +145,33 @@ int HierarchicalMap::FillComplete()
   // not only the elements that are in the map
   int numElements = std::distance(allGids.begin(), end);
   Teuchos::RCP<Epetra_Map> tmpOverlappingMap =
-    Teuchos::rcp(new Epetra_Map(-1, numElements, &allGids[0],
-        baseMap_->IndexBase(), *comm_));
+    Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), numElements, &allGids[0],
+        (hymls_gidx)baseMap_->IndexBase64(), *comm_));
 
   HYMLS_DEBVAR(*tmpOverlappingMap);
 
   Epetra_IntVector vec(*baseMap_);
-  for (Teuchos::Array<int>::iterator i = allGids.begin(); i != end; i++)
+  for (auto i = allGids.begin(); i != end; ++i)
     {
     int lid = baseMap_->LID(*i);
     if (lid != -1)
       vec[lid] = 1;
     }
+
   Epetra_Import imp(*tmpOverlappingMap, *baseMap_);
   Epetra_IntVector overlappingVec(*tmpOverlappingMap);
   overlappingVec.Import(vec, imp, Insert);
 
   for (int sd = 0; sd < NumMySubdomains(); sd++)
     {
-    newGidList->append(Teuchos::Array<int>());
-    newGroupPointer->append(Teuchos::Array<int>(1));
+    newGidList->append(Teuchos::Array<hymls_gidx>());
+    newGroupPointer->append(Teuchos::Array<hymls_gidx>(1));
     for (int grp = 0; grp < NumGroups(sd); grp++)
       {
-      Teuchos::Array<int> gidList;
+      Teuchos::Array<hymls_gidx> gidList;
       for (int j = 0; j < NumElements(sd,grp); j++)
         {
-        int gid = GID(sd, grp, j);
+        hymls_gidx gid = GID(sd, grp, j);
         // If it is present in the overlappingVec the element actually belongs
         // to the baseMap_ on some processor
         if (overlappingVec[tmpOverlappingMap->LID(gid)])
@@ -177,7 +179,7 @@ int HierarchicalMap::FillComplete()
           gidList.append(gid);
           }
         }
-      int offset = *((*newGroupPointer)[sd].end()-1);
+      hymls_gidx offset = *((*newGroupPointer)[sd].end()-1);
       int len = gidList.size();
       if (len > 0)
         {
@@ -196,15 +198,15 @@ int HierarchicalMap::FillComplete()
     }
   std::sort(allGids.begin(), allGids.end());
   auto last = std::unique(allGids.begin(), allGids.end());
-  overlappingMap_ = Teuchos::rcp(new Epetra_Map(-1, std::distance(allGids.begin(), last),
-      &allGids[0], baseMap_->IndexBase(), *comm_));
+  overlappingMap_ = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), std::distance(allGids.begin(), last),
+      &allGids[0], (hymls_gidx)baseMap_->IndexBase64(), *comm_));
 
   gidList_ = newGidList;
   groupPointer_ = newGroupPointer;
   return 0;
   }
 
-int HierarchicalMap::AddGroup(int sd, Teuchos::Array<int>& gidList)
+int HierarchicalMap::AddGroup(int sd, Teuchos::Array<hymls_gidx>& gidList)
   {
   HYMLS_PROF3(label_,"AddGroup");
 
@@ -216,7 +218,7 @@ int HierarchicalMap::AddGroup(int sd, Teuchos::Array<int>& gidList)
 
   HYMLS_DEBVAR(sd);
   HYMLS_DEBVAR(gidList);
-  int offset=*((*groupPointer_)[sd].end()-1);
+  hymls_gidx offset=*((*groupPointer_)[sd].end()-1);
   int len = gidList.size();
   (*groupPointer_)[sd].append(offset+len);
   if (len>0)
@@ -226,7 +228,7 @@ int HierarchicalMap::AddGroup(int sd, Teuchos::Array<int>& gidList)
   return (*groupPointer_)[sd].length()-1;
   }
 
-Teuchos::Array<int> HierarchicalMap::GetGroup(int sd, int grp) const
+Teuchos::Array<hymls_gidx> HierarchicalMap::GetGroup(int sd, int grp) const
   {
   HYMLS_PROF3(label_,"GetGroup");
 
@@ -236,13 +238,13 @@ Teuchos::Array<int> HierarchicalMap::GetGroup(int sd, int grp) const
   if (grp >= (*groupPointer_)[sd].size())
     Tools::Error("Invalid group index", __FILE__, __LINE__);
 
-  int offset = *((*groupPointer_)[sd].begin() + grp);
+  hymls_gidx offset = *((*groupPointer_)[sd].begin() + grp);
   int len = *((*groupPointer_)[sd].begin() + grp + 1) - offset;
 
   if (offset + len > (*gidList_)[sd].size())
     Tools::Error("Invalid group index", __FILE__, __LINE__);
 
-  Teuchos::Array<int> gidList;
+  Teuchos::Array<hymls_gidx> gidList;
   std::copy((*gidList_)[sd].begin() + offset, (*gidList_)[sd].begin() + offset + len,std::back_inserter(gidList));
 
   return gidList;
@@ -315,7 +317,7 @@ Teuchos::Array<int> HierarchicalMap::GetGroup(int sd, int grp) const
           os << "p{" << myLevel_ << "}{" << rank + 1 << "}.groups{" << sd + 1 << "} = {";
           for (int grp = 0; grp < NumGroups(sd); grp++)
             {
-            Teuchos::Array<int> gidList = GetGroup(sd, grp);
+            Teuchos::Array<hymls_gidx> gidList = GetGroup(sd, grp);
             if (grp > 0)
               {
               os << ",..." << std::endl;
@@ -393,15 +395,15 @@ HierarchicalMap::SpawnInterior() const
 
   Teuchos::RCP<const HierarchicalMap> newObject=Teuchos::null;
   Teuchos::RCP<Epetra_Map> newMap=Teuchos::null;
-  Teuchos::RCP<Teuchos::Array<Teuchos::Array<int> > > newGroupPointer =
-        Teuchos::rcp(new Teuchos::Array<Teuchos::Array<int> >());
-  Teuchos::RCP<Teuchos::Array<Teuchos::Array<int> > > newGidList =
-        Teuchos::rcp(new Teuchos::Array<Teuchos::Array<int> >());
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > newGroupPointer =
+        Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >());
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > newGidList =
+        Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >());
   
-  int base = baseMap_->IndexBase();  
+  hymls_gidx base = baseMap_->IndexBase64();  
   
   int num = NumMyInteriorElements();
-  int *myElements = new int[num];
+  hymls_gidx *myElements = new hymls_gidx[num];
   int pos = 0;
   for (int sd = 0; sd < NumMySubdomains(); sd++)
     {
@@ -410,7 +412,7 @@ HierarchicalMap::SpawnInterior() const
     pos += len;
     }
 
-  newMap = Teuchos::rcp(new Epetra_Map(-1, pos, myElements, base, *comm_));
+  newMap = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), pos, myElements, base, *comm_));
   delete [] myElements;
 
   newGroupPointer->resize(NumMySubdomains());
@@ -445,28 +447,28 @@ HierarchicalMap::SpawnInterior() const
   Teuchos::RCP<const HierarchicalMap> newObject = Teuchos::null;
   Teuchos::RCP<Epetra_Map> newMap = Teuchos::null;
   Teuchos::RCP<Epetra_Map> newOverlappingMap = Teuchos::null;
-  Teuchos::RCP<Teuchos::Array<Teuchos::Array<int> > > newGroupPointer =
-        Teuchos::rcp(new Teuchos::Array<Teuchos::Array<int> >());
-  Teuchos::RCP<Teuchos::Array<Teuchos::Array<int> > > newGidList =
-        Teuchos::rcp(new Teuchos::Array<Teuchos::Array<int> >());
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > newGroupPointer =
+        Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >());
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > newGidList =
+        Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >());
 
-  Teuchos::Array<int> done;
-  Teuchos::Array<int> localGIDs;
-  Teuchos::Array<int> overlappingGIDs;
+  Teuchos::Array<hymls_gidx> done;
+  Teuchos::Array<hymls_gidx> localGIDs;
+  Teuchos::Array<hymls_gidx> overlappingGIDs;
 
   for (int sd=0;sd<NumMySubdomains();sd++)
     {
-    newGidList->append(Teuchos::Array<int>());
-    newGroupPointer->append(Teuchos::Array<int>(2));
+    newGidList->append(Teuchos::Array<hymls_gidx>());
+    newGroupPointer->append(Teuchos::Array<hymls_gidx>(2));
     for (int grp=1;grp<=NumSeparatorGroups(sd);grp++)
       {
       if (NumElements(sd,grp)>0 &&
         std::find(done.begin(), done.end(), GID(sd, grp, 0)) == done.end())
         {
-        Teuchos::Array<int> gidList;
+        Teuchos::Array<hymls_gidx> gidList;
         for (int j=0;j<NumElements(sd,grp);j++)
           {
-          int gid = GID(sd, grp, j);
+          hymls_gidx gid = GID(sd, grp, j);
           gidList.append(gid);
           overlappingGIDs.append(gid);
           if (baseMap_->MyGID(gid))
@@ -474,7 +476,7 @@ HierarchicalMap::SpawnInterior() const
             localGIDs.append(gid);
             }
           }
-        int offset = *((*newGroupPointer)[sd].end()-1);
+        hymls_gidx offset = *((*newGroupPointer)[sd].end()-1);
         int len = gidList.size();
         if (len>0)
           {
@@ -486,11 +488,11 @@ HierarchicalMap::SpawnInterior() const
       }
     }
 
-  newOverlappingMap = Teuchos::rcp(new Epetra_Map(-1, overlappingGIDs.size(),
-      &overlappingGIDs[0], baseMap_->IndexBase(), *comm_));
+  newOverlappingMap = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), overlappingGIDs.size(),
+      &overlappingGIDs[0], (hymls_gidx)baseMap_->IndexBase64(), *comm_));
 
-  newMap = Teuchos::rcp(new Epetra_Map(-1, localGIDs.size(),
-      &localGIDs[0], baseMap_->IndexBase(), *comm_));
+  newMap = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), localGIDs.size(),
+      &localGIDs[0], (hymls_gidx)baseMap_->IndexBase64(), *comm_));
 
   newObject = Teuchos::rcp(new HierarchicalMap(comm_, newMap, newOverlappingMap,
       newGroupPointer, newGidList, "Separator Nodes", myLevel_));
@@ -507,10 +509,10 @@ HierarchicalMap::SpawnLocalSeparators() const
   HYMLS_PROF3(label_,"SpawnLocalSeparators");
 
   Teuchos::RCP<const HierarchicalMap> newObject=Teuchos::null;
-  Teuchos::RCP<Teuchos::Array<Teuchos::Array<int> > > newGidList =
-        Teuchos::rcp(new Teuchos::Array<Teuchos::Array<int> >());
-  Teuchos::RCP<Teuchos::Array<Teuchos::Array<int> > > newGroupPointer =
-        Teuchos::rcp(new Teuchos::Array<Teuchos::Array<int> >());
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > newGidList =
+        Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >());
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > newGroupPointer =
+        Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >());
   
   // Start out from the standard Separator object. All local separators are located
   // in its baseMap_
@@ -518,14 +520,14 @@ HierarchicalMap::SpawnLocalSeparators() const
 
   for (int sd = 0; sd < sepObject->NumMySubdomains(); sd++)
     {
-    newGidList->append(Teuchos::Array<int>());
-    newGroupPointer->append(Teuchos::Array<int>(2));
+    newGidList->append(Teuchos::Array<hymls_gidx>());
+    newGroupPointer->append(Teuchos::Array<hymls_gidx>(2));
     for (int grp = 1; grp < sepObject->NumGroups(sd); grp++)
       {
       if (sepObject->NumElements(sd, grp) > 0 && sepObject->GetMap()->MyGID(sepObject->GID(sd, grp, 0)))
         {
-        Teuchos::Array<int> gidList = sepObject->GetGroup(sd, grp);
-        int offset = *((*newGroupPointer)[sd].end()-1);
+        Teuchos::Array<hymls_gidx> gidList = sepObject->GetGroup(sd, grp);
+        hymls_gidx offset = *((*newGroupPointer)[sd].end()-1);
         int len = gidList.size();
         if (len>0)
           {
@@ -568,7 +570,7 @@ HierarchicalMap::SpawnLocalSeparators() const
       {
       HYMLS_DEBUG("Spawn map for subdomain " << sd);
       // int* MyElements = overlappingMap_->MyGlobalElements();      
-      int offset = -1;
+      hymls_gidx offset = -1;
       int length = -1;
       if (strat==Interior)
         {
@@ -591,8 +593,8 @@ HierarchicalMap::SpawnLocalSeparators() const
       HYMLS_DEBVAR(offset);
       HYMLS_DEBVAR(length);
       Epetra_SerialComm comm;
-      map = Teuchos::rcp(new Epetra_Map(-1, length, &((*gidList_)[sd][0+offset]),
-                baseMap_->IndexBase(), comm));
+      map = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), length, &((*gidList_)[sd][0+offset]),
+          (hymls_gidx)baseMap_->IndexBase64(), comm));
                 
       spawnedMaps_[idx][sd]=map;
       }
@@ -607,7 +609,7 @@ std::ostream & operator << (std::ostream& os, const HierarchicalMap& h)
   }
 
 //! given a subdomain, returns a list of GIDs that belong to the subdomain
-int HierarchicalMap::getSeparatorGIDs(int sd, int *gids) const
+int HierarchicalMap::getSeparatorGIDs(int sd, hymls_gidx *gids) const
   {
   HYMLS_PROF3(label_, "getSubdomainGIDs");
   if (sd < 0 || sd > NumMySubdomains())
@@ -633,7 +635,28 @@ int HierarchicalMap::getSeparatorGIDs(int sd, int *gids) const
     }
   return 0;
   }
+#ifdef HYMLS_LONG_LONG
+//! given a subdomain, returns a list of GIDs that belong to the subdomain
+int HierarchicalMap::getSeparatorGIDs(int sd, Epetra_LongLongSerialDenseVector &gids) const
+  {
+  HYMLS_PROF3(label_, "getSubdomainGIDs");
+  if (sd < 0 || sd > NumMySubdomains())
+    {
+    Tools::Warning("Subdomain index out of range!", __FILE__, __LINE__);
+    return -1;
+    }
 
+  int nrows = NumSeparatorElements(sd);
+
+  // resize input arrays if necessary
+  if (gids.Length() != nrows)
+    {
+    CHECK_ZERO(gids.Size(nrows));
+    }
+
+  return getSeparatorGIDs(sd, gids.Values());
+  }
+#else
 //! given a subdomain, returns a list of GIDs that belong to the subdomain
 int HierarchicalMap::getSeparatorGIDs(int sd, Epetra_IntSerialDenseVector &gids) const
   {
@@ -654,5 +677,5 @@ int HierarchicalMap::getSeparatorGIDs(int sd, Epetra_IntSerialDenseVector &gids)
 
   return getSeparatorGIDs(sd, gids.Values());
   }
-
+#endif
 }

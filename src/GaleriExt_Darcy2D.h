@@ -42,7 +42,9 @@ namespace GaleriExt {
 namespace Matrices {
 
 //! generate an F-matrix with A = diag(a) and +b -b in the B part
-inline Epetra_CrsMatrix* 
+template<typename int_type>
+inline
+Epetra_CrsMatrix* 
 Darcy2D(const Epetra_Map* Map, 
         const int nx, const int ny,
         const double a, const double b, 
@@ -51,18 +53,19 @@ Darcy2D(const Epetra_Map* Map,
   Epetra_CrsMatrix* Matrix = new Epetra_CrsMatrix(Copy, *Map,  4);
 
   int NumMyElements = Map->NumMyElements();
-  int* MyGlobalElements = Map->MyGlobalElements();
+  int_type* MyGlobalElements = 0;
+  Map->MyGlobalElementsPtr(MyGlobalElements);
 
   int left, right, lower, upper;
   
   std::vector<double> Values(4);
-  std::vector<int> Indices(4);
+  std::vector<int_type> Indices(4);
   
   double c = -b; // c==b => [A B'; B 0]. c==-b => A B'; -B 0]
   
   int dof = 3;
   
-  if (dof*nx*ny!=Map->NumGlobalElements())
+  if (dof*nx*ny != Map->NumGlobalElements64())
     {
     throw("bad input map for GaleriExt::Darcy3D. Should have 4 dof/node");
     }
@@ -71,8 +74,8 @@ Darcy2D(const Epetra_Map* Map,
     {
     int NumEntries = 0;
     
-    int ibase = std::floor(MyGlobalElements[i]/dof);
-    int ivar   = MyGlobalElements[i]-ibase*dof;
+    int_type ibase = std::floor(MyGlobalElements[i]/dof);
+    int_type ivar   = MyGlobalElements[i]-ibase*dof;
     // first the regular 7-point stencil
     GetNeighboursCartesian2d(ibase, nx, ny,
 			     left, right, lower, upper,
@@ -149,6 +152,28 @@ Darcy2D(const Epetra_Map* Map,
   Matrix->OptimizeStorage();
 
   return(Matrix);
+}
+
+inline
+Epetra_CrsMatrix* 
+Darcy2D(const Epetra_Map* Map, 
+        const int nx, const int ny,
+        const double a, const double b, 
+        PERIO_Flag perio=NO_PERIO)
+{
+#ifndef EPETRA_NO_32BIT_GLOBAL_INDICES
+  if(Map->GlobalIndicesInt()) {
+	  return Darcy2D<int>(Map, nx, ny, a, b, perio);
+  }
+  else
+#endif
+#ifndef EPETRA_NO_64BIT_GLOBAL_INDICES
+  if(Map->GlobalIndicesLongLong()) {
+	  return Darcy2D<long long>(Map, nx, ny, a, b, perio);
+  }
+  else
+#endif
+    throw "GaleriExt::Matrices::Cross2DN: GlobalIndices type unknown";
 }
 
 } // namespace Matrices

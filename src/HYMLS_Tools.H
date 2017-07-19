@@ -188,16 +188,16 @@ Teuchos::print_stack_on_segfault();
 
     //! converts linear index to cartesian subscripts
     static void ind2sub(int nx, int ny, int nz, int dof, 
-      int idx, int& i, int& j, int& k, int& var);
+      hymls_gidx idx, int& i, int& j, int& k, int& var);
 
     //! converts linear index to cartesian subscripts
-    static void ind2sub(int nx, int ny, int nz, int idx, int& i, int& j, int& k);
+    static void ind2sub(int nx, int ny, int nz, hymls_gidx idx, int& i, int& j, int& k);
 
     //! converts cartesian subscripts to linear index
-    static int sub2ind(int nx, int ny, int nz, int dof, int i, int j, int k, int var);
+    static hymls_gidx sub2ind(int nx, int ny, int nz, int dof, int i, int j, int k, int var);
 
     //! converts cartesian subscripts to linear index
-    static int sub2ind(int nx, int ny, int nz, int i, int j, int k);
+    static hymls_gidx sub2ind(int nx, int ny, int nz, int i, int j, int k);
 
 static void SignalHandler(int signum)
   {

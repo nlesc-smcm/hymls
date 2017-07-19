@@ -114,9 +114,9 @@ Teuchos::RCP<Epetra_Vector>  read_vector(std::string name,std::string datadir,
     {
     // the EpetraExt function only works for a linear map in parallel,
     // so we need to reindex ourselves:
-    Epetra_Map linearMap(map->NumGlobalElements(),
+    Epetra_Map linearMap((hymls_gidx)map->NumGlobalElements64(),
                          map->NumMyElements(),
-                         map->IndexBase(),
+                         (hymls_gidx)map->IndexBase64(),
                          map->Comm());
 
     Epetra_Vector* vptr;
@@ -225,9 +225,10 @@ Teuchos::RCP<Epetra_Map> create_map(const Epetra_Comm& comm,
       __FILE__, __LINE__);
     }
   if (is_complex) dof*=2;
-  
+
+  hymls_gidx n = nx*ny*nz*dof;
   HYMLS::Tools::out()<<"Create map with dof="<<dof<<" in "<<dim<<"D"<<std::endl;
-  map = Teuchos::rcp(new Epetra_Map(nx*ny*nz*dof, 0, comm));
+  map = Teuchos::rcp(new Epetra_Map(n, 0, comm));
 
   std::string partMethod = prec_params.get("Partitioner", "Cartesian");
   Teuchos::RCP<HYMLS::BasePartitioner> part = Teuchos::null;
@@ -360,8 +361,8 @@ Teuchos::RCP<Epetra_CrsMatrix> create_matrix(const Epetra_Map& map,
 
     for (int lid = 0; lid < nullSpace->MyLength(); lid++)
       {
-      int gid = nullSpace->Map().GID(lid);
-      (*nullSpace)[gid % dof][lid] = 1.0 / sqrt(nullSpace->GlobalLength() / dof);
+      hymls_gidx gid = nullSpace->Map().GID64(lid);
+      (*nullSpace)[gid % dof][lid] = 1.0 / sqrt(nullSpace->GlobalLength64() / dof);
       }
     }
   else if (nullSpaceType == "Constant P")
@@ -390,7 +391,7 @@ Teuchos::RCP<Epetra_CrsMatrix> create_matrix(const Epetra_Map& map,
     int nz = probl_params.get("nz", dim > 2 ? nx : 1);
     for (int lid = 0; lid < nullSpace->MyLength(); lid++)
       {
-      int gid=nullSpace->Map().GID(lid);
+      hymls_gidx gid=nullSpace->Map().GID64(lid);
       int i,j,k,v;
       HYMLS::Tools::ind2sub(nx, ny, nz, dof, gid, i, j, k, v);
       double val1 =  (double)(MOD(i+j+k,2));

@@ -299,9 +299,6 @@ protected:
 
   //! linear map for the reduced SC
   Teuchos::RCP<Epetra_Map> linearMap_;
-  
-  //! pivot order (for MUMPS, experimental)
-  Teuchos::Array<int> pivot_order_;
 
   //! this is to reindex the reduced SC, which is
   //! important when using a direct solver (I think)
@@ -405,7 +402,7 @@ protected:
   //! we can replace a number of rows and cols of the reduced SC
   //! by Dirichlet conditions. This is used to fix the pressure
   //! level
-  Teuchos::Array<int> fix_gid_;
+  Teuchos::Array<hymls_gidx> fix_gid_;
   
   //! subdivide separators created by the standard decomposition.
   //! This is necessary for i.e. THCM, where each subdomain retains

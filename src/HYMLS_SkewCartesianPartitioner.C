@@ -9,8 +9,8 @@
 using Teuchos::toString;
 
 struct Plane {
-  std::vector<int> ptr;
-  std::vector<int> plane;
+  std::vector<hymls_gidx> ptr;
+  std::vector<hymls_gidx> plane;
   };
 
 Plane buildPlane45(int firstNode, int length, int dirX, int dirY, int dof, int pvar)
@@ -87,7 +87,7 @@ SkewCartesianPartitioner::SkewCartesianPartitioner(
   HYMLS_PROF3(label_,"Constructor");
   comm_ = Teuchos::rcp(&(baseMap_->Comm()), false);
 
-  if (baseMap_->IndexBase()!=0)
+  if (baseMap_->IndexBase64() != 0)
     {
     Tools::Warning("Not sure, but I _think_ your map should be 0-based",
       __FILE__, __LINE__);
@@ -151,7 +151,7 @@ int SkewCartesianPartitioner::operator()(int x, int y, int z) const
   }
 
 //! get non-overlapping subdomain id
-int SkewCartesianPartitioner::operator()(int gid) const
+int SkewCartesianPartitioner::operator()(hymls_gidx gid) const
   {
   int i,j,k,var;
 #ifdef HYMLS_TESTING
@@ -302,9 +302,9 @@ int SkewCartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
     HYMLS_PROF3(label_,"repartition map");
 
     int numMyElements = numLocalSubdomains_ * sx_ * sy_ * sz_ * dof_;
-    int *myGlobalElements = new int[numMyElements];
+    hymls_gidx *myGlobalElements = new hymls_gidx[numMyElements];
     int pos = 0;
-    for (int i = 0; i < baseMap_->MaxAllGID()+1; i++)
+    for (hymls_gidx i = 0; i < baseMap_->MaxAllGID64()+1; i++)
       {
       if (sdMap_->LID((*this)(i)) != -1)
         {
@@ -316,8 +316,8 @@ int SkewCartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
         }
       }
 
-    Epetra_Map tmpRepartitionedMap(-1, pos,
-      myGlobalElements, baseMap_->IndexBase(), *comm_);
+    Epetra_Map tmpRepartitionedMap((hymls_gidx)(-1), pos,
+      myGlobalElements, (hymls_gidx)baseMap_->IndexBase64(), *comm_);
 
     Epetra_IntVector vec(*baseMap_);
     vec.PutValue(1);
@@ -335,12 +335,12 @@ int SkewCartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
           {
           Tools::Error("Index out of range", __FILE__, __LINE__);
           }
-        myGlobalElements[pos++] = tmpRepartitionedMap.GID(i);
+        myGlobalElements[pos++] = tmpRepartitionedMap.GID64(i);
         }
       }
 
-    cartesianMap_ = Teuchos::rcp(new Epetra_Map(-1, pos,
-        myGlobalElements, baseMap_->IndexBase(), *comm_));
+    cartesianMap_ = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), pos,
+        myGlobalElements, (hymls_gidx)baseMap_->IndexBase64(), *comm_));
 
     if (myGlobalElements)
       delete [] myGlobalElements;
@@ -356,26 +356,26 @@ int SkewCartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
 
 // Builds a domain 'template' of given type at the origin. The template can
 // be moved around to create the proper domain.
-std::vector<std::vector<int> > SkewCartesianPartitioner::getTemplate() const
+std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::getTemplate() const
   {
   HYMLS_PROF2(label_, "getTemplate");
   // Principal directions
 
-  int nx = sx_ * 4;
+  hymls_gidx nx = sx_ * 4;
 
   // Cartesian directions
-  int dirX = dof_;
-  int dirY = dof_*nx;
-  int dirZ = dof_*nx*nx;
+  hymls_gidx dirX = dof_;
+  hymls_gidx dirY = dof_*nx;
+  hymls_gidx dirZ = dof_*nx*nx;
 
   // Info for each node type
-  int firstNode[4] = {dof_*sx_/2 + 0 + dirY + dirZ * sx_,
-                      dof_*sx_/2 + (dof_ > 1) - 0    + dirZ * sx_,
-                      dof_*sx_/2 + 2 - dirZ + dirZ * sx_,
-                      dof_*sx_/2 + pvar_ + dirY + dirZ * sx_};
-  int baseLength[4] = {sx_/2, sx_/2 + 1, sx_/2 + 1, sx_/2};
+  hymls_gidx firstNode[4] = {dof_*sx_/2 + 0 + dirY + dirZ * sx_,
+                             dof_*sx_/2 + (dof_ > 1) - 0    + dirZ * sx_,
+                             dof_*sx_/2 + 2 - dirZ + dirZ * sx_,
+                             dof_*sx_/2 + pvar_ + dirY + dirZ * sx_};
+  hymls_gidx baseLength[4] = {sx_/2, sx_/2 + 1, sx_/2 + 1, sx_/2};
 
-  std::vector<std::vector<std::vector<int> > > nodes;
+  std::vector<std::vector<std::vector<hymls_gidx> > > nodes;
 
   for (int type = 0; type < 4; type++)
     {
@@ -388,19 +388,19 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::getTemplate() const
     if (nz_ <= 1)
       continue;
 
-    std::vector<int> bottom;
-    std::vector<int> top = plane.plane;
+    std::vector<hymls_gidx> bottom;
+    std::vector<hymls_gidx> top = plane.plane;
 
     // Used in the loop to determine which nodes to assign to each layer
-    std::vector<int> rowLength;
+    std::vector<hymls_gidx> rowLength;
     for (size_t i = 0; i < plane.ptr.size()-1; i++)
       rowLength.push_back(plane.ptr[i+1] - plane.ptr[i] - 1); // -1 ???
 
-    std::vector<int> activePtrs;
+    std::vector<hymls_gidx> activePtrs;
     for (int i = 0; i < baseLength[type]; i++)
       activePtrs.push_back(i);
 
-    std::vector<int> offset;
+    std::vector<hymls_gidx> offset;
     for (auto i: activePtrs)
       offset.push_back(rowLength[i]);
 
@@ -410,7 +410,7 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::getTemplate() const
       auto last = top.end();
       for (size_t j = 0; j < activePtrs.size(); j++)
         {
-        int val = plane.plane[plane.ptr[activePtrs[j]] + offset[j]];
+        hymls_gidx val = plane.plane[plane.ptr[activePtrs[j]] + offset[j]];
         bottom.push_back(val);
         last = std::remove(top.begin(), last, val);
         }
@@ -422,33 +422,33 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::getTemplate() const
         // w layers are an exception with odd/even layers
         if (i % 2 == 1)
           {
-          for (int j: nodes[type][i - 1])
+          for (hymls_gidx j: nodes[type][i - 1])
             nodes[type][i].push_back(j + dirY + dirZ);
-          for (int j: top)
+          for (hymls_gidx j: top)
             nodes[type][sx_ + 1 + i].push_back(j + (i + 1) * dirZ);
           }
         else
           {
-          for (int j: bottom)
+          for (hymls_gidx j: bottom)
             nodes[type][i].push_back(j - (sx_ - i) * dirZ);
-          for (int j: nodes[type][sx_ + i])
+          for (hymls_gidx j: nodes[type][sx_ + i])
             nodes[type][sx_ + 1 + i].push_back(j + dirY + dirZ);
           }
         }
       else
         {
-        int isPvar = type == pvar_;
+        hymls_gidx isPvar = type == pvar_;
         if (i < sx_-isPvar)
-          for (int j: bottom)
+          for (hymls_gidx j: bottom)
             nodes[type][i + isPvar].push_back(j - (sx_ - i - isPvar) * dirZ);
-        for (int j: top)
+        for (hymls_gidx j: top)
           nodes[type][sx_ + 1 + i].push_back(j + (i + 1) * dirZ);
         }
 
       if (i < sx_ - 1)
         {
         // Update pointers and offset
-        std::for_each(offset.begin(), offset.end(), [](int& d) { d--;});
+        std::for_each(offset.begin(), offset.end(), [](hymls_gidx& d) { d--;});
         if (type == pvar_)
           {
           // pressure nodes are an exception
@@ -502,7 +502,7 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::getTemplate() const
   //   }
 
   // Merge the template layers
-  std::vector<std::vector<int> > newNodes;
+  std::vector<std::vector<hymls_gidx> > newNodes;
   if (nz_ > 1 && dof_ > 1)
     {
     newNodes.push_back(nodes[2].front());
@@ -527,52 +527,52 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::getTemplate() const
   return newNodes;
   }
 
-std::vector<std::vector<int> > SkewCartesianPartitioner::solveGroups(
-  std::vector<std::vector<int> > const &temp) const
+std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::solveGroups(
+  std::vector<std::vector<hymls_gidx> > const &temp) const
   {
   HYMLS_PROF2(label_, "solveGroups");
 
-  int nx = sx_ * 4;
+  hymls_gidx nx = sx_ * 4;
 
   // Principal directions for domain displacements
-  int dirX = dof_*sx_;
-  int dirY = dof_*nx*sx_;
-  int dirZ = dof_*nx*nx*sx_;
+  hymls_gidx dirX = dof_*sx_;
+  hymls_gidx dirY = dof_*nx*sx_;
+  hymls_gidx dirZ = dof_*nx*nx*sx_;
 
   // Shift the central domain by 1,1,1
-  int first = dirX + dirY + dirZ;
+  hymls_gidx first = dirX + dirY + dirZ;
 
-  int dir1 = (dirY + dirX)/2; 
-  int dir2 = (dirY - dirX)/2 + dirZ; 
-  int dir3 = dirZ;
+  hymls_gidx dir1 = (dirY + dirX)/2; 
+  hymls_gidx dir2 = (dirY - dirX)/2 + dirZ; 
+  hymls_gidx dir3 = dirZ;
 
   // Create model problem
-  int positions[27] = {0, -dir3, dir3, -dir2, -dir2-dir3,
-                       -dir2+dir3, dir2, dir2-dir3, dir2+dir3,
-                       -dir1, -dir1-dir3, -dir1+dir3, -dir1-dir2,
-                       -dir1-dir2-dir3, -dir1-dir2+dir3, -dir1+dir2,
-                       -dir1+dir2-dir3, -dir1+dir2+dir3, dir1,
-                       dir1-dir3, dir1+dir3, dir1-dir2,
-                       dir1-dir2-dir3, dir1-dir2+dir3, dir1+dir2,
-                       dir1+dir2-dir3, dir1+dir2+dir3};
+  hymls_gidx positions[27] = {0, -dir3, dir3, -dir2, -dir2-dir3,
+                              -dir2+dir3, dir2, dir2-dir3, dir2+dir3,
+                              -dir1, -dir1-dir3, -dir1+dir3, -dir1-dir2,
+                              -dir1-dir2-dir3, -dir1-dir2+dir3, -dir1+dir2,
+                              -dir1+dir2-dir3, -dir1+dir2+dir3, dir1,
+                              dir1-dir3, dir1+dir3, dir1-dir2,
+                              dir1-dir2-dir3, dir1-dir2+dir3, dir1+dir2,
+                              dir1+dir2-dir3, dir1+dir2+dir3};
 
   // Turn the template into a list
-  std::vector<int> tempList;
+  std::vector<hymls_gidx> tempList;
   for (auto &it: temp)
     for (auto &it2: it)
       tempList.push_back(it2);
 
   // Setup all domains in the test problem
-  std::vector<std::vector<int> > domain;
+  std::vector<std::vector<hymls_gidx> > domain;
   for (auto &it: positions)
     {
     domain.emplace_back(tempList);
     std::for_each(domain.back().begin(), domain.back().end(),
-      [it, first](int& d) { d += it + first;});
+      [it, first](hymls_gidx& d) { d += it + first;});
     }
 
   // Find groups. Note that domain[0] is the domain that we want to solve for
-  std::vector<std::vector<int> > groups;
+  std::vector<std::vector<hymls_gidx> > groups;
   std::vector<unsigned long long> groupDomains;
 
   // First group is the interior
@@ -609,7 +609,7 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::solveGroups(
     }
 
   // Now separate the u, v, w and p, skip the interior
-  std::vector<std::vector<std::vector<int> > > newGroups;
+  std::vector<std::vector<std::vector<hymls_gidx> > > newGroups;
   for (size_t i = 1; i < groups.size(); i++)
     {
     auto group = groups[i];
@@ -635,14 +635,14 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::solveGroups(
   for (auto &group: groups)
     {
     std::for_each(group.begin(), group.end(),
-      [first](int& d) { d -= first;});
+      [first](hymls_gidx& d) { d -= first;});
     }
 
   return groups;
   }
 
-std::vector<std::vector<int> > SkewCartesianPartitioner::createSubdomain(int sd,
-  std::vector<std::vector<int> > groups) const
+std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(int sd,
+  std::vector<std::vector<hymls_gidx> > groups) const
   {
   HYMLS_PROF2(label_, "createSubdomain");
 
@@ -664,11 +664,11 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::createSubdomain(int sd,
   int nx = 4 * sx_;
   // Move the groups to the right position and cut off parts that fall
   // outside of the domain
-  std::vector<std::vector<int> > newGroups;
+  std::vector<std::vector<hymls_gidx> > newGroups;
   for (auto &group: groups)
     {
     newGroups.emplace_back();
-    for (int &node: group)
+    for (hymls_gidx &node: group)
       {
       int var = node % dof_;
       int x = (node / dof_) % nx + X * sx_ - 1;
@@ -685,11 +685,11 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::createSubdomain(int sd,
 
   // Remove empty groups
   groups.erase(std::remove_if(groups.begin(), groups.end(),
-      [](std::vector<int> &i){return i.empty();}), groups.end());
+      [](std::vector<hymls_gidx> &i){return i.empty();}), groups.end());
 
   // Get first pressure node from interior to a new group.
   // Assumes ordering of groups by size!
-  for (int &node: groups[0])
+  for (hymls_gidx &node: groups[0])
     if (((node % dof_) + dof_) % dof_ == pvar_)
       {
       groups.emplace_back(1, node);
@@ -699,20 +699,20 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::createSubdomain(int sd,
 
   // Split separator groups that that do not belong to the same subdomain.
   // This may happen for the w-groups since the w-separators are staggered
-  std::vector<std::vector<int> > oldGroups;
+  std::vector<std::vector<hymls_gidx> > oldGroups;
   std::copy(groups.begin() + 1, groups.end(), std::back_inserter(oldGroups));
   groups.resize(1);
   for (auto &group: oldGroups)
     {
-    std::map<int, std::vector<int> > newGroups;
-    for (int node: group)
+    std::map<int, std::vector<hymls_gidx> > newGroups;
+    for (hymls_gidx node: group)
       {
       int gsd = operator()(node);
       auto newGroup = newGroups.find(gsd);
       if (newGroup != newGroups.end())
         newGroup->second.push_back(node);
       else
-        newGroups.emplace(gsd, std::vector<int>(1, node));
+        newGroups.emplace(gsd, std::vector<hymls_gidx>(1, node));
       }
     for (auto &newGroup: newGroups)
       groups.push_back(newGroup.second);
@@ -723,8 +723,8 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::createSubdomain(int sd,
   // nodes of the other subdomain
   for (auto group = groups.begin() + 1; group != groups.end(); ++group)
     {
-    std::vector<int> groupCopy = *group;
-    for (int node: groupCopy)
+    std::vector<hymls_gidx> groupCopy = *group;
+    for (hymls_gidx node: groupCopy)
       {
       int x = (node / dof_) % nx_;
       int y = (node / dof_ / nx_) % ny_;
@@ -755,19 +755,19 @@ std::vector<std::vector<int> > SkewCartesianPartitioner::createSubdomain(int sd,
 
   // Remove empty groups
   groups.erase(std::remove_if(groups.begin(), groups.end(),
-      [](std::vector<int> &i){return i.empty();}), groups.end());
+      [](std::vector<hymls_gidx> &i){return i.empty();}), groups.end());
 
   return groups;
   }
 
-int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_nodes,
-  Teuchos::Array<Teuchos::Array<int> > &separator_nodes)
+int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior_nodes,
+  Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes)
   {
   HYMLS_PROF2(label_,"GetGroups");
 
   int gsd = sdMap_->GID(sd);
 
-  std::vector<std::vector<int> > nodes = createSubdomain(gsd, groups_);
+  std::vector<std::vector<hymls_gidx> > nodes = createSubdomain(gsd, groups_);
   interior_nodes = nodes[0];
   std::copy(nodes.begin() + 1, nodes.end(), std::back_inserter(separator_nodes));
 
@@ -775,9 +775,9 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_no
   }
 
 //! get the type of a variable (if more than 1 dof per node, otherwise just 0)
-int SkewCartesianPartitioner::VariableType(int gid) const
+int SkewCartesianPartitioner::VariableType(hymls_gidx gid) const
   {
-  return (int)(MOD(gid, dof_));
+  return gid % dof_;
   }
 
 //! get processor on which a grid point is located

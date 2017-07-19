@@ -212,7 +212,7 @@ std::ostream& Tools::printFunctionStack(std::ostream& os)
   }
 
 void Tools::ind2sub(int nx, int ny, int nz, int dof, 
-  int idx, int& i, int& j, int& k, int& var)
+  hymls_gidx idx, int& i, int& j, int& k, int& var)
   {
 #ifdef HYMLS_TESTING
   if (idx < 0 || idx >= nx * ny * nz * dof)
@@ -232,7 +232,7 @@ void Tools::ind2sub(int nx, int ny, int nz, int dof,
   }
 
   //! converts linear index to cartesian subscripts
-void Tools::ind2sub(int nx, int ny, int nz, int idx, int& i, int& j, int& k)
+void Tools::ind2sub(int nx, int ny, int nz, hymls_gidx idx, int& i, int& j, int& k)
   {
   int dummy;
   ind2sub(nx,ny,nz,1,idx,i,j,k,dummy);
@@ -240,7 +240,7 @@ void Tools::ind2sub(int nx, int ny, int nz, int idx, int& i, int& j, int& k)
   }
 
   //! converts cartesian subscripts to linear index
-int Tools::sub2ind(int nx, int ny, int nz, int dof, int i, int j, int k, int var)
+hymls_gidx Tools::sub2ind(int nx, int ny, int nz, int dof, int i, int j, int k, int var)
   {
 #ifdef HYMLS_TESTING
   std::string msg1 = "sub2ind: ";
@@ -274,7 +274,7 @@ int Tools::sub2ind(int nx, int ny, int nz, int dof, int i, int j, int k, int var
   }
 
 //! converts cartesian subscripts to linear index
-int Tools::sub2ind(int nx, int ny, int nz, int i, int j, int k)
+hymls_gidx Tools::sub2ind(int nx, int ny, int nz, int i, int j, int k)
   {
   return sub2ind(nx,ny,nz,1,i,j,k,0);
   }

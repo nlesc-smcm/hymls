@@ -622,7 +622,7 @@ int testEigenSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
 
   for (int i = 0; i < v0->MyLength(); i++)
     {
-    if (v0->Map().GID(i) % dof == dim)
+    if (v0->Map().GID64(i) % dof == dim)
       {
       (*v0)[0][i] = 0.0;
       }

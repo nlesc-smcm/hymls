@@ -337,7 +337,7 @@ int MatrixBlock::Apply(const Epetra_MultiVector& X, Epetra_MultiVector& Y)
 
   CHECK_ZERO(block_->Apply(X, Y));
 
-  applyFlops_ += 2 * block_->NumGlobalNonzeros();
+  applyFlops_ += 2 * block_->NumGlobalNonzeros64();
 
   return 0;
   }
@@ -385,7 +385,7 @@ int MatrixBlock::ApplyInverse(const Epetra_MultiVector& B, Epetra_MultiVector& X
     // copy IDs to be able to walk through the vectors columnwise
     int IDlist[rows];
     for (int j = 0 ; j < rows ; j++)
-      IDlist[j] = B.Map().LID(extendedMatrix_->GRID(subdomainSolvers_[sd]->ID(j)));
+      IDlist[j] = B.Map().LID(extendedMatrix_->GRID64(subdomainSolvers_[sd]->ID(j)));
 
     // extract RHS from X
     for (int k = 0 ; k < B.NumVectors() ; k++)

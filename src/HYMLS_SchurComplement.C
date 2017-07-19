@@ -6,11 +6,13 @@
 #include "Epetra_Map.h"
 #include "Epetra_MultiVector.h"
 #include "Epetra_Vector.h"
-#include "Epetra_SerialDenseMatrix.h"
 #include "Epetra_RowMatrix.h"
 #include "Epetra_CrsMatrix.h"
 #include "Epetra_FECrsMatrix.h"
 #include "Epetra_Import.h"
+#include "Epetra_SerialDenseMatrix.h"
+#include "Epetra_IntSerialDenseVector.h"
+#include "Epetra_LongLongSerialDenseVector.h"
 
 #include "Ifpack_Container.h"
 
@@ -71,7 +73,7 @@ int SchurComplement::Apply(const Epetra_MultiVector &X,
     {
     CHECK_ZERO(Scrs_->Apply(X, Y));
 #ifdef FLOPS_COUNT
-    flopsApply_ += 2 * Scrs_->NumGlobalNonzeros();
+    flopsApply_ += 2 * Scrs_->NumGlobalNonzeros64();
 #endif
     }
   else
@@ -97,7 +99,7 @@ int SchurComplement::Apply(const Epetra_MultiVector &X,
     // 3) compute Y = Y-Y2
     CHECK_ZERO(Y.Update(-1.0, Y2, 1.0));
 #ifdef FLOPS_COUNT
-    flopsApply_ += Y.GlobalLength() *Y.NumVectors();
+    flopsApply_ += Y.GlobalLength64() *Y.NumVectors();
 #endif
 #endif
     }
@@ -121,22 +123,26 @@ int SchurComplement::Construct()
   CHECK_ZERO(this->Construct(sparseMatrixRepresentation_));
   Scrs_ = MatrixUtils::DropByValue(sparseMatrixRepresentation_,
     HYMLS_SMALL_ENTRY);
-  REPORT_MEM(label_, "SchurComplement", Scrs_->NumGlobalNonzeros(),
-    Scrs_->NumGlobalNonzeros() +
-    Scrs_->NumGlobalRows());
+  REPORT_MEM(label_, "SchurComplement", Scrs_->NumGlobalNonzeros64(),
+    Scrs_->NumGlobalNonzeros64() +
+    Scrs_->NumGlobalRows64());
   return 0;
   }
 
 int SchurComplement::Construct(Teuchos::RCP<Epetra_FECrsMatrix> S) const
   {
   HYMLS_LPROF3(label_, "Construct FEC");
+#ifdef HYMLS_LONG_LONG
+  Epetra_LongLongSerialDenseVector indices;
+#else
   Epetra_IntSerialDenseVector indices;
+#endif
   Epetra_SerialDenseMatrix Sk;
 
   const Epetra_Map &map = A22_->RowMap();
   const OverlappingPartitioner &hid = A22_->Partitioner();
 
-  if (map.NumGlobalElements() == 0) return 0; // empty SC
+  if (map.NumGlobalElements64() == 0) return 0; // empty SC
 
   if (!S->Filled())
     {
@@ -193,7 +199,11 @@ int SchurComplement::Construct(Teuchos::RCP<Epetra_FECrsMatrix> S) const
   }
 
 int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
+#ifdef HYMLS_LONG_LONG
+  const Epetra_LongLongSerialDenseVector &inds,
+#else
   const Epetra_IntSerialDenseVector &inds,
+#endif
   double *count_flops) const
   {
   HYMLS_LPROF3(label_, "Construct SDM");
@@ -261,7 +271,7 @@ int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
     // loop over the matrix row and look for matching entries
     for (int k = 0 ; k < len; k++)
       {
-      const int gcid = A12.GCID(indices[k]);
+      const hymls_gidx gcid = A12.GCID64(indices[k]);
 
       // Loop over all GIDs of separators around this subdomain
       for (int j = 0; j < nrows; j++)
@@ -292,7 +302,7 @@ int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
   Epetra_MultiVector Aloc(A21.RowMap(), B.NumVectors());
   for (int j = 0; j < B.MyLength(); j++)
     {
-    const int lrid = A12.LRID(A11_->ExtendedMatrix()->GRID(A11.ID(j)));
+    const int lrid = A12.LRID(A11_->ExtendedMatrix()->GRID64(A11.ID(j)));
     for (int k = 0; k < nrows; k++)
       {
       B[k][lrid] = A11.LHS(j, k);
@@ -307,7 +317,7 @@ int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
   CHECK_ZERO(A21.Multiply(false, B, Aloc));
 
 #ifdef FLOPS_COUNT
-  flops += 2 * B.NumVectors() *A21.NumGlobalNonzeros();
+  flops += 2 * B.NumVectors() *A21.NumGlobalNonzeros64();
 #endif
   // re-index and put into final block
 
@@ -354,11 +364,11 @@ Teuchos::RCP<Epetra_Vector> SchurComplement::ConstructLeftScaling(int p_variable
       CHECK_ZERO(Scrs_->ExtractMyRowView(i, len, val, ind));
       for (int j = 0; j < len; j++)
         {
-        if (Scrs_->GRID(i) == Scrs_->GCID(ind[j]))
+        if (Scrs_->GRID64(i) == Scrs_->GCID64(ind[j]))
           {
           diag = std::abs(val[j]);
           }
-        if (BP.VariableType(Scrs_->GCID(ind[j])) == p_variable)
+        if (BP.VariableType(Scrs_->GCID64(ind[j])) == p_variable)
           {
           if (std::abs(val[j]) > 1.0e-8) has_pcol = true;
           }

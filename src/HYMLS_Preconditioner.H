@@ -18,7 +18,6 @@
 #include "BelosOutputManager.hpp"
 
 #include "HYMLS_OverlappingPartitioner.H"
-#include "HYMLS_DenseUtils.H"
 #include "HYMLS_PLA.H"
 
 #include "HYMLS_BorderedOperator.H"

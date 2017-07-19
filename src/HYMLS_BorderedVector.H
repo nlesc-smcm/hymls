@@ -88,6 +88,9 @@ public:
   // Get the global length of the combined multivector
   int GlobalLength() const;
 
+  // Get the global length of the combined multivector
+  long long GlobalLength64() const;
+
   // Get the local length of the combined multivector
   int MyLength() const;
 
@@ -320,10 +323,15 @@ public:
       }
     return Teuchos::rcp (new HYMLS::BorderedVector(View, mv, index.lbound(), index.size()));
     }
-  static int  GetGlobalLength     (const HYMLS::BorderedVector& mv ) { return mv.GlobalLength(); }
-  static int  GetVecLength     (const HYMLS::BorderedVector& mv ) { return mv.GlobalLength(); }
-  static int  GetNumberVecs    (const HYMLS::BorderedVector& mv ) { return mv.NumVecs(); }
-  static bool HasConstantStride(const HYMLS::BorderedVector& mv ) { return mv.ConstantStride(); }
+  static int  GetVecLength     (const HYMLS::BorderedVector& mv) { return mv.GlobalLength(); }
+  static int  GetNumberVecs    (const HYMLS::BorderedVector& mv) { return mv.NumVecs(); }
+  static bool HasConstantStride(const HYMLS::BorderedVector& mv) { return mv.ConstantStride(); }   static ptrdiff_t GetGlobalLength (const HYMLS::BorderedVector& mv)
+    {
+    if ( mv.First()->Map().GlobalIndicesLongLong() )
+      return static_cast<ptrdiff_t>( mv.GlobalLength64() );
+    else
+      return static_cast<ptrdiff_t>( mv.GlobalLength() );
+    }
 
   // Epetra style (we should compare this with just a bunch of updates)
   static void MvTimesMatAddMv (const double alpha,

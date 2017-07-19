@@ -30,7 +30,7 @@ CartesianPartitioner::CartesianPartitioner(
   HYMLS_PROF3(label_,"Constructor");
   comm_ = Teuchos::rcp(&(baseMap_->Comm()), false);
 
-  if (baseMap_->IndexBase()!=0)
+  if (baseMap_->IndexBase64() != 0)
     {
     Tools::Warning("Not sure, but I _think_ your map should be 0-based",
       __FILE__, __LINE__);
@@ -56,7 +56,7 @@ int CartesianPartitioner::operator()(int i, int j, int k) const
   }
 
 //! get non-overlapping subdomain id
-int CartesianPartitioner::operator()(int gid) const
+int CartesianPartitioner::operator()(hymls_gidx gid) const
   {
   int i,j,k,var;
 #ifdef HYMLS_TESTING
@@ -196,9 +196,9 @@ int CartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
     HYMLS_PROF3(label_,"repartition map");
 
     int numMyElements = numLocalSubdomains_ * sx_ * sy_ * sz_ * dof_;
-    int *myGlobalElements = new int[numMyElements];
+    hymls_gidx *myGlobalElements = new hymls_gidx[numMyElements];
     int pos = 0;
-    for (int i = 0; i < baseMap_->MaxAllGID()+1; i++)
+    for (hymls_gidx i = 0; i < baseMap_->MaxAllGID64()+1; i++)
       {
       if (sdMap_->LID((*this)(i)) != -1)
         {
@@ -210,8 +210,8 @@ int CartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
         }
       }
 
-    Epetra_Map tmpRepartitionedMap(-1, pos,
-      myGlobalElements, baseMap_->IndexBase(), *comm_);
+    Epetra_Map tmpRepartitionedMap((hymls_gidx)(-1), pos,
+      myGlobalElements, (hymls_gidx)baseMap_->IndexBase64(), *comm_);
 
     Epetra_IntVector vec(*baseMap_);
     vec.PutValue(1);
@@ -229,12 +229,12 @@ int CartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
           {
           Tools::Error("Index out of range", __FILE__, __LINE__);
           }
-        myGlobalElements[pos++] = tmpRepartitionedMap.GID(i);
+        myGlobalElements[pos++] = tmpRepartitionedMap.GID64(i);
         }
       }
 
-    cartesianMap_ = Teuchos::rcp(new Epetra_Map(-1, pos,
-        myGlobalElements, baseMap_->IndexBase(), *comm_));
+    cartesianMap_ = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), pos,
+        myGlobalElements, (hymls_gidx)baseMap_->IndexBase64(), *comm_));
 
     HYMLS_DEBVAR(*repartitionedMap);
     if (myGlobalElements)
@@ -249,18 +249,18 @@ int CartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
   return 0;
   }
 
-int CartesianPartitioner::RemoveBoundarySeparators(Teuchos::Array<int> &interior_nodes,
-  Teuchos::Array<Teuchos::Array<int> > &separator_nodes) const
+int CartesianPartitioner::RemoveBoundarySeparators(Teuchos::Array<hymls_gidx> &interior_nodes,
+  Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes) const
   {
   // TODO: There should be a much easier way to do this, but I want to get rid
   // of it eventually for consistency. We need those things anyway for periodic
   // boundaries.
 
   // Remove boundary separators and add them to the interior
-  Teuchos::Array<Teuchos::Array<int> >::iterator sep = separator_nodes.begin();
+  Teuchos::Array<Teuchos::Array<hymls_gidx> >::iterator sep = separator_nodes.begin();
   for (; sep != separator_nodes.end(); sep++)
     {
-    Teuchos::Array<int> &nodes = *sep;
+    Teuchos::Array<hymls_gidx> &nodes = *sep;
     if (nodes.size() == 0)
       separator_nodes.erase(sep);
     else if ((nodes[0] / dof_ + 1) % nx_ == 0 && !(perio_ & GaleriExt::X_PERIO))
@@ -289,14 +289,14 @@ int CartesianPartitioner::RemoveBoundarySeparators(Teuchos::Array<int> &interior
   // Add back boundary nodes to separators that are not along the boundaries
   for (sep = separator_nodes.begin(); sep != separator_nodes.end(); sep++)
     {
-    int nodeID = -1;
-    Teuchos::Array<int> &nodes = *sep;
+    hymls_gidx nodeID = -1;
+    Teuchos::Array<hymls_gidx> &nodes = *sep;
     for (int i = 0; i < nodes.size(); i++)
       {
       if ((nodes[i] / dof_) % nx_ + 2 == nx_ && !(perio_ & GaleriExt::X_PERIO))
         {
         nodeID = nodes[i] + dof_;
-        Teuchos::Array<int>::iterator it = std::find(
+        Teuchos::Array<hymls_gidx>::iterator it = std::find(
           interior_nodes.begin(), interior_nodes.end(), nodeID);
         if (it != interior_nodes.end())
           {
@@ -307,7 +307,7 @@ int CartesianPartitioner::RemoveBoundarySeparators(Teuchos::Array<int> &interior
       if (ny_ > 1 && (nodes[i] / dof_ / nx_) % ny_ + 2 == ny_ && !(perio_ & GaleriExt::Y_PERIO))
         {
         nodeID = nodes[i] + dof_ * nx_;
-        Teuchos::Array<int>::iterator it = std::find(
+        Teuchos::Array<hymls_gidx>::iterator it = std::find(
           interior_nodes.begin(), interior_nodes.end(), nodeID);
         if (it != interior_nodes.end())
           {
@@ -318,7 +318,7 @@ int CartesianPartitioner::RemoveBoundarySeparators(Teuchos::Array<int> &interior
       if (nz_ > 1 && (nodes[i] / dof_ / nx_ / ny_) % nz_ + 2 == nz_ && !(perio_ & GaleriExt::Z_PERIO))
         {
         nodeID = nodes[i] + dof_ * nx_ * ny_;
-        Teuchos::Array<int>::iterator it = std::find(
+        Teuchos::Array<hymls_gidx>::iterator it = std::find(
           interior_nodes.begin(), interior_nodes.end(), nodeID);
         if (it != interior_nodes.end())
           {
@@ -337,15 +337,15 @@ int CartesianPartitioner::RemoveBoundarySeparators(Teuchos::Array<int> &interior
   return 0;
   }
 
-int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_nodes,
-  Teuchos::Array<Teuchos::Array<int> > &separator_nodes)
+int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior_nodes,
+  Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes)
   {
   HYMLS_PROF2(label_,"GetGroups");
 
   // pressure nodes that need to be retained
-  Teuchos::Array<int> retained_nodes;
+  Teuchos::Array<hymls_gidx> retained_nodes;
 
-  Teuchos::Array<int> *nodes;
+  Teuchos::Array<hymls_gidx> *nodes;
 
   int gsd = sdMap_->GID(sd);
   int xpos = (gsd % npx_) * sx_;
@@ -382,7 +382,7 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_nodes,
             nodes = &interior_nodes;
           else
             {
-            separator_nodes.append(Teuchos::Array<int>());
+            separator_nodes.append(Teuchos::Array<hymls_gidx>());
             nodes = &separator_nodes.back();
             }
 
@@ -392,7 +392,7 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_nodes,
               {
               for (int i = itype; i < (itype ? itype+1 : sx_-1); i++)
                 {
-                int gid = d +
+                hymls_gidx gid = d +
                   ((i + xpos + nx_) % nx_) * dof_ +
                   ((j + ypos + ny_) % ny_) * nx_ * dof_ +
                   ((k + zpos + nz_) % nz_) * nx_ * ny_ * dof_;
@@ -416,7 +416,7 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_nodes,
 
   for (auto it = retained_nodes.begin(); it != retained_nodes.end(); ++it)
     {
-    separator_nodes.append(Teuchos::Array<int>());
+    separator_nodes.append(Teuchos::Array<hymls_gidx>());
     separator_nodes.back().append(*it);
     }
 
@@ -424,9 +424,9 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<int> &interior_nodes,
   }
 
 //! get the type of a variable (if more than 1 dof per node, otherwise just 0)
-int CartesianPartitioner::VariableType(int gid) const
+int CartesianPartitioner::VariableType(hymls_gidx gid) const
   {
-  return (int)(MOD(gid, dof_));
+  return gid % dof_;
   }
 
 //! get processor on which a grid point is located

@@ -1,8 +1,9 @@
-#include "HYMLS_Tools.H"
 #include "Galeri_Utils.h"
 #include "GaleriExt_Periodic.h"
 
 namespace GaleriExt {
+
+#define MOD(a, b) ((a % b + b) % b)
 
 // ============================================================================ 
 void GetNeighboursCartesian2d(const int i, const int nx, const int ny,

@@ -11,6 +11,7 @@
 // forward declarations
 class Epetra_Comm;
 class Epetra_IntSerialDenseVector;
+class Epetra_LongLongSerialDenseVector;
 
 namespace Teuchos 
   {
@@ -88,19 +89,20 @@ public:
   //! total number of nodes in subdomain sd (interior and separators)  
   inline int NumElements(int sd) const
     {
-    return *((*groupPointer_)[sd].end()-1) - *((*groupPointer_)[sd].begin());
+    return static_cast<int>(
+      *((*groupPointer_)[sd].end()-1) - *((*groupPointer_)[sd].begin()));
     }
 
   //! total number of interior nodes in subdomain sd
   inline int NumInteriorElements(int sd) const
     {
-    return this->NumElements(sd,0);
+    return NumElements(sd,0);
     }
 
   //! total number of separator nodes in subdomain sd
   inline int NumSeparatorElements(int sd) const
     {
-    return *((*groupPointer_)[sd].end()-1) - (*groupPointer_)[sd][1];
+    return static_cast<int>(*((*groupPointer_)[sd].end()-1) - (*groupPointer_)[sd][1]);
     }
 
   //! number of groups in subdomain sd (interior + separator)
@@ -120,7 +122,7 @@ public:
   //! the separator groups.
   inline int NumElements(int sd, int grp) const
     {
-    return (*groupPointer_)[sd][grp+1] - (*groupPointer_)[sd][grp];
+    return static_cast<int>((*groupPointer_)[sd][grp+1] - (*groupPointer_)[sd][grp]);
     }
     
   //! j'th element of subdomain sd, group grp. This function
@@ -135,7 +137,7 @@ public:
   //! j'th element of subdomain sd, group grp. This function
   //! returns a global index. Again, grp=0 are interior nodes
   //! whereas grp=1:NumSeparatorGroups() are separators.
-  inline int GID(int sd, int grp, int j) const
+  inline hymls_gidx GID(int sd, int grp, int j) const
     {
     // return overlappingMap_->GID(this->LID(sd,grp,j));
     return (*gidList_)[sd][(*groupPointer_)[sd][grp]+j];
@@ -143,11 +145,15 @@ public:
     }
 
   //! given a subdomain, returns a list of GIDs that belong to the subdomain
-  int getSeparatorGIDs(int sd, int *gids) const;
+  int getSeparatorGIDs(int sd, hymls_gidx *gids) const;
 
+#ifdef HYMLS_LONG_LONG
+  //! given a subdomain, returns a list of GIDs that belong to the subdomain
+  int getSeparatorGIDs(int sd, Epetra_LongLongSerialDenseVector &inds) const;
+#else
   //! given a subdomain, returns a list of GIDs that belong to the subdomain
   int getSeparatorGIDs(int sd, Epetra_IntSerialDenseVector &inds) const;
-  
+#endif
   //@}
 
   //! creates a 'next generation' object that retains certain nodes.
@@ -242,7 +248,7 @@ public:
     }
 
   //!
-  Teuchos::RCP<Teuchos::Array<Teuchos::Array<int> > > GetGroupPointer() const
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > GetGroupPointer() const
     {
     return groupPointer_;
     }
@@ -251,11 +257,11 @@ public:
   
   //! add a group of GIDs to an existing subdomain. Returns the group id
   //! of the new group. FillComplete() should not have been called.
-  int AddGroup(int sd, Teuchos::Array<int>& gidList);
+  int AddGroup(int sd, Teuchos::Array<hymls_gidx>& gidList);
   
   //! get back a group that was added as described above. Used for debugging purposes
   //! only
-  Teuchos::Array<int> GetGroup(int sd, int grp) const;
+  Teuchos::Array<hymls_gidx> GetGroup(int sd, int grp) const;
   
   //! delete the map and all subdomains and groups that have been added so far
   int Reset(int num_sd);
@@ -282,10 +288,10 @@ private:
   Teuchos::RCP<const Epetra_Map> overlappingMap_;
   
   //! pointer to index subdomains and groups
-  Teuchos::RCP<Teuchos::Array< Teuchos::Array<int> > > groupPointer_;
+  Teuchos::RCP<Teuchos::Array< Teuchos::Array<hymls_gidx> > > groupPointer_;
   
   //! list of ordered GIDs which will be transformed into a map in FillComplete
-  Teuchos::RCP<Teuchos::Array<Teuchos::Array<int> > > gidList_;
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > gidList_;
   
   //! array of spawned objects (so we avoid building the same thing over and over again)
   mutable Teuchos::Array<Teuchos::RCP<const HierarchicalMap> > spawnedObjects_;
@@ -302,8 +308,8 @@ private:
   HierarchicalMap(Teuchos::RCP<const Epetra_Comm> comm,
     Teuchos::RCP<const Epetra_Map> baseMap,
     Teuchos::RCP<const Epetra_Map> overlappingMap,
-    Teuchos::RCP<Teuchos::Array< Teuchos::Array<int> > > groupPointer,
-    Teuchos::RCP<Teuchos::Array< Teuchos::Array<int> > > gidList,
+    Teuchos::RCP<Teuchos::Array< Teuchos::Array<hymls_gidx> > > groupPointer,
+    Teuchos::RCP<Teuchos::Array< Teuchos::Array<hymls_gidx> > > gidList,
     std::string label, int level);
   
   //! \name private member functions

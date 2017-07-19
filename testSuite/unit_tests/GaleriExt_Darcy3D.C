@@ -16,7 +16,7 @@ TEUCHOS_UNIT_TEST(GaleriExt, Darcy3D)
 
   // create the 32x32 C-grid Stokes matrix using the function to be tested
   const int nx = 10,ny=10,nz=10,dof=4;
-  int n = nx*ny*nz*dof;
+  hymls_gidx n = nx*ny*nz*dof;
   Teuchos::RCP<Epetra_Map> map_ptr=HYMLS::UnitTests::create_random_map(Comm,n, dof);
   const Epetra_Map& map=*map_ptr;
   double a=42.0;

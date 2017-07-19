@@ -124,8 +124,8 @@ private:
   //! subdomain: interior, separator and retained.
   int DetectSeparators();
 
-  int RemoveBoundarySeparators(Teuchos::Array<int> &interior_nodes,
-    Teuchos::Array<Teuchos::Array<int> > &separator_nodes) const;
+  int RemoveBoundarySeparators(Teuchos::Array<hymls_gidx> &interior_nodes,
+    Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes) const;
     
   //!@}
 
