@@ -5,8 +5,27 @@
 #include "Epetra_IntVector.h"
 #include "Epetra_MultiVector.h"
 
+#include "HYMLS_Tools.H"
+
 namespace HYMLS {
 namespace UnitTests {
+
+DisableOutput::DisableOutput()
+  :
+  no_output(Teuchos::rcp(new Teuchos::oblackholestream()))
+  {
+  HYMLS::Tools::InitializeIO_std(Teuchos::null, no_output, no_output);
+  }
+
+DisableOutput::~DisableOutput()
+  {
+  HYMLS::Tools::InitializeIO(Teuchos::null);
+  }
+
+void DisableOutput::EnableOutput()
+  {
+  HYMLS::Tools::InitializeIO(Teuchos::null);
+  }
 
 // create a Galeri random map with n global IDs and ndof consecutive
 // nodes always on the same partition.

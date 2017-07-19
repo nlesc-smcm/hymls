@@ -7,20 +7,22 @@
 #include <stack>
 #include <cstdio>
 #include <signal.h>
+#include <iostream>
 
 #include "Epetra_Comm.h"
-#include "HYMLS_Epetra_Time.h"
-#include <iostream>
-#include "Teuchos_RCP.hpp"
-#include "EpetraExt_RowMatrixOut.h"
+#include "Epetra_MpiComm.h"
 #include "Epetra_SerialComm.h"
 
+#include "EpetraExt_RowMatrixOut.h"
+
+#include "Teuchos_RCP.hpp"
 #include "Teuchos_FancyOStream.hpp"
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_stacktrace.hpp"
 
 #include "Ifpack_ConfigDefs.h"
 
+#include "HYMLS_Epetra_Time.h"
 #include "HYMLS_Macros.H"
 #include "HYMLS_Exception.H"
 
@@ -46,7 +48,10 @@ namespace HYMLS
 Teuchos::print_stack_on_segfault();
 #endif     
      traceLevel_=0;
-     comm_=comm;
+     if (comm == Teuchos::null)
+       comm_ = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
+     else
+       comm_ = comm;
      if (output==Teuchos::null)
        {
        output_stream = Teuchos::rcp(new 

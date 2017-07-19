@@ -64,10 +64,6 @@ public:
 
 TestablePreconditioner createPreconditioner(Epetra_Map &map)
   {
-  Teuchos::RCP<std::ostream> no_output
-    = Teuchos::rcp(new Teuchos::oblackholestream());
-  HYMLS::Tools::InitializeIO_std(Teuchos::rcp(&map.Comm(), false), no_output, no_output);
-
   Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(new Teuchos::ParameterList());
   Teuchos::ParameterList &problemList = params->sublist("Problem");
   problemList.set("Degrees of Freedom", 4);
@@ -112,6 +108,7 @@ TestablePreconditioner createPreconditioner(Epetra_Map &map)
 TEUCHOS_UNIT_TEST(Preconditioner, Blocks)
   {
   Epetra_MpiComm Comm(MPI_COMM_WORLD);
+  DISABLE_OUTPUT;
 
   int n = 8 * 4 * 4 * 4;
   Epetra_Map map(n, 0, Comm);
@@ -125,7 +122,6 @@ TEUCHOS_UNIT_TEST(Preconditioner, Blocks)
   prec.Initialize();
   prec.Compute();
 
-  HYMLS::Tools::InitializeIO(Teuchos::rcp(&Comm, false));
   // Make sure the pointers on the preconditioner and Schur complement are the same
   TEST_EQUALITY(&prec.A22(), &TestableSchurComplement(prec.SchurComplement()).A22());
   }
@@ -134,18 +130,19 @@ TEUCHOS_UNIT_TEST(Preconditioner, SerialComm)
   {
   // Check if HYMLS can work without MPI
   Epetra_SerialComm Comm;
+  DISABLE_OUTPUT;
+
   int n = 8 * 4 * 4 * 4;
   Epetra_Map map(n, 0, Comm);
   TestablePreconditioner prec = createPreconditioner(map);
   prec.Initialize();
   prec.Compute();
-
-  HYMLS::Tools::InitializeIO(Teuchos::rcp(&Comm, false));
   }
 
 TEUCHOS_UNIT_TEST(Preconditioner, setBorder)
   {
   Epetra_MpiComm Comm(MPI_COMM_WORLD);
+  DISABLE_OUTPUT;
 
   int n = 8 * 4 * 4 * 4;
   Epetra_Map map(n, 0, Comm);
@@ -164,7 +161,6 @@ TEUCHOS_UNIT_TEST(Preconditioner, setBorder)
   Epetra_Import importer(map, precV->Map());
   importedV.Import(*precV, importer, Insert);
 
-  HYMLS::Tools::InitializeIO(Teuchos::rcp(&Comm, false));
   // Check if they are the same
   TEST_FLOATING_EQUALITY(HYMLS::UnitTests::NormInfAminusB(importedV, *V), 0.0, 1e-12);
   }
@@ -172,6 +168,7 @@ TEUCHOS_UNIT_TEST(Preconditioner, setBorder)
 TEUCHOS_UNIT_TEST(Preconditioner, setBorderNull)
   {
   Epetra_MpiComm Comm(MPI_COMM_WORLD);
+  DISABLE_OUTPUT;
 
   int n = 8 * 4 * 4 * 4;
   Epetra_Map map(n, 0, Comm);
@@ -179,7 +176,6 @@ TEUCHOS_UNIT_TEST(Preconditioner, setBorderNull)
   prec.Initialize();
   prec.Compute();
 
-  HYMLS::Tools::InitializeIO(Teuchos::rcp(&Comm, false));
   // Set the border to null
   prec.setBorder(Teuchos::null);
   TEST_EQUALITY(prec.V(), Teuchos::null);

@@ -16,6 +16,22 @@ class Epetra_MultiVector;
 namespace HYMLS {
 namespace UnitTests {
 
+class DisableOutput
+  {
+  Teuchos::RCP<std::ostream> no_output;
+
+public:
+  DisableOutput();
+  ~DisableOutput();
+
+  void EnableOutput();
+  };
+
+#define DISABLE_OUTPUT HYMLS::UnitTests::DisableOutput \
+  Error_You_are_trying_to_disable_output_multiple_times_in_one_scope;
+#define ENABLE_OUTPUT \
+  Error_You_are_trying_to_disable_output_multiple_times_in_one_scope.EnableOutput();
+
 //! create a Galeri random map with n global IDs and ndof consecutive
 //! nodes always on the same partition.
 Teuchos::RCP<Epetra_Map> create_random_map(const Epetra_Comm& comm, int n, int ndof);

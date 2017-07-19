@@ -58,9 +58,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, operator)
   FakeComm comm;
   comm.SetNumProc(4);
 
-  Teuchos::RCP<std::ostream> no_output
-    = Teuchos::rcp(new Teuchos::oblackholestream());
-  HYMLS::Tools::InitializeIO_std(Teuchos::rcp(&comm, false), no_output, no_output);
+  DISABLE_OUTPUT;
 
   int nx = 8;
   int ny = 8;
@@ -75,7 +73,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, operator)
   TestableSkewCartesianPartitioner part(Teuchos::rcp(&map, false), nx, ny, nz, dof);
   part.Partition(sx, sy, sz, false);
 
-  HYMLS::Tools::InitializeIO(Teuchos::rcp(&comm, false));
+  ENABLE_OUTPUT;
 
   TEST_EQUALITY(part(0, 0, 0), 0);
   TEST_EQUALITY(part(0, 1, 0), 2);
@@ -91,9 +89,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, PID)
   FakeComm comm;
   comm.SetNumProc(4);
 
-  Teuchos::RCP<std::ostream> no_output
-    = Teuchos::rcp(new Teuchos::oblackholestream());
-  HYMLS::Tools::InitializeIO_std(Teuchos::rcp(&comm, false), no_output, no_output);
+  DISABLE_OUTPUT;
 
   int nx = 8;
   int ny = 8;
@@ -108,7 +104,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, PID)
   TestableSkewCartesianPartitioner part(Teuchos::rcp(&map, false), nx, ny, nz, dof);
   part.Partition(sx, sy, sz, false);
 
-  HYMLS::Tools::InitializeIO(Teuchos::rcp(&comm, false));
+  ENABLE_OUTPUT;
 
   TEST_EQUALITY(part.PID(0, 0, 0), 3);
   TEST_EQUALITY(part.PID(0, 1, 0), 3);
@@ -125,9 +121,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 2DNodes)
   FakeComm comm;
   comm.SetNumProc(1);
 
-  Teuchos::RCP<std::ostream> no_output
-    = Teuchos::rcp(new Teuchos::oblackholestream());
-  HYMLS::Tools::InitializeIO_std(Teuchos::rcp(&comm, false), no_output, no_output);
+  DISABLE_OUTPUT;
 
   int nx = 8;
   int ny = 8;
@@ -157,8 +151,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 2DNodes)
         gids[i] = i;
     }
 
-  HYMLS::Tools::InitializeIO(Teuchos::rcp(&comm, false));
-
+  ENABLE_OUTPUT;
   for (int i = 0; i < n; i++)
     TEST_EQUALITY(gids[i], i);
   }
@@ -168,9 +161,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 1PSepPerDomain2D)
   FakeComm comm;
   comm.SetNumProc(1);
 
-  Teuchos::RCP<std::ostream> no_output
-    = Teuchos::rcp(new Teuchos::oblackholestream());
-  HYMLS::Tools::InitializeIO_std(Teuchos::rcp(&comm, false), no_output, no_output);
+  DISABLE_OUTPUT;
 
   int nx = 8;
   int ny = 8;
@@ -185,8 +176,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 1PSepPerDomain2D)
   TestableSkewCartesianPartitioner part(Teuchos::rcp(&map, false), nx, ny, nz, dof, 2);
   part.Partition(sx, sy, sz, false);
 
-  HYMLS::Tools::InitializeIO(Teuchos::rcp(&comm, false));
-
+  ENABLE_OUTPUT;
   std::vector<int> gids(n, 0);
   for (int sd = 0; sd < part.NumLocalParts(); sd++)
     {
@@ -208,9 +198,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 3DNodes)
   FakeComm comm;
   comm.SetNumProc(1);
 
-  Teuchos::RCP<std::ostream> no_output
-    = Teuchos::rcp(new Teuchos::oblackholestream());
-  HYMLS::Tools::InitializeIO_std(Teuchos::rcp(&comm, false), no_output, no_output);
+  DISABLE_OUTPUT;
 
   int nx = 8;
   int ny = 8;
@@ -225,8 +213,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 3DNodes)
   TestableSkewCartesianPartitioner part(Teuchos::rcp(&map, false), nx, ny, nz, dof, 3);
   part.Partition(sx, sy, sz, false);
 
-  HYMLS::Tools::InitializeIO(Teuchos::rcp(&comm, false));
-
+  ENABLE_OUTPUT;
   std::vector<int> gids(n, 0);
   for (int sd = 0; sd < part.NumLocalParts(); sd++)
     {
@@ -251,9 +238,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 1PSepPerDomain3D)
   FakeComm comm;
   comm.SetNumProc(1);
 
-  Teuchos::RCP<std::ostream> no_output
-    = Teuchos::rcp(new Teuchos::oblackholestream());
-  HYMLS::Tools::InitializeIO_std(Teuchos::rcp(&comm, false), no_output, no_output);
+  DISABLE_OUTPUT;
 
   int nx = 8;
   int ny = 8;
@@ -268,8 +253,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 1PSepPerDomain3D)
   TestableSkewCartesianPartitioner part(Teuchos::rcp(&map, false), nx, ny, nz, dof, 3);
   part.Partition(sx, sy, sz, false);
 
-  HYMLS::Tools::InitializeIO(Teuchos::rcp(&comm, false));
-
+  ENABLE_OUTPUT;
   std::vector<int> gids(n, 0);
   for (int sd = 0; sd < part.NumLocalParts(); sd++)
     {
@@ -291,9 +275,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NoEmptyProcs16)
   int nprocs = 16;
   FakeComm comm;
 
-  Teuchos::RCP<std::ostream> no_output
-    = Teuchos::rcp(new Teuchos::oblackholestream());
-  HYMLS::Tools::InitializeIO_std(Teuchos::rcp(&comm, false), no_output, no_output);
+  DISABLE_OUTPUT;
 
   comm.SetNumProc(nprocs);
   for (int i = 0; i < nprocs; i++)
@@ -316,7 +298,6 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NoEmptyProcs16)
     TEST_INEQUALITY(part.NumLocalParts(), 0);
     }
 
-  HYMLS::Tools::InitializeIO(Teuchos::rcp(&comm, false));
   }
 
 TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NoEmptyProcs128)
@@ -324,9 +305,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NoEmptyProcs128)
   int nprocs = 128;
   FakeComm comm;
 
-  Teuchos::RCP<std::ostream> no_output
-    = Teuchos::rcp(new Teuchos::oblackholestream());
-  HYMLS::Tools::InitializeIO_std(Teuchos::rcp(&comm, false), no_output, no_output);
+  DISABLE_OUTPUT;
 
   comm.SetNumProc(nprocs);
   for (int i = 0; i < nprocs; i++)
@@ -349,16 +328,13 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NoEmptyProcs128)
     TEST_INEQUALITY(part.NumLocalParts(), 0);
     }
 
-  HYMLS::Tools::InitializeIO(Teuchos::rcp(&comm, false));
   }
 
 TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, SameNumSubdomains)
   {
   FakeComm comm;
 
-  Teuchos::RCP<std::ostream> no_output
-    = Teuchos::rcp(new Teuchos::oblackholestream());
-  HYMLS::Tools::InitializeIO_std(Teuchos::rcp(&comm, false), no_output, no_output);
+  DISABLE_OUTPUT;
 
   int nprocs = 16;
   comm.SetNumProc(nprocs);
@@ -394,7 +370,6 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, SameNumSubdomains)
   TestableSkewCartesianPartitioner part2(Teuchos::rcp(&map2, false), nx, ny, nz, dof, 3);
   part2.Partition(sx, sy, sz, false);
 
-  HYMLS::Tools::InitializeIO(Teuchos::rcp(&comm, false));
-
+  ENABLE_OUTPUT;
   TEST_EQUALITY(part.NumLocalParts(), num);
   }

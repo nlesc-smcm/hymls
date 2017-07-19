@@ -11,10 +11,7 @@
 TEUCHOS_UNIT_TEST(CartesianPartitioner, Partition2D)
   {
   Epetra_MpiComm Comm(MPI_COMM_WORLD);
-  Teuchos::RCP<const Epetra_MpiComm> comm = Teuchos::rcp(&Comm, false);
-  Teuchos::RCP<std::ostream> no_output
-    = Teuchos::rcp(new Teuchos::oblackholestream());
-  HYMLS::Tools::InitializeIO_std(comm, no_output, no_output);
+  DISABLE_OUTPUT;
 
   int nx = 8;
   int ny = 8;
@@ -28,7 +25,6 @@ TEUCHOS_UNIT_TEST(CartesianPartitioner, Partition2D)
   // This will cause an exception when compiled with TESTING if it fails
   part.Partition(8, true);
 
-  HYMLS::Tools::InitializeIO(comm);
   TEST_EQUALITY(part(0, 0, 0), 0);
   TEST_EQUALITY(part(0, 3, 0), 2);
   TEST_EQUALITY(part(6, 3, 0), 3);
@@ -37,10 +33,7 @@ TEUCHOS_UNIT_TEST(CartesianPartitioner, Partition2D)
 TEUCHOS_UNIT_TEST(CartesianPartitioner, Partition3D)
   {
   Epetra_MpiComm Comm(MPI_COMM_WORLD);
-  Teuchos::RCP<const Epetra_MpiComm> comm = Teuchos::rcp(&Comm, false);
-  Teuchos::RCP<std::ostream> no_output
-    = Teuchos::rcp(new Teuchos::oblackholestream());
-  HYMLS::Tools::InitializeIO_std(comm, no_output, no_output);
+  DISABLE_OUTPUT;
 
   int nx = 8;
   int ny = 8;
@@ -54,7 +47,6 @@ TEUCHOS_UNIT_TEST(CartesianPartitioner, Partition3D)
   // This will cause an exception when compiled with TESTING if it fails
   part.Partition(8, true);
 
-  HYMLS::Tools::InitializeIO(comm);
   TEST_EQUALITY(part(0, 0, 0), 0);
   TEST_EQUALITY(part(0, 3, 0), 2);
   TEST_EQUALITY(part(6, 3, 0), 3);
