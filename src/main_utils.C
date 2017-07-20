@@ -32,7 +32,8 @@ namespace HYMLS {
 
 namespace MainUtils {
 
-Teuchos::RCP<Epetra_CrsMatrix> read_matrix(std::string datadir,std::string file_format, Teuchos::RCP<Epetra_Map> map, std::string name)
+Teuchos::RCP<Epetra_CrsMatrix> read_matrix(std::string datadir,
+  std::string file_format, Teuchos::RCP<Epetra_Map> map, std::string name)
   {
   if (map==Teuchos::null)
     {
@@ -61,17 +62,15 @@ Teuchos::RCP<Epetra_CrsMatrix> read_matrix(std::string datadir,std::string file_
 
   Teuchos::RCP<Epetra_CrsMatrix> K=Teuchos::null;
 
-  if (file_format=="MatrixMarket")
+  if (file_format=="MatrixMarket" || file_format=="MatrixMarket (2)")
     {
     Epetra_CrsMatrix* Kptr;
-    CHECK_ZERO(EpetraExt::MatrixMarketFileToCrsMatrix(filename.c_str(),*map,Kptr));
-    K=Teuchos::rcp(Kptr,true);
-    }
-  else if (file_format=="MatrixMarket (2)")
-    {
-    Epetra_CrsMatrix* Kptr;
-    CHECK_ZERO(EpetraExt::MatrixMarketFileToCrsMatrix(filename.c_str(),*map,Kptr));
-    K=Teuchos::rcp(Kptr,true);
+#ifdef HYMLS_LONG_LONG
+    CHECK_ZERO(EpetraExt::MatrixMarketFileToCrsMatrix64(filename.c_str(), *map, Kptr));
+#else
+    CHECK_ZERO(EpetraExt::MatrixMarketFileToCrsMatrix(filename.c_str(), *map, Kptr));
+#endif
+    K=Teuchos::rcp(Kptr, true);
     }
   else
     {
@@ -80,8 +79,8 @@ Teuchos::RCP<Epetra_CrsMatrix> read_matrix(std::string datadir,std::string file_
   return K;
   }
 
-Teuchos::RCP<Epetra_Vector>  read_vector(std::string name,std::string datadir,
-                std::string file_format,Teuchos::RCP<Epetra_Map> map)
+Teuchos::RCP<Epetra_Vector> read_vector(std::string name,std::string datadir,
+  std::string file_format,Teuchos::RCP<Epetra_Map> map)
   {
   if (map==Teuchos::null)
     {
