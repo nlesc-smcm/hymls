@@ -106,7 +106,7 @@ CHECK_ZERO(scaLeft_->PutScalar(1.0));
 CHECK_ZERO(scaRight_->PutScalar(1.0));
 
 // assume that we just have a serial solver built in here
-int N = Matrix_->NumGlobalRows64();
+int N = Matrix_->NumGlobalRows();
 
 row_perm_.resize(N);
 col_perm_.resize(N);
@@ -171,7 +171,7 @@ SparseDirectSolver::~SparseDirectSolver()
     {
     if (pardiso_initialized_)
       {
-      int N = serialMatrix_->NumGlobalRows64();
+      int N = serialMatrix_->NumGlobalRows();
       int NumVectors = 1;
       int maxfct = 1; // Max number of factors in memory
       int mnum = 1; // Maxtrix number
@@ -336,13 +336,13 @@ HYMLS_PROF3(label_,"Initialize");
     }
 
   // only square matrices
-  if (Matrix_->NumGlobalRows64() != Matrix_->NumGlobalCols64())
+  if (Matrix_->NumGlobalRows() != Matrix_->NumGlobalCols())
     {
     Tools::Error("non-square matrix",__FILE__,__LINE__);
     }
 
   // if the matrix has a dimension of 0, this is an empty preconditioning object.
-  if (Matrix_->NumGlobalRows64() == 0) {
+  if (Matrix_->NumGlobalRows() == 0) {
     IsEmpty_ = true;
     IsInitialized_ = true;
     return(0);
@@ -473,7 +473,7 @@ ApplyInverse(const Epetra_MultiVector& X, Epetra_MultiVector& Y) const
 
   if (X.NumVectors() != Y.NumVectors())
         {return -2;}
-  
+ 
   // AztecOO gives X and Y pointing to the same memory location,
   // need to create an auxiliary vector, Xcopy
   Teuchos::RCP<const Epetra_MultiVector> Xcopy;
@@ -607,7 +607,7 @@ std::ostream& SparseDirectSolver::Print(std::ostream& os) const
     os << "================================================================================" << endl;
     os << "SparseDirectSolver: " << Label () << endl << endl;
     os << "Condition number estimate = " << Condest() << endl;
-    os << "Global number of rows            = " << Matrix_->NumGlobalRows64() << endl;
+    os << "Global number of rows            = " << Matrix_->NumGlobalRows() << endl;
     os << endl;
     os << "Phase           # calls   Total Time (s)       Total MFlops     MFlops/s" << endl;
     os << "-----           -------   --------------       ------------     --------" << endl;
@@ -762,7 +762,7 @@ int SparseDirectSolver::KluSymbolic()
 if (MyPID_!=0) return 0;
 HYMLS_PROF3(label_,"KluSymbolic");  
   
-  int N = serialMatrix_->NumGlobalRows64();
+  int N = serialMatrix_->NumGlobalRows();
   
   if (klu_->Symbolic_) 
     DO_KLU(free_symbolic)(&klu_->Symbolic_,klu_->Common_);
@@ -895,7 +895,7 @@ int SparseDirectSolver::UmfpackSymbolic()
 if (MyPID_!=0) return 0;
 HYMLS_PROF3(label_,"UmfpackSymbolic");  
   
-  int N = serialMatrix_->NumGlobalRows64();
+  int N = serialMatrix_->NumGlobalRows();
   
   if (umf_Symbolic_) 
     umfpack_di_free_symbolic (&umf_Symbolic_) ;
@@ -1048,7 +1048,7 @@ int SparseDirectSolver::PardisoSymbolic()
     }
   iparam(3) = num_procs;
 
-  int N = serialMatrix_->NumGlobalRows64();
+  int N = serialMatrix_->NumGlobalRows();
   int NumVectors = 1;
   int maxfct = 1; // Max number of factors in memory
   int mnum = 1; // Maxtrix number
@@ -1084,7 +1084,7 @@ int SparseDirectSolver::PardisoNumeric()
   HYMLS_PROF3(label_,"PardisoNumeric");
   if (MyPID_!=0) return 0;
 
-  int N = serialMatrix_->NumGlobalRows64();
+  int N = serialMatrix_->NumGlobalRows();
   int NumVectors = 1;
   int maxfct = 1; // Max number of factors in memory
   int mnum = 1; // Maxtrix number
@@ -1297,7 +1297,7 @@ if (B!=Teuchos::null)
   // return number of nonzeros in original matrix
   double SparseDirectSolver::NumGlobalNonzerosA() const 
         {
-        return Matrix_->NumGlobalNonzeros64();
+        return Matrix_->NumGlobalNonzeros();
         }
 
   //! return number of nonzeros in factorization

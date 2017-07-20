@@ -1296,12 +1296,12 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
   double* val;
   int len;
 
-  hymls_gidx* elts1 = new hymls_gidx[N];
-  hymls_gidx* elts2 = new hymls_gidx[N];
+  int* elts1 = new int[N];
+  int* elts2 = new int[N];
 
   for (int i = 0; i < Matrix.NumMyRows(); i++)
     {
-    hymls_gidx row = Matrix.GRID64(i);
+    int row = Matrix.GRID64(i);
     HYMLS_DEBVAR(row);
     CHECK_ZERO(Matrix.ExtractMyRowView(i, len, val, col));
     int j;
@@ -1345,15 +1345,15 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
   else
     {
     // 1) create maps of A and B
-    hymls_gidx base = Matrix.RowMap().IndexBase64();
+    int base = Matrix.RowMap().IndexBase64();
     const Epetra_Comm& comm = Matrix.Comm();
 
-    map1 = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), n, elts1, base, comm));
-    map2 = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), m, elts2, base, comm));
+    map1 = Teuchos::rcp(new Epetra_Map(-1, n, elts1, base, comm));
+    map2 = Teuchos::rcp(new Epetra_Map(-1, m, elts2, base, comm));
 
     Teuchos::RCP<Epetra_Map> colmap1 = map1;
     Teuchos::RCP<Epetra_Map> colmap2 = map2;
-    // in parallel we would need actual column maps
+    // in parallel we would need actual column maps, and hymls_gidx indices
     if (parallel) Tools::Error("not implemented!", __FILE__, __LINE__);
 
     // c) create a copy of the matrices A, B ( = grad) and B' ( = div)
@@ -1544,11 +1544,11 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
   else
     {
     HYMLS_DEBUG("adjust ordering to include P-nodes");
-    Teuchos::Array<hymls_gidx> symperm(N);
-    Teuchos::Array<hymls_gidx> perm(N);
+    Teuchos::Array<int> symperm(N);
+    Teuchos::Array<int> perm(N);
 
     // implementation taken from Fred's matlab variant addindefnodes3.m
-    Teuchos::Array<Teuchos::Array < hymls_gidx> > Gr(n);
+    Teuchos::Array<Teuchos::Array < int> > Gr(n);
 
     for (int i = 0; i < n; i++)
       {
@@ -1557,7 +1557,7 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
       }
 
     // test vector to see if there is a coupling to a p - node
-    Teuchos::Array<hymls_gidx> cont(m);
+    Teuchos::Array<int> cont(m);
 
 
     // cont = sum(spones(B)); We assume B( = Grad) == B'( == Div) so we
@@ -1671,7 +1671,7 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
     for (int i = 0; i < jj; i++) Tools::deb() << symperm[i] << " ";
 #endif
     // test = ones(1, m + n); test(p) = 0; p(j:n + m) = find(test);
-    Teuchos::Array<hymls_gidx> test(N);
+    Teuchos::Array<int> test(N);
     for (int i = 0; i < N; i++) test[i] = 1;
     for (int i = 0; i < jj; i++) test[symperm[i]] = 0;
     int kk = 0;
