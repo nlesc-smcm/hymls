@@ -3,7 +3,7 @@
 
 namespace GaleriExt {
 
-#define MOD(a, b) ((a % b + b) % b)
+#define MOD(a, b) (((a) % (b) + (b)) % (b))
 
 // ============================================================================ 
 void GetNeighboursCartesian2d(const int i, const int nx, const int ny,
@@ -16,16 +16,16 @@ void GetNeighboursCartesian2d(const int i, const int nx, const int ny,
   ix = i % nx;
   iy = (i - ix) / nx;
 
-  if (perio&X_PERIO)
+  if (perio & X_PERIO)
     {
-    left =  iy*nx + (MOD(ix-1,nx));
-    right=  iy*nx + (MOD(ix+1,nx));
+    left = iy*nx + MOD(ix-1, nx);
+    right = iy*nx + MOD(ix+1, nx);
     }
 
-  if (perio&Y_PERIO)
+  if (perio & Y_PERIO)
     {
-    lower = (MOD(iy-1,ny))*nx+ix;
-    upper=  (MOD(iy+1,ny))*nx+ix;
+    lower = MOD(iy-1, ny)*nx+ix;
+    upper = MOD(iy+1, ny)*nx+ix;
     }
 }
 
@@ -39,7 +39,7 @@ void GetNeighboursCartesian3d(const int i,
   ixy = i % (nx * ny);
     
   iz = (i - ixy) / (nx * ny);
-  if ((perio&Z_PERIO)==0)
+  if (!(perio & Z_PERIO))
     {
     if (iz == 0)      below = -1;
     else              below = i - nx * ny;
@@ -48,8 +48,8 @@ void GetNeighboursCartesian3d(const int i,
     }
   else
     {
-    below = MOD(i-nx*ny,nx*ny*nz);
-    above = MOD(i+nx*ny,nx*ny*nz);
+    below = MOD(i-nx*ny, nx*ny*nz);
+    above = MOD(i+nx*ny, nx*ny*nz);
     }
   GetNeighboursCartesian2d(ixy, nx, ny, left, right, lower, upper, perio);
     

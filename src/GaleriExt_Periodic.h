@@ -2,16 +2,6 @@
 #define GALERIEXT_PERIODIC_H
 
 #include "Galeri_ConfigDefs.h"
-#include "Galeri_Exception.h"
-
-class Epetra_BlockMap;
-class Epetra_RowMatrix;
-class Epetra_CrsMatrix;
-class Epetra_MultiVector;
-class Epetra_LinearProblem;
-namespace Teuchos {
-  class ParameterList;
-}
 
 namespace GaleriExt {
 
