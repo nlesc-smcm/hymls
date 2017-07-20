@@ -1093,7 +1093,7 @@ int SchurPreconditioner::InitializeOT()
     // now fill with H'*A22*H
     int len;
     int maxlen = transformedA22->GlobalMaxNumEntries();
-    int* cols = new int[maxlen];
+    hymls_gidx* cols = new hymls_gidx[maxlen];
     double* values = new double[maxlen];
 
     CHECK_ZERO(matrix->PutScalar(0.0));

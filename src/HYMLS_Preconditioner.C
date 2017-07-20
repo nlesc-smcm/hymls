@@ -15,12 +15,10 @@
 #include <Epetra_Time.h> 
 #include "Epetra_Comm.h"
 #include "Epetra_SerialComm.h"
-#include "Epetra_LocalMap.h"
 #include "Epetra_Map.h"
 #include "Epetra_RowMatrix.h"
 #include "Epetra_Import.h"
 #include "Epetra_Export.h"
-#include "Epetra_InvOperator.h"
 #include "Epetra_SerialDenseMatrix.h"
 #include "Epetra_SerialDenseVector.h"
 

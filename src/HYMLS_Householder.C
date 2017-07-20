@@ -331,7 +331,7 @@ namespace HYMLS {
         Epetra_CrsMatrix(Copy,A.RowMap(),A.MaxNumEntries()) );
 
     HYMLS_DEBUG("compute A*wT...");
-#if (1 || TRILINOS_MAJOR_MINOR_VERSION<101000)
+#if 0
 #define MATMUL_BUG 1
 #endif
 #ifndef MATMUL_BUG
@@ -381,9 +381,9 @@ namespace HYMLS {
     CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(T,false,*Cmat_,false,*WCmat_,true));
 
     // wTwC
-    Teuchos::RCP<Epetra_CrsMatrix> wTwC = Teuchos::rcp(new 
-        Epetra_CrsMatrix(Copy,A.RowMap(),WTmat_->MaxNumEntries()) );
-  
+    Teuchos::RCP<Epetra_CrsMatrix> wTwC = Teuchos::rcp(new
+      Epetra_CrsMatrix(Copy,A.RowMap(),Wmat_->MaxNumEntries()));
+
     HYMLS_DEBUG("compute wTwC...");
 #ifndef MATMUL_BUG
     CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(*Wmat_,true,*WCmat_,false,*wTwC,false));
