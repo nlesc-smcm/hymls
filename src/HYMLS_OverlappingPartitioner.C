@@ -178,11 +178,6 @@ Teuchos::RCP<const Teuchos::ParameterList> OverlappingPartitioner::getValidParam
   VPL().set("nx",16,"number of nodes in x-direction");
   VPL().set("ny",16,"number of nodes in y-direction");
   VPL().set("nz",1,"number of nodes in z-direction");
-/*
-  VPL().set("Cluster Retained Nodes",false,
-        "(only relevant for 3D Navier-Stokes), form full conservation tubes at subdomain\n"
-        " edges to reduce the size of the Schur Complement and the number of retained P-nodes");
-*/
 
   Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
         partValidator = Teuchos::rcp(
@@ -286,14 +281,11 @@ int OverlappingPartitioner::DetectSeparators()
   Teuchos::Array<hymls_gidx> interior_nodes;
   // separator nodes
   Teuchos::Array<Teuchos::Array<hymls_gidx> > separator_nodes;
-  // presure nodes that need to be retained
-  Teuchos::Array<hymls_gidx> retained_nodes;
 
   for (int sd = 0; sd < partitioner_->NumLocalParts(); sd++)
     {
     interior_nodes.resize(0);
     separator_nodes.resize(0);
-    retained_nodes.resize(0);
 
     CHECK_ZERO(partitioner_->GetGroups(sd, interior_nodes, separator_nodes));
 
