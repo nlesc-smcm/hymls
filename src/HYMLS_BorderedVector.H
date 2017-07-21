@@ -341,7 +341,7 @@ public:
     HYMLS::BorderedVector& mv)
     {
     // Create Epetra_Multivector from SerialDenseMatrix
-    Epetra_LocalMap LocalMap(B.numRows(), 0, mv.Second()->Map().Comm());
+    Epetra_LocalMap LocalMap((hymls_gidx)B.numRows(), 0, mv.Second()->Map().Comm());
     Epetra_MultiVector B_Pvec(View, LocalMap, B.values(), B.stride(), B.numCols());
 
     const int info = mv.Multiply ('N', 'N', alpha, A, B_Pvec, beta);
@@ -416,7 +416,7 @@ public:
     const HYMLS::BorderedVector &mv, Teuchos::SerialDenseMatrix<int,double> &B)
     {
     // Create Epetra_MultiVector from SerialDenseMatrix
-    Epetra_LocalMap LocalMap(B.numRows(), 0, mv.Second()->Map().Comm());
+    Epetra_LocalMap LocalMap((hymls_gidx)B.numRows(), 0, mv.Second()->Map().Comm());
     Epetra_MultiVector B_Pvec(View, LocalMap, B.values(), B.stride(), B.numCols());
     int info = B_Pvec.Multiply('T', 'N', alpha, *A.First(), *mv.First(), 0.0);
     info    += B_Pvec.Multiply('T', 'N', alpha, *A.Second(), *mv.Second(), 1.0);
@@ -614,6 +614,24 @@ public:
     }
 
   }; // end of specialization
+
+template<>
+class MultiVecTraitsExt<double, HYMLS::BorderedVector>
+  {
+public:
+  //! @name New attribute methods
+  //@{
+
+  //! Obtain the vector length of \c mv.
+  //! \note This method supersedes GetVecLength, which will be deprecated.
+  static ptrdiff_t GetGlobalLength( const HYMLS::BorderedVector& mv )
+    {
+    if (mv.First()->Map().GlobalIndicesLongLong())
+      return static_cast<ptrdiff_t>( mv.GlobalLength64() );
+    else
+      return static_cast<ptrdiff_t>( mv.GlobalLength() );
+    }
+  };
 
 
   } // end of Belos namespace

@@ -52,7 +52,7 @@ BorderedVector::BorderedVector(const Teuchos::RCP<Epetra_MultiVector> &mv1,
     num = mv2->M();
     }
 
-  Epetra_Map map(mv2->M(), num, 0, first_->Comm());
+  Epetra_Map map((hymls_gidx)mv2->M(), num, (hymls_gidx)0, first_->Comm());
   second_ = Teuchos::rcp(new Epetra_MultiVector(View, map, mv2->A(), mv2->LDA(), mv2->N()));
   }
 
@@ -84,7 +84,7 @@ BorderedVector::BorderedVector(const Epetra_MultiVector &mv1,
     num = mv2.M();
     }
 
-  Epetra_Map map(mv2.M(), num, 0, first_->Comm());
+  Epetra_Map map((hymls_gidx)mv2.M(), num, (hymls_gidx)0, first_->Comm());
   second_ = Teuchos::rcp(new Epetra_MultiVector(Copy, map, mv2.A(), mv2.LDA(), mv2.N()));
   }
 
