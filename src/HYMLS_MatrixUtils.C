@@ -142,13 +142,8 @@ Teuchos::RCP<Epetra_BlockMap> MatrixUtils::Gather(const Epetra_BlockMap& map, in
     counts = new int[Comm.NumProc()];
     disps = new int[Comm.NumProc()+1];
 
-#ifdef HYMLS_LONG_LONG
-    MPI_Gather(&NumMyElements, 1, MPI_LONG_LONG_INT,
-      counts, 1, MPI_LONG_LONG_INT, root, MpiComm.GetMpiComm());
-#else
     MPI_Gather(&NumMyElements, 1, MPI_INTEGER,
       counts, 1, MPI_INTEGER, root, MpiComm.GetMpiComm());
-#endif
 
     if (Comm.MyPID() == root)
       {
@@ -240,14 +235,9 @@ Teuchos::RCP<Epetra_BlockMap> MatrixUtils::AllGather(const Epetra_BlockMap& map,
     int *counts, *disps;
     counts = new int[Comm.NumProc()];
     disps = new int[Comm.NumProc()+1];
-    
-#ifdef HYMLS_LONG_LONG
-    MPI_Allgather(&NumMyElements, 1, MPI_LONG_LONG_INT,
-      counts, 1, MPI_LONG_LONG_INT, MpiComm.GetMpiComm());
-#else
+
     MPI_Allgather(&NumMyElements, 1, MPI_INTEGER,
       counts, 1, MPI_INTEGER, MpiComm.GetMpiComm());
-#endif
 
     disps[0] = 0;
     for (int p = 0; p < Comm.NumProc(); p++)
@@ -321,13 +311,8 @@ Teuchos::RCP<Epetra_Map> MatrixUtils::Gather(const Epetra_Map& map, int root)
     counts = new int[Comm.NumProc()];
     disps = new int[Comm.NumProc()+1];
 
-#ifdef HYMLS_LONG_LONG
-    MPI_Gather(&NumMyElements, 1, MPI_LONG_LONG_INT,
-      counts, 1, MPI_LONG_LONG_INT, root, MpiComm.GetMpiComm());
-#else
     MPI_Gather(&NumMyElements, 1, MPI_INTEGER,
       counts, 1, MPI_INTEGER, root, MpiComm.GetMpiComm());
-#endif
 
     if (Comm.MyPID() == root)
       {
@@ -406,13 +391,8 @@ Teuchos::RCP<Epetra_Map> MatrixUtils::AllGather(const Epetra_Map& map, bool reor
     counts = new int[Comm.NumProc()];
     disps = new int[Comm.NumProc()+1];
 
-#ifdef HYMLS_LONG_LONG
-    MPI_Allgather(&NumMyElements, 1, MPI_LONG_LONG_INT,
-      counts, 1, MPI_LONG_LONG_INT, MpiComm.GetMpiComm());
-#else
     MPI_Allgather(&NumMyElements, 1, MPI_INTEGER,
       counts, 1, MPI_INTEGER, MpiComm.GetMpiComm());
-#endif
 
     disps[0] = 0;
     for (int p = 0; p < Comm.NumProc(); p++)
@@ -532,7 +512,7 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::Gather(const Epetra_CrsMatrix& mat, 
 
   // we only guess the number of row entries, this routine is not performance critical
   // as it should only be used for debugging anyway
-  int num_entries = mat.NumGlobalNonzeros() / mat.NumGlobalRows();
+  int num_entries = mat.NumGlobalNonzeros64() / mat.NumGlobalRows64();
   Teuchos::RCP<Epetra_CrsMatrix> gmat = Teuchos::rcp(new Epetra_CrsMatrix(Copy, *rowmap, *colmap, num_entries) );
 
   Teuchos::RCP<Epetra_Import> import = Teuchos::rcp(new Epetra_Import(*rowmap, rowmap_dist) );
