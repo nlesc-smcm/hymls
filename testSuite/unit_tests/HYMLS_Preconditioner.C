@@ -15,8 +15,7 @@
 #include "HYMLS_SchurComplement.H"
 #include "HYMLS_CartesianPartitioner.H"
 
-#include <climits>
-
+#include "HYMLS_FakeComm.H"
 #include "HYMLS_UnitTests.H"
 
 class TestableSchurComplement: public HYMLS::SchurComplement
@@ -125,6 +124,56 @@ TEUCHOS_UNIT_TEST(Preconditioner, Blocks)
   // Make sure the pointers on the preconditioner and Schur complement are the same
   TEST_EQUALITY(&prec.A22(), &TestableSchurComplement(prec.SchurComplement()).A22());
   }
+
+TEUCHOS_UNIT_TEST(Preconditioner, GID64)
+  {
+  FakeComm Comm;
+  Comm.SetNumProc(8192);
+  Comm.SetMyPID(8191);
+  // DISABLE_OUTPUT;
+
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(new Teuchos::ParameterList());
+  Teuchos::ParameterList &problemList = params->sublist("Problem");
+  problemList.set("Degrees of Freedom", 4);
+  problemList.set("Dimension", 3);
+  problemList.set("nx", 1024);
+  problemList.set("ny", 1024);
+  problemList.set("nz", 1024);
+  Teuchos::ParameterList &precList = params->sublist("Preconditioner");
+  precList.set("Separator Length", 4);
+  precList.set("Number of Levels", 1);
+
+  hymls_gidx n = (hymls_gidx)problemList.get<int>("Degrees of Freedom") *
+    problemList.get<int>("nx") *
+    problemList.get<int>("ny") *
+    problemList.get<int>("nz");
+
+  Epetra_Map map(n, 0, Comm);
+
+  HYMLS::CartesianPartitioner part(Teuchos::rcp(&map, false),
+    problemList.get<int>("nx"), problemList.get<int>("ny"), problemList.get<int>("nz"),
+    problemList.get<int>("Degrees of Freedom"));
+  part.Partition(256*256*256, true);
+  map = *part.GetMap();
+
+  Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(new Epetra_CrsMatrix(Copy, map, 2));
+
+  Epetra_Util util;
+  for (hymls_gidx i = 0; i < n; i++) {
+    // Check if we own the index
+    if (A->LRID(i) == -1)
+      continue;
+
+    double A_val2 = std::abs(util.RandomDouble());
+    CHECK_ZERO(A->InsertGlobalValues(i, 1, &A_val2, &i));
+  }
+  CHECK_ZERO(A->FillComplete());
+
+  TestablePreconditioner prec(A, params);
+  prec.Initialize();
+  prec.Compute();
+  }
+
 
 TEUCHOS_UNIT_TEST(Preconditioner, SerialComm)
   {

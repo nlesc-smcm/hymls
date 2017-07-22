@@ -7,6 +7,7 @@
 #include "Epetra_Map.h"
 
 #include "HYMLS_UnitTests.H"
+#include "HYMLS_FakeComm.H"
 
 TEUCHOS_UNIT_TEST(CartesianPartitioner, Partition2D)
   {
@@ -52,3 +53,28 @@ TEUCHOS_UNIT_TEST(CartesianPartitioner, Partition3D)
   TEST_EQUALITY(part(6, 3, 0), 3);
   TEST_EQUALITY(part(0, 3, 1), 2);
   }
+
+TEUCHOS_UNIT_TEST(CartesianPartitioner, GID64)
+  {
+  FakeComm Comm;
+  Comm.SetNumProc(8192);
+  Comm.SetMyPID(8191);
+  // DISABLE_OUTPUT;
+
+  int nx = 1024;
+  int ny = 1024;
+  int nz = 1024;
+  int dof = 4;
+  hymls_gidx n = (hymls_gidx)nx * ny * nz * dof;
+  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, Comm));
+
+  HYMLS::CartesianPartitioner part(map, nx, ny, nz, dof);
+  part.Partition(4, 4, 4, true);
+
+  long long last = 
+    (long long)(1024 - 1024 / 32) * nx * ny * dof +
+    (long long)(1024 - 1024 / 16) * nx * dof +
+    (long long)(1024 - 1024 / 16) * dof;
+  TEST_EQUALITY(part.Map().MyGlobalElements64()[0], last);
+  }
+

@@ -8,36 +8,8 @@
 
 #include "HYMLS_config.h"
 #include "HYMLS_UnitTests.H"
+#include "HYMLS_FakeComm.H"
 #include "HYMLS_Tools.H"
-
-// A class for which we can set the number of processors that are available.
-class FakeComm: public Epetra_SerialComm
-  {
-  int numProc_;
-  int pid_;
-public:
-  FakeComm(): Epetra_SerialComm(), numProc_(0), pid_(0) {}
-  FakeComm(const FakeComm& Comm):
-    Epetra_SerialComm(Comm),
-    numProc_(Comm.numProc_),
-    pid_(Comm.pid_)
-    {}
-  Epetra_Comm *Clone() const
-    {return dynamic_cast<Epetra_Comm *>(new FakeComm(*this));}
-
-  int NumProc() const
-    {return numProc_;}
-  void SetNumProc(int num)
-    {numProc_ = num;}
-
-  int SumAll(int *PartialSums, int *GlobalSums, int Count) const
-    {*GlobalSums = *PartialSums * numProc_; return 0;};
-
-  int MyPID() const
-    {return pid_;}
-  void SetMyPID(int pid)
-    {pid_ = pid;}
-  };
 
 class TestableSkewCartesianPartitioner: public HYMLS::SkewCartesianPartitioner
   {

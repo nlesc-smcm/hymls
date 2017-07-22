@@ -14,6 +14,7 @@ set(SOURCES
   HYMLS_Tester
   HYMLS_Tools
   HYMLS_UnitTests
+  HYMLS_FakeComm
   main)
 
 # Configure the data xml file in which we can set parameters (like file names)
