@@ -348,6 +348,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, SameNumSubdomains)
   TEST_EQUALITY(part.NumLocalParts(), num);
   }
 
+#ifdef HYMLS_LONG_LONG
 TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, GID64)
   {
   FakeComm Comm;
@@ -374,3 +375,4 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, GID64)
   for (hymls_gidx i: interior_nodes)
     TEST_COMPARE(i, >=, 0);
   }
+#endif

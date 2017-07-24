@@ -1,13 +1,14 @@
 #include "HYMLS_CartesianPartitioner.H"
-#include "HYMLS_Tools.H"
 
 #include <Teuchos_RCP.hpp>
 
 #include "Epetra_MpiComm.h"
 #include "Epetra_Map.h"
 
+#include "HYMLS_config.h"
 #include "HYMLS_UnitTests.H"
 #include "HYMLS_FakeComm.H"
+#include "HYMLS_Tools.H"
 
 TEUCHOS_UNIT_TEST(CartesianPartitioner, Partition2D)
   {
@@ -54,6 +55,7 @@ TEUCHOS_UNIT_TEST(CartesianPartitioner, Partition3D)
   TEST_EQUALITY(part(0, 3, 1), 2);
   }
 
+#ifdef HYMLS_LONG_LONG
 TEUCHOS_UNIT_TEST(CartesianPartitioner, GID64)
   {
   FakeComm Comm;
@@ -78,3 +80,4 @@ TEUCHOS_UNIT_TEST(CartesianPartitioner, GID64)
   long long last = n - 1;
   TEST_EQUALITY(interior_nodes.back(), last);
   }
+#endif
