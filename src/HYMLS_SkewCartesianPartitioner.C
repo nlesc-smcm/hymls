@@ -712,20 +712,8 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(
   {
   HYMLS_PROF2(label_, "createSubdomain");
 
-  int totNum2DCubes = npx_ * npy_; // number of cubes for fixed z
-  int numPerLayer = 2 * totNum2DCubes + npx_ + npy_; // domains for fixed z
-  int numPerRow = 2*npx_ + 1; // domains in a row (both lattices); fixed y
-
-  // Get domain coordinates and its first node
-  // Considers superposed lattices
-  int Z = sd / numPerLayer;
-  double Y = ((sd - Z * numPerLayer) / numPerRow) - 0.5;
-  double X = (sd - Z * numPerLayer) % numPerRow;
-  if (X >= npx_)
-    {
-    X -= npx_ + 0.5;
-    Y += 0.5;
-    }
+  int sdx, sdy, sdz;
+  GetSubdomainPosition(sd, sdx, sdy, sdz);
 
   int nx = 4 * sx_;
   // Move the groups to the right position and cut off parts that fall
@@ -737,9 +725,9 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(
     for (hymls_gidx &node: group)
       {
       int var = node % dof_;
-      int x = (node / dof_) % nx + X * sx_ - 1;
-      int y = (node / dof_ / nx) % nx + Y * sx_ - 1;
-      int z = node / dof_ / nx / nx + sx_ * (Z - 1);
+      int x = (node / dof_) % nx + sdx - 1;
+      int y = (node / dof_ / nx) % nx + sdy - 1;
+      int z = node / dof_ / nx / nx + sdz;
       if (perio_ & GaleriExt::X_PERIO) x = (x + nx_) % nx_;
       if (perio_ & GaleriExt::Y_PERIO) y = (y + ny_) % ny_;
       if (perio_ & GaleriExt::Z_PERIO) z = (z + nz_) % nz_;
