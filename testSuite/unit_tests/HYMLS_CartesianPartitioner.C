@@ -38,8 +38,8 @@ TEUCHOS_UNIT_TEST(CartesianPartitioner, Partition3D)
 
   int nx = 8;
   int ny = 8;
-  int nz = 2;
-  int dof = 4;
+  hymls_gidx nz = 2;
+  hymls_gidx dof = 4;
   hymls_gidx n = nx * ny * nz * dof;
   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, Comm));
 
@@ -59,22 +59,22 @@ TEUCHOS_UNIT_TEST(CartesianPartitioner, GID64)
   FakeComm Comm;
   Comm.SetNumProc(8192);
   Comm.SetMyPID(8191);
-  // DISABLE_OUTPUT;
+  DISABLE_OUTPUT;
 
-  int nx = 1024;
-  int ny = 1024;
-  int nz = 1024;
-  int dof = 4;
-  hymls_gidx n = (hymls_gidx)nx * ny * nz * dof;
+  hymls_gidx nx = 1024;
+  hymls_gidx ny = 1024;
+  hymls_gidx nz = 1024;
+  hymls_gidx dof = 4;
+  hymls_gidx n = nx * ny * nz * dof;
   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, Comm));
 
   HYMLS::CartesianPartitioner part(map, nx, ny, nz, dof);
-  part.Partition(4, 4, 4, true);
+  CHECK_ZERO(part.Partition(4, 4, 4, false));
 
-  long long last = 
-    (long long)(1024 - 1024 / 32) * nx * ny * dof +
-    (long long)(1024 - 1024 / 16) * nx * dof +
-    (long long)(1024 - 1024 / 16) * dof;
-  TEST_EQUALITY(part.Map().MyGlobalElements64()[0], last);
+  Teuchos::Array<hymls_gidx> interior_nodes;
+  Teuchos::Array<Teuchos::Array<hymls_gidx> > separator_nodes;
+  part.GetGroups(part.NumLocalParts()-1, interior_nodes, separator_nodes);
+
+  long long last = nz * nx * ny * dof - 1;
+  TEST_EQUALITY(interior_nodes.back(), last);
   }
-

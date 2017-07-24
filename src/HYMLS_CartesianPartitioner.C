@@ -198,16 +198,25 @@ int CartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
     int numMyElements = numLocalSubdomains_ * sx_ * sy_ * sz_ * dof_;
     hymls_gidx *myGlobalElements = new hymls_gidx[numMyElements];
     int pos = 0;
-    for (hymls_gidx i = 0; i < baseMap_->MaxAllGID64()+1; i++)
+    for (int sd = 0; sd < numLocalSubdomains_; sd++)
       {
-      if (sdMap_->LID((*this)(i)) != -1)
-        {
-        if (pos >= numMyElements)
-          {
-          Tools::Error("Index out of range", __FILE__, __LINE__);
-          }
-        myGlobalElements[pos++] = i;
-        }
+      int x, y, z;
+      Tools::ind2sub(npx_, npy_, npz_, sdMap_->GID(sd), x, y, z);
+      for (int k = z * sz_; k < (z + 1) * sz_; k++)
+        for (int j = y * sy_; j < (y + 1) * sy_; j++)
+          for (int i = x * sx_; i < (x + 1) * sx_; i++)
+            for (int var = 0; var < dof_; var++)
+              {
+              hymls_gidx gid = Tools::sub2ind(nx_, ny_, nz_, dof_, i, j, k, var);
+              if (sdMap_->LID((*this)(gid) != -1))
+                {
+                if (pos >= numMyElements)
+                  {
+                  Tools::Error("Index out of range", __FILE__, __LINE__);
+                  }
+                myGlobalElements[pos++] = gid;
+                }
+              }
       }
 
     Epetra_Map tmpRepartitionedMap((hymls_gidx)(-1), pos,

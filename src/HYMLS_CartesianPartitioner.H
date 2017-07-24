@@ -105,7 +105,7 @@ protected:
   Teuchos::RCP<const Epetra_Map> cartesianMap_;
 
   //! global grid size
-  int nx_, ny_, nz_;
+  hymls_gidx nx_, ny_, nz_;
 
   //! number of subdomains
   int npx_,npy_,npz_;

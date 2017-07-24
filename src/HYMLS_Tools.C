@@ -270,7 +270,7 @@ hymls_gidx Tools::sub2ind(int nx, int ny, int nz, int dof, int i, int j, int k, 
     Tools::Error(msg1+msg2+msg3+msg4,__FILE__,__LINE__);
     }
 #endif
-  return ((k*ny+j)*nx+i)*dof+var;
+  return (((hymls_gidx)k*ny+j)*nx+i)*dof+var;
   }
 
 //! converts cartesian subscripts to linear index

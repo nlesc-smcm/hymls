@@ -1,8 +1,138 @@
 #include "HYMLS_FakeComm.H"
 
+#include <Epetra_Distributor.h>
 #include <Epetra_BasicDirectory.h>
-#include <Epetra_SerialDistributor.h>
-#include <Epetra_SerialComm.h>
+
+class FakeSerialDistributor: public virtual Epetra_Distributor
+  {
+  int nrecvs_;
+  int nsends_;
+  int myproc_;
+
+public:
+  FakeSerialDistributor(const FakeComm & Comm)
+    :
+    nrecvs_(0),
+    nsends_(0),
+    myproc_(Comm.MyPID())
+    {}
+
+  FakeSerialDistributor(const FakeSerialDistributor & Plan)
+    :
+    nrecvs_(Plan.nrecvs_),
+    nsends_(Plan.nsends_),
+    myproc_(Plan.myproc_)
+    {}
+
+  Epetra_Distributor * Clone(){return new FakeSerialDistributor(*this);};
+  Epetra_Distributor * ReverseClone() {return 0;}
+
+  virtual ~FakeSerialDistributor() {}
+
+  int CreateFromSends(const int & NumExportIDs, const int * ExportPIDs,
+    bool Deterministic, int & NumRemoteIDs)
+    {
+    NumRemoteIDs = 0;
+
+    //basically just do a sanity check.
+    for(int i=0; i<NumExportIDs; ++i) {
+      if (ExportPIDs[i] != myproc_) {
+        std::cerr << "Epetra_SerialDistributor::CreateFromSends: ExportPIDs["<<i
+                  <<"]=="<<ExportPIDs[i]<<", not allowed for serial case."<< std::endl;
+        return -1;
+        }
+      ++NumRemoteIDs;
+      }
+
+    nrecvs_ = NumRemoteIDs;
+    return 0;
+    }
+
+  int CreateFromRecvs(const int & NumRemoteIDs, const int * RemoteGIDs,
+    const int * RemotePIDs, bool Deterministic, int & NumExportIDs,
+    int *& ExportGIDs, int *& ExportPIDs)
+    {
+    return -1;
+    }
+
+#ifndef EPETRA_NO_64BIT_GLOBAL_INDICES
+  int CreateFromRecvs(const int & NumRemoteIDs,
+    const long long * RemoteGIDs, const int * RemotePIDs,
+    bool Deterministic, int & NumExportIDs,
+    long long *& ExportGIDs, int *& ExportPIDs)
+    {
+    return -1;
+    }
+#endif
+  
+  int Do(char * export_objs, int obj_size,
+    int & len_import_objs, char *& import_objs)
+    {
+    len_import_objs = obj_size * nrecvs_;
+    if (len_import_objs > 0) {
+      import_objs = new char[len_import_objs];
+      }
+
+    for(int i = 0; i < len_import_objs; ++i)
+     import_objs[i] = export_objs[i];
+
+    return 0;
+    }
+
+  int DoReverse(char * export_objs, int obj_size,
+    int & len_import_objs, char *& import_objs)
+    {
+    return -1;
+    }
+
+  int DoPosts(char * export_objs, int obj_size,
+    int & len_import_objs, char *& import_objs)
+    {
+    return -1;
+    }
+  int DoWaits()
+    {
+    return -1;
+    }
+
+  int DoReversePosts(char * export_objs, int obj_size,
+    int & len_import_objs, char *& import_objs)
+    {
+    return -1;
+    }
+  int DoReverseWaits()
+    {
+    return -1;
+    }
+
+  int Do(char * export_objs, int obj_size,
+    int *& sizes,int & len_import_objs, char *& import_objs)
+    {
+    return -1;
+    }
+  int DoReverse(char * export_objs, int obj_size, int *& sizes,
+    int & len_import_objs, char *& import_objs)
+    {
+    return -1;
+    }
+
+  int DoPosts(char * export_objs, int obj_size, int *& sizes,
+    int & len_import_objs, char *& import_objs)
+    {
+    return -1;
+    }
+
+  int DoReversePosts(char * export_objs, int obj_size,
+    int *& sizes, int & len_import_objs, char *& import_objs)
+    {
+    return -1;
+    }
+
+  virtual void Print(std::ostream & os) const
+    {
+    return;
+    }
+  };
 
 FakeComm::FakeComm():
   numProc_(1),
@@ -191,8 +321,7 @@ int FakeComm::MinAll(long long * PartialMins, long long * GlobalMins, int Count)
   }
 Epetra_Distributor * FakeComm::CreateDistributor() const
   {
-  Epetra_SerialComm comm;
-  return new Epetra_SerialDistributor(comm);
+  return new FakeSerialDistributor(*this);
   }
 Epetra_Directory * FakeComm::CreateDirectory(const Epetra_BlockMap & Map) const
   {
