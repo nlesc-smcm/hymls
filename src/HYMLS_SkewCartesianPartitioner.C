@@ -164,29 +164,32 @@ int SkewCartesianPartitioner::operator()(hymls_gidx gid) const
   return operator()(i, j, k);
   }
 
-int SkewCartesianPartitioner::GetSubdomainPosition(int sd, int &x, int &y, int &z) const
+int SkewCartesianPartitioner::GetSubdomainPosition(
+  int sd, int sx, int &x, int &y, int &z) const
   {
-  int totNum2DCubes = npx_ * npy_; // number of cubes for fixed z
-  int numPerLayer = 2 * totNum2DCubes + npx_ + npy_; // domains for fixed z
-  int numPerRow = 2 * npx_ + 1; // domains in a row (both lattices); fixed y
+  int npx = nx_ / sx;
+  int npy = ny_ / sx;
+  int totNum2DCubes = npx * npy; // number of cubes for fixed z
+  int numPerLayer = 2 * totNum2DCubes + npx + npy; // domains for fixed z
+  int numPerRow = 2 * npx + 1; // domains in a row (both lattices); fixed y
   int Z = sd / numPerLayer;
   double Y = ((sd - Z * numPerLayer) / numPerRow) - 0.5;
   double X = (sd - Z * numPerLayer) % numPerRow;
-  if (X >= npx_)
+  if (X >= npx)
     {
-    X -= npx_ + 0.5;
+    X -= npx + 0.5;
     Y += 0.5;
     }
 
-  x = X * sx_;
-  y = Y * sx_;
-  z = (Z - 1) * sx_;
+  x = X * sx;
+  y = Y * sx;
+  z = (Z - 1) * sx;
 
-  if (x == nx_ - sx_ / 2 && perio_ & GaleriExt::X_PERIO)
+  if (x == nx_ - sx / 2 && perio_ & GaleriExt::X_PERIO)
     return 1;
-  if (y == ny_ - sx_ / 2 && perio_ & GaleriExt::Y_PERIO)
+  if (y == ny_ - sx / 2 && perio_ & GaleriExt::Y_PERIO)
     return 1;
-  if (z == nz_ - sx_ && perio_ & GaleriExt::Z_PERIO)
+  if (z == nz_ - sx && perio_ & GaleriExt::Z_PERIO)
     return 1;
   return 0;
   }
@@ -218,7 +221,7 @@ int SkewCartesianPartitioner::CreateSubdomainMap()
   for (int sd = 0; sd < NumGlobalElements; sd++)
     {
     int i, j, k;
-    if (GetSubdomainPosition(sd, i, j, k) == 1)
+    if (GetSubdomainPosition(sd, sx_, i, j, k) == 1)
       continue;
 
     i = (((i + sx_ / 2) % nx_) + nx_) % nx_;
@@ -344,7 +347,7 @@ int SkewCartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
       {
       int gsd = sdMap_->GID(sd);
       int x, y, z;
-      GetSubdomainPosition(gsd, x, y, z);
+      GetSubdomainPosition(gsd, sx_, x, y, z);
 
       // Determine unique indices so we don't try to add the same node
       // multiple times
@@ -713,7 +716,7 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(
   HYMLS_PROF2(label_, "createSubdomain");
 
   int sdx, sdy, sdz;
-  GetSubdomainPosition(sd, sdx, sdy, sdz);
+  GetSubdomainPosition(sd, sx_, sdx, sdy, sdz);
 
   int nx = 4 * sx_;
   // Move the groups to the right position and cut off parts that fall
@@ -907,22 +910,10 @@ int SkewCartesianPartitioner::PID(int i, int j, int k) const
       }
     }
 
-  int totNum2DCubes = npx * npy; // number of cubes for fixed z
-  int numPerLayer = 2 * totNum2DCubes + npx + npy; // domains for fixed z
-  int numPerRow = 2 * npx + 1; // domains in a row (both lattices); fixed y
-
-  int Z = sd / numPerLayer;
-  double Y = ((sd - Z * numPerLayer) / numPerRow) - 0.5;
-  double X = (sd - Z * numPerLayer) % numPerRow;
-  if (X >= npx)
-    {
-    X -= npx + 0.5;
-    Y += 0.5;
-    }
-
-  i = ((int)(X * cl - 1) % nx_ + nx_) % nx_;
-  j = ((int)(Y * cl - 1) % ny_ + ny_) % ny_;
-  k = ((int)((Z - 1) * cl) % nz_ + nz_) % nz_;
+  GetSubdomainPosition(sd, cl, i, j, k);
+  i = ((i - 1) % nx_ + nx_) % nx_;
+  j = ((j - 1) % ny_ + ny_) % ny_;
+  k = (k % nz_ + nz_) % nz_;
 
   // In which cube is the cell?
   int sdx = i / sx;

@@ -47,7 +47,7 @@ public:
 protected:
 
   //! Get the position of the first node of the subdomain
-  int GetSubdomainPosition(int sd, int &x, int &y, int &z) const;
+  int GetSubdomainPosition(int sd, int sx, int &x, int &y, int &z) const;
 
   //! creates the map from global to local partition IDs. The implementation
   //! may assume that npx_, sx_ etc. are already set so that operator() works.
