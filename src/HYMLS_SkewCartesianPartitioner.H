@@ -45,6 +45,10 @@ public:
   int Partition(int npx, int npy, int npz, bool repart=true);
 
 protected:
+
+  //! Get the position of the first node of the subdomain
+  int GetSubdomainPosition(int sd, int &x, int &y, int &z) const;
+
   //! creates the map from global to local partition IDs. The implementation
   //! may assume that npx_, sx_ etc. are already set so that operator() works.
   int CreateSubdomainMap();
@@ -118,7 +122,7 @@ protected:
   std::vector<std::vector<hymls_gidx> > groups_;
 
   //! global grid size
-  int nx_, ny_, nz_;
+  hymls_gidx nx_, ny_, nz_;
 
   //! number of subdomains
   int npx_, npy_, npz_;

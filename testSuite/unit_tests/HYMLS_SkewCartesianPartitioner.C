@@ -55,6 +55,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, operator)
   TEST_EQUALITY(part(3, 4, 3), 20);
   TEST_EQUALITY(part(3, 4, 4), 20);
   TEST_EQUALITY(part(0, 0, 4), 12);
+  TEST_EQUALITY(part(7, 7, 7), 21);
   }
 
 TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, PID)
@@ -345,4 +346,31 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, SameNumSubdomains)
 
   ENABLE_OUTPUT;
   TEST_EQUALITY(part.NumLocalParts(), num);
+  }
+
+TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, GID64)
+  {
+  FakeComm Comm;
+  Comm.SetNumProc(8192);
+  Comm.SetMyPID(8191);
+  DISABLE_OUTPUT;
+
+  int sx = 16;
+  hymls_gidx nx = 1024;
+  hymls_gidx ny = 1024;
+  hymls_gidx nz = 1024;
+  hymls_gidx dof = 4;
+  hymls_gidx n = nx * ny * nz * dof;
+  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, Comm));
+
+  TestableSkewCartesianPartitioner part(map, nx, ny, nz, dof, 3);
+  CHECK_ZERO(part.Partition(sx, sx, sx, false));
+
+  TEST_EQUALITY(part(nx-2, ny-1, nz-1), (nz / sx + 1 ) * (2 * nx / sx * ny / sx + ny / sx + nx / sx) - 1);
+
+  Teuchos::Array<hymls_gidx> interior_nodes;
+  Teuchos::Array<Teuchos::Array<hymls_gidx> > separator_nodes;
+  part.GetGroups(part.NumLocalParts()-1, interior_nodes, separator_nodes);
+  for (hymls_gidx i: interior_nodes)
+    TEST_COMPARE(i, >=, 0);
   }

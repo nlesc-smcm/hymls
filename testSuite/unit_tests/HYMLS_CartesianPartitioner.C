@@ -75,6 +75,6 @@ TEUCHOS_UNIT_TEST(CartesianPartitioner, GID64)
   Teuchos::Array<Teuchos::Array<hymls_gidx> > separator_nodes;
   part.GetGroups(part.NumLocalParts()-1, interior_nodes, separator_nodes);
 
-  long long last = nz * nx * ny * dof - 1;
+  long long last = n - 1;
   TEST_EQUALITY(interior_nodes.back(), last);
   }

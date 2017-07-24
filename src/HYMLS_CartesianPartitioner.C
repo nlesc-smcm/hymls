@@ -208,7 +208,7 @@ int CartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
             for (int var = 0; var < dof_; var++)
               {
               hymls_gidx gid = Tools::sub2ind(nx_, ny_, nz_, dof_, i, j, k, var);
-              if (sdMap_->LID((*this)(gid) != -1))
+              if (sdMap_->LID((*this)(gid)) == sd)
                 {
                 if (pos >= numMyElements)
                   {

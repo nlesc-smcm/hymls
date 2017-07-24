@@ -164,6 +164,33 @@ int SkewCartesianPartitioner::operator()(hymls_gidx gid) const
   return operator()(i, j, k);
   }
 
+int SkewCartesianPartitioner::GetSubdomainPosition(int sd, int &x, int &y, int &z) const
+  {
+  int totNum2DCubes = npx_ * npy_; // number of cubes for fixed z
+  int numPerLayer = 2 * totNum2DCubes + npx_ + npy_; // domains for fixed z
+  int numPerRow = 2 * npx_ + 1; // domains in a row (both lattices); fixed y
+  int Z = sd / numPerLayer;
+  double Y = ((sd - Z * numPerLayer) / numPerRow) - 0.5;
+  double X = (sd - Z * numPerLayer) % numPerRow;
+  if (X >= npx_)
+    {
+    X -= npx_ + 0.5;
+    Y += 0.5;
+    }
+
+  x = X * sx_;
+  y = Y * sx_;
+  z = (Z - 1) * sx_;
+
+  if (x == nx_ - sx_ / 2 && perio_ & GaleriExt::X_PERIO)
+    return 1;
+  if (y == ny_ - sx_ / 2 && perio_ & GaleriExt::Y_PERIO)
+    return 1;
+  if (z == nz_ - sx_ && perio_ & GaleriExt::Z_PERIO)
+    return 1;
+  return 0;
+  }
+
 //! return number of subdomains in this proc partition
 int SkewCartesianPartitioner::NumLocalParts() const
   {
@@ -179,26 +206,33 @@ int SkewCartesianPartitioner::CreateSubdomainMap()
   int totNum2DCubes = npx_ * npy_; // number of cubes for fixed z
   int numPerLayer = 2 * totNum2DCubes + npx_ + npy_; // domains for fixed z
 
-  int NumMyElements = 0;
-  int NumGlobalElements = (npz_ + 1) * numPerLayer;
+  // First layer
+  int NumGlobalElements = numPerLayer;
+  // Other layers
+  if (nz_ > 1)
+    NumGlobalElements += numPerLayer * npz_;
+
   int *MyGlobalElements = new int[NumGlobalElements];
+  int NumMyElements = 0;
 
-  for (int k = 0; k < nz_; k++)
-    for (int j = 0; j < ny_; j++)
-      for (int i = 0; i < nx_; i++)
-        {
-        int gsd = operator()(i, j, k);
-        int pid = PID(i, j, k);
-        if (pid == comm_->MyPID() and std::find(MyGlobalElements,
-            MyGlobalElements + NumMyElements, gsd) == MyGlobalElements + NumMyElements)
-          MyGlobalElements[NumMyElements++] = gsd;
-        }
+  for (int sd = 0; sd < NumGlobalElements; sd++)
+    {
+    int i, j, k;
+    if (GetSubdomainPosition(sd, i, j, k) == 1)
+      continue;
 
-  std::sort(MyGlobalElements, MyGlobalElements + NumMyElements);
+    i = (((i + sx_ / 2) % nx_) + nx_) % nx_;
+    j = (((j + sx_ / 2) % ny_) + ny_) % ny_;
+    k = (((k + sx_) % nz_) + nz_) % nz_;
+    int pid = PID(i, j, k);
+    if (pid == comm_->MyPID())
+      MyGlobalElements[NumMyElements++] = sd;
+    }
+
   sdMap_ = Teuchos::rcp(new Epetra_Map(-1,
       NumMyElements, MyGlobalElements, 0, *comm_));
 
-  delete [] MyGlobalElements;
+  delete[] MyGlobalElements;
   return 0;
   }
 
@@ -216,7 +250,7 @@ int SkewCartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
   {
   HYMLS_PROF3(label_,"Partition (2)");
 
-  if (sx != sy || sz != sz)
+  if (sx != sy || (nz_ > 1 && sx != sz))
     Tools::Error("sx, sy and sz should be the same", __FILE__, __LINE__);
 
   sx_ = sx;
@@ -301,19 +335,52 @@ int SkewCartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
     Tools::Out("repartition for "+toString(nprocs_)+" procs");
     HYMLS_PROF3(label_,"repartition map");
 
+    // Determine which gids belong to subdomains on this processor
+    // by looping over the cubes in which they exist
     int numMyElements = numLocalSubdomains_ * sx_ * sy_ * sz_ * dof_;
     hymls_gidx *myGlobalElements = new hymls_gidx[numMyElements];
     int pos = 0;
-    for (hymls_gidx i = 0; i < baseMap_->MaxAllGID64()+1; i++)
+    for (int sd = 0; sd < numLocalSubdomains_; sd++)
       {
-      if (sdMap_->LID((*this)(i)) != -1)
-        {
-        if (pos >= numMyElements)
-          {
-          Tools::Error("Index out of range", __FILE__, __LINE__);
-          }
-        myGlobalElements[pos++] = i;
-        }
+      int gsd = sdMap_->GID(sd);
+      int x, y, z;
+      GetSubdomainPosition(gsd, x, y, z);
+
+      // Determine unique indices so we don't try to add the same node
+      // multiple times
+      std::vector<int> xindices;
+      for (int i = x; i < x + sx_; i++)
+        xindices.push_back(((i % nx_) + nx_) % nx_);
+      std::sort(xindices.begin(), xindices.end());
+      xindices.erase(std::unique(xindices.begin(), xindices.end()), xindices.end());
+
+      std::vector<int> yindices;
+      for (int j = y; j < y + sy_; j++)
+        yindices.push_back(((j % ny_) + ny_) % ny_);
+      std::sort(yindices.begin(), yindices.end());
+      yindices.erase(std::unique(yindices.begin(), yindices.end()), yindices.end());
+
+      std::vector<int> zindices;
+      for (int k = z; k < z + 2 * sz_; k++)
+        zindices.push_back(((k % nz_) + nz_) % nz_);
+      std::sort(zindices.begin(), zindices.end());
+      zindices.erase(std::unique(zindices.begin(), zindices.end()), zindices.end());
+
+      for (int k: zindices)
+        for (int j: yindices)
+          for(int i: xindices)
+            for (int var = 0; var < dof_; var++)
+              {
+              hymls_gidx gid = Tools::sub2ind(nx_, ny_, nz_, dof_, i, j, k, var);
+              if (sdMap_->LID((*this)(gid)) == sd)
+                {
+                if (pos >= numMyElements)
+                  {
+                  Tools::Error("Index out of range", __FILE__, __LINE__);
+                  }
+                myGlobalElements[pos++] = gid;
+                }
+              }
       }
 
     Epetra_Map tmpRepartitionedMap((hymls_gidx)(-1), pos,
@@ -622,7 +689,6 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::solveGroups(
   // Remove empty groups from newGroups and place them after
   // the interior in groups
   groups.resize(1);
-  std::sort(groups[0].begin(), groups[0].end());
   for (auto &cats: newGroups)
     for (auto &group: cats)
       if (!group.empty())
@@ -757,6 +823,9 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(
   groups.erase(std::remove_if(groups.begin(), groups.end(),
       [](std::vector<hymls_gidx> &i){return i.empty();}), groups.end());
 
+  // Sort the interior since there may now be new nodes at the back
+  std::sort(groups[0].begin(), groups[0].end());
+
   return groups;
   }
 
@@ -863,9 +932,9 @@ int SkewCartesianPartitioner::PID(int i, int j, int k) const
     Y += 0.5;
     }
 
-  i = (int)(X * cl - 1 + cl * nx_) % nx_;
-  j = (int)(Y * cl - 1 + cl * ny_) % ny_;
-  k = (int)((Z - 1) * cl + cl * nz_) % nz_;
+  i = ((int)(X * cl - 1) % nx_ + nx_) % nx_;
+  j = ((int)(Y * cl - 1) % ny_ + ny_) % ny_;
+  k = ((int)((Z - 1) * cl) % nz_ + nz_) % nz_;
 
   // In which cube is the cell?
   int sdx = i / sx;

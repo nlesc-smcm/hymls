@@ -221,7 +221,7 @@ void Tools::ind2sub(int nx, int ny, int nz, int dof,
     Tools::Error("ind2sub: Index out of range!",__FILE__,__LINE__);
     }
 #endif
-  int rem = idx;
+  hymls_gidx rem = idx;
   var = rem % dof;
   rem = rem / dof;
   i = rem % nx;
