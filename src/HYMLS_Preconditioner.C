@@ -886,8 +886,9 @@ int Preconditioner::SetProblemDefinition(std::string eqn, Teuchos::ParameterList
     probList.set("Test F-Matrix Properties",true);
 #endif
     }
-    else if (eqn=="Bous-C")
+  else if (eqn=="Bous-C")
     {
+    int pvar = dim_ + 1;
     // rare case - only one subdomain. Do not retain a pressure point because there won't be 
     // aSchur-Complement
     bool no_SC = false;
@@ -907,17 +908,22 @@ int Preconditioner::SetProblemDefinition(std::string eqn, Teuchos::ParameterList
     if (nx_==sx && ny_==sy && nz_==sz) no_SC = true;
     int factor = is_complex? 2 : 1;
     probList.set("Degrees of Freedom",(dim_+2)*factor);
-    for (int i=0;i<=(dim_+1)*factor-2;i++)
+
+    // Velocities and temperature
+    for (int i = 0; i < (dim_+2) * factor; i++)
       {
-      Teuchos::ParameterList& velList =
-        probList.sublist("Variable "+Teuchos::toString(i));
-      velList.set("Variable Type","Laplace");
+      if (i != pvar * factor)
+        {
+        Teuchos::ParameterList& velList =
+          probList.sublist("Variable "+Teuchos::toString(i));
+        velList.set("Variable Type","Laplace");
+        }
       }
 
     // pressure:
-      Teuchos::ParameterList& presList =
-        probList.sublist("Variable "+Teuchos::toString((dim_)*factor));
-      if (no_SC==false)
+    Teuchos::ParameterList& presList =
+      probList.sublist("Variable "+Teuchos::toString(pvar*factor));
+      if (!no_SC)
         {
         presList.set("Variable Type","Retain 1");
         presList.set("Retain Isolated",true);
@@ -927,19 +933,12 @@ int Preconditioner::SetProblemDefinition(std::string eqn, Teuchos::ParameterList
         presList.set("Variable Type","Uncoupled");
         }
 
-     // Temperature
-    for (int i=0;i<factor;i++)
-      {
-      Teuchos::ParameterList& velList =
-      probList.sublist("Variable "+Teuchos::toString((dim_+1)*factor+i));
-      velList.set("Variable Type","Laplace");
-      }
-    if (PL().get("Fix Pressure Level",true)==true)
+    if (PL().get("Fix Pressure Level", true))
       {
       // we fix the singularity by inserting a Dirichlet condition for 
       // global pressure node 2 
-      precList.set("Fix GID 1",factor*(dim_));
-      if (is_complex) precList.set("Fix GID 2",2*(dim_)+1);
+      precList.set("Fix GID 1", factor*pvar);
+      if (is_complex) precList.set("Fix GID 2", 2*pvar+1);
       }
 #ifdef HYMLS_TESTING
     probList.set("Test F-Matrix Properties",true);

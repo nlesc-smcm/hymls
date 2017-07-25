@@ -217,6 +217,11 @@ Teuchos::RCP<Epetra_Map> create_map(const Epetra_Comm& comm,
     dof = dim + 1;
     pvar = dim;
     }
+  else if (eqn == "Bous-C")
+    {
+    dof = dim + 2;
+    pvar = dim + 1;
+    }
   else if (eqn!="Laplace" && eqn=="Laplace Neumann")
     {
     HYMLS::Tools::Warning("cannot determine problem type from 'Equation' parameter "+eqn+"\n"
