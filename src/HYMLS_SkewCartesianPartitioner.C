@@ -440,7 +440,7 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::getTemplate() co
 
   // Info for each node type
   hymls_gidx firstNode[4] = {dof_*sx_/2 + 0 + dirY + dirZ * sx_,
-                             dof_*sx_/2 + (dof_ > 1) - 0    + dirZ * sx_,
+                             dof_*sx_/2 + 1 - 0    + dirZ * sx_,
                              dof_*sx_/2 + 2 - dirZ + dirZ * sx_,
                              dof_*sx_/2 + pvar_ + dirY + dirZ * sx_};
   hymls_gidx baseLength[4] = {sx_/2, sx_/2 + 1, sx_/2 + 1, sx_/2};
@@ -581,16 +581,31 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::getTemplate() co
   else
     newNodes.emplace_back();
 
+  // TODO: Make users able to choose which ones to use from the parameter list
   for (int j = 0; j < 2 * sx_ - 1; j++)
     {
     newNodes.emplace_back();
     if (dof_ > 1)
       std::copy(nodes[0][j].begin(), nodes[0][j].end(), std::back_inserter(newNodes.back()));
-    std::copy(nodes[1][j].begin(), nodes[1][j].end(), std::back_inserter(newNodes.back()));
     if (nz_ > 1 && dof_ > 1)
       std::copy(nodes[2][j].begin(), nodes[2][j].end(), std::back_inserter(newNodes.back()));
     if (pvar_ != -1)
       std::copy(nodes[3][j].begin(), nodes[3][j].end(), std::back_inserter(newNodes.back()));
+
+    // All other nodes are v-type nodes
+    for (int i = 0; i < dof_; i++)
+      {
+      if (i == 0 && dof_ > 1)
+        continue;
+      if (i == 2 && dof_ > 1 && nz_ > 1)
+        continue;
+      if (i == pvar_)
+        continue;
+      int size = newNodes.back().size();
+      std::copy(nodes[1][j].begin(), nodes[1][j].end(), std::back_inserter(newNodes.back()));
+      std::for_each(newNodes.back().begin()+size, newNodes.back().end(),
+        [i](hymls_gidx& d) { d += i-1;});
+      }
     std::sort(newNodes.back().begin(), newNodes.back().end());
     }
 

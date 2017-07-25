@@ -55,6 +55,46 @@ TEUCHOS_UNIT_TEST(CartesianPartitioner, Partition3D)
   TEST_EQUALITY(part(0, 3, 1), 2);
   }
 
+TEUCHOS_UNIT_TEST(CartesianPartitioner, 5DOFNodes)
+  {
+  FakeComm comm;
+  comm.SetNumProc(1);
+
+  DISABLE_OUTPUT;
+
+  int nx = 8;
+  int ny = 8;
+  int nz = 8;
+  int sx = 4;
+  int sy = 4;
+  int sz = 4;
+  int dof = 5;
+  int n = nx * ny * nz * dof;
+
+  Epetra_Map map(n, 0, comm);
+  HYMLS::CartesianPartitioner part(Teuchos::rcp(&map, false), nx, ny, nz, dof, 3);
+  part.Partition(sx, sy, sz, false);
+
+  ENABLE_OUTPUT;
+  std::vector<hymls_gidx> gids(n, 0);
+  for (int sd = 0; sd < part.NumLocalParts(); sd++)
+    {
+    Teuchos::Array<hymls_gidx> interior_nodes;
+    Teuchos::Array<Teuchos::Array<hymls_gidx> > separator_nodes;
+    part.GetGroups(sd, interior_nodes, separator_nodes);
+
+    for (hymls_gidx &i: interior_nodes)
+      gids[i] = i;
+
+    for (auto &group: separator_nodes)
+      for (hymls_gidx &i: group)
+        gids[i] = i;
+    }
+  
+  for (int i = 0; i < n; i++)
+    TEST_EQUALITY(gids[i], i);
+  }
+
 #ifdef HYMLS_LONG_LONG
 TEUCHOS_UNIT_TEST(CartesianPartitioner, GID64)
   {
