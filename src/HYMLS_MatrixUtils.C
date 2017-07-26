@@ -692,12 +692,10 @@ int MatrixUtils::mmread(std::string filename, Epetra_MultiVector& vec)
   Epetra_Import import(map, linearMap);
 
   Epetra_MultiVector *ptr;
-
   CHECK_ZERO(EpetraExt::MatrixMarketFileToMultiVector(filename.c_str(), linearMap, ptr));
   CHECK_ZERO(vec.Import(*ptr, import, Insert));
-  // TODO: this is a memory leak, but if we delete the pointer, which is created in EpetraExt,
-  //       we get a segfault. Why does this happen?
-  // delete [] ptr;
+  delete ptr;
+
   return 0;
   }
 
