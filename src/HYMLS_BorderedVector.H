@@ -4,6 +4,8 @@
 #include <math.h>
 #include <vector>
 
+#include <Trilinos_version.h>
+
 #include <Teuchos_RCP.hpp>
 
 #include "Epetra_MultiVector.h"
@@ -615,6 +617,7 @@ public:
 
   }; // end of specialization
 
+#if TRILINOS_MAJOR_VERSION<12
 template<>
 class MultiVecTraitsExt<double, HYMLS::BorderedVector>
   {
@@ -632,6 +635,7 @@ public:
       return static_cast<ptrdiff_t>( mv.GlobalLength() );
     }
   };
+#endif
 
 
   } // end of Belos namespace
