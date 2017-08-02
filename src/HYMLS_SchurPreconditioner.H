@@ -449,6 +449,22 @@ private:
   //! but only 0 entries is created.
   int AssembleTransformAndDrop();
 
+  //! Helper function for AssembleTransformAndDrop
+  int ConstructSCPart(int k, Epetra_Vector const &localTestVector,
+    Epetra_SerialDenseMatrix & Sk,
+#ifdef HYMLS_LONG_LONG
+  Epetra_LongLongSerialDenseVector &indices,
+#else
+  Epetra_IntSerialDenseVector &indices,
+#endif
+  Teuchos::Array<Epetra_SerialDenseMatrix> &SkArray,
+#ifdef HYMLS_LONG_LONG
+  Teuchos::Array<Epetra_LongLongSerialDenseVector> &indicesArray
+#else
+  Teuchos::Array<Epetra_IntSerialDenseVector> &indicesArray
+#endif
+    ) const;
+
   //! Initialize dense solvers for diagonal blocks
   //! ("Block Diagonal" variant)
   int InitializeBlocks();

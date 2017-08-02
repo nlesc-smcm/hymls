@@ -2,10 +2,6 @@
 // and preconditioner look like those in MATLAB (with singletons
 // and pressures shifted to the end of the ordering). This only 
 // works for 2D Navier-Stokes, otherwise an error is thrown.
-#ifdef MATLAB_COMPATIBILITY_MODE
-#define SHIFT_PRESSURE_TO_END
-#define SHIFT_SINGLETONS_TO_END
-#endif
 
 #include <iostream>
 
@@ -13,8 +9,6 @@
 
 #include "HYMLS_HierarchicalMap.H"
 #include "HYMLS_Tools.H"
-#include "HYMLS_BasePartitioner.H"
-#include "HYMLS_CartesianPartitioner.H"
 
 #include "Epetra_Comm.h"
 #include "Epetra_SerialComm.h"
@@ -30,7 +24,6 @@
 #include "Epetra_Util.h"
 
 #include <algorithm>
-
 
 #include "HYMLS_MatrixUtils.H"
 

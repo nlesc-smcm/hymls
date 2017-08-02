@@ -1010,7 +1010,7 @@ int SchurPreconditioner::InitializeOT()
     
     Epetra_SerialDenseVector v;
     Epetra_SerialDenseMatrix Sk;
-        
+
     // part remaining after dropping
     Epetra_SerialDenseMatrix Spart;
 #ifdef HYMLS_LONG_LONG
@@ -1020,23 +1020,6 @@ int SchurPreconditioner::InitializeOT()
     Epetra_IntSerialDenseVector indices;
     Epetra_IntSerialDenseVector indsPart;
 #endif
-
-    Teuchos::RCP<Epetra_CrsMatrix> transformedA22 =
-    OT->Apply(*sparseMatrixOT_,SchurComplement_->A22());
-    
-#ifdef HYMLS_DEBUGGING
-  std::string s1 = "SchurPrecond"+Teuchos::toString(myLevel_)+"_";
-/*
-  MatrixUtils::Dump(*matrix_,s1+"Pattern.txt");
-  // not Filled yet
-  //MatrixUtils::Dump(*transformedA22,s1+"TransformedA22.txt");
-*/
-#endif
-
-    if (transformedA22->RowMap().SameAs(matrix->RowMap())==false)
-      {
-      HYMLS::Tools::Error("mismatched maps",__FILE__,__LINE__);
-      }
 
     // put the pattern into matrix_
     if (!matrix->Filled())
@@ -1090,28 +1073,11 @@ int SchurPreconditioner::InitializeOT()
       CHECK_ZERO(matrix->GlobalAssemble());
       }
 
-    // now fill with H'*A22*H
-    int len;
-    int maxlen = transformedA22->GlobalMaxNumEntries();
-    hymls_gidx* cols = new hymls_gidx[maxlen];
-    double* values = new double[maxlen];
-
     CHECK_ZERO(matrix->PutScalar(0.0));
-    for (int i=0;i<matrix_->NumMyRows();i++)
-      {
-      //global row id
-      hymls_gidx grid = transformedA22->GRID64(i);
-      CHECK_ZERO(transformedA22->ExtractGlobalRowCopy(grid,maxlen,len,values,cols));
 
-      CHECK_NONNEG(matrix_->SumIntoGlobalValues(grid,len,values,cols));
-      }
-
-    // free temporary storage
-    delete [] values;
-    delete [] cols;
-    transformedA22=Teuchos::null;
-#ifdef HYMLS_STORE_MATRICES
-//  HYMLS::MatrixUtils::Dump(*matrix_,s1+"_TransDroppedA22.txt");
+#ifdef HYMLS_DEBUGGING
+    // std::string s1 = "SchurPrecond"+Teuchos::toString(myLevel_)+"_";
+    // MatrixUtils::Dump(*matrix_,s1+"Pattern.txt");
 #endif
 
     // Get an object with all separators connected to local subdomains
@@ -1126,107 +1092,61 @@ int SchurPreconditioner::InitializeOT()
     Epetra_Vector localTestVector(sepMap);
     CHECK_ZERO(localTestVector.Import(*testVector_,import,Insert));
 
-    // now for each subdomain construct the SC part A21*A11\A12 for the      
+    // now for each subdomain construct the SC part A22 and A21*A11\A12 for the
     // surrounding separators, apply orthogonal transforms to each separator 
     // group and sum them into the pattern defined above, dropping everything
     // that is not defined in the matrix pattern.
-     
+
     // loop over all subdomains
     for (int sd=0;sd<hid_->NumMySubdomains();sd++)
       {
-      HYMLS_LPROF3(label_,"Add A21A11A12 part");
+      HYMLS_LPROF3(label_, "Add A22 part");
       // construct the local contribution of the SC
       // (for all separators around the subdomain)
 
-      int numGroups = hid_->NumGroups(sd);
+      // Get the global indices of the separators
+      CHECK_ZERO(hid_->getSeparatorGIDs(sd, indices));
+
+      // Construct the local A22
+      CHECK_ZERO(SchurComplement_->Construct22(sd, Sk, indices));
+
+      Teuchos::Array<Epetra_SerialDenseMatrix> SkArray;
+#ifdef HYMLS_LONG_LONG
+      Teuchos::Array<Epetra_LongLongSerialDenseVector> indicesArray;
+#else
+      Teuchos::Array<Epetra_IntSerialDenseVector> indicesArray;
+#endif
+      CHECK_ZERO(ConstructSCPart(sd, localTestVector, Sk, indices, SkArray, indicesArray));
+
+      for (int i = 0; i < SkArray.length(); i++)
+        CHECK_ZERO(matrix->ReplaceGlobalValues(indicesArray[i], SkArray[i]));
+      }//sd
+    CHECK_ZERO(matrix->GlobalAssemble(false, Insert));
+
+    // loop over all subdomains
+    for (int sd=0;sd<hid_->NumMySubdomains();sd++)
+      {
+      HYMLS_LPROF3(label_, "Add -A21*A11\\A12 part");
+      // construct the local contribution of the SC
+      // (for all separators around the subdomain)
 
       // Get the global indices of the separators
       CHECK_ZERO(hid_->getSeparatorGIDs(sd, indices));
 
       // Construct the local -A21*A11\A12
-      CHECK_ZERO(SchurComplement_->Construct(sd, Sk, indices));
-      CHECK_ZERO(Sk.Scale(-1.0));
+      CHECK_ZERO(SchurComplement_->Construct11(sd, Sk, indices));
 
-      // Get the part of the testvector that belongs to the
-      // separators
-      v.Resize(indices.Length());
-      for (int i = 0; i < indices.Length(); i++)
-        v[i] = localTestVector[sepMap.LID(indices[i])];
+      Teuchos::Array<Epetra_SerialDenseMatrix> SkArray;
+#ifdef HYMLS_LONG_LONG
+      Teuchos::Array<Epetra_LongLongSerialDenseVector> indicesArray;
+#else
+      Teuchos::Array<Epetra_IntSerialDenseVector> indicesArray;
+#endif
+      CHECK_ZERO(ConstructSCPart(sd, localTestVector, Sk, indices, SkArray, indicesArray));
 
-      int numVsums = numGroups - 1;
-      indsPart.Resize(numVsums);
-      numVsums = 0;
-
-      int pos = 0;
-      int maxlen = 0;
-      // Loop over all separators of the subdomain sd
-      for (int grp = 1; grp < numGroups; grp++)
-        {
-        HYMLS_LPROF3(label_,"Apply OT");
-        int len = hid_->NumElements(sd, grp);
-        Epetra_SerialDenseVector vView(View, &v[pos], len);
-
-        // Apply the orthogonal transformation for each group
-        // separately
-        RestrictedOT::Apply(Sk, pos, *OT, vView);
-
-        if (len > 0)
-          indsPart[numVsums++] = indices[pos];
-
-        pos += len;
-        maxlen = std::max(len, maxlen);
-        }
-      indsPart.Resize(numVsums);
-
-      // Only add Vsum-Vsum couplings and non-Vsums. This is way faster than
-      // than trying to add all the values and letting SumIntoGlobalValues
-      // decide which ones to drop.
-      double *SkVsum = new double[numVsums * numVsums];
-      double *SkNonVsum = new double[maxlen * maxlen];
-
-      int pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-      for (int grp = 1; grp < numGroups; grp++)
-        {
-        HYMLS_LPROF3(label_,"Compute non-dropped part");
-        int len = hid_->NumElements(sd, grp);
-        if (len > 0)
-          {
-          pos2 = 0;
-          pos4 = 0;
-          for (int grp2 = 1; grp2 < numGroups; grp2++)
-            {
-            int len2 = hid_->NumElements(sd, grp2);
-            if (len2 > 0)
-              {
-              SkVsum[pos2 * numVsums + pos1] = Sk(pos3, pos4);
-              pos2++;
-              pos4 += len2;
-              }
-            }
-
-          pos1++;
-          if (len > 1)
-            {
-            for (int i = 0; i < len-1; i++)
-              for (int j = 0; j < len-1; j++)
-                SkNonVsum[j*(len-1)+i] = Sk(pos3+i+1, pos3+j+1);
-
-            CHECK_ZERO(matrix->SumIntoGlobalValues(len-1, &indices[pos3+1], SkNonVsum));
-            }
-          pos3 += len;
-          }
-        }
-
-        {
-        HYMLS_LPROF3(label_,"Add Vsum nodes");
-        CHECK_ZERO(matrix->SumIntoGlobalValues(numVsums, indsPart.Values(), SkVsum));
-        }
-
-      delete[] SkVsum;
-      delete[] SkNonVsum;
+      for (int i = 0; i < SkArray.length(); i++)
+        CHECK_ZERO(matrix->SumIntoGlobalValues(indicesArray[i], SkArray[i]));
       }//sd
-
-    HYMLS_DEBUG("assemble transformed/dropped SC");
     CHECK_ZERO(matrix->GlobalAssemble());
 
 #ifdef HYMLS_STORE_MATRICES
@@ -1240,6 +1160,102 @@ int SchurPreconditioner::InitializeOT()
             __FILE__,__LINE__);
     return 0;
     }
+
+int SchurPreconditioner::ConstructSCPart(int sd, Epetra_Vector const &localTestVector,
+  Epetra_SerialDenseMatrix & Sk,
+#ifdef HYMLS_LONG_LONG
+  Epetra_LongLongSerialDenseVector &indices,
+#else
+  Epetra_IntSerialDenseVector &indices,
+#endif
+  Teuchos::Array<Epetra_SerialDenseMatrix> &SkArray,
+#ifdef HYMLS_LONG_LONG
+  Teuchos::Array<Epetra_LongLongSerialDenseVector> &indicesArray
+#else
+  Teuchos::Array<Epetra_IntSerialDenseVector> &indicesArray
+#endif
+  ) const
+  {
+  Epetra_SerialDenseVector v;
+
+  SkArray.resize(1);
+  indicesArray.resize(1);
+
+  // Get the part of the testvector that belongs to the
+  // separators
+  const Epetra_BlockMap& sepMap = localTestVector.Map();
+  v.Resize(indices.Length());
+  for (int i = 0; i < indices.Length(); i++)
+    v[i] = localTestVector[sepMap.LID(indices[i])];
+
+  int numGroups = hid_->NumGroups(sd);
+  int numVsums = numGroups - 1;
+  indicesArray[0].Resize(numVsums);
+  numVsums = 0;
+
+  int pos = 0;
+  // Loop over all separators of the subdomain sd
+  for (int grp = 1; grp < numGroups; grp++)
+    {
+    HYMLS_LPROF3(label_,"Apply OT");
+    int len = hid_->NumElements(sd, grp);
+    Epetra_SerialDenseVector vView(View, &v[pos], len);
+
+    // Apply the orthogonal transformation for each group
+    // separately
+    RestrictedOT::Apply(Sk, pos, *OT, vView);
+
+    if (len > 0)
+      indicesArray[0][numVsums++] = indices[pos];
+
+    pos += len;
+    }
+  indicesArray[0].Resize(numVsums);
+  SkArray[0].Shape(numVsums, numVsums);
+
+  // Only add Vsum-Vsum couplings and non-Vsums. This is way faster than
+  // than trying to add all the values and letting SumIntoGlobalValues
+  // decide which ones to drop.
+  int pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+  for (int grp = 1; grp < numGroups; grp++)
+    {
+    HYMLS_LPROF3(label_,"Compute non-dropped part");
+    int len = hid_->NumElements(sd, grp);
+    if (len > 0)
+      {
+      pos2 = 0;
+      pos4 = 0;
+      for (int grp2 = 1; grp2 < numGroups; grp2++)
+        {
+        int len2 = hid_->NumElements(sd, grp2);
+        if (len2 > 0)
+          {
+          SkArray[0](pos1, pos2) = Sk(pos3, pos4);
+          pos2++;
+          pos4 += len2;
+          }
+        }
+
+      pos1++;
+      if (len > 1)
+        {
+        SkArray.append(Epetra_SerialDenseMatrix(len-1, len-1));
+        for (int i = 0; i < len-1; i++)
+          for (int j = 0; j < len-1; j++)
+            SkArray.back()(i, j) = Sk(pos3+i+1, pos3+j+1);
+
+#ifdef HYMLS_LONG_LONG
+        indicesArray.append(Epetra_LongLongSerialDenseVector(View, &indices[pos3+1], len-1));
+#else
+        indicesArray.append(Epetra_IntSerialDenseVector(View, &indices[pos3+1], len-1));
+#endif
+        }
+      pos3 += len;
+      }
+    }
+
+  return 0;
+  }
 
 
   // Returns true if the  preconditioner has been successfully initialized, false otherwise.
