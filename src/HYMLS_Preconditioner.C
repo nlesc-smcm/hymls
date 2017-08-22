@@ -437,6 +437,7 @@ HYMLS_DEBVAR(probList_);
   // Also construct the subdomain blocks separately for A12 and A21
   CHECK_ZERO(A12_->ComputeSubdomainBlocks());
   CHECK_ZERO(A21_->ComputeSubdomainBlocks());
+  CHECK_ZERO(A22_->ComputeSubdomainBlocks());
 
 #ifdef HYMLS_STORE_MATRICES
   MatrixUtils::Dump(*A12_->Block(), "Precond"+Teuchos::toString(myLevel_)+"_A12.txt");

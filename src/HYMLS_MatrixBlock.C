@@ -383,7 +383,7 @@ int MatrixBlock::ApplyInverse(const Epetra_MultiVector& B, Epetra_MultiVector& X
     const int rows = subdomainSolvers_[sd]->NumRows();
 
     // copy IDs to be able to walk through the vectors columnwise
-    int IDlist[rows];
+    int *IDlist = new int[rows];
     for (int j = 0 ; j < rows ; j++)
       IDlist[j] = B.Map().LID(extendedMatrix_->GRID64(subdomainSolvers_[sd]->ID(j)));
 
@@ -413,6 +413,7 @@ int MatrixBlock::ApplyInverse(const Epetra_MultiVector& B, Epetra_MultiVector& X
         Xvec[IDlist[j]] = subdomainSolvers_[sd]->LHS(j,k);
         }
       }
+    delete[] IDlist;
     }
 
   return 0;

@@ -181,24 +181,29 @@ int SchurComplement::Construct(Teuchos::RCP<Epetra_FECrsMatrix> S) const
     CHECK_ZERO(S->PutScalar(0.0));
     }
 
+  // Add A21*A11\A12
   for (int k = 0; k < hid.NumMySubdomains(); k++)
     {
     // construct values for separators around subdomain k
     CHECK_ZERO(hid.getSeparatorGIDs(k, indices));
-    CHECK_ZERO(Construct(k, Sk, indices, &flopsCompute_));
+    CHECK_ZERO(Construct11(k, Sk, indices, &flopsCompute_));
 
     CHECK_ZERO(S->SumIntoGlobalValues(indices, Sk));
     }
-  HYMLS_DEBUG("SchurComplement - GlobalAssembly");
   CHECK_ZERO(S->GlobalAssemble(false));
+
+  // Add A22
   CHECK_ZERO(EpetraExt::MatrixMatrix::Add(*A22_->Block(), false, 1.0,
-      *S, -1.0));
+      *S, 1.0));
   // finish construction by creating local IDs:
   CHECK_ZERO(S->FillComplete());
+
+  HYMLS_DEBUG("SchurComplement - GlobalAssembly");
+  // CHECK_ZERO(S->GlobalAssemble());
   return 0;
   }
 
-int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
+int SchurComplement::Construct11(int sd, Epetra_SerialDenseMatrix &Sk,
 #ifdef HYMLS_LONG_LONG
   const Epetra_LongLongSerialDenseVector &inds,
 #else
@@ -244,7 +249,7 @@ int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
     {
     CHECK_ZERO(Sk.Shape(nrows, nrows));
     }
-  
+
   if (A11.NumRows() == 0)
     {
     return 0; // has only an A22-contribution (no interior elements)
@@ -256,10 +261,10 @@ int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
   HYMLS_DEBVAR(inds);
   HYMLS_DEBVAR(nrows);
 
-  int int_elems = hid.NumInteriorElements(sd);
   int len;
   int *indices;
   double *values;
+  int int_elems = hid.NumInteriorElements(sd);
 
   // Loop over all interior elements
   for (int i = 0; i < int_elems; i++)
@@ -324,10 +329,11 @@ int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
 //    HYMLS_DEBUG("Copy into Sk matrix");
   for (int i = 0; i < nrows; i++)
     {
+    // A21*A11\A12 part
     int lrid = A21.RowMap().LID(inds[i]);
     for (int j = 0; j < nrows; j++)
       {
-      Sk(i, j) = Aloc[j][lrid];
+      Sk(i, j) = -Aloc[j][lrid];
       }
     }
 
@@ -337,6 +343,64 @@ int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
 #ifdef FLOPS_COUNT
   if (count_flops != NULL) *count_flops += flops;
 #endif
+  return 0;
+  }
+
+int SchurComplement::Construct22(int sd, Epetra_SerialDenseMatrix &Sk,
+#ifdef HYMLS_LONG_LONG
+  const Epetra_LongLongSerialDenseVector &inds,
+#else
+  const Epetra_IntSerialDenseVector &inds,
+#endif
+  double *count_flops) const
+  {
+  HYMLS_LPROF3(label_, "Construct SDM");
+
+  const OverlappingPartitioner &hid = A22_->Partitioner();
+  const Epetra_CrsMatrix &A22 = *A22_->SubBlock(sd);
+
+  if (sd < 0 || sd > hid.NumMySubdomains())
+    {
+    Tools::Warning("Subdomain index out of range!", __FILE__, __LINE__);
+    return -1;
+    }
+
+  int nrows = hid.NumSeparatorElements(sd);
+
+  if (inds.Length() != nrows)
+    {
+    return -1; // caller probably did not call Construct(indices)
+    }
+
+  if (Sk.M() != nrows || Sk.N() != nrows)
+    {
+    CHECK_ZERO(Sk.Shape(nrows, nrows));
+    }
+
+  CHECK_ZERO(Sk.Scale(0.0));
+
+  int len;
+  int *indices;
+  double *values;
+
+  for (int i = 0; i < nrows; i++)
+    {
+    // A22 part
+    int lrid = A22.RowMap().LID(inds[i]);
+    CHECK_ZERO(A22.ExtractMyRowView(lrid, len, values, indices));
+    for (int k = 0; k < len; k++)
+      {
+      const hymls_gidx gcid = A22.GCID64(indices[k]);
+      for (int j = 0; j < nrows; j++)
+        {
+        if (gcid == inds[j])
+          {
+          Sk(i, j) = values[k];
+          break;
+          }
+        }
+      }
+    }
   return 0;
   }
 

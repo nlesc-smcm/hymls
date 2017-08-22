@@ -245,7 +245,6 @@ int CartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
     cartesianMap_ = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), pos,
         myGlobalElements, (hymls_gidx)baseMap_->IndexBase64(), *comm_));
 
-    HYMLS_DEBVAR(*repartitionedMap);
     if (myGlobalElements)
       delete [] myGlobalElements;
     }
