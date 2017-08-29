@@ -999,30 +999,27 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
   // should physical zeros be put on the diagonal where dropping occurs?
   bool fullDiag = (type == RelFullDiag || type == AbsFullDiag);
 
-  if (rel)
+  diagA = Teuchos::rcp(new Epetra_Vector(A->RowMap()));
+  CHECK_ZERO(A->ExtractDiagonalCopy(*diagA));
+  // import diagA into the column map of A, we need this
+  // in case we have to look for ajj when considering dropping
+  // aij in a row with aii = 0.
+  if (!A->HaveColMap())
     {
-    diagA = Teuchos::rcp(new Epetra_Vector(A->RowMap()));
-    CHECK_ZERO(A->ExtractDiagonalCopy(*diagA));
-    // import diagA into the column map of A, we need this
-    // in case we have to look for ajj when considering dropping
-    // aij in a row with aii = 0.
-    if (!A->HaveColMap())
+    Tools::Error("matrix has no col map, you may have to call FillComplete() first.", __FILE__, __LINE__);
+    }
+  if (A->Importer() != NULL)
+    {
+    Teuchos::RCP<Epetra_Vector> diagA_tmp = diagA;
+    diagA = Teuchos::rcp(new Epetra_Vector(A->ColMap()));
+    CHECK_ZERO(diagA->Import(*diagA_tmp, *A->Importer(), Insert));
+    }
+  else
+    {
+    if (A->RowMap().SameAs(A->ColMap()) == false)
       {
-      Tools::Error("matrix has no col map, you may have to call FillComplete() first.", __FILE__, __LINE__);
-      }
-    if (A->Importer() != NULL)
-      {
-      Teuchos::RCP<Epetra_Vector> diagA_tmp = diagA;
-      diagA = Teuchos::rcp(new Epetra_Vector(A->ColMap()));
-      CHECK_ZERO(diagA->Import(*diagA_tmp, *A->Importer(), Insert));
-      }
-    else
-      {
-      if (A->RowMap().SameAs(A->ColMap()) == false)
-        {
-        Tools::Error("your matrix is suspicious, row map != col map, but no importer...",
-          __FILE__, __LINE__);
-        }
+      Tools::Error("your matrix is suspicious, row map != col map, but no importer...",
+        __FILE__, __LINE__);
       }
     }
 
@@ -1089,7 +1086,7 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
         scal = std::max(scal_i, std::abs((*diagA)[lcid_j]));
         }
 
-      if (std::abs(values[j]) > scal*droptol)
+      if (std::abs(values[j]) > scal*droptol && std::abs(values[j]) > droptol)
         {
         // retain the entry
         new_values[new_len] = values[j];
