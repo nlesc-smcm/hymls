@@ -43,18 +43,10 @@
     <!-- apply preconditioning from left or right (if Krylov Method!="None") -->
     <Parameter name="Left or Right Preconditioning" type="string" value="Right"/>
     
-    <!-- this is not necessary for Laplace, of course, but we can test the eigensolver: -->
-    <Parameter name="Deflated Subspace Dimension" type="int" value="0"/>
-    
-    <Parameter name="Deflation Threshold" type="double" value="0.0"/>
-
     <!-- parameters for the iterative solver (Belos) -->
     <ParameterList name="Iterative Solver">
       <Parameter name="Maximum Iterations" type="int" value="500"/>
       <Parameter name="Block Size" type="int" value="1"/>
-      <Parameter name="Flexible Gmres" type="bool" value="0"/>
-      <Parameter name="Explicit Residual Test" type="bool" value="0"/>
-      <Parameter name="Maximum Restarts" type="int" value="5"/>
       <Parameter name="Convergence Tolerance" type="double" value="1.0e-10"/>
       <Parameter name="Output Frequency" type="int" value="1"/>
       <Parameter name="Show Maximum Residual Norm Only" type="bool" value="1"/>
