@@ -5,6 +5,8 @@
   <!-- HYMLS solver classes.                                -->
   <ParameterList name="Driver">
 
+    <Parameter name="Galeri Label" type="string" value="Stokes-C"/>
+
     <!-- will create a series of slightly perturbed matrices -->
     <Parameter name="Number of factorizations" type="int" value="1"/>
     <!-- for each matrix, solve with several right-hand sides in a row -->
@@ -21,7 +23,7 @@
 
   <ParameterList name="Problem"><!--{-->
 
-    <Parameter name="Equations" type="string" value="Laplace"/>
+    <Parameter name="Equations" type="string" value="Stokes-C"/>
     <Parameter name="Dimension" type="int" value="2"/>
     
     <Parameter name="Complex Arithmetic" type="bool" value="0"/>
@@ -35,7 +37,7 @@
   <ParameterList name="Solver">
   
     <!-- "CG", "GMRES", "PCPG" (only GMRES actually supported by our solver right now) -->
-    <Parameter name="Krylov Method" type="string" value="CG"/>
+    <Parameter name="Krylov Method" type="string" value="GMRES"/>
     
     <!-- vector to start the Krylov sequence: "Zero", "Random", "Previous" -->
     <Parameter name="Initial Vector" type="string" value="Random"/>
@@ -47,6 +49,7 @@
     <ParameterList name="Iterative Solver">
       <Parameter name="Maximum Iterations" type="int" value="500"/>
       <Parameter name="Block Size" type="int" value="1"/>
+      <Parameter name="Num Blocks" type="int" value="30"/>
       <Parameter name="Convergence Tolerance" type="double" value="1.0e-10"/>
       <Parameter name="Output Frequency" type="int" value="1"/>
       <Parameter name="Show Maximum Residual Norm Only" type="bool" value="1"/>
@@ -55,7 +58,7 @@
 
   <ParameterList name="Preconditioner">
     
-    <Parameter name="Partitioner" type="string" value="Cartesian"/>
+    <Parameter name="Partitioner" type="string" value="Skew Cartesian"/>
 
     <Parameter name="Visualize Solver" type="bool" value="0"/>
         

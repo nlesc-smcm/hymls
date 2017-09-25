@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.1)
 project(HYMLS CXX)
 
 list (APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/")
@@ -71,9 +71,9 @@ elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
     set(CMAKE_Fortran_FLAGS  "${CMAKE_Fortran_FLAGS} -O2 -g -mkl")
   endif()
 
-  set(CMAKE_C_FLAGS_RELEASE        "-O3 -mkl -ffast-math -march=native")
-  set(CMAKE_CXX_FLAGS_RELEASE      "-O3 -mkl -ffast-math -march=native")
-  set(CMAKE_Fortran_FLAGS_RELEASE  "-O3 -mkl -ffast-math -march=native")
+  set(CMAKE_C_FLAGS_RELEASE        "-O3 -mkl -fast -march=native")
+  set(CMAKE_CXX_FLAGS_RELEASE      "-O3 -mkl -fast -march=native")
+  set(CMAKE_Fortran_FLAGS_RELEASE  "-O3 -mkl -fast -march=native")
 
   set (CMAKE_C_FLAGS_DEBUG       "-O0 -g -mkl")
   set (CMAKE_CXX_FLAGS_DEBUG     "-O0 -g -mkl")
