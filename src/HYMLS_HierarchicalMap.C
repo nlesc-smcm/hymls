@@ -174,7 +174,7 @@ int HierarchicalMap::FillComplete()
         }
       hymls_gidx offset = *((*newGroupPointer)[sd].end()-1);
       int len = gidList.size();
-      if (len > 0)
+      if (len > 0 || grp == 0)
         {
         (*newGroupPointer)[sd].append(offset + len);
         std::copy(gidList.begin(), gidList.end(), std::back_inserter((*newGidList)[sd]));

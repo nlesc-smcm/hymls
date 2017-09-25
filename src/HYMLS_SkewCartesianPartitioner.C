@@ -172,17 +172,18 @@ int SkewCartesianPartitioner::GetSubdomainPosition(
   int totNum2DCubes = npx * npy; // number of cubes for fixed z
   int numPerLayer = 2 * totNum2DCubes + npx + npy; // domains for fixed z
   int numPerRow = 2 * npx + 1; // domains in a row (both lattices); fixed y
+
   int Z = sd / numPerLayer;
-  double Y = ((sd - Z * numPerLayer) / numPerRow) - 0.5;
-  double X = (sd - Z * numPerLayer) % numPerRow;
-  if (X >= npx)
+  int Y = ((sd - Z * numPerLayer) / numPerRow) * 2 - 1;
+  int X = ((sd - Z * numPerLayer) % numPerRow) * 2;
+  if (X >= npx * 2)
     {
-    X -= npx + 0.5;
-    Y += 0.5;
+    X -= npx * 2 + 1;
+    Y += 1;
     }
 
-  x = X * sx;
-  y = Y * sx;
+  x = (X * sx) / 2;
+  y = (Y * sx) / 2;
   z = (Z - 1) * sx;
 
   if (x == nx_ - sx / 2 && perio_ & GaleriExt::X_PERIO)
@@ -715,13 +716,6 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::solveGroups(
         groups.push_back(group);
         }
 
-  // Shift back the groups from the central position
-  for (auto &group: groups)
-    {
-    std::for_each(group.begin(), group.end(),
-      [first](hymls_gidx& d) { d -= first;});
-    }
-
   return groups;
   }
 
@@ -734,6 +728,7 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(
   GetSubdomainPosition(sd, sx_, sdx, sdy, sdz);
 
   int nx = 4 * sx_;
+
   // Move the groups to the right position and cut off parts that fall
   // outside of the domain
   std::vector<std::vector<hymls_gidx> > newGroups;
@@ -743,9 +738,9 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(
     for (hymls_gidx &node: group)
       {
       int var = node % dof_;
-      int x = (node / dof_) % nx + sdx - 1;
-      int y = (node / dof_ / nx) % nx + sdy - 1;
-      int z = node / dof_ / nx / nx + sdz;
+      int x = (node / dof_) % nx + sdx - 1 - sx_;
+      int y = (node / dof_ / nx) % nx + sdy - 1 - sx_;
+      int z = node / dof_ / nx / nx + sdz - sx_;
       if (perio_ & GaleriExt::X_PERIO) x = (x + nx_) % nx_;
       if (perio_ & GaleriExt::Y_PERIO) y = (y + ny_) % ny_;
       if (perio_ & GaleriExt::Z_PERIO) z = (z + nz_) % nz_;
@@ -756,7 +751,7 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(
   groups = newGroups;
 
   // Remove empty groups
-  groups.erase(std::remove_if(groups.begin(), groups.end(),
+  groups.erase(std::remove_if(groups.begin()+1, groups.end(),
       [](std::vector<hymls_gidx> &i){return i.empty();}), groups.end());
 
   // Get first pressure node from interior to a new group.
@@ -815,7 +810,7 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(
           groups[0].push_back(node);
         group->erase(std::remove(group->begin(), group->end(), node));
         }
-      else if (dof_ > 1 && nz_ > 1 && z == nz_ - 1 && node % dof_ == 2 &&
+      else if (nz_ > 1 && z == nz_ - 1 && node % dof_ == 2 &&
         !(perio_ & GaleriExt::Z_PERIO))
         {
         if (operator()(x, y, z) == sd)
@@ -826,7 +821,7 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(
     }
 
   // Remove empty groups
-  groups.erase(std::remove_if(groups.begin(), groups.end(),
+  groups.erase(std::remove_if(groups.begin()+1, groups.end(),
       [](std::vector<hymls_gidx> &i){return i.empty();}), groups.end());
 
   // Sort the interior since there may now be new nodes at the back
