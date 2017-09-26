@@ -12,18 +12,14 @@ set(HYMLS_SOURCE HYMLS_Solver
     HYMLS_SchurPreconditioner
     HYMLS_OverlappingPartitioner
     HYMLS_HierarchicalMap
-    HYMLS_BaseCartesianPartitioner
     HYMLS_CartesianPartitioner
-    HYMLS_StandardNodeClassifier
-    HYMLS_CartesianStokesClassifier
-    HYMLS_SepNode
+    HYMLS_SkewCartesianPartitioner
     HYMLS_HyperCube
     HYMLS_MatrixUtils
     HYMLS_DenseUtils
     HYMLS_ProjectedOperator
     HYMLS_BelosEpetraOperator
     HYMLS_Epetra_Time
-    HYMLS_View_MultiVector
     HYMLS_EpetraExt_ProductOperator
     HYMLS_SparseDirectSolver
     HYMLS_Householder
@@ -34,6 +30,7 @@ set(HYMLS_SOURCE HYMLS_Solver
     HYMLS_Exception
     HYMLS_MatrixBlock
     NOX_Epetra_LinearSystem_Hymls
+    GaleriExt_CrsMatrices
     GaleriExt_Periodic
     EpetraExt_RestrictedCrsMatrixWrapper
     EpetraExt_RestrictedMultiVectorWrapper
@@ -44,10 +41,12 @@ set(HEADERS)
 # Manually add headers without source file
 set(HEADERS ${HEADERS}
   GaleriExt_Cross2DN.h
+  GaleriExt_Cross3DN.h
   GaleriExt_Darcy2D.h
   GaleriExt_Darcy3D.h
   GaleriExt_Star3D.h
-  HYMLS_BaseNodeClassifier.H
+  GaleriExt_Stokes2D.h
+  GaleriExt_Stokes3D.h
   HYMLS_BasePartitioner.H
   HYMLS_Macros.H
   HYMLS_no_debug.H

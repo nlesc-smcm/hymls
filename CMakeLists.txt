@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.1)
 project(HYMLS CXX)
 
 list (APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/")
@@ -14,6 +14,7 @@ option(HYMLS_USE_PHIST OFF "try to find PHIST and enable it as eigensolver with 
 option(HYMLS_STORE_MATRICES "dump all matrices, maps etc. encountered (huge overhead)" OFF)
 option(HYMLS_DEBUGGING "turns on verbose debugging output" OFF)
 option(HYMLS_FUNCTION_TRACING "turns on very verbose output on every function entered/left" OFF)
+option(HYMLS_LONG_LONG "use long long global indices" OFF)
 
 # HYMLS version
 execute_process(COMMAND git rev-parse --short --sq HEAD WORKING_DIRECTORY ${PROJECT_SOURCE_DIR} OUTPUT_VARIABLE rev)
@@ -54,9 +55,9 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   set(CMAKE_CXX_FLAGS_RELEASE      "-O3 -ffast-math -march=native")
   set(CMAKE_Fortran_FLAGS_RELEASE  "-O3 -ffast-math -march=native")
 
-  set (CMAKE_C_FLAGS_DEBUG       "-O0 -g")
-  set (CMAKE_CXX_FLAGS_DEBUG     "-O0 -g")
-  set (CMAKE_Fortran_FLAGS_DEBUG "-O0 -g")
+  set (CMAKE_C_FLAGS_DEBUG       "-O0 -g -Wall -Wno-unknown-pragmas -Wno-deprecated-declarations")
+  set (CMAKE_CXX_FLAGS_DEBUG     "-O0 -g -Wall -Wno-unknown-pragmas -Wno-deprecated-declarations")
+  set (CMAKE_Fortran_FLAGS_DEBUG "-O0 -g -Wall -Wno-unknown-pragmas -Wno-deprecated-declarations")
 
   set (CMAKE_C_FLAGS_RELWITHDEBINFO       "${CMAKE_C_FLAGS_RELEASE}       -g")
   set (CMAKE_CXX_FLAGS_RELWITHDEBINFO     "${CMAKE_CXX_FLAGS_RELEASE}     -g")
@@ -70,9 +71,9 @@ elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
     set(CMAKE_Fortran_FLAGS  "${CMAKE_Fortran_FLAGS} -O2 -g -mkl")
   endif()
 
-  set(CMAKE_C_FLAGS_RELEASE        "-O3 -mkl -ffast-math -march=native")
-  set(CMAKE_CXX_FLAGS_RELEASE      "-O3 -mkl -ffast-math -march=native")
-  set(CMAKE_Fortran_FLAGS_RELEASE  "-O3 -mkl -ffast-math -march=native")
+  set(CMAKE_C_FLAGS_RELEASE        "-O3 -mkl -fast -march=native")
+  set(CMAKE_CXX_FLAGS_RELEASE      "-O3 -mkl -fast -march=native")
+  set(CMAKE_Fortran_FLAGS_RELEASE  "-O3 -mkl -fast -march=native")
 
   set (CMAKE_C_FLAGS_DEBUG       "-O0 -g -mkl")
   set (CMAKE_CXX_FLAGS_DEBUG     "-O0 -g -mkl")

@@ -59,7 +59,7 @@ TEUCHOS_UNIT_TEST(DenseUtils, ApplyOrth)
   Epetra_MpiComm Comm(MPI_COMM_WORLD);
 
   // Construct some vectors and matrices
-  int n = 10;
+  hymls_gidx n = 10;
   Epetra_Map map(n, 0, Comm);
   Epetra_MultiVector x(map, 1);
   Epetra_MultiVector y(map, 1);

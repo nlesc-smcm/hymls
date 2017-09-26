@@ -258,8 +258,12 @@ namespace HYMLS {
   // explicitly form the OT as a sparse matrix. We only put in a sparse
   // matrix representation of the vector w=v'/sqrt(v'v), so when applying the operator
   // we have to apply I-2w'w.
-  int Householder::Construct(Epetra_CrsMatrix& H, 
-            const Epetra_IntSerialDenseVector& inds) const
+  int Householder::Construct(Epetra_CrsMatrix& H,
+#ifdef HYMLS_LONG_LONG
+    const Epetra_LongLongSerialDenseVector& inds) const
+#else
+    const Epetra_IntSerialDenseVector& inds) const
+#endif
     {
     HYMLS_PROF3(label_, "Construct (2)");
     int n=inds.Length();
@@ -268,28 +272,32 @@ namespace HYMLS {
     return this->Construct(H,inds,vec);
     }
 
-  int Householder::Construct(Epetra_CrsMatrix& H, 
-            const Epetra_IntSerialDenseVector& inds,
-            const Epetra_SerialDenseVector& vec) const
+  int Householder::Construct(Epetra_CrsMatrix& H,
+#ifdef HYMLS_LONG_LONG
+    const Epetra_LongLongSerialDenseVector& inds,
+#else
+    const Epetra_IntSerialDenseVector& inds,
+#endif
+    const Epetra_SerialDenseVector& vec) const
     {
     HYMLS_PROF3(label_, "Construct (3)");
     // vec is the test vector to be zeroed out by this transform,
     // construct the according v for the Householder reflection: 
     Epetra_SerialDenseVector v = vec;
     int n=vec.Length();
-    int row=inds[0];
+    hymls_gidx row=inds[0];
     double nrm=vec.Norm2();
     v[0]=v[0]+nrm;
     nrm=v.Norm2();
     CHECK_ZERO(v.Scale(1.0/nrm));
-          
+
     if (H.Filled())
       {
-      CHECK_ZERO(H.ReplaceGlobalValues(row,n,v.A(),const_cast<int*>(&(inds[0]))));
+      CHECK_ZERO(H.ReplaceGlobalValues(row,n,v.A(),const_cast<hymls_gidx*>(&(inds[0]))));
       }
     else
       {
-      CHECK_NONNEG(H.InsertGlobalValues(row,n,v.A(),const_cast<int*>(&(inds[0]))));
+      CHECK_NONNEG(H.InsertGlobalValues(row,n,v.A(),const_cast<hymls_gidx*>(&(inds[0]))));
       }
     return 0;
     }
@@ -323,7 +331,7 @@ namespace HYMLS {
         Epetra_CrsMatrix(Copy,A.RowMap(),A.MaxNumEntries()) );
 
     HYMLS_DEBUG("compute A*wT...");
-#if (1 || TRILINOS_MAJOR_MINOR_VERSION<101000)
+#if 0
 #define MATMUL_BUG 1
 #endif
 #ifndef MATMUL_BUG
@@ -373,9 +381,9 @@ namespace HYMLS {
     CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(T,false,*Cmat_,false,*WCmat_,true));
 
     // wTwC
-    Teuchos::RCP<Epetra_CrsMatrix> wTwC = Teuchos::rcp(new 
-        Epetra_CrsMatrix(Copy,A.RowMap(),WTmat_->MaxNumEntries()) );
-  
+    Teuchos::RCP<Epetra_CrsMatrix> wTwC = Teuchos::rcp(new
+      Epetra_CrsMatrix(Copy,A.RowMap(),Wmat_->MaxNumEntries()));
+
     HYMLS_DEBUG("compute wTwC...");
 #ifndef MATMUL_BUG
     CHECK_ZERO(EpetraExt::MatrixMatrix::Multiply(*Wmat_,true,*WCmat_,false,*wTwC,false));

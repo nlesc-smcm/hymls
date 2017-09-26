@@ -96,7 +96,7 @@ public:
   //!@}
 
   //! convert global index to string for output (gid => (i,j,k,v)
-  static std::string gid2str(int gid); 
+  static std::string gid2str(hymls_gidx gid); 
 
   //! tolerance if we have a numerical value that should be small  
   inline static double float_tol(){return 256.0*Teuchos::ScalarTraits<double>::eps();}

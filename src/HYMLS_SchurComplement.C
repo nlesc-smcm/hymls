@@ -1,19 +1,18 @@
-#include "HYMLS_no_debug.H"
-
 #include "HYMLS_SchurComplement.H"
 #include "HYMLS_OverlappingPartitioner.H"
-#include "HYMLS_SparseDirectSolver.H"
 #include "HYMLS_MatrixUtils.H"
 
 #include "Epetra_Comm.h"
 #include "Epetra_Map.h"
 #include "Epetra_MultiVector.h"
 #include "Epetra_Vector.h"
-#include "Epetra_SerialDenseMatrix.h"
 #include "Epetra_RowMatrix.h"
 #include "Epetra_CrsMatrix.h"
 #include "Epetra_FECrsMatrix.h"
 #include "Epetra_Import.h"
+#include "Epetra_SerialDenseMatrix.h"
+#include "Epetra_IntSerialDenseVector.h"
+#include "Epetra_LongLongSerialDenseVector.h"
 
 #include "Ifpack_Container.h"
 
@@ -74,7 +73,7 @@ int SchurComplement::Apply(const Epetra_MultiVector &X,
     {
     CHECK_ZERO(Scrs_->Apply(X, Y));
 #ifdef FLOPS_COUNT
-    flopsApply_ += 2 * Scrs_->NumGlobalNonzeros();
+    flopsApply_ += 2 * Scrs_->NumGlobalNonzeros64();
 #endif
     }
   else
@@ -100,7 +99,7 @@ int SchurComplement::Apply(const Epetra_MultiVector &X,
     // 3) compute Y = Y-Y2
     CHECK_ZERO(Y.Update(-1.0, Y2, 1.0));
 #ifdef FLOPS_COUNT
-    flopsApply_ += Y.GlobalLength() *Y.NumVectors();
+    flopsApply_ += Y.GlobalLength64() *Y.NumVectors();
 #endif
 #endif
     }
@@ -124,22 +123,26 @@ int SchurComplement::Construct()
   CHECK_ZERO(this->Construct(sparseMatrixRepresentation_));
   Scrs_ = MatrixUtils::DropByValue(sparseMatrixRepresentation_,
     HYMLS_SMALL_ENTRY);
-  REPORT_MEM(label_, "SchurComplement", Scrs_->NumGlobalNonzeros(),
-    Scrs_->NumGlobalNonzeros() +
-    Scrs_->NumGlobalRows());
+  REPORT_MEM(label_, "SchurComplement", Scrs_->NumGlobalNonzeros64(),
+    Scrs_->NumGlobalNonzeros64() +
+    Scrs_->NumGlobalRows64());
   return 0;
   }
 
 int SchurComplement::Construct(Teuchos::RCP<Epetra_FECrsMatrix> S) const
   {
   HYMLS_LPROF3(label_, "Construct FEC");
+#ifdef HYMLS_LONG_LONG
+  Epetra_LongLongSerialDenseVector indices;
+#else
   Epetra_IntSerialDenseVector indices;
+#endif
   Epetra_SerialDenseMatrix Sk;
 
   const Epetra_Map &map = A22_->RowMap();
   const OverlappingPartitioner &hid = A22_->Partitioner();
 
-  if (map.NumGlobalElements() == 0) return 0; // empty SC
+  if (map.NumGlobalElements64() == 0) return 0; // empty SC
 
   if (!S->Filled())
     {
@@ -178,25 +181,33 @@ int SchurComplement::Construct(Teuchos::RCP<Epetra_FECrsMatrix> S) const
     CHECK_ZERO(S->PutScalar(0.0));
     }
 
+  // Add A21*A11\A12
   for (int k = 0; k < hid.NumMySubdomains(); k++)
     {
     // construct values for separators around subdomain k
     CHECK_ZERO(hid.getSeparatorGIDs(k, indices));
-    CHECK_ZERO(Construct(k, Sk, indices, &flopsCompute_));
+    CHECK_ZERO(Construct11(k, Sk, indices, &flopsCompute_));
 
     CHECK_ZERO(S->SumIntoGlobalValues(indices, Sk));
     }
-  HYMLS_DEBUG("SchurComplement - GlobalAssembly");
   CHECK_ZERO(S->GlobalAssemble(false));
   CHECK_ZERO(::EpetraExt::MatrixMatrix::Add(*A22_->Block(), false, 1.0,
-      *S, -1.0));
+      *S, 1.0));
+
   // finish construction by creating local IDs:
   CHECK_ZERO(S->FillComplete());
+
+  HYMLS_DEBUG("SchurComplement - GlobalAssembly");
+  // CHECK_ZERO(S->GlobalAssemble());
   return 0;
   }
 
-int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
+int SchurComplement::Construct11(int sd, Epetra_SerialDenseMatrix &Sk,
+#ifdef HYMLS_LONG_LONG
+  const Epetra_LongLongSerialDenseVector &inds,
+#else
   const Epetra_IntSerialDenseVector &inds,
+#endif
   double *count_flops) const
   {
   HYMLS_LPROF3(label_, "Construct SDM");
@@ -237,7 +248,7 @@ int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
     {
     CHECK_ZERO(Sk.Shape(nrows, nrows));
     }
-  
+
   if (A11.NumRows() == 0)
     {
     return 0; // has only an A22-contribution (no interior elements)
@@ -249,29 +260,31 @@ int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
   HYMLS_DEBVAR(inds);
   HYMLS_DEBVAR(nrows);
 
+  int len;
+  int *indices;
+  double *values;
   int int_elems = hid.NumInteriorElements(sd);
-  int len[int_elems];
-  int *indices[int_elems];
-  double *values[int_elems];
-  // loop over all rows in this subdomain
+
+  // Loop over all interior elements
   for (int i = 0; i < int_elems; i++)
     {
-    // get a view of the matrix row (with all separator couplings)
-    CHECK_ZERO(A12.ExtractMyRowView(i, len[i], values[i], indices[i]));
-    }
+    // Get a view of the matrix row (with all separator couplings)
+    CHECK_ZERO(A12.ExtractMyRowView(i, len, values, indices));
 
-  // Loop over all GIDs of separators around this subdomain
-  for (int pos = 0; pos < nrows; pos++)
-    {
-    int gcid = inds[pos];
-    // loop over all rows in this subdomain
-    for (int i = 0; i < int_elems; i++)
+    // A11 ID stores local indices of the original matrix
+    // loop over the matrix row and look for matching entries
+    for (int k = 0 ; k < len; k++)
       {
-      // loop over the matrix row and look for matching entries
-      for (int k = 0 ; k < len[i]; k++)
+      const hymls_gidx gcid = A12.GCID64(indices[k]);
+
+      // Loop over all GIDs of separators around this subdomain
+      for (int j = 0; j < nrows; j++)
         {
-        if (gcid == A12.GCID(indices[i][k]))
-          A11.RHS(i, pos) = values[i][k];
+        if (gcid == inds[j])
+          {
+          A11.RHS(i, j) = values[k];
+          break;
+          }
         }
       }
     }
@@ -293,9 +306,10 @@ int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
   Epetra_MultiVector Aloc(A21.RowMap(), B.NumVectors());
   for (int j = 0; j < B.MyLength(); j++)
     {
+    const int lrid = A12.LRID(A11_->ExtendedMatrix()->GRID64(A11.ID(j)));
     for (int k = 0; k < nrows; k++)
       {
-      B[k][j] = A11.LHS(j, k);
+      B[k][lrid] = A11.LHS(j, k);
       }
     }
 
@@ -307,17 +321,18 @@ int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
   CHECK_ZERO(A21.Multiply(false, B, Aloc));
 
 #ifdef FLOPS_COUNT
-  flops += 2 * B.NumVectors() *A21.NumGlobalNonzeros();
+  flops += 2 * B.NumVectors() *A21.NumGlobalNonzeros64();
 #endif
   // re-index and put into final block
 
 //    HYMLS_DEBUG("Copy into Sk matrix");
   for (int i = 0; i < nrows; i++)
     {
+    // A21*A11\A12 part
     int lrid = A21.RowMap().LID(inds[i]);
     for (int j = 0; j < nrows; j++)
       {
-      Sk(i, j) = Aloc[j][lrid];
+      Sk(i, j) = -Aloc[j][lrid];
       }
     }
 
@@ -327,6 +342,64 @@ int SchurComplement::Construct(int sd, Epetra_SerialDenseMatrix &Sk,
 #ifdef FLOPS_COUNT
   if (count_flops != NULL) *count_flops += flops;
 #endif
+  return 0;
+  }
+
+int SchurComplement::Construct22(int sd, Epetra_SerialDenseMatrix &Sk,
+#ifdef HYMLS_LONG_LONG
+  const Epetra_LongLongSerialDenseVector &inds,
+#else
+  const Epetra_IntSerialDenseVector &inds,
+#endif
+  double *count_flops) const
+  {
+  HYMLS_LPROF3(label_, "Construct SDM");
+
+  const OverlappingPartitioner &hid = A22_->Partitioner();
+  const Epetra_CrsMatrix &A22 = *A22_->SubBlock(sd);
+
+  if (sd < 0 || sd > hid.NumMySubdomains())
+    {
+    Tools::Warning("Subdomain index out of range!", __FILE__, __LINE__);
+    return -1;
+    }
+
+  int nrows = hid.NumSeparatorElements(sd);
+
+  if (inds.Length() != nrows)
+    {
+    return -1; // caller probably did not call Construct(indices)
+    }
+
+  if (Sk.M() != nrows || Sk.N() != nrows)
+    {
+    CHECK_ZERO(Sk.Shape(nrows, nrows));
+    }
+
+  CHECK_ZERO(Sk.Scale(0.0));
+
+  int len;
+  int *indices;
+  double *values;
+
+  for (int i = 0; i < nrows; i++)
+    {
+    // A22 part
+    int lrid = A22.RowMap().LID(inds[i]);
+    CHECK_ZERO(A22.ExtractMyRowView(lrid, len, values, indices));
+    for (int k = 0; k < len; k++)
+      {
+      const hymls_gidx gcid = A22.GCID64(indices[k]);
+      for (int j = 0; j < nrows; j++)
+        {
+        if (gcid == inds[j])
+          {
+          Sk(i, j) = values[k];
+          break;
+          }
+        }
+      }
+    }
   return 0;
   }
 
@@ -354,11 +427,11 @@ Teuchos::RCP<Epetra_Vector> SchurComplement::ConstructLeftScaling(int p_variable
       CHECK_ZERO(Scrs_->ExtractMyRowView(i, len, val, ind));
       for (int j = 0; j < len; j++)
         {
-        if (Scrs_->GRID(i) == Scrs_->GCID(ind[j]))
+        if (Scrs_->GRID64(i) == Scrs_->GCID64(ind[j]))
           {
           diag = std::abs(val[j]);
           }
-        if (BP.VariableType(Scrs_->GCID(ind[j])) == p_variable)
+        if (BP.VariableType(Scrs_->GCID64(ind[j])) == p_variable)
           {
           if (std::abs(val[j]) > 1.0e-8) has_pcol = true;
           }

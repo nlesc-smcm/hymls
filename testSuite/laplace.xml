@@ -53,9 +53,6 @@
     <ParameterList name="Iterative Solver">
       <Parameter name="Maximum Iterations" type="int" value="500"/>
       <Parameter name="Block Size" type="int" value="1"/>
-      <Parameter name="Flexible Gmres" type="bool" value="0"/>
-      <Parameter name="Explicit Residual Test" type="bool" value="0"/>
-      <Parameter name="Maximum Restarts" type="int" value="5"/>
       <Parameter name="Convergence Tolerance" type="double" value="1.0e-10"/>
       <Parameter name="Output Frequency" type="int" value="1"/>
       <Parameter name="Show Maximum Residual Norm Only" type="bool" value="1"/>

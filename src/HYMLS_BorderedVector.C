@@ -52,7 +52,7 @@ BorderedVector::BorderedVector(const Teuchos::RCP<Epetra_MultiVector> &mv1,
     num = mv2->M();
     }
 
-  Epetra_Map map(mv2->M(), num, 0, first_->Comm());
+  Epetra_Map map((hymls_gidx)mv2->M(), num, (hymls_gidx)0, first_->Comm());
   second_ = Teuchos::rcp(new Epetra_MultiVector(View, map, mv2->A(), mv2->LDA(), mv2->N()));
   }
 
@@ -84,7 +84,7 @@ BorderedVector::BorderedVector(const Epetra_MultiVector &mv1,
     num = mv2.M();
     }
 
-  Epetra_Map map(mv2.M(), num, 0, first_->Comm());
+  Epetra_Map map((hymls_gidx)mv2.M(), num, (hymls_gidx)0, first_->Comm());
   second_ = Teuchos::rcp(new Epetra_MultiVector(Copy, map, mv2.A(), mv2.LDA(), mv2.N()));
   }
 
@@ -178,7 +178,7 @@ Teuchos::RCP<Epetra_SerialDenseMatrix> BorderedVector::Border()
   else
     {
     return Teuchos::rcp(new
-      Epetra_SerialDenseMatrix(second_->GlobalLength(), second_->NumVectors()));
+      Epetra_SerialDenseMatrix(second_->GlobalLength64(), second_->NumVectors()));
     }
   }
 
@@ -211,7 +211,7 @@ Teuchos::RCP<Epetra_SerialDenseMatrix> BorderedVector::Border() const
   else
     {
     return Teuchos::rcp(new
-      Epetra_SerialDenseMatrix(second_->GlobalLength(), second_->NumVectors()));
+      Epetra_SerialDenseMatrix(second_->GlobalLength64(), second_->NumVectors()));
     }
   }
 
@@ -242,6 +242,12 @@ int BorderedVector::NumVecs() const
 int BorderedVector::GlobalLength() const
   {
   return first_->GlobalLength() + second_->GlobalLength();
+  }
+
+// Get the global length of the combined multivector
+long long BorderedVector::GlobalLength64() const
+  {
+  return first_->GlobalLength64() + second_->GlobalLength64();
   }
 
 // Get the local length of the combined multivector

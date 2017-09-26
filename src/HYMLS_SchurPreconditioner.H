@@ -306,9 +306,6 @@ protected:
 
   //! linear map for the reduced SC
   Teuchos::RCP<Epetra_Map> linearMap_;
-  
-  //! pivot order (for MUMPS, experimental)
-  Teuchos::Array<int> pivot_order_;
 
   //! this is to reindex the reduced SC, which is
   //! important when using a direct solver (I think)
@@ -412,7 +409,7 @@ protected:
   //! we can replace a number of rows and cols of the reduced SC
   //! by Dirichlet conditions. This is used to fix the pressure
   //! level
-  Teuchos::Array<int> fix_gid_;
+  Teuchos::Array<hymls_gidx> fix_gid_;
   
   //! subdivide separators created by the standard decomposition.
   //! This is necessary for i.e. THCM, where each subdomain retains
@@ -442,9 +439,6 @@ private:
   //! too much extra work by keeping some data structures if they exist
   int InitializeCompute();
 
-  //! initialize grouping of separators for OT and factorization
-  int InitializeSeparatorGroups();
-
   //! Initialize orthogonal transform
   int InitializeOT();
   
@@ -461,6 +455,22 @@ private:
   //! if paternOnly==true, a matrix with the right pattern
   //! but only 0 entries is created.
   int AssembleTransformAndDrop();
+
+  //! Helper function for AssembleTransformAndDrop
+  int ConstructSCPart(int k, Epetra_Vector const &localTestVector,
+    Epetra_SerialDenseMatrix & Sk,
+#ifdef HYMLS_LONG_LONG
+  Epetra_LongLongSerialDenseVector &indices,
+#else
+  Epetra_IntSerialDenseVector &indices,
+#endif
+  Teuchos::Array<Epetra_SerialDenseMatrix> &SkArray,
+#ifdef HYMLS_LONG_LONG
+  Teuchos::Array<Epetra_LongLongSerialDenseVector> &indicesArray
+#else
+  Teuchos::Array<Epetra_IntSerialDenseVector> &indicesArray
+#endif
+    ) const;
 
   //! Initialize dense solvers for diagonal blocks
   //! ("Block Diagonal" variant)

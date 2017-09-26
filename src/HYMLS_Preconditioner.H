@@ -18,7 +18,6 @@
 #include "BelosOutputManager.hpp"
 
 #include "HYMLS_OverlappingPartitioner.H"
-#include "HYMLS_DenseUtils.H"
 #include "HYMLS_PLA.H"
 
 #include "HYMLS_BorderedOperator.H"
@@ -35,7 +34,6 @@ namespace HYMLS
   {
   class SchurComplement;
   class SchurPreconditioner;
-  class MultiVector_View;
   }
 
 namespace Teuchos 
@@ -280,9 +278,6 @@ protected:
   //! matrix based on range map
   Teuchos::RCP<const Epetra_RowMatrix> matrix_;
   
-  //! scaling (if any).
-  Teuchos::RCP<const HYMLS::BlockScaling> scaling_;
-  
   //! internal reordered matrix (first interior and then separator vars)
   Teuchos::RCP<Epetra_CrsMatrix> reorderedMatrix_;
 
@@ -322,19 +317,13 @@ protected:
 
   //! solution vector for Schur complement
   mutable Teuchos::RCP<Epetra_MultiVector> schurSol_;
-
-  //! some temporary vectors we use in ApplyInverse()
-  mutable Teuchos::RCP<Epetra_MultiVector> tmpVec_[12];
-  
-  //! view vectors as if they had only the interior elements
-  Teuchos::RCP<HYMLS::MultiVector_View> interior_;
-
-  //! view vectors as if they had only the vsum elements
-  Teuchos::RCP<HYMLS::MultiVector_View> separators_;
   
   //! a test vector for constructing good orthogonal transformations
   //! (all ones on the first level, passed to the approximate SC)
   Teuchos::RCP<Epetra_Vector> testVector_;
+  
+  //! scaling (if any).
+  Teuchos::RCP<const HYMLS::BlockScaling> scaling_;
   
   //! preconditioning operator
   Teuchos::RCP<SchurPreconditioner> schurPrec_;
@@ -353,12 +342,6 @@ protected:
   
   //! lower right block of bordered Schur system
   Teuchos::RCP<Epetra_SerialDenseMatrix> borderSchurC_;
-
-  //! map with _all_ interior elements
-  Teuchos::RCP<const Epetra_Map> map1_;
-
-  //! map defining the rows/columns of the Schur complement (separator nodes)
-  Teuchos::RCP<const Epetra_Map> map2_;
   
   //@}
   

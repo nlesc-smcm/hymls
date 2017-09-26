@@ -23,7 +23,7 @@
   </ParameterList>
 
   <ParameterList name="Targets">
-    <Parameter name="Number of Iterations" type="int" value="42"/>
+    <Parameter name="Number of Iterations" type="int" value="48"/>
     <Parameter name="Relative Residual 2-Norm" type="double" value="5.0e-6"/>
     <Parameter name="Relative Error 2-Norm" type="double" value="5.0e-6"/>
   </ParameterList>
@@ -58,7 +58,7 @@
   <ParameterList name="Preconditioner"><!--{-->
 
     <!-- cartesian partitioner for Stokes-C problems -->
-    <Parameter name="Partitioner" type="string" value="Cartesian"/>
+    <Parameter name="Partitioner" type="string" value="Skew Cartesian"/>
     
     <!-- you can either set 'Separator Length' or 'Number of Subdomains' -->
     <Parameter name="Separator Length" type="int" value="4"/>

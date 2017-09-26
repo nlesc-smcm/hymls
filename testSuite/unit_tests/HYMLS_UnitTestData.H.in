@@ -1,0 +1,17 @@
+#ifndef HYMLS_UNITTESTDATA_H
+#define HYMLS_UNITTESTDATA_H
+
+#include <Teuchos_ParameterList.hpp>
+#include <Teuchos_XMLParameterListCoreHelpers.hpp>
+
+namespace HYMLS {
+namespace UnitTests {
+
+inline Teuchos::RCP<Teuchos::ParameterList> GetDataParameterList()
+{
+    return Teuchos::getParametersFromXmlFile(
+      "${PROJECT_BINARY_DIR}/testSuite/unit_tests/data.xml");
+}
+}} // namespaces HYMLS::UnitTests
+
+#endif

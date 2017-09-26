@@ -56,9 +56,20 @@ class Householder : public OrthogonalTransform
   //! for simultaneously applying many transforms. Always use the corresponding
   //! Apply() functions to apply the transform rather than sparse matrix-matrix
   //! products.
-  int Construct(Epetra_CrsMatrix& H, const Epetra_IntSerialDenseVector& inds) const;
-  int Construct(Epetra_CrsMatrix& H, const Epetra_IntSerialDenseVector& inds, 
-        const Epetra_SerialDenseVector& vec) const;
+  virtual int Construct(Epetra_CrsMatrix& H,
+#ifdef HYMLS_LONG_LONG
+    const Epetra_LongLongSerialDenseVector& inds) const;
+#else
+    const Epetra_IntSerialDenseVector& inds) const;
+#endif
+  //! cf. previous function
+  virtual int Construct(Epetra_CrsMatrix& H,
+#ifdef HYMLS_LONG_LONG
+    const Epetra_LongLongSerialDenseVector& inds,
+#else
+    const Epetra_IntSerialDenseVector& inds,
+#endif
+    const Epetra_SerialDenseVector& vec) const;
 
   //! apply a sparse matrix representation of a set of transforms from the left
   //! and right to a sparse matrix.

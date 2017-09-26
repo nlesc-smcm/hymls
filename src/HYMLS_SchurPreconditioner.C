@@ -1,7 +1,5 @@
 #define RESTRICT_ON_COARSE_LEVEL
 
-#include "HYMLS_no_debug.H"
-
 #include "HYMLS_SchurPreconditioner.H"
 
 #include "HYMLS_Macros.H" 
@@ -12,7 +10,6 @@
 #include "HYMLS_SchurComplement.H" 
 #include "HYMLS_Preconditioner.H" 
 #include "HYMLS_Householder.H" 
-#include "HYMLS_SepNode.H"
 #include "HYMLS_RestrictedOT.H"
 
 #include "Epetra_Comm.h" 
@@ -91,13 +88,12 @@ namespace HYMLS {
       {
       // reindex the reduced system, this seems to be a good idea when
       // solving it using Ifpack_Amesos
-      linearMap_ = Teuchos::rcp(new Epetra_Map(map_->NumGlobalElements(),
-                                                  map_->NumMyElements(),
-                                                  0, map_->Comm()) );
+      linearMap_ = Teuchos::rcp(new Epetra_Map((hymls_gidx)map_->NumGlobalElements64(),
+          map_->NumMyElements(), 0, map_->Comm()));
 
       reindexA_ = Teuchos::rcp(new ::EpetraExt::CrsMatrix_Reindex(*linearMap_));
       reindexX_ = Teuchos::rcp(new ::EpetraExt::MultiVector_Reindex(*linearMap_));
-      reindexB_ = Teuchos::rcp(new ::EpetraExt::MultiVector_Reindex(*linearMap_));      
+      reindexB_ = Teuchos::rcp(new ::EpetraExt::MultiVector_Reindex(*linearMap_));
       }
     else
       {
@@ -108,7 +104,7 @@ namespace HYMLS {
         }
       }
 
-  isEmpty_ = (map_->NumGlobalElements()==0);
+  isEmpty_ = (map_->NumGlobalElements64()==0);
 
   OT=Teuchos::rcp(new Householder(myLevel_));
   dumpVectors_=false;
@@ -213,7 +209,6 @@ namespace HYMLS {
     reducedSchurSolver_=Teuchos::null;
     if (myLevel_!=maxLevel_)
       {
-      CHECK_ZERO(InitializeSeparatorGroups());
       CHECK_ZERO(InitializeOT());
       if (variant_=="Block Diagonal"||
           variant_=="Lower Triangular")
@@ -505,7 +500,7 @@ HYMLS_DEBVAR(*borderC_);
     if (linear_indices)
       {
       int myLength = map_->NumMyElements();
-      newMap=Teuchos::rcp(new Epetra_Map(-1,myLength,0,*comm_));
+      newMap=Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1),myLength,0,*comm_));
       }
       
     int off = 0;
@@ -520,20 +515,20 @@ HYMLS_DEBVAR(*borderC_);
           
     for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
       {
-      for (int grp=0;grp<sepObject->NumGroups(sep);grp++)
+      for (int grp=1;grp<sepObject->NumGroups(sep);grp++)
         {
         begS << offset << std::endl;
         offset = offset + sepObject->NumElements(sep,grp);
         //begS << sepObject->LID(sep,grp,0)<<std::endl;
         
         // V-sum nodes
-        ofs << newMap->GID(map_->LID(sepObject->GID(sep,grp,0))) << std::endl;
-        ofs2 << newMap->GID(map_->LID(sepObject->GID(sep,grp,0))) << std::endl;
+        ofs << newMap->GID64(map_->LID(sepObject->GID(sep,grp,0))) << std::endl;
+        ofs2 << newMap->GID64(map_->LID(sepObject->GID(sep,grp,0))) << std::endl;
         // non-Vsum nodes
         for (int j=1;j<sepObject->NumElements(sep,grp);j++)
           {
-          ofs << newMap->GID(map_->LID(sepObject->GID(sep,grp,j))) << std::endl;
-          ofs1 << newMap->GID(map_->LID(sepObject->GID(sep,grp,j))) << std::endl;
+          ofs << newMap->GID64(map_->LID(sepObject->GID(sep,grp,j))) << std::endl;
+          ofs1 << newMap->GID64(map_->LID(sepObject->GID(sep,grp,j))) << std::endl;
           }
         }
       }
@@ -630,13 +625,16 @@ int SchurPreconditioner::InitializeBlocks()
     int numBlocks=0;
     for (int i=0;i<sepObject->NumMySubdomains();i++)
       {
-      numBlocks+=sepObject->NumGroups(i);
+      for (int grp=1;grp<sepObject->NumGroups(i);grp++)
+        {
+        numBlocks++;
+        }
       }
 
 #ifdef HYMLS_TESTING
     for (int i=0;i<sepObject->NumMySubdomains();i++)
       {
-      for (int grp=0;grp<sepObject->NumGroups(i);grp++)
+      for (int grp=1;grp<sepObject->NumGroups(i);grp++)
         {
         if (sepObject->NumElements(i,grp)==0)
           {
@@ -653,11 +651,11 @@ int SchurPreconditioner::InitializeBlocks()
   int blk=0;
   for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
     {
-    for (int grp=0;grp<sepObject->NumGroups(sep);grp++)
+    for (int grp=1;grp<sepObject->NumGroups(sep);grp++)
       {
       // in the spawned sepObject, each local separator is a group of a subdomain.
       // -1 because we remove one Vsum node from each block
-      int numRows=std::max(sepObject->NumElements(sep,grp)-1,0);
+      int numRows=std::max((int)sepObject->NumElements(sep,grp)-1,0);
       nnz+=numRows*numRows; 
       blockSolver_[blk]=Teuchos::rcp(new 
              Ifpack_DenseContainer(numRows));
@@ -668,8 +666,8 @@ int SchurPreconditioner::InitializeBlocks()
 
       for (int j=0; j<numRows; j++)
         {
-        int gid=sepObject->GID(sep,grp,j+1); // skip first element, which is a Vsum
-        int LRID = map_->LID(gid);
+        // skip first element, which is a Vsum
+        int LRID = map_->LID(sepObject->GID(sep,grp,j+1));
         blockSolver_[blk]->ID(j) = LRID;
         }
       blk++;
@@ -692,7 +690,7 @@ int SchurPreconditioner::InitializeSingleBlock()
     for (int i=0;i<sepObject->NumMySubdomains();i++)
       {
       numMyElements+=sepObject->NumElements(i);
-      numMyVsums+=sepObject->NumGroups(i);
+      numMyVsums+=sepObject->NumGroups(i)-1;
       }
    // we actually need the number of owned non-Vsums:
    int numRows = numMyElements - numMyVsums;
@@ -707,118 +705,18 @@ int SchurPreconditioner::InitializeSingleBlock()
   int pos=0;
   for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
     {
-    for (int grp=0;grp<sepObject->NumGroups(sep);grp++)
+    for (int grp=1;grp<sepObject->NumGroups(sep);grp++)
       {      
       // skip first element, which is a Vsum
       for (int j=1; j<sepObject->NumElements(sep,grp); j++)
         {
-        int gid=sepObject->GID(sep,grp,j);
-        int LRID = map_->LID(gid);
+        int LRID = map_->LID(sepObject->GID(sep,grp,j));
         blockSolver_[0]->ID(pos++) = LRID;
         }
       }
     }
   REPORT_SUM_MEM(label_,"single diagonal block (not counted)",0.0,0,comm_);
   return 0;  
-  }
-
-
-int SchurPreconditioner::InitializeSeparatorGroups()
-  {
-  HYMLS_LPROF2(label_,"InitializeSeparatorGroups");
-  if (subdivideSeparators_)
-    {
-    if (SchurMatrix_==Teuchos::null)
-      {
-      Tools::Error("for splitting separators we need an assembled\n"
-                   "Schur-Complement",__FILE__,__LINE__);
-      }
-    int dof=PL("Problem").sublist("Partitioner")
-                  .get("Degrees of Freedom",-1);
-    if (dof==-1)
-      {
-      HYMLS::Tools::Error("'Degrees of Freedom' parameter not set!",
-              __FILE__,__LINE__);
-      }
-    int pressure=PL().get("Subdivide based on variable",-1);
-    if (pressure==-1)
-      {
-      HYMLS::Tools::Error("'Subdivide based on variable' parameter not set!",
-              __FILE__,__LINE__);
-      }
-    Teuchos::RCP<const HierarchicalMap> sepObject
-        = hid_->Spawn(HierarchicalMap::Separators);
-    Teuchos::RCP<Teuchos::Array<HYMLS::SepNode> > sepList 
-        = Teuchos::rcp(new Teuchos::Array<HYMLS::SepNode>(sepObject->NumMyElements()));
-    Teuchos::Array<int> connectedPs(2); // typically there are exactly two p-couplings
-    for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
-      {
-      int grp=0; // the standard Separator object has local separators as group 0
-                 // of its 'subdomains'
-      for (int j=0;j<sepObject->NumElements(sep,grp);j++)
-        {
-        int lsid = sepObject->LID(sep,grp,j);// local separator ID
-        int gid = sepObject->GID(sep,grp,j); // global ID
-        int lrid = SchurMatrix_->LRID(gid); // local row ID
-        int* indices;
-        double* values;
-        int len;
-        int type = -1;
-        CHECK_ZERO(SchurMatrix_->ExtractMyRowView(lrid,len,values,indices));
-        int pos=0;
-        connectedPs[0]=-1;
-        connectedPs[1]=-1;// will remain there if not connected to P-nodes -> own group
-        for (int k=0;k<len;k++)
-          {
-          int gcid = SchurMatrix_->GCID(indices[k]);
-          if (MOD(gcid,dof)==pressure)
-            {
-            if (std::abs(values[k])>1.0e-8)
-              {
-              if (pos==0)
-                {
-                // distinguish between [+1 -1] and [-1 +1] type p-couplings
-                type = values[k]>0? 1:0;
-                }
-              connectedPs[pos++]=gcid;
-              }
-            if (pos>=2)
-              {
-              break;
-              }
-            }
-          }
-        SepNode S(gid,connectedPs,type);
-        (*sepList)[lsid] = S;
-        }
-      }
-      
-    hid_->Spawn(HierarchicalMap::LocalSeparators,sepList);
-    }
-  else
-    {
-    hid_->Spawn(HierarchicalMap::LocalSeparators);
-    }
-
-#ifdef HYMLS_DEBUGGING
-    std::ofstream ofs1,ofs2;
-    if (myLevel_==1)
-      {
-      ofs1.open("sep_data.m",std::ios::out);
-      ofs2.open("lsep_data.m",std::ios::out);
-      }
-    else
-      {
-      ofs1.open("sep_data.m",std::ios::app);
-      ofs2.open("lsep_data.m",std::ios::app);
-      }
-    ofs1<<*(hid_->Spawn(HierarchicalMap::Separators));
-    ofs1.close();
-    ofs2<<*(hid_->Spawn(HierarchicalMap::LocalSeparators));
-    ofs2.close();
-#endif      
-
-  return 0;
   }
 
 int SchurPreconditioner::InitializeOT()
@@ -841,14 +739,16 @@ int SchurPreconditioner::InitializeOT()
     Epetra_Vector localTestVector(sepMap);
     CHECK_ZERO(localTestVector.Import(*testVector_,import,Insert));
 
+#ifdef HYMLS_LONG_LONG
+    Epetra_LongLongSerialDenseVector inds;
+#else
     Epetra_IntSerialDenseVector inds;
+#endif
     Epetra_SerialDenseVector vec;
-    
-    int nnzPerRow = sepObject->NumMySubdomains()>0? sepObject->NumInteriorElements(0) : 
-    0;
 
-    sparseMatrixOT_ = Teuchos::rcp(new
-        Epetra_CrsMatrix(Copy,*map_,nnzPerRow));
+    int nnzPerRow = sepObject->NumMySubdomains()>0? sepObject->NumSeparatorElements(0) : 0;
+
+    sparseMatrixOT_ = Teuchos::rcp(new Epetra_CrsMatrix(Copy,*map_,nnzPerRow));
 
     // loop over all separators connected to a local subdomain
     for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
@@ -857,7 +757,7 @@ int SchurPreconditioner::InitializeOT()
       // the LocalSeparator object has only local separators, but it may
       // have several groups due to splitting of groups (i.e. for the B-grid,
       // where velocities are grouped depending on how they connect ot the pressures)
-      for (int grp=0;grp<sepObject->NumGroups(sep);grp++)
+      for (int grp=1;grp<sepObject->NumGroups(sep);grp++)
         {
 //        HYMLS_DEBVAR(grp);
         int len = sepObject->NumElements(sep,grp);
@@ -866,12 +766,20 @@ int SchurPreconditioner::InitializeOT()
           inds.Size(len);
           vec.Size(len);
           }
+        int pos = 0;
         for (int j=0;j<len;j++)
           {
-          inds[j] = sepObject->GID(sep,grp,j);
-          vec[j] = localTestVector[sepMap.LID(inds[j])];
+          hymls_gidx gid = sepObject->GID(sep,grp,j);
+          int lid = sepMap.LID(gid);
+          if (lid != -1)
+            {
+            inds[pos] = gid;
+            vec[pos++] = localTestVector[lid];
+            }
           }
-        if (len>0)
+        inds.Resize(pos);
+        vec.Resize(pos);
+        if (pos>0)
           {
 //          HYMLS_DEBVAR(inds);
 //          HYMLS_DEBVAR(vec);
@@ -883,10 +791,9 @@ int SchurPreconditioner::InitializeOT()
             return ierr;
             }
           }
-        }    
+        }
       }
-    
-    CHECK_ZERO(sparseMatrixOT_->FillComplete())
+    CHECK_ZERO(sparseMatrixOT_->FillComplete());
     }
 #ifdef HYMLS_STORE_MATRICES
   MatrixUtils::Dump(*sparseMatrixOT_, 
@@ -907,7 +814,7 @@ int SchurPreconditioner::InitializeOT()
       int numBlocks = 0;
       for (int i=0;i<sepObject->NumMySubdomains();i++)
         {
-        for (int j=0;j<sepObject->NumGroups(i);j++)
+        for (int j=1;j<sepObject->NumGroups(i);j++)
           {
           if (sepObject->NumElements(i,j)>0) numBlocks++;
           }
@@ -918,12 +825,12 @@ int SchurPreconditioner::InitializeOT()
       // create a map for the reduced Schur-complement. Note that this is a distributed
       // matrix, in contrast to the other diagonal blocks, so we can't use an Ifpack 
       // container.
-      int *MyVsumElements = new int[numBlocks]; // one Vsum per block
+      hymls_gidx *MyVsumElements = new hymls_gidx[numBlocks]; // one Vsum per block
       int pos=0;
       for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
         {
         HYMLS_DEBVAR(sep)
-        for (int grp = 0 ; grp < sepObject->NumGroups(sep) ; grp++)
+        for (int grp = 1 ; grp < sepObject->NumGroups(sep) ; grp++)
           {
           if (sepObject->NumElements(sep,grp)>0)
             {
@@ -931,9 +838,10 @@ int SchurPreconditioner::InitializeOT()
             }
           }
         }
-        
-      vsumMap_=Teuchos::rcp(new Epetra_Map(-1,numBlocks,MyVsumElements,
-                                map_->IndexBase(), map_->Comm()));
+
+      vsumMap_=Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1),
+          numBlocks, MyVsumElements,
+          (hymls_gidx)map_->IndexBase64(), map_->Comm()));
       
       delete [] MyVsumElements;
       HYMLS_DEBUG(label_);
@@ -1099,40 +1007,23 @@ int SchurPreconditioner::InitializeOT()
       matrix_=matrix;
       }
     
-    Epetra_IntSerialDenseVector indices;
-    Epetra_IntSerialDenseVector sep;
     Epetra_SerialDenseVector v;
     Epetra_SerialDenseMatrix Sk;
-        
+
     // part remaining after dropping
     Epetra_SerialDenseMatrix Spart;
+#ifdef HYMLS_LONG_LONG
+    Epetra_LongLongSerialDenseVector indices;
+    Epetra_LongLongSerialDenseVector indsPart;
+#else
+    Epetra_IntSerialDenseVector indices;
     Epetra_IntSerialDenseVector indsPart;
-
-    Teuchos::RCP<Epetra_CrsMatrix> transformedA22 =
-    OT->Apply(*sparseMatrixOT_,SchurComplement_->A22());
-    
-#ifdef HYMLS_DEBUGGING
-  std::string s1 = "SchurPrecond"+Teuchos::toString(myLevel_)+"_";
-/*
-  MatrixUtils::Dump(*matrix_,s1+"Pattern.txt");
-  // not Filled yet
-  //MatrixUtils::Dump(*transformedA22,s1+"TransformedA22.txt");
-*/
 #endif
 
-    if (transformedA22->RowMap().SameAs(matrix->RowMap())==false)
-      {
-      HYMLS::Tools::Error("mismatched maps",__FILE__,__LINE__);
-      }
-
-    int len;
-    int maxlen = transformedA22->GlobalMaxNumEntries();
-    int* cols = new int[maxlen];
-    double* values = new double[maxlen];
-
-    // put H'*A22*H into matrix_
+    // put the pattern into matrix_
     if (!matrix->Filled())
       {
+      HYMLS_LPROF3(label_,"Fill matrix");
       // start out by just putting the structure together.
       // I do this because the SumInto function will fail 
       // unless the values have been put in already. On the
@@ -1145,7 +1036,7 @@ int SchurPreconditioner::InitializeOT()
       for (int sd=0;sd<hid_->NumMySubdomains();sd++)
         {
         // put in the Vsum-Vsum couplings
-        int numVsums = hid_->NumGroups(sd);
+        int numVsums = hid_->NumGroups(sd)-1;
         indsPart.Resize(numVsums);
         if (numVsums>Spart.N()) Spart.Reshape(2*numVsums,2*numVsums);
         numVsums=0;
@@ -1178,100 +1069,14 @@ int SchurPreconditioner::InitializeOT()
         }
       // assemble with all zeros
       HYMLS_DEBVAR("assemble pattern of transformed SC");
-      CHECK_ZERO(matrix->GlobalAssemble(false));
-
-      // now fill with H'*A22*H
-      for (int i=0;i<matrix_->NumMyRows();i++)
-        {
-        //global row id
-        int grid = transformedA22->GRID(i);
-        CHECK_ZERO(transformedA22->ExtractGlobalRowCopy(grid,maxlen,len,values,cols));
-
-#ifdef HYMLS_TESTING
-        //before we would sum the value because of duplicate entries,
-        //but here we check that they don't exist and instead just insert them
-        std::vector<int> colvec(len);
-        colvec.assign(cols, cols+len);
-        std::sort(colvec.begin(), colvec.end());
-        for (int j = 0; j < len - 1; j++)
-          {
-          if (colvec[j] == colvec[j + 1])
-            {
-            Tools::Error("Duplicate entries on row "+Teuchos::toString(grid)+ " column "+Teuchos::toString(colvec[j]),__FILE__,__LINE__);
-            }
-          }
-#endif
-        CHECK_NONNEG(matrix_->InsertGlobalValues(grid,len,values,cols));
-        }
-      CHECK_ZERO(matrix_->FillComplete());
-      }
-    else
-      {
-      CHECK_ZERO(matrix->PutScalar(0.0));
-
-      for (int i=0;i<matrix_->NumMyRows();i++)
-        {
-        //global row id
-        int grid = transformedA22->GRID(i);
-        CHECK_ZERO(transformedA22->ExtractGlobalRowCopy(grid,maxlen,len,values,cols));
-
-#ifdef HYMLS_TESTING
-        //check that the pattern didn't change
-        int len2;
-        int maxlen2 = matrix_->GlobalMaxNumEntries();
-        int* cols2 = new int[maxlen2];
-        double* values2 = new double[maxlen2];
-        CHECK_ZERO(matrix_->ExtractGlobalRowCopy(grid,maxlen2,len2,values2,cols2));
-
-        std::vector<int> colvec(len);
-        colvec.assign(cols, cols+len);
-        std::sort(colvec.begin(), colvec.end());
-
-        std::vector<int> colvec2(len2);
-        colvec2.assign(cols2, cols2+len2);
-        std::sort(colvec2.begin(), colvec2.end());
-
-        int j2 = 0;
-        for (int j = 0; j < len; j++)
-          {
-          for (; j2 < len2; j2++)
-            {
-            if (colvec[j] == colvec2[j2])
-              break;
-
-            // We iterated past the number in colvec[j] so it is not in colvec2
-            if (colvec2[j2] > colvec[j])
-              break;
-            }
-          // colvec[j] is not anywhere before the last number in colvec2
-          if (j2 == len2 || colvec2[j2] > colvec[j])
-            {
-            // Find the index of the value
-            for (int j3 = 0; j3 < len; j3++)
-              if (colvec[j] == cols[j3])
-                {
-                Tools::Warning("Pattern is different on row "
-                  + Teuchos::toString(grid) + " column "
-                  + Teuchos::toString(colvec[j]) + " value "
-                  + Teuchos::toString(values[j3]), __FILE__, __LINE__);
-                break;
-                }
-            }
-          }
-
-        delete [] cols2;
-        delete [] values2;
-#endif
-        CHECK_NONNEG(matrix_->ReplaceGlobalValues(grid,len,values,cols));
-        }
+      CHECK_ZERO(matrix->GlobalAssemble());
       }
 
-    // free temporary storage
-    delete [] values;
-    delete [] cols;
-    transformedA22=Teuchos::null;
-#ifdef HYMLS_STORE_MATRICES
-//  HYMLS::MatrixUtils::Dump(*matrix_,s1+"_TransDroppedA22.txt");
+    CHECK_ZERO(matrix->PutScalar(0.0));
+
+#ifdef HYMLS_DEBUGGING
+    // std::string s1 = "SchurPrecond"+Teuchos::toString(myLevel_)+"_";
+    // MatrixUtils::Dump(*matrix_,s1+"Pattern.txt");
 #endif
 
     // Get an object with all separators connected to local subdomains
@@ -1286,52 +1091,62 @@ int SchurPreconditioner::InitializeOT()
     Epetra_Vector localTestVector(sepMap);
     CHECK_ZERO(localTestVector.Import(*testVector_,import,Insert));
 
-    // now for each subdomain construct the SC part A21*A11\A12 for the      
+    // now for each subdomain construct the SC part A22 and A21*A11\A12 for the
     // surrounding separators, apply orthogonal transforms to each separator 
     // group and sum them into the pattern defined above, dropping everything
     // that is not defined in the matrix pattern.
-     
+
     // loop over all subdomains
     for (int sd=0;sd<hid_->NumMySubdomains();sd++)
       {
+      HYMLS_LPROF3(label_, "Add A22 part");
       // construct the local contribution of the SC
-      // (for all separators around the subdomain) 
+      // (for all separators around the subdomain)
+
+      // Get the global indices of the separators
+      CHECK_ZERO(hid_->getSeparatorGIDs(sd, indices));
+
+      // Construct the local A22
+      CHECK_ZERO(SchurComplement_->Construct22(sd, Sk, indices));
+
+      Teuchos::Array<Epetra_SerialDenseMatrix> SkArray;
+#ifdef HYMLS_LONG_LONG
+      Teuchos::Array<Epetra_LongLongSerialDenseVector> indicesArray;
+#else
+      Teuchos::Array<Epetra_IntSerialDenseVector> indicesArray;
+#endif
+      CHECK_ZERO(ConstructSCPart(sd, localTestVector, Sk, indices, SkArray, indicesArray));
+
+      for (int i = 0; i < SkArray.length(); i++)
+        CHECK_ZERO(matrix->ReplaceGlobalValues(indicesArray[i], SkArray[i]));
+      }//sd
+    CHECK_ZERO(matrix->GlobalAssemble(false, Insert));
+
+    // loop over all subdomains
+    for (int sd=0;sd<hid_->NumMySubdomains();sd++)
+      {
+      HYMLS_LPROF3(label_, "Add -A21*A11\\A12 part");
+      // construct the local contribution of the SC
+      // (for all separators around the subdomain)
 
       // Get the global indices of the separators
       CHECK_ZERO(hid_->getSeparatorGIDs(sd, indices));
 
       // Construct the local -A21*A11\A12
-      CHECK_ZERO(SchurComplement_->Construct(sd, Sk, indices));
-      CHECK_ZERO(Sk.Scale(-1.0));
+      CHECK_ZERO(SchurComplement_->Construct11(sd, Sk, indices));
 
-      // Get the part of the testvector that belongs to the
-      // separators
-      v.Resize(indices.Length());
-      for (int i = 0; i < indices.Length(); i++)
-        {
-        int gid = indices[i];
-        v[i] = localTestVector[sepMap.LID(gid)];
-        }
+      Teuchos::Array<Epetra_SerialDenseMatrix> SkArray;
+#ifdef HYMLS_LONG_LONG
+      Teuchos::Array<Epetra_LongLongSerialDenseVector> indicesArray;
+#else
+      Teuchos::Array<Epetra_IntSerialDenseVector> indicesArray;
+#endif
+      CHECK_ZERO(ConstructSCPart(sd, localTestVector, Sk, indices, SkArray, indicesArray));
 
-      int pos = 0;
-      // Loop over all separators of the subdomain sd
-      for (int grp = 1; grp < hid_->NumGroups(sd); grp++)
-        {
-        int len = hid_->NumElements(sd, grp);
-        Epetra_SerialDenseVector vView(View, &v[pos], len);
-
-        // Apply the orthogonal transformation for each group
-        // separately
-        RestrictedOT::Apply(Sk, pos, *OT, vView);
-
-        pos += len;
-        }
-
-      CHECK_NONNEG(matrix->SumIntoGlobalValues(indices,Sk));
+      for (int i = 0; i < SkArray.length(); i++)
+        CHECK_ZERO(matrix->SumIntoGlobalValues(indicesArray[i], SkArray[i]));
       }//sd
-
-    HYMLS_DEBUG("assemble transformed/dropped SC");
-    CHECK_ZERO(matrix->GlobalAssemble(true));
+    CHECK_ZERO(matrix->GlobalAssemble());
 
 #ifdef HYMLS_STORE_MATRICES
     MatrixUtils::Dump(*matrix_,"SchurPreconditioner"+Teuchos::toString(myLevel_)+".txt");
@@ -1344,6 +1159,102 @@ int SchurPreconditioner::InitializeOT()
             __FILE__,__LINE__);
     return 0;
     }
+
+int SchurPreconditioner::ConstructSCPart(int sd, Epetra_Vector const &localTestVector,
+  Epetra_SerialDenseMatrix & Sk,
+#ifdef HYMLS_LONG_LONG
+  Epetra_LongLongSerialDenseVector &indices,
+#else
+  Epetra_IntSerialDenseVector &indices,
+#endif
+  Teuchos::Array<Epetra_SerialDenseMatrix> &SkArray,
+#ifdef HYMLS_LONG_LONG
+  Teuchos::Array<Epetra_LongLongSerialDenseVector> &indicesArray
+#else
+  Teuchos::Array<Epetra_IntSerialDenseVector> &indicesArray
+#endif
+  ) const
+  {
+  Epetra_SerialDenseVector v;
+
+  SkArray.resize(1);
+  indicesArray.resize(1);
+
+  // Get the part of the testvector that belongs to the
+  // separators
+  const Epetra_BlockMap& sepMap = localTestVector.Map();
+  v.Resize(indices.Length());
+  for (int i = 0; i < indices.Length(); i++)
+    v[i] = localTestVector[sepMap.LID(indices[i])];
+
+  int numGroups = hid_->NumGroups(sd);
+  int numVsums = numGroups - 1;
+  indicesArray[0].Resize(numVsums);
+  numVsums = 0;
+
+  int pos = 0;
+  // Loop over all separators of the subdomain sd
+  for (int grp = 1; grp < numGroups; grp++)
+    {
+    HYMLS_LPROF3(label_,"Apply OT");
+    int len = hid_->NumElements(sd, grp);
+    Epetra_SerialDenseVector vView(View, &v[pos], len);
+
+    // Apply the orthogonal transformation for each group
+    // separately
+    RestrictedOT::Apply(Sk, pos, *OT, vView);
+
+    if (len > 0)
+      indicesArray[0][numVsums++] = indices[pos];
+
+    pos += len;
+    }
+  indicesArray[0].Resize(numVsums);
+  SkArray[0].Shape(numVsums, numVsums);
+
+  // Only add Vsum-Vsum couplings and non-Vsums. This is way faster than
+  // than trying to add all the values and letting SumIntoGlobalValues
+  // decide which ones to drop.
+  int pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+  for (int grp = 1; grp < numGroups; grp++)
+    {
+    HYMLS_LPROF3(label_,"Compute non-dropped part");
+    int len = hid_->NumElements(sd, grp);
+    if (len > 0)
+      {
+      pos2 = 0;
+      pos4 = 0;
+      for (int grp2 = 1; grp2 < numGroups; grp2++)
+        {
+        int len2 = hid_->NumElements(sd, grp2);
+        if (len2 > 0)
+          {
+          SkArray[0](pos1, pos2) = Sk(pos3, pos4);
+          pos2++;
+          pos4 += len2;
+          }
+        }
+
+      pos1++;
+      if (len > 1)
+        {
+        SkArray.append(Epetra_SerialDenseMatrix(len-1, len-1));
+        for (int i = 0; i < len-1; i++)
+          for (int j = 0; j < len-1; j++)
+            SkArray.back()(i, j) = Sk(pos3+i+1, pos3+j+1);
+
+#ifdef HYMLS_LONG_LONG
+        indicesArray.append(Epetra_LongLongSerialDenseVector(View, &indices[pos3+1], len-1));
+#else
+        indicesArray.append(Epetra_IntSerialDenseVector(View, &indices[pos3+1], len-1));
+#endif
+        }
+      pos3 += len;
+      }
+    }
+
+  return 0;
+  }
 
 
   // Returns true if the  preconditioner has been successfully initialized, false otherwise.
@@ -1657,67 +1568,67 @@ int SchurPreconditioner::ApplyOT(bool trans, Epetra_MultiVector& v, double* flop
   {
   HYMLS_LPROF2(label_,"ApplyOT");
 
-//  if ((!subdivideSeparators_))
-  if (false)
-    {
-    if (maxLevel_>2)
-      {
-      Tools::Warning("this variant of ApplyOT is not valid for multi-level case",      
-        __FILE__,__LINE__);
-      }
-    // implementation 1: apply OT to views of blocks of the vector. This is 
-    // potentially very fast, but works only if the separators are contiguous
-    // in the ordering of S (which they are unless you use "Subdivide Separators").
+// //  if ((!subdivideSeparators_))
+//   if (false)
+//     {
+//     if (maxLevel_>2)
+//       {
+//       Tools::Warning("this variant of ApplyOT is not valid for multi-level case",      
+//         __FILE__,__LINE__);
+//       }
+//     // implementation 1: apply OT to views of blocks of the vector. This is 
+//     // potentially very fast, but works only if the separators are contiguous
+//     // in the ordering of S (which they are unless you use "Subdivide Separators").
     
-    // We currently always use the second implementation because it allows more general
-    // transformations, which is required for the multi-level method (the vector v in the 
-    // Householder transform is always assumed to contain only ones in case of the first
-    // implementation). If there is a performance gain we can implement this in the
-    // 'view' implementation, too.
+//     // We currently always use the second implementation because it allows more general
+//     // transformations, which is required for the multi-level method (the vector v in the 
+//     // Householder transform is always assumed to contain only ones in case of the first
+//     // implementation). If there is a performance gain we can implement this in the
+//     // 'view' implementation, too.
 
-    // this object has each local separator as a group (without overlap),
-    // and remote separators connecting to local subdomains as separators
-    // (we only access the local separators here)
-    Teuchos::RCP<const HierarchicalMap> sepObject
-          = hid_->Spawn(HierarchicalMap::LocalSeparators);
+//     // this object has each local separator as a group (without overlap),
+//     // and remote separators connecting to local subdomains as separators
+//     // (we only access the local separators here)
+//     Teuchos::RCP<const HierarchicalMap> sepObject
+//           = hid_->Spawn(HierarchicalMap::LocalSeparators);
   
-    if (trans)
-      {
-      for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
-        {
-        int len = sepObject->NumInteriorElements(sep);
+//     if (trans)
+//       {
+//       for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
+//         {
+//         int len = sepObject->NumInteriorElements(sep);
         
-        int gid = sepObject->GID(sep,0,0);
-        int lid = map_->LID(gid);
-        for (int k=0;k<v.NumVectors();k++)
-          {
-          Epetra_SerialDenseVector block(View,&(v[k][lid]),len);
-          OT->ApplyInverse(block);
-          }
-        }
-      }
-    else
-      {
-      for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
-        {
-        int len = sepObject->NumInteriorElements(sep);
-        int gid = sepObject->GID(sep,0,0);
-        int lid = map_->LID(gid);
-        for (int k=0;k<v.NumVectors();k++)
-          {
-          Epetra_SerialDenseVector block(View,&(v[k][lid]),len);
-          OT->Apply(block);
-          }
-        }
-      }
+//         int gid = sepObject->GID(sep,0,0);
+//         int lid = map_->LID(gid);
+//         for (int k=0;k<v.NumVectors();k++)
+//           {
+//           Epetra_SerialDenseVector block(View,&(v[k][lid]),len);
+//           OT->ApplyInverse(block);
+//           }
+//         }
+//       }
+//     else
+//       {
+//       for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
+//         {
+//         int len = sepObject->NumInteriorElements(sep);
+//         int gid = sepObject->GID(sep,0,0);
+//         int lid = map_->LID(gid);
+//         for (int k=0;k<v.NumVectors();k++)
+//           {
+//           Epetra_SerialDenseVector block(View,&(v[k][lid]),len);
+//           OT->Apply(block);
+//           }
+//         }
+//       }
               
-    //TODO: implement flops-counter
-    if (flops!=NULL)
-      {
-      }
-    }
-  else
-    {
+//     //TODO: implement flops-counter
+//     if (flops!=NULL)
+//       {
+//       }
+//     }
+//   else
+//     {
     // implementation 2: just apply the constructed sparse matrix.
     // This makes sure that the OT for the matrix and the vectors are
     // consistent.
@@ -1738,9 +1649,9 @@ int SchurPreconditioner::ApplyOT(bool trans, Epetra_MultiVector& v, double* flop
     if (flops!=NULL)
       {
       //TODO: make this general for all OTs
-      *flops += sparseMatrixOT_->NumGlobalNonzeros() * 4 + v.MyLength();
+      *flops += sparseMatrixOT_->NumGlobalNonzeros64() * 4 + v.MyLength();
       }
-    }
+    // }
   return 0;
   }
 
@@ -1799,7 +1710,7 @@ int SchurPreconditioner::ComputeScaling(const Epetra_CrsMatrix& A,
       p_entry=0.0;
       for (int j=0;j<len;j++)
         {
-        if (BP.VariableType(A.GCID(ind[j]))==p_node)
+        if (BP.VariableType(A.GCID64(ind[j]))==p_node)
           {
           p_entry=std::abs(val[j]);
           }
@@ -1949,7 +1860,7 @@ int SchurPreconditioner::UpdateVsumRhs(const Epetra_MultiVector& B, Epetra_Multi
   // update the RHS for the V-sum solve
   for (int i=0;i<vsumMap_->NumMyElements();i++)
     {
-    int lid = Y.Map().LID(vsumMap_->GID(i));
+    int lid = Y.Map().LID(vsumMap_->GID64(i));
     for (int k=0;k<Y.NumVectors();k++)
       {
       Y[k][lid] = B[k][lid];
@@ -2278,12 +2189,11 @@ HYMLS::MatrixUtils::Dump(*linearSol_,"CoarseLevelSol.txt");
       for (int j=0;j<Y.NumVectors();j++)
         for (int i=0;i<vsumSol_->MyLength();i++)
           {
-          int gid = vsumMap_->GID(i);
-          int lid = Y.Map().LID(gid);
+          int lid = Y.Map().LID(vsumMap_->GID64(i));
 #ifdef HYMLS_TESTING
-              // something's fishy, should just be a copy operation.
-              if (lid<0) Tools::Error("inconsistent maps",__FILE__,__LINE__);
-#endif          
+          // something's fishy, should just be a copy operation.
+          if (lid<0) Tools::Error("inconsistent maps",__FILE__,__LINE__);
+#endif
           Y[j][lid] = (*vsumSol_)[j][i];
           }
       
@@ -2321,7 +2231,7 @@ void SchurPreconditioner::Visualize(std::string mfilename,bool recurse) const
         ofs << "p{"<<myLevel_<<"}{"<<1+i<<"}.vsums=[";
         for (int j=0;j<vsumMap_->NumMyElements();j++)
           {
-          ofs << vsumMap_->GID(j) << " ";
+          ofs << vsumMap_->GID64(j) << " ";
           }
         ofs << "];"<<std::endl;
         }

@@ -26,14 +26,14 @@ TEUCHOS_UNIT_TEST(ProjectedOperator, Constructor)
 
   Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(new Epetra_CrsMatrix(Copy, map, 2));
   for (int i = 0; i < n; i++) {
-    int A_idx = util.RandomInt() % n;
+    // int A_idx = util.RandomInt() % n;
     double A_val = util.RandomDouble();
 
     // Check if we own the index
     if (A->LRID(i) == -1)
       continue;
 
-    A->InsertGlobalValues(i, 1, &A_val, &A_idx);
+    // A->InsertGlobalValues(i, 1, &A_val, &A_idx);
     A->InsertGlobalValues(i, 1, &A_val, &i);
   }
   A->FillComplete();
@@ -63,14 +63,14 @@ TEUCHOS_UNIT_TEST(ProjectedOperator, ConstructorWithB)
   Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(new Epetra_CrsMatrix(Copy, map, 2));
   Teuchos::RCP<Epetra_CrsMatrix> B = Teuchos::rcp(new Epetra_CrsMatrix(Copy, map, 1));
   for (int i = 0; i < n; i++) {
-    int A_idx = util.RandomInt() % n;
+    // int A_idx = util.RandomInt() % n;
     double A_val = util.RandomDouble();
 
     // Check if we own the index
     if (A->LRID(i) == -1)
       continue;
 
-    A->InsertGlobalValues(i, 1, &A_val, &A_idx);
+    // A->InsertGlobalValues(i, 1, &A_val, &A_idx);
     A->InsertGlobalValues(i, 1, &A_val, &i);
 
     A_val = std::abs(A_val);
@@ -107,14 +107,14 @@ TEUCHOS_UNIT_TEST(ProjectedOperator, Apply)
 
   Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(new Epetra_CrsMatrix(Copy, map, 2));
   for (int i = 0; i < n; i++) {
-    int A_idx = util.RandomInt() % n;
+    // int A_idx = util.RandomInt() % n;
     double A_val = util.RandomDouble();
 
     // Check if we own the index
     if (A->LRID(i) == -1)
       continue;
 
-    A->InsertGlobalValues(i, 1, &A_val, &A_idx);
+    // A->InsertGlobalValues(i, 1, &A_val, &A_idx);
     A->InsertGlobalValues(i, 1, &A_val, &i);
   }
   A->FillComplete();
@@ -162,14 +162,14 @@ TEUCHOS_UNIT_TEST(ProjectedOperator, ApplyWithB)
   Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(new Epetra_CrsMatrix(Copy, map, 2));
   Teuchos::RCP<Epetra_CrsMatrix> B = Teuchos::rcp(new Epetra_CrsMatrix(Copy, map, 1));
   for (int i = 0; i < n; i++) {
-    int A_idx = util.RandomInt() % n;
+    // int A_idx = util.RandomInt() % n;
     double A_val = util.RandomDouble();
 
     // Check if we own the index
     if (A->LRID(i) == -1)
       continue;
 
-    A->InsertGlobalValues(i, 1, &A_val, &A_idx);
+    // A->InsertGlobalValues(i, 1, &A_val, &A_idx);
     A->InsertGlobalValues(i, 1, &A_val, &i);
 
     A_val = std::abs(A_val);
@@ -227,14 +227,14 @@ TEUCHOS_UNIT_TEST(ProjectedOperator, ApplyInverse)
 
   Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(new Epetra_CrsMatrix(Copy, map, 2));
   for (int i = 0; i < n; i++) {
-    int A_idx = n - 1 - util.RandomInt() % (n - i);
+    // int A_idx = n - 1 - util.RandomInt() % (n - i);
     double A_val = util.RandomDouble();
 
     // Check if we own the index
     if (A->LRID(i) == -1)
       continue;
 
-    A->InsertGlobalValues(i, 1, &A_val, &A_idx);
+    // A->InsertGlobalValues(i, 1, &A_val, &A_idx);
     A->InsertGlobalValues(i, 1, &A_val, &i);
   }
   A->FillComplete();
@@ -282,14 +282,14 @@ TEUCHOS_UNIT_TEST(ProjectedOperator, ApplyInverseWithB)
   Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(new Epetra_CrsMatrix(Copy, map, 2));
   Teuchos::RCP<Epetra_CrsMatrix> B = Teuchos::rcp(new Epetra_CrsMatrix(Copy, map, 1));
   for (int i = 0; i < n; i++) {
-    int A_idx = n - 1 - util.RandomInt() % (n - i);
+    // int A_idx = n - 1 - util.RandomInt() % (n - i);
     double A_val = util.RandomDouble();
 
     // Check if we own the index
     if (A->LRID(i) == -1)
       continue;
 
-    A->InsertGlobalValues(i, 1, &A_val, &A_idx);
+    // A->InsertGlobalValues(i, 1, &A_val, &A_idx);
     A->InsertGlobalValues(i, 1, &A_val, &i);
 
     A_val = std::abs(A_val);

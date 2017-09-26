@@ -262,6 +262,7 @@ void getLinearSystem(Teuchos::RCP<const Epetra_Comm> comm,
   Teuchos::ParameterList& driverList = params->sublist("Driver");
   Teuchos::ParameterList& problemList = params->sublist("Problem");
   Teuchos::ParameterList problemList_cpy = problemList;
+  Teuchos::ParameterList precList_cpy = params->sublist("Preconditioner");
 
   bool read_problem = driverList.get("Read Linear System", false);
   int numRhs = driverList.get("Number of rhs", 1);
@@ -269,7 +270,8 @@ void getLinearSystem(Teuchos::RCP<const Epetra_Comm> comm,
   int dim0=0; // if the problem is read from a file, a null space can be read, too, with dim0 columns.
   if (nullSpaceType=="File") dim0=driverList.get("Null Space Dimension",0);
           
-  Teuchos::RCP<Epetra_Map> map = HYMLS::MainUtils::create_map(*comm, problemList_cpy);
+  Teuchos::RCP<Epetra_Map> map = HYMLS::MainUtils::create_map(*comm,
+    problemList_cpy, precList_cpy);
   nullSpace=Teuchos::null;
 
   // exact solution
@@ -564,6 +566,7 @@ int testSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
         HYMLS::MatrixUtils::Dump(*b,"BadRhs.txt");
         HYMLS::MatrixUtils::Dump(*res,"BadRes.txt");
         HYMLS::MatrixUtils::Dump(*err,"BadErr.txt");
+        HYMLS::MatrixUtils::Dump(*nullSpace,"BadNullSpace.txt");
         }
 #endif
       if (num_iter > target_num_iter) ierr = ierr | MAX_ITER_EXCEEDED;
@@ -619,7 +622,7 @@ int testEigenSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
 
   for (int i = 0; i < v0->MyLength(); i++)
     {
-    if (v0->Map().GID(i) % dof == dim)
+    if (v0->Map().GID64(i) % dof == dim)
       {
       (*v0)[0][i] = 0.0;
       }

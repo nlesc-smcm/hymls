@@ -7,20 +7,22 @@
 #include <stack>
 #include <cstdio>
 #include <signal.h>
+#include <iostream>
 
 #include "Epetra_Comm.h"
-#include "HYMLS_Epetra_Time.h"
-#include <iostream>
-#include "Teuchos_RCP.hpp"
-#include "EpetraExt_RowMatrixOut.h"
+#include "Epetra_MpiComm.h"
 #include "Epetra_SerialComm.h"
 
+#include "EpetraExt_RowMatrixOut.h"
+
+#include "Teuchos_RCP.hpp"
 #include "Teuchos_FancyOStream.hpp"
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_stacktrace.hpp"
 
 #include "Ifpack_ConfigDefs.h"
 
+#include "HYMLS_Epetra_Time.h"
 #include "HYMLS_Macros.H"
 #include "HYMLS_Exception.H"
 
@@ -46,7 +48,10 @@ namespace HYMLS
 Teuchos::print_stack_on_segfault();
 #endif     
      traceLevel_=0;
-     comm_=comm;
+     if (comm == Teuchos::null)
+       comm_ = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
+     else
+       comm_ = comm;
      if (output==Teuchos::null)
        {
        output_stream = Teuchos::rcp(new 
@@ -181,26 +186,18 @@ Teuchos::print_stack_on_segfault();
       HYMLS_DEBUG("(in "<<file<<", line "<<line<<")");
       }
 
-  //! converts linear index to cartesian subscripts
-  static inline void ind2sub(int nx, int ny, int nz, int dof, 
-        int idx, int& i, int& j, int& k, int& var)
-    {
-#ifdef HYMLS_TESTING    
-    if ((idx<0)||(idx>=(nx*ny*nz*dof)))
-      {
-      std::cerr << "dim=["<<nx<<","<<ny<<","<<nz<<"], dof="<<dof<<": ind="<<idx<<std::endl;
-      Tools::Error("ind2sub: Index out of range!",__FILE__,__LINE__);
-      }
-#endif      
-    int rem=idx;
-    var=MOD(rem,dof);
-    rem=(rem-var)/dof;
-    i=MOD(rem,nx);
-    rem=(rem-i)/nx;
-    j=MOD(rem,ny);
-    rem=(rem-j)/ny;
-    k=MOD(rem,nz);
-    }
+    //! converts linear index to cartesian subscripts
+    static void ind2sub(int nx, int ny, int nz, int dof, 
+      hymls_gidx idx, int& i, int& j, int& k, int& var);
+
+    //! converts linear index to cartesian subscripts
+    static void ind2sub(int nx, int ny, int nz, hymls_gidx idx, int& i, int& j, int& k);
+
+    //! converts cartesian subscripts to linear index
+    static hymls_gidx sub2ind(int nx, int ny, int nz, int dof, int i, int j, int k, int var);
+
+    //! converts cartesian subscripts to linear index
+    static hymls_gidx sub2ind(int nx, int ny, int nz, int i, int j, int k);
 
 static void SignalHandler(int signum)
   {
@@ -209,54 +206,6 @@ static void SignalHandler(int signum)
   else if (signum==SIGSEGV) msg+=" (SIGSEGV, segmentation fault)";
   HYMLS::Tools::Fatal(msg,__FILE__,__LINE__);
   }
-
-  //! converts linear index to cartesian subscripts
-  static inline void ind2sub(int nx, int ny, int nz, int idx, int& i, int& j, int& k)
-    {
-    int dummy;
-    ind2sub(nx,ny,nz,1,idx,i,j,k,dummy);
-    return;
-    }
-
-  //! converts cartesian subscripts to linear index
-  static inline int sub2ind(int nx, int ny, int nz, int dof, int i, int j, int k, int var)
-    {
-#ifdef HYMLS_TESTING    
-    std::string msg1 = "sub2ind: ";
-    std::string msg3 = " out of range ";
-    if ((i<0)||(i>=nx))
-      {
-      std::string msg2 = "i-Index "+Teuchos::toString(i);
-      std::string msg4 = "[0,"+Teuchos::toString(nx)+"]";
-      Tools::Error(msg1+msg2+msg3+msg4,__FILE__,__LINE__);
-      }
-    if ((j<0)||(j>=ny))
-      {
-      std::string msg2 = "j-Index "+Teuchos::toString(j);
-      std::string msg4 = "[0,"+Teuchos::toString(ny)+"]";
-      Tools::Error(msg1+msg2+msg3+msg4,__FILE__,__LINE__);
-      }
-    if ((k<0)||(k>=nz))
-      {
-      std::string msg2 = "k-Index "+Teuchos::toString(j);
-      std::string msg4 = "[0,"+Teuchos::toString(nz)+"]";
-      Tools::Error(msg1+msg2+msg3+msg4,__FILE__,__LINE__);
-      }
-    if ((var<0)||(var>=dof))
-      {
-      std::string msg2 = "var-Index "+Teuchos::toString(j);
-      std::string msg4 = "[0,"+Teuchos::toString(dof)+"]";
-      Tools::Error(msg1+msg2+msg3+msg4,__FILE__,__LINE__);
-      }
-#endif      
-    return ((k*ny+j)*nx+i)*dof+var;
-    }
-
-  //! converts cartesian subscripts to linear index
-  static inline int sub2ind(int nx, int ny, int nz, int i, int j, int k)
-    {
-    return sub2ind(nx,ny,nz,1,i,j,k,0);
-    }
 
   //! split a cartesian box into nparts subdomains in a somehow 'good' way.
   //! This function just tells you how many subdomains there should be in 

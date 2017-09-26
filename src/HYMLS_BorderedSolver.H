@@ -124,10 +124,10 @@ protected:
   Teuchos::RCP<BorderedOperator> belosPrecPtr_;
 
   //! Belos linear problem interface
-  Teuchos::RCP<::Belos::LinearProblem<double, BorderedVector, BorderedOperator> > belosProblemPtr_;
+  Teuchos::RCP< ::Belos::LinearProblem<double, BorderedVector, BorderedOperator> > belosProblemPtr_;
 
   //! Belos solver
-  Teuchos::RCP<::Belos::SolverManager<double, BorderedVector, BorderedOperator> > belosSolverPtr_;
+  Teuchos::RCP< ::Belos::SolverManager<double, BorderedVector, BorderedOperator> > belosSolverPtr_;
 
   };
 

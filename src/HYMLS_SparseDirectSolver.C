@@ -473,7 +473,7 @@ ApplyInverse(const Epetra_MultiVector& X, Epetra_MultiVector& Y) const
 
   if (X.NumVectors() != Y.NumVectors())
         {return -2;}
-  
+ 
   // AztecOO gives X and Y pointing to the same memory location,
   // need to create an auxiliary vector, Xcopy
   Teuchos::RCP<const Epetra_MultiVector> Xcopy;

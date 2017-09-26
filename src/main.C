@@ -169,10 +169,13 @@ bool status=true;
     
     // copy problem sublist so that the main utils don't modify the original
     Teuchos::ParameterList probl_params_cpy = probl_params;
+    // also need the preconditioner sublist for the partitioning.
+    // TODO: Move this to its own sublist or something
+    Teuchos::ParameterList prec_params_cpy = params->sublist("Preconditioner");
   
     std::string eqn=probl_params_cpy.get("Equations","not-set");
 
-    map = HYMLS::MainUtils::create_map(*comm,probl_params_cpy); 
+    map = HYMLS::MainUtils::create_map(*comm,probl_params_cpy, prec_params_cpy); 
 #ifdef HYMLS_STORE_MATRICES
 HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
 #endif
@@ -245,7 +248,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
   Teuchos::RCP<Epetra_CrsMatrix> M = Teuchos::null;
   M= Teuchos::rcp(new Epetra_CrsMatrix(Copy,*map,1,true));
 
-  int gid;
+  hymls_gidx gid;
   double val1=1.0/(nx*ny*nz);
   double val0=0.0;
   if (eqn=="Stokes-C")
@@ -255,10 +258,10 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
       {
       for (int j=i;j<i+dof-1;j++)
         {
-        gid = map->GID(j);
+        gid = map->GID64(j);
         CHECK_ZERO(M->InsertGlobalValues(gid,1,&val1,&gid));
         }
-      gid = map->GID(i+dof-1);
+      gid = map->GID64(i+dof-1);
       CHECK_ZERO(M->InsertGlobalValues(gid,1,&val0,&gid));
       }
     }
@@ -266,7 +269,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     {
     for (int i=0;i<M->NumMyRows();i++)
       {
-      gid = map->GID(i);
+      gid = map->GID64(i);
       CHECK_ZERO(M->InsertGlobalValues(gid,1,&val1,&gid));
       }
     }
@@ -290,7 +293,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
         CHECK_ZERO(M->ExtractMyRowView(i,lenM,valM,indM));
         if (lenA==1)
           {
-          if (K->GCID(indA[0])==K->GRID(i))
+          if (K->GCID64(indA[0])==K->GRID64(i))
             {
             for (int j=0;j<lenM;j++)
               {
@@ -359,8 +362,6 @@ for (int f=0;f<numComputes;f++)
     {
     CHECK_ZERO(solver->SetupDeflation());
     }
-
- // std::cout << *solver << std::endl;
   
   for (int s=0;s<numSolves;s++)
     {
@@ -395,7 +396,9 @@ for (int f=0;f<numComputes;f++)
 
     HYMLS::Tools::Out("Solve ("+Teuchos::toString(s+1)+")");
   HYMLS::Tools::StartTiming("main: Solve");
-    CHECK_ZERO(solver->ApplyInverse(*b,*x));
+    //CHECK_ZERO(
+    solver->ApplyInverse(*b,*x);
+    //);
   HYMLS::Tools::StopTiming("main: Solve",true);
 
     // subtract constant from pressure if solving Stokes-C
@@ -427,7 +430,6 @@ HYMLS_DEBVAR(*b);
         Epetra_MultiVector(*map,numRhs));
     CHECK_ZERO(K->Multiply(false,*x,*res));
     CHECK_ZERO(res->Update(1.0,*b,-1));
-  
     CHECK_ZERO(err->Update(1.0,*x,-1.0,*x_ex,0.0));
   
     double *errNorm,*resNorm,*rhsNorm;

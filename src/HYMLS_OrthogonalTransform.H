@@ -8,6 +8,7 @@
 class Epetra_SerialDenseMatrix;
 class Epetra_SerialDenseVector;
 class Epetra_IntSerialDenseVector;
+class Epetra_LongLongSerialDenseVector;
 class Epetra_CrsMatrix;
 class Epetra_MultiVector;
 
@@ -59,10 +60,20 @@ class OrthogonalTransform
   //! Apply() functions to apply the transform rather than sparse matrix-matrix
   //! products. If vec is omitted, it is set to all ones. Otherwise it is used 
   //! as a test vector from which all but one entries should be eliminated.
-  virtual int Construct(Epetra_CrsMatrix& H, const Epetra_IntSerialDenseVector& inds) const = 0;
+  virtual int Construct(Epetra_CrsMatrix& H,
+#ifdef HYMLS_LONG_LONG
+    const Epetra_LongLongSerialDenseVector& inds) const = 0;
+#else
+    const Epetra_IntSerialDenseVector& inds) const = 0;
+#endif
   //! cf. previous function
-  virtual int Construct(Epetra_CrsMatrix& H, 
-    const Epetra_IntSerialDenseVector& inds, const Epetra_SerialDenseVector& vec) const = 0;
+  virtual int Construct(Epetra_CrsMatrix& H,
+#ifdef HYMLS_LONG_LONG
+    const Epetra_LongLongSerialDenseVector& inds,
+#else
+    const Epetra_IntSerialDenseVector& inds,
+#endif
+    const Epetra_SerialDenseVector& vec) const = 0;
 
   //! apply a sparse matrix representation of a set of transforms from the left
   //! and right to a sparse matrix.

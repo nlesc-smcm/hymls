@@ -79,18 +79,16 @@ namespace HYMLS {
     int MaxNumEntries = std::max(G.GlobalMaxNumIndices(), GTranspose->GlobalMaxNumIndices());
 
     int GNumEntries, BNumEntries;
-    int *GIndices = new int[MaxNumEntries];
-    int *BIndices = new int[MaxNumEntries];
+    hymls_gidx *GIndices = new hymls_gidx[MaxNumEntries];
+    hymls_gidx *BIndices = new hymls_gidx[MaxNumEntries];
 
     for (int i = 0; i < G.NumMyRows(); ++i)
       {
-      G.ExtractMyRowCopy(i, MaxNumEntries, GNumEntries, GIndices);
-      for (int j = 0; j < GNumEntries; ++j)
-        GIndices[j] = G.GCID(GIndices[j]);
+      G.ExtractGlobalRowCopy((hymls_gidx)G.GRID64(i),
+        MaxNumEntries, GNumEntries, GIndices);
 
-      GTranspose->ExtractMyRowCopy(i, MaxNumEntries, BNumEntries, BIndices);
-      for (int j = 0; j < BNumEntries; ++j)
-        BIndices[j] = GTranspose->GCID(BIndices[j]);
+      GTranspose->ExtractGlobalRowCopy((hymls_gidx)GTranspose->GRID64(i),
+        MaxNumEntries, BNumEntries, BIndices);
 
       ASSERT_EQUALITY(GNumEntries, BNumEntries, status);
 
@@ -124,20 +122,18 @@ namespace HYMLS {
     int MaxNumEntries = std::max(A.GlobalMaxNumEntries(), ATranspose->GlobalMaxNumEntries());
 
     int ANumEntries, BNumEntries;
-    int *AIndices = new int[MaxNumEntries];
-    int *BIndices = new int[MaxNumEntries];
+    hymls_gidx *AIndices = new hymls_gidx[MaxNumEntries];
+    hymls_gidx *BIndices = new hymls_gidx[MaxNumEntries];
     double *AValues = new double[MaxNumEntries];
     double *BValues = new double[MaxNumEntries];
 
     for (int i = 0; i < A.NumMyRows(); ++i)
       {
-      A.ExtractMyRowCopy(i, MaxNumEntries, ANumEntries, AValues, AIndices);
-      for (int j = 0; j < ANumEntries; ++j)
-        AIndices[j] = A.GCID(AIndices[j]);
+      A.ExtractGlobalRowCopy((hymls_gidx)A.GRID64(i),
+        MaxNumEntries, ANumEntries, AValues, AIndices);
 
-      ATranspose->ExtractMyRowCopy(i, MaxNumEntries, BNumEntries, BValues, BIndices);
-      for (int j = 0; j < BNumEntries; ++j)
-        BIndices[j] = ATranspose->GCID(BIndices[j]);
+      ATranspose->ExtractGlobalRowCopy((hymls_gidx)ATranspose->GRID64(i),
+        MaxNumEntries, BNumEntries, BValues, BIndices);
 
       ASSERT_EQUALITY(ANumEntries, BNumEntries, status);
 
@@ -207,7 +203,7 @@ namespace HYMLS {
     int *cols;
     for (int i=0; i<A.NumMyRows(); i++)
       {
-      int grid = A.GRID(i);
+      hymls_gidx grid = A.GRID64(i);
       if (MOD(grid,dof)!=pvar)
         {
         ASSERT_ZERO(A.ExtractMyRowView(i,len,val,cols),status);
@@ -215,7 +211,7 @@ namespace HYMLS {
         double psum=0.0; // should be 0
         for (int j=0; j<len;j++)
           {
-          int gcid = A.GCID(cols[j]);
+          hymls_gidx gcid = A.GCID64(cols[j]);
           if (MOD(gcid,dof)==pvar)
             {
             num_pcols++;
@@ -259,7 +255,7 @@ namespace HYMLS {
     double *val;
     for (int i=0;i<K.NumMyRows();i++)
       {
-      int grid = K.GRID(i);
+      hymls_gidx grid = K.GRID64(i);
       int p_lrid = p_nodeType.Map().LID(grid);
       ASSERT_TRUE(p_lrid>=0,status);
       if (p_nodeType[p_lrid]<0 && MOD(grid,dof)!=pvar)
@@ -268,7 +264,7 @@ namespace HYMLS {
         ASSERT_ZERO(K.ExtractMyRowView(i,len,val,cols),status);
         for (int j=0;j<len;j++)
           {
-          int gcid = K.GCID(cols[j]);
+          hymls_gidx gcid = K.GCID64(cols[j]);
           if (MOD(gcid,dof)==pvar)
             {
             // entry in the grad part of the matrix K
@@ -322,8 +318,8 @@ namespace HYMLS {
     msg_ << "dof="<<dof_<<std::endl;
     for (int i=0;i<A.NumMyRows();i++)
       {
-      int gid_i= A.GRID(i);
-      int sd_i = part(A.GRID(i));
+      hymls_gidx gid_i= A.GRID64(i);
+      hymls_gidx sd_i = part(A.GRID64(i));
       // map containing only interior nodes of subdomain i
       Teuchos::RCP<const Epetra_Map> imap_i = hid.SpawnMap(sd_i,HierarchicalMap::Interior);
       // map containing only separator nodes of subdomain i
@@ -335,7 +331,7 @@ namespace HYMLS {
       ASSERT_ZERO(A.ExtractMyRowView(i,len,val,cols),status);
       for (int j=0;j<len;j++)
         {
-        int gid_j= A.GCID(cols[j]);
+        hymls_gidx gid_j= A.GCID64(cols[j]);
         int sd_j = part(gid_j);
           
         if (sd_i!=sd_j)
@@ -474,7 +470,7 @@ namespace HYMLS {
         msg_<<"matrix row: "<<std::endl;
         for (int j=0;j<len;j++)
           {
-          int gid_j= A.GCID(cols[j]);
+          hymls_gidx gid_j= A.GCID64(cols[j]);
           int sd_j = part(gid_j);
           msg_ << gid_i << " " << gid_j << " [sd "<<sd_j<<", "<<gid2str(gid_j)<<"]\t" << val[j]<<std::endl;
           }
@@ -503,12 +499,12 @@ namespace HYMLS {
   for (int sep=0;sep<sepObject.NumMySubdomains();sep++)
     {
     // loop over all local separator groups
-    for (int grp=0;grp<sepObject.NumGroups(sep);grp++)
+    for (int grp=1;grp<sepObject.NumGroups(sep);grp++)
       {
       // loop over all elements in the group, skipping the first one (the V-sum node)
       for (int i=1;i<sepObject.NumElements(sep,grp);i++)
         {
-        int grid=sepObject.GID(sep,grp,i);
+        hymls_gidx grid=sepObject.GID(sep,grp,i);
         // if this element is a V-node, check that any P-node couplings are 0
         if (MOD(grid,dof_)!=pvar_)
           {
@@ -516,7 +512,7 @@ namespace HYMLS {
           ASSERT_ZERO(transSC.ExtractMyRowView(lrid,len,val,cols),status);
           for (int j=0;j<len;j++)
             {
-            int gcid = transSC.GCID(cols[j]);
+            hymls_gidx gcid = transSC.GCID64(cols[j]);
             if (MOD(gcid,dof_)==pvar_ && std::abs(val[j])>float_tol())
               {
               msg_ << "Coupling between non-Vsum-node "<<grid<<" "<<gid2str(grid)<<
@@ -541,15 +537,15 @@ namespace HYMLS {
     int* cols;
     for (int i=0;i<A.NumMyRows();i++)
       {
-      int grid=A.GRID(i);
+      hymls_gidx grid=A.GRID64(i);
       ASSERT_ZERO(A.ExtractMyRowView(i,len,val,cols),status);
       for (int j=0;j<len;j++)
         {
         if (std::abs(val[j])<=std::numeric_limits<double>::epsilon())
           {
-          msg_ << "small entry A("<<grid<<","<<A.GCID(cols[j])<<")="<<val[j]<<std::endl;
+          msg_ << "small entry A("<<grid<<","<<A.GCID64(cols[j])<<")="<<val[j]<<std::endl;
           msg_ << "row "<<gid2str(grid)<<std::endl;
-          msg_ << "col "<<gid2str(A.GCID(cols[j]))<<std::endl;
+          msg_ << "col "<<gid2str(A.GCID64(cols[j]))<<std::endl;
           status=false;
           }
         }
@@ -571,10 +567,10 @@ namespace HYMLS {
       {
       for (int i = 0; i < out.MyLength(); i++)
         {
-        if (std::abs(out[j][i]) > tol && (out.Map().GID(i) % dof == pvar))
+        if (std::abs(out[j][i]) > tol && (out.Map().GID64(i) % dof == pvar))
           {
           msg_ << "Rowsum not zero but " << out[j][i]
-               << " on row " << out.Map().GID(i) << std::endl;
+               << " on row " << out.Map().GID64(i) << std::endl;
           status = false;
           }
         }
@@ -583,10 +579,11 @@ namespace HYMLS {
     }
 
   // convert global index to string for output (gid => (i,j,k,v))
-  std::string Tester::gid2str(int gid)
+  std::string Tester::gid2str(hymls_gidx gid)
     {
     if (nx_<0) return "Tester not initialized correctly";
     int i,j,k,v;
+
     Tools::ind2sub(nx_,ny_,nz_,dof_,gid,i,j,k,v);
     std::stringstream ss;
     std::string var = (v==0 ? "U": 
@@ -597,6 +594,5 @@ namespace HYMLS {
     ss<<"("<<i<<","<<j<<","<<k<<"):"<<var;
     return ss.str();
     }
-    
 
 }//namespace

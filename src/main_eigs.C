@@ -179,16 +179,18 @@ bool status=true;
 
     Teuchos::ParameterList& probl_params = params->sublist("Problem");
 
+    Teuchos::ParameterList probl_params_cpy = probl_params;
+    Teuchos::ParameterList prec_params_cpy = params->sublist("Preconditioner");
+
     int dim=probl_params.get("Dimension",2);
     int nx=probl_params.get("nx",32);
     int ny=probl_params.get("ny",nx);
     int nz=probl_params.get("nz",dim>2?nx:1);
     int dof=probl_params.get("Degrees of Freedom", 1);
  
-    Teuchos::ParameterList probl_params_cpy = probl_params;
     std::string eqn=probl_params_cpy.get("Equations","Laplace");
 
-    map = HYMLS::MainUtils::create_map(*comm,probl_params_cpy); 
+    map = HYMLS::MainUtils::create_map(*comm,probl_params_cpy, prec_params_cpy); 
 #ifdef HYMLS_STORE_MATRICES
 HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
 #endif
@@ -243,7 +245,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
       {
       HYMLS::Tools::Out("Create dummy mass matrix");
       M=Teuchos::rcp(new Epetra_CrsMatrix(Copy,*map,1,true));
-      int gid;
+      hymls_gidx gid;
       // double val1=1.0/(nx*ny*nz);
       double val1=1.0; //for turing problem Weiyan 
 
@@ -254,10 +256,10 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
           {
           for (int j=i;j<i+dof-1;j++)
             {
-            gid = map->GID(j);
+            gid = map->GID64(j);
             CHECK_ZERO(M->InsertGlobalValues(gid,1,&val1,&gid));
             }
-          gid = map->GID(i+dof-1);
+          gid = map->GID64(i+dof-1);
           CHECK_ZERO(M->InsertGlobalValues(gid,1,&val0,&gid));
           }
         }
@@ -265,7 +267,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
         {
         for (int i=0;i<M->NumMyRows();i++)
           {
-          gid = map->GID(i);
+          gid = map->GID64(i);
           CHECK_ZERO(M->InsertGlobalValues(gid,1,&val1,&gid));
           }
         }
@@ -337,7 +339,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
       {
       for (int i = 0; i < v0->MyLength(); i++)
         {
-        if (v0->Map().GID(i) % dof == dim-1)
+        if (v0->Map().GID64(i) % dof == dim-1)
           {
           (*v0)[0][i] = 0.0;
           }

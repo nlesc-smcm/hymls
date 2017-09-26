@@ -270,7 +270,7 @@ void ProductOperator::initializeTempVecs(bool applyInverse, int numVecs) const
     // precedence over ||, but I didn't want to change the meaning of
     // the original code.
     if (((! UseTranspose_ && ! applyInverse) || (UseTranspose_ && applyInverse))
-      && range_vecs_.size () == 0 || (range_vecs_.size() && range_vecs_[0]->NumVectors() != numVecs)) {
+      && (range_vecs_.size() == 0 || (range_vecs_.size() && range_vecs_[0]->NumVectors() != numVecs))) {
       //
       // Forward Mat-vec
       //
@@ -296,7 +296,7 @@ void ProductOperator::initializeTempVecs(bool applyInverse, int numVecs) const
     // precedence over ||, but I didn't want to change the meaning of
     // the original code.
     else if (((UseTranspose_ && ! applyInverse) || (! UseTranspose_ && applyInverse))
-      && domain_vecs_.size () == 0 || (domain_vecs_.size() && domain_vecs_[0]->NumVectors() != numVecs)) {
+      && (domain_vecs_.size() == 0 || (domain_vecs_.size() && domain_vecs_[0]->NumVectors() != numVecs))) {
       //
       // Adjoint Mat-vec
       //
