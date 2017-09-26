@@ -1350,7 +1350,7 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
     CHECK_ZERO(B.FillComplete(*map2, *map1));
     CHECK_ZERO(Bt.FillComplete(*map1, *map2));
 
-    fmatrix = (B.MaxNumEntries() == 2) || B.NumMyRows() == 1;
+    fmatrix = B.MaxNumEntries() == 2 || B.MaxNumEntries() == 1;
     HYMLS_DEBVAR(fmatrix);
 
     if (!fmatrix)

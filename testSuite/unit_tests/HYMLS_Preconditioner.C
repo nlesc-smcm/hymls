@@ -14,6 +14,10 @@
 #include "HYMLS_SchurPreconditioner.H"
 #include "HYMLS_SchurComplement.H"
 #include "HYMLS_CartesianPartitioner.H"
+#include "HYMLS_SkewCartesianPartitioner.H"
+
+#include "Galeri_CrsMatrices.h"
+#include "GaleriExt_CrsMatrices.h"
 
 #include "HYMLS_FakeComm.H"
 #include "HYMLS_UnitTests.H"
@@ -189,4 +193,71 @@ TEUCHOS_UNIT_TEST(Preconditioner, setBorderNull)
   // Check if we can set the border to null again
   prec.setBorder(Teuchos::null);
   TEST_EQUALITY(prec.V(), Teuchos::null);
+  }
+
+
+TestablePreconditioner create2DStokesPreconditioner(Epetra_Comm &Comm)
+  {
+  int dof = 3;
+  int nx = 8;
+  int ny = 8;
+
+  hymls_gidx n = nx * ny * dof;
+  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, Comm));
+
+  Teuchos::RCP<HYMLS::SkewCartesianPartitioner> part = Teuchos::rcp(
+    new HYMLS::SkewCartesianPartitioner(map, nx, ny, 1, dof));
+  part->Partition(4, true);
+  *map = *part->GetMap();
+
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(new Teuchos::ParameterList());
+  Teuchos::ParameterList &problemList = params->sublist("Problem");
+  problemList.set("nx", nx);
+  problemList.set("ny", ny);
+  problemList.set("nz", 1);
+
+  Teuchos::ParameterList problemListCopy = problemList;
+  Teuchos::RCP<Epetra_CrsMatrix> matrix = Teuchos::rcp(
+    GaleriExt::CreateCrsMatrix("Stokes2D", map.get(), problemListCopy));
+
+  problemList.set("Degrees of Freedom", 3);
+  problemList.set("Dimension", 2);
+
+  Teuchos::ParameterList &solverList = params->sublist("Preconditioner");
+  solverList.set("Separator Length", 4);
+  solverList.set("Coarsening Factor", 2);
+  solverList.set("Partitioner", "Skew Cartesian");
+  solverList.set("Number of Levels", 3);
+
+  for (int i = 0; i < 2; i++)
+      {
+      Teuchos::ParameterList& velList =
+        problemList.sublist("Variable " + Teuchos::toString(i));
+      velList.set("Variable Type", "Laplace");
+      }
+
+  Teuchos::ParameterList& presList =
+    problemList.sublist("Variable "+Teuchos::toString(2));
+  presList.set("Variable Type", "Retain 1");
+  presList.set("Retain Isolated", true);
+
+  problemList.set("Dimension", 2);
+  problemList.set("Degrees of Freedom", dof);
+
+  Teuchos::ParameterList &ssolverList = solverList.sublist("Sparse Solver");
+  ssolverList.set("amesos: solver type", "KLU");
+  ssolverList.set("Custom Ordering", true);
+
+  TestablePreconditioner prec(matrix, params);
+  return prec;
+  }
+
+TEUCHOS_UNIT_TEST(Preconditioner, 2DStokes)
+  {
+  Epetra_MpiComm Comm(MPI_COMM_WORLD);
+  DISABLE_OUTPUT;
+
+  TestablePreconditioner prec = create2DStokesPreconditioner(Comm);
+  prec.Initialize();
+  prec.Compute();
   }
