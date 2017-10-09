@@ -1,0 +1,6 @@
+<ParameterList name="Data for unit tests">
+  <Parameter name="2D Stokes matrix" type="string"
+             value="${PROJECT_SOURCE_DIR}/testSuite/data/DrivenCavity/32x32/Re0/jac.mtx"/>
+  <Parameter name="3D Stokes matrix" type="string"
+             value="${PROJECT_SOURCE_DIR}/testSuite/data/DrivenCavity/16x16x16/Re0/jac.mtx"/>
+</ParameterList>

@@ -176,35 +176,38 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
         Teuchos::ParameterList &pl )
    : d_problem(problem), d_prec(prec), numIters_(0)
   {
-    TEUCHOS_TEST_FOR_EXCEPTION( d_problem == Teuchos::null,                std::invalid_argument, "Problem not given to solver manager." );
-    TEUCHOS_TEST_FOR_EXCEPTION( !d_problem->isProblemSet(),                std::invalid_argument, "Problem not set." );
-    TEUCHOS_TEST_FOR_EXCEPTION( d_problem->getA() == Teuchos::null &&
-                                d_problem->getOperator() == Teuchos::null, std::invalid_argument, "A operator not supplied on Eigenproblem." );
-    TEUCHOS_TEST_FOR_EXCEPTION( d_problem->getInitVec() == Teuchos::null,  std::invalid_argument, "No vector to clone from on Eigenproblem." );
-    TEUCHOS_TEST_FOR_EXCEPTION( d_problem->getNEV() <= 0,                  std::invalid_argument, "Number of requested eigenvalues must be positive.");
-
-    int iflag=0;
-int argc=0;
+    int iflag = 0;
+    int argc = 0;
     phist_kernels_init(&argc, NULL, &iflag);
-    TEUCHOS_TEST_FOR_EXCEPTION( iflag!=0, std::runtime_error, "Could not initialize PHIST!");
+    TEUCHOS_TEST_FOR_EXCEPTION(iflag != 0, std::runtime_error, "Could not initialize PHIST!");
 
-    d_Amat=Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(d_problem->getA());
-    if (d_Amat==Teuchos::null)
+    TEUCHOS_TEST_FOR_EXCEPTION( d_problem == Teuchos::null,
+      std::invalid_argument, "Problem not given to solver manager." );
+    TEUCHOS_TEST_FOR_EXCEPTION( !d_problem->isProblemSet(),
+      std::invalid_argument, "Problem not set." );
+    TEUCHOS_TEST_FOR_EXCEPTION( d_problem->getA() == Teuchos::null &&
+      d_problem->getOperator() == Teuchos::null,
+      std::invalid_argument, "A operator not supplied on Eigenproblem." );
+    TEUCHOS_TEST_FOR_EXCEPTION( d_problem->getInitVec() == Teuchos::null,
+      std::invalid_argument, "No vector to clone from on Eigenproblem." );
+    TEUCHOS_TEST_FOR_EXCEPTION( d_problem->getNEV() <= 0,
+      std::invalid_argument, "Number of requested eigenvalues must be positive.");
+
+    d_Amat = Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(d_problem->getA());
+    if (d_Amat == Teuchos::null)
     {
-      d_Bmat=Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(d_problem->getM());
+      d_Amat = Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(d_problem->getOperator());
     }
-    else
-    {
-      d_Amat=Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(d_problem->getOperator());
-    }
-    TEUCHOS_TEST_FOR_EXCEPTION(d_Amat==Teuchos::null,std::invalid_argument,"problem->getA() is null or not an Epetra_CrsMatrix!");
+    d_Bmat = Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(d_problem->getM());
+    TEUCHOS_TEST_FOR_EXCEPTION(d_Amat == Teuchos::null,
+      std::invalid_argument, "problem->getA() is null or not an Epetra_CrsMatrix!");
 
     // Initialize phist options
     phist_jadaOpts_setDefaults(&d_opts);
     d_opts.numEigs = d_problem->getNEV();
-    d_opts.symmetry = d_problem->isHermitian()?phist_HERMITIAN:phist_GENERAL;
-    d_opts.innerSolvType = d_problem->isHermitian()?phist_MINRES:phist_GMRES;
-    d_opts.innerSolvStopAfterFirstConverged=true;
+    d_opts.symmetry = d_problem->isHermitian() ? phist_HERMITIAN : phist_GENERAL;
+    d_opts.innerSolvType = d_problem->isHermitian() ? phist_MINRES : phist_GMRES;
+    d_opts.innerSolvStopAfterFirstConverged = true;
 
     if( !pl.isType<int>("Block Size") )
     {

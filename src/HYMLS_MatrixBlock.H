@@ -35,6 +35,7 @@ public:
   //! The myLevel_ argument is there just for timing and debugging
   //! purposes.
   MatrixBlock(Teuchos::RCP<const Epetra_CrsMatrix> matrix,
+    Teuchos::RCP<const Epetra_CrsMatrix> extendedMatrix,
     Teuchos::RCP<const OverlappingPartitioner> hid,
     HierarchicalMap::SpawnStrategy rowStrategy,
     HierarchicalMap::SpawnStrategy colStrategy,
@@ -55,7 +56,8 @@ public:
 
   //! Recompute the blocks and subdomain solver initialization
   //! for a new matrix (with the same maps)
-  int Recompute(Teuchos::RCP<const Epetra_CrsMatrix> matrix);
+  int Recompute(Teuchos::RCP<const Epetra_CrsMatrix> matrix,
+    Teuchos::RCP<const Epetra_CrsMatrix> extendedMatrix);
 
   //! Apply a block
   int Apply(const Epetra_MultiVector& X, Epetra_MultiVector& Y);
@@ -68,6 +70,9 @@ public:
 
   //! Get the original matrix
   Teuchos::RCP<const Epetra_CrsMatrix> Matrix() const {return matrix_;}
+
+  //! Get the extended matrix
+  Teuchos::RCP<const Epetra_CrsMatrix> ExtendedMatrix() const {return extendedMatrix_;}
 
   //! Get the matrix block
   Teuchos::RCP<const Epetra_CrsMatrix> Block() const;
@@ -90,6 +95,9 @@ public:
   //! Get the domain map of the block
   const Epetra_Map &DomainMap() const {return *domainMap_;};
 
+  // Get the row map importer
+  const Epetra_Import &Importer() const {return *import_;}
+
   //! Get the overlapping partitioner
   const OverlappingPartitioner &Partitioner() const {return *hid_; }
 
@@ -109,6 +117,9 @@ protected:
   //! Original matrix (not the block)
   Teuchos::RCP<const Epetra_CrsMatrix> matrix_;
 
+  //! Matrix extended with off-processor separator nodes
+  Teuchos::RCP<const Epetra_CrsMatrix> extendedMatrix_;
+
   //! Overlapping partitioner on which the blocks are based
   Teuchos::RCP<const OverlappingPartitioner> hid_;
 
@@ -120,6 +131,9 @@ protected:
 
   //! Internal string used for debugging
   std::string label_;
+
+  //! Row map
+  Teuchos::RCP<const Epetra_Map> rowMap_;
 
   //! Range map
   Teuchos::RCP<const Epetra_Map> rangeMap_;

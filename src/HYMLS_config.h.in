@@ -31,4 +31,12 @@
 /* can we use CXX11 features? */
 #cmakedefine HYMLS_HAVE_CXX11
 
+#cmakedefine HYMLS_LONG_LONG
+
+#ifdef HYMLS_LONG_LONG
+typedef long long hymls_gidx;
+#else
+typedef int hymls_gidx;
+#endif
+
 #endif

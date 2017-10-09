@@ -54,7 +54,8 @@ int BorderedOperator::Apply(const BorderedVector& X, BorderedVector& Y) const
   // FIXME: We have to communicate S here so we can
   // compute Y properly. Use bordered vectors everywhere
   // to avoid this.
-  Epetra_Map map(X.Second()->GlobalLength(), X.Second()->GlobalLength(), 0, X.Second()->Comm());
+  Epetra_Map map((hymls_gidx)X.Second()->GlobalLength64(),
+    (hymls_gidx)X.Second()->GlobalLength64(), 0, X.Second()->Comm());
   Epetra_Import Simport(map, X.Second()->Map());
   Epetra_MultiVector Svec(map, X.Second()->NumVectors());
   Svec.Import(*X.Second(), Simport, Add);
@@ -74,7 +75,8 @@ int BorderedOperator::ApplyInverse(const BorderedVector& X, BorderedVector& Y) c
 
   // FIXME: We have to do a lot of communication here because the
   // Preconditioner puts T on some random processor.
-  Epetra_Map map(X.Second()->GlobalLength(), X.Second()->GlobalLength(), 0, X.Second()->Comm());
+  Epetra_Map map((hymls_gidx)X.Second()->GlobalLength64(),
+    (hymls_gidx)X.Second()->GlobalLength64(), 0, X.Second()->Comm());
   Epetra_Import Simport(map, X.Second()->Map());
   Epetra_MultiVector Svec(map, X.Second()->NumVectors());
   Svec.Import(*X.Second(), Simport, Add);

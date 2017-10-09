@@ -57,7 +57,7 @@
   <ParameterList name="Preconditioner"><!--{-->
   
     <!-- cartesian partitioner for Stokes-C problems -->
-    <Parameter name="Partitioner" type="string" value="Cartesian"/>
+    <Parameter name="Partitioner" type="string" value="Skew Cartesian"/>
 
     <!-- you can either set 'Separator Length' or 'Number of Subdomains' -->
     <Parameter name="Separator Length" type="int" value="4"/>

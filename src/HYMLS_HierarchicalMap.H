@@ -10,11 +10,8 @@
 
 // forward declarations
 class Epetra_Comm;
-class Epetra_RowMatrix;
-class Epetra_Import;
-class Epetra_CrsGraph;
-class Epetra_CrsMatrix;
 class Epetra_IntSerialDenseVector;
+class Epetra_LongLongSerialDenseVector;
 
 namespace Teuchos 
   {
@@ -22,8 +19,6 @@ namespace Teuchos
   }
 
 namespace HYMLS {
-
-class SepNode;
 
 //! class for hierarchically partitioned maps
 
@@ -94,19 +89,20 @@ public:
   //! total number of nodes in subdomain sd (interior and separators)  
   inline int NumElements(int sd) const
     {
-    return *((*groupPointer_)[sd].end()-1) - *((*groupPointer_)[sd].begin());
+    return static_cast<int>(
+      *((*groupPointer_)[sd].end()-1) - *((*groupPointer_)[sd].begin()));
     }
 
   //! total number of interior nodes in subdomain sd
   inline int NumInteriorElements(int sd) const
     {
-    return this->NumElements(sd,0);
+    return NumElements(sd,0);
     }
 
   //! total number of separator nodes in subdomain sd
   inline int NumSeparatorElements(int sd) const
     {
-    return *((*groupPointer_)[sd].end()-1) - (*groupPointer_)[sd][1];
+    return static_cast<int>(*((*groupPointer_)[sd].end()-1) - (*groupPointer_)[sd][1]);
     }
 
   //! number of groups in subdomain sd (interior + separator)
@@ -126,32 +122,38 @@ public:
   //! the separator groups.
   inline int NumElements(int sd, int grp) const
     {
-    return (*groupPointer_)[sd][grp+1] - (*groupPointer_)[sd][grp];
+    return static_cast<int>((*groupPointer_)[sd][grp+1] - (*groupPointer_)[sd][grp]);
     }
     
   //! j'th element of subdomain sd, group grp. This function
   //! returns a local index for the map Map(). Again, grp=0 
   //! are interior nodes whereas grp=1:NumSeparatorGroups() 
   //! are separators.
-  inline int LID(int sd, int grp, int j) const
-    {
-    return (*groupPointer_)[sd][grp]+j;
-    }
+  // inline int LID(int sd, int grp, int j) const
+  //   {
+  //   return (*groupPointer_)[sd][grp]+j;
+  //   }
 
   //! j'th element of subdomain sd, group grp. This function
   //! returns a global index. Again, grp=0 are interior nodes
   //! whereas grp=1:NumSeparatorGroups() are separators.
-  inline int GID(int sd, int grp, int j) const
+  inline hymls_gidx GID(int sd, int grp, int j) const
     {
-    return overlappingMap_->GID(this->LID(sd,grp,j));
+    // return overlappingMap_->GID(this->LID(sd,grp,j));
+    return (*gidList_)[sd][(*groupPointer_)[sd][grp]+j];
+    // return GetGroup(sd, grp)[j];
     }
 
   //! given a subdomain, returns a list of GIDs that belong to the subdomain
-  int getSeparatorGIDs(int sd, int *gids) const;
+  int getSeparatorGIDs(int sd, hymls_gidx *gids) const;
 
+#ifdef HYMLS_LONG_LONG
+  //! given a subdomain, returns a list of GIDs that belong to the subdomain
+  int getSeparatorGIDs(int sd, Epetra_LongLongSerialDenseVector &inds) const;
+#else
   //! given a subdomain, returns a list of GIDs that belong to the subdomain
   int getSeparatorGIDs(int sd, Epetra_IntSerialDenseVector &inds) const;
-  
+#endif
   //@}
 
   //! creates a 'next generation' object that retains certain nodes.
@@ -178,12 +180,7 @@ public:
                                                                         
    strat=LocalSeparators: This object is used for constructing the      
                           orthogonal transform, it has only local sepa- 
-                          rators, which are grouped according to an     
-                          array of SepNode objects passed in when       
-                          calling this function. The SchurPreconditioner
-                          uses this for problems where the p-connections
-                          are not so straight-forward, i.e. in THCM,    
-                          where two p's per subdomain are retained.     
+                          rators.
                                                                         
     The 'Interior' object's Map() gives the variables to be eliminated  
     in the first place.                                                 
@@ -194,8 +191,7 @@ public:
     interior+separator nodes).                                          
                                                                         
   */
-  virtual Teuchos::RCP<const HierarchicalMap> Spawn(SpawnStrategy strat,
-        Teuchos::RCP<Teuchos::Array<HYMLS::SepNode> > regroup=Teuchos::null) const;
+  virtual Teuchos::RCP<const HierarchicalMap> Spawn(SpawnStrategy strat) const;
 
   //! spawn a map containing all Interior or all Separator nodes belonging to one subdomain,
   //! or All nodes belonging to one subdomain.
@@ -251,45 +247,27 @@ public:
     return 0;
     }
 
-  //! given a subdomain sd and a global node ID gid, return the local
-  //! group id in which the GID appears first, or -1 if it is not found
-  //! in this subdomain. We make this private because it is inefficient
-  //! if used excessively.
-  int GetGroupID(int sd, int gid) const;
-  
-
-
   //!
-  Teuchos::RCP<Teuchos::Array<Teuchos::Array<int> > > GetGroupPointer() const
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > GetGroupPointer() const
     {
     return groupPointer_;
     }
 
   //@}
   
-  //! given a list of GIDs, returns a list of subdomains to which they belong
-  int getSubdomainList(int num_gids, int* gids, int* sd) const;
-
-  //! add a new subdomain, returns the id of the subdomain. FillComplete()
-  //! should not have been called. The optional argument can be used to 
-  //! force the subdomain ID to be at least a certain value.
-  int AddSubdomain(int min_id=0);
-  
   //! add a group of GIDs to an existing subdomain. Returns the group id
   //! of the new group. FillComplete() should not have been called.
-  int AddGroup(int sd, Teuchos::Array<int>& gidList);
+  int AddGroup(int sd, Teuchos::Array<hymls_gidx>& gidList);
+  
+  //! get back a group that was added as described above. Used for debugging purposes
+  //! only
+  Teuchos::Array<hymls_gidx> GetGroup(int sd, int grp) const;
   
   //! delete the map and all subdomains and groups that have been added so far
   int Reset(int num_sd);
 
   //! finalize the setup procedure by building the map
   int FillComplete();
-  
-  //! restart putting in things, deletes the map and resets the groupPointer
-  //! to local indexing. This function is called internally if you call     
-  //! AddSubdomain() or AddGroup() after FillComplete(), Filled() will then 
-  //! return false until you call FillComplete() again.
-  int FillStart();
   
   //! indicates if any more changes can be made (FillComplete() has been called)
   bool Filled() const {return overlappingMap_!=Teuchos::null;}
@@ -310,10 +288,10 @@ private:
   Teuchos::RCP<const Epetra_Map> overlappingMap_;
   
   //! pointer to index subdomains and groups
-  Teuchos::RCP<Teuchos::Array< Teuchos::Array<int> > > groupPointer_;
+  Teuchos::RCP<Teuchos::Array< Teuchos::Array<hymls_gidx> > > groupPointer_;
   
   //! list of ordered GIDs which will be transformed into a map in FillComplete
-  Teuchos::RCP<Teuchos::Array<Teuchos::Array<int> > > gidList_;
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > gidList_;
   
   //! array of spawned objects (so we avoid building the same thing over and over again)
   mutable Teuchos::Array<Teuchos::RCP<const HierarchicalMap> > spawnedObjects_;
@@ -328,11 +306,12 @@ private:
   //! (FillComplete() has been called), this is used for spawning
   //! objects like a map with all separators etc.
   HierarchicalMap(Teuchos::RCP<const Epetra_Comm> comm,
-              Teuchos::RCP<const Epetra_Map> baseMap,
-              Teuchos::RCP<const Epetra_Map> overlappingMap,
-              Teuchos::RCP<Teuchos::Array< Teuchos::Array<int> > > groupPointer,
-              std::string label, int level);
-
+    Teuchos::RCP<const Epetra_Map> baseMap,
+    Teuchos::RCP<const Epetra_Map> overlappingMap,
+    Teuchos::RCP<Teuchos::Array< Teuchos::Array<hymls_gidx> > > groupPointer,
+    Teuchos::RCP<Teuchos::Array< Teuchos::Array<hymls_gidx> > > gidList,
+    std::string label, int level);
+  
   //! \name private member functions
   //! @{
 
@@ -341,8 +320,7 @@ private:
   //!
   Teuchos::RCP<const HierarchicalMap> SpawnSeparators() const;
   //!
-  Teuchos::RCP<const HierarchicalMap> SpawnLocalSeparators
-        (Teuchos::RCP<Teuchos::Array<HYMLS::SepNode> > regroup) const;
+  Teuchos::RCP<const HierarchicalMap> SpawnLocalSeparators() const;
 
   //@}    
   };

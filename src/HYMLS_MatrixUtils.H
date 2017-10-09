@@ -74,65 +74,6 @@ class MatrixUtils
   HDF5          // not implemented, probably the best thing to do as it is portable
   } PrintMethod;
 
-    //! create a map for a 3D problem with multiple degrees of freedom per node
-    
-    /*! creates a distributed non-overlapping map to be used for constructing/solving
-        linear problems with one or more dof/node. This is similar to the Galeri map
-        Cartesian3D, except that we allow several dof/node.
-        For 2D problems simply set nz=1.
-        
-        This function can also be used if the number of grid cells nx*ny*nz
-        is less than the number of processes, in which case any proc with PID
-        >= nx*ny*nz gets 0 elements in the map.
-    
-    It is possible to artifically restrict the number of procs that get any nodes to
-    maxNumActiveProcs by setting the flag to something >0. The default -1 means all in comm 
-    get nodes (if there are sufficient nodes).
-    */    
-    static Teuchos::RCP<Epetra_Map> CreateMap(int nx, int ny, int nz, 
-                             int dof, int indexbase,
-                             const Epetra_Comm& comm,
-                             int maxNumActiveProcs=-1);
-
-    //! a general map creating function for a 3D grid
-    
-    /* creates a map of the form (i0:i1,j0:j1,k0:k1),
-       column-major access (i is fastest).           
-       Small letters indicate the bounds of the      
-       subdomain, capital letters the bounds of the  
-       global domain. The indices of subdomains are  
-       allowed to overlap                          */
-    static Teuchos::RCP<Epetra_Map> CreateMap(int i0, int i1, int j0, int j1, int k0, int k1,
-                             int I0, int I1, int J0, int J1, int K0, int K1,
-                             int dof,
-                             const Epetra_Comm& comm);
-  
-    //! extract a map with 1 variable from a map with dof variables per node. 'var'
-    //! is the variable to be extracted, i.e. 0, 1,...dof-1 
-    static Teuchos::RCP<Epetra_Map> CreateSubMap(const Epetra_Map& map, int dof, int var);
-
-    //! extract a map with all indices of the original one between min_gid and max_gid 
-    //! (including the bounds)
-    static Teuchos::RCP<Epetra_Map> ExtractRange(const Epetra_Map& map, int min_gid, int max_gid);
-
-    //! extract a map for two variables from a map with dof variables. 'var'
-    //! are the variables to be extracted, i.e. {0,1}, {4,5} etc.
-    static Teuchos::RCP<Epetra_Map> CreateSubMap(const Epetra_Map& map, int dof, const int var[2]);
-
-    //! extract a map for nvars variables from a map with dof variables. 'var'
-    //! are the variables to be extracted.
-    static Teuchos::RCP<Epetra_Map> CreateSubMap(const Epetra_Map& map, int dof, const int *var, int nvars);
-    
-    //! given a map and an array indicating wether each node of the map is to be
-    //! discarded (true) or not (false), this function creates a new map with the
-    //! discarded entries removed.
-    static Teuchos::RCP<Epetra_Map> CreateSubMap(const Epetra_Map& map, const bool* discard);    
-                        
-
-    //! extracts those nodes from a column map that are actually present in a
-    //! Matrix' Graph
-    static Teuchos::RCP<Epetra_Map> CompressColMap(const Epetra_CrsMatrix& A);
-    
     //! create an optimal column map for extracting A(rowMap,colMap), given a distributed
     //! column map which has entries owned by other procs that we need for the column map.
     static Teuchos::RCP<Epetra_Map> CreateColMap(const Epetra_CrsMatrix& A, 
@@ -184,45 +125,6 @@ class MatrixUtils
     static Teuchos::RCP<Epetra_MultiVector> Scatter(const Epetra_MultiVector& vec, 
                                                const Epetra_BlockMap& distmap);
 
-    //! Workaround for the buggy 'ReplaceRowMap' routine in Trilinos 7.0.
-    
-    /*! It is much slower as it copies the whole matrix and should only 
-        be used until they fix the builtin one
-    */
-    static Teuchos::RCP<Epetra_CrsMatrix> ReplaceRowMap(Teuchos::RCP<Epetra_CrsMatrix> A, const Epetra_Map& newmap);
-
-    //! generalized ReplaceColMap that only requires the new col map to be a 
-    //! subset of the old one (instead of being 'PointSameAs' as in the Trilinos
-    //! function). The map should contain all column indices actually appearing,
-    //! such a map can be created by 'CompressColMap'.
-    static Teuchos::RCP<Epetra_CrsMatrix> ReplaceColMap(Teuchos::RCP<Epetra_CrsMatrix> A, const Epetra_Map& newmap);
-
-  //! create an exact copy of a matrix removing the column map.
-  //! This means that row- and column map have to be 'compatible'
-  //! in the sense that the ColMap is a subset of the RowMap.
-  //! It seems to be required in order to use Ifpack in some cases.
-  static Teuchos::RCP<Epetra_CrsMatrix> RemoveColMap(Teuchos::RCP<Epetra_CrsMatrix> A);
-
-    //! simultaneously replace row and column map (see comment for previous function)
-    //! This is a special purpose function. The newcolmap must be a subset of the current
-    //! colmap, i.e. you cannot really change the indexing scheme for the columns.
-    static Teuchos::RCP<Epetra_CrsMatrix> ReplaceBothMaps(Teuchos::RCP<Epetra_CrsMatrix> A, const Epetra_Map& newmap, 
-                                            const Epetra_Map& newcolmap);
-    
-    //! local upper or lower tri-solve. This can be used to gain insight into the process,
-    //! but in principle the Trilinos version should work fine.
-    static void TriSolve(const Epetra_CrsMatrix& A,const Epetra_Vector& b, Epetra_Vector& x);
-        
-    //! replace matrix by identity matrix
-    
-    /*! All matrix entries are set to 0 and the diagonal is set to 1.
-    this is used for testing the block ILU precondioner step-wise and
-    is not at all foolproof (it may fail when there is no diagonal   
-    in the original matrix, for instance)
-    */
-    static void Identity(Teuchos::RCP<Epetra_CrsMatrix> A);
-    
-
     //! dump CrsMatrix to file (the matrix is gathered so it can be easily
     //! read into MATLAB etc., but this is only meant for debugging etc.)
     static void Dump(const Epetra_CrsMatrix& A, const std::string& filename,
@@ -271,27 +173,6 @@ class MatrixUtils
 
     //! MatrixMarket input of MultiVector.
     static int mmread(std::string filename, Epetra_MultiVector& vec);
-    
-    //! compute triple matrix product A*B*C or the like
-    static Teuchos::RCP<Epetra_CrsMatrix> TripleProduct(bool transA, const Epetra_CrsMatrix& A,
-                                 bool transB, const Epetra_CrsMatrix& B,
-                                 bool transC, const Epetra_CrsMatrix& C);
-
-    //! compute triple matrix product M=A*B*C or the like if the pattern of M is known
-    static void TripleProduct(Teuchos::RCP<Epetra_CrsMatrix> M, bool transA, const Epetra_CrsMatrix& A,
-                                 bool transB, const Epetra_CrsMatrix& B,
-                                 bool transC, const Epetra_CrsMatrix& C);
-
-
-
-    //! compute matrix-matrix product C=A*B (implemented using EpetraExt)
-    static Teuchos::RCP<Epetra_CrsMatrix> MatrixProduct(bool transA, const Epetra_CrsMatrix& A,
-                                 bool transB, const Epetra_CrsMatrix& B);
-
-    //! compute matrix-matrix product C=A*B (implemented using EpetraExt) if the patern of C 
-    //! is already known (C is Filled)
-    static void MatrixProduct(Teuchos::RCP<Epetra_CrsMatrix> M, bool transA, const Epetra_CrsMatrix& A,
-                                 bool transB, const Epetra_CrsMatrix& B);
 
     //! compute a number of eigenvalues and eigenvectors of the sparse
     //! matrix pencil [A,B]. The most dominant eigs are found, so if  
@@ -313,14 +194,7 @@ class MatrixUtils
                 Teuchos::RCP<const Epetra_Operator> B, 
                 int howMany=6,
                 double tol=1.0e-6);
-                                 
-    //! reads sparse matrix from THCM's beg/co/jco/info format
-    //! if the prefix is, for instance, "A", then the matrix  
-    //! is read from A.info, A.beg etc.
-    static Teuchos::RCP<Epetra_CrsMatrix> ReadThcmMatrix(std::string prefix, const Epetra_Comm& comm, 
-           const Epetra_Map& rowmap, const Epetra_Map& colmap,
-           const Epetra_Map* rangemap=NULL,const Epetra_Map* domainmap=NULL);
-                       
+
     //! this is for creating consistent random vectors. Normally, if you change the number 
     //! of procs and use the same seed in a v.Random() call, the vector is different. 
     //! Actually I think the random vectors generated that way are highly correlated or
@@ -338,8 +212,7 @@ class MatrixUtils
     
     //! replace one row and column by a Dirichlet condition (0 everywhere, 1 on diagonal).
     //! This function assumes that the pattern of the matrix is symmetric!
-    static int PutDirichlet(Epetra_CrsMatrix& A, int gid);
-    
+    static int PutDirichlet(Epetra_CrsMatrix& A, hymls_gidx gid);
     
     //!                                                                         
     //! computes a fill-reducing ordering for a sparse matrix K.                
@@ -366,16 +239,6 @@ class MatrixUtils
     //! computes the AMD ordering of a serial input matrix using AMD from SuiteSparse.
     static int AMD(const Epetra_CrsGraph& A,
                         Teuchos::Array<int>& perm);
-
-    //! creates a map of the form (i0:i1,j0:j1,k0:k1),
-    //! column-major access (i is fastest).           
-    //! Small letters indicate the bounds of the      
-    //! subdomain, capital letters the bounds of the  
-    //! global domain. The indices of subdomains are  
-    //! allowed to overlap                          */
-    static Teuchos::RCP<Epetra_Map> CreateMap(int i0, int i1, int j0, int j1, int k0, int k1,
-                             int I0, int I1, int J0, int J1, int K0, int K1,
-                             const Epetra_Comm& comm);
     
 
     //! sort an integer and a double array consistently so the integer array

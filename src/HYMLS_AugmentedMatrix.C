@@ -10,6 +10,7 @@
 #include "Epetra_SerialDenseVector.h"
 #include "Epetra_Map.h"
 
+#include "HYMLS_config.h"
 #include "HYMLS_Tools.H"
 #include "HYMLS_MatrixUtils.H"
 
@@ -85,41 +86,41 @@ namespace HYMLS {
   HYMLS_DEBVAR(V_->NumVectors());
   HYMLS_DEBVAR(NumMyRows());
   
-  int* id = new int[NumMyRows()];
+  hymls_gidx* id = new hymls_gidx[NumMyRows()];
   for (int i=0;i<A_->NumMyRows();i++)
     {
-    id[i]=rowMapA.GID(i);
+    id[i] = rowMapA.GID64(i);
     }
-  int k=rowMapA.MaxAllGID()+1;
+  hymls_gidx k = rowMapA.MaxAllGID64()+1;
   for (int i=A_->NumMyRows();i<NumMyRows();i++)
     {
     id[i]=k++;
     }
   HYMLS_DEBUG("Construct row map");
-  rowMap_ = Teuchos::rcp(new 
-        Epetra_Map(-1,NumMyRows(),id,rowMapA.IndexBase(), *comm_));
+  rowMap_ = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1),
+      NumMyRows(), id, (hymls_gidx)rowMapA.IndexBase64(), *comm_));
   delete [] id;
   
-  int numMyColEntries = 
-        NumMyDenseRows()>0? NumGlobalRows() : colMapA.NumMyElements() + numBorderVectors_;
-  id = new int[numMyColEntries];
+  int numMyColEntries = NumMyDenseRows() > 0 ? NumGlobalRows64() :
+    colMapA.NumMyElements() + numBorderVectors_;
+  id = new hymls_gidx[numMyColEntries];
   int pos=0;
   for (int i=0;i<colMapA.NumMyElements();i++)
     {
-    id[pos++]=colMapA.GID(i);
+    id[pos++]=colMapA.GID64(i);
     }
-  k=colMapA.MaxAllGID()+1;
+  k=colMapA.MaxAllGID64()+1;
   for (int i=0;i<NumBorderVectors();i++)
     {
     id[pos++]=k++;
     }
   for (int i=0;i<Wloc_->MyLength();i++)
     {
-    if (colMapA.MyGID(Wloc_->Map().GID(i))==false)
-    id[pos++]=Wloc_->Map().GID(i);
+    if (colMapA.MyGID(Wloc_->Map().GID64(i))==false)
+    id[pos++]=Wloc_->Map().GID64(i);
     }
-  colMap_ = Teuchos::rcp(new 
-        Epetra_Map(-1,numMyColEntries,id,colMapA.IndexBase(), *comm_));
+  colMap_ = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1),
+      numMyColEntries, id, (hymls_gidx)rowMapA.IndexBase64(), *comm_));
   delete [] id;
   HYMLS_DEBVAR(*rowMap_);
   HYMLS_DEBVAR(*colMap_);
@@ -143,8 +144,8 @@ namespace HYMLS {
 	  
     \return Integer error code, set to 0 if successful.
   */
-    int AugmentedMatrix::ExtractMyRowCopy(int MyRow, int Length, int & NumEntries, 
-        double *Values, int * Indices) const
+int AugmentedMatrix::ExtractMyRowCopy(int MyRow, int Length, int & NumEntries, 
+  double *Values, int * Indices) const
   {
   HYMLS_PROF3(label_,"ExtractMyRowCopy");
   int ierr=NumMyRowEntries(MyRow, NumEntries);
@@ -174,7 +175,7 @@ namespace HYMLS {
     for (int k=0;k<NumBorderVectors();k++)
       {
       Values[lenA+k] = (*V_)[k][MyRow];
-      Indices[lenA+k]= colMap_->LID(A_->NumGlobalRows()+k);
+      Indices[lenA+k]= colMap_->LID(A_->NumGlobalRows64()+k);
       }
     }
   else
@@ -189,18 +190,18 @@ namespace HYMLS {
     for (int i=0;i<Wloc_->MyLength();i++)
       {
       Values[i] = (*Wloc_)[k][i];
-      Indices[i]= colMap_->LID(Wloc_->Map().GID(i));
+      Indices[i]= colMap_->LID(Wloc_->Map().GID64(i));
       }
     for (int i=0;i<NumBorderVectors();i++)
       {
       Values[Wloc_->MyLength()+i]=(*C_)[k][i];
-      Indices[Wloc_->MyLength()+i]=colMap_->LID(Wloc_->Map().MaxAllGID()+i+1);
+      Indices[Wloc_->MyLength()+i]=colMap_->LID(Wloc_->Map().MaxAllGID64()+i+1);
       }
     }
 #ifdef HYMLS_DEBUGGING
 for (int i=0;i<NumEntries;i++)
   {
-  Tools::deb() << Map().GID(MyRow) << " " << colMap_->GID(Indices[i]) << " " << Values[i] << std::endl;
+  Tools::deb() << Map().GID64(MyRow) << " " << colMap_->GID64(Indices[i]) << " " << Values[i] << std::endl;
   }
 #endif  
   return 0;

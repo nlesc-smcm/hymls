@@ -10,21 +10,21 @@
 #include "HYMLS_UnitTests.H"
 
 // As a test problem we use a 1D Laplace matrix
-Teuchos::RCP<Epetra_CrsMatrix> makeLaplaceMatrix(int n, Epetra_Comm &Comm)
+Teuchos::RCP<Epetra_CrsMatrix> makeLaplaceMatrix(hymls_gidx n, Epetra_Comm &Comm)
 {
   const int maxEntries = 4;
   Epetra_Map map(n, 0, Comm);
   Teuchos::RCP<Epetra_CrsMatrix> matrix = Teuchos::rcp<Epetra_CrsMatrix>(new Epetra_CrsMatrix(Copy, map, maxEntries));
 
   //Fill the matrix
-  int *indices = new int[maxEntries];
+  hymls_gidx *indices = new hymls_gidx[maxEntries];
   double *values = new double[maxEntries];
 
   for (int i = 0; i < matrix->NumMyRows(); ++i)
   {
     int k = 0;
-    int grid = matrix->GRID(i);
-    for (int gcid = grid-1; gcid <= grid+1; ++gcid)
+    hymls_gidx grid = matrix->GRID64(i);
+    for (hymls_gidx gcid = grid-1; gcid <= grid+1; ++gcid)
     {
       if (gcid == grid)
       {
@@ -76,8 +76,8 @@ TEUCHOS_UNIT_TEST(Tester, isSymmetric)
 
   // Change some things to the matrix to make it non-symmetric
   double value;
-  int col_index;
-  int row_index;
+  hymls_gidx col_index;
+  hymls_gidx row_index;
 
   // Structurally symmetric
   value = 2.0;

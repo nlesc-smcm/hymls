@@ -19,6 +19,7 @@ class Epetra_FECrsMatrix;
 class Ifpack_Amesos;
 class Epetra_Import;
 class Epetra_IntSerialDenseVector;
+class Epetra_LongLongSerialDenseVector;
 class Epetra_SerialDenseMatrix;
 
 namespace Teuchos
@@ -205,8 +206,20 @@ protected:
   //! If the matrix passed in is too small, it is resized. This is
   //! in principle OK, but may be inefficient if it happens very often.
   //!
-  int Construct(int k, Epetra_SerialDenseMatrix & Sk,
-    const Epetra_IntSerialDenseVector &indices,
+  int Construct11(int k, Epetra_SerialDenseMatrix & Sk,
+#ifdef HYMLS_LONG_LONG
+    const Epetra_LongLongSerialDenseVector &inds,
+#else
+    const Epetra_IntSerialDenseVector &inds,
+#endif
+    double *flops = NULL) const;
+
+  int Construct22(int k, Epetra_SerialDenseMatrix & Sk,
+#ifdef HYMLS_LONG_LONG
+    const Epetra_LongLongSerialDenseVector &inds,
+#else
+    const Epetra_IntSerialDenseVector &inds,
+#endif
     double *flops = NULL) const;
 
 
