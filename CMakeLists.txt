@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.5.0)
 project(HYMLS CXX)
 
 list (APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/")
@@ -44,6 +44,13 @@ set(BUILD_SHARED_LIBS ON)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   message(STATUS "Using GNU compiler flags")
+
+  # try to enable CCache as a 'compiler launcher'
+  find_program(CCACHE_FOUND ccache)
+  if(CCACHE_FOUND)
+    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
+    set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
+  endif(CCACHE_FOUND)
 
   if (NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
     set(CMAKE_C_FLAGS        "${CMAKE_C_FLAGS} -O2 -g -Wall -Wno-unknown-pragmas -Wno-deprecated-declarations")
