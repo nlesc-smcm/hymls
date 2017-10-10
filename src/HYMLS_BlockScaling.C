@@ -217,7 +217,7 @@ namespace HYMLS {
       // error if not.
       CHECK_ZERO(len1-len2);
 
-      double *a11,*a12,*a21,*a22;
+      double *a11=NULL,*a12=NULL,*a21=NULL,*a22=NULL;
       double t11,t12,t21,t22;
       for (int j=0; j<len1; j++)
         {
