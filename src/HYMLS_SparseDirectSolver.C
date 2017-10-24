@@ -521,10 +521,11 @@ double rcond = Condest();
 bool bad_res=false;
 for (int i=0;i<X.NumVectors();i++)
   {
-  if (rnorm2[i]/bnorm2[i] > HYMLS_SMALL_ENTRY/rcond)
+  if (rnorm2[i]/bnorm2[i] > 1.0e-12/rcond)
     {
     bad_res=true;
     Tools::Warning("bad residual found: "+Teuchos::toString(rnorm2[i])+"\n"
+       "            norm of rhs, ||b||="+Teuchos::toString(bnorm2[i])+"\n"
        "            condition estimate of matrix: "+Teuchos::toString(1.0/rcond),    
         __FILE__,__LINE__);
     }
