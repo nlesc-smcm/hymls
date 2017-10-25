@@ -259,20 +259,14 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
         d_opts.maxIters = d_opts.maxBas * 20;
     }
 
-    if (pl.isType<bool>("Bordered Solver"))
-    {
-        borderedSolver = pl.get<bool>("Bordered Solver");
-    }
-    else
-    {
-        borderedSolver = false;
-    }
+    borderedSolver = pl.get("Bordered Solver",false);
 
     // if the parameter "Bordered Solver" is set we use HYMLS' bordering
     // functionality for assuring t \orth r when solving the JaDa correction
     // equation. So we ask phist *not* to skew-project and to call the 
     // preconditioner's update function before each linear solve.
     d_opts.preconSkewProject=borderedSolver?0:1;
+    if (borderedSolver) d_opts.preconUpdate=1;
 
 
     // Get sort type

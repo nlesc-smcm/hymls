@@ -84,29 +84,16 @@ void PhistPreconTraits<HYMLS::Preconditioner>::update(void const* P, void* aux, 
 {
   PHIST_CAST_PTR_FROM_VOID(HYMLS::Preconditioner,Prec,aux,*iflag);
   // add the deflation space obtained from Jacobi-Davidson as a border to the
-  // preconditioner
-  if (Vkern==NULL) return;
+  // preconditioner. Note that (B)Vkern may be NULL, in that case previous borders are removed.
   Teuchos::RCP<const Epetra_MultiVector> V = Teuchos::rcp((const Epetra_MultiVector*)Vkern,false);
   Teuchos::RCP<const Epetra_MultiVector> BV = V;
   if (BVkern!=NULL) BV=Teuchos::rcp((const Epetra_MultiVector*)BVkern,false);
 
-  Teuchos::RCP<Epetra_MultiVector> PinvV = Teuchos::rcp(new Epetra_MultiVector(*V));
   Teuchos::RCP<Epetra_SerialDenseMatrix> C=Teuchos::rcp(new Epetra_SerialDenseMatrix(BV->NumVectors(),V->NumVectors()));
-  
-  Epetra_MultiVector* C_tmp=NULL;
-  PHIST_CHK_IERR(SUBR(sdMat_create)((void**)(&C_tmp),BV->NumVectors(),V->NumVectors(),(phist_const_comm_ptr)(&(V->Comm())),iflag),*iflag);
-  Teuchos::RCP<Epetra_MultiVector> _C=Teuchos::rcp(C_tmp,true);
+  // Epetra_SerialDenseMatrix has no PutScalar, so we scale it to 0:
+  C->Scale(0.0);
 
-  PHIST_CHK_IERR(*iflag=Prec->setBorder(Teuchos::null,Teuchos::null,Teuchos::null),*iflag);
-  PHIST_CHK_IERR(*iflag=Prec->ApplyInverse(*V,*PinvV),*iflag);
-  PHIST_CHK_IERR(SUBR(mvecT_times_mvec)(1.0,BV.get(),PinvV.get(),0.0,C_tmp,iflag),*iflag);
-  for (int j=0; j<C->N(); j++)
-    for (int i=0; i<C->M(); i++)
-    {
-      (*C)[j][i] = (*C_tmp)[j][i];
-    }
-  
-  PHIST_CHK_IERR(*iflag=Prec->setBorder(PinvV,BV,C),*iflag);
+  PHIST_CHK_IERR(*iflag=Prec->setBorder(V,BV,C),*iflag);
   *iflag=0;
 }
 
