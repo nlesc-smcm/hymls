@@ -400,7 +400,7 @@ class TimerObject
   //!
   TimerObject(std::string const &s, bool print);
   //!
-  ~TimerObject();
+  virtual ~TimerObject();
 
   private:
   //!

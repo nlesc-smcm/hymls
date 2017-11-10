@@ -42,7 +42,7 @@ public:
   //!Constructor
   BlockScaling(bool diagOnly=false);
    //!Destuctor
-  ~BlockScaling();
+  virtual ~BlockScaling();
 
 
   //! Computes Row Sum scaling diagonal vectors.  Only needs to be called if a row or column sum scaling has been requested.

@@ -105,7 +105,7 @@ public:
       Teuchos::RCP<Epetra_Vector> testVector=Teuchos::null);
 
   //! destructor
-  ~Preconditioner();
+  virtual ~Preconditioner();
 
   //! write solver data (like domain decomposition, separators ...) 
   //! to an m-file so that it can be imported to MATLAB.            

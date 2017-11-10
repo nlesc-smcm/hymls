@@ -59,7 +59,7 @@ public:
     int lev = 0);
 
   //! destructor
-  ~SchurComplement();
+  virtual ~SchurComplement();
 
   //!\name Epetra_Operator interface
 

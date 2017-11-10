@@ -157,6 +157,8 @@ public:
 		,const EApplyMode                                    Op_inverse[]
 		);
 
+  virtual ~ProductOperator() {}
+
 	/** \brief Setup with constituent operators.
 	 *
 	 * @param  num_Op  [in] Number of constinuent operators.

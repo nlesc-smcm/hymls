@@ -26,7 +26,7 @@ public:
     //! @name Destructor
     //@{ 
     //! Destructor
-    ~ShiftedOperator() {};
+    virtual ~ShiftedOperator() {};
     //@}
   
     //! @name Atribute set methods

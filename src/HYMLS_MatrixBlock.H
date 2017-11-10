@@ -41,6 +41,8 @@ public:
     HierarchicalMap::SpawnStrategy colStrategy,
     int level);
 
+  virtual ~MatrixBlock() {}
+
   //! Compute the actual block
   int Compute();
 
