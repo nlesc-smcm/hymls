@@ -65,9 +65,9 @@ public:
     }
   };
 
-TestablePreconditioner createPreconditioner(Epetra_Map &map)
+TestablePreconditioner createPreconditioner(Epetra_Map &map, 
+  Teuchos::RCP<Teuchos::ParameterList> &params)
   {
-  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(new Teuchos::ParameterList());
   Teuchos::ParameterList &problemList = params->sublist("Problem");
   problemList.set("Degrees of Freedom", 4);
   problemList.set("Dimension", 3);
@@ -115,7 +115,8 @@ TEUCHOS_UNIT_TEST(Preconditioner, Blocks)
 
   hymls_gidx n = 8 * 4 * 4 * 4;
   Epetra_Map map(n, 0, Comm);
-  TestablePreconditioner prec = createPreconditioner(map);
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(new Teuchos::ParameterList());
+  TestablePreconditioner prec = createPreconditioner(map, params);
   prec.Initialize();
   prec.Compute();
 
@@ -137,7 +138,8 @@ TEUCHOS_UNIT_TEST(Preconditioner, SerialComm)
 
   hymls_gidx n = 8 * 4 * 4 * 4;
   Epetra_Map map(n, 0, Comm);
-  TestablePreconditioner prec = createPreconditioner(map);
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(new Teuchos::ParameterList());
+  TestablePreconditioner prec = createPreconditioner(map, params);
   prec.Initialize();
   prec.Compute();
   }
@@ -149,7 +151,8 @@ TEUCHOS_UNIT_TEST(Preconditioner, setBorder)
 
   hymls_gidx n = 8 * 4 * 4 * 4;
   Epetra_Map map(n, 0, Comm);
-  TestablePreconditioner prec = createPreconditioner(map);
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(new Teuchos::ParameterList());
+  TestablePreconditioner prec = createPreconditioner(map, params);
   prec.Initialize();
   prec.Compute();
 
@@ -175,7 +178,8 @@ TEUCHOS_UNIT_TEST(Preconditioner, setBorderNull)
 
   hymls_gidx n = 8 * 4 * 4 * 4;
   Epetra_Map map(n, 0, Comm);
-  TestablePreconditioner prec = createPreconditioner(map);
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(new Teuchos::ParameterList());
+  TestablePreconditioner prec = createPreconditioner(map, params);
   prec.Initialize();
   prec.Compute();
 
@@ -196,7 +200,8 @@ TEUCHOS_UNIT_TEST(Preconditioner, setBorderNull)
   }
 
 
-TestablePreconditioner create2DStokesPreconditioner(Epetra_Comm &Comm)
+TestablePreconditioner create2DStokesPreconditioner(Epetra_Comm &Comm,
+  Teuchos::RCP<Teuchos::ParameterList> &params)
   {
   int dof = 3;
   int nx = 8;
@@ -210,7 +215,6 @@ TestablePreconditioner create2DStokesPreconditioner(Epetra_Comm &Comm)
   part->Partition(4, true);
   *map = *part->GetMap();
 
-  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(new Teuchos::ParameterList());
   Teuchos::ParameterList &problemList = params->sublist("Problem");
   problemList.set("nx", nx);
   problemList.set("ny", ny);
@@ -257,7 +261,8 @@ TEUCHOS_UNIT_TEST(Preconditioner, 2DStokes)
   Epetra_MpiComm Comm(MPI_COMM_WORLD);
   DISABLE_OUTPUT;
 
-  TestablePreconditioner prec = create2DStokesPreconditioner(Comm);
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(new Teuchos::ParameterList());
+  TestablePreconditioner prec = create2DStokesPreconditioner(Comm, params);
   prec.Initialize();
   prec.Compute();
   }
