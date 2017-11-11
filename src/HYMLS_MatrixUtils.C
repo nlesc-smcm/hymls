@@ -56,7 +56,7 @@
 #else
 #include "amesos_amd.h"
 #define TRILINOS_AMD_INFO AMD_INFO
-#define amesos_amd_order trilinos_amd_order
+#define trilinos_amd_order amesos_amd_order
 #endif
 // ASCII output formatting
 
