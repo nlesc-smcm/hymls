@@ -1,5 +1,7 @@
 #include "HYMLS_MatrixBlock.H"
 
+#include "Teuchos_ParameterList.hpp"
+
 #include "Epetra_Import.h"
 #include "Epetra_BlockMap.h"
 #include "Epetra_CrsMatrix.h"

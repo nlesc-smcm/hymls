@@ -16,16 +16,9 @@ class Epetra_Comm;
 class Epetra_Map;
 class Epetra_CrsMatrix;
 class Epetra_FECrsMatrix;
-class Ifpack_Amesos;
-class Epetra_Import;
 class Epetra_IntSerialDenseVector;
 class Epetra_LongLongSerialDenseVector;
 class Epetra_SerialDenseMatrix;
-
-namespace Teuchos
-  {
-class ParameterList;
-  }
 
 namespace HYMLS {
 

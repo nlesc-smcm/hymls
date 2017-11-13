@@ -13,11 +13,6 @@ class Epetra_Comm;
 class Epetra_IntSerialDenseVector;
 class Epetra_LongLongSerialDenseVector;
 
-namespace Teuchos 
-  {
-  class ParameterList;
-  }
-
 namespace HYMLS {
 
 //! class for hierarchically partitioned maps

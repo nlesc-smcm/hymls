@@ -12,7 +12,6 @@
 #include "HYMLS_Macros.H"
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_Array.hpp"
-#include "Teuchos_ParameterList.hpp"
 #include "AnasaziTypes.hpp"
 
 // this is useful for comparing with MATLAB:

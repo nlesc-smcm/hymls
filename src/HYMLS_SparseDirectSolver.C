@@ -202,11 +202,10 @@ SparseDirectSolver::~SparseDirectSolver()
   }
 
 //==============================================================================
-int SparseDirectSolver::SetParameters(Teuchos::ParameterList& List_in)
-{
-HYMLS_PROF3(label_,"SetParameters");
-  List_ = List_in;
-  std::string choice = List_.get("amesos: solver type", "KLU");
+int SparseDirectSolver::SetParameters(Teuchos::ParameterList& params)
+  {
+  HYMLS_PROF3(label_,"SetParameters");
+  std::string choice = params.get("amesos: solver type", "KLU");
   choice = Teuchos::StrUtils::allCaps(choice);
   //~ std::cerr << "choice: " << choice << std::endl;
   method_=KLU; // default - always available.
@@ -236,7 +235,7 @@ HYMLS_PROF3(label_,"SetParameters");
       }
     }
 
-label_=List_.get("Label",label_);
+label_=params.get("Label",label_);
 label_=label_+" ("+label2+")";
 
 if (method_==KLU)
@@ -247,7 +246,7 @@ if (method_==KLU)
 #ifdef HAVE_SUITESPARSE
 else if (method_==UMFPACK)
   {
-  int prl = List_.get("OutputLevel",0);
+  int prl = params.get("OutputLevel",0);
   umf_Info_.resize(UMFPACK_INFO);
   umf_Control_.resize(UMFPACK_CONTROL);
   umfpack_di_defaults( &umf_Control_[0] ) ; 
@@ -269,8 +268,8 @@ else if (method_==UMFPACK)
     }
 #endif
 
-ownOrdering_=List_.get("Custom Ordering",false);
-ownScaling_=List_.get("Custom Scaling",false);
+ownOrdering_=params.get("Custom Ordering",false);
+ownScaling_=params.get("Custom Scaling",false);
 
 if (ownOrdering_)
   {
@@ -327,8 +326,8 @@ if (ownScaling_)
 #endif
   }
 
-return(0);
-}
+  return(0);
+  }
 
 //==============================================================================
 int SparseDirectSolver::Initialize()

@@ -8,6 +8,10 @@
 
 #include "HYMLS_HierarchicalMap.H"
 
+namespace Teuchos {
+class ParameterList;
+  }
+
 class Epetra_MultiVector;
 class Epetra_Import;
 class Epetra_BlockMap;
