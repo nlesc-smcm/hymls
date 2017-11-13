@@ -577,7 +577,7 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::getTemplate() co
 
   // Merge the template layers
   std::vector<std::vector<hymls_gidx> > newNodes;
-  if (nz_ > 1 && dof_ > 1)
+  if (dof_ > 1 && pvar_ > 2)
     {
     newNodes.push_back(nodes[2].front());
     nodes[2].erase(nodes[2].begin());
@@ -591,7 +591,7 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::getTemplate() co
     newNodes.emplace_back();
     if (dof_ > 1)
       std::copy(nodes[0][j].begin(), nodes[0][j].end(), std::back_inserter(newNodes.back()));
-    if (nz_ > 1 && dof_ > 1)
+    if (dof_ > 1 && pvar_ > 2)
       std::copy(nodes[2][j].begin(), nodes[2][j].end(), std::back_inserter(newNodes.back()));
     if (pvar_ != -1)
       std::copy(nodes[3][j].begin(), nodes[3][j].end(), std::back_inserter(newNodes.back()));
@@ -601,7 +601,7 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::getTemplate() co
       {
       if (i == 0 && dof_ > 1)
         continue;
-      if (i == 2 && dof_ > 1 && nz_ > 1)
+      if (i == 2 && dof_ > 1 && pvar_ > 2)
         continue;
       if (i == pvar_)
         continue;
