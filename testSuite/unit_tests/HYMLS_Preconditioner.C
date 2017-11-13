@@ -65,7 +65,7 @@ public:
     }
   };
 
-TestablePreconditioner createPreconditioner(Epetra_Map &map, 
+Teuchos::RCP<TestablePreconditioner> createPreconditioner(Epetra_Map &map, 
   Teuchos::RCP<Teuchos::ParameterList> &params)
   {
   Teuchos::ParameterList &problemList = params->sublist("Problem");
@@ -104,7 +104,8 @@ TestablePreconditioner createPreconditioner(Epetra_Map &map,
   }
   CHECK_ZERO(A->FillComplete());
 
-  TestablePreconditioner prec(A, params);
+  Teuchos::RCP<TestablePreconditioner> prec =
+    Teuchos::rcp(new TestablePreconditioner(A, params));
   return prec;
   }
 
@@ -116,18 +117,18 @@ TEUCHOS_UNIT_TEST(Preconditioner, Blocks)
   hymls_gidx n = 8 * 4 * 4 * 4;
   Epetra_Map map(n, 0, Comm);
   Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(new Teuchos::ParameterList());
-  TestablePreconditioner prec = createPreconditioner(map, params);
-  prec.Initialize();
-  prec.Compute();
+  Teuchos::RCP<TestablePreconditioner> prec = createPreconditioner(map, params);
+  prec->Initialize();
+  prec->Compute();
 
   Teuchos::RCP<Epetra_CrsMatrix> B = Teuchos::rcp(new Epetra_CrsMatrix(
-      dynamic_cast<Epetra_CrsMatrix const&>(prec.Matrix())));
-  prec.SetMatrix(B);
-  prec.Initialize();
-  prec.Compute();
+      dynamic_cast<Epetra_CrsMatrix const&>(prec->Matrix())));
+  prec->SetMatrix(B);
+  prec->Initialize();
+  prec->Compute();
 
   // Make sure the pointers on the preconditioner and Schur complement are the same
-  TEST_EQUALITY(&prec.A22(), &TestableSchurComplement(prec.SchurComplement()).A22());
+  TEST_EQUALITY(&prec->A22(), &TestableSchurComplement(prec->SchurComplement()).A22());
   }
 
 TEUCHOS_UNIT_TEST(Preconditioner, SerialComm)
@@ -139,9 +140,9 @@ TEUCHOS_UNIT_TEST(Preconditioner, SerialComm)
   hymls_gidx n = 8 * 4 * 4 * 4;
   Epetra_Map map(n, 0, Comm);
   Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(new Teuchos::ParameterList());
-  TestablePreconditioner prec = createPreconditioner(map, params);
-  prec.Initialize();
-  prec.Compute();
+  Teuchos::RCP<TestablePreconditioner> prec = createPreconditioner(map, params);
+  prec->Initialize();
+  prec->Compute();
   }
 
 TEUCHOS_UNIT_TEST(Preconditioner, setBorder)
@@ -152,17 +153,17 @@ TEUCHOS_UNIT_TEST(Preconditioner, setBorder)
   hymls_gidx n = 8 * 4 * 4 * 4;
   Epetra_Map map(n, 0, Comm);
   Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(new Teuchos::ParameterList());
-  TestablePreconditioner prec = createPreconditioner(map, params);
-  prec.Initialize();
-  prec.Compute();
+  Teuchos::RCP<TestablePreconditioner> prec = createPreconditioner(map, params);
+  prec->Initialize();
+  prec->Compute();
 
   Teuchos::RCP<Epetra_MultiVector> V = Teuchos::rcp(new Epetra_MultiVector(map, 1));
   V->Random();
 
-  prec.setBorder(V);
+  prec->setBorder(V);
 
   // Import the vector since the matrix might have a different map
-  Teuchos::RCP<const Epetra_MultiVector> precV = prec.V();
+  Teuchos::RCP<const Epetra_MultiVector> precV = prec->V();
   Epetra_MultiVector importedV(map, 1);
   Epetra_Import importer(map, precV->Map());
   importedV.Import(*precV, importer, Insert);
@@ -179,28 +180,28 @@ TEUCHOS_UNIT_TEST(Preconditioner, setBorderNull)
   hymls_gidx n = 8 * 4 * 4 * 4;
   Epetra_Map map(n, 0, Comm);
   Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(new Teuchos::ParameterList());
-  TestablePreconditioner prec = createPreconditioner(map, params);
-  prec.Initialize();
-  prec.Compute();
+  Teuchos::RCP<TestablePreconditioner> prec = createPreconditioner(map, params);
+  prec->Initialize();
+  prec->Compute();
 
   // Set the border to null
-  prec.setBorder(Teuchos::null);
-  TEST_EQUALITY(prec.V(), Teuchos::null);
+  prec->setBorder(Teuchos::null);
+  TEST_EQUALITY(prec->V(), Teuchos::null);
 
   // Set the border to something else
   Teuchos::RCP<Epetra_MultiVector> V = Teuchos::rcp(new Epetra_MultiVector(map, 1));
   V->Random();
 
-  prec.setBorder(V);
-  TEST_INEQUALITY(prec.V(), Teuchos::null);
+  prec->setBorder(V);
+  TEST_INEQUALITY(prec->V(), Teuchos::null);
 
   // Check if we can set the border to null again
-  prec.setBorder(Teuchos::null);
-  TEST_EQUALITY(prec.V(), Teuchos::null);
+  prec->setBorder(Teuchos::null);
+  TEST_EQUALITY(prec->V(), Teuchos::null);
   }
 
 
-TestablePreconditioner create2DStokesPreconditioner(Epetra_Comm &Comm,
+Teuchos::RCP<TestablePreconditioner> create2DStokesPreconditioner(Epetra_Comm &Comm,
   Teuchos::RCP<Teuchos::ParameterList> &params)
   {
   int dof = 3;
@@ -252,7 +253,8 @@ TestablePreconditioner create2DStokesPreconditioner(Epetra_Comm &Comm,
   ssolverList.set("amesos: solver type", "KLU");
   ssolverList.set("Custom Ordering", true);
 
-  TestablePreconditioner prec(matrix, params);
+  Teuchos::RCP<TestablePreconditioner> prec =
+    Teuchos::rcp(new TestablePreconditioner(matrix, params));
   return prec;
   }
 
@@ -262,7 +264,7 @@ TEUCHOS_UNIT_TEST(Preconditioner, 2DStokes)
   DISABLE_OUTPUT;
 
   Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(new Teuchos::ParameterList());
-  TestablePreconditioner prec = create2DStokesPreconditioner(Comm, params);
-  prec.Initialize();
-  prec.Compute();
+  Teuchos::RCP<TestablePreconditioner> prec = create2DStokesPreconditioner(Comm, params);
+  prec->Initialize();
+  prec->Compute();
   }
