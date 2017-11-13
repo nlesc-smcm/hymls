@@ -257,6 +257,9 @@ int SkewCartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
   if (sx != sy || (nz_ > 1 && sx != sz))
     Tools::Error("sx, sy and sz should be the same", __FILE__, __LINE__);
 
+  if ((sx / 2) * 2 != sx)
+    Tools::Error("sx should be even", __FILE__, __LINE__);
+
   sx_ = sx;
   sy_ = sy;
   sz_ = sz;
