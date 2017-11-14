@@ -18,8 +18,11 @@ typedef Ifpack_Amesos SparseDirectSolver;
 #else
 
 #include "Ifpack_Preconditioner.h"
-#include "Teuchos_ParameterList.hpp"
 #include "Teuchos_RCP.hpp"
+
+namespace Teuchos {
+  class ParameterList;
+  }
 
 class Epetra_Map;
 class Epetra_Comm;
@@ -263,12 +266,6 @@ public:
     return -1.0;
   }
 
-  // Returns a constant reference to the internally stored 
-  virtual const Teuchos::ParameterList& List() const 
-  {
-    return(List_);
-  }
-
   //! Prints on ostream basic information about \c this object.
   virtual std::ostream& Print(std::ostream& os) const;
 
@@ -312,21 +309,12 @@ protected:
   {
     IsComputed_ = IsComputed_in;
   }
-
-  //! Set \c List_.
-  inline void SetList(const Teuchos::ParameterList& List_in)
-  {
-    List_ = List_in;
-  }
   //@}
 
 private:
 
   //! Pointers to the matrix to be preconditioned.
   Teuchos::RCP<const Epetra_RowMatrix> Matrix_;
-
-  //! Contains a copy of the input parameter list.
-  Teuchos::ParameterList List_;
   
   //! indicates which solver package is being used
   SolverType method_;

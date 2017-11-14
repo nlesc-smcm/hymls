@@ -19,8 +19,6 @@
 #include "Epetra_Import.h"
 #include "Epetra_IntSerialDenseVector.h"
 #include "Epetra_LongLongSerialDenseVector.h"
-#include "Teuchos_ParameterList.hpp"
-#include "Teuchos_StrUtils.hpp"
 #include "Epetra_Util.h"
 
 #include <algorithm>

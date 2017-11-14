@@ -198,13 +198,13 @@ Teuchos::RCP<Epetra_Map> create_map(const Epetra_Comm& comm,
     {
     sx = prec_params.get("Separator Length (x)", -1);
     sy = prec_params.get("Separator Length (y)", sx);
-    sz = prec_params.get("Separator Length (z)", dim < 3 ? 1 : sx);
+    sz = prec_params.get("Separator Length (z)", nz <= 1 ? 1 : sx);
     }
   else
     {
     sx = prec_params.get("Separator Length", -1);
     sy = sx;
-    sz = dim < 3 ? 1 : sx;
+    sz = nz <= 1 ? 1 : sx;
     }
 
   Teuchos::RCP<Epetra_Map> map=Teuchos::null;

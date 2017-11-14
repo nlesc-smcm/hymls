@@ -4,9 +4,12 @@
  * as long as this header remains intact.                             *
  * contact: jonas@math.rug.nl                                         *
  **********************************************************************/
+
 #include "HYMLS_no_debug.H"
 
-#include "Teuchos_RCP.hpp"
+#include "Trilinos_version.h"
+
+#include "Teuchos_ParameterList.hpp"
 #include "Epetra_Map.h"
 #include "Epetra_CrsMatrix.h"
 #include "Epetra_Vector.h"
@@ -48,8 +51,13 @@
 #include "AnasaziBasicEigenproblem.hpp"
 #include "AnasaziEpetraAdapter.hpp"
 
+#if TRILINOS_MAJOR_MINOR_VERSION>=121300
+#include "trilinos_amd.h"
+#else
 #include "amesos_amd.h"
-
+#define TRILINOS_AMD_INFO AMD_INFO
+#define trilinos_amd_order amesos_amd_order
+#endif
 // ASCII output formatting
 
 // unfortunately Epetra sets the width to 20 so we can't really change that here.
@@ -1728,11 +1736,11 @@ int MatrixUtils::AMD(const Epetra_CrsGraph& A, Teuchos::Array<int> & p)
     }
 
   double *control = NULL;
-  double *info = new double[AMD_INFO];
+  double *info = new double[TRILINOS_AMD_INFO];
 
   /* returns AMD_OK, AMD_OK_BUT_JUMBLED,
      AMD_INVALID, or AMD_OUT_OF_MEMORY */
-  int ierr = amesos_amd_order(n, Ap, Ai, &p[0], control, info);
+  int ierr = trilinos_amd_order(n, Ap, Ai, &p[0], control, info);
   // TODO: check for errors
   delete [] info;
   delete [] Ap;

@@ -1,3 +1,4 @@
+#include "Trilinos_version.h"
 #include "HYMLS_no_debug.H"
 #include "HYMLS_SparseDirectSolver.H"
 
@@ -27,18 +28,23 @@ extern "C" {
 #ifdef HAVE_SUITESPARSE
 #include "umfpack.h"
 #include "klu.h"
+#define T_KLU(xxx) xxx
+#elif TRILINOS_MAJOR_MINOR_VERSION>=121300
+#include "trilinos_klu_decl.h"
+#define T_KLU(xxx) trilinos_ ## xxx
 #else
 #include "amesos_klu_decl.h"
-#include "amesos_klu_decl.h"
+#define TRILINOS_KLU_SINGULAR KLU_SINGULAR
+#define T_KLU(xxx) xxx
 #endif
 
 class KluWrapper
   {
   public:
-  
-  klu_symbolic *Symbolic_;
-  klu_numeric *Numeric_;
-  klu_common *Common_;
+
+  T_KLU(klu_symbolic) *Symbolic_;
+  T_KLU(klu_numeric) *Numeric_;
+  T_KLU(klu_common) *Common_;
   };
 
 static std::ostream* output_stream;
@@ -63,6 +69,8 @@ int my_printf(const char* fmt, ...)
 
 #ifdef HAVE_SUITESPARSE      
 #define DO_KLU(function) klu_ ## function
+#elif TRILINOS_MAJOR_MINOR_VERSION>=121300
+#define DO_KLU(function) trilinos_klu_ ## function
 #else
 #define DO_KLU(function) amesos_klu_ ## function
 #endif
@@ -194,11 +202,10 @@ SparseDirectSolver::~SparseDirectSolver()
   }
 
 //==============================================================================
-int SparseDirectSolver::SetParameters(Teuchos::ParameterList& List_in)
-{
-HYMLS_PROF3(label_,"SetParameters");
-  List_ = List_in;
-  std::string choice = List_.get("amesos: solver type", "KLU");
+int SparseDirectSolver::SetParameters(Teuchos::ParameterList& params)
+  {
+  HYMLS_PROF3(label_,"SetParameters");
+  std::string choice = params.get("amesos: solver type", "KLU");
   choice = Teuchos::StrUtils::allCaps(choice);
   //~ std::cerr << "choice: " << choice << std::endl;
   method_=KLU; // default - always available.
@@ -228,18 +235,18 @@ HYMLS_PROF3(label_,"SetParameters");
       }
     }
 
-label_=List_.get("Label",label_);
+label_=params.get("Label",label_);
 label_=label_+" ("+label2+")";
 
 if (method_==KLU)
   {
-  klu_->Common_ = new klu_common();
+  klu_->Common_ = new T_KLU(klu_common)();
   DO_KLU(defaults)(klu_->Common_);
   }
 #ifdef HAVE_SUITESPARSE
 else if (method_==UMFPACK)
   {
-  int prl = List_.get("OutputLevel",0);
+  int prl = params.get("OutputLevel",0);
   umf_Info_.resize(UMFPACK_INFO);
   umf_Control_.resize(UMFPACK_CONTROL);
   umfpack_di_defaults( &umf_Control_[0] ) ; 
@@ -261,8 +268,8 @@ else if (method_==UMFPACK)
     }
 #endif
 
-ownOrdering_=List_.get("Custom Ordering",false);
-ownScaling_=List_.get("Custom Scaling",false);
+ownOrdering_=params.get("Custom Ordering",false);
+ownScaling_=params.get("Custom Scaling",false);
 
 if (ownOrdering_)
   {
@@ -319,8 +326,8 @@ if (ownScaling_)
 #endif
   }
 
-return(0);
-}
+  return(0);
+  }
 
 //==============================================================================
 int SparseDirectSolver::Initialize()
@@ -801,7 +808,7 @@ if (MyPID_!=0) return 0;
   
 if (status ||(klu_->Numeric_==NULL))
   {
-  if (status==KLU_SINGULAR) this->DumpSolverStatus("kluSingular",false);
+  if (status==TRILINOS_KLU_SINGULAR) this->DumpSolverStatus("kluSingular",false);
   HYMLS::Tools::Error("KLU Numeric Error "+Teuchos::toString(status),__FILE__,__LINE__);
   }
 DO_KLU(rcond)(klu_->Symbolic_,klu_->Numeric_,klu_->Common_);

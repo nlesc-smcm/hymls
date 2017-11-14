@@ -32,7 +32,7 @@ namespace HYMLS
    //! @name Destructor
   //@{ 
     //! Destructor
-   ~ProjectedOperator() {};
+   virtual ~ProjectedOperator() {};
   //@}
   
   //! set left preconditioner P (should implement ApplyInverse())

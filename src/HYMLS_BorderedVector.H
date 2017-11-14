@@ -63,6 +63,8 @@ public:
   BorderedVector(Epetra_DataAccess CV, BorderedVector &source,
     int startIndex, int numVectors);
 
+  virtual ~BorderedVector() {}
+
   // Assignment operator
   BorderedVector &operator=(const BorderedVector &Source);
 

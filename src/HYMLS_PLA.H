@@ -4,9 +4,9 @@
 #include "HYMLS_config.h"
 
 #include "HYMLS_Tools.H"
+
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_ParameterListAcceptorDefaultBase.hpp"
-#include "Teuchos_Tuple.hpp"
 #include "Teuchos_ParameterList.hpp"
 
 namespace HYMLS 
@@ -57,7 +57,7 @@ namespace HYMLS
       }
     if (sublist!="") return getMyParamList()->sublist(sublist);
     if (default_sublist_!="") return getMyParamList()->sublist(default_sublist_);
-    return *getMyParamList();
+    return*getMyParamList();
     }
 
   //!

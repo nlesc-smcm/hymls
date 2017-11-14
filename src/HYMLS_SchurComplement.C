@@ -2,26 +2,18 @@
 #include "HYMLS_OverlappingPartitioner.H"
 #include "HYMLS_MatrixUtils.H"
 
-#include "Epetra_Comm.h"
 #include "Epetra_Map.h"
 #include "Epetra_MultiVector.h"
 #include "Epetra_Vector.h"
-#include "Epetra_RowMatrix.h"
 #include "Epetra_CrsMatrix.h"
 #include "Epetra_FECrsMatrix.h"
-#include "Epetra_Import.h"
 #include "Epetra_SerialDenseMatrix.h"
 #include "Epetra_IntSerialDenseVector.h"
 #include "Epetra_LongLongSerialDenseVector.h"
 
 #include "Ifpack_Container.h"
 
-#include "Teuchos_ParameterList.hpp"
-#include "Teuchos_Array.hpp"
-
 #include "EpetraExt_MatrixMatrix.h"
-#include "EpetraExt_Reindex_MultiVector.h"
-
 
 namespace HYMLS {
 
