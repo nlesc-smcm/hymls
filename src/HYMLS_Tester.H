@@ -71,13 +71,6 @@ public:
   //! pressure is each dof'th unknown, starting from pvar
   static bool isFmatrix(const Epetra_CrsMatrix& A);
 
-  //! this test is a specialized test for the 3D Navier-Stokes equations on a C-grid.
-  //! It checks that the interior velocities of full conservation tubes only connect 
-  //! to interior pressures of the same tube.
-  static bool areTubesCorrect(const Epetra_CrsMatrix& K,
-                              const Epetra_IntVector& p_nodeType,
-                              int dof, int pvar);
-
   //! check that the domain decomposition worked, i.e. there are no couplings between 
   //! interior nodes of two different subdomains.
   static bool isDDcorrect(const Epetra_CrsMatrix& A, const HYMLS::OverlappingPartitioner& hid);

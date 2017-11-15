@@ -231,60 +231,6 @@ namespace HYMLS {
     return status;
     }
 
-  //! this test is a specialized test for the 3D Navier-Stokes equations on a C-grid.
-  //! It checks that the interior velocities of full conservation tubes only connect 
-  //! to interior pressures of the same tube.
-  bool Tester::areTubesCorrect(const Epetra_CrsMatrix& K,
-                              const Epetra_IntVector& p_nodeType,
-                              int dof, int pvar)
-    {
-    HYMLS_PROF(Label(),"areTubesCorrect");
-    
-    // note: we do not test wether A is an F-matrix here, that is, wether Div=-Grad' etc.
-    // the isFmatrix() test can be used for that independently. We only look at the grad-
-    // part here.
-    
-    // Tubes only occure in 3D Navier-Stokes and similar, so we assume dim=3 if this is called.
-
-    bool status=true;
-    ASSERT_TRUE(K.Filled(),status);
-    int len;
-    int *cols;
-    double *val;
-    for (int i=0;i<K.NumMyRows();i++)
-      {
-      hymls_gidx grid = K.GRID64(i);
-      int p_lrid = p_nodeType.Map().LID(grid);
-      ASSERT_TRUE(p_lrid>=0,status);
-      if (p_nodeType[p_lrid]<0 && MOD(grid,dof)!=pvar)
-        {
-        // V-node in a tube
-        ASSERT_ZERO(K.ExtractMyRowView(i,len,val,cols),status);
-        for (int j=0;j<len;j++)
-          {
-          hymls_gidx gcid = K.GCID64(cols[j]);
-          if (MOD(gcid,dof)==pvar)
-            {
-            // entry in the grad part of the matrix K
-            int p_lcid = p_nodeType.Map().LID(gcid);
-            ASSERT_TRUE(p_lcid>=0,status);
-            // check if the P-node is eliminated together with the
-            // V-node or retained in an FCC, otherwise print warning.
-            if (p_nodeType[p_lcid]!=p_nodeType[p_lrid] &&
-                p_nodeType[p_lcid]<4)
-              {
-              msg_ << "V-node "<<grid<<" (variable type "<<MOD(grid,dof)<<")\n";
-              msg_ << "belongs to the interior of a full conservation tube,\n ";
-              msg_ << "but couples to P-node "<<gcid<< " outside the tube.\n";
-              status=false;
-              }
-            }
-          }
-        }
-      }
-    return status;
-    }
-
   // check that the domain decomposition worked, i.e. there are no couplings between 
   // interior nodes of two different subdomains.
   bool Tester::isDDcorrect(const Epetra_CrsMatrix& A, 
