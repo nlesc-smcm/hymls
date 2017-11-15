@@ -192,7 +192,7 @@ Teuchos::RCP<Epetra_BlockMap> MatrixUtils::Gather(const Epetra_BlockMap& map, in
     NumMyElements = std::distance(view.begin(), new_end);
     NumGlobalElements = NumMyElements;
     }
-  CHECK_ZERO(Comm.Broadcast(&NumGlobalElements, 1, 0));
+  CHECK_ZERO(Comm.Broadcast(&NumGlobalElements, 1, root));
   // build the new (gathered) map
   Teuchos::RCP<Epetra_BlockMap> gmap = Teuchos::rcp(new Epetra_BlockMap
       (NumGlobalElements, NumMyElements, AllGlobalElements,
