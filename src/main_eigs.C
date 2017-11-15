@@ -54,7 +54,11 @@
 typedef double ST;
 typedef Epetra_MultiVector MV;
 typedef Epetra_Operator OP;
-typedef HYMLS::Preconditioner PREC;
+#ifdef HYMLS_USE_PHIST_CORRECTION_SOLVER
+typedef HYMLS::Preconditioner PHIST_PREC;
+#else
+typedef HYMLS::Solver PHIST_PREC;
+#endif
 
 int main(int argc, char* argv[])
   {
@@ -298,6 +302,11 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     HYMLS::Tools::StopTiming("main: Compute Preconditioner",true);
     }
 
+#ifndef HYMLS_USE_PHIST_CORRECTION_SOLVER
+#error "not implemenented"
+  Teuchos::RCP<HYMLS::Solver>=Teuchos::null;
+#endif
+
   // Set verbosity level
   int verbosity = Anasazi::Errors + Anasazi::Warnings;
   verbosity += Anasazi::IterationDetails;
@@ -379,7 +388,13 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     }
 
 #ifdef HYMLS_USE_PHIST
-  Anasazi::PhistSolMgr<ST,MV,OP,PREC> esolver(eigProblem,precond,eigList);
+  Teuchos::RCP<PHIST_PREC> phist_prec=Teuchos::null;
+# ifdef HYMLS_USE_PHIST_CORRECTION_SOLVER
+  phist_prec=precond;
+#else
+  phist_prec=solver;
+#endif
+  Anasazi::PhistSolMgr<ST,MV,OP,PHIST_PREC> esolver(eigProblem,phist_prec,eigList);
 #else
   Anasazi::BlockKrylovSchurSolMgr<ST,MV,OP> esolver(eigProblem,eigList);
 #endif
