@@ -31,7 +31,7 @@ void jadaCorrectionSolver_run1(void* vme,
   TYPE(const_mvec_ptr) Qtil, TYPE(const_mvec_ptr) BQtil,
   double sigma_r, double sigma_i,
   TYPE(const_mvec_ptr) res,
-  const double tol, int maxIter,
+  double tol, int maxIter,
   TYPE(mvec_ptr) t,
   int robust,
   int *iflag)
@@ -161,7 +161,7 @@ void jadaCorrectionSolver_run1(void* vme,
   PHIST_CHK_IERR(phist_Dmvec_normalize(t, &tmp, iflag), *iflag);
 }
 
-void HYMLS_jadaCorrectionSolver_run(void* vme,
+void jadaCorrectionSolver_run(void* vme,
   void const* vA_op, void const* vB_op, 
   TYPE(const_mvec_ptr) Qtil, TYPE(const_mvec_ptr) BQtil,
   const double *sigma_r, const double *sigma_i, 

@@ -230,7 +230,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
   Teuchos::RCP<Epetra_MultiVector> x=Teuchos::rcp(new Epetra_Vector(*map));
   HYMLS::MatrixUtils::Random(*x);
 
-  Teuchos::ParameterList& solver_params = params->sublist("Solver");
+  //Teuchos::ParameterList& solver_params = params->sublist("Solver");
 
   if (eqn=="Stokes-C")
     {
