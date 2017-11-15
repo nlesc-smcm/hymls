@@ -20,6 +20,7 @@
 
 // Include this before phist
 #include "HYMLS_PhistWrapper.H"
+#include "HYMLS_PhistCustomCorrectionSolver.H"
 
 #include "phist_macros.h"
 #include "phist_enums.h"
@@ -137,6 +138,9 @@ class PhistSolMgr : public SolverManager<ScalarType,MV,OP>
         Teuchos::RCP< PREC >                                     d_prec;
         // used to pass HYMLS object to phist
         Teuchos::RCP<phist_DlinearOp>                   d_preconOp, d_preconPointers;
+        // our own 'bordered' correction solver
+        Teuchos::RCP<phist_hymls_solver> d_customCorrectionSolver;
+        // options pased to phist
         phist_jadaOpts                                  d_opts;
 
         bool borderedSolver;
@@ -237,7 +241,6 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
     d_opts.minBas = pl.get<int>("Restart Dimension");
     d_opts.maxBas = pl.get<int>("Maximum Subspace Dimension");
 
-    d_opts.innerSolvType = phist_GMRES;
     d_opts.innerSolvMaxIters = pl.get("Inner Iterations",d_opts.innerSolvMaxIters);
     d_opts.innerSolvMaxBas   = d_opts.innerSolvMaxIters;
     d_opts.innerSolvBlockSize=d_opts.blockSize;
@@ -261,13 +264,19 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
 
     borderedSolver = pl.get("Bordered Solver",false);
 
-    // if the parameter "Bordered Solver" is set we use HYMLS' bordering
-    // functionality for assuring t \orth r when solving the JaDa correction
-    // equation. So we ask phist *not* to skew-project and to call the 
-    // preconditioner's update function before each linear solve.
-    d_opts.preconSkewProject=borderedSolver?0:1;
-    if (borderedSolver) d_opts.preconUpdate=1;
-
+    // if the parameter "Bordered Solver" is set and the preconditioning type is HYMLS,
+    // we provide our own correction solver instead of using the one with the projections
+    // in PHIST.
+    if (borderedSolver)
+    {
+      d_opts.preconType=phist_NO_PRECON;
+      d_opts.innerSolvType=phist_USER_LINSOLV;
+      
+      d_customCorrectionSolver = Teuchos::rcp(new phist_hymls_solver()); 
+      d_opts.customSolver=d_customCorrectionSolver.get();
+      d_opts.customSolver_run=&HYMLS_jadaCorrectionSolver_run;
+      d_opts.customSolver_run1=&HYMLS_jadaCorrectionSolver_run1;
+    }
 
     // Get sort type
     std::string which;
