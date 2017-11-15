@@ -60,8 +60,11 @@ include_directories(${PROJECT_SOURCE_DIR})
 if (${phist_FOUND})
   message(STATUS "phist found in ${PHIST_INCLUDE_DIRS}")
 
+  list(APPEND HYMLS_SOURCE HYMLS_PhistCustomCorrectionSolver)
+  
   list(APPEND HEADERS
     HYMLS_PhistWrapper.H
+    HYMLS_PhistCustomCorrectionSolver.H
     AnasaziPhistSolMgr.hpp)
 endif()
 
