@@ -44,7 +44,7 @@ public:
       Teuchos::RCP<Teuchos::ParameterList> params, int level=1);
 
   //! destructor
-  ~OverlappingPartitioner();
+  virtual ~OverlappingPartitioner();
 
   //! get the partitioner used internally
   const BasePartitioner& Partitioner() const {return *partitioner_;}

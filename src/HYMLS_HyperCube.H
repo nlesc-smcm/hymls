@@ -45,7 +45,7 @@ public:
 HyperCube();
 
 //!
-~HyperCube();
+virtual ~HyperCube();
 
 //!
 const Epetra_MpiComm& Comm() const {return *reorderedComm_;}

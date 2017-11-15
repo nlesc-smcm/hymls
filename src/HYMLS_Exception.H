@@ -38,7 +38,7 @@ class Exception : public std::exception
   const char* what() const throw();
 
   //!
-  ~Exception() throw();
+  virtual ~Exception() throw();
   
   private:
   

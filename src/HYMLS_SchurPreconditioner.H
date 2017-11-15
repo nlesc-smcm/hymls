@@ -88,7 +88,7 @@ public:
                       Teuchos::RCP<Epetra_Vector> testVector);
 
   //! destructor
-  ~SchurPreconditioner();
+  virtual ~SchurPreconditioner();
 
   //! apply orthogonal transforms to a vector v
   

@@ -1,9 +1,8 @@
 #include "HYMLS_PLA.H"
-#include "Teuchos_ParameterList.hpp"
 #include "Teuchos_RCP.hpp"
 #include "HYMLS_Tools.H"
 
-namespace HYMLS {  
+namespace HYMLS {
 
 PLA::PLA(std::string my_sublist)
   {

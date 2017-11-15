@@ -8,6 +8,10 @@
 
 #include "HYMLS_HierarchicalMap.H"
 
+namespace Teuchos {
+class ParameterList;
+  }
+
 class Epetra_MultiVector;
 class Epetra_Import;
 class Epetra_BlockMap;
@@ -40,6 +44,8 @@ public:
     HierarchicalMap::SpawnStrategy rowStrategy,
     HierarchicalMap::SpawnStrategy colStrategy,
     int level);
+
+  virtual ~MatrixBlock() {}
 
   //! Compute the actual block
   int Compute();

@@ -39,7 +39,7 @@ class AugmentedMatrix: public Epetra_RowMatrix
    //! @name Destructor
   //@{ 
     //! Destructor
-    ~AugmentedMatrix() {};
+    virtual ~AugmentedMatrix() {};
 
   //@}
 

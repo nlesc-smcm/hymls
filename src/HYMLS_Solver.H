@@ -42,7 +42,7 @@ public:
     int numRhs = 1);
 
   //! destructor
-  ~Solver();
+  virtual ~Solver();
 
   //! set solver parameters (the list is the "HYMLS"->"Solver" sublist)
   void setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& params);
