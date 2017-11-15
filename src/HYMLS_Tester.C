@@ -499,9 +499,12 @@ namespace HYMLS {
     return status;
     }
 
-  bool Tester::isDivFree(const Epetra_CrsMatrix& A, const Epetra_MultiVector &V,  int dof, int pvar, double tol)
+  bool Tester::isDivFree(const Epetra_CrsMatrix& A, const Epetra_MultiVector &V, double tol)
     {
     HYMLS_PROF(Label(),"isDivFree");
+    if (pvar_ < 0)
+      return true;
+
     Epetra_MultiVector out(A.OperatorRangeMap(), V.NumVectors());
     CHECK_ZERO(A.Apply(V, out));
 
@@ -511,7 +514,7 @@ namespace HYMLS {
       {
       for (int i = 0; i < out.MyLength(); i++)
         {
-        if (std::abs(out[j][i]) > tol && (out.Map().GID64(i) % dof == pvar))
+        if (std::abs(out[j][i]) > tol && (out.Map().GID64(i) % dof_ == pvar_))
           {
           msg_ << "Rowsum not zero but " << out[j][i]
                << " on row " << out.Map().GID64(i) << std::endl;

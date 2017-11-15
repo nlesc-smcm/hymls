@@ -185,23 +185,6 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
 
   dof_ = probList.get("Degrees of Freedom", 1);
 
-#ifdef HYMLS_TESTING
-  Tester::nx_ = nx_;
-  Tester::ny_ = ny_;
-  Tester::nz_ = nz_;
-  Tester::dim_ = dim_;
-  Tester::dof_ = dof_;
-  if (probList.get("Test F-Matrix Properties", false))
-    {
-    Tester::doFmatTests_ = true;
-    Tester::pvar_ = pvar;
-    }
-  else
-    {
-    Tester::doFmatTests_ = false;
-    }
-#endif
-
   variableType_.resize(dof_);
 
   int pcount = 0;
@@ -225,6 +208,7 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
       }
     else if (variableType == "Pressure")
       {
+      pvar = i;
       variableType_[i] = 3;
       pcount++;
       }
@@ -237,6 +221,16 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
   if (vcount > 3)
     Tools::Error("Can only have three 'Velocity' variables",
       __FILE__, __LINE__);
+
+#ifdef HYMLS_TESTING
+  Tester::nx_ = nx_;
+  Tester::ny_ = ny_;
+  Tester::nz_ = nz_;
+  Tester::dim_ = dim_;
+  Tester::dof_ = dof_;
+  Tester::pvar_ = pvar;
+  Tester::doFmatTests_ = probList.get("Test F-Matrix Properties", false);
+#endif
   }
 
 void BasePartitioner::SetNextLevelParameters(Teuchos::ParameterList& params)

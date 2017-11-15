@@ -153,8 +153,7 @@ void jadaCorrectionSolver_run1(void* vme,
     solver->ApplyInverse(*r_ptr, *t_ptr);
   }
 
-  if (solver->getNonconstParameterList()->sublist("Problem").get("Equations", "") == "Stokes-C")
-  HYMLS_TEST("jada",isDivFree(*(const Epetra_CrsMatrix *)A_op->A, *t_ptr, 4, 3),__FILE__,__LINE__);
+  HYMLS_TEST("jada",isDivFree(*(const Epetra_CrsMatrix *)A_op->A, *t_ptr), __FILE__, __LINE__);
 
   // normalize result vectors, TODO: should be done in updateSol/pgmres?
   _MT_ tmp;

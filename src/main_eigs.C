@@ -355,7 +355,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
       }
     }
   
-  HYMLS_TEST("main_eigs",isDivFree(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(K), *x, dof, dim),__FILE__,__LINE__);
+  HYMLS_TEST("main_eigs", isDivFree(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(K), *x), __FILE__, __LINE__);
   
   // Create the eigenproblem.
   HYMLS_DEBUG("create eigen-problem");
