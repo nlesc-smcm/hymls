@@ -490,12 +490,13 @@ int Preconditioner::InitializeCompute()
       this->Initialize();
       }
 
-  time_->ResetStartTime();
+    time_->ResetStartTime();
 
-InitializeCompute();
-{
-HYMLS_LPROF(label_,"subdomain factorization");
-A11_->ComputeSubdomainSolvers();
+    InitializeCompute();
+
+    {
+    HYMLS_LPROF(label_,"subdomain factorization");
+    A11_->ComputeSubdomainSolvers();
 
 #ifdef HYMLS_TESTING
     Tools::out() << "Preconditioner level " << myLevel_ << ", doFmatTests=" << Tester::doFmatTests_ << std::endl;
@@ -517,38 +518,25 @@ A11_->ComputeSubdomainSolvers();
       // Free some memory since these tests use huge amounts
       TestSC = Teuchos::null;
 
-      HYMLS_TEST(Label(), isFmatrix(*TestSC_crs, dof_, dim_), __FILE__, __LINE__);
+      HYMLS_TEST(Label(), isFmatrix(*TestSC_crs), __FILE__, __LINE__);
 
 #ifdef HYMLS_STORE_MATRICES
       HYMLS::MatrixUtils::Dump(*TestSC_crs, "SchurComplement" + Teuchos::toString(myLevel_) + ".txt");
 #endif
       }
 #endif
-}
+    }
 
   if (scaleSchur_)
     {
-    // the scaling is somewhat adhoc right now.
-  
-    // TODO: this is not true in general but works for some       
-    //       problems we're trying to tackle:                     
-    //    Laplace - no scaling                                    
-    //    Navier-Stokes with uv(w)p ording - diagonal scaling of  
-    //            V-nodes not coupled to P-nodes                  
-    //    THCM - doesn't work because P is variable 4 out of 6.   
-    if (hid_->Partitioner().DofPerNode()>4)
-      {
-      Tools::Error("scaling not implemented for dof>4",__FILE__,__LINE__);
-      }
-    int pvar=dim_;
-    schurScaLeft_=Schur_->ConstructLeftScaling(pvar);
+    schurScaLeft_=Schur_->ConstructLeftScaling();
     schurScaRight_=Schur_->ConstructRightScaling();
-    
+
 #ifdef HYMLS_STORE_MATRICES
     MatrixUtils::Dump(*schurScaLeft_,"SchurScaLeft"+Teuchos::toString(myLevel_)+".txt");
     MatrixUtils::Dump(*schurScaRight_,"SchurScaRight"+Teuchos::toString(myLevel_)+".txt");
-#endif    
-    
+#endif
+
     CHECK_ZERO(Schur_->Scale(schurScaLeft_,schurScaRight_));
     }
 
@@ -736,15 +724,8 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
   if ( (comm_->MyPID()==0) && (myLevel_==1))
     {
     std::ofstream ofs(mfilename.c_str(),std::ios::out);
-    ofs << "dim="<<dim_<<";"<<std::endl;
-    ofs << "dof="<<dof_<<";"<<std::endl;
-    ofs << "nx="<<nx_<<";"<<std::endl;
-    ofs << "ny="<<ny_<<";"<<std::endl;
-    if (dim_>2)
-      {
-      ofs << "nz="<<nz_<<";"<<std::endl;
-      }
-    ofs.close();    
+    ofs << std::endl;
+    ofs.close();
     }
   comm_->Barrier();
   std::ofstream ofs(mfilename.c_str(),std::ios::app);

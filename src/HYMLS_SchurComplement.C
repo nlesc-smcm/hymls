@@ -395,7 +395,7 @@ int SchurComplement::Construct22(int sd, Epetra_SerialDenseMatrix &Sk,
   return 0;
   }
 
-Teuchos::RCP<Epetra_Vector> SchurComplement::ConstructLeftScaling(int p_variable)
+Teuchos::RCP<Epetra_Vector> SchurComplement::ConstructLeftScaling()
   {
   HYMLS_LPROF2(label_, "ConstructLeftScaling");
   sca_left_->PutScalar(1.0);
@@ -423,7 +423,7 @@ Teuchos::RCP<Epetra_Vector> SchurComplement::ConstructLeftScaling(int p_variable
           {
           diag = std::abs(val[j]);
           }
-        if (BP.VariableType(Scrs_->GCID64(ind[j])) == p_variable)
+        if (BP.VariableType(Scrs_->GCID64(ind[j])) == 3) //pressure
           {
           if (std::abs(val[j]) > 1.0e-8) has_pcol = true;
           }

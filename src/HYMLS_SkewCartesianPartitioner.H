@@ -77,15 +77,6 @@ public:
     return npx_ > 0;
     }
 
-  //! get the type of a variable (if more than 1 dof per node, otherwise just 0)
-  inline int DofPerNode() const
-    {
-    return dof_;
-    }
-
-  //! get the type of a variable (if more than 1 dof per node, otherwise just 0)
-  int VariableType(hymls_gidx gid) const;
-
   //! return the repartitioned/reordered map
   inline const Epetra_Map& Map() const
     {

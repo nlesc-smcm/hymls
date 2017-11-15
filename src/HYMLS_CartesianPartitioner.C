@@ -430,12 +430,6 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
   return 0;
   }
 
-//! get the type of a variable (if more than 1 dof per node, otherwise just 0)
-int CartesianPartitioner::VariableType(hymls_gidx gid) const
-  {
-  return gid % dof_;
-  }
-
 //! get processor on which a grid point is located
 int CartesianPartitioner::PID(int i, int j, int k) const
   {

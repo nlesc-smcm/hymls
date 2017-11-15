@@ -69,7 +69,7 @@ public:
 
   //! returns true if the input matrix is an F-matrix, where the 
   //! pressure is each dof'th unknown, starting from pvar
-  static bool isFmatrix(const Epetra_CrsMatrix& A,int dof=-1,int pvar=-1);
+  static bool isFmatrix(const Epetra_CrsMatrix& A);
 
   //! this test is a specialized test for the 3D Navier-Stokes equations on a C-grid.
   //! It checks that the interior velocities of full conservation tubes only connect 

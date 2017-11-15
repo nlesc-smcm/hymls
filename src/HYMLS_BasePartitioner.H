@@ -56,13 +56,13 @@ class BasePartitioner
   
   //! return the number of variables per grid point
   //! (default implementation returns 1)
-  virtual int DofPerNode() const {return 1;}
+  virtual int DofPerNode() const {return dof_;}
   
   //! for problems with multiple dof per node: get an
   //! integer indicating which variable type a gid has
   //! (this is used in HID to group separators by type)
   //! default implementation returns 0
-  virtual int VariableType(hymls_gidx gid) const {return 0;}
+  virtual int VariableType(hymls_gidx gid) const {return variableType_[gid % dof_];}
   
   //! get non-overlapping global subdomain id 
   virtual int operator()(hymls_gidx gid) const = 0;

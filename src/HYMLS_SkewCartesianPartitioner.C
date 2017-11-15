@@ -437,10 +437,10 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::getTemplate() co
   hymls_gidx dirZ = dof_*nx*nx;
 
   // Info for each node type
-  hymls_gidx firstNode[4] = {dof_*sx_/2 + 0 + dirY + dirZ * sx_,
-                             dof_*sx_/2 + 1 - 0    + dirZ * sx_,
-                             dof_*sx_/2 + 2 - dirZ + dirZ * sx_,
-                             dof_*sx_/2 + 3 + dirY + dirZ * sx_};
+  hymls_gidx firstNode[4] = {dof_*sx_/2 + dirY + dirZ * sx_,
+                             dof_*sx_/2 - 0    + dirZ * sx_,
+                             dof_*sx_/2 - dirZ + dirZ * sx_,
+                             dof_*sx_/2 + dirY + dirZ * sx_};
   hymls_gidx baseLength[4] = {sx_/2, sx_/2 + 1, sx_/2 + 1, sx_/2};
 
   std::vector<std::vector<std::vector<hymls_gidx> > > nodes;
@@ -578,10 +578,9 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::getTemplate() co
       std::copy(nodes[2].front().begin(), nodes[2].front().end(),
         std::back_inserter(newNodes.back()));
       nodes[2].erase(nodes[2].begin());
- 
-      int shift = i - variableType_[i];
+
       std::for_each(newNodes.back().begin(), newNodes.back().end(),
-        [shift](hymls_gidx& d) { d += shift;});
+        [i](hymls_gidx& d) { d += i;});
       break;
       }
 
@@ -595,9 +594,8 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::getTemplate() co
         nodes[variableType_[i]][j].end(),
         std::back_inserter(newNodes.back()));
 
-      int shift = i - variableType_[i];
       std::for_each(newNodes.back().begin()+size, newNodes.back().end(),
-        [shift](hymls_gidx& d) { d += shift;});
+        [i](hymls_gidx& d) { d += i;});
       }
     std::sort(newNodes.back().begin(), newNodes.back().end());
     }
@@ -839,12 +837,6 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &inte
   std::copy(nodes.begin() + 1, nodes.end(), std::back_inserter(separator_nodes));
 
   return 0;
-  }
-
-//! get the type of a variable (if more than 1 dof per node, otherwise just 0)
-int SkewCartesianPartitioner::VariableType(hymls_gidx gid) const
-  {
-  return gid % dof_;
   }
 
 //! get processor on which a grid point is located

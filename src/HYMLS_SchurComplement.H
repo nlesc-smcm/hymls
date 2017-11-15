@@ -127,7 +127,7 @@ public:
     p_variable indicates which variables are the P-nodes, i.e. the class BasePartitioner
     will return VariableType(gid)=p_variable if gid is a P-node.
   */
-  Teuchos::RCP<Epetra_Vector> ConstructLeftScaling(int p_variable);
+  Teuchos::RCP<Epetra_Vector> ConstructLeftScaling();
 
   //! get appropriate right scaling vector for this Schur complement
 
