@@ -230,8 +230,6 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
   Teuchos::RCP<Epetra_MultiVector> x=Teuchos::rcp(new Epetra_Vector(*map));
   HYMLS::MatrixUtils::Random(*x);
 
-  //Teuchos::ParameterList& solver_params = params->sublist("Solver");
-
   if (eqn=="Stokes-C")
     {
     dof=dim+1;
@@ -301,9 +299,10 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     HYMLS::Tools::StopTiming("main: Compute Preconditioner",true);
     }
 
-#ifndef HYMLS_USE_PHIST_CORRECTION_SOLVER
-#error "not implemenented"
-  Teuchos::RCP<HYMLS::Solver>=Teuchos::null;
+#if defined(HYMLS_USE_PHIST) && !defined(HYMLS_USE_PHIST_CORRECTION_SOLVER)
+#error "not implemented"
+  Teuchos::ParameterList& solver_params = params->sublist("Solver");
+  Teuchos::RCP<HYMLS::Solver> solver=Teuchos::null;
 #endif
 
   // Set verbosity level
