@@ -179,18 +179,17 @@ bool status=true;
 
     Teuchos::ParameterList& probl_params = params->sublist("Problem");
 
-    Teuchos::ParameterList probl_params_cpy = probl_params;
-    Teuchos::ParameterList prec_params_cpy = params->sublist("Preconditioner");
-
     int dim=probl_params.get("Dimension",2);
     int nx=probl_params.get("nx",32);
     int ny=probl_params.get("ny",nx);
     int nz=probl_params.get("nz",dim>2?nx:1);
     int dof=probl_params.get("Degrees of Freedom", 1);
- 
-    std::string eqn=probl_params_cpy.get("Equations","Laplace");
+    
+    // copy problem sublist so that the main utils don't modify the original
+    Teuchos::ParameterList probl_params_cpy = probl_params;
+    std::string eqn=probl_params_cpy.get("Equations", "not-set");
 
-    map = HYMLS::MainUtils::create_map(*comm,probl_params_cpy, prec_params_cpy); 
+    map = HYMLS::MainUtils::create_map(*comm, params); 
 #ifdef HYMLS_STORE_MATRICES
 HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
 #endif

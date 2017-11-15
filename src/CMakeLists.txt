@@ -1,4 +1,3 @@
-
 set(HYMLS_SOURCE HYMLS_Solver
     HYMLS_BlockScaling
     HYMLS_BaseSolver
@@ -12,6 +11,7 @@ set(HYMLS_SOURCE HYMLS_Solver
     HYMLS_SchurPreconditioner
     HYMLS_OverlappingPartitioner
     HYMLS_HierarchicalMap
+    HYMLS_BasePartitioner
     HYMLS_CartesianPartitioner
     HYMLS_SkewCartesianPartitioner
     HYMLS_HyperCube
@@ -47,7 +47,6 @@ set(HEADERS ${HEADERS}
   GaleriExt_Star3D.h
   GaleriExt_Stokes2D.h
   GaleriExt_Stokes3D.h
-  HYMLS_BasePartitioner.H
   HYMLS_Macros.H
   HYMLS_no_debug.H
   HYMLS_OrthogonalTransform.H

@@ -20,12 +20,10 @@ set(SOURCES
 # Configure the data xml file in which we can set parameters (like file names)
 configure_file(data.xml ${CMAKE_CURRENT_BINARY_DIR}/data.xml)
 configure_file(HYMLS_UnitTestData.H.in ${CMAKE_CURRENT_BINARY_DIR}/HYMLS_UnitTestData.H)
+
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 add_executable(unit_tests ${SOURCES})
-
-target_link_libraries(unit_tests ${Trilinos_LIBRARIES})
-target_link_libraries(unit_tests ${Trilinos_TPL_LIBRARIES})
 
 target_link_libraries(unit_tests hymls)
 

@@ -65,8 +65,9 @@ public:
     }
   };
 
-Teuchos::RCP<TestablePreconditioner> createPreconditioner(Epetra_Map &map, 
-  Teuchos::RCP<Teuchos::ParameterList> &params)
+Teuchos::RCP<TestablePreconditioner> createPreconditioner(
+  Teuchos::RCP<Teuchos::ParameterList> &params,
+  Teuchos::RCP<Epetra_Comm> const &comm)
   {
   Teuchos::ParameterList &problemList = params->sublist("Problem");
   problemList.set("Degrees of Freedom", 4);
@@ -74,23 +75,18 @@ Teuchos::RCP<TestablePreconditioner> createPreconditioner(Epetra_Map &map,
   problemList.set("nx", 8);
   problemList.set("ny", 4);
   problemList.set("nz", 4);
+
   Teuchos::ParameterList &precList = params->sublist("Preconditioner");
   precList.set("Separator Length", 4);
   precList.set("Number of Levels", 1);
 
-  hymls_gidx n = problemList.get<int>("Degrees of Freedom") * problemList.get<int>("nx") *
-    problemList.get<int>("ny") * problemList.get<int>("nz");
+  HYMLS::CartesianPartitioner part(Teuchos::null, params, comm);
+  part.Partition(true);
 
-  HYMLS::CartesianPartitioner part(Teuchos::rcp(&map, false),
-    problemList.get<int>("nx"), problemList.get<int>("ny"), problemList.get<int>("nz"),
-    problemList.get<int>("Degrees of Freedom"));
-  part.Partition(2, true);
-  map = *part.GetMap();
-
-  Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(new Epetra_CrsMatrix(Copy, map, 2));
+  Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(new Epetra_CrsMatrix(Copy, part.Map(), 2));
 
   Epetra_Util util;
-  for (hymls_gidx i = 0; i < n; i++) {
+  for (hymls_gidx i = 0; i < A->NumGlobalRows64(); i++) {
     // int A_idx = util.RandomInt() % n;
     // double A_val = -std::abs(util.RandomDouble());
     double A_val2 = std::abs(util.RandomDouble());
@@ -111,13 +107,11 @@ Teuchos::RCP<TestablePreconditioner> createPreconditioner(Epetra_Map &map,
 
 TEUCHOS_UNIT_TEST(Preconditioner, Blocks)
   {
-  Epetra_MpiComm Comm(MPI_COMM_WORLD);
+  Teuchos::RCP<Epetra_MpiComm> comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
   DISABLE_OUTPUT;
 
-  hymls_gidx n = 8 * 4 * 4 * 4;
-  Epetra_Map map(n, 0, Comm);
   Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(new Teuchos::ParameterList());
-  Teuchos::RCP<TestablePreconditioner> prec = createPreconditioner(map, params);
+  Teuchos::RCP<TestablePreconditioner> prec = createPreconditioner(params, comm);
   prec->Initialize();
   prec->Compute();
 
@@ -134,29 +128,26 @@ TEUCHOS_UNIT_TEST(Preconditioner, Blocks)
 TEUCHOS_UNIT_TEST(Preconditioner, SerialComm)
   {
   // Check if HYMLS can work without MPI
-  Epetra_SerialComm Comm;
+  Teuchos::RCP<Epetra_SerialComm> comm = Teuchos::rcp(new Epetra_SerialComm);
   DISABLE_OUTPUT;
 
-  hymls_gidx n = 8 * 4 * 4 * 4;
-  Epetra_Map map(n, 0, Comm);
   Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(new Teuchos::ParameterList());
-  Teuchos::RCP<TestablePreconditioner> prec = createPreconditioner(map, params);
+  Teuchos::RCP<TestablePreconditioner> prec = createPreconditioner(params, comm);
   prec->Initialize();
   prec->Compute();
   }
 
 TEUCHOS_UNIT_TEST(Preconditioner, setBorder)
   {
-  Epetra_MpiComm Comm(MPI_COMM_WORLD);
+  Teuchos::RCP<Epetra_MpiComm> comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
   DISABLE_OUTPUT;
 
-  hymls_gidx n = 8 * 4 * 4 * 4;
-  Epetra_Map map(n, 0, Comm);
   Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(new Teuchos::ParameterList());
-  Teuchos::RCP<TestablePreconditioner> prec = createPreconditioner(map, params);
+  Teuchos::RCP<TestablePreconditioner> prec = createPreconditioner(params, comm);
   prec->Initialize();
   prec->Compute();
 
+  Epetra_Map const &map = prec->OperatorRangeMap();
   Teuchos::RCP<Epetra_MultiVector> V = Teuchos::rcp(new Epetra_MultiVector(map, 1));
   V->Random();
 
@@ -174,13 +165,11 @@ TEUCHOS_UNIT_TEST(Preconditioner, setBorder)
 
 TEUCHOS_UNIT_TEST(Preconditioner, setBorderNull)
   {
-  Epetra_MpiComm Comm(MPI_COMM_WORLD);
+  Teuchos::RCP<Epetra_MpiComm> comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
   DISABLE_OUTPUT;
 
-  hymls_gidx n = 8 * 4 * 4 * 4;
-  Epetra_Map map(n, 0, Comm);
   Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(new Teuchos::ParameterList());
-  Teuchos::RCP<TestablePreconditioner> prec = createPreconditioner(map, params);
+  Teuchos::RCP<TestablePreconditioner> prec = createPreconditioner(params, comm);
   prec->Initialize();
   prec->Compute();
 
@@ -189,6 +178,7 @@ TEUCHOS_UNIT_TEST(Preconditioner, setBorderNull)
   TEST_EQUALITY(prec->V(), Teuchos::null);
 
   // Set the border to something else
+  Epetra_Map const &map = prec->OperatorRangeMap();
   Teuchos::RCP<Epetra_MultiVector> V = Teuchos::rcp(new Epetra_MultiVector(map, 1));
   V->Random();
 
@@ -201,30 +191,14 @@ TEUCHOS_UNIT_TEST(Preconditioner, setBorderNull)
   }
 
 
-Teuchos::RCP<TestablePreconditioner> create2DStokesPreconditioner(Epetra_Comm &Comm,
-  Teuchos::RCP<Teuchos::ParameterList> &params)
+Teuchos::RCP<TestablePreconditioner> create2DStokesPreconditioner(
+  Teuchos::RCP<Teuchos::ParameterList> &params,
+  Teuchos::RCP<Epetra_Comm> const &comm)
   {
-  int dof = 3;
-  int nx = 8;
-  int ny = 8;
-
-  hymls_gidx n = nx * ny * dof;
-  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, Comm));
-
-  Teuchos::RCP<HYMLS::SkewCartesianPartitioner> part = Teuchos::rcp(
-    new HYMLS::SkewCartesianPartitioner(map, nx, ny, 1, dof));
-  part->Partition(4, true);
-  *map = *part->GetMap();
-
   Teuchos::ParameterList &problemList = params->sublist("Problem");
-  problemList.set("nx", nx);
-  problemList.set("ny", ny);
+  problemList.set("nx", 8);
+  problemList.set("ny", 8);
   problemList.set("nz", 1);
-
-  Teuchos::ParameterList problemListCopy = problemList;
-  Teuchos::RCP<Epetra_CrsMatrix> matrix = Teuchos::rcp(
-    GaleriExt::CreateCrsMatrix("Stokes2D", map.get(), problemListCopy));
-
   problemList.set("Degrees of Freedom", 3);
   problemList.set("Dimension", 2);
 
@@ -235,23 +209,26 @@ Teuchos::RCP<TestablePreconditioner> create2DStokesPreconditioner(Epetra_Comm &C
   solverList.set("Number of Levels", 3);
 
   for (int i = 0; i < 2; i++)
-      {
-      Teuchos::ParameterList& velList =
-        problemList.sublist("Variable " + Teuchos::toString(i));
-      velList.set("Variable Type", "Laplace");
-      }
+    {
+    Teuchos::ParameterList& velList =
+      problemList.sublist("Variable " + Teuchos::toString(i));
+    velList.set("Variable Type", "Velocity");
+    }
 
   Teuchos::ParameterList& presList =
     problemList.sublist("Variable "+Teuchos::toString(2));
-  presList.set("Variable Type", "Retain 1");
-  presList.set("Retain Isolated", true);
-
-  problemList.set("Dimension", 2);
-  problemList.set("Degrees of Freedom", dof);
+  presList.set("Variable Type", "Pressure");
 
   Teuchos::ParameterList &ssolverList = solverList.sublist("Sparse Solver");
   ssolverList.set("amesos: solver type", "KLU");
   ssolverList.set("Custom Ordering", true);
+
+  Teuchos::RCP<HYMLS::SkewCartesianPartitioner> part = Teuchos::rcp(
+    new HYMLS::SkewCartesianPartitioner(Teuchos::null, params, comm));
+  part->Partition(true);
+
+  Teuchos::RCP<Epetra_CrsMatrix> matrix = Teuchos::rcp(
+    GaleriExt::CreateCrsMatrix("Stokes2D", &part->Map(), problemList));
 
   Teuchos::RCP<TestablePreconditioner> prec =
     Teuchos::rcp(new TestablePreconditioner(matrix, params));
@@ -260,11 +237,11 @@ Teuchos::RCP<TestablePreconditioner> create2DStokesPreconditioner(Epetra_Comm &C
 
 TEUCHOS_UNIT_TEST(Preconditioner, 2DStokes)
   {
-  Epetra_MpiComm Comm(MPI_COMM_WORLD);
+  Teuchos::RCP<Epetra_MpiComm> comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
   DISABLE_OUTPUT;
 
   Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(new Teuchos::ParameterList());
-  Teuchos::RCP<TestablePreconditioner> prec = create2DStokesPreconditioner(Comm, params);
+  Teuchos::RCP<TestablePreconditioner> prec = create2DStokesPreconditioner(params, comm);
   prec->Initialize();
   prec->Compute();
   }

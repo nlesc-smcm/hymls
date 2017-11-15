@@ -30,8 +30,7 @@ Teuchos::RCP<Epetra_Vector> read_vector(std::string name,
   Teuchos::RCP<Epetra_Map> map);
 
 Teuchos::RCP<Epetra_Map> create_map(const Epetra_Comm& comm,
-  Teuchos::ParameterList& probl_params,
-  Teuchos::ParameterList& prec_params);
+  Teuchos::RCP<Teuchos::ParameterList> const &params);
 
 Teuchos::RCP<Epetra_CrsMatrix> create_matrix(const Epetra_Map& map,
   Teuchos::ParameterList& probl_params,

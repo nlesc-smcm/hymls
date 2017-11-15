@@ -261,17 +261,14 @@ void getLinearSystem(Teuchos::RCP<const Epetra_Comm> comm,
   {
   Teuchos::ParameterList& driverList = params->sublist("Driver");
   Teuchos::ParameterList& problemList = params->sublist("Problem");
-  Teuchos::ParameterList problemList_cpy = problemList;
-  Teuchos::ParameterList precList_cpy = params->sublist("Preconditioner");
 
   bool read_problem = driverList.get("Read Linear System", false);
   int numRhs = driverList.get("Number of rhs", 1);
   std::string nullSpaceType=driverList.get("Null Space Type","None");
   int dim0=0; // if the problem is read from a file, a null space can be read, too, with dim0 columns.
   if (nullSpaceType=="File") dim0=driverList.get("Null Space Dimension",0);
-          
-  Teuchos::RCP<Epetra_Map> map = HYMLS::MainUtils::create_map(*comm,
-    problemList_cpy, precList_cpy);
+
+  Teuchos::RCP<Epetra_Map> map = HYMLS::MainUtils::create_map(*comm, params);
   nullSpace=Teuchos::null;
 
   // exact solution
@@ -322,13 +319,13 @@ void getLinearSystem(Teuchos::RCP<const Epetra_Comm> comm,
       {
       galeriList = driverList.sublist("Galeri");
       }
-    K = HYMLS::MainUtils::create_matrix(*map, problemList_cpy,
+    K = HYMLS::MainUtils::create_matrix(*map, problemList,
         galeriLabel, galeriList);
     }
 
   if (nullSpace==Teuchos::null && nullSpaceType!="None")
     {
-    nullSpace=HYMLS::MainUtils::create_nullspace(*K, nullSpaceType, problemList_cpy);
+    nullSpace=HYMLS::MainUtils::create_nullspace(*K, nullSpaceType, problemList);
     dim0=nullSpace->NumVectors();
     }
   return;

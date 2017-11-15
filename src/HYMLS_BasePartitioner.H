@@ -3,9 +3,16 @@
 
 #include "HYMLS_config.h"
 #include "Teuchos_RCP.hpp"
+#include "Teuchos_Array.hpp"
+
+#include "GaleriExt_Periodic.h"
 
 class Epetra_Comm;
 class Epetra_Map;
+
+namespace Teuchos {
+class ParameterList;
+  }
 
 namespace HYMLS {
 
@@ -22,13 +29,20 @@ class BasePartitioner
   
   //! destructor
   virtual ~BasePartitioner(){}
+
+  //! set parameters for the partitioner like separator length
+  virtual void SetParameters(Teuchos::ParameterList& params);
+
+  //! get a pararmeterlist with increased separator lengths for
+  //! the next level
+  virtual void SetNextLevelParameters(Teuchos::ParameterList& params);
   
   //! partition an [nx x ny x nz] grid with one DoF per node
   //! into npx*npy*npz global subdomains. If repart==true,  
   //! the partitioner is allowed to change the global       
   //! distribution of the nodes, otherwise it may only      
   //! partition the owned nodes on each processor.          
-  virtual int Partition(int nparts, bool repart) = 0;
+  virtual int Partition(bool repart) = 0;
 
   //! Get interior and separator groups of the subdomain sd
   virtual int GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior_nodes,
@@ -64,7 +78,28 @@ class BasePartitioner
   //! to a subdomain have contiguous local indexing)
   virtual Teuchos::RCP<const Epetra_Map> GetMap() const 
     {return Teuchos::rcp(&Map(),false);}
-  
+
+  //! global grid size
+  hymls_gidx nx_, ny_, nz_;
+
+  //! subdomain size
+  int sx_,sy_,sz_;
+
+  //! coarsening factor
+  int cx_,cy_,cz_;
+
+  //! dimension of the problem
+  int dim_;
+
+  //! number of variables per node
+  int dof_;
+
+  //! type of periodicity in the problem
+  GaleriExt::PERIO_Flag perio_;
+
+  //! type of the variables per node
+  Teuchos::Array<int> variableType_;
+
   };
 
 }

@@ -13,7 +13,7 @@ struct Plane {
   std::vector<hymls_gidx> plane;
   };
 
-Plane buildPlane45(int firstNode, int length, int dirX, int dirY, int dof, int pvar)
+Plane buildPlane45(int firstNode, int length, int dirX, int dirY, int type)
   {
   int left = firstNode;
   int right = firstNode;
@@ -25,13 +25,13 @@ Plane buildPlane45(int firstNode, int length, int dirX, int dirY, int dof, int p
   int dir2 = dirY - dirX;
 
   // correction for u nodes
-  if (dof > 1 && ((firstNode % dof) + dof) % dof  == 0)
+  if (type == 0)
     {
     left -= dirX;
     height++;
     extraLayer = true;
     }
-  else if (dof > 1 && pvar != -1 && ((firstNode % dof) + dof) % dof  == pvar)
+  else if (type == 3)
     {
     height++;
     extraLayer = true;
@@ -75,23 +75,17 @@ namespace HYMLS {
 
 // constructor
 SkewCartesianPartitioner::SkewCartesianPartitioner(
-  Teuchos::RCP<const Epetra_Map> map, int nx, int ny, int nz, int dof, int pvar,
-  GaleriExt::PERIO_Flag perio)
+  Teuchos::RCP<const Epetra_Map> map,
+  Teuchos::RCP<Teuchos::ParameterList> const &params,
+  Teuchos::RCP<const Epetra_Comm> const &comm)
   : BasePartitioner(), label_("SkewCartesianPartitioner"),
-    baseMap_(map), cartesianMap_(Teuchos::null),
-    nx_(nx), ny_(ny), nz_(nz),
+    comm_(comm), baseMap_(map), cartesianMap_(Teuchos::null),
     npx_(-1), npy_(-1), npz_(-1),
-    numLocalSubdomains_(-1),
-    dof_(dof), pvar_(pvar), active_(true), perio_(perio)
+    numLocalSubdomains_(-1),active_(true)
   {
-  HYMLS_PROF3(label_,"Constructor");
-  comm_ = Teuchos::rcp(&(baseMap_->Comm()), false);
+  HYMLS_PROF3(label_, "Constructor");
 
-  if (baseMap_->IndexBase64() != 0)
-    {
-    Tools::Warning("Not sure, but I _think_ your map should be 0-based",
-      __FILE__, __LINE__);
-    }
+  SetParameters(*params);
   }
 
 // destructor
@@ -240,29 +234,29 @@ int SkewCartesianPartitioner::CreateSubdomainMap()
   return 0;
   }
 
-int SkewCartesianPartitioner::Partition(int nparts, bool repart)
-  {
-  HYMLS_PROF3(label_, "Partition");
-  int npx, npy, npz;
-  Tools::SplitBox(nx_, ny_, nz_, nparts, npx, npy, npz);
-  return Partition(nx_ / npx, ny_ / npy, nz_ / npz, repart);
-  }
-
 // partition an [nx x ny x nz] grid with one DoF per node
 // into nparts global subdomains.
-int SkewCartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
+int SkewCartesianPartitioner::Partition(bool repart)
   {
   HYMLS_PROF3(label_,"Partition (2)");
 
-  if (sx != sy || (nz_ > 1 && sx != sz))
+  if (sx_ != sy_ || (nz_ > 1 && sx_ != sz_))
     Tools::Error("sx, sy and sz should be the same", __FILE__, __LINE__);
 
-  if ((sx / 2) * 2 != sx)
+  if ((sx_ / 2) * 2 != sx_)
     Tools::Error("sx should be even", __FILE__, __LINE__);
 
-  sx_ = sx;
-  sy_ = sy;
-  sz_ = sz;
+  if (baseMap_ == Teuchos::null)
+    {
+    hymls_gidx n = nx_ * ny_ * nz_ * dof_;
+    baseMap_ = Teuchos::rcp(new Epetra_Map(n, 0, *comm_));
+    }
+
+  if (baseMap_->IndexBase64() != 0)
+    {
+    Tools::Warning("Not sure, but I _think_ your map should be 0-based",
+      __FILE__, __LINE__);
+    }
 
   npx_ = nx_ / sx_;
   npy_ = ny_ / sy_;
@@ -446,7 +440,7 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::getTemplate() co
   hymls_gidx firstNode[4] = {dof_*sx_/2 + 0 + dirY + dirZ * sx_,
                              dof_*sx_/2 + 1 - 0    + dirZ * sx_,
                              dof_*sx_/2 + 2 - dirZ + dirZ * sx_,
-                             dof_*sx_/2 + pvar_ + dirY + dirZ * sx_};
+                             dof_*sx_/2 + 3 + dirY + dirZ * sx_};
   hymls_gidx baseLength[4] = {sx_/2, sx_/2 + 1, sx_/2 + 1, sx_/2};
 
   std::vector<std::vector<std::vector<hymls_gidx> > > nodes;
@@ -456,7 +450,7 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::getTemplate() co
     nodes.emplace_back(2 * sx_ + 1);
 
     // Get central layer
-    Plane plane = buildPlane45(firstNode[type], baseLength[type], dirX, dirY, dof_, pvar_);
+    Plane plane = buildPlane45(firstNode[type], baseLength[type], dirX, dirY, type);
     nodes[type][sx_] = plane.plane;
 
     if (nz_ <= 1)
@@ -511,7 +505,7 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::getTemplate() co
         }
       else
         {
-        hymls_gidx isPvar = type == pvar_;
+        hymls_gidx isPvar = type == 3;
         if (i < sx_-isPvar)
           for (hymls_gidx j: bottom)
             nodes[type][i + isPvar].push_back(j - (sx_ - i - isPvar) * dirZ);
@@ -523,7 +517,7 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::getTemplate() co
         {
         // Update pointers and offset
         std::for_each(offset.begin(), offset.end(), [](hymls_gidx& d) { d--;});
-        if (type == pvar_)
+        if (type == 3)
           {
           // pressure nodes are an exception
           if (offset[0] < 0)
@@ -577,38 +571,33 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::getTemplate() co
 
   // Merge the template layers
   std::vector<std::vector<hymls_gidx> > newNodes;
-  if (dof_ > 1 && pvar_ > 2)
-    {
-    newNodes.push_back(nodes[2].front());
-    nodes[2].erase(nodes[2].begin());
-    }
-  else
-    newNodes.emplace_back();
+  newNodes.emplace_back();
+  for (int i = 0; i < dof_; i++)
+    if (variableType_[i] == 2)
+      {
+      std::copy(nodes[2].front().begin(), nodes[2].front().end(),
+        std::back_inserter(newNodes.back()));
+      nodes[2].erase(nodes[2].begin());
+ 
+      int shift = i - variableType_[i];
+      std::for_each(newNodes.back().begin(), newNodes.back().end(),
+        [shift](hymls_gidx& d) { d += shift;});
+      break;
+      }
 
-  // TODO: Make users able to choose which ones to use from the parameter list
   for (int j = 0; j < 2 * sx_ - 1; j++)
     {
     newNodes.emplace_back();
-    if (dof_ > 1)
-      std::copy(nodes[0][j].begin(), nodes[0][j].end(), std::back_inserter(newNodes.back()));
-    if (dof_ > 1 && pvar_ > 2)
-      std::copy(nodes[2][j].begin(), nodes[2][j].end(), std::back_inserter(newNodes.back()));
-    if (pvar_ != -1)
-      std::copy(nodes[3][j].begin(), nodes[3][j].end(), std::back_inserter(newNodes.back()));
-
-    // All other nodes are v-type nodes
     for (int i = 0; i < dof_; i++)
       {
-      if (i == 0 && dof_ > 1)
-        continue;
-      if (i == 2 && dof_ > 1 && pvar_ > 2)
-        continue;
-      if (i == pvar_)
-        continue;
       int size = newNodes.back().size();
-      std::copy(nodes[1][j].begin(), nodes[1][j].end(), std::back_inserter(newNodes.back()));
+      std::copy(nodes[variableType_[i]][j].begin(),
+        nodes[variableType_[i]][j].end(),
+        std::back_inserter(newNodes.back()));
+
+      int shift = i - variableType_[i];
       std::for_each(newNodes.back().begin()+size, newNodes.back().end(),
-        [i](hymls_gidx& d) { d += i-1;});
+        [shift](hymls_gidx& d) { d += shift;});
       }
     std::sort(newNodes.back().begin(), newNodes.back().end());
     }
@@ -759,11 +748,16 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(
 
   // Get first pressure node from interior to a new group.
   // Assumes ordering of groups by size!
-  for (hymls_gidx &node: groups[0])
-    if (((node % dof_) + dof_) % dof_ == pvar_)
+  for (int pvar = 0; pvar < dof_; pvar++)
+    if (variableType_[pvar] == 3)
       {
-      groups.emplace_back(1, node);
-      groups[0].erase(std::remove(groups[0].begin(), groups[0].end(), node), groups[0].end());
+      for (hymls_gidx &node: groups[0])
+        if (((node % dof_) + dof_) % dof_ == pvar)
+          {
+          groups.emplace_back(1, node);
+          groups[0].erase(std::remove(groups[0].begin(), groups[0].end(), node), groups[0].end());
+          break;
+          }
       break;
       }
 
@@ -799,21 +793,21 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(
       int x = (node / dof_) % nx_;
       int y = (node / dof_ / nx_) % ny_;
       int z = node / dof_ / nx_ / ny_;
-      if (dof_ > 1 && x == nx_ - 1 && node % dof_ == 0 &&
+      if (dof_ > 1 && x == nx_ - 1 && variableType_[node % dof_] == 0 &&
         !(perio_ & GaleriExt::X_PERIO))
         {
         if (operator()(x, y, z) == sd)
           groups[0].push_back(node);
         group->erase(std::remove(group->begin(), group->end(), node));
         }
-      else if (y == ny_ - 1 && node % dof_ == 1 &&
+      else if (dof_ > 1 && y == ny_ - 1 && variableType_[node % dof_] == 1 &&
         !(perio_ & GaleriExt::Y_PERIO))
         {
         if (operator()(x, y, z) == sd)
           groups[0].push_back(node);
         group->erase(std::remove(group->begin(), group->end(), node));
         }
-      else if (nz_ > 1 && z == nz_ - 1 && node % dof_ == 2 &&
+      else if (dof_ > 1 && z == nz_ - 1 && variableType_[node % dof_] == 2 &&
         !(perio_ & GaleriExt::Z_PERIO))
         {
         if (operator()(x, y, z) == sd)

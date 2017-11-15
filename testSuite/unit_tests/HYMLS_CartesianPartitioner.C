@@ -1,6 +1,7 @@
 #include "HYMLS_CartesianPartitioner.H"
 
 #include <Teuchos_RCP.hpp>
+#include <Teuchos_ParameterList.hpp>
 
 #include "Epetra_MpiComm.h"
 #include "Epetra_Map.h"
@@ -12,20 +13,24 @@
 
 TEUCHOS_UNIT_TEST(CartesianPartitioner, Partition2D)
   {
-  Epetra_MpiComm Comm(MPI_COMM_WORLD);
+  Teuchos::RCP<Epetra_MpiComm> comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
   DISABLE_OUTPUT;
 
-  int nx = 8;
-  int ny = 8;
-  int nz = 1;
-  int dof = 4;
-  hymls_gidx n = nx * ny * nz * dof;
-  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, Comm));
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
+    new Teuchos::ParameterList);
+  params->sublist("Problem").set("nx", 8);
+  params->sublist("Problem").set("ny", 8);
+  params->sublist("Problem").set("nz", 1);
+  params->sublist("Problem").set("Degrees of Freedom", 4);
 
-  HYMLS::CartesianPartitioner part(map, nx, ny, nz, dof);
+  params->sublist("Preconditioner").set("Separator Length (x)", 4);
+  params->sublist("Preconditioner").set("Separator Length (y)", 2);
+  params->sublist("Preconditioner").set("Separator Length (z)", 1);
+
+  HYMLS::CartesianPartitioner part(Teuchos::null, params, comm);
 
   // This will cause an exception when compiled with TESTING if it fails
-  part.Partition(8, true);
+  part.Partition(true);
 
   TEST_EQUALITY(part(0, 0, 0), 0);
   TEST_EQUALITY(part(0, 3, 0), 2);
@@ -34,20 +39,24 @@ TEUCHOS_UNIT_TEST(CartesianPartitioner, Partition2D)
 
 TEUCHOS_UNIT_TEST(CartesianPartitioner, Partition3D)
   {
-  Epetra_MpiComm Comm(MPI_COMM_WORLD);
+  Teuchos::RCP<Epetra_MpiComm> comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
   DISABLE_OUTPUT;
 
-  int nx = 8;
-  int ny = 8;
-  hymls_gidx nz = 2;
-  hymls_gidx dof = 4;
-  hymls_gidx n = nx * ny * nz * dof;
-  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, Comm));
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
+    new Teuchos::ParameterList);
+  params->sublist("Problem").set("nx", 8);
+  params->sublist("Problem").set("ny", 8);
+  params->sublist("Problem").set("nz", 2);
+  params->sublist("Problem").set("Degrees of Freedom", 4);
 
-  HYMLS::CartesianPartitioner part(map, nx, ny, nz, dof);
+  params->sublist("Preconditioner").set("Separator Length (x)", 4);
+  params->sublist("Preconditioner").set("Separator Length (y)", 2);
+  params->sublist("Preconditioner").set("Separator Length (z)", 2);
+
+  HYMLS::CartesianPartitioner part(Teuchos::null, params, comm);
 
   // This will cause an exception when compiled with TESTING if it fails
-  part.Partition(8, true);
+  part.Partition(true);
 
   TEST_EQUALITY(part(0, 0, 0), 0);
   TEST_EQUALITY(part(0, 3, 0), 2);
@@ -57,25 +66,24 @@ TEUCHOS_UNIT_TEST(CartesianPartitioner, Partition3D)
 
 TEUCHOS_UNIT_TEST(CartesianPartitioner, 5DOFNodes)
   {
-  FakeComm comm;
-  comm.SetNumProc(1);
-
+  Teuchos::RCP<FakeComm> comm = Teuchos::rcp(new FakeComm);
   DISABLE_OUTPUT;
 
-  int nx = 8;
-  int ny = 8;
-  int nz = 8;
-  int sx = 4;
-  int sy = 4;
-  int sz = 4;
-  int dof = 5;
-  int n = nx * ny * nz * dof;
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
+    new Teuchos::ParameterList);
+  params->sublist("Problem").set("nx", 8);
+  params->sublist("Problem").set("ny", 8);
+  params->sublist("Problem").set("nz", 8);
+  params->sublist("Problem").set("Equations", "Bous-C");
+  params->sublist("Preconditioner").set("Separator Length", 4);
 
-  Epetra_Map map(n, 0, comm);
-  HYMLS::CartesianPartitioner part(Teuchos::rcp(&map, false), nx, ny, nz, dof, 3);
-  part.Partition(sx, sy, sz, false);
+  HYMLS::CartesianPartitioner part(Teuchos::null, params, comm);
+
+  // This will cause an exception when compiled with TESTING if it fails
+  part.Partition(false);
 
   ENABLE_OUTPUT;
+  int n = part.Map().NumGlobalElements64();
   std::vector<hymls_gidx> gids(n, 0);
   for (int sd = 0; sd < part.NumLocalParts(); sd++)
     {
@@ -98,26 +106,27 @@ TEUCHOS_UNIT_TEST(CartesianPartitioner, 5DOFNodes)
 #ifdef HYMLS_LONG_LONG
 TEUCHOS_UNIT_TEST(CartesianPartitioner, GID64)
   {
-  FakeComm Comm;
-  Comm.SetNumProc(8192);
-  Comm.SetMyPID(8191);
+  Teuchos::RCP<FakeComm> comm = Teuchos::rcp(new FakeComm);
+  comm->SetNumProc(8192);
+  comm->SetMyPID(8191);
   DISABLE_OUTPUT;
 
-  hymls_gidx nx = 1024;
-  hymls_gidx ny = 1024;
-  hymls_gidx nz = 1024;
-  hymls_gidx dof = 4;
-  hymls_gidx n = nx * ny * nz * dof;
-  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, Comm));
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
+    new Teuchos::ParameterList);
+  params->sublist("Problem").set("nx", 1024);
+  params->sublist("Problem").set("ny", 1024);
+  params->sublist("Problem").set("nz", 1024);
+  params->sublist("Problem").set("Degrees of Freedom", 4);
+  params->sublist("Preconditioner").set("Separator Length", 4);
 
-  HYMLS::CartesianPartitioner part(map, nx, ny, nz, dof);
-  CHECK_ZERO(part.Partition(4, 4, 4, false));
+  HYMLS::CartesianPartitioner part(Teuchos::null, params, comm);
+  part.Partition(false);
 
   Teuchos::Array<hymls_gidx> interior_nodes;
   Teuchos::Array<Teuchos::Array<hymls_gidx> > separator_nodes;
   part.GetGroups(part.NumLocalParts()-1, interior_nodes, separator_nodes);
 
-  long long last = n - 1;
+  long long last = part.Map().NumGlobalElements64() - 1;
   TEST_EQUALITY(interior_nodes.back(), last);
   }
 #endif

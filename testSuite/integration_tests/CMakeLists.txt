@@ -5,14 +5,7 @@ foreach (xml_file ${XMLFILES})
   configure_file(${xml_file} ${CMAKE_CURRENT_BINARY_DIR}/)
 endforeach()
 
-link_directories(${Trilinos_LIBRARY_DIRS})
-link_directories(${Trilinos_TPL_LIBRARY_DIRS})
-
-
 add_executable(integration_tests integration_tests.C)
-
-#target_link_libraries(integration_tests ${Trilinos_LIBRARIES})
-#target_link_libraries(integration_tests ${Trilinos_TPL_LIBRARIES})
 
 if (${phist_FOUND})
   target_link_libraries(integration_tests ${PHIST_LIBRARIES})
@@ -21,7 +14,7 @@ endif()
 target_link_libraries(integration_tests hymls)
 
 add_test(NAME integration_tests COMMAND mpirun -np 8 ./integration_tests)
-        set_tests_properties(integration_tests PROPERTIES PASS_REGULAR_EXPRESSION "ALL TESTS PASSED")
-        set_tests_properties(integration_tests PROPERTIES FAIL_REGULAR_EXPRESSION "FAILED")
-        set_tests_properties(integration_tests PROPERTIES TIMEOUT 500)
-        set_tests_properties(integration_tests PROPERTIES ENVIRONMENT OMP_NUM_THREADS=1)
+set_tests_properties(integration_tests PROPERTIES PASS_REGULAR_EXPRESSION "ALL TESTS PASSED")
+set_tests_properties(integration_tests PROPERTIES FAIL_REGULAR_EXPRESSION "FAILED")
+set_tests_properties(integration_tests PROPERTIES TIMEOUT 500)
+set_tests_properties(integration_tests PROPERTIES ENVIRONMENT OMP_NUM_THREADS=1)

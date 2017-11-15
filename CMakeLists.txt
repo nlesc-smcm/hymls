@@ -37,16 +37,16 @@ endif()
 include("${PROJECT_SOURCE_DIR}/cmake/common.cmake")
 
 # here are the HYMLS headers:
-include_directories(${PROJECT_SOURCE_DIR}/src)
+include_directories(BEFORE ${PROJECT_SOURCE_DIR}/src)
 
 # and here are any configured headers, e.g. HYMLS_config.h:
-include_directories(${CMAKE_CURRENT_BINARY_DIR}/src/)
+include_directories(BEFORE ${CMAKE_CURRENT_BINARY_DIR}/src/)
 
 # enable "make test" and "make check"  targets
 enable_testing()
 
-add_subdirectory (src)
-add_subdirectory (testSuite)
+add_subdirectory(src)
+add_subdirectory(testSuite)
 
 ####################
 # uninstall target #

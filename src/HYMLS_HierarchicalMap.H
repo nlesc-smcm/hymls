@@ -268,10 +268,12 @@ public:
   bool Filled() const {return overlappingMap_!=Teuchos::null;}
 
     
-private:
-  
+protected:
+
   //! communicator
   Teuchos::RCP<const Epetra_Comm> comm_;
+
+private:
   
   //! label
   std::string label_;
