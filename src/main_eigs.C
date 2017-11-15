@@ -300,9 +300,8 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     }
 
 #if defined(HYMLS_USE_PHIST) && !defined(HYMLS_USE_PHIST_CORRECTION_SOLVER)
-#error "not implemented"
   Teuchos::ParameterList& solver_params = params->sublist("Solver");
-  Teuchos::RCP<HYMLS::Solver> solver=Teuchos::null;
+  Teuchos::RCP<HYMLS::Solver> solver=Teuchos::rcp(new HYMLS::Solver(K,precond,params,1));
 #endif
 
   // Set verbosity level
