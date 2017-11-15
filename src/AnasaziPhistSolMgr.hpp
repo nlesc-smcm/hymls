@@ -35,24 +35,43 @@
 #include "Epetra_Util.h"
 
 
+namespace HYMLS {
+namespace phist {
+
 //! small static helper to get the phist type for the preconditioner right
 template<class PREC>
-class hymls_phist {
+class traits {
 
 public:
 
   static phist_Eprecon get_phist_Eprecon(){return phist_INVALID_PRECON;}
+  static phist_ElinSolv get_phist_ElinSolv(bool hermitian=false){return hermitian? phist_MINRES: phist_GMRES;}
+  static Teuchos::RCP<SolverWrapper> get_custom_solver(Teuchos::RCP<PREC> solver, bool doBordering) {return Teuchos::null;}
 };
 
 template <>
-phist_Eprecon hymls_phist<::HYMLS::Preconditioner>::get_phist_Eprecon(){return phist_USER_PRECON;}
+phist_Eprecon traits<::HYMLS::Preconditioner>::get_phist_Eprecon(){return phist_USER_PRECON;}
 
 template <>
-phist_Eprecon hymls_phist<Ifpack_Preconditioner>::get_phist_Eprecon(){return phist_IFPACK;}
+phist_Eprecon traits<::HYMLS::Solver>::get_phist_Eprecon(){return phist_NO_PRECON;}
 
 template <>
-phist_Eprecon hymls_phist<::ML_Epetra::MultiLevelPreconditioner>::get_phist_Eprecon(){return phist_ML;}
+phist_ElinSolv traits<::HYMLS::Solver>::get_phist_ElinSolv(bool hermitian){return phist_USER_LINSOLV;}
 
+template <>
+Teuchos::RCP<SolverWrapper> traits<::HYMLS::Solver>::get_custom_solver
+        (Teuchos::RCP<::HYMLS::Solver> solver, bool doBordering) 
+        {return Teuchos::rcp(new SolverWrapper(solver,doBordering));}
+
+
+template <>
+phist_Eprecon traits<Ifpack_Preconditioner>::get_phist_Eprecon(){return phist_IFPACK;}
+
+template <>
+phist_Eprecon traits<::ML_Epetra::MultiLevelPreconditioner>::get_phist_Eprecon(){return phist_ML;}
+
+}//namespace phist
+}//namespace HYMLS
 
 namespace Anasazi {
 
@@ -68,8 +87,15 @@ namespace Anasazi {
  * provides access to solver functionality, and manages the restarting
  * process.
  *
- * This class is currently only implemented for real scalar types
- * (i.e. float, double).
+ * This class is currently only implemented for scalar type double
+
+ * This class accepts the preconditioner type to be used as a template parameter, however,
+ * *it is not implemented for general PREC types in any way*. Instead, it is implemented  
+ * for the Trilinos base class Ifpack_Preconditioner, for ML_Epetra::MultiLevelPreconditioner,
+ * and for the HYMLS classes Preconditioner and Solver. For Ifpack, ML and HYMLS::Preconditioner
+ * we rely on the phist jadaCorrectionSolver implementation and only provide the preconditioning
+ * interface. For HYMLS::Solver we use our own implementation of a bordered correction solver (see
+ * file HYMLS_PhistCustomCorrectionSolver.H/.C) instead.
 
  \ingroup anasazi_solver_framework
 
@@ -136,10 +162,10 @@ class PhistSolMgr : public SolverManager<ScalarType,MV,OP>
         Teuchos::RCP< const Epetra_CrsMatrix >                   d_Amat;
         Teuchos::RCP< const Epetra_CrsMatrix >                   d_Bmat;
         Teuchos::RCP< PREC >                                     d_prec;
-        // used to pass HYMLS object to phist
+        // if PREC is HYMLS::Solver, we need an additional wrapper object
+        Teuchos::RCP<HYMLS::phist::SolverWrapper> d_customSolver;
+        // otherwise, these are used to pass HYMLS, Ifpack or ML object to phist for preconditioning
         Teuchos::RCP<phist_DlinearOp>                   d_preconOp, d_preconPointers;
-        // our own 'bordered' correction solver
-        Teuchos::RCP<phist_hymls_solver> d_customCorrectionSolver;
         // options pased to phist
         phist_jadaOpts                                  d_opts;
 
@@ -210,7 +236,6 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
     phist_jadaOpts_setDefaults(&d_opts);
     d_opts.numEigs = d_problem->getNEV();
     d_opts.symmetry = d_problem->isHermitian() ? phist_HERMITIAN : phist_GENERAL;
-    d_opts.innerSolvType = d_problem->isHermitian() ? phist_MINRES : phist_GMRES;
     d_opts.innerSolvStopAfterFirstConverged = true;
 
     if( !pl.isType<int>("Block Size") )
@@ -245,7 +270,8 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
     d_opts.innerSolvMaxBas   = d_opts.innerSolvMaxIters;
     d_opts.innerSolvBlockSize=d_opts.blockSize;
     d_opts.preconOp=NULL;
-    d_opts.preconType=hymls_phist<PREC>::get_phist_Eprecon();
+    d_opts.innerSolvType = HYMLS::phist::traits<PREC>::get_phist_ElinSolv(d_opts.symmetry!=phist_GENERAL);
+    d_opts.preconType=HYMLS::phist::traits<PREC>::get_phist_Eprecon();
     d_opts.preconUpdate=pl.get("Update Preconditioner",false);
 
     TEUCHOS_TEST_FOR_EXCEPTION( d_opts.minBas < d_opts.numEigs+d_opts.blockSize,
@@ -267,15 +293,12 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
     // if the parameter "Bordered Solver" is set and the preconditioning type is HYMLS,
     // we provide our own correction solver instead of using the one with the projections
     // in PHIST.
-    if (borderedSolver)
+    if (d_opts.innerSolvType==phist_USER_LINSOLV)
     {
-      d_opts.preconType=phist_NO_PRECON;
-      d_opts.innerSolvType=phist_USER_LINSOLV;
-      
-      d_customCorrectionSolver = Teuchos::rcp(new phist_hymls_solver()); 
-      d_opts.customSolver=d_customCorrectionSolver.get();
-      d_opts.customSolver_run=&HYMLS_jadaCorrectionSolver_run;
-      d_opts.customSolver_run1=&HYMLS_jadaCorrectionSolver_run1;
+      d_customSolver=HYMLS::phist::traits<PREC>::get_custom_solver(d_prec,borderedSolver);
+      d_opts.customSolver=(void*)d_customSolver.get();
+      d_opts.customSolver_run=&HYMLS::phist::jadaCorrectionSolver_run;
+      d_opts.customSolver_run1=&HYMLS::phist::jadaCorrectionSolver_run1;
     }
 
     // Get sort type

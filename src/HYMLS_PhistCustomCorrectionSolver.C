@@ -23,7 +23,10 @@
 
 #include "phist_gen_d.h"
 
-void HYMLS_jadaCorrectionSolver_run1(void* vme,
+namespace HYMLS {
+namespace phist {
+
+void jadaCorrectionSolver_run1(void* vme,
   void const* vA_op, void const* vB_op, 
   TYPE(const_mvec_ptr) Qtil, TYPE(const_mvec_ptr) BQtil,
   double sigma_r, double sigma_i,
@@ -37,7 +40,7 @@ void HYMLS_jadaCorrectionSolver_run1(void* vme,
   *iflag = 0;
   TYPE(const_linearOp_ptr) A_op=(TYPE(const_linearOp_ptr))vA_op;
   TYPE(const_linearOp_ptr) B_op=(TYPE(const_linearOp_ptr))vB_op;
-  phist_hymls_solver* me=(phist_hymls_solver*)vme;
+  SolverWrapper* me=(SolverWrapper*)vme;
 
   PHIST_CHK_IERR(*iflag = (maxIter <= 0) ? -1 : 0, *iflag);
   
@@ -51,7 +54,7 @@ void HYMLS_jadaCorrectionSolver_run1(void* vme,
     return;
   }
 
-  Teuchos::RCP<HYMLS::Solver> solver = me->solver;
+  Teuchos::RCP<HYMLS::Solver> solver = me->solver_;
   if (solver==Teuchos::null){ *iflag=PHIST_BAD_CAST; return;}
   bool status=true;
   try {
@@ -100,7 +103,7 @@ void HYMLS_jadaCorrectionSolver_run1(void* vme,
     Epetra_MultiVector vec1(map0, BQ_ptr->NumVectors());
     vec1.PutScalar(0.0);
     CHECK_ZERO(vec1.Import(*Q_ptr, import0, Insert));
-    if (me->borderedSolver)
+    if (me->doBordering_)
     {
       solver->setBorder(Teuchos::rcp<const Epetra_MultiVector>(&vec1, false),
         Teuchos::rcp<const Epetra_MultiVector>(&vec0, false));
@@ -113,7 +116,7 @@ void HYMLS_jadaCorrectionSolver_run1(void* vme,
   }
   else
   {
-    if (me->borderedSolver)
+    if (me->doBordering_)
     {
       solver->setBorder(Teuchos::rcp<const Epetra_MultiVector>(BQ_ptr, false),
         Teuchos::rcp<const Epetra_MultiVector>(Q_ptr, false));
@@ -199,9 +202,11 @@ void HYMLS_jadaCorrectionSolver_run(void* vme,
     }
   }
 
-  PHIST_CHK_IERR(HYMLS_jadaCorrectionSolver_run1(
+  PHIST_CHK_IERR(jadaCorrectionSolver_run1(
                    vme, vA_op, vB_op, Qtil, BQtil,
                    *sigma_r, *sigma_i, res, *tol,
                    maxIter, t, robust, iflag), *iflag);
 }
 
+}//namespace phist
+}//namespace HYMLS
