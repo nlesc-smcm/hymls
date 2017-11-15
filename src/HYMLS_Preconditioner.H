@@ -391,10 +391,6 @@ protected:
   mutable double timeApplyInverse_;
   
   //!@}
-  
-  
-  //! geometric info, used for storing the ordering in MATLAB for visualization
-  int dim_,dof_,nx_,ny_,nz_;
 
   mutable bool dumpVectors_;
 

@@ -14,10 +14,11 @@
 class TestableSkewCartesianPartitioner: public HYMLS::SkewCartesianPartitioner
   {
 public:
-  TestableSkewCartesianPartitioner(Teuchos::RCP<const Epetra_Map> map, int nx, int ny,
-    int nz=1, int dof=1, int pvar=-1, GaleriExt::PERIO_Flag perio=GaleriExt::NO_PERIO)
+  TestableSkewCartesianPartitioner(Teuchos::RCP<const Epetra_Map> map,
+    Teuchos::RCP<Teuchos::ParameterList> const &params,
+    Teuchos::RCP<const Epetra_Comm> const &comm)
     :
-    HYMLS::SkewCartesianPartitioner(map, nx, ny, nz, dof, pvar, perio)
+    HYMLS::SkewCartesianPartitioner(map, params, comm)
     {}
 
   int PID(int i, int j, int k)
@@ -28,23 +29,20 @@ public:
 
 TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, operator)
   {
-  FakeComm comm;
-  comm.SetNumProc(4);
-
+  Teuchos::RCP<FakeComm> comm = Teuchos::rcp(new FakeComm);
+  comm->SetNumProc(4);
   DISABLE_OUTPUT;
 
-  int nx = 8;
-  int ny = 8;
-  int nz = 8;
-  int sx = 4;
-  int sy = 4;
-  int sz = 4;
-  int dof = 3;
-  int n = nx * ny * nz * dof;
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
+    new Teuchos::ParameterList);
+  params->sublist("Problem").set("nx", 8);
+  params->sublist("Problem").set("ny", 8);
+  params->sublist("Problem").set("nz", 8);
+  params->sublist("Problem").set("Degrees of Freedom", 3);
+  params->sublist("Preconditioner").set("Separator Length", 4);
 
-  Epetra_Map map(n, 0, comm);
-  TestableSkewCartesianPartitioner part(Teuchos::rcp(&map, false), nx, ny, nz, dof);
-  part.Partition(sx, sy, sz, false);
+  TestableSkewCartesianPartitioner part(Teuchos::null, params, comm);
+  part.Partition(false);
 
   ENABLE_OUTPUT;
 
@@ -60,23 +58,20 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, operator)
 
 TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, PID)
   {
-  FakeComm comm;
-  comm.SetNumProc(4);
-
+  Teuchos::RCP<FakeComm> comm = Teuchos::rcp(new FakeComm);
+  comm->SetNumProc(4);
   DISABLE_OUTPUT;
 
-  int nx = 8;
-  int ny = 8;
-  int nz = 8;
-  int sx = 4;
-  int sy = 4;
-  int sz = 4;
-  int dof = 3;
-  int n = nx * ny * nz * dof;
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
+    new Teuchos::ParameterList);
+  params->sublist("Problem").set("nx", 8);
+  params->sublist("Problem").set("ny", 8);
+  params->sublist("Problem").set("nz", 8);
+  params->sublist("Problem").set("Degrees of Freedom", 3);
+  params->sublist("Preconditioner").set("Separator Length", 4);
 
-  Epetra_Map map(n, 0, comm);
-  TestableSkewCartesianPartitioner part(Teuchos::rcp(&map, false), nx, ny, nz, dof);
-  part.Partition(sx, sy, sz, false);
+  TestableSkewCartesianPartitioner part(Teuchos::null, params, comm);
+  part.Partition(false);
 
   ENABLE_OUTPUT;
 
@@ -92,24 +87,23 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, PID)
 
 TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 2DNodes)
   {
-  FakeComm comm;
-  comm.SetNumProc(1);
-
+  Teuchos::RCP<FakeComm> comm = Teuchos::rcp(new FakeComm);
+  comm->SetNumProc(1);
   DISABLE_OUTPUT;
 
-  int nx = 8;
-  int ny = 8;
-  int nz = 1;
-  int sx = 4;
-  int sy = 4;
-  int sz = 1;
-  int dof = 3;
-  int n = nx * ny * nz * dof;
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
+    new Teuchos::ParameterList);
+  params->sublist("Problem").set("nx", 8);
+  params->sublist("Problem").set("ny", 8);
+  params->sublist("Problem").set("nz", 1);
+  params->sublist("Problem").set("Dimension", 2);
+  params->sublist("Problem").set("Equations", "Stokes-C");
+  params->sublist("Preconditioner").set("Separator Length", 4);
 
-  Epetra_Map map(n, 0, comm);
-  TestableSkewCartesianPartitioner part(Teuchos::rcp(&map, false), nx, ny, nz, dof, 2);
-  part.Partition(sx, sy, sz, false);
+  TestableSkewCartesianPartitioner part(Teuchos::null, params, comm);
+  part.Partition(false);
 
+  int n = part.Map().NumGlobalElements64();
   std::vector<hymls_gidx> gids(n, 0);
   for (int sd = 0; sd < part.NumLocalParts(); sd++)
     {
@@ -132,25 +126,24 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 2DNodes)
 
 TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 1PSepPerDomain2D)
   {
-  FakeComm comm;
-  comm.SetNumProc(1);
-
+  Teuchos::RCP<FakeComm> comm = Teuchos::rcp(new FakeComm);
+  comm->SetNumProc(1);
   DISABLE_OUTPUT;
 
-  int nx = 8;
-  int ny = 8;
-  int nz = 1;
-  int sx = 4;
-  int sy = 4;
-  int sz = 1;
-  int dof = 3;
-  int n = nx * ny * nz * dof;
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
+    new Teuchos::ParameterList);
+  params->sublist("Problem").set("nx", 8);
+  params->sublist("Problem").set("ny", 8);
+  params->sublist("Problem").set("nz", 1);
+  params->sublist("Problem").set("Dimension", 2);
+  params->sublist("Problem").set("Equations", "Stokes-C");
+  params->sublist("Preconditioner").set("Separator Length", 4);
 
-  Epetra_Map map(n, 0, comm);
-  TestableSkewCartesianPartitioner part(Teuchos::rcp(&map, false), nx, ny, nz, dof, 2);
-  part.Partition(sx, sy, sz, false);
+  TestableSkewCartesianPartitioner part(Teuchos::null, params, comm);
+  part.Partition(false);
 
   ENABLE_OUTPUT;
+  int n = part.Map().NumGlobalElements64();
   std::vector<hymls_gidx> gids(n, 0);
   for (int sd = 0; sd < part.NumLocalParts(); sd++)
     {
@@ -169,25 +162,24 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 1PSepPerDomain2D)
 
 TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 3DNodes)
   {
-  FakeComm comm;
-  comm.SetNumProc(1);
-
+  Teuchos::RCP<FakeComm> comm = Teuchos::rcp(new FakeComm);
+  comm->SetNumProc(1);
   DISABLE_OUTPUT;
 
-  int nx = 8;
-  int ny = 8;
-  int nz = 8;
-  int sx = 4;
-  int sy = 4;
-  int sz = 4;
-  int dof = 4;
-  int n = nx * ny * nz * dof;
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
+    new Teuchos::ParameterList);
+  params->sublist("Problem").set("nx", 8);
+  params->sublist("Problem").set("ny", 8);
+  params->sublist("Problem").set("nz", 8);
+  params->sublist("Problem").set("Degrees of Freedom", 4);
+  params->sublist("Problem").set("Equations", "Stokes-C");
+  params->sublist("Preconditioner").set("Separator Length", 4);
 
-  Epetra_Map map(n, 0, comm);
-  TestableSkewCartesianPartitioner part(Teuchos::rcp(&map, false), nx, ny, nz, dof, 3);
-  part.Partition(sx, sy, sz, false);
+  TestableSkewCartesianPartitioner part(Teuchos::null, params, comm);
+  part.Partition(false);
 
   ENABLE_OUTPUT;
+  int n = part.Map().NumGlobalElements64();
   std::vector<hymls_gidx> gids(n, 0);
   for (int sd = 0; sd < part.NumLocalParts(); sd++)
     {
@@ -209,25 +201,23 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 3DNodes)
 
 TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 5DOFNodes)
   {
-  FakeComm comm;
-  comm.SetNumProc(1);
-
+  Teuchos::RCP<FakeComm> comm = Teuchos::rcp(new FakeComm);
+  comm->SetNumProc(1);
   DISABLE_OUTPUT;
 
-  int nx = 8;
-  int ny = 8;
-  int nz = 8;
-  int sx = 4;
-  int sy = 4;
-  int sz = 4;
-  int dof = 5;
-  int n = nx * ny * nz * dof;
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
+    new Teuchos::ParameterList);
+  params->sublist("Problem").set("nx", 8);
+  params->sublist("Problem").set("ny", 8);
+  params->sublist("Problem").set("nz", 8);
+  params->sublist("Problem").set("Equations", "Bous-C");
+  params->sublist("Preconditioner").set("Separator Length", 4);
 
-  Epetra_Map map(n, 0, comm);
-  TestableSkewCartesianPartitioner part(Teuchos::rcp(&map, false), nx, ny, nz, dof, 3);
-  part.Partition(sx, sy, sz, false);
+  TestableSkewCartesianPartitioner part(Teuchos::null, params, comm);
+  part.Partition(false);
 
   ENABLE_OUTPUT;
+  int n = part.Map().NumGlobalElements64();
   std::vector<hymls_gidx> gids(n, 0);
   for (int sd = 0; sd < part.NumLocalParts(); sd++)
     {
@@ -249,25 +239,23 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 5DOFNodes)
 
 TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 1PSepPerDomain3D)
   {
-  FakeComm comm;
-  comm.SetNumProc(1);
-
+  Teuchos::RCP<FakeComm> comm = Teuchos::rcp(new FakeComm);
+  comm->SetNumProc(1);
   DISABLE_OUTPUT;
 
-  int nx = 8;
-  int ny = 8;
-  int nz = 8;
-  int sx = 4;
-  int sy = 4;
-  int sz = 4;
-  int dof = 4;
-  int n = nx * ny * nz * dof;
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
+    new Teuchos::ParameterList);
+  params->sublist("Problem").set("nx", 8);
+  params->sublist("Problem").set("ny", 8);
+  params->sublist("Problem").set("nz", 8);
+  params->sublist("Problem").set("Equations", "Stokes-C");
+  params->sublist("Preconditioner").set("Separator Length", 4);
 
-  Epetra_Map map(n, 0, comm);
-  TestableSkewCartesianPartitioner part(Teuchos::rcp(&map, false), nx, ny, nz, dof, 3);
-  part.Partition(sx, sy, sz, false);
+  TestableSkewCartesianPartitioner part(Teuchos::null, params, comm);
+  part.Partition(false);
 
   ENABLE_OUTPUT;
+  int n = part.Map().NumGlobalElements64();
   std::vector<hymls_gidx> gids(n, 0);
   for (int sd = 0; sd < part.NumLocalParts(); sd++)
     {
@@ -287,27 +275,24 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 1PSepPerDomain3D)
 TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NoEmptyProcs16)
   {
   int nprocs = 16;
-  FakeComm comm;
-
+  Teuchos::RCP<FakeComm> comm = Teuchos::rcp(new FakeComm);
   DISABLE_OUTPUT;
 
-  comm.SetNumProc(nprocs);
+  comm->SetNumProc(nprocs);
   for (int i = 0; i < nprocs; i++)
     {
-    comm.SetMyPID(i);
+    comm->SetMyPID(i);
 
-    int nx = 16;
-    int ny = 16;
-    int nz = 16;
-    int sx = 4;
-    int sy = 4;
-    int sz = 4;
-    int dof = 4;
-    int n = nx * ny * nz * dof;
+    Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
+      new Teuchos::ParameterList);
+    params->sublist("Problem").set("nx", 16);
+    params->sublist("Problem").set("ny", 16);
+    params->sublist("Problem").set("nz", 16);
+    params->sublist("Problem").set("Equations", "Stokes-C");
+    params->sublist("Preconditioner").set("Separator Length", 4);
 
-    Epetra_Map map(n, 0, comm);
-    TestableSkewCartesianPartitioner part(Teuchos::rcp(&map, false), nx, ny, nz, dof, 3);
-    part.Partition(sx, sy, sz, false);
+    TestableSkewCartesianPartitioner part(Teuchos::null, params, comm);
+    part.Partition(false);
 
     TEST_INEQUALITY(part.NumLocalParts(), 0);
     }
@@ -317,27 +302,24 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NoEmptyProcs16)
 TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NoEmptyProcs128)
   {
   int nprocs = 128;
-  FakeComm comm;
-
+  Teuchos::RCP<FakeComm> comm = Teuchos::rcp(new FakeComm);
   DISABLE_OUTPUT;
 
-  comm.SetNumProc(nprocs);
+  comm->SetNumProc(nprocs);
   for (int i = 0; i < nprocs; i++)
     {
-    comm.SetMyPID(i);
+    comm->SetMyPID(i);
 
-    int nx = 32;
-    int ny = 32;
-    int nz = 32;
-    int sx = 4;
-    int sy = 4;
-    int sz = 4;
-    int dof = 4;
-    int n = nx * ny * nz * dof;
+    Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
+      new Teuchos::ParameterList);
+    params->sublist("Problem").set("nx", 32);
+    params->sublist("Problem").set("ny", 32);
+    params->sublist("Problem").set("nz", 32);
+    params->sublist("Problem").set("Equations", "Stokes-C");
+    params->sublist("Preconditioner").set("Separator Length", 4);
 
-    Epetra_Map map(n, 0, comm);
-    TestableSkewCartesianPartitioner part(Teuchos::rcp(&map, false), nx, ny, nz, dof, 3);
-    part.Partition(sx, sy, sz, false);
+    TestableSkewCartesianPartitioner part(Teuchos::null, params, comm);
+    part.Partition(false);
 
     TEST_INEQUALITY(part.NumLocalParts(), 0);
     }
@@ -346,66 +328,59 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NoEmptyProcs128)
 
 TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, SameNumSubdomains)
   {
-  FakeComm comm;
-
+  int nprocs = 16;
+  Teuchos::RCP<FakeComm> comm = Teuchos::rcp(new FakeComm);
   DISABLE_OUTPUT;
 
-  int nprocs = 16;
-  comm.SetNumProc(nprocs);
+  comm->SetNumProc(nprocs);
 
-  int nx = 16;
-  int ny = 16;
-  int nz = 16;
-  int sx = 4;
-  int sy = 4;
-  int sz = 4;
-  int dof = 4;
-  int n = nx * ny * nz * dof;
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
+    new Teuchos::ParameterList);
+  params->sublist("Problem").set("nx", 16);
+  params->sublist("Problem").set("ny", 16);
+  params->sublist("Problem").set("nz", 16);
+  params->sublist("Problem").set("Equations", "Stokes-C");
+  params->sublist("Preconditioner").set("Separator Length", 4);
 
-  Epetra_Map map(n, 0, comm);
-  TestableSkewCartesianPartitioner part(Teuchos::rcp(&map, false), nx, ny, nz, dof, 3);
-  part.Partition(sx, sy, sz, false);
+  TestableSkewCartesianPartitioner part(Teuchos::null, params, comm);
+  part.Partition(false);
 
   int num = part.NumLocalParts();
 
   nprocs = 128;
-  comm.SetNumProc(nprocs);
+  comm->SetNumProc(nprocs);
 
-  nx = 32;
-  ny = 32;
-  nz = 32;
-  sx = 4;
-  sy = 4;
-  sz = 4;
-  dof = 4;
-  n = nx * ny * nz * dof;
+  params->sublist("Problem").set("nx", 32);
+  params->sublist("Problem").set("ny", 32);
+  params->sublist("Problem").set("nz", 32);
+  params->sublist("Problem").set("Equations", "Stokes-C");
+  params->sublist("Preconditioner").set("Separator Length", 4);
 
-  Epetra_Map map2(n, 0, comm);
-  TestableSkewCartesianPartitioner part2(Teuchos::rcp(&map2, false), nx, ny, nz, dof, 3);
-  part2.Partition(sx, sy, sz, false);
+  TestableSkewCartesianPartitioner part2(Teuchos::null, params, comm);
+  part2.Partition(false);
 
   ENABLE_OUTPUT;
-  TEST_EQUALITY(part.NumLocalParts(), num);
+  TEST_EQUALITY(part2.NumLocalParts(), num);
   }
 
 #ifdef HYMLS_LONG_LONG
 TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, GID64)
   {
-  FakeComm Comm;
-  Comm.SetNumProc(8192);
-  Comm.SetMyPID(8191);
+  Teuchos::RCP<FakeComm> comm = Teuchos::rcp(new FakeComm);
+  comm->SetNumProc(8192);
+  comm->SetMyPID(8191);
   DISABLE_OUTPUT;
 
-  int sx = 16;
-  hymls_gidx nx = 1024;
-  hymls_gidx ny = 1024;
-  hymls_gidx nz = 1024;
-  hymls_gidx dof = 4;
-  hymls_gidx n = nx * ny * nz * dof;
-  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, Comm));
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
+    new Teuchos::ParameterList);
+  params->sublist("Problem").set("nx", 1024);
+  params->sublist("Problem").set("ny", 1024);
+  params->sublist("Problem").set("nz", 1024);
+  params->sublist("Problem").set("Degrees of Freedom", 4);
+  params->sublist("Preconditioner").set("Separator Length", 16);
 
-  TestableSkewCartesianPartitioner part(map, nx, ny, nz, dof, 3);
-  CHECK_ZERO(part.Partition(sx, sx, sx, false));
+  TestableSkewCartesianPartitioner part(Teuchos::null, params, comm);
+  part.Partition(false);
 
   TEST_EQUALITY(part(nx-2, ny-1, nz-1), (nz / sx + 1 ) * (2 * nx / sx * ny / sx + ny / sx + nx / sx) - 1);
 

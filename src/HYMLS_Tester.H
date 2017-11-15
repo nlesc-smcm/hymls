@@ -69,28 +69,20 @@ public:
 
   //! returns true if the input matrix is an F-matrix, where the 
   //! pressure is each dof'th unknown, starting from pvar
-  static bool isFmatrix(const Epetra_CrsMatrix& A,int dof=-1,int pvar=-1);
-
-  //! this test is a specialized test for the 3D Navier-Stokes equations on a C-grid.
-  //! It checks that the interior velocities of full conservation tubes only connect 
-  //! to interior pressures of the same tube.
-  static bool areTubesCorrect(const Epetra_CrsMatrix& K,
-                              const Epetra_IntVector& p_nodeType,
-                              int dof, int pvar);
+  static bool isFmatrix(const Epetra_CrsMatrix& A);
 
   //! check that the domain decomposition worked, i.e. there are no couplings between 
   //! interior nodes of two different subdomains.
   static bool isDDcorrect(const Epetra_CrsMatrix& A, const HYMLS::OverlappingPartitioner& hid);
 
   //! check that the vector V is divergence free, i.e. A*V has a zero p-part
-  static bool isDivFree(const Epetra_CrsMatrix& A, const Epetra_MultiVector &V, int dof=-1, int pvar=-1, double tol=1e-4);
-  
+  static bool isDivFree(const Epetra_CrsMatrix& A, const Epetra_MultiVector &V, double tol=1e-4);
+
   //! in the Schur-preconditioner, check that only V-P couplings are dropped which
   //! have been reduced to zero by a transformation
   static bool noPcouplingsDropped(const Epetra_CrsMatrix& transSC,
                                   const HierarchicalMap& sepObject);
 
-  
   //! test if a given CrsMatrix does not contain numerical zeros except on the diagonal
   static bool noNumericalZeros(const Epetra_CrsMatrix& A);
   //!@}

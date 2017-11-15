@@ -12,6 +12,10 @@ class Epetra_Comm;
 class Epetra_Import;
 class Epetra_Map;
 
+namespace Teuchos {
+class ParameterList;
+  }
+
 namespace HYMLS {
 
 class CartesianPartitioner : public BasePartitioner
@@ -19,8 +23,9 @@ class CartesianPartitioner : public BasePartitioner
 public:
 
   //! constructor
-  CartesianPartitioner(Teuchos::RCP<const Epetra_Map> map, int nx, int ny,
-    int nz=1, int dof=1, int pvar=-1, GaleriExt::PERIO_Flag perio=GaleriExt::NO_PERIO);
+  CartesianPartitioner(Teuchos::RCP<const Epetra_Map> map,
+    Teuchos::RCP<Teuchos::ParameterList> const &params,
+    Teuchos::RCP<const Epetra_Comm> const &comm);
 
   //! destructor
   virtual ~CartesianPartitioner();
@@ -31,17 +36,13 @@ public:
   //! get non-overlapping subdomain id
   int operator()(hymls_gidx gid) const;
 
-  //! partition an [nx x ny x nz] grid with (possibly) several DoF per node
-  //! into nparts global subdomains.
-  int Partition(int nparts, bool repart=true);
-
   //! partition an [nx x ny x nz] grid with one DoF per node
   //! into subdomains with separator length sx. If repart=true,
   //! the map may need repartitioning to match the cartesian
   //! layout of the new partitioned map. Otherwise it is
   //! assumed that the map already has a global cartesian
   //! processor partitioning
-  int Partition(int sx, int sy, int sz, bool repart=true);
+  int Partition(bool repart=true);
 
 private:
   //! creates the map from global to local partition IDs. The implementation
@@ -64,15 +65,6 @@ public:
     {
     return npx_ > 0;
     }
-
-  //! get the type of a variable (if more than 1 dof per node, otherwise just 0)
-  inline int DofPerNode() const
-    {
-    return dof_;
-    }
-
-  //! get the type of a variable (if more than 1 dof per node, otherwise just 0)
-  int VariableType(hymls_gidx gid) const;
 
   //! return the repartitioned/reordered map
   inline const Epetra_Map& Map() const
@@ -104,9 +96,6 @@ protected:
   //! exactly one process/belong to only one partition)
   Teuchos::RCP<const Epetra_Map> cartesianMap_;
 
-  //! global grid size
-  hymls_gidx nx_, ny_, nz_;
-
   //! number of subdomains
   int npx_,npy_,npz_;
 
@@ -116,23 +105,11 @@ protected:
   //! number of subdomains on this proc
   int numLocalSubdomains_;
 
-  //! subdomain size
-  int sx_,sy_,sz_;
-
-  //! number of variables per node
-  int dof_;
-
-  //! pressure node
-  int pvar_;
-
   //! maps global to local subdomain ID
   Teuchos::RCP<Epetra_Map> sdMap_;
 
   //! indicates wether the processor is active (owns any nodes/subdomains)
   bool active_;
-
-  //! type of periodicity in the problem
-  GaleriExt::PERIO_Flag perio_;
 
 protected:
 

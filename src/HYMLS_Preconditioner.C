@@ -35,8 +35,6 @@
 
 #include "Teuchos_StandardCatchMacros.hpp"
 
-#include "GaleriExt_Periodic.h"
-
 namespace HYMLS {
 
   // constructor
@@ -81,142 +79,48 @@ namespace HYMLS {
   
 
   // Sets all parameters for the preconditioner.
-  int Preconditioner::SetParameters(Teuchos::ParameterList& List)
+int Preconditioner::SetParameters(Teuchos::ParameterList& List)
+  {
+  HYMLS_LPROF3(label_, "SetParameters");
+    
+  Teuchos::RCP<Teuchos::ParameterList> List_ =
+    getMyNonconstParamList();
+
+  if (List_ == Teuchos::null)
     {
-    HYMLS_LPROF3(label_,"SetParameters");
-    
-    Teuchos::RCP<Teuchos::ParameterList> List_ = 
-        getMyNonconstParamList();
-        
-   if (List_==Teuchos::null)
-     {
-     setMyParamList(Teuchos::rcp(&List, false));
-     }
-   else if (List_.get()!=&List)
-     {
-     List_->setParameters(List);
-     }
-    
-    Teuchos::ParameterList& probList_ = 
-        List_->sublist("Problem");
-
-    // general settings for all problems
-
-    // these are used for writing the partitioning to matlab files
-    // ("Visualize Solver" parameter)
-    dim_=probList_.get("Dimension",-1);
-    nx_=probList_.get("nx",-1);
-    ny_=probList_.get("ny",-1);
-    if (dim_>2)
-      {
-      nz_=probList_.get("nz",-1);
-      }
-    else
-      {
-      nz_=1;
-      }
-
-#ifdef HYMLS_TESTING
-    Tester::nx_=nx_;
-    Tester::ny_=ny_;
-    Tester::nz_=nz_;
-    Tester::dim_=dim_;
-#endif
-
-    scaleSchur_=PL().get("Scale Schur-Complement",false);
-
-    sdSolverType_ = PL().get("Subdomain Solver Type", "Sparse");
-    numThreadsSD_ = PL().get("Subdomain Solver Num Threads", numThreadsSD_);
-
-    bool xperio = false;
-    bool yperio = false;
-    bool zperio = false;
-    xperio = probList_.get("x-periodic", xperio);
-    if (dim_>=1) yperio = probList_.get("y-periodic", yperio);
-    if (dim_>=2) zperio = probList_.get("z-periodic", zperio);
-
-    GaleriExt::PERIO_Flag perio = GaleriExt::NO_PERIO;
-
-    if (xperio) perio = (GaleriExt::PERIO_Flag)(perio|GaleriExt::X_PERIO);
-    if (yperio) perio = (GaleriExt::PERIO_Flag)(perio|GaleriExt::Y_PERIO);
-    if (zperio) perio = (GaleriExt::PERIO_Flag)(perio|GaleriExt::Z_PERIO);
-
-    probList_.set("Periodicity", perio);
-    probList_.remove("x-periodic");
-    probList_.remove("y-periodic");
-    probList_.remove("z-periodic");
-
-    // the entire "Problem" list used by the overlapping partiitioner
-    // is fairly complex, but we implement a set of default cases like
-    // "Laplace", "Stokes-C" etc to make it easier for the user.
-    // on coarser levels, the "Equation" parameter is removed and the
-    // "Problem Definition" list is provided by the previous level.
-    std::string eqn="Undefined Problem";
-    
-    if (probList_.isParameter("Equations"))
-      {
-      eqn = probList_.get("Equations",eqn);
-#ifdef MATLAB_COMPATIBILITY_MODE
-      if (eqn!="Stokes-C" || dim_!=3)
-        {
-        // this is because of some assumptions we make when ordering the nodes
-        // in HierarchicalMap, where we don't have access to the problem definition:
-        Tools::Error("MATLAB_COMPATIBILITY_MODE is defined. The ordering\n"+
-                     std::string("only works for 3D Stokes-C problems in that case."),
-                     __FILE__,__LINE__);
-        }
-#endif      
-      this->SetProblemDefinition(eqn,*List_);
-      // the partitioning classes will not accept this parameter,
-      // to indicate the list has been processed we remove it.
-      probList_.remove("Equations");
-      if (probList_.isParameter("Complex Arithmetic"))
-        {
-        probList_.remove("Complex Arithmetic");
-        }
-      }
-    if (probList_.isParameter("Degrees of Freedom")==false)
+    setMyParamList(Teuchos::rcp(&List, false));
+    }
+  else if (List_.get() != &List)
     {
-      HYMLS::Tools::Error("At this point, the 'Problem' sublist must contain 'Degrees of Freedom'\n"
-                          "If you do not set 'Equations', you have to set a (among others) this one.\n",
-        __FILE__,__LINE__);
+    List_->setParameters(List);
     }
-HYMLS_DEBVAR(probList_);
-    dof_=probList_.get("Degrees of Freedom",1);
 
-#ifdef HYMLS_TESTING
-      Tester::dof_=dof_;
-      if (probList_.get("Test F-Matrix Properties",false))
-        {
-        Tester::doFmatTests_=true;
-        Tester::pvar_=dim_;
-        }
-      else
-        {
-        Tester::doFmatTests_=false;
-        }
-#endif
+  scaleSchur_=PL().get("Scale Schur-Complement",false);
 
-    if (schurPrec_!=Teuchos::null)
-      {
-      CHECK_ZERO(schurPrec_->SetParameters(List));
-      }
+  sdSolverType_ = PL().get("Subdomain Solver Type", "Sparse");
+  numThreadsSD_ = PL().get("Subdomain Solver Num Threads", numThreadsSD_);
 
-    return 0;
+  if (schurPrec_!=Teuchos::null)
+    {
+    CHECK_ZERO(schurPrec_->SetParameters(List));
     }
+
+  return 0;
+  }
 
   //!
   void Preconditioner::setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& list)
     {
     HYMLS_LPROF3(label_,"setParameterList");
     setMyParamList(list);
-    this->SetParameters(*list);
+    SetParameters(*list);
+
     // this is the place where we check for
     // valid parameters for the preconditioner'
     // and Schur preconditioner
     if (validateParameters_)
       {
-      this->getValidParameters();
+      getValidParameters();
       PL().validateParameters(VPL());
       }
     HYMLS_DEBVAR(PL());
@@ -230,7 +134,6 @@ HYMLS_DEBVAR(probList_);
     HYMLS_LPROF3(label_,"getValidParameters");
 
     validParams_=Teuchos::rcp(new Teuchos::ParameterList());
- 
 
     VPL("Problem").set("Dimension", 2,"number of spatial dimensions");
 
@@ -238,9 +141,12 @@ HYMLS_DEBVAR(probList_);
     VPL("Problem").set("ny",16,"number of grid points in y-direction");
     VPL("Problem").set("nz",1,"number of grid points in z-direction");
 
-    VPL("Problem").set("x-periodic", false,"assume periodicity in x-direction");
-    VPL("Problem").set("y-periodic", false,"assume periodicity in y-direction");
-    VPL("Problem").set("z-periodic", false,"assume periodicity in z-direction");
+    VPL("Problem").set("x-periodic", false, "assume periodicity in x-direction");
+    VPL("Problem").set("y-periodic", false, "assume periodicity in y-direction");
+    VPL("Problem").set("z-periodic", false, "assume periodicity in z-direction");
+
+    VPL("Problem").set("Periodicity", GaleriExt::NO_PERIO,
+      "Set periodicity by using a GaleriExt flag");
 
     Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
         partValidator = Teuchos::rcp(
@@ -279,15 +185,28 @@ HYMLS_DEBVAR(probList_);
 
     std::string doc2 = "Defines the coarsening factor of the subdomains size at each level";
 
-    VPL().set("Base Separator Length", sepx, doc2+" (deprecated)");
-    VPL().set("Base Separator Length (x)", sepx, doc2+" (deprecated)");
-    VPL().set("Base Separator Length (y)", sepx, doc2+" (deprecated)");
-    VPL().set("Base Separator Length (z)", 1, doc2+" (deprecated)");
-
     VPL().set("Coarsening Factor", sepx, doc2);
     VPL().set("Coarsening Factor (x)", sepx, doc2);
     VPL().set("Coarsening Factor (y)", sepx, doc2);
     VPL().set("Coarsening Factor (z)", 1, doc2);
+
+    Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
+      varValidator = Teuchos::rcp(new Teuchos::StringToIntegralParameterEntryValidator<int>(
+          Teuchos::tuple<std::string>(
+            "Laplace", "Pressure", "Velocity", "Velocity U", "Velocity V", "Velocity W"),
+          "Variable Type"));
+    for (int i = 0; i < 6; i++)
+      {
+      Teuchos::ParameterList& varList = VPL().sublist("Variable "+Teuchos::toString(i),
+        false, "For each of the dofs in the problem, a list like this instructs the "
+        "BasePartitioner object how to treat the variable."
+        "For some pre-defined problems which you can select by setting the "
+        "'Problem'->'Equations' parameter, the lists are generated by the "
+        "Preconditioner object and you don't have to worry about them.");
+      varList.set("Variable Type", "Laplace",
+        "describes how the variable should be treated by the partitioner",
+        varValidator);
+      }
 
     VPL().set("Subdivide Separators",false,
         "this was implemented for the rotated B-grid and is not intended for any other "
@@ -305,7 +224,6 @@ HYMLS_DEBVAR(probList_);
         sparseDenseValidator = Teuchos::rcp(
                 new Teuchos::StringToIntegralParameterEntryValidator<int>(
                         Teuchos::tuple<std::string>( "Sparse","Dense"),"Subdomain Solver Type"));
-    
 
     VPL().set("Subdomain Solver Type","Sparse",
         "Sparse or dense subdomain solver?", sparseDenseValidator);
@@ -572,12 +490,13 @@ int Preconditioner::InitializeCompute()
       this->Initialize();
       }
 
-  time_->ResetStartTime();
+    time_->ResetStartTime();
 
-InitializeCompute();
-{
-HYMLS_LPROF(label_,"subdomain factorization");
-A11_->ComputeSubdomainSolvers();
+    InitializeCompute();
+
+    {
+    HYMLS_LPROF(label_,"subdomain factorization");
+    A11_->ComputeSubdomainSolvers();
 
 #ifdef HYMLS_TESTING
     Tools::out() << "Preconditioner level " << myLevel_ << ", doFmatTests=" << Tester::doFmatTests_ << std::endl;
@@ -599,38 +518,25 @@ A11_->ComputeSubdomainSolvers();
       // Free some memory since these tests use huge amounts
       TestSC = Teuchos::null;
 
-      HYMLS_TEST(Label(), isFmatrix(*TestSC_crs, dof_, dim_), __FILE__, __LINE__);
+      HYMLS_TEST(Label(), isFmatrix(*TestSC_crs), __FILE__, __LINE__);
 
 #ifdef HYMLS_STORE_MATRICES
       HYMLS::MatrixUtils::Dump(*TestSC_crs, "SchurComplement" + Teuchos::toString(myLevel_) + ".txt");
 #endif
       }
 #endif
-}
+    }
 
   if (scaleSchur_)
     {
-    // the scaling is somewhat adhoc right now.
-  
-    // TODO: this is not true in general but works for some       
-    //       problems we're trying to tackle:                     
-    //    Laplace - no scaling                                    
-    //    Navier-Stokes with uv(w)p ording - diagonal scaling of  
-    //            V-nodes not coupled to P-nodes                  
-    //    THCM - doesn't work because P is variable 4 out of 6.   
-    if (hid_->Partitioner().DofPerNode()>4)
-      {
-      Tools::Error("scaling not implemented for dof>4",__FILE__,__LINE__);
-      }
-    int pvar=dim_;
-    schurScaLeft_=Schur_->ConstructLeftScaling(pvar);
+    schurScaLeft_=Schur_->ConstructLeftScaling();
     schurScaRight_=Schur_->ConstructRightScaling();
-    
+
 #ifdef HYMLS_STORE_MATRICES
     MatrixUtils::Dump(*schurScaLeft_,"SchurScaLeft"+Teuchos::toString(myLevel_)+".txt");
     MatrixUtils::Dump(*schurScaRight_,"SchurScaRight"+Teuchos::toString(myLevel_)+".txt");
-#endif    
-    
+#endif
+
     CHECK_ZERO(Schur_->Scale(schurScaLeft_,schurScaRight_));
     }
 
@@ -812,228 +718,14 @@ REPORT_SUM_MEM(label_,"before schurprec",0,0, comm_);
     return os;
     }
 
-int Preconditioner::SetProblemDefinition(std::string eqn, Teuchos::ParameterList& list)
-  {
-    HYMLS_LPROF3(label_,"SetProblemDefinition");
-  Teuchos::ParameterList& probList=list.sublist("Problem");
-  Teuchos::ParameterList& precList=list.sublist("Preconditioner");
-  
-  bool is_complex = probList.get("Complex Arithmetic",false);
-
-  if (eqn=="Laplace")
-    {
-    if (!is_complex)
-      {
-      probList.set("Degrees of Freedom",1);      
-      probList.sublist("Variable 0").set("Variable Type","Laplace");
-      }
-    else
-      {
-      probList.set("Degrees of Freedom",2);
-      probList.sublist("Variable 0").set("Variable Type","Laplace");
-      probList.sublist("Variable 1").set("Variable Type","Laplace");
-      }
-    
-    }
-  else if (eqn=="Stokes-C")
-    {
-    // rare case - only one subdomain. Do not retain a pressure point because there won't be 
-    // aSchur-Complement
-    bool no_SC = false;
-    int sx,sy,sz;
-    if (precList.isParameter("Separator Length (x)"))
-      {
-      sx=precList.get("Separator Length (x)",-1);
-      sy=precList.get("Separator Length (y)",sx);
-      sz= dim_<3? 1: precList.get("Separator Length (z)",sx);
-      }
-    else
-      {
-      sx=precList.get("Separator Length",-1);
-      sy=sx;
-      sz=dim_<3? 1: sx;
-      }
-    if (nx_==sx && ny_==sy && nz_==sz) no_SC = true;
-    int factor = is_complex? 2 : 1;
-    probList.set("Degrees of Freedom",(dim_+1)*factor);
-    for (int i=0;i<dim_*factor;i++)
-      {
-      Teuchos::ParameterList& velList =
-        probList.sublist("Variable "+Teuchos::toString(i));
-      velList.set("Variable Type","Laplace");
-      }
-    // pressure:
-    for (int i=0;i<factor;i++)
-      {
-      Teuchos::ParameterList& presList =
-        probList.sublist("Variable "+Teuchos::toString(dim_*factor+i));
-      if (no_SC==false)
-        {
-        presList.set("Variable Type","Retain 1");
-        // unless the partitioner provides the correct partitioning
-        // (with full conservation cells as separate subdomains),  
-        // we need to locate them ourselves, which makes the       
-        // finding of separators more complex.
-        presList.set("Retain Isolated",true);
-        }
-      else
-        {
-        presList.set("Variable Type","Uncoupled");
-        }
-      }
-    if (PL().get("Fix Pressure Level",true)==true)
-      {
-      // we fix the singularity by inserting a Dirichlet condition for 
-      // global pressure node 2 
-      precList.set("Fix GID 1",factor*dim_);
-      if (is_complex) precList.set("Fix GID 2",2*dim_+1);
-      }      
-#ifdef HYMLS_TESTING
-    probList.set("Test F-Matrix Properties",true);
-#endif
-    }
-  else if (eqn=="Bous-C")
-    {
-    int pvar = dim_ + 1;
-    // rare case - only one subdomain. Do not retain a pressure point because there won't be 
-    // aSchur-Complement
-    bool no_SC = false;
-    int sx,sy,sz;
-    if (precList.isParameter("Separator Length (x)"))
-      {
-      sx=precList.get("Separator Length (x)",-1);
-      sy=precList.get("Separator Length (y)",sx);
-      sz= dim_<3? 1: precList.get("Separator Length (z)",sx);
-      }
-    else
-      {
-      sx=precList.get("Separator Length",-1);
-      sy=sx;
-      sz=dim_<3? 1: sx;
-      }
-    if (nx_==sx && ny_==sy && nz_==sz) no_SC = true;
-    int factor = is_complex? 2 : 1;
-    probList.set("Degrees of Freedom",(dim_+2)*factor);
-
-    // Velocities and temperature
-    for (int i = 0; i < (dim_+2) * factor; i++)
-      {
-      if (i != pvar * factor)
-        {
-        Teuchos::ParameterList& velList =
-          probList.sublist("Variable "+Teuchos::toString(i));
-        velList.set("Variable Type","Laplace");
-        }
-      }
-
-    // pressure:
-    Teuchos::ParameterList& presList =
-      probList.sublist("Variable "+Teuchos::toString(pvar*factor));
-      if (!no_SC)
-        {
-        presList.set("Variable Type","Retain 1");
-        presList.set("Retain Isolated",true);
-        }
-      else
-        {
-        presList.set("Variable Type","Uncoupled");
-        }
-
-    if (PL().get("Fix Pressure Level", true))
-      {
-      // we fix the singularity by inserting a Dirichlet condition for 
-      // global pressure node 2 
-      precList.set("Fix GID 1", factor*pvar);
-      if (is_complex) precList.set("Fix GID 2", 2*pvar+1);
-      }
-#ifdef HYMLS_TESTING
-    probList.set("Test F-Matrix Properties",true);
-#endif
-    }
-  else if (eqn=="Stokes-B")
-    {
-    
-/* 
-   we assume the following 'augmented B-grid',
-   where the @ are dummy p-nodes, * are p-nodes
-   and > are v-nodes. To transform this into an
-   F-matrix, one has to apply a Givvens rotation
-   to the velocity field (giving an F-grid). 
-   This currently has to be done manually outside
-   the solver/preconditioner.
-
-    >---->---->---->>---->---->---->
-  @ | *  |  * |  * ||  * |  * | *  |
-    >---->---->---->>---->---->---->
-  @ | *  |  * |  * ||  * |  * | *  |
-    >---->---->---->>---->---->---->
-  @ |  * |  * | *  || *  |  * | *  |
-    >====>====>====>>====>====>====>
-  @ | *  |  * |  * ||  * |  * | *  |
-    >---->---->---->>---->---->---->
-  @ |  * |  * |  * || *  | *  |  * |
-    >---->---->---->>---->---->---->
-  @ |  * |  * | *  ||  * | *  |  * |
-    >---->---->---->>---->---->---->
-  @    @    @    @    @    @     @
-*/    
-    // case of one subdomain per partition not implemented for B-grid
-    bool no_SC=false;
-    if (is_complex) Tools::Error("complex Stokes-B not implemented",__FILE__,__LINE__);
-    probList.set("Degrees of Freedom",(dim_+1));
-    for (int i=0;i<dim_;i++)
-      {
-      Teuchos::ParameterList& velList =
-        probList.sublist("Variable "+Teuchos::toString(i));
-      velList.set("Variable Type","Laplace");
-    
-      // pressure:
-      Teuchos::ParameterList& presList =
-        probList.sublist("Variable "+Teuchos::toString(dim_+i));
-      if (no_SC==false)
-        {
-        presList.set("Variable Type","Retain 2");
-        presList.set("Retain Isolated",true);
-        }
-      else
-        {
-        presList.set("Variable Type","Uncoupled");
-        }
-      }
-    if (PL().get("Fix Pressure Level",true)==true)
-      {
-      // we fix the singularity by inserting a Dirichlet condition for 
-      // global pressure in cells 0 and 1, since we retain two pressures
-      // per subdomain both will be retained until the coarsest grid.
-      // We use +nx*dof here to skip the dummy P-nodes (@).
-      precList.set("Fix GID 1",dim_+nx_*dof_);
-      precList.set("Fix GID 2",2*dim_+nx_*dof_);
-      }
-    }
-  else
-    {
-    Tools::Warning("'Equations' parameter not recognized, we only know 'Laplace' and 'Stokes-C' at the moment",
-        __FILE__,__LINE__);
-    return -1;
-    }
-  return 0;
-  }
-
 void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
   {
     HYMLS_LPROF2(label_,"Visualize");
   if ( (comm_->MyPID()==0) && (myLevel_==1))
     {
     std::ofstream ofs(mfilename.c_str(),std::ios::out);
-    ofs << "dim="<<dim_<<";"<<std::endl;
-    ofs << "dof="<<dof_<<";"<<std::endl;
-    ofs << "nx="<<nx_<<";"<<std::endl;
-    ofs << "ny="<<ny_<<";"<<std::endl;
-    if (dim_>2)
-      {
-      ofs << "nz="<<nz_<<";"<<std::endl;
-      }
-    ofs.close();    
+    ofs << std::endl;
+    ofs.close();
     }
   comm_->Barrier();
   std::ofstream ofs(mfilename.c_str(),std::ios::app);

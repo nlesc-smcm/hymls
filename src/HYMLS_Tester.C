@@ -184,18 +184,16 @@ namespace HYMLS {
 
   //! returns true if the input matrix is an F-matrix, where the 
   //! pressure is each dof'th unknown, starting from pvar
-  bool Tester::isFmatrix(const Epetra_CrsMatrix& A, int dof_in, int pvar_in)
+  bool Tester::isFmatrix(const Epetra_CrsMatrix& A)
     {
     bool status=true;
     if (!doFmatTests_) return status; 
     HYMLS_PROF(Label(),"isFmatrix");
-    int dof = dof_in<0 ? dof_: dof_in;
-    int pvar = pvar_in<0 ? pvar_: pvar_in;
-    msg_<<"dof="<<dof<<std::endl;
-    msg_<<"pvar="<<pvar<<std::endl;
-    ASSERT_TRUE(dof>0,status)
-    ASSERT_TRUE(pvar>0,status)
-    ASSERT_TRUE(pvar<dof,status)
+    msg_<<"dof="<<dof_<<std::endl;
+    msg_<<"pvar="<<pvar_<<std::endl;
+    ASSERT_TRUE(dof_>0,status)
+    ASSERT_TRUE(pvar_>0,status)
+    ASSERT_TRUE(pvar_<dof_,status)
     ASSERT_TRUE(isSymmetric(A.Graph()),status);
 
     int len;
@@ -204,7 +202,7 @@ namespace HYMLS {
     for (int i=0; i<A.NumMyRows(); i++)
       {
       hymls_gidx grid = A.GRID64(i);
-      if (MOD(grid,dof)!=pvar)
+      if (MOD(grid,dof_)!=pvar_)
         {
         ASSERT_ZERO(A.ExtractMyRowView(i,len,val,cols),status);
         int num_pcols=0; // should be at most 2
@@ -212,7 +210,7 @@ namespace HYMLS {
         for (int j=0; j<len;j++)
           {
           hymls_gidx gcid = A.GCID64(cols[j]);
-          if (MOD(gcid,dof)==pvar)
+          if (MOD(gcid,dof_)==pvar_)
             {
             num_pcols++;
             psum+=val[j];
@@ -227,60 +225,6 @@ namespace HYMLS {
           {
           msg_ << "global row "<<grid<< " has row sum(G)="<< psum << std::endl;
           status=false;
-          }
-        }
-      }
-    return status;
-    }
-
-  //! this test is a specialized test for the 3D Navier-Stokes equations on a C-grid.
-  //! It checks that the interior velocities of full conservation tubes only connect 
-  //! to interior pressures of the same tube.
-  bool Tester::areTubesCorrect(const Epetra_CrsMatrix& K,
-                              const Epetra_IntVector& p_nodeType,
-                              int dof, int pvar)
-    {
-    HYMLS_PROF(Label(),"areTubesCorrect");
-    
-    // note: we do not test wether A is an F-matrix here, that is, wether Div=-Grad' etc.
-    // the isFmatrix() test can be used for that independently. We only look at the grad-
-    // part here.
-    
-    // Tubes only occure in 3D Navier-Stokes and similar, so we assume dim=3 if this is called.
-
-    bool status=true;
-    ASSERT_TRUE(K.Filled(),status);
-    int len;
-    int *cols;
-    double *val;
-    for (int i=0;i<K.NumMyRows();i++)
-      {
-      hymls_gidx grid = K.GRID64(i);
-      int p_lrid = p_nodeType.Map().LID(grid);
-      ASSERT_TRUE(p_lrid>=0,status);
-      if (p_nodeType[p_lrid]<0 && MOD(grid,dof)!=pvar)
-        {
-        // V-node in a tube
-        ASSERT_ZERO(K.ExtractMyRowView(i,len,val,cols),status);
-        for (int j=0;j<len;j++)
-          {
-          hymls_gidx gcid = K.GCID64(cols[j]);
-          if (MOD(gcid,dof)==pvar)
-            {
-            // entry in the grad part of the matrix K
-            int p_lcid = p_nodeType.Map().LID(gcid);
-            ASSERT_TRUE(p_lcid>=0,status);
-            // check if the P-node is eliminated together with the
-            // V-node or retained in an FCC, otherwise print warning.
-            if (p_nodeType[p_lcid]!=p_nodeType[p_lrid] &&
-                p_nodeType[p_lcid]<4)
-              {
-              msg_ << "V-node "<<grid<<" (variable type "<<MOD(grid,dof)<<")\n";
-              msg_ << "belongs to the interior of a full conservation tube,\n ";
-              msg_ << "but couples to P-node "<<gcid<< " outside the tube.\n";
-              status=false;
-              }
-            }
           }
         }
       }
@@ -555,9 +499,12 @@ namespace HYMLS {
     return status;
     }
 
-  bool Tester::isDivFree(const Epetra_CrsMatrix& A, const Epetra_MultiVector &V,  int dof, int pvar, double tol)
+  bool Tester::isDivFree(const Epetra_CrsMatrix& A, const Epetra_MultiVector &V, double tol)
     {
     HYMLS_PROF(Label(),"isDivFree");
+    if (pvar_ < 0)
+      return true;
+
     Epetra_MultiVector out(A.OperatorRangeMap(), V.NumVectors());
     CHECK_ZERO(A.Apply(V, out));
 
@@ -567,7 +514,7 @@ namespace HYMLS {
       {
       for (int i = 0; i < out.MyLength(); i++)
         {
-        if (std::abs(out[j][i]) > tol && (out.Map().GID64(i) % dof == pvar))
+        if (std::abs(out[j][i]) > tol && (out.Map().GID64(i) % dof_ == pvar_))
           {
           msg_ << "Rowsum not zero but " << out[j][i]
                << " on row " << out.Map().GID64(i) << std::endl;

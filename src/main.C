@@ -169,13 +169,9 @@ bool status=true;
     
     // copy problem sublist so that the main utils don't modify the original
     Teuchos::ParameterList probl_params_cpy = probl_params;
-    // also need the preconditioner sublist for the partitioning.
-    // TODO: Move this to its own sublist or something
-    Teuchos::ParameterList prec_params_cpy = params->sublist("Preconditioner");
-  
-    std::string eqn=probl_params_cpy.get("Equations","not-set");
+    std::string eqn=probl_params_cpy.get("Equations", "not-set");
 
-    map = HYMLS::MainUtils::create_map(*comm,probl_params_cpy, prec_params_cpy); 
+    map = HYMLS::MainUtils::create_map(*comm, params); 
 #ifdef HYMLS_STORE_MATRICES
 HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
 #endif
@@ -215,7 +211,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
 
   if (nullSpaceType!="None" && nullSpace==Teuchos::null)
     {
-    nullSpace=HYMLS::MainUtils::create_nullspace(*K, nullSpaceType, probl_params_cpy);
+    nullSpace=HYMLS::MainUtils::create_nullspace(*K, nullSpaceType, probl_params);
     dim0=nullSpace->NumVectors();
     }
 #ifdef HYMLS_STORE_MATRICES

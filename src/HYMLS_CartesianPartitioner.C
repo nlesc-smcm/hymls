@@ -18,23 +18,16 @@ namespace HYMLS {
 
 // constructor
 CartesianPartitioner::CartesianPartitioner(
-  Teuchos::RCP<const Epetra_Map> map, int nx, int ny, int nz, int dof, int pvar,
-  GaleriExt::PERIO_Flag perio)
+  Teuchos::RCP<const Epetra_Map> map,
+  Teuchos::RCP<Teuchos::ParameterList> const &params,
+  Teuchos::RCP<const Epetra_Comm> const &comm)
   : BasePartitioner(), label_("CartesianPartitioner"),
-    baseMap_(map), cartesianMap_(Teuchos::null),
-    nx_(nx), ny_(ny), nz_(nz),
-    npx_(-1), npy_(-1), npz_(-1),
-    numLocalSubdomains_(-1),
-    dof_(dof), pvar_(pvar), active_(true), perio_(perio)
+    comm_(comm), baseMap_(map), cartesianMap_(Teuchos::null),
+    numLocalSubdomains_(-1), active_(true)
   {
-  HYMLS_PROF3(label_,"Constructor");
-  comm_ = Teuchos::rcp(&(baseMap_->Comm()), false);
+  HYMLS_PROF3(label_, "Constructor");
 
-  if (baseMap_->IndexBase64() != 0)
-    {
-    Tools::Warning("Not sure, but I _think_ your map should be 0-based",
-      __FILE__, __LINE__);
-    }
+  SetParameters(*params);
   }
 
 // destructor
@@ -101,22 +94,23 @@ int CartesianPartitioner::CreateSubdomainMap()
   return 0;
   }
 
-int CartesianPartitioner::Partition(int nparts, bool repart)
-  {
-  HYMLS_PROF3(label_,"Partition");
-  int npx,npy,npz;
-  Tools::SplitBox(nx_, ny_, nz_, nparts, npx, npy, npz);
-  return Partition(nx_ / npx, ny_ / npy, nz_ / npz, repart);
-  }
-
 // partition an [nx x ny x nz] grid with one DoF per node
 // into nparts global subdomains.
-int CartesianPartitioner::Partition(int sx,int sy, int sz, bool repart)
+int CartesianPartitioner::Partition(bool repart)
   {
   HYMLS_PROF3(label_,"Partition (2)");
-  sx_ = sx;
-  sy_ = sy;
-  sz_ = sz;
+
+  if (baseMap_ == Teuchos::null)
+    {
+    hymls_gidx n = nx_ * ny_ * nz_ * dof_;
+    baseMap_ = Teuchos::rcp(new Epetra_Map(n, 0, *comm_));
+    }
+
+  if (baseMap_->IndexBase64() != 0)
+    {
+    Tools::Warning("Not sure, but I _think_ your map should be 0-based",
+      __FILE__, __LINE__);
+    }
 
   npx_ = nx_ / sx_;
   npy_ = ny_ / sy_;
@@ -360,6 +354,11 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
   int ypos = ((gsd / npx_) % npy_) * sy_;
   int zpos = ((gsd / npx_ / npy_) % npz_) * sz_;
 
+  int pvar = -1;
+  for (int i = 0; i < dof_; i++)
+    if (variableType_[i] == 3)
+      pvar = i;
+
   for (int ktype = (nz_ > 1 ? -1 : 0); ktype < (nz_ > 1 ? 2 : 1); ktype++)
     {
     if (ktype == 1)
@@ -383,9 +382,9 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
 
         for (int d = 0; d < dof_; d++)
           {
-          if (d == pvar_ && (itype == -1 || jtype == -1 || ktype == -1))
+          if (d == pvar && (itype == -1 || jtype == -1 || ktype == -1))
             continue;
-          else if ((itype == 0 && jtype == 0 && ktype == 0) || (d == pvar_ && !(
+          else if ((itype == 0 && jtype == 0 && ktype == 0) || (d == pvar && !(
                 itype == sx_-1 && jtype == sy_-1 && (nz_ <= 1 || ktype == sz_-1))))
             nodes = &interior_nodes;
           else
@@ -404,7 +403,7 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
                   ((i + xpos + nx_) % nx_) * dof_ +
                   ((j + ypos + ny_) % ny_) * nx_ * dof_ +
                   ((k + zpos + nz_) % nz_) * nx_ * ny_ * dof_;
-                if ((d == pvar_ && !i && !j && !k))
+                if ((d == pvar && !i && !j && !k))
                   {
                   // Retained pressure nodes
                   retained_nodes.append(gid);
@@ -429,12 +428,6 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
     }
 
   return 0;
-  }
-
-//! get the type of a variable (if more than 1 dof per node, otherwise just 0)
-int CartesianPartitioner::VariableType(hymls_gidx gid) const
-  {
-  return gid % dof_;
   }
 
 //! get processor on which a grid point is located

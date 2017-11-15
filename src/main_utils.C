@@ -183,75 +183,24 @@ void ReadTestCase(std::string problem, int nx, int sx,
 #endif
 
 Teuchos::RCP<Epetra_Map> create_map(const Epetra_Comm& comm,
-  Teuchos::ParameterList& probl_params,
-  Teuchos::ParameterList& prec_params)
+  Teuchos::RCP<Teuchos::ParameterList> const &params)
   {
-  int pvar = -1;
-  int dim = probl_params.get("Dimension",2);
-  int nx=probl_params.get("nx",32);
-  int ny=probl_params.get("ny",nx);
-  int nz=probl_params.get("nz",(dim>2)?nx:1);
-  std::string eqn=probl_params.get("Equations","not-set");
-
-  int sx,sy,sz;
-  if (prec_params.isParameter("Separator Length (x)"))
-    {
-    sx = prec_params.get("Separator Length (x)", -1);
-    sy = prec_params.get("Separator Length (y)", sx);
-    sz = prec_params.get("Separator Length (z)", nz <= 1 ? 1 : sx);
-    }
-  else
-    {
-    sx = prec_params.get("Separator Length", -1);
-    sy = sx;
-    sz = nz <= 1 ? 1 : sx;
-    }
-
-  Teuchos::RCP<Epetra_Map> map=Teuchos::null;
-
-  int dof=probl_params.get("Degrees of Freedom",1);
-  bool is_complex=probl_params.get("Complex Arithmetic",false);
-
-  if (eqn == "Stokes-C")
-    {
-    dof = dim + 1;
-    pvar = dim;
-    }
-  else if (eqn == "Bous-C")
-    {
-    dof = dim + 2;
-    pvar = dim + 1;
-    }
-  else if (eqn!="Laplace" && eqn=="Laplace Neumann")
-    {
-    HYMLS::Tools::Warning("cannot determine problem type from 'Equation' parameter "+eqn+"\n"
-      "Assuming dof="+Teuchos::toString(dof)+" cartesian grid in "+Teuchos::toString(dim)+"D",
-      __FILE__, __LINE__);
-    }
-  if (is_complex) dof*=2;
-
-  hymls_gidx n = nx*ny*nz*dof;
-  HYMLS::Tools::out()<<"Create map with dof="<<dof<<" in "<<dim<<"D"<<std::endl;
-  map = Teuchos::rcp(new Epetra_Map(n, 0, comm));
-
-  std::string partMethod = prec_params.get("Partitioner", "Cartesian");
+  std::string partMethod = params->sublist("Preconditioner").get("Partitioner", "Cartesian");
   Teuchos::RCP<HYMLS::BasePartitioner> part = Teuchos::null;
   if (partMethod == "Cartesian")
     {
-    Teuchos::RCP<HYMLS::CartesianPartitioner> cartPart =
-      Teuchos::rcp(new HYMLS::CartesianPartitioner(map, nx, ny, nz, dof, pvar));
-    cartPart->Partition(sx, sy, sz, true);
-    part = cartPart;
+    part = Teuchos::rcp(new HYMLS::CartesianPartitioner(
+        Teuchos::null, params, Teuchos::rcp(&comm, false)));
     }
   else if (partMethod == "Skew Cartesian")
     {
-    Teuchos::RCP<HYMLS::SkewCartesianPartitioner> cartPart =
-      Teuchos::rcp(new HYMLS::SkewCartesianPartitioner(map, nx, ny, nz, dof, pvar));
-    cartPart->Partition(sx, sy, sz, true);
-    part = cartPart;
+    part = Teuchos::rcp(new HYMLS::SkewCartesianPartitioner(
+        Teuchos::null, params, Teuchos::rcp(&comm, false)));
     }
   else
     HYMLS::Tools::Error("Partitioner not recognised", __FILE__, __LINE__);
+
+  part->Partition(true);
 
   return Teuchos::rcp(new Epetra_Map(part->Map()));
   }
