@@ -185,12 +185,13 @@ bool status=true;
 
     Teuchos::ParameterList probl_params_cpy = probl_params;
     Teuchos::ParameterList prec_params_cpy = params->sublist("Preconditioner");
-
     int dim=probl_params.get("Dimension",2);
+    int dof=probl_params.get("Degrees of Freedom", 1);
+/*
     int nx=probl_params.get("nx",32);
     int ny=probl_params.get("ny",nx);
     int nz=probl_params.get("nz",dim>2?nx:1);
-    int dof=probl_params.get("Degrees of Freedom", 1);
+*/
  
     std::string eqn=probl_params_cpy.get("Equations","Laplace");
 
@@ -230,8 +231,6 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
   HYMLS::MatrixUtils::Random(*x);
 
   Teuchos::ParameterList& solver_params = params->sublist("Solver");
-  //bool do_deflation = (solver_params.get("Deflated Subspace Dimension",0)>0);
-  bool do_deflation = solver_params.get("Use Deflation", false);
 
   if (eqn=="Stokes-C")
     {
