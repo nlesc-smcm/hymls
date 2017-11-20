@@ -805,7 +805,7 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(
           groups[0].push_back(node);
         group->erase(std::remove(group->begin(), group->end(), node));
         }
-      else if (dof_ > 1 && z == nz_ - 1 && variableType_[node % dof_] == 2 &&
+      else if (nz_ > 1 && dof_ > 1 && z == nz_ - 1 && variableType_[node % dof_] == 2 &&
         !(perio_ & GaleriExt::Z_PERIO))
         {
         if (operator()(x, y, z) == sd)
