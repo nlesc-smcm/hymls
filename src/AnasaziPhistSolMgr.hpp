@@ -333,8 +333,14 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
       d_preconPointers->update=&::HYMLS::PhistPreconTraits<PREC>::update;
       d_preconPointers->destroy=NULL;
       // this function just wraps the preconditioner, if NULL is given as the options string.
-       phist_Dprecon_create(d_preconOp.get(),d_Amat.get(),0.,d_Bmat.get(),NULL,NULL,
+      phist_Dprecon_create(d_preconOp.get(),d_Amat.get(),0.,d_Bmat.get(),NULL,NULL,
               precon2str(d_opts.preconType),NULL,d_preconPointers.get(),&iflag);
+      // adjust some settings if we do our own bordering
+      if (borderedSolver)
+      {
+        d_opts.preconUpdate=2;
+        d_opts.preconSkewProject=0;
+      } 
     }
     else
     {

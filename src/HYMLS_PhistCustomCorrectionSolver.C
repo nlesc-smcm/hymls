@@ -120,6 +120,7 @@ void jadaCorrectionSolver_run1(void* vme,
     {
       solver->setBorder(Teuchos::rcp<const Epetra_MultiVector>(BQ_ptr, false),
         Teuchos::rcp<const Epetra_MultiVector>(Q_ptr, false));
+      solver->SetupDeflation();
     }
     else
     {
@@ -155,9 +156,13 @@ void jadaCorrectionSolver_run1(void* vme,
 
   HYMLS_TEST("jada",isDivFree(*(const Epetra_CrsMatrix *)A_op->A, *t_ptr), __FILE__, __LINE__);
 
-  // normalize result vectors, TODO: should be done in updateSol/pgmres?
+  // normalize result vectors
   _MT_ tmp;
   PHIST_CHK_IERR(phist_Dmvec_normalize(t, &tmp, iflag), *iflag);
+  
+  // unset border (if any)
+  if (me->doBordering_) solver->setBorder(Teuchos::null,Teuchos::null);
+  else             solver->setProjectionVectors(Teuchos::null);
 }
 
 void jadaCorrectionSolver_run(void* vme,
