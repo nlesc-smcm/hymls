@@ -88,35 +88,7 @@ void jadaCorrectionSolver_run1(void* vme,
       }
     }
 
-  const Epetra_BlockMap &map = Q_ptr->Map();
-  const Epetra_BlockMap &map0 = solver->OperatorRangeMap();
-  if (!(map.SameAs(map0)))
-  {
-    // System is only the v-part, not the full system, so import the vectors
-    // on the v-part to the full system so we can use HYMLS on it.
-    Epetra_Import import0(map0, Q_ptr->Map());
-
-    Epetra_MultiVector vec0(map0, Q_ptr->NumVectors());
-    vec0.PutScalar(0.0);
-    CHECK_ZERO(vec0.Import(*Q_ptr, import0, Insert));
-
-    Epetra_MultiVector vec1(map0, BQ_ptr->NumVectors());
-    vec1.PutScalar(0.0);
-    CHECK_ZERO(vec1.Import(*Q_ptr, import0, Insert));
-    if (me->doBordering_)
-    {
-      solver->setBorder(Teuchos::rcp<const Epetra_MultiVector>(&vec1, false),
-        Teuchos::rcp<const Epetra_MultiVector>(&vec0, false));
-      solver->SetupDeflation();
-    }
-    else
-    {
-      CHECK_ZERO(solver->setProjectionVectors(Teuchos::rcp<const Epetra_MultiVector>(&vec0, false)));
-    }
-  }
-  else
-  {
-    if (me->doBordering_)
+  if (me->doBordering_)
     {
       solver->setBorder(Teuchos::rcp<const Epetra_MultiVector>(BQ_ptr, false),
         Teuchos::rcp<const Epetra_MultiVector>(Q_ptr, false));
@@ -126,33 +98,9 @@ void jadaCorrectionSolver_run1(void* vme,
     {
       CHECK_ZERO(solver->setProjectionVectors(Teuchos::rcp<const Epetra_MultiVector>(Q_ptr, false)));
     }
-  }
 
-  if (!(map.SameAs(map0)))
-  {
-    // v-part only, so import back an forth between the full system like above
-    const Epetra_Map &map1 = solver->OperatorRangeMap();
-    Epetra_Import import1(map1, (r_ptr)->Map());
-    Epetra_MultiVector vec1(map1, (r_ptr)->NumVectors());
-    vec1.PutScalar(0.0);
-    CHECK_ZERO(vec1.Import(*r_ptr, import1, Insert));
-
-    const Epetra_Map &map2 = solver->OperatorDomainMap();
-    Epetra_Import import2(map2, t_ptr->Map());
-    Epetra_MultiVector vec2(map2, t_ptr->NumVectors());
-    vec2.PutScalar(0.0);
-    CHECK_ZERO(vec2.Import(*t_ptr, import2, Insert));
-
-    solver->ApplyInverse(vec1, vec2);
-
-    Epetra_Import invImport2(t_ptr->Map(), map2);
-    CHECK_ZERO(t_ptr->Import(vec2, invImport2, Insert));
-  }
-  else
-  {
-    // This is allowed to not converge, so don't do CHECK_ZERO
-    solver->ApplyInverse(*r_ptr, *t_ptr);
-  }
+  // This is allowed to not converge, so don't do CHECK_ZERO
+  solver->ApplyInverse(*r_ptr, *t_ptr);
 
   HYMLS_TEST("jada",isDivFree(*(const Epetra_CrsMatrix *)A_op->A, *t_ptr), __FILE__, __LINE__);
 
@@ -160,9 +108,9 @@ void jadaCorrectionSolver_run1(void* vme,
   _MT_ tmp;
   PHIST_CHK_IERR(phist_Dmvec_normalize(t, &tmp, iflag), *iflag);
   
-  // unset border (if any)
+  // unset border (if any). TODO: we should also remove projection vectors from the solver because
+  // it may be used elsewhere, but setProjectionVectors can't be called with Teuchos::null right now.
   if (me->doBordering_) solver->setBorder(Teuchos::null,Teuchos::null);
-  else             solver->setProjectionVectors(Teuchos::null);
 }
 
 void jadaCorrectionSolver_run(void* vme,
