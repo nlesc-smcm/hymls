@@ -25,6 +25,16 @@ public:
     {
     return HYMLS::SkewCartesianPartitioner::PID(i, j, k);
     }
+
+  int GetSubdomainPosition(int sd, int sx, int &x, int &y, int &z) const
+    {
+    return HYMLS::SkewCartesianPartitioner::GetSubdomainPosition(sd, sx, x, y, z);
+    }
+
+  int GetSubdomainID(int sx, int x, int y, int z) const
+    {
+    return HYMLS::SkewCartesianPartitioner::GetSubdomainID(sx, x, y, z);
+    }
   };
 
 TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, operator)
@@ -75,14 +85,56 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, PID)
 
   ENABLE_OUTPUT;
 
-  TEST_EQUALITY(part.PID(0, 0, 0), 3);
-  TEST_EQUALITY(part.PID(0, 1, 0), 3);
-  TEST_EQUALITY(part.PID(7, 0, 0), 3);
-  TEST_EQUALITY(part.PID(3, 4, 0), 2);
-  TEST_EQUALITY(part.PID(3, 4, 3), 0);
-  TEST_EQUALITY(part.PID(3, 4, 4), 0);
-  TEST_EQUALITY(part.PID(0, 0, 4), 1);
-  TEST_EQUALITY(part.PID(7, 7, 7), 0);
+  TEST_EQUALITY(part.PID(0, 0, 0), 1);
+  TEST_EQUALITY(part.PID(0, 1, 0), 0);
+  TEST_EQUALITY(part.PID(7, 0, 0), 0);
+  TEST_EQUALITY(part.PID(3, 4, 0), 1);
+  TEST_EQUALITY(part.PID(3, 4, 3), 3);
+  TEST_EQUALITY(part.PID(3, 4, 4), 3);
+  TEST_EQUALITY(part.PID(0, 0, 4), 3);
+  TEST_EQUALITY(part.PID(5, 5, 5), 2);
+  TEST_EQUALITY(part.PID(7, 7, 7), 3);
+  }
+
+TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, GetSubdomain)
+  {
+  Teuchos::RCP<FakeComm> comm = Teuchos::rcp(new FakeComm);
+  comm->SetNumProc(1);
+  DISABLE_OUTPUT;
+
+  int nx = 12;
+  int cl = 6;
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
+    new Teuchos::ParameterList);
+  params->sublist("Problem").set("nx", nx);
+  params->sublist("Problem").set("ny", nx);
+  params->sublist("Problem").set("nz", nx);
+  params->sublist("Problem").set("x-periodic", true);
+  params->sublist("Problem").set("y-periodic", true);
+  params->sublist("Problem").set("z-periodic", true);
+  params->sublist("Problem").set("Equations", "Stokes-C");
+  params->sublist("Preconditioner").set("Separator Length", cl);
+
+  TestableSkewCartesianPartitioner part(Teuchos::null, params, comm);
+  part.Partition(false);
+
+  ENABLE_OUTPUT;
+  for (int sd = 0; sd < part.NumLocalParts(); sd++)
+    {
+    int gsd = part.SubdomainMap().GID(sd);
+    int i, j, k;
+    part.GetSubdomainPosition(gsd, cl, i, j, k);
+
+    i = ((i + cl / 2 - 1) % nx + nx) % nx;
+    j = (j % nx + nx) % nx;
+    k = ((k + cl) % nx + nx) % nx;
+
+    int gsd2 = part.GetSubdomainID(cl, i, j, k);
+    TEST_EQUALITY(i, i);
+    TEST_EQUALITY(j, j);
+    TEST_EQUALITY(k, k);
+    TEST_EQUALITY(gsd, gsd2);
+    }
   }
 
 TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 2DNodes)
@@ -235,6 +287,42 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 5DOFNodes)
   
   for (int i = 0; i < n; i++)
     TEST_EQUALITY(gids[i], i);
+  }
+
+TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, DifferentSeparatorsSameProcs)
+  {
+  Teuchos::RCP<Epetra_MpiComm> comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
+  DISABLE_OUTPUT;
+
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
+    new Teuchos::ParameterList);
+  params->sublist("Problem").set("nx", 16);
+  params->sublist("Problem").set("ny", 16);
+  params->sublist("Problem").set("nz", 16);
+  params->sublist("Problem").set("Equations", "Stokes-C");
+  params->sublist("Preconditioner").set("Separator Length", 2);
+
+  TestableSkewCartesianPartitioner part(Teuchos::null, params, comm);
+  part.Partition(true);
+
+  Teuchos::RCP<Teuchos::ParameterList> params2 = Teuchos::rcp(
+    new Teuchos::ParameterList);
+  params2->sublist("Problem").set("nx", 16);
+  params2->sublist("Problem").set("ny", 16);
+  params2->sublist("Problem").set("nz", 16);
+  params2->sublist("Problem").set("Equations", "Stokes-C");
+  params2->sublist("Preconditioner").set("Separator Length", 8);
+
+  TestableSkewCartesianPartitioner part2(Teuchos::null, params2, comm);
+  part2.Partition(true);
+
+  ENABLE_OUTPUT;
+  Epetra_Map const &map1 = part.Map();
+  Epetra_Map const &map2 = part2.Map();
+  for (int i = 0; i < map1.NumMyElements(); i++)
+    {
+    TEST_INEQUALITY(map2.LID(map1.GID64(i)), -1);
+    }
   }
 
 TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 1PSepPerDomain3D)
@@ -391,3 +479,179 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, GID64)
     TEST_COMPARE(i, >=, 0);
   }
 #endif
+
+
+TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, operator2D)
+  {
+  Teuchos::RCP<FakeComm> comm = Teuchos::rcp(new FakeComm);
+  comm->SetNumProc(1);
+  DISABLE_OUTPUT;
+
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
+    new Teuchos::ParameterList);
+  params->sublist("Problem").set("nx", 12);
+  params->sublist("Problem").set("ny", 12);
+  params->sublist("Problem").set("Degrees of Freedom", 2);
+  params->sublist("Preconditioner").set("Separator Length", 6);
+
+  TestableSkewCartesianPartitioner part(Teuchos::null, params, comm);
+  part.Partition(false);
+
+  ENABLE_OUTPUT;
+
+  TEST_EQUALITY(part(0,  0, 0), 0);
+  TEST_EQUALITY(part(1,  0, 0), 0);
+  TEST_EQUALITY(part(2,  0, 0), 0);
+  TEST_EQUALITY(part(3,  0, 0), 0);
+  TEST_EQUALITY(part(4,  0, 0), 0);
+  TEST_EQUALITY(part(5,  0, 0), 3);
+  TEST_EQUALITY(part(6,  0, 0), 1);
+  TEST_EQUALITY(part(7,  0, 0), 1);
+  TEST_EQUALITY(part(8,  0, 0), 1);
+  TEST_EQUALITY(part(9,  0, 0), 1);
+  TEST_EQUALITY(part(10, 0, 0), 1);
+  TEST_EQUALITY(part(11, 0, 0), 4);
+
+  TEST_EQUALITY(part(0,  1, 0), 2);
+  TEST_EQUALITY(part(1,  1, 0), 0);
+  TEST_EQUALITY(part(2,  1, 0), 0);
+  TEST_EQUALITY(part(3,  1, 0), 0);
+  TEST_EQUALITY(part(4,  1, 0), 3);
+  TEST_EQUALITY(part(5,  1, 0), 3);
+  TEST_EQUALITY(part(6,  1, 0), 3);
+  TEST_EQUALITY(part(7,  1, 0), 1);
+  TEST_EQUALITY(part(8,  1, 0), 1);
+  TEST_EQUALITY(part(9,  1, 0), 1);
+  TEST_EQUALITY(part(10, 1, 0), 4);
+  TEST_EQUALITY(part(11, 1, 0), 4);
+
+  TEST_EQUALITY(part(0,  2, 0), 2);
+  TEST_EQUALITY(part(1,  2, 0), 2);
+  TEST_EQUALITY(part(2,  2, 0), 0);
+  TEST_EQUALITY(part(3,  2, 0), 3);
+  TEST_EQUALITY(part(4,  2, 0), 3);
+  TEST_EQUALITY(part(5,  2, 0), 3);
+  TEST_EQUALITY(part(6,  2, 0), 3);
+  TEST_EQUALITY(part(7,  2, 0), 3);
+  TEST_EQUALITY(part(8,  2, 0), 1);
+  TEST_EQUALITY(part(9,  2, 0), 4);
+  TEST_EQUALITY(part(10, 2, 0), 4);
+  TEST_EQUALITY(part(11, 2, 0), 4);
+
+  TEST_EQUALITY(part(0,  3, 0), 2);
+  TEST_EQUALITY(part(1,  3, 0), 2);
+  TEST_EQUALITY(part(2,  3, 0), 5);
+  TEST_EQUALITY(part(3,  3, 0), 3);
+  TEST_EQUALITY(part(4,  3, 0), 3);
+  TEST_EQUALITY(part(5,  3, 0), 3);
+  TEST_EQUALITY(part(6,  3, 0), 3);
+  TEST_EQUALITY(part(7,  3, 0), 3);
+  TEST_EQUALITY(part(8,  3, 0), 6);
+  TEST_EQUALITY(part(9,  3, 0), 4);
+  TEST_EQUALITY(part(10, 3, 0), 4);
+  TEST_EQUALITY(part(11, 3, 0), 4);
+
+  TEST_EQUALITY(part(0,  4, 0), 2);
+  TEST_EQUALITY(part(1,  4, 0), 5);
+  TEST_EQUALITY(part(2,  4, 0), 5);
+  TEST_EQUALITY(part(3,  4, 0), 5);
+  TEST_EQUALITY(part(4,  4, 0), 3);
+  TEST_EQUALITY(part(5,  4, 0), 3);
+  TEST_EQUALITY(part(6,  4, 0), 3);
+  TEST_EQUALITY(part(7,  4, 0), 6);
+  TEST_EQUALITY(part(8,  4, 0), 6);
+  TEST_EQUALITY(part(9,  4, 0), 6);
+  TEST_EQUALITY(part(10, 4, 0), 4);
+  TEST_EQUALITY(part(11, 4, 0), 4);
+
+  TEST_EQUALITY(part(0,  5, 0), 5);
+  TEST_EQUALITY(part(1,  5, 0), 5);
+  TEST_EQUALITY(part(2,  5, 0), 5);
+  TEST_EQUALITY(part(3,  5, 0), 5);
+  TEST_EQUALITY(part(4,  5, 0), 5);
+  TEST_EQUALITY(part(5,  5, 0), 3);
+  TEST_EQUALITY(part(6,  5, 0), 6);
+  TEST_EQUALITY(part(7,  5, 0), 6);
+  TEST_EQUALITY(part(8,  5, 0), 6);
+  TEST_EQUALITY(part(9,  5, 0), 6);
+  TEST_EQUALITY(part(10, 5, 0), 6);
+  TEST_EQUALITY(part(11, 5, 0), 4);
+
+  TEST_EQUALITY(part(0,  6, 0), 5);
+  TEST_EQUALITY(part(1,  6, 0), 5);
+  TEST_EQUALITY(part(2,  6, 0), 5);
+  TEST_EQUALITY(part(3,  6, 0), 5);
+  TEST_EQUALITY(part(4,  6, 0), 5);
+  TEST_EQUALITY(part(5,  6, 0), 8);
+  TEST_EQUALITY(part(6,  6, 0), 6);
+  TEST_EQUALITY(part(7,  6, 0), 6);
+  TEST_EQUALITY(part(8,  6, 0), 6);
+  TEST_EQUALITY(part(9,  6, 0), 6);
+  TEST_EQUALITY(part(10, 6, 0), 6);
+  TEST_EQUALITY(part(11, 6, 0), 9);
+
+  TEST_EQUALITY(part(0,  7, 0), 7);
+  TEST_EQUALITY(part(1,  7, 0), 5);
+  TEST_EQUALITY(part(2,  7, 0), 5);
+  TEST_EQUALITY(part(3,  7, 0), 5);
+  TEST_EQUALITY(part(4,  7, 0), 8);
+  TEST_EQUALITY(part(5,  7, 0), 8);
+  TEST_EQUALITY(part(6,  7, 0), 8);
+  TEST_EQUALITY(part(7,  7, 0), 6);
+  TEST_EQUALITY(part(8,  7, 0), 6);
+  TEST_EQUALITY(part(9,  7, 0), 6);
+  TEST_EQUALITY(part(10, 7, 0), 9);
+  TEST_EQUALITY(part(11, 7, 0), 9);
+
+  TEST_EQUALITY(part(0,  8, 0), 7);
+  TEST_EQUALITY(part(1,  8, 0), 7);
+  TEST_EQUALITY(part(2,  8, 0), 5);
+  TEST_EQUALITY(part(3,  8, 0), 8);
+  TEST_EQUALITY(part(4,  8, 0), 8);
+  TEST_EQUALITY(part(5,  8, 0), 8);
+  TEST_EQUALITY(part(6,  8, 0), 8);
+  TEST_EQUALITY(part(7,  8, 0), 8);
+  TEST_EQUALITY(part(8,  8, 0), 6);
+  TEST_EQUALITY(part(9,  8, 0), 9);
+  TEST_EQUALITY(part(10, 8, 0), 9);
+  TEST_EQUALITY(part(11, 8, 0), 9);
+
+  TEST_EQUALITY(part(0,  9, 0), 7);
+  TEST_EQUALITY(part(1,  9, 0), 7);
+  TEST_EQUALITY(part(2,  9, 0), 10);
+  TEST_EQUALITY(part(3,  9, 0), 8);
+  TEST_EQUALITY(part(4,  9, 0), 8);
+  TEST_EQUALITY(part(5,  9, 0), 8);
+  TEST_EQUALITY(part(6,  9, 0), 8);
+  TEST_EQUALITY(part(7,  9, 0), 8);
+  TEST_EQUALITY(part(8,  9, 0), 11);
+  TEST_EQUALITY(part(9,  9, 0), 9);
+  TEST_EQUALITY(part(10, 9, 0), 9);
+  TEST_EQUALITY(part(11, 9, 0), 9);
+
+  TEST_EQUALITY(part(0,  10, 0), 7);
+  TEST_EQUALITY(part(1,  10, 0), 10);
+  TEST_EQUALITY(part(2,  10, 0), 10);
+  TEST_EQUALITY(part(3,  10, 0), 10);
+  TEST_EQUALITY(part(4,  10, 0), 8);
+  TEST_EQUALITY(part(5,  10, 0), 8);
+  TEST_EQUALITY(part(6,  10, 0), 8);
+  TEST_EQUALITY(part(7,  10, 0), 11);
+  TEST_EQUALITY(part(8,  10, 0), 11);
+  TEST_EQUALITY(part(9,  10, 0), 11);
+  TEST_EQUALITY(part(10, 10, 0), 9);
+  TEST_EQUALITY(part(11, 10, 0), 9);
+
+  TEST_EQUALITY(part(0,  11, 0), 10);
+  TEST_EQUALITY(part(1,  11, 0), 10);
+  TEST_EQUALITY(part(2,  11, 0), 10);
+  TEST_EQUALITY(part(3,  11, 0), 10);
+  TEST_EQUALITY(part(4,  11, 0), 10);
+  TEST_EQUALITY(part(5,  11, 0), 8);
+  TEST_EQUALITY(part(6,  11, 0), 11);
+  TEST_EQUALITY(part(7,  11, 0), 11);
+  TEST_EQUALITY(part(8,  11, 0), 11);
+  TEST_EQUALITY(part(9,  11, 0), 11);
+  TEST_EQUALITY(part(10, 11, 0), 11);
+  TEST_EQUALITY(part(11, 11, 0), 9);
+  }

@@ -103,43 +103,7 @@ int SkewCartesianPartitioner::operator()(int x, int y, int z) const
     Tools::Error("Partition() not yet called!", __FILE__, __LINE__);
     }
 #endif
-  int dir1 = npx_ + 1;
-  int dir2 = npx_;
-  int dir3 = 2*npx_*npy_ + npx_ + npy_;
-
-  // which cube
-  int xcube = x / sx_;
-  int ycube = y / sx_;
-  int zcube = z / sx_;
-
-  // first domain in the cube
-  int sd = zcube * dir3 + ycube*(dir2 + dir1) + xcube;
-
-  // relative coordinates
-  x -= xcube * sx_ - 1;
-  y -= ycube * sx_;
-  z -= zcube * sx_;
-
-  bool front = y < sx_-x; // In front of the red plane
-  bool right = y < x; // Right of the green plane;
-  bool below = z <= y-x; // Below the blue plane left of the green plane
-  if (right) below = z <= sx_ + y-x; // Below the blue plane right of the green plane
-
-  if (!front)
-    sd += dir1;
-  if (!right)
-    sd += dir2;
-  if (!below)
-    sd += dir3;
-
-  if (!front && right && perio_ & GaleriExt::X_PERIO && xcube == npx_-1)
-    sd -= dir2;
-
-  if (!front && !right && perio_ & GaleriExt::Y_PERIO && ycube == npy_-1)
-    sd -= dir3 - dir2;
-
-  if (!below && perio_ & GaleriExt::Z_PERIO && zcube == npz_-1)
-    sd -= npz_ * dir3;
+  int sd = GetSubdomainID(sx_, x, y, z);
 
   return sd;
   }
@@ -189,6 +153,54 @@ int SkewCartesianPartitioner::GetSubdomainPosition(
   return 0;
   }
 
+int SkewCartesianPartitioner::GetSubdomainID(
+  int sx, int x, int y, int z) const
+  {
+  int npx = nx_ / sx;
+  int npy = ny_ / sx;
+  int npz = std::max(nz_ / sx, 1);
+
+  int dir1 = npx + 1;
+  int dir2 = npx;
+  int dir3 = 2 * npx * npy + npx + npy;
+
+  // which cube
+  int xcube = x / sx;
+  int ycube = y / sx;
+  int zcube = z / sx;
+
+  // first domain in the cube
+  int sd = zcube * dir3 + ycube * (dir2 + dir1) + xcube;
+
+  // relative coordinates
+  x -= xcube * sx - 1;
+  y -= ycube * sx;
+  z -= zcube * sx;
+
+  bool front = y < sx - x; // In front of the red plane
+  bool right = y < x; // Right of the green plane;
+  bool below = z <= y - x; // Below the blue plane left of the green plane
+  if (right) below = z <= sx + y - x; // Below the blue plane right of the green plane
+
+  if (!front)
+    sd += dir1;
+  if (!right)
+    sd += dir2;
+  if (!below)
+    sd += dir3;
+
+  if (!front && right && perio_ & GaleriExt::X_PERIO && xcube == npx - 1)
+    sd -= dir2;
+
+  if (!front && !right && perio_ & GaleriExt::Y_PERIO && ycube == npy - 1)
+    sd -= dir3 - dir2;
+
+  if (!below && perio_ & GaleriExt::Z_PERIO && zcube == npz - 1)
+    sd -= npz * dir3;
+
+  return sd;
+  }
+
 //! return number of subdomains in this proc partition
 int SkewCartesianPartitioner::NumLocalParts() const
   {
@@ -219,9 +231,10 @@ int SkewCartesianPartitioner::CreateSubdomainMap()
     if (GetSubdomainPosition(sd, sx_, i, j, k) == 1)
       continue;
 
-    i = (((i + sx_ / 2) % nx_) + nx_) % nx_;
-    j = (((j + sx_ / 2) % ny_) + ny_) % ny_;
-    k = (((k + sx_) % nz_) + nz_) % nz_;
+    i = ((i + sx_ / 2 - 1) % nx_ + nx_) % nx_;
+    j = (j % ny_ + ny_) % ny_;
+    k = ((k + sx_) % nz_ + nz_) % nz_;
+
     int pid = PID(i, j, k);
     if (pid == comm_->MyPID())
       MyGlobalElements[NumMyElements++] = sd;
@@ -856,63 +869,12 @@ int SkewCartesianPartitioner::PID(int i, int j, int k) const
   if (nz_ > 1)
     cl = std::min(cl, sz);
 
-  int npx = nx_ / cl;
-  int npy = ny_ / cl;
-
-  int dir1 = npx + 1;
-  int dir2 = npx;
-  int dir3 = 2*npx*npy + npx + npy;
-
-  // which cube
-  int xcube = i / cl;
-  int ycube = j / cl;
-  int zcube = k / cl;
-
-  // first domain in the cube
-  int sd = zcube * dir3 + ycube * (dir2 + dir1) + xcube;
-
-  // relative coordinates
-  i -= xcube * cl - 1;
-  j -= ycube * cl;
-  k -= zcube * cl;
-
-  if (j < cl - i) // red
-    {
-    if (j < i) // green
-      {
-      if (!(k <= cl + j - i)) // blue
-        sd += dir3;
-      }
-    else
-      {
-      if (k <= j - i) // blue
-        sd += dir2;
-      else
-        sd += dir2+dir3;
-      }
-    }
-  else
-    {
-    if (j < i) // green
-      {
-      if (k <= cl + j - i) // blue
-        sd += dir1;
-      else 
-        sd += dir1+dir3;
-      }
-    else
-      {
-      if (k <= j - i) // blue
-        sd += dir1+dir2;
-      else 
-        sd += dir1+dir2+dir3;
-      }
-    }
-
+  int sd = GetSubdomainID(cl, i, j, k);
   GetSubdomainPosition(sd, cl, i, j, k);
-  i = ((i - 1) % nx_ + nx_) % nx_;
-  j = ((j - 1) % ny_ + ny_) % ny_;
-  k = (k % nz_ + nz_) % nz_;
+
+  i = ((i + cl / 2 - 1) % nx_ + nx_) % nx_;
+  j = (j % ny_ + ny_) % ny_;
+  k = ((k + cl) % nz_ + nz_) % nz_;
 
   // In which cube is the cell?
   int sdx = i / sx;
