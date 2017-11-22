@@ -47,6 +47,7 @@
 #include "Epetra_Operator.h"
 #include "Teuchos_RefCountPtr.hpp"
 #include "Teuchos_BLAS_types.hpp"
+#include <vector>
 
 class Epetra_MultiVector;
 

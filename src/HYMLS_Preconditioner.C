@@ -35,6 +35,8 @@
 
 #include "Teuchos_StandardCatchMacros.hpp"
 
+#include <fstream>
+
 namespace HYMLS {
 
   // constructor

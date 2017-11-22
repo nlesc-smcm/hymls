@@ -3,6 +3,8 @@
 #include "Teuchos_RCP.hpp"
 
 #include <cstdlib>
+#include <cstdio>
+#include <cstdarg>
 #include <stack>
 
 using namespace Teuchos;
