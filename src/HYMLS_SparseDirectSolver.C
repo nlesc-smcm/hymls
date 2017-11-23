@@ -20,6 +20,7 @@
 #include "Teuchos_StrUtils.hpp"
 #include <cstdarg>
 
+#include <fstream>
 
 extern "C" {
 #ifdef HAVE_PARDISO

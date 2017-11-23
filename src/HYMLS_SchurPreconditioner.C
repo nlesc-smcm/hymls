@@ -39,6 +39,8 @@
 #include "HYMLS_AugmentedMatrix.H"
 #include "HYMLS_Tester.H"
 
+#include <fstream>
+
 namespace HYMLS {
 
 

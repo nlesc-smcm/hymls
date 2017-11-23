@@ -25,6 +25,8 @@
 #include <omp.h>
 #endif
 
+#include <fstream>
+
 /*
 #include "EpetraExt_HDF5.h"
 #include "EpetraExt_Exception.h"

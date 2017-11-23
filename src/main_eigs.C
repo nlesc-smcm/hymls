@@ -40,6 +40,8 @@
 #include <omp.h>
 #endif
 
+#include <fstream>
+
 /*
 #include "EpetraExt_HDF5.h"
 #include "EpetraExt_Exception.h"
@@ -228,7 +230,8 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
 
   // create start vector
   Teuchos::RCP<Epetra_MultiVector> x=Teuchos::rcp(new Epetra_Vector(*map));
-  HYMLS::MatrixUtils::Random(*x);
+//  HYMLS::MatrixUtils::Random(*x); 
+  x->PutScalar(1.0);
 
   if (eqn=="Stokes-C")
     {

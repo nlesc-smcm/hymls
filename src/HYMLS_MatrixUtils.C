@@ -51,6 +51,8 @@
 #include "AnasaziBasicEigenproblem.hpp"
 #include "AnasaziEpetraAdapter.hpp"
 
+#include <fstream>
+
 #if TRILINOS_MAJOR_MINOR_VERSION>=121300
 #include "trilinos_amd.h"
 #else
