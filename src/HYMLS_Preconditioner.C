@@ -876,17 +876,15 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
 
     // borderSchurW is given by W2 - (A11\A12)'W1
     borderSchurW_ = Teuchos::rcp(new Epetra_MultiVector(map2,m));
-    // TODO: we use the formulation W2 - A12'(A11'\W1) instead, not
-    //       sure which is the more efficient implementation, but this
-    //       seemed to be easier to do quickly.
+    // We use the formulation W2 - A12'(A11'\W1)
     Epetra_MultiVector w1tmp(map1,m);
-    A11_->SetUseTranspose(true);
+    CHECK_ZERO(A11_->SetUseTranspose(true));
     CHECK_ZERO(A11_->ApplyInverse(*borderW1_, w1tmp));
-    A11_->SetUseTranspose(false);
+    CHECK_ZERO(A11_->SetUseTranspose(false));
 
-    A12_->SetUseTranspose(true);
+    CHECK_ZERO(A12_->SetUseTranspose(true));
     CHECK_ZERO(A12_->Apply(w1tmp,*borderSchurW_));
-    A12_->SetUseTranspose(false);
+    CHECK_ZERO(A12_->SetUseTranspose(false));
 
     CHECK_ZERO(borderSchurW_->Update(1.0,*borderW2_,-1.0));
     
@@ -902,7 +900,6 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
       Tools::Error("not implemented!",__FILE__,__LINE__);
       }
 
-    HYMLS_DEBVAR(borderSchurV_->MyLength());
     CHECK_ZERO(schurPrec_->setBorder(borderSchurV_,borderSchurW_,borderSchurC_));
     return 0;
     }
