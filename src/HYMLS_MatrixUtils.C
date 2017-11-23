@@ -855,7 +855,7 @@ Teuchos::RCP<Anasazi::Eigensolution<double, Epetra_MultiVector> > MatrixUtils::E
   //
   Teuchos::ParameterList MyPL;
   MyPL.set( "Verbosity", verbosity );
-  MyPL.set( "Output Stream", Tools::out().getOStream());
+  MyPL.set( "Output Stream", Tools::getOutputStream());
 
 //  MyPL.set( "Sort Manager", MySort );
   MyPL.set( "Which", which );
