@@ -828,7 +828,6 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
     if (C == Teuchos::null)
       {
       C_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(m,m));
-      *C_=0.0;
       }
     else
       {
