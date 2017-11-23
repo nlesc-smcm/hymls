@@ -297,7 +297,8 @@ PhistSolMgr<ScalarType,MV,OP,PREC>::PhistSolMgr(
     {
       d_customSolver=HYMLS::phist::traits<PREC>::get_custom_solver(d_prec,borderedSolver);
       d_opts.customSolver=(void*)d_customSolver.get();
-      d_opts.customSolver_run  = &HYMLS::phist::jadaCorrectionSolver_run;
+//      d_opts.customSolver_run  = &HYMLS::phist::jadaCorrectionSolver_run;
+      d_opts.customSolver_run  = NULL; // phist will try solving the systems in sequence using the _run1 function
       d_opts.customSolver_run1 = &HYMLS::phist::jadaCorrectionSolver_run1;
     }
 

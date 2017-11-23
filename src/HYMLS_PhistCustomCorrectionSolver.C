@@ -67,36 +67,30 @@ void jadaCorrectionSolver_run1(void* vme,
     return;
   }
    
-  Teuchos::RCP<const Epetra_MultiVector> BQ;
   const Epetra_MultiVector *Q_ptr = (const Epetra_MultiVector *)Qtil;
   const Epetra_MultiVector *BQ_ptr = (const Epetra_MultiVector *)BQtil;
   const Epetra_MultiVector *r_ptr = (const Epetra_MultiVector *)res;
   Epetra_MultiVector *t_ptr = (Epetra_MultiVector *)t;
 
-  if (BQtil == NULL)
-    {
-    if (B_op == NULL)
-      {
-      BQ_ptr = Q_ptr;
-      }
-    else
-      {
-      BQ = Teuchos::rcp(new Epetra_MultiVector(*Q_ptr));
-      BQ_ptr = BQ.get();
-      PHIST_CHK_IERR(B_op->apply(1.0, B_op->A, Qtil, 0.0,
-          (TYPE(mvec_ptr))BQ_ptr, iflag), *iflag);
-      }
-    }
+  Teuchos::RCP<const Epetra_MultiVector> Q=Teuchos::rcp(Q_ptr,false);
+  Teuchos::RCP<const Epetra_MultiVector> BQ=Teuchos::rcp(BQ_ptr,false);;
 
+  if (BQtil == NULL && B_op!=NULL)
+    {
+    // the caller provided B!=I but not B*Q, so we have to build it.
+    BQ = Teuchos::rcp(new Epetra_MultiVector(*Q_ptr));
+    BQ_ptr = BQ.get();
+    PHIST_CHK_IERR(B_op->apply(1.0, B_op->A, Qtil, 0.0,
+          (TYPE(mvec_ptr))BQ_ptr, iflag), *iflag);
+    }
   if (me->doBordering_)
     {
-      solver->setBorder(Teuchos::rcp<const Epetra_MultiVector>(BQ_ptr, false),
-        Teuchos::rcp<const Epetra_MultiVector>(Q_ptr, false));
+      solver->setBorder(Q,BQ);
       solver->SetupDeflation();
     }
     else
     {
-      CHECK_ZERO(solver->setProjectionVectors(Teuchos::rcp<const Epetra_MultiVector>(Q_ptr, false)));
+      CHECK_ZERO(solver->setProjectionVectors(Q,BQ));
     }
 
   // This is allowed to not converge, so don't do CHECK_ZERO
