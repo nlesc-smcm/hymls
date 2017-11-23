@@ -22,6 +22,11 @@
 
 #include "Teuchos_FancyOStream.hpp"
 
+#ifdef HYMLS_USE_PHIST
+// reproducible random number generator from phist, very useful for tests etc.
+extern "C" void phist_Dmvec_random(void* v, int* iflag);
+#endif
+
 // for sorting indices
 #include <algorithm>
 
@@ -953,6 +958,15 @@ Teuchos::RCP<Anasazi::Eigensolution<double, Epetra_MultiVector> > MatrixUtils::E
 int MatrixUtils::Random(Epetra_MultiVector& v, int seed)
   {
   HYMLS_PROF3(Label(), "Random");
+#ifdef HYMLS_USE_PHIST
+  if (seed==-1)
+  {
+    int iflag=0;
+    // note: we can't set the seed in phist
+    phist_Dmvec_random(&v,&iflag);
+    return iflag;
+  }
+#else
   const hymls_gidx len = v.GlobalLength64();
   Epetra_BlockMap const &map = v.Map();
   Epetra_Util util;
@@ -982,6 +996,7 @@ int MatrixUtils::Random(Epetra_MultiVector& v, int seed)
       }
     }
   return 0;
+#endif
   }
 
 // drop small matrix entries (relative to diagonal element)
