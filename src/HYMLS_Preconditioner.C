@@ -110,7 +110,7 @@ int Preconditioner::SetParameters(Teuchos::ParameterList& List)
   return 0;
   }
 
-  //!
+  //
   void Preconditioner::setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& list)
     {
     HYMLS_LPROF3(label_,"setParameterList");
@@ -750,6 +750,24 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
 //////////////////////////////////
 
   // add a border to the preconditioner
+
+  // Implementation details
+  // ----------------------
+  //
+  // Let the original preconditioner be
+  //
+  // |A11 A12|      |A11  0 ||I A11\A12|
+  // |A21 A22|   ~= |A21  S ||0   I    |, S=A22 - A21*A11\A12,
+  //
+  // then the bordered variant will be
+  //
+  // |A11 A12 V1|      |A11    0              0       | |I A11\A12 Q1|
+  // |A21 A22 V2|   ~= |A21    S            V2-A21*Q1 | |0    I     0|
+  // |W1' W2' C |      |W1' W2'-W1'A11\A12   C-W1'Q1  | |0    0     I|, Q1=A11\V1.
+  //
+  // The lower right 2x2 block is the new 'bordered Schur Complement' and is handled by class
+  // SchurPreconditioner.
+  //
   int Preconditioner::setBorder(
                Teuchos::RCP<const Epetra_MultiVector> V, 
                Teuchos::RCP<const Epetra_MultiVector> W,
@@ -810,6 +828,7 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
     if (C == Teuchos::null)
       {
       C_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(m,m));
+      *C_=0.0;
       }
     else
       {
