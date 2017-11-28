@@ -452,7 +452,7 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::getTemplate() co
   // Info for each node type
   hymls_gidx firstNode[4] = {dof_*sx_/2 + dirY + dirZ * sx_,
                              dof_*sx_/2 - 0    + dirZ * sx_,
-                             dof_*sx_/2 - dirZ + dirZ * sx_,
+                             dof_*sx_/2 + dirY + dirZ * sx_,
                              dof_*sx_/2 + dirY + dirZ * sx_};
   hymls_gidx baseLength[4] = {sx_/2, sx_/2 + 1, sx_/2 + 1, sx_/2};
 
@@ -503,8 +503,8 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::getTemplate() co
         // w layers are an exception with odd/even layers
         if (i % 2 == 1)
           {
-          for (hymls_gidx j: nodes[type][i - 1])
-            nodes[type][i].push_back(j + dirY + dirZ);
+          for (hymls_gidx j: top)
+            nodes[type][sx_ + i].push_back(j + i * dirZ - dirY);
           for (hymls_gidx j: top)
             nodes[type][sx_ + 1 + i].push_back(j + (i + 1) * dirZ);
           }
@@ -512,8 +512,12 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::getTemplate() co
           {
           for (hymls_gidx j: bottom)
             nodes[type][i].push_back(j - (sx_ - i) * dirZ);
-          for (hymls_gidx j: nodes[type][sx_ + i])
-            nodes[type][sx_ + 1 + i].push_back(j + dirY + dirZ);
+          if (i > 0)
+            for (hymls_gidx j: bottom)
+              nodes[type][i - 1].push_back(j - (sx_ - i + 1) * dirZ - dirY);
+          else
+            for (hymls_gidx j: plane.plane)
+              nodes[type][sx_ - 1].push_back(j - dirZ - dirY);
           }
         }
       else
@@ -567,7 +571,7 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::getTemplate() co
   nodes[1].pop_back();
   nodes[1].erase(nodes[1].begin());
 
-  nodes[2].erase(nodes[2].begin());
+  nodes[2].pop_back();
 
   nodes[3].pop_back();
   nodes[3].erase(nodes[3].begin());
