@@ -25,18 +25,23 @@
 extern "C" {
 #ifdef HAVE_PARDISO
 #include "mkl_pardiso.h"
+#define iparam(x) pardiso_iparam_[x-1]
 #endif
+  
 #ifdef HAVE_SUITESPARSE
 #include "umfpack.h"
 #include "klu.h"
 #define T_KLU(xxx) xxx
-#elif TRILINOS_MAJOR_MINOR_VERSION>=121300
+#define DO_KLU(function) klu_ ## function
+#elif TRILINOS_MAJOR_MINOR_VERSION>=121200
 #include "trilinos_klu_decl.h"
 #define T_KLU(xxx) trilinos_ ## xxx
+#define DO_KLU(function) trilinos_klu_ ## function
 #else
 #include "amesos_klu_decl.h"
 #define TRILINOS_KLU_SINGULAR KLU_SINGULAR
 #define T_KLU(xxx) xxx
+#define DO_KLU(function) amesos_klu_ ## function
 #endif
 
 class KluWrapper
@@ -63,22 +68,8 @@ int my_printf(const char* fmt, ...)
      
   *output_stream << formatted_string;
   return 0;
-  
   }
-
 }
-
-#ifdef HAVE_SUITESPARSE      
-#define DO_KLU(function) klu_ ## function
-#elif TRILINOS_MAJOR_MINOR_VERSION>=121300
-#define DO_KLU(function) trilinos_klu_ ## function
-#else
-#define DO_KLU(function) amesos_klu_ ## function
-#endif
-
-#ifdef HAVE_PARDISO
-#define iparam(x) pardiso_iparam_[x-1]
-#endif
 
 namespace HYMLS {
 

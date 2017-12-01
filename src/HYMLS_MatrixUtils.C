@@ -58,7 +58,7 @@ extern "C" void phist_Dmvec_random(void* v, int* iflag);
 
 #include <fstream>
 
-#if TRILINOS_MAJOR_MINOR_VERSION>=121300
+#if TRILINOS_MAJOR_MINOR_VERSION>=121200
 #include "trilinos_amd.h"
 #else
 #include "amesos_amd.h"
