@@ -50,17 +50,17 @@ public:
 };
 
 template <>
-phist_Eprecon traits<::HYMLS::Preconditioner>::get_phist_Eprecon(){return phist_USER_PRECON;}
+phist_Eprecon traits< ::HYMLS::Preconditioner>::get_phist_Eprecon(){return phist_USER_PRECON;}
 
 template <>
-phist_Eprecon traits<::HYMLS::Solver>::get_phist_Eprecon(){return phist_NO_PRECON;}
+phist_Eprecon traits< ::HYMLS::Solver>::get_phist_Eprecon(){return phist_NO_PRECON;}
 
 template <>
-phist_ElinSolv traits<::HYMLS::Solver>::get_phist_ElinSolv(bool hermitian){return phist_USER_LINSOLV;}
+phist_ElinSolv traits< ::HYMLS::Solver>::get_phist_ElinSolv(bool hermitian){return phist_USER_LINSOLV;}
 
 template <>
-Teuchos::RCP<SolverWrapper> traits<::HYMLS::Solver>::get_custom_solver
-        (Teuchos::RCP<::HYMLS::Solver> solver, bool doBordering) 
+Teuchos::RCP<SolverWrapper> traits< ::HYMLS::Solver>::get_custom_solver
+        (Teuchos::RCP< ::HYMLS::Solver> solver, bool doBordering) 
         {return Teuchos::rcp(new SolverWrapper(solver,doBordering));}
 
 
@@ -68,7 +68,7 @@ template <>
 phist_Eprecon traits<Ifpack_Preconditioner>::get_phist_Eprecon(){return phist_IFPACK;}
 
 template <>
-phist_Eprecon traits<::ML_Epetra::MultiLevelPreconditioner>::get_phist_Eprecon(){return phist_ML;}
+phist_Eprecon traits< ::ML_Epetra::MultiLevelPreconditioner>::get_phist_Eprecon(){return phist_ML;}
 
 }//namespace phist
 }//namespace HYMLS

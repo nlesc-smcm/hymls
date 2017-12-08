@@ -309,20 +309,20 @@ protected:
 
   //! this is to reindex the reduced SC, which is
   //! important when using a direct solver (I think)
-  Teuchos::RCP<::EpetraExt::CrsMatrix_Reindex> reindexA_;
+  Teuchos::RCP< ::EpetraExt::CrsMatrix_Reindex> reindexA_;
     
   //! reindex corresponding vectors
-  Teuchos::RCP<::EpetraExt::MultiVector_Reindex> reindexX_, reindexB_;
+  Teuchos::RCP< ::EpetraExt::MultiVector_Reindex> reindexX_, reindexB_;
 
   //! this is to restrict the reduced Schur problem on the
   //! coarsest level to only the active procs so that     
   //! independently of the Amesos solver, the number of   
   //! procs participating in the factorization is determi-
   //! ned by our own algorithm, e.g. max(np,nsd).
-  Teuchos::RCP<::HYMLS::EpetraExt::RestrictedCrsMatrixWrapper> restrictA_;
+  Teuchos::RCP< ::HYMLS::EpetraExt::RestrictedCrsMatrixWrapper> restrictA_;
     
   //! restrict corresponding vectors
-  Teuchos::RCP<::HYMLS::EpetraExt::RestrictedMultiVectorWrapper> restrictX_, restrictB_;
+  Teuchos::RCP< ::HYMLS::EpetraExt::RestrictedMultiVectorWrapper> restrictX_, restrictB_;
   
   //! partitioner for the next level
   Teuchos::RCP<const OverlappingPartitioner> nextLevelHID_;
