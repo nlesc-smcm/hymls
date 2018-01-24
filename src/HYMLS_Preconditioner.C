@@ -247,7 +247,7 @@ int Preconditioner::SetParameters(Teuchos::ParameterList& List)
 
     VPL().sublist("Coarse Solver",false,
     "settings for serial or parallel solver used on the last level "
-    " (passed to Ifpack_Amesos)").disableRecursiveValidation();      
+    " (passed to Ifpack_Amesos)").disableRecursiveValidation();
 
     Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
         variantValidator = Teuchos::rcp(
@@ -262,8 +262,10 @@ int Preconditioner::SetParameters(Teuchos::ParameterList& List)
         "'Block Lower Triangular' - not implemented yet\n"
         "'Domain Decomposition' - one sparse block per processor",
         variantValidator);
-    
-    return validParams_;    
+
+    VPL().set("Apply Dropping", true, "Whether dropping is applied in the Schur complement");
+
+    return validParams_;
     }
 
 

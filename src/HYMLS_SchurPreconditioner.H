@@ -274,6 +274,9 @@ protected:
   //! to switch to dense direct solvers on the subdomains on level
   //! denseSwitch_.
   int denseSwitch_;
+
+  //! switch for applying dropping
+  bool applyDropping_;
   
   //! domain decomposition object
   Teuchos::RCP<const OverlappingPartitioner> hid_;
@@ -441,6 +444,10 @@ private:
 
   //! Initialize orthogonal transform
   int InitializeOT();
+
+  //! Assemble the Schur complement of the Preconditioner
+  //! object creating this SchurPreconditioner.
+  int Assemble();
   
   //! apply orthogonal transform to sparse matrix,
   //! giving the matrix drop(T'*S*T) in matrix_.

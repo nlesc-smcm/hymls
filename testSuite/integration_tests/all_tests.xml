@@ -28,4 +28,6 @@
   <Parameter name="Test 6a" type="string" value="stokes3.xml"/>
   <Parameter name="Test 6b" type="string" value="stokes4.xml"/>
   <Parameter name="Test 6c" type="string" value="stokes4_3D.xml"/>
+  <!-- Direct solver multiple levels -->
+  <Parameter name="Test 7" type="string" value="stokes5.xml"/>
 </ParameterList>

@@ -58,7 +58,7 @@ namespace HYMLS {
         SchurComplement_(Teuchos::rcp_dynamic_cast<const HYMLS::SchurComplement>(SC)),
         myLevel_(level), amActive_(true),
         variant_("Block Diagonal"),
-        denseSwitch_(99),
+        denseSwitch_(99), applyDropping_(true),
         hid_(hid), map_(Teuchos::rcp(&(SC->OperatorDomainMap()),false)),
         testVector_(testVector),
         sparseMatrixOT_(Teuchos::null),
@@ -150,6 +150,7 @@ namespace HYMLS {
     variant_ = PL().get("Preconditioner Variant","Block Diagonal");
     denseSwitch_=PL().get("Dense Solvers on Level",denseSwitch_);
     subdivideSeparators_=PL().get("Subdivide Separators",false);
+    applyDropping_ = PL().get("Apply Dropping", true);
     int pos=1;
     
     fix_gid_.resize(0);
@@ -212,8 +213,9 @@ namespace HYMLS {
     if (myLevel_!=maxLevel_)
       {
       CHECK_ZERO(InitializeOT());
-      if (variant_=="Block Diagonal"||
-          variant_=="Lower Triangular")
+      if (variant_ == "Block Diagonal" ||
+        variant_ == "Lower Triangular" ||
+        variant_ == "No Dropping")
         {
         CHECK_ZERO(InitializeBlocks());
         }
@@ -316,7 +318,11 @@ namespace HYMLS {
                 __FILE__,__LINE__);
         }
 
-      if (SchurMatrix_!=Teuchos::null)
+      if (!applyDropping_ && SchurComplement_ != Teuchos::null)
+        {
+        CHECK_ZERO(Assemble());
+        }
+      else if (SchurMatrix_!=Teuchos::null)
         {
         CHECK_ZERO(TransformAndDrop());
         }
@@ -808,35 +814,46 @@ int SchurPreconditioner::InitializeOT()
     {
     HYMLS_LPROF2(label_,"InitializeNextLevel");
 
-    Teuchos::RCP<const HierarchicalMap>
-        sepObject = hid_->Spawn(HierarchicalMap::LocalSeparators);
-    
+    Teuchos::RCP<const HierarchicalMap> sepObject =
+      hid_->Spawn(HierarchicalMap::LocalSeparators);
+
     if (vsumMap_==Teuchos::null)
       {
       int numBlocks = 0;
-      for (int i=0;i<sepObject->NumMySubdomains();i++)
+      for (int sep = 0; sep < sepObject->NumMySubdomains(); sep++)
         {
-        for (int j=1;j<sepObject->NumGroups(i);j++)
+        for (int grp = 1; grp < sepObject->NumGroups(sep); grp++)
           {
-          if (sepObject->NumElements(i,j)>0) numBlocks++;
+          if (applyDropping_)
+            {
+            if (sepObject->NumElements(sep, grp) > 0) numBlocks++;
+            }
+          else
+            {
+            numBlocks += sepObject->NumElements(sep, grp);
+            }
           }
         }
-    
-      HYMLS_DEBVAR(numBlocks);            
+
+      HYMLS_DEBVAR(numBlocks);
 
       // create a map for the reduced Schur-complement. Note that this is a distributed
       // matrix, in contrast to the other diagonal blocks, so we can't use an Ifpack 
       // container.
       hymls_gidx *MyVsumElements = new hymls_gidx[numBlocks]; // one Vsum per block
-      int pos=0;
-      for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
+      int pos = 0;
+      for (int sep = 0; sep < sepObject->NumMySubdomains(); sep++)
         {
         HYMLS_DEBVAR(sep)
-        for (int grp = 1 ; grp < sepObject->NumGroups(sep) ; grp++)
+        for (int grp = 1; grp < sepObject->NumGroups(sep); grp++)
           {
-          if (sepObject->NumElements(sep,grp)>0)
+          if (sepObject->NumElements(sep,grp) > 0)
             {
-            MyVsumElements[pos++] = sepObject->GID(sep,grp,0);
+            if (applyDropping_)
+              MyVsumElements[pos++] = sepObject->GID(sep,grp,0);
+            else
+              for (int i = 0; i < sepObject->NumElements(sep, grp); i++)
+                MyVsumElements[pos++] = sepObject->GID(sep,grp,i);
             }
           }
         }
@@ -856,9 +873,9 @@ int SchurPreconditioner::InitializeOT()
       // form a correct col map
       vsumColMap_ = MatrixUtils::CreateColMap(*matrix_,*vsumMap_,*vsumMap_);
 
-      reducedSchur_=Teuchos::rcp(new 
-            Epetra_CrsMatrix(Copy,*vsumMap_,*vsumColMap_,matrix_->MaxNumEntries()));
-            
+      reducedSchur_ = Teuchos::rcp(new
+        Epetra_CrsMatrix(Copy,*vsumMap_,*vsumColMap_,matrix_->MaxNumEntries()));
+
       vsumImporter_=Teuchos::rcp(new Epetra_Import(*vsumMap_,*map_));
       }
       
@@ -867,7 +884,7 @@ int SchurPreconditioner::InitializeOT()
     // import sparsity pattern for S2
     // extract the Vsum part of the preconditioner (reduced Schur)
     CHECK_ZERO(reducedSchur_->Import(*matrix_, *vsumImporter_, Insert));
-      
+
     //TODO: actual Schur Complement
     CHECK_ZERO(reducedSchur_->FillComplete(*vsumMap_,*vsumMap_));
 
@@ -903,13 +920,11 @@ int SchurPreconditioner::InitializeOT()
       }
     if (reducedSchurSolver_==Teuchos::null)
       {
-      Epetra_Vector transformedTestVector(*map_);
-
-      CHECK_ZERO(OT->Apply(transformedTestVector, *sparseMatrixOT_, *testVector_))
-    
       nextTestVector = Teuchos::rcp(new Epetra_Vector(*vsumMap_));
 
-      CHECK_ZERO(nextTestVector->Import(transformedTestVector, *vsumImporter_, Insert));    
+      Epetra_Vector transformedTestVector(*testVector_);
+      CHECK_ZERO(ApplyOT(false, transformedTestVector, &flopsCompute_));
+      CHECK_ZERO(nextTestVector->Import(transformedTestVector, *vsumImporter_, Insert));
 
       // create another level of HYMLS::Preconditioner,
       if (myLevel_>=denseSwitch_-1)
@@ -950,6 +965,28 @@ int SchurPreconditioner::InitializeOT()
   return 0;
   }
 
+  int SchurPreconditioner::Assemble()
+    {
+    HYMLS_LPROF2(label_,"Assemble");
+
+    Teuchos::RCP<Epetra_FECrsMatrix> matrix =
+      Teuchos::rcp_dynamic_cast<Epetra_FECrsMatrix>(matrix_);
+    if (matrix == Teuchos::null)
+      {
+      int nzest = 0;
+      if (hid_->NumMySubdomains() > 0)
+        {
+        nzest = hid_->NumElements(0);
+        if (hid_->NumGroups(0) > 0) nzest -= hid_->NumElements(0,0);
+        }
+      matrix = Teuchos::rcp(new
+        Epetra_FECrsMatrix(Copy, SchurComplement_->A22().RowMap(), nzest));
+      }
+    CHECK_ZERO(SchurComplement_->Construct(matrix));
+    matrix_ = MatrixUtils::DropByValue(matrix, HYMLS_SMALL_ENTRY);
+    return 0;
+    }
+
   int SchurPreconditioner::TransformAndDrop()
     {
     HYMLS_LPROF2(label_,"TransformAndDrop");
@@ -977,7 +1014,6 @@ int SchurPreconditioner::InitializeOT()
             __FILE__,__LINE__);
     return 0;
     }
-
 
   // alternative implementation without previously assembling the SC
   // (saves some memory)
@@ -1639,6 +1675,10 @@ int SchurPreconditioner::ApplyOT(bool trans, Epetra_MultiVector& v, double* flop
       HYMLS::Tools::Error("orth. transform not available as matrix!",
                   __FILE__, __LINE__);
       }
+
+    if (!applyDropping_)
+      return 0;
+
     Epetra_MultiVector tmp=v;
     if (trans)
       {
