@@ -38,6 +38,7 @@ void jadaCorrectionSolver_run1(void* vme,
 {
   PHIST_ENTER_FCN(__FUNCTION__);
   *iflag = 0;
+  TYPE(const_linearOp_ptr) A_op=(TYPE(const_linearOp_ptr))vA_op;
   TYPE(const_linearOp_ptr) B_op=(TYPE(const_linearOp_ptr))vB_op;
   SolverWrapper* me=(SolverWrapper*)vme;
 
@@ -95,7 +96,7 @@ void jadaCorrectionSolver_run1(void* vme,
   // This is allowed to not converge, so don't do CHECK_ZERO
   solver->ApplyInverse(*r_ptr, *t_ptr);
 
-  HYMLS_TEST("jada",isDivFree(*(const Epetra_CrsMatrix *)vA_op->A, *t_ptr), __FILE__, __LINE__);
+  HYMLS_TEST("jada",isDivFree(*(const Epetra_CrsMatrix *)A_op->A, *t_ptr), __FILE__, __LINE__);
 
   // normalize result vectors
   _MT_ tmp;
