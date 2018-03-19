@@ -31,6 +31,9 @@
 /* if using PHIST, use their correction solver or ours */
 #cmakedefine HYMLS_USE_PHIST_CORRECTION_SOLVER
 
+/* use JDQZPP as eigensolver? */
+#cmakedefine HYMLS_USE_JDQZPP
+
 /* can we use CXX11 features? */
 #cmakedefine HYMLS_HAVE_CXX11
 

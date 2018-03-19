@@ -9,6 +9,8 @@ if (HYMLS_USE_PHIST)
   option(HYMLS_USE_PHIST_CORRECTION_SOLVER ON "If set to OFF (the default), HYMLS provides it's own solver of the Jacobi-Davidson correction equation. If set to ON, the PHIST implementation is used.")
 endif()
 
+option(HYMLS_USE_JDQZPP OFF "try to find JDQZPP and enable it as eigensolver with HYMLS")
+
 option(HYMLS_STORE_MATRICES "dump all matrices, maps etc. encountered (huge overhead)" OFF)
 option(HYMLS_DEBUGGING "turns on verbose debugging output" OFF)
 option(HYMLS_FUNCTION_TRACING "turns on very verbose output on every function entered/left" OFF)
