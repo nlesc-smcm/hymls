@@ -127,25 +127,6 @@ HYMLS::Tools::Fatal("aborting at check point '"+msg+"'",file.c_str(),line);}}
 #define HYMLS_LPROF3(s1,s2)
 #endif
 
-#ifndef NO_MEMORY_TRACING
-#define REPORT_SUM_MEM(label,description,doubles,ints,comm) \
-{ \
-double lval=(double)((doubles)*sizeof(double)+(ints)*sizeof(int)); \
-double gval=lval; \
-(comm)->SumAll(&lval,&gval,1); \
-HYMLS::Tools::ReportMemUsage((std::string)(label)+": "+(std::string)(description), gval); \
-}
-#define REPORT_MEM(label,description,doubles,ints) \
-{ \
-double gval=(double)((doubles)*sizeof(double)+(ints)*sizeof(int)); \
-HYMLS::Tools::ReportMemUsage((std::string)(label)+": "+(std::string)(description), gval); \
-}
-#else
-#define REPORT_SUM_MEM(label,description,doubles,ints,comm)
-#define REPORT_MEM(label,description,doubles,ints)
-#endif
-
-
 #ifdef HYMLS_DEBUGGING
 #ifndef HYMLS_DEBUG
 #define HYMLS_DEBUG(s) HYMLS::Tools::deb() << s << std::endl << std::flush;

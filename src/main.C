@@ -77,7 +77,6 @@ bool status=true;
   try {
 
   HYMLS_PROF("main","entire run");
-  REPORT_MEM("main","base line",0,0);
 
   std::string param_file;
   Teuchos::Array<std::string> extra_files;
@@ -312,9 +311,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
 
   HYMLS::Tools::Out("Initialize Preconditioner...");
   HYMLS::Tools::StartTiming("main: Initialize Preconditioner");
-  REPORT_MEM("main","before Initialize",0,0);
   CHECK_ZERO(precond->Initialize());
-  REPORT_MEM("main","after Initialize",0,0);
   HYMLS::Tools::StopTiming("main: Initialize Preconditioner",true);
 
   HYMLS::Tools::Out("Create Solver");
@@ -322,7 +319,6 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
 
   solver->SetMassMatrix(M);
 
-  REPORT_MEM("main","before HYMLS",0,0);
   
 for (int f=0;f<numComputes;f++)
   {
@@ -461,7 +457,6 @@ HYMLS_DEBVAR(*b);
     }
  }//f - number of factorizations
 
-  REPORT_MEM("main","after HYMLS",0,0);
 
   if (store_matrix)
     {
