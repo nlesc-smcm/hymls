@@ -242,7 +242,7 @@ Teuchos::RCP<Epetra_SerialDenseMatrix> DenseUtils::CreateView(Epetra_MultiVector
       __FILE__, __LINE__);
     }
 
-  return Teuchos::rcp(new Epetra_SerialDenseMatrix(View, A.Values(), A.MyLength(),
+  return Teuchos::rcp(new Epetra_SerialDenseMatrix(View, A.Values(),
       A.Stride(), A.MyLength(), A.NumVectors()));
   }
 
@@ -257,7 +257,7 @@ Teuchos::RCP<const Epetra_SerialDenseMatrix> DenseUtils::CreateView
       __FILE__, __LINE__);
     }
 
-  return Teuchos::rcp(new Epetra_SerialDenseMatrix(View, A.Values(), A.MyLength(),
+  return Teuchos::rcp(new Epetra_SerialDenseMatrix(View, A.Values(),
       A.Stride(), A.MyLength(), A.NumVectors()));
   }
 
