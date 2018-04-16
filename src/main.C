@@ -72,7 +72,14 @@ bool status=true;
   HYMLS::Tools::InitializeIO(comm);
   
   HYMLS::Tools::out() << "this is HYMLS, rev "<<HYMLS::Tools::Revision()<<std::endl;
-  
+
+  Teuchos::RCP<Epetra_Map> map = Teuchos::null;
+  Teuchos::RCP<Epetra_CrsMatrix> K = Teuchos::null;
+  Teuchos::RCP<Epetra_Vector> u_ex = Teuchos::null;
+  Teuchos::RCP<Epetra_Vector> f = Teuchos::null;
+  Teuchos::RCP<HYMLS::Preconditioner> precond = Teuchos::null;
+  Teuchos::RCP<HYMLS::Solver> solver = Teuchos::null;
+  Teuchos::RCP<Epetra_CrsMatrix> M = Teuchos::null;
 
   try {
 
@@ -99,11 +106,6 @@ bool status=true;
       }
     }
 
-
-  Teuchos::RCP<Epetra_Map> map;
-  Teuchos::RCP<Epetra_CrsMatrix> K;
-  Teuchos::RCP<Epetra_Vector> u_ex;
-  Teuchos::RCP<Epetra_Vector> f;
 
   Teuchos::RCP<Teuchos::ParameterList> params = 
         Teuchos::getParametersFromXmlFile(param_file);
@@ -176,6 +178,8 @@ bool status=true;
 #ifdef HYMLS_STORE_MATRICES
 HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
 #endif
+
+  HYMLS::Tools::StartMemory("main: Matrix");
   if (read_problem)
     {
     K=HYMLS::MainUtils::read_matrix(datadir,file_format,map);
@@ -187,6 +191,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     K=HYMLS::MainUtils::create_matrix(*map,probl_params_cpy,
         galeriLabel, galeriList);
     }
+  HYMLS::Tools::StopMemory("main: Matrix",true);
 
   // create a random exact solution
   Teuchos::RCP<Epetra_MultiVector> x_ex = Teuchos::rcp(new Epetra_MultiVector(*map,numRhs));
@@ -242,7 +247,6 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
   bool do_deflation = solver_params.get("Use Deflation", false);
     
   HYMLS::Tools::Out("Create dummy mass matrix");
-  Teuchos::RCP<Epetra_CrsMatrix> M = Teuchos::null;
   M= Teuchos::rcp(new Epetra_CrsMatrix(Copy,*map,1,true));
 
   hymls_gidx gid;
@@ -307,19 +311,20 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
 
   HYMLS::Tools::Out("Create Preconditioner");
 
-  Teuchos::RCP<HYMLS::Preconditioner> precond = Teuchos::rcp(new HYMLS::Preconditioner(K, params));
+  HYMLS::Tools::StartMemory("main: Initialize Preconditioner");
+  precond = Teuchos::rcp(new HYMLS::Preconditioner(K, params));
 
   HYMLS::Tools::Out("Initialize Preconditioner...");
   HYMLS::Tools::StartTiming("main: Initialize Preconditioner");
   CHECK_ZERO(precond->Initialize());
   HYMLS::Tools::StopTiming("main: Initialize Preconditioner",true);
+  HYMLS::Tools::StopMemory("main: Initialize Preconditioner",true);
 
   HYMLS::Tools::Out("Create Solver");
-  Teuchos::RCP<HYMLS::Solver> solver = Teuchos::rcp(new HYMLS::Solver(K, precond, params,numRhs));
+  solver = Teuchos::rcp(new HYMLS::Solver(K, precond, params,numRhs));
 
   solver->SetMassMatrix(M);
 
-  
 for (int f=0;f<numComputes;f++)
   {
   if (diag_shift_i!=0.0)
@@ -343,8 +348,10 @@ for (int f=0;f<numComputes;f++)
   if (precond!=Teuchos::null) 
     {
     HYMLS::Tools::StartTiming("main: Compute Preconditioner");
+    HYMLS::Tools::StartTiming("main: Compute Preconditioner");
     CHECK_ZERO(precond->Compute());
     HYMLS::Tools::StopTiming("main: Compute Preconditioner",true);
+    HYMLS::Tools::StopMemory("main: Compute Preconditioner",true);
     }
 
   if (nullSpace!=Teuchos::null)
@@ -389,11 +396,13 @@ for (int f=0;f<numComputes;f++)
       }
 
     HYMLS::Tools::Out("Solve ("+Teuchos::toString(s+1)+")");
-  HYMLS::Tools::StartTiming("main: Solve");
+    HYMLS::Tools::StartMemory("main: Solve");
+    HYMLS::Tools::StartTiming("main: Solve");
     //CHECK_ZERO(
     solver->ApplyInverse(*b,*x);
     //);
-  HYMLS::Tools::StopTiming("main: Solve",true);
+    HYMLS::Tools::StopTiming("main: Solve",true);
+    HYMLS::Tools::StopMemory("main: Solve",true);
 
     // subtract constant from pressure if solving Stokes-C
     if (eqn=="Stokes-C"&&false)
