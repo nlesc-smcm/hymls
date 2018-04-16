@@ -19,6 +19,8 @@ typedef struct ptr_size_
 static ptr_size *ptrbuf = NULL;
 static ptr_size *ptrbuf_end = NULL;
 static size_t ptrbuf_size = 1;
+static size_t total_size = 0;
+static size_t max_total_size = 0;
 
 static void dummy_add_ptr(void *ptr, size_t size)
 {
@@ -105,6 +107,8 @@ static int real_add_ptr_hash(void *ptr, size_t size)
         {
             ptrbuf_iter->ptr = ptr;
             ptrbuf_iter->size = size;
+            total_size += size;
+            max_total_size = total_size > max_total_size ? total_size : max_total_size;
             return 1;
         }
     return 0;
@@ -152,6 +156,7 @@ static int real_del_ptr(void *ptr)
     for (; ptrbuf_iter != ptrbuf_end; ++ptrbuf_iter)
         if (ptrbuf_iter->ptr == ptr)
         {
+            total_size -= ptrbuf_iter->size;
             ptrbuf_iter->ptr = NULL;
             ptrbuf_iter->size = 0;
             return 1;
@@ -161,11 +166,12 @@ static int real_del_ptr(void *ptr)
 
 size_t get_memory_usage()
 {
-    size_t size = 0;
-    ptr_size *ptrbuf_iter = ptrbuf;
-    for (; ptrbuf_iter != ptrbuf_end; ++ptrbuf_iter)
-        size += ptrbuf_iter->size;
-    return size;
+    return total_size;
+}
+
+size_t get_max_memory_usage()
+{
+    return max_total_size;
 }
 
 static void hookfns()

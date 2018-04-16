@@ -87,19 +87,22 @@ RCP<Epetra_Time> Tools::StartTiming(std::string const &fname)
   }
 
 size_t (*getMem)() = NULL;
+size_t (*getMaxMem)() = NULL;
 
 size_t Tools::StartMemory(std::string const &fname)
   {
-  size_t out = 0;
+  long long out = 0;
 #ifdef HYMLS_MEMORY_PROFILING
 
   if (!getMem)
     {
     getMem = (size_t (*)())dlsym(RTLD_DEFAULT, "get_memory_usage");
+    getMaxMem = (size_t (*)())dlsym(RTLD_DEFAULT, "get_memory_usage");
     }
   if (!getMem)
     {
     getMem = [](){ return (size_t)0; };
+    getMaxMem = [](){ return (size_t)0; };
     Tools::Warning("Memory profiler not loaded correctly", __FILE__, __LINE__);
     }
 
@@ -161,12 +164,22 @@ std::string mem2string(long long value)
   return ss.str();
   }
 
-void Tools::StopMemory(std::string const &fname, bool print, size_t start_memory)
+void Tools::StopMemory(std::string const &fname, bool print, long long start_memory)
   {
 #ifdef HYMLS_MEMORY_PROFILING
-  long long total_memory = memList_.sublist("total memory").get(fname, (long long)0);
+  if (start_memory < 0)
+    start_memory = memList_.sublist("memory").get(fname, (long long)-1);
+
+  if (start_memory < 0)
+    return;
+
   long long memory = getMem() - start_memory;
+
+  long long total_memory = memList_.sublist("total memory").get(fname, (long long)0);
   memList_.sublist("total memory").set(fname, total_memory + memory);
+
+  long long maximum_memory = memList_.sublist("maximum memory").get(fname, (long long)0);
+  memList_.sublist("maximum memory").set(fname, std::max(maximum_memory, memory));
 
   int ncalls = memList_.sublist("number of calls").get(fname, 0);
   memList_.sublist("number of calls").set(fname, ncalls + 1);
@@ -178,6 +191,51 @@ void Tools::StopMemory(std::string const &fname, bool print, size_t start_memory
 #endif
   }
 
+template<typename charT, typename traits = std::char_traits<charT> >
+class center_helper
+  {
+  std::basic_string<charT, traits> str_;
+
+public:
+  center_helper(std::basic_string<charT, traits> str)
+    :
+    str_(str)
+    {}
+
+  template<typename a, typename b>
+  friend std::basic_ostream<a, b>& operator<<(std::basic_ostream<a, b>& s, const center_helper<a, b>& c);
+  };
+
+template<typename charT, typename traits = std::char_traits<charT> >
+center_helper<charT, traits> centered(std::basic_string<charT, traits> str)
+  {
+  return center_helper<charT, traits>(str);
+  }
+
+center_helper<std::string::value_type, std::string::traits_type> centered(const std::string& str) {
+  return center_helper<std::string::value_type, std::string::traits_type>(str);
+  }
+
+template<typename charT, typename traits>
+std::basic_ostream<charT, traits>& operator<<(std::basic_ostream<charT, traits>& s, const center_helper<charT, traits>& c)
+  {
+  s << std::right;
+  std::streamsize w = s.width();
+  if (w > static_cast<std::streamsize>(c.str_.length()))
+    {
+    std::streamsize left = (w + c.str_.length()) / 2;
+    s.width(left);
+    s << c.str_;
+    s.width(w - left);
+    s << "";
+    }
+  else
+    {
+    s << c.str_;
+    }
+  return s;
+  }
+
 void Tools::PrintTiming(std::ostream& os)
   {
 
@@ -185,13 +243,16 @@ void Tools::PrintTiming(std::ostream& os)
   ParameterList& ncallsList=timerList_.sublist("number of calls");
   ParameterList& elapsedList=timerList_.sublist("total time");
 
-  os << "================================== TIMING RESULTS =================================="<<std::endl;
-  os << "     Description                              ";
-  os << " # Calls \t Cumulative Time \t Time/call\n";
-  os << "=========================================================================================="<<std::endl;
+  os << std::setfill('=') << std::setw(100) << centered(" TIMING RESULTS ") << std::endl;
+  os << std::setfill(' ') << std::setw(100-17*3) << std::left << "Description"
+     << std::setfill(' ') << std::setw(17) << std::left << "# Calls"
+     << std::setfill(' ') << std::setw(17) << std::left << "Cumulative Time"
+     << std::setfill(' ') << std::setw(17) << std::left << "Time/call"
+     << std::endl;
+  os << std::setfill('=') << std::setw(100) << "" << std::endl;
 
-// first construct a correctly sorted list according to timer ID
-Teuchos::ParameterList sortedList;
+  // first construct a correctly sorted list according to timer ID
+  Teuchos::ParameterList sortedList;
   for (ParameterList::ConstIterator i=ncallsList.begin();i!=ncallsList.end();i++)
     {
     const string& fname = i->first;
@@ -200,32 +261,50 @@ Teuchos::ParameterList sortedList;
     label << std::setw(6) << std::setfill('0') << id << " " << fname;
     sortedList.set(label.str(),fname);
     }
-  
+
   for (ParameterList::ConstIterator i=sortedList.begin();i!=sortedList.end();i++)
     {
     const string& label = i->first;
     string fname = sortedList.get(label,"bad label");
     int ncalls = ncallsList.get(fname,0);
     double elapsed = elapsedList.get(fname,0.0);
-    os << fname << "\t" <<ncalls<<"\t"<<elapsed<<"\t"
-       << ((ncalls>0)? elapsed/(double)ncalls : 0.0) <<std::endl;
+    os << std::setfill(' ') << std::setw(100-17*3) << std::left << fname
+       << std::setfill(' ') << std::setw(17) << std::left << ncalls
+       << std::setfill(' ') << std::setw(17) << std::left << elapsed
+       << std::setfill(' ') << std::setw(17) << std::left
+       << (ncalls > 0 ? elapsed/(double)ncalls : 0.0)
+       << std::endl;
     }
-  os << "=========================================================================================="<<std::endl;
+  os << std::setfill('=') << std::setw(100) << "" << std::endl;
   }
 
 void Tools::PrintMemUsage(std::ostream& os)
   {
 #ifdef HYMLS_MEMORY_PROFILING
-  os << "============================== AVERAGE MEMORY USAGE ================================"<<std::endl;
+  os << std::setfill('=') << std::setw(100) << centered(" MEMORY USAGE ") << std::endl;
+  os << std::setfill(' ') << std::setw(100-17*3) << std::left << "Description"
+     << std::setfill(' ') << std::setw(17) << std::left << "# Calls"
+     << std::setfill(' ') << std::setw(17) << std::left << "Maximum Usage"
+     << std::setfill(' ') << std::setw(17) << std::left << "Average Usage"
+     << std::endl;
+  os << std::setfill('=') << std::setw(100) << "" << std::endl;
+
   for (auto &i: memList_.sublist("total memory"))
     {
     std::string label = i.first;
-    long long value = memList_.sublist("total memory").get(label, (long long)0);
-    int calls = memList_.sublist("number of calls").get(label, 1);
-    value /= calls;
-    os << label << "\t" << mem2string(value) << "\n"; 
+    long long total = memList_.sublist("total memory").get(label, (long long)0);
+    long long maximum = memList_.sublist("maximum memory").get(label, (long long)0);
+    int ncalls = memList_.sublist("number of calls").get(label, 1);
+    os << std::setfill(' ') << std::setw(100-17*3) << std::left << label
+       << std::setfill(' ') << std::setw(17) << std::left << ncalls
+       << std::setfill(' ') << std::setw(17) << std::left << mem2string(maximum)
+       << std::setfill(' ') << std::setw(17) << std::left
+       << mem2string(ncalls > 0 ? total / ncalls : 0)
+       << std::endl;
     }
-  os << "===================================================================================="<<std::endl;
+  os << std::setfill('=') << std::setw(100) << centered(" MAX MEMORY USAGE ") << std::endl;
+  os << "Total: " << mem2string(getMaxMem()) << "\n";
+  os << std::setfill('=') << std::setw(100) << "" << std::endl;
 #endif
   return;
   }

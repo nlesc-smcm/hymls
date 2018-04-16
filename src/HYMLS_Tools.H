@@ -286,7 +286,7 @@ static void SignalHandler(int signum)
   static size_t StartMemory(std::string const &label);
 
   //! stop memory profiling specific part of the code
-  static void StopMemory(std::string const &fname, bool print=false, size_t memory=-1);
+  static void StopMemory(std::string const &fname, bool print=false, long long memory=-1);
 
 #ifdef HYMLS_DEBUGGING
   //! set breakpoint (does nothing if HYMLS_DEBUGGING is not defined)

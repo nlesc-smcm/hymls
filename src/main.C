@@ -347,7 +347,7 @@ for (int f=0;f<numComputes;f++)
 
   if (precond!=Teuchos::null) 
     {
-    HYMLS::Tools::StartTiming("main: Compute Preconditioner");
+    HYMLS::Tools::StartMemory("main: Compute Preconditioner");
     HYMLS::Tools::StartTiming("main: Compute Preconditioner");
     CHECK_ZERO(precond->Compute());
     HYMLS::Tools::StopTiming("main: Compute Preconditioner",true);
