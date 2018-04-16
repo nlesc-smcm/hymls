@@ -97,7 +97,7 @@ size_t Tools::StartMemory(std::string const &fname)
   if (!getMem)
     {
     getMem = (size_t (*)())dlsym(RTLD_DEFAULT, "get_memory_usage");
-    getMaxMem = (size_t (*)())dlsym(RTLD_DEFAULT, "get_memory_usage");
+    getMaxMem = (size_t (*)())dlsym(RTLD_DEFAULT, "get_max_memory_usage");
     }
   if (!getMem)
     {
