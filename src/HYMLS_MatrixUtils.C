@@ -1281,7 +1281,7 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
   Teuchos::Array<int> & colperm,
   bool dummy)
   {
-  HYMLS_PROF2(Label(), "FillReducingOrdering");
+  HYMLS_PROF3(Label(), "FillReducingOrdering");
 
   if (!Matrix.Filled()) Tools::Error("matrix not filled", __FILE__, __LINE__);
 
@@ -1723,7 +1723,7 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
 
 int MatrixUtils::AMD(const Epetra_CrsGraph& A, Teuchos::Array<int> & p)
   {
-  HYMLS_PROF2(Label(), "AMD");
+  HYMLS_PROF3(Label(), "AMD");
 
   int n = A.NumMyRows();
   if (p.size() < n)

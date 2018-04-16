@@ -160,9 +160,12 @@ std::tuple<long long, long long> Tools::StartMemory(std::string const &fname)
 
   if (InitializedIO())
     {
-    memory = getMem();
-    max_memory = getMaxMem();
+    long long local_memory = getMem();
+    comm_->SumAll(&local_memory, &memory, 1);
     memList_.sublist("memory").set(fname, memory);
+
+    long long local_max_memory = getMaxMem();
+    comm_->SumAll(&local_max_memory, &max_memory, 1);
     memList_.sublist("maximum memory").set(fname, max_memory);
     }
 #endif
@@ -182,8 +185,15 @@ void Tools::StopMemory(std::string const &fname, bool print,
   if (start_memory < 0 || start_max_memory < 0)
     return;
 
-  long long memory = getMem() - start_memory;
-  long long max_memory = getMaxMem() - start_max_memory;
+  long long memory = 0;
+  long long local_memory = getMem();
+  comm_->SumAll(&local_memory, &memory, 1);
+  memory -= start_memory;
+
+  long long max_memory = 0;
+  long long local_max_memory = getMaxMem();
+  comm_->SumAll(&local_max_memory, &max_memory, 1);
+  max_memory -= start_max_memory;
 
   long long total_used = memList_.sublist("total used").get(fname, (long long)0);
   memList_.sublist("total used").set(fname, total_used + memory);
@@ -251,7 +261,6 @@ std::basic_ostream<charT, traits>& operator<<(std::basic_ostream<charT, traits>&
 
 void Tools::PrintTiming(std::ostream& os)
   {
-
   ParameterList& idList=timerList_.sublist("timer id");
   ParameterList& ncallsList=timerList_.sublist("number of calls");
   ParameterList& elapsedList=timerList_.sublist("total time");
@@ -318,8 +327,13 @@ void Tools::PrintMemUsage(std::ostream& os)
        << std::setfill(' ') << std::setw(17) << std::left << mem2string(increase)
        << std::endl;
     }
+  
+  long long max_memory = 0;
+  long long local_max_memory = getMaxMem();
+  comm_->SumAll(&local_max_memory, &max_memory, 1);
+
   os << std::setfill('=') << std::setw(137) << centered(" MAX MEMORY USAGE ") << std::endl;
-  os << "Total: " << mem2string(getMaxMem()) << "\n";
+  os << "Total: " << mem2string(max_memory) << "\n";
   os << std::setfill('=') << std::setw(137) << "" << std::endl;
 #endif
   return;
