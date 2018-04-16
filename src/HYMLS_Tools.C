@@ -2,6 +2,8 @@
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_RCP.hpp"
 
+#include <dlfcn.h>
+
 #include <cstdlib>
 #include <cstdio>
 #include <cstdarg>
@@ -84,6 +86,31 @@ RCP<Epetra_Time> Tools::StartTiming(std::string const &fname)
     return T;
   }
 
+size_t (*getMem)() = NULL;
+
+size_t Tools::StartMemory(std::string const &fname)
+  {
+  size_t out = 0;
+#ifdef HYMLS_MEMORY_PROFILING
+
+  if (!getMem)
+    {
+    getMem = (size_t (*)())dlsym(RTLD_DEFAULT, "get_memory_usage");
+    }
+  if (!getMem)
+    {
+    getMem = [](){ return (size_t)0; };
+    Tools::Warning("Memory profiler not loaded correctly", __FILE__, __LINE__);
+    }
+
+  if (InitializedIO())
+    {
+    out = getMem();
+    memList_.sublist("memory").set(fname, out);
+    }
+#endif
+  return out;
+  }
 
 void Tools::StopTiming(std::string const &fname, bool print, RCP<Epetra_Time> T)
   {
@@ -121,6 +148,20 @@ void Tools::StopTiming(std::string const &fname, bool print, RCP<Epetra_Time> T)
     }
   }
 
+void Tools::StopMemory(std::string const &fname, bool print, size_t start_memory)
+  {
+#ifdef HYMLS_MEMORY_PROFILING
+  long long total_memory = memList_.sublist("total memory").get(fname, (long long)0);
+  long long memory = getMem() - start_memory;
+  memList_.sublist("total memory").set(fname, total_memory + memory);
+  
+  if (print)
+    {
+    out() << "### memory: " << fname << " "<< memory << std::endl;
+    }
+#endif
+  }
+
 void Tools::PrintTiming(std::ostream& os)
   {
 
@@ -150,44 +191,31 @@ Teuchos::ParameterList sortedList;
     string fname = sortedList.get(label,"bad label");
     int ncalls = ncallsList.get(fname,0);
     double elapsed = elapsedList.get(fname,0.0);
-    os << fname << "\t" <<ncalls<<"\t"<<elapsed<<"\t" 
+    os << fname << "\t" <<ncalls<<"\t"<<elapsed<<"\t"
        << ((ncalls>0)? elapsed/(double)ncalls : 0.0) <<std::endl;
     }
   os << "=========================================================================================="<<std::endl;
   }
 
-void Tools::ReportMemUsage(std::string const &label, double bytes)
-  {
-  memList_.set(label,bytes);
-  }
-
 void Tools::PrintMemUsage(std::ostream& os)
   {
+#ifdef HYMLS_MEMORY_PROFILING
   os << "=================================== MEMORY USAGE ==================================="<<std::endl;
-  double total = 0.0;
-  double value;
+  long long value = 0;
   std::string unit, label;
-  for (ParameterList::ConstIterator i=memList_.begin();i!=memList_.end();i++)
+  for (auto &i: memList_.sublist("total memory"))
     {
-    label = i->first;
+    label = i.first;
     unit = "B";
-    value = memList_.get(label,0.0);
-    total += value;
-    if (value > 1.0e3) {value*=1.0e-3; unit="kB";}
-    if (value > 1.0e3) {value*=1.0e-3; unit="MB";}
-    if (value > 1.0e3) {value*=1.0e-3; unit="GB";}
-    if (value > 1.0e3) {value*=1.0e-3; unit="TB";}
+    value = memList_.sublist("total memory").get(label, (long long)0);
+    if (std::abs(value) > 1.0e3) {value*=1.0e-3; unit="kB";}
+    if (std::abs(value) > 1.0e3) {value*=1.0e-3; unit="MB";}
+    if (std::abs(value) > 1.0e3) {value*=1.0e-3; unit="GB";}
+    if (std::abs(value) > 1.0e3) {value*=1.0e-3; unit="TB";}
     os << label << "\t" <<value<<"\t"<<unit<<"\n"; 
     }
-  os << "===================================================================================="<<std::endl;  
-  value = total; unit="B";
-  label = "TOTAL";
-    if (value > 1.0e3) {value*=1.0e-3; unit="kB";}
-    if (value > 1.0e3) {value*=1.0e-3; unit="MB";}
-    if (value > 1.0e3) {value*=1.0e-3; unit="GB";}
-    if (value > 1.0e3) {value*=1.0e-3; unit="TB";}
-    os << label << "\t" <<value<<"\t"<<unit<<"\n"; 
-  os << "===================================================================================="<<std::endl;  
+  os << "===================================================================================="<<std::endl;
+#endif
   return;
   }
 
@@ -310,10 +338,12 @@ TimerObject::TimerObject(std::string const &s, bool print)
   s_=s;
   print_=print;
   T_=Tools::StartTiming(s);
+  M_=Tools::StartMemory(s);
   }
 
 TimerObject::~TimerObject()
   {
   Tools::StopTiming(s_, print_, T_);
+  Tools::StopMemory(s_, print_, M_);
   }
 }
