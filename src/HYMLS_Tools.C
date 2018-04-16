@@ -122,8 +122,9 @@ void Tools::StopTiming(std::string const &fname, bool print, RCP<Epetra_Time> T)
     }
   }
 
-std::string mem2string(long long value)
+std::string mem2string(long long mem)
   {
+  double value = mem;
   std::string unit = "B";
   if (std::abs(value) > 1.0e3) {value*=1.0e-3; unit="kB";}
   if (std::abs(value) > 1.0e3) {value*=1.0e-3; unit="MB";}
@@ -131,6 +132,8 @@ std::string mem2string(long long value)
   if (std::abs(value) > 1.0e3) {value*=1.0e-3; unit="TB";}
 
   std::ostringstream ss;
+  ss << std::fixed;
+  ss.precision(2);
   ss << value << " " << unit;
   return ss.str();
   }
@@ -253,13 +256,13 @@ void Tools::PrintTiming(std::ostream& os)
   ParameterList& ncallsList=timerList_.sublist("number of calls");
   ParameterList& elapsedList=timerList_.sublist("total time");
 
-  os << std::setfill('=') << std::setw(100) << centered(" TIMING RESULTS ") << std::endl;
-  os << std::setfill(' ') << std::setw(100-17*3) << std::left << "Description"
+  os << std::setfill('=') << std::setw(120) << centered(" TIMING RESULTS ") << std::endl;
+  os << std::setfill(' ') << std::setw(120-17*3) << std::left << "Description"
      << std::setfill(' ') << std::setw(17) << std::left << "# Calls"
      << std::setfill(' ') << std::setw(17) << std::left << "Cumulative Time"
      << std::setfill(' ') << std::setw(17) << std::left << "Time/call"
      << std::endl;
-  os << std::setfill('=') << std::setw(100) << "" << std::endl;
+  os << std::setfill('=') << std::setw(120) << "" << std::endl;
 
   // first construct a correctly sorted list according to timer ID
   Teuchos::ParameterList sortedList;
@@ -278,27 +281,27 @@ void Tools::PrintTiming(std::ostream& os)
     string fname = sortedList.get(label,"bad label");
     int ncalls = ncallsList.get(fname,0);
     double elapsed = elapsedList.get(fname,0.0);
-    os << std::setfill(' ') << std::setw(100-17*3) << std::left << fname
+    os << std::setfill(' ') << std::setw(120-17*3) << std::left << fname
        << std::setfill(' ') << std::setw(17) << std::left << ncalls
        << std::setfill(' ') << std::setw(17) << std::left << elapsed
        << std::setfill(' ') << std::setw(17) << std::left
        << (ncalls > 0 ? elapsed/(double)ncalls : 0.0)
        << std::endl;
     }
-  os << std::setfill('=') << std::setw(100) << "" << std::endl;
+  os << std::setfill('=') << std::setw(120) << "" << std::endl;
   }
 
 void Tools::PrintMemUsage(std::ostream& os)
   {
 #ifdef HYMLS_MEMORY_PROFILING
-  os << std::setfill('=') << std::setw(117) << centered(" MEMORY USAGE ") << std::endl;
-  os << std::setfill(' ') << std::setw(117-17*4) << std::left << "Description"
+  os << std::setfill('=') << std::setw(137) << centered(" MEMORY USAGE ") << std::endl;
+  os << std::setfill(' ') << std::setw(137-17*4) << std::left << "Description"
      << std::setfill(' ') << std::setw(17) << std::left << "# Calls"
      << std::setfill(' ') << std::setw(17) << std::left << "Maximum Usage"
      << std::setfill(' ') << std::setw(17) << std::left << "Average Usage"
      << std::setfill(' ') << std::setw(17) << std::left << "Maximum Increase"
      << std::endl;
-  os << std::setfill('=') << std::setw(117) << "" << std::endl;
+  os << std::setfill('=') << std::setw(137) << "" << std::endl;
 
   for (auto &i: memList_.sublist("total used"))
     {
@@ -307,7 +310,7 @@ void Tools::PrintMemUsage(std::ostream& os)
     long long maximum = memList_.sublist("maximum used").get(label, (long long)0);
     long long increase = memList_.sublist("maximum allocated increase").get(label, (long long)0);
     int ncalls = memList_.sublist("number of calls").get(label, 1);
-    os << std::setfill(' ') << std::setw(117-17*4) << std::left << label
+    os << std::setfill(' ') << std::setw(137-17*4) << std::left << label
        << std::setfill(' ') << std::setw(17) << std::left << ncalls
        << std::setfill(' ') << std::setw(17) << std::left << mem2string(maximum)
        << std::setfill(' ') << std::setw(17) << std::left
@@ -315,9 +318,9 @@ void Tools::PrintMemUsage(std::ostream& os)
        << std::setfill(' ') << std::setw(17) << std::left << mem2string(increase)
        << std::endl;
     }
-  os << std::setfill('=') << std::setw(117) << centered(" MAX MEMORY USAGE ") << std::endl;
+  os << std::setfill('=') << std::setw(137) << centered(" MAX MEMORY USAGE ") << std::endl;
   os << "Total: " << mem2string(getMaxMem()) << "\n";
-  os << std::setfill('=') << std::setw(117) << "" << std::endl;
+  os << std::setfill('=') << std::setw(137) << "" << std::endl;
 #endif
   return;
   }
