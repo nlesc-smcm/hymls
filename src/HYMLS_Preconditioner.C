@@ -58,7 +58,6 @@ namespace HYMLS {
         numThreadsSD_(-1)
     {
     HYMLS_LPROF3(label_,"Constructor");
-    REPORT_SUM_MEM(label_,"Matrix",K->NumMyNonzeros(),K->NumMyNonzeros(),comm_);
     serialComm_=Teuchos::rcp(new Epetra_SerialComm());
 //    serialComm_=Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_SELF));
     time_=Teuchos::rcp(new Epetra_Time(K->Comm()));
@@ -343,10 +342,6 @@ int Preconditioner::SetParameters(Teuchos::ParameterList& List)
 
   CHECK_ZERO(reorderedMatrix_->FillComplete());
 
-  REPORT_SUM_MEM(label_,"reordered matrix",reorderedMatrix_->NumMyNonzeros(),
-    reorderedMatrix_->NumMyNonzeros(),
-    comm_);
-
   // Construct the matrix blocks we need for the Schur complement
   A11_ = Teuchos::rcp(new MatrixBlock(Acrs, reorderedMatrix_, hid_,
       HierarchicalMap::Interior, HierarchicalMap::Interior, myLevel_));
@@ -544,7 +539,6 @@ int Preconditioner::InitializeCompute()
     CHECK_ZERO(Schur_->Scale(schurScaLeft_,schurScaRight_));
     }
 
-REPORT_SUM_MEM(label_,"before schurprec",0,0, comm_);
   CHECK_ZERO(schurPrec_->Compute());
 
   computed_ = true;

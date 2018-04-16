@@ -439,7 +439,7 @@ int SkewCartesianPartitioner::Partition(bool repart)
 // be moved around to create the proper domain.
 std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::getTemplate() const
   {
-  HYMLS_PROF2(label_, "getTemplate");
+  HYMLS_PROF3(label_, "getTemplate");
   // Principal directions
 
   hymls_gidx nx = sx_ * 4;
@@ -729,7 +729,7 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::solveGroups(
 std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(int sd,
   std::vector<std::vector<hymls_gidx> > groups) const
   {
-  HYMLS_PROF2(label_, "createSubdomain");
+  HYMLS_PROF3(label_, "createSubdomain");
 
   int sdx, sdy, sdz;
   GetSubdomainPosition(sd, sx_, sdx, sdy, sdz);
@@ -845,7 +845,7 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(
 int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior_nodes,
   Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes)
   {
-  HYMLS_PROF2(label_,"GetGroups");
+  HYMLS_PROF3(label_,"GetGroups");
 
   int gsd = sdMap_->GID(sd);
 

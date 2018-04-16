@@ -681,7 +681,6 @@ int SchurPreconditioner::InitializeBlocks()
       blk++;
       }
     }
-  REPORT_SUM_MEM(label_,"dense diagonal blocks",nnz,0,comm_);
   return 0;  
   }
 
@@ -723,7 +722,6 @@ int SchurPreconditioner::InitializeSingleBlock()
         }
       }
     }
-  REPORT_SUM_MEM(label_,"single diagonal block (not counted)",0.0,0,comm_);
   return 0;  
   }
 
@@ -1006,9 +1004,6 @@ int SchurPreconditioner::InitializeOT()
       }
 
     CHECK_ZERO(matrix_->FillComplete());
-    REPORT_SUM_MEM(label_,"Transformed SC",matrix_->NumMyNonzeros(),
-                                       matrix_->NumMyNonzeros(),
-                                       comm_);
     HYMLS_TEST(Label(),
             noPcouplingsDropped(*matrix_,*hid_->Spawn(HierarchicalMap::LocalSeparators)),
             __FILE__,__LINE__);
@@ -1189,8 +1184,6 @@ int SchurPreconditioner::InitializeOT()
 #ifdef HYMLS_STORE_MATRICES
     MatrixUtils::Dump(*matrix_,"SchurPreconditioner"+Teuchos::toString(myLevel_)+".txt");
 #endif
-    REPORT_SUM_MEM(label_,"Transformed SC",matrix_->NumMyNonzeros(),
-                                           matrix_->NumMyNonzeros(),comm_);
 
     HYMLS_TEST(Label(),
             noPcouplingsDropped(*matrix_,*hid_->Spawn(HierarchicalMap::LocalSeparators)),

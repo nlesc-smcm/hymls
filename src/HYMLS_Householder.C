@@ -417,17 +417,8 @@ namespace HYMLS {
       Cmat_=Teuchos::null;
       }
 
-    
-  if (!SaveMemory())
-    {    
-    double my_nnz = Wmat_->NumMyNonzeros() + 
-                    Cmat_->NumMyNonzeros() +
-                    WCmat_->NumMyNonzeros() +
-                    WTmat_->NumMyNonzeros();
-    REPORT_SUM_MEM(label_,"intermediate results",my_nnz,my_nnz,&wTwC->Comm());
-    }
     HYMLS_DEBUG("done!");
-    return wTwC;                
+    return wTwC;
     }
 
   //! apply a sparse matrix representation of a set of transforms from the left

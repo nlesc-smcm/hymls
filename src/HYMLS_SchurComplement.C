@@ -115,9 +115,7 @@ int SchurComplement::Construct()
   CHECK_ZERO(this->Construct(sparseMatrixRepresentation_));
   Scrs_ = MatrixUtils::DropByValue(sparseMatrixRepresentation_,
     HYMLS_SMALL_ENTRY);
-  REPORT_MEM(label_, "SchurComplement", Scrs_->NumGlobalNonzeros64(),
-    Scrs_->NumGlobalNonzeros64() +
-    Scrs_->NumGlobalRows64());
+
   return 0;
   }
 

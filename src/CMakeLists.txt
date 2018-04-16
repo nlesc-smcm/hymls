@@ -96,6 +96,10 @@ if (HYMLS_USE_OPENMP)
   endif()
 endif()
 
+if (${HYMLS_MEMORY_PROFILING})
+  list(APPEND HYMLS_SOURCE HYMLS_Malloc)
+endif()
+
 add_library(hymls ${HYMLS_SOURCE})
 
 target_link_libraries(hymls ${Trilinos_LIBRARIES})
