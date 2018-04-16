@@ -148,16 +148,32 @@ void Tools::StopTiming(std::string const &fname, bool print, RCP<Epetra_Time> T)
     }
   }
 
+std::string mem2string(long long value)
+  {
+  std::string unit = "B";
+  if (std::abs(value) > 1.0e3) {value*=1.0e-3; unit="kB";}
+  if (std::abs(value) > 1.0e3) {value*=1.0e-3; unit="MB";}
+  if (std::abs(value) > 1.0e3) {value*=1.0e-3; unit="GB";}
+  if (std::abs(value) > 1.0e3) {value*=1.0e-3; unit="TB";}
+
+  std::ostringstream ss;
+  ss << value << " " << unit;
+  return ss.str();
+  }
+
 void Tools::StopMemory(std::string const &fname, bool print, size_t start_memory)
   {
 #ifdef HYMLS_MEMORY_PROFILING
   long long total_memory = memList_.sublist("total memory").get(fname, (long long)0);
   long long memory = getMem() - start_memory;
   memList_.sublist("total memory").set(fname, total_memory + memory);
-  
+
+  int ncalls = memList_.sublist("number of calls").get(fname, 0);
+  memList_.sublist("number of calls").set(fname, ncalls + 1);
+
   if (print)
     {
-    out() << "### memory: " << fname << " "<< memory << std::endl;
+    out() << "### memory: " << fname << " "<< mem2string(memory) << std::endl;
     }
 #endif
   }
@@ -200,19 +216,14 @@ Teuchos::ParameterList sortedList;
 void Tools::PrintMemUsage(std::ostream& os)
   {
 #ifdef HYMLS_MEMORY_PROFILING
-  os << "=================================== MEMORY USAGE ==================================="<<std::endl;
-  long long value = 0;
-  std::string unit, label;
+  os << "============================== AVERAGE MEMORY USAGE ================================"<<std::endl;
   for (auto &i: memList_.sublist("total memory"))
     {
-    label = i.first;
-    unit = "B";
-    value = memList_.sublist("total memory").get(label, (long long)0);
-    if (std::abs(value) > 1.0e3) {value*=1.0e-3; unit="kB";}
-    if (std::abs(value) > 1.0e3) {value*=1.0e-3; unit="MB";}
-    if (std::abs(value) > 1.0e3) {value*=1.0e-3; unit="GB";}
-    if (std::abs(value) > 1.0e3) {value*=1.0e-3; unit="TB";}
-    os << label << "\t" <<value<<"\t"<<unit<<"\n"; 
+    std::string label = i.first;
+    long long value = memList_.sublist("total memory").get(label, (long long)0);
+    int calls = memList_.sublist("number of calls").get(label, 1);
+    value /= calls;
+    os << label << "\t" << mem2string(value) << "\n"; 
     }
   os << "===================================================================================="<<std::endl;
 #endif
