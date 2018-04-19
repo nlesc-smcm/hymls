@@ -111,6 +111,10 @@ if (${phist_FOUND})
   target_link_libraries(hymls ${PHIST_LIBRARIES})
 endif()
 
+if (${HYMLS_MEMORY_PROFILING})
+  target_link_libraries(hymls ${CMAKE_DL_LIBS})
+endif()
+
 # Link HYMLS to all found libraries
 target_link_libraries(hymls ${found_library_dependencies})
 
