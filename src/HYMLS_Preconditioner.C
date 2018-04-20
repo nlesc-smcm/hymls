@@ -280,8 +280,9 @@ int Preconditioner::SetParameters(Teuchos::ParameterList& List)
       // - partition domain into small subdomains
       // - find separators
       // - group them according to the needs of our algorithm
-      hid_=Teuchos::rcp(new 
-         HYMLS::OverlappingPartitioner(matrix_,getMyNonconstParamList(),myLevel_));
+      hid_ = Teuchos::rcp(new
+        HYMLS::OverlappingPartitioner(rangeMap_,
+          getMyNonconstParamList(), myLevel_));
       }
 
     HYMLS_TEST(Label()+Teuchos::toString(myLevel_),

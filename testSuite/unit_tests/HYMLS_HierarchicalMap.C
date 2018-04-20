@@ -13,10 +13,9 @@
 class TestableHierarchicalMap : public HYMLS::HierarchicalMap
   {
 public:
-  TestableHierarchicalMap(Teuchos::RCP<const Epetra_Comm> comm,
-    Teuchos::RCP<const Epetra_Map> baseMap)
+  TestableHierarchicalMap(Teuchos::RCP<const Epetra_Map> baseMap)
     :
-    HierarchicalMap(comm, baseMap)
+    HierarchicalMap(baseMap)
     {}
 
   int AddGroup(int sd, Teuchos::Array<hymls_gidx>& gidList)
@@ -45,7 +44,7 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, AddGroup)
 
   int ret;
 
-  TestableHierarchicalMap hmap(Comm, map);
+  TestableHierarchicalMap hmap(map);
 
   // Can't add group to non-existing subdomain
   ret = hmap.AddGroup(0, gidList);
@@ -64,7 +63,7 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumMySubdomains)
 
   hymls_gidx n = 100;
   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
-  TestableHierarchicalMap hmap(Comm, map);
+  TestableHierarchicalMap hmap(map);
 
   hmap.Reset(3);
   int ret = hmap.NumMySubdomains();
@@ -84,7 +83,7 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumMyElements)
     gidList[i] = i;
     }
 
-  TestableHierarchicalMap hmap(Comm, map);
+  TestableHierarchicalMap hmap(map);
 
   hmap.Reset(2);
   hmap.AddGroup(0, gidList);
@@ -107,7 +106,7 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumMyInteriorElements)
     gidList[i] = i;
     }
 
-  TestableHierarchicalMap hmap(Comm, map);
+  TestableHierarchicalMap hmap(map);
 
   hmap.Reset(2);
   hmap.AddGroup(0, gidList);
@@ -130,7 +129,7 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumElements)
     gidList[i] = i;
     }
 
-  TestableHierarchicalMap hmap(Comm, map);
+  TestableHierarchicalMap hmap(map);
 
   hmap.Reset(2);
   hmap.AddGroup(0, gidList);
@@ -153,7 +152,7 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumInteriorElements)
     gidList[i] = i;
     }
 
-  TestableHierarchicalMap hmap(Comm, map);
+  TestableHierarchicalMap hmap(map);
 
   hmap.Reset(2);
   hmap.AddGroup(0, gidList);
@@ -176,7 +175,7 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumSeparatorElements)
     gidList[i] = i;
     }
 
-  TestableHierarchicalMap hmap(Comm, map);
+  TestableHierarchicalMap hmap(map);
 
   hmap.Reset(2);
   hmap.AddGroup(0, gidList);
@@ -201,7 +200,7 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumGroups)
     gidList[i] = i;
     }
 
-  TestableHierarchicalMap hmap(Comm, map);
+  TestableHierarchicalMap hmap(map);
 
   hmap.Reset(2);
   hmap.AddGroup(0, gidList);
@@ -226,7 +225,7 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumSeparatorGroups)
     gidList[i] = i;
     }
 
-  TestableHierarchicalMap hmap(Comm, map);
+  TestableHierarchicalMap hmap(map);
 
   hmap.Reset(2);
   hmap.AddGroup(0, gidList);
@@ -251,7 +250,7 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumElements2)
     gidList[i] = i;
     }
 
-  TestableHierarchicalMap hmap(Comm, map);
+  TestableHierarchicalMap hmap(map);
 
   hmap.Reset(2);
   hmap.AddGroup(0, gidList);
@@ -276,7 +275,7 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumElements2)
 //     gidList[i] = i;
 //     }
 
-//   TestableHierarchicalMap hmap(Comm, map);
+//   TestableHierarchicalMap hmap(map);
 
 //   hmap.Reset(2);
 //   hmap.AddGroup(0, gidList);

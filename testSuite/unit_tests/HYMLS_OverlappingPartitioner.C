@@ -3,9 +3,6 @@
 #include "HYMLS_CartesianPartitioner.H"
 #include "HYMLS_SkewCartesianPartitioner.H"
 
-#include "Galeri_CrsMatrices.h"
-#include "GaleriExt_CrsMatrices.h"
-
 #include <Teuchos_RCP.hpp>
 #include <Teuchos_ParameterList.hpp>
 
@@ -56,10 +53,10 @@
 class TestableOverlappingPartitioner : public HYMLS::OverlappingPartitioner
   {
 public:
-  TestableOverlappingPartitioner(Teuchos::RCP<const Epetra_RowMatrix> K,
+  TestableOverlappingPartitioner(Teuchos::RCP<const Epetra_Map> m,
     Teuchos::RCP<Teuchos::ParameterList> params, int level)
     :
-    HYMLS::OverlappingPartitioner(K, params, level)
+    HYMLS::OverlappingPartitioner(m, params, level)
     {
     nx_ = params->sublist("Problem").get("nx", 1);
     ny_ = params->sublist("Problem").get("ny", 1);
@@ -69,7 +66,7 @@ public:
 
   Teuchos::RCP<TestableOverlappingPartitioner> RemoveCornerSeparators()
     {
-    Teuchos::RCP<TestableOverlappingPartitioner> newPart = Teuchos::rcp(new TestableOverlappingPartitioner(matrix_, getMyNonconstParamList(), Level()));
+    Teuchos::RCP<TestableOverlappingPartitioner> newPart = Teuchos::rcp(new TestableOverlappingPartitioner(GetMap(), getMyNonconstParamList(), Level()));
     newPart->Reset(partitioner_->NumLocalParts());
 
     // Walk over subdomains
@@ -142,14 +139,10 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Laplace2D, nx, ny, sx, sy)
   solverList.set("Coarsening Factor", 2);
 
   Teuchos::RCP<HYMLS::CartesianPartitioner> part = Teuchos::rcp(
-    new HYMLS::CartesianPartitioner(Teuchos::null, paramList, Comm));
+    new HYMLS::CartesianPartitioner(Teuchos::null, paramList, *Comm));
   part->Partition(true);
   Teuchos::RCP<const Epetra_Map> map = part->GetMap();
-
-  Teuchos::RCP<Epetra_CrsMatrix> matrix = Teuchos::rcp(
-    Galeri::CreateCrsMatrix("Laplace2D", map.get(), problemList));
-
-  TestableOverlappingPartitioner opart(matrix, paramList, 0);
+  TestableOverlappingPartitioner opart(map, paramList, 0);
   Teuchos::RCP<TestableOverlappingPartitioner> opart2 = opart.RemoveCornerSeparators();
 
   ENABLE_OUTPUT;
@@ -286,14 +279,10 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Laplace3D, nx, ny, nz, sx, sy, sz
   solverList.set("Coarsening Factor", 2);
 
   Teuchos::RCP<HYMLS::CartesianPartitioner> part = Teuchos::rcp(
-    new HYMLS::CartesianPartitioner(Teuchos::null, paramList, Comm));
+    new HYMLS::CartesianPartitioner(Teuchos::null, paramList, *Comm));
   part->Partition(true);
   Teuchos::RCP<const Epetra_Map> map = part->GetMap();
-
-  Teuchos::RCP<Epetra_CrsMatrix> matrix = Teuchos::rcp(
-    Galeri::CreateCrsMatrix("Laplace3D", map.get(), problemList));
-
-  TestableOverlappingPartitioner opart(matrix, paramList, 0);
+  TestableOverlappingPartitioner opart(map, paramList, 0);
   Teuchos::RCP<TestableOverlappingPartitioner> opart2 = opart.RemoveCornerSeparators();
 
   ENABLE_OUTPUT;
@@ -419,14 +408,10 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Stokes2D, nx, ny, sx, sy)
   solverList.set("Coarsening Factor", 2);
 
   Teuchos::RCP<HYMLS::CartesianPartitioner> part = Teuchos::rcp(
-    new HYMLS::CartesianPartitioner(Teuchos::null, paramList, Comm));
+    new HYMLS::CartesianPartitioner(Teuchos::null, paramList, *Comm));
   part->Partition(true);
   Teuchos::RCP<const Epetra_Map> map = part->GetMap();
-
-  Teuchos::RCP<Epetra_CrsMatrix> matrix = Teuchos::rcp(
-    GaleriExt::CreateCrsMatrix("Stokes2D", map.get(), problemList));
-
-  TestableOverlappingPartitioner opart(matrix, paramList, 0);
+  TestableOverlappingPartitioner opart(map, paramList, 0);
   Teuchos::RCP<TestableOverlappingPartitioner> opart2 = opart.RemoveCornerSeparators();
 
   ENABLE_OUTPUT;
@@ -596,14 +581,10 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Stokes3D, nx, ny, nz, sx, sy, sz)
   solverList.set("Coarsening Factor", 2);
 
   Teuchos::RCP<HYMLS::CartesianPartitioner> part = Teuchos::rcp(
-    new HYMLS::CartesianPartitioner(Teuchos::null, paramList, Comm));
+    new HYMLS::CartesianPartitioner(Teuchos::null, paramList, *Comm));
   part->Partition(true);
   Teuchos::RCP<const Epetra_Map> map = part->GetMap();
-
-  Teuchos::RCP<Epetra_CrsMatrix> matrix = Teuchos::rcp(
-    GaleriExt::CreateCrsMatrix("Stokes3D", map.get(), problemList));
-
-  TestableOverlappingPartitioner opart(matrix, paramList, 0);
+  TestableOverlappingPartitioner opart(map, paramList, 0);
   Teuchos::RCP<TestableOverlappingPartitioner> opart2 = opart.RemoveCornerSeparators();
 
   ENABLE_OUTPUT;
@@ -743,15 +724,11 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewLaplace2D, nx, ny, sx, sy)
   solverList.set("Partitioner", "Skew Cartesian");
 
   Teuchos::RCP<HYMLS::SkewCartesianPartitioner> part = Teuchos::rcp(
-    new HYMLS::SkewCartesianPartitioner(Teuchos::null, paramList, Comm));
+    new HYMLS::SkewCartesianPartitioner(Teuchos::null, paramList, *Comm));
   part->Partition(true);
   Teuchos::RCP<const Epetra_Map> map = part->GetMap();
-
-  Teuchos::RCP<Epetra_CrsMatrix> matrix = Teuchos::rcp(
-    Galeri::CreateCrsMatrix("Laplace2D", map.get(), problemList));
-
   Teuchos::RCP<HYMLS::OverlappingPartitioner> opart2 = Teuchos::rcp(
-    new HYMLS::OverlappingPartitioner(matrix, paramList, 0));
+    new HYMLS::OverlappingPartitioner(map, paramList, 0));
 
   ENABLE_OUTPUT;
   for (int sd = 0; sd < opart2->NumMySubdomains(); sd++)
@@ -967,15 +944,11 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes2D, nx, ny, sx, sy)
   solverList.set("Partitioner", "Skew Cartesian");
 
   Teuchos::RCP<HYMLS::SkewCartesianPartitioner> part = Teuchos::rcp(
-    new HYMLS::SkewCartesianPartitioner(Teuchos::null, paramList, Comm));
+    new HYMLS::SkewCartesianPartitioner(Teuchos::null, paramList, *Comm));
   part->Partition(true);
   Teuchos::RCP<const Epetra_Map> map = part->GetMap();
-
-  Teuchos::RCP<Epetra_CrsMatrix> matrix = Teuchos::rcp(
-    GaleriExt::CreateCrsMatrix("Stokes2D", map.get(), problemList));
-
   Teuchos::RCP<HYMLS::OverlappingPartitioner> opart2 = Teuchos::rcp(
-    new HYMLS::OverlappingPartitioner(matrix, paramList, 0));
+    new HYMLS::OverlappingPartitioner(map, paramList, 0));
 
   ENABLE_OUTPUT;
   for (int sd = 0; sd < opart2->NumMySubdomains(); sd++)
@@ -1265,15 +1238,11 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes3D, nx, ny, nz, sx, sy,
   solverList.set("Partitioner", "Skew Cartesian");
 
   Teuchos::RCP<HYMLS::SkewCartesianPartitioner> part = Teuchos::rcp(
-    new HYMLS::SkewCartesianPartitioner(Teuchos::null, paramList, Comm));
+    new HYMLS::SkewCartesianPartitioner(Teuchos::null, paramList, *Comm));
   part->Partition(true);
   Teuchos::RCP<const Epetra_Map> map = part->GetMap();
-
-  Teuchos::RCP<Epetra_CrsMatrix> matrix = Teuchos::rcp(
-    GaleriExt::CreateCrsMatrix("Stokes3D", map.get(), problemList));
-
   Teuchos::RCP<HYMLS::OverlappingPartitioner> opart2 = Teuchos::rcp(
-    new HYMLS::OverlappingPartitioner(matrix, paramList, 0));
+    new HYMLS::OverlappingPartitioner(map, paramList, 0));
 
   ENABLE_OUTPUT;
   for (int sd = 0; sd < opart2->NumMySubdomains(); sd++)

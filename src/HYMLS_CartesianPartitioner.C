@@ -20,9 +20,9 @@ namespace HYMLS {
 CartesianPartitioner::CartesianPartitioner(
   Teuchos::RCP<const Epetra_Map> map,
   Teuchos::RCP<Teuchos::ParameterList> const &params,
-  Teuchos::RCP<const Epetra_Comm> const &comm)
+  Epetra_Comm const &comm)
   : BasePartitioner(), label_("CartesianPartitioner"),
-    comm_(comm), baseMap_(map), cartesianMap_(Teuchos::null),
+    comm_(Teuchos::rcp(&comm, false)), baseMap_(map), cartesianMap_(Teuchos::null),
     numLocalSubdomains_(-1), active_(true)
   {
   HYMLS_PROF3(label_, "Constructor");

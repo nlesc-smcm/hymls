@@ -25,7 +25,7 @@ public:
   //! constructor
   SkewCartesianPartitioner(Teuchos::RCP<const Epetra_Map> map,
     Teuchos::RCP<Teuchos::ParameterList> const &params,
-    Teuchos::RCP<const Epetra_Comm> const &comm);
+    Epetra_Comm const &comm);
 
   //! destructor
   virtual ~SkewCartesianPartitioner();

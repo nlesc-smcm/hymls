@@ -16,7 +16,7 @@ class TestableSkewCartesianPartitioner: public HYMLS::SkewCartesianPartitioner
 public:
   TestableSkewCartesianPartitioner(Teuchos::RCP<const Epetra_Map> map,
     Teuchos::RCP<Teuchos::ParameterList> const &params,
-    Teuchos::RCP<const Epetra_Comm> const &comm)
+    Epetra_Comm const &comm)
     :
     HYMLS::SkewCartesianPartitioner(map, params, comm)
     {}
@@ -51,7 +51,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, operator)
   params->sublist("Problem").set("Degrees of Freedom", 3);
   params->sublist("Preconditioner").set("Separator Length", 4);
 
-  TestableSkewCartesianPartitioner part(Teuchos::null, params, comm);
+  TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
   part.Partition(false);
 
   ENABLE_OUTPUT;
@@ -80,7 +80,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, PID)
   params->sublist("Problem").set("Degrees of Freedom", 3);
   params->sublist("Preconditioner").set("Separator Length", 4);
 
-  TestableSkewCartesianPartitioner part(Teuchos::null, params, comm);
+  TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
   part.Partition(false);
 
   ENABLE_OUTPUT;
@@ -115,7 +115,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, GetSubdomain)
   params->sublist("Problem").set("Equations", "Stokes-C");
   params->sublist("Preconditioner").set("Separator Length", cl);
 
-  TestableSkewCartesianPartitioner part(Teuchos::null, params, comm);
+  TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
   part.Partition(false);
 
   ENABLE_OUTPUT;
@@ -152,7 +152,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 2DNodes)
   params->sublist("Problem").set("Equations", "Stokes-C");
   params->sublist("Preconditioner").set("Separator Length", 4);
 
-  TestableSkewCartesianPartitioner part(Teuchos::null, params, comm);
+  TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
   part.Partition(false);
 
   int n = part.Map().NumGlobalElements64();
@@ -191,7 +191,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 1PSepPerDomain2D)
   params->sublist("Problem").set("Equations", "Stokes-C");
   params->sublist("Preconditioner").set("Separator Length", 4);
 
-  TestableSkewCartesianPartitioner part(Teuchos::null, params, comm);
+  TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
   part.Partition(false);
 
   ENABLE_OUTPUT;
@@ -227,7 +227,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 3DNodes)
   params->sublist("Problem").set("Equations", "Stokes-C");
   params->sublist("Preconditioner").set("Separator Length", 4);
 
-  TestableSkewCartesianPartitioner part(Teuchos::null, params, comm);
+  TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
   part.Partition(false);
 
   ENABLE_OUTPUT;
@@ -265,7 +265,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 5DOFNodes)
   params->sublist("Problem").set("Equations", "Bous-C");
   params->sublist("Preconditioner").set("Separator Length", 4);
 
-  TestableSkewCartesianPartitioner part(Teuchos::null, params, comm);
+  TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
   part.Partition(false);
 
   ENABLE_OUTPUT;
@@ -302,7 +302,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, DifferentSeparatorsSameProcs)
   params->sublist("Problem").set("Equations", "Stokes-C");
   params->sublist("Preconditioner").set("Separator Length", 2);
 
-  TestableSkewCartesianPartitioner part(Teuchos::null, params, comm);
+  TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
   part.Partition(true);
 
   Teuchos::RCP<Teuchos::ParameterList> params2 = Teuchos::rcp(
@@ -313,7 +313,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, DifferentSeparatorsSameProcs)
   params2->sublist("Problem").set("Equations", "Stokes-C");
   params2->sublist("Preconditioner").set("Separator Length", 8);
 
-  TestableSkewCartesianPartitioner part2(Teuchos::null, params2, comm);
+  TestableSkewCartesianPartitioner part2(Teuchos::null, params2, *comm);
   part2.Partition(true);
 
   ENABLE_OUTPUT;
@@ -339,7 +339,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 1PSepPerDomain3D)
   params->sublist("Problem").set("Equations", "Stokes-C");
   params->sublist("Preconditioner").set("Separator Length", 4);
 
-  TestableSkewCartesianPartitioner part(Teuchos::null, params, comm);
+  TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
   part.Partition(false);
 
   ENABLE_OUTPUT;
@@ -379,7 +379,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NoEmptyProcs16)
     params->sublist("Problem").set("Equations", "Stokes-C");
     params->sublist("Preconditioner").set("Separator Length", 4);
 
-    TestableSkewCartesianPartitioner part(Teuchos::null, params, comm);
+    TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
     part.Partition(false);
 
     TEST_INEQUALITY(part.NumLocalParts(), 0);
@@ -406,7 +406,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NoEmptyProcs128)
     params->sublist("Problem").set("Equations", "Stokes-C");
     params->sublist("Preconditioner").set("Separator Length", 4);
 
-    TestableSkewCartesianPartitioner part(Teuchos::null, params, comm);
+    TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
     part.Partition(false);
 
     TEST_INEQUALITY(part.NumLocalParts(), 0);
@@ -430,7 +430,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, SameNumSubdomains)
   params->sublist("Problem").set("Equations", "Stokes-C");
   params->sublist("Preconditioner").set("Separator Length", 4);
 
-  TestableSkewCartesianPartitioner part(Teuchos::null, params, comm);
+  TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
   part.Partition(false);
 
   int num = part.NumLocalParts();
@@ -444,7 +444,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, SameNumSubdomains)
   params->sublist("Problem").set("Equations", "Stokes-C");
   params->sublist("Preconditioner").set("Separator Length", 4);
 
-  TestableSkewCartesianPartitioner part2(Teuchos::null, params, comm);
+  TestableSkewCartesianPartitioner part2(Teuchos::null, params, *comm);
   part2.Partition(false);
 
   ENABLE_OUTPUT;
@@ -467,7 +467,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, GID64)
   params->sublist("Problem").set("Degrees of Freedom", 4);
   params->sublist("Preconditioner").set("Separator Length", 16);
 
-  TestableSkewCartesianPartitioner part(Teuchos::null, params, comm);
+  TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
   part.Partition(false);
 
   TEST_EQUALITY(part(nx-2, ny-1, nz-1), (nz / sx + 1 ) * (2 * nx / sx * ny / sx + ny / sx + nx / sx) - 1);
@@ -494,7 +494,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, operator2D)
   params->sublist("Problem").set("Degrees of Freedom", 2);
   params->sublist("Preconditioner").set("Separator Length", 6);
 
-  TestableSkewCartesianPartitioner part(Teuchos::null, params, comm);
+  TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
   part.Partition(false);
 
   ENABLE_OUTPUT;

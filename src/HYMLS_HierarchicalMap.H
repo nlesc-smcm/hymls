@@ -46,8 +46,7 @@ public:
     };
 
   // constructor - empty object
-  HierarchicalMap(Teuchos::RCP<const Epetra_Comm> comm,
-                  Teuchos::RCP<const Epetra_Map> baseMap,
+  HierarchicalMap(Teuchos::RCP<const Epetra_Map> baseMap,
                   int numMySubdomains=0,
                   std::string label="HierarchicalMap",
                   int level=1);
@@ -197,7 +196,7 @@ public:
   //@{  
   
   //!
-  const Epetra_Comm& Comm() const {return *comm_;}
+  const Epetra_Comm& Comm() const {return baseMap_->Comm();}
 
   //!
   std::string Label() const {return label_;}
@@ -213,9 +212,6 @@ public:
     {
     return *overlappingMap_;
     }
-
-  //!
-  Teuchos::RCP<const Epetra_Comm> GetComm() const {return comm_;}
 
   //!
   int Level() const {return myLevel_;}
@@ -302,7 +298,7 @@ private:
   //! protected constructor - does not allow any more changes
   //! (FillComplete() has been called), this is used for spawning
   //! objects like a map with all separators etc.
-  HierarchicalMap(Teuchos::RCP<const Epetra_Comm> comm,
+  HierarchicalMap(
     Teuchos::RCP<const Epetra_Map> baseMap,
     Teuchos::RCP<const Epetra_Map> overlappingMap,
     Teuchos::RCP<Teuchos::Array< Teuchos::Array<hymls_gidx> > > groupPointer,

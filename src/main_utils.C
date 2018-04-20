@@ -190,12 +190,12 @@ Teuchos::RCP<Epetra_Map> create_map(const Epetra_Comm& comm,
   if (partMethod == "Cartesian")
     {
     part = Teuchos::rcp(new HYMLS::CartesianPartitioner(
-        Teuchos::null, params, Teuchos::rcp(&comm, false)));
+        Teuchos::null, params, comm));
     }
   else if (partMethod == "Skew Cartesian")
     {
     part = Teuchos::rcp(new HYMLS::SkewCartesianPartitioner(
-        Teuchos::null, params, Teuchos::rcp(&comm, false)));
+        Teuchos::null, params, comm));
     }
   else
     HYMLS::Tools::Error("Partitioner not recognised", __FILE__, __LINE__);

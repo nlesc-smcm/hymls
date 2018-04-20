@@ -77,9 +77,9 @@ namespace HYMLS {
 SkewCartesianPartitioner::SkewCartesianPartitioner(
   Teuchos::RCP<const Epetra_Map> map,
   Teuchos::RCP<Teuchos::ParameterList> const &params,
-  Teuchos::RCP<const Epetra_Comm> const &comm)
+  Epetra_Comm const &comm)
   : BasePartitioner(), label_("SkewCartesianPartitioner"),
-    comm_(comm), baseMap_(map), cartesianMap_(Teuchos::null),
+    comm_(Teuchos::rcp(&comm, false)), baseMap_(map), cartesianMap_(Teuchos::null),
     npx_(-1), npy_(-1), npz_(-1),
     numLocalSubdomains_(-1),active_(true)
   {

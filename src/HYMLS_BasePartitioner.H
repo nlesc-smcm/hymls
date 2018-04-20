@@ -7,7 +7,6 @@
 
 #include "GaleriExt_Periodic.h"
 
-class Epetra_Comm;
 class Epetra_Map;
 
 namespace Teuchos {
