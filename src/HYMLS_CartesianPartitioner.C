@@ -342,7 +342,7 @@ int CartesianPartitioner::RemoveBoundarySeparators(Teuchos::Array<hymls_gidx> &i
 int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior_nodes,
   Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes)
   {
-  HYMLS_PROF2(label_,"GetGroups");
+  HYMLS_PROF3(label_,"GetGroups");
 
   // pressure nodes that need to be retained
   Teuchos::Array<hymls_gidx> retained_nodes;

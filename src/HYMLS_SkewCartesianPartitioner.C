@@ -213,6 +213,7 @@ int SkewCartesianPartitioner::NumLocalParts() const
 
 int SkewCartesianPartitioner::CreateSubdomainMap()
   {
+  HYMLS_PROF2(label_,"CreateSubdomainMap");
   int totNum2DCubes = npx_ * npy_; // number of cubes for fixed z
   int numPerLayer = 2 * totNum2DCubes + npx_ + npy_; // domains for fixed z
 
@@ -347,7 +348,7 @@ int SkewCartesianPartitioner::Partition(bool repart)
   if (repart)
     {
     Tools::Out("repartition for "+toString(nprocs_)+" procs");
-    HYMLS_PROF3(label_,"repartition map");
+    HYMLS_PROF2(label_,"repartition map");
 
     // Determine which gids belong to subdomains on this processor
     // by looping over the cubes in which they exist
@@ -439,7 +440,7 @@ int SkewCartesianPartitioner::Partition(bool repart)
 // be moved around to create the proper domain.
 std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::getTemplate() const
   {
-  HYMLS_PROF3(label_, "getTemplate");
+  HYMLS_PROF2(label_, "getTemplate");
   // Principal directions
 
   hymls_gidx nx = sx_ * 4;

@@ -24,7 +24,7 @@ namespace HYMLS {
                    Teuchos::RCP<const Epetra_SerialDenseMatrix> C)
   {
   label_="AugmentedMatrix";
-  HYMLS_PROF2(label_,"Constructor");
+  HYMLS_PROF3(label_,"Constructor");
   useTranspose_=false;
   if (!A->Filled())
     {
