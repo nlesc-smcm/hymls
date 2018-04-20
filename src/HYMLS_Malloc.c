@@ -255,13 +255,14 @@ void free(void *ptr)
         real_free(ptr);
 }
 
-void* memalign(size_t blocksize, size_t bytes)
+void* memalign(size_t alignment, size_t size)
 {
     if (!malloc_initialized)
         hookfns();
 
-    _printf("memalign not implemented: %zu\n", bytes);
-    return real_memalign(blocksize, bytes);
+    void *new_ptr = real_memalign(alignment, size);
+    add_ptr(new_ptr, size);
+    return new_ptr;
 }
 
 int posix_memalign(void** memptr, size_t alignment, size_t size)
@@ -269,8 +270,9 @@ int posix_memalign(void** memptr, size_t alignment, size_t size)
     if (!malloc_initialized)
         hookfns();
 
-    _printf("posix_memalign not implemented: %zu\n", size);
-    return real_posix_memalign(memptr, alignment, size);
+    int ret = real_posix_memalign(memptr, alignment, size);
+    add_ptr(*memptr, size);
+    return ret;
 }
 
 void* valloc(size_t size)
@@ -287,8 +289,9 @@ void* aligned_alloc(size_t alignment, size_t size)
     if (!malloc_initialized)
         hookfns();
 
-    _printf("aligned_alloc not implemented: %zu, %zu\n", alignment, size);
-    return real_aligned_alloc(alignment, size);
+    void *new_ptr = real_aligned_alloc(alignment, size);
+    add_ptr(new_ptr, size);
+    return new_ptr;
 }
 
 size_t malloc_usable_size(void *ptr)
