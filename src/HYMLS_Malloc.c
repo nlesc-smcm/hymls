@@ -8,7 +8,6 @@
 
 static char tmpbuf[32768];
 static size_t tmppos = 0;
-static size_t tmpallocs = 0;
 
 typedef struct ptr_size_
 {
@@ -34,28 +33,28 @@ static int dummy_del_ptr(void *ptr)
 static void (*add_ptr)(void *ptr, size_t size) = dummy_add_ptr;
 static int (*del_ptr)(void *ptr) = dummy_del_ptr;
 
-#define _printf(fmt, ...) { \
-    void (*old_add_ptr)(void *ptr, size_t size) = add_ptr; \
-    int (*old_del_ptr)(void *ptr) = del_ptr; \
-    add_ptr = dummy_add_ptr; \
-    del_ptr = dummy_del_ptr; \
-\
-    fprintf(stderr, fmt, ##__VA_ARGS__); \
-\
-    add_ptr = old_add_ptr; \
-    del_ptr = old_del_ptr; \
-}
+#define _printf(fmt, ...) {                                \
+        void (*old_add_ptr)(void *ptr, size_t size) = add_ptr;  \
+        int (*old_del_ptr)(void *ptr) = del_ptr;                \
+        add_ptr = dummy_add_ptr;                                \
+        del_ptr = dummy_del_ptr;                                \
+                                                                \
+        fprintf(stderr, fmt, ##__VA_ARGS__);                    \
+        fflush(stderr);                                         \
+                                                                \
+        add_ptr = old_add_ptr;                                  \
+        del_ptr = old_del_ptr;                                  \
+    }
 
 static void* dummy_malloc(size_t size)
 {
     if (tmppos + size >= sizeof(tmpbuf))
     {
-        _printf("Not enough space. Requested %zu, %lu available\n", size, sizeof(tmpbuf) - tmppos);
+        _printf("Not enough space. Requested %zu, %li available\n", size, sizeof(tmpbuf) - tmppos);
         exit(1);
     }
     void *retptr = tmpbuf + tmppos;
     tmppos += size;
-    ++tmpallocs;
     return retptr;
 }
 
@@ -69,6 +68,28 @@ static void* dummy_calloc(size_t nmemb, size_t size)
     return ptr;
 }
 
+static void *dummy_memalign(size_t alignment, size_t size)
+{
+    size_t pos = (size_t)tmpbuf + tmppos;
+    while (pos % alignment)
+    {
+        pos++;
+        tmppos++;
+    }
+    return dummy_malloc(size);
+}
+
+static void *dummy_aligned_alloc(size_t alignment, size_t size)
+{
+    return dummy_memalign(alignment, size);
+}
+
+static int dummy_posix_memalign(void** memptr, size_t alignment, size_t size)
+{
+    *memptr = dummy_memalign(alignment, size);
+    return 0;
+}
+
 static void dummy_free(void *ptr)
 {
 }
@@ -78,22 +99,22 @@ static int malloc_initialized = 0;
 static void* (*real_malloc)(size_t size) = dummy_malloc;
 static void* (*real_calloc)(size_t nmemb, size_t size) = dummy_calloc;
 static void* (*real_realloc)(void *ptr, size_t size) = NULL;
-static void* (*real_memalign)(size_t blocksize, size_t bytes) = NULL;
+static void* (*real_memalign)(size_t alignment, size_t size) = dummy_memalign;
 static void* (*real_valloc)(size_t size) = NULL;
 static int   (*real_posix_memalign)(void** memptr, size_t alignment,
-                                     size_t size) = NULL;
+                                    size_t size) = dummy_posix_memalign;
 static void  (*real_free)(void *ptr) = dummy_free;
-static void* (*real_aligned_alloc)(size_t alignment, size_t size) = NULL;
+static void* (*real_aligned_alloc)(size_t alignment, size_t size) = dummy_aligned_alloc;
 static size_t(*real_malloc_usable_size)(void *ptr) = NULL;
 static void* (*real_pvalloc)(size_t size) = NULL;
 
 static void* (*temp_malloc)(size_t size) = NULL;
 static void* (*temp_calloc)(size_t nmemb, size_t size) = NULL;
 static void* (*temp_realloc)(void *ptr, size_t size) = NULL;
-static void* (*temp_memalign)(size_t blocksize, size_t bytes) = NULL;
+static void* (*temp_memalign)(size_t alignment, size_t size) = NULL;
 static void* (*temp_valloc)(size_t size) = NULL;
 static int   (*temp_posix_memalign)(void** memptr, size_t alignment,
-                                     size_t size) = NULL;
+                                    size_t size) = NULL;
 static void  (*temp_free)(void *ptr) = NULL;
 static void* (*temp_aligned_alloc)(size_t alignment, size_t size) = NULL;
 static size_t(*temp_malloc_usable_size)(void *ptr) = NULL;
@@ -103,6 +124,15 @@ static int real_add_ptr_hash(void *ptr, size_t size)
 {
     ptr_size *ptrbuf_iter = ptrbuf + ((size_t)ptr % ptrbuf_size);
     for (; ptrbuf_iter != ptrbuf_end; ++ptrbuf_iter)
+    {
+        if (ptrbuf_iter->ptr == ptr)
+        {
+            if (ptrbuf_iter->size == size)
+                return 1;
+            else
+                _printf("Pointer of size %zu reallocated but not freed %p\n", size, ptr);
+        }
+
         if (ptrbuf_iter->ptr == NULL)
         {
             ptrbuf_iter->ptr = ptr;
@@ -111,6 +141,7 @@ static int real_add_ptr_hash(void *ptr, size_t size)
             max_total_size = total_size > max_total_size ? total_size : max_total_size;
             return 1;
         }
+    }
     return 0;
 }
 
@@ -121,7 +152,17 @@ static void ptrbuf_realloc()
         ptrbuf_size = 20;
 
     ptr_size *tmp_ptrbuf = ptrbuf;
+
+    // Protect calloc call since apparently this can in turn call memalign
+    void (*old_add_ptr)(void *ptr, size_t size) = add_ptr;
+    int (*old_del_ptr)(void *ptr) = del_ptr;
+    add_ptr = dummy_add_ptr;
+    del_ptr = dummy_del_ptr;
+
     ptrbuf = (ptr_size *)real_calloc(ptrbuf_size, sizeof(ptr_size));
+
+    add_ptr = old_add_ptr;
+    del_ptr = old_del_ptr;
 
     if (tmp_ptrbuf)
     {
