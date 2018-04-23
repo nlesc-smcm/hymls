@@ -67,9 +67,9 @@ public:
     }
 
   //! return the repartitioned/reordered map
-  inline const Epetra_Map& Map() const
+  inline Teuchos::RCP<const Epetra_Map> GetMap() const
     {
-    return *cartesianMap_;
+    return cartesianMap_;
     }
 
   //! return the repartitioned/reordered map
