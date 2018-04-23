@@ -22,7 +22,7 @@ CartesianPartitioner::CartesianPartitioner(
   Teuchos::RCP<Teuchos::ParameterList> const &params,
   Epetra_Comm const &comm)
   : BasePartitioner(), label_("CartesianPartitioner"),
-    comm_(Teuchos::rcp(&comm, false)), baseMap_(map), cartesianMap_(Teuchos::null),
+    comm_(Teuchos::rcp(comm.Clone())), baseMap_(map), cartesianMap_(Teuchos::null),
     numLocalSubdomains_(-1), active_(true)
   {
   HYMLS_PROF3(label_, "Constructor");

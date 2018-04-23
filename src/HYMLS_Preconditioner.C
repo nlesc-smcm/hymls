@@ -45,7 +45,7 @@ namespace HYMLS {
       Teuchos::RCP<const OverlappingPartitioner> hid,
       int myLevel, Teuchos::RCP<Epetra_Vector> testVector)
       : PLA("Preconditioner"),
-        comm_(Teuchos::rcp(&(K->Comm()), false)), matrix_(K),
+        comm_(Teuchos::rcp(K->Comm().Clone())), matrix_(K),
         rangeMap_(Teuchos::rcp(new Epetra_Map(K->RowMatrixRowMap()))),
         hid_(hid), myLevel_(myLevel), testVector_(testVector),
         scaling_(Teuchos::null),

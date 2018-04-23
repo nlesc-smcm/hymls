@@ -79,7 +79,7 @@ SkewCartesianPartitioner::SkewCartesianPartitioner(
   Teuchos::RCP<Teuchos::ParameterList> const &params,
   Epetra_Comm const &comm)
   : BasePartitioner(), label_("SkewCartesianPartitioner"),
-    comm_(Teuchos::rcp(&comm, false)), baseMap_(map), cartesianMap_(Teuchos::null),
+    comm_(Teuchos::rcp(comm.Clone())), baseMap_(map), cartesianMap_(Teuchos::null),
     npx_(-1), npy_(-1), npz_(-1),
     numLocalSubdomains_(-1),active_(true)
   {

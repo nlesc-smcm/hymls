@@ -54,7 +54,7 @@ BaseSolver::BaseSolver(Teuchos::RCP<const Epetra_RowMatrix> K,
   Teuchos::RCP<Teuchos::ParameterList> params,
   int numRhs, bool validate)
   :
-  PLA("Solver"), comm_(Teuchos::rcp(&(K->Comm()),false)),
+  PLA("Solver"), comm_(Teuchos::rcp(K->Comm().Clone())),
   matrix_(K), operator_(K), precond_(P),
   shiftA_(1.0), shiftB_(0.0),
   massMatrix_(Teuchos::null),

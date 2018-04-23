@@ -61,7 +61,7 @@ namespace HYMLS {
     HYMLS::Tools::Error("shape of C does not mach that of V and W",__FILE__,__LINE__);
     }
 
-  comm_=Teuchos::rcp(&(A_->Comm()), false);
+  comm_=Teuchos::rcp(A_->Comm().Clone());
 
   // the W' and C part are officially owned by the last processor
   numMyDenseRows_=0;

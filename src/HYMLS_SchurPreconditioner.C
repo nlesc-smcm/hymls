@@ -52,7 +52,7 @@ SchurPreconditioner::SchurPreconditioner(
   int level,
   Teuchos::RCP<Epetra_Vector> testVector)
   : PLA("Preconditioner"),
-    comm_(Teuchos::rcp(&(SC->Comm()),false)),
+    comm_(Teuchos::rcp(SC->Comm().Clone())),
     SchurMatrix_(Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(SC)),
     tmpMatrix_(Teuchos::null),
     SchurComplement_(Teuchos::rcp_dynamic_cast<const HYMLS::SchurComplement>(SC)),
