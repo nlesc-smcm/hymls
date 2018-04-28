@@ -16,6 +16,9 @@
 /* report each function that is entered/left, very large output files */
 #cmakedefine HYMLS_FUNCTION_TRACING
 
+/* report memory usage after calling a function, is really slow */
+#cmakedefine HYMLS_MEMORY_PROFILING
+
 /* determines which functions are to be timed/traced (0: none >5 all) */
 #define HYMLS_TIMING_LEVEL ${HYMLS_TIMING_LEVEL}
 

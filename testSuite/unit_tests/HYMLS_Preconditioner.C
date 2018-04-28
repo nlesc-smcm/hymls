@@ -80,7 +80,7 @@ Teuchos::RCP<TestablePreconditioner> createPreconditioner(
   precList.set("Separator Length", 4);
   precList.set("Number of Levels", 1);
 
-  HYMLS::CartesianPartitioner part(Teuchos::null, params, comm);
+  HYMLS::CartesianPartitioner part(Teuchos::null, params, *comm);
   part.Partition(true);
 
   Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(new Epetra_CrsMatrix(Copy, part.Map(), 2));
@@ -224,7 +224,7 @@ Teuchos::RCP<TestablePreconditioner> create2DStokesPreconditioner(
   ssolverList.set("Custom Ordering", true);
 
   Teuchos::RCP<HYMLS::SkewCartesianPartitioner> part = Teuchos::rcp(
-    new HYMLS::SkewCartesianPartitioner(Teuchos::null, params, comm));
+    new HYMLS::SkewCartesianPartitioner(Teuchos::null, params, *comm));
   part->Partition(true);
 
   Teuchos::RCP<Epetra_CrsMatrix> matrix = Teuchos::rcp(

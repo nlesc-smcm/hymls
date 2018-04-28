@@ -45,8 +45,8 @@ namespace HYMLS {
       Teuchos::RCP<const OverlappingPartitioner> hid,
       int myLevel, Teuchos::RCP<Epetra_Vector> testVector)
       : PLA("Preconditioner"),
-        comm_(Teuchos::rcp(&(K->Comm()), false)), matrix_(K),
-        rangeMap_(Teuchos::rcp(&(K->RowMatrixRowMap()), false)),
+        comm_(Teuchos::rcp(K->Comm().Clone())), matrix_(K),
+        rangeMap_(Teuchos::rcp(new Epetra_Map(K->RowMatrixRowMap()))),
         hid_(hid), myLevel_(myLevel), testVector_(testVector),
         scaling_(Teuchos::null),
         useTranspose_(false), normInf_(-1.0),
@@ -58,7 +58,6 @@ namespace HYMLS {
         numThreadsSD_(-1)
     {
     HYMLS_LPROF3(label_,"Constructor");
-    REPORT_SUM_MEM(label_,"Matrix",K->NumMyNonzeros(),K->NumMyNonzeros(),comm_);
     serialComm_=Teuchos::rcp(new Epetra_SerialComm());
 //    serialComm_=Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_SELF));
     time_=Teuchos::rcp(new Epetra_Time(K->Comm()));
@@ -281,8 +280,9 @@ int Preconditioner::SetParameters(Teuchos::ParameterList& List)
       // - partition domain into small subdomains
       // - find separators
       // - group them according to the needs of our algorithm
-      hid_=Teuchos::rcp(new 
-         HYMLS::OverlappingPartitioner(matrix_,getMyNonconstParamList(),myLevel_));
+      hid_ = Teuchos::rcp(new
+        HYMLS::OverlappingPartitioner(rangeMap_,
+          getMyNonconstParamList(), myLevel_));
       }
 
     HYMLS_TEST(Label()+Teuchos::toString(myLevel_),
@@ -342,10 +342,6 @@ int Preconditioner::SetParameters(Teuchos::ParameterList& List)
   CHECK_ZERO(reorderedMatrix_->Import(*Acrs,*importer_,Insert));
 
   CHECK_ZERO(reorderedMatrix_->FillComplete());
-
-  REPORT_SUM_MEM(label_,"reordered matrix",reorderedMatrix_->NumMyNonzeros(),
-    reorderedMatrix_->NumMyNonzeros(),
-    comm_);
 
   // Construct the matrix blocks we need for the Schur complement
   A11_ = Teuchos::rcp(new MatrixBlock(Acrs, reorderedMatrix_, hid_,
@@ -544,7 +540,6 @@ int Preconditioner::InitializeCompute()
     CHECK_ZERO(Schur_->Scale(schurScaLeft_,schurScaRight_));
     }
 
-REPORT_SUM_MEM(label_,"before schurprec",0,0, comm_);
   CHECK_ZERO(schurPrec_->Compute());
 
   computed_ = true;

@@ -86,9 +86,6 @@ int MatrixBlock::Compute()
   CHECK_ZERO(block_->Import(*matrix_, *import_, Insert));
   CHECK_ZERO(block_->FillComplete(*domainMap_, *rangeMap_));
 
-  REPORT_SUM_MEM(label_, "copies of matrix parts", block_->NumMyNonzeros(),
-    block_->NumMyNonzeros(), &matrix_->Comm());
-
   return 0;
   }
 
@@ -122,8 +119,6 @@ int MatrixBlock::ComputeSubdomainBlocks()
 
     nzCopy += (double)(subBlocks_[sd]->NumMyNonzeros());
     }
-
-  REPORT_SUM_MEM(label_, "copies of matrix parts", nzCopy, nzCopy, &extendedMatrix_->Comm());
 
   return 0;
   }
@@ -281,7 +276,6 @@ int MatrixBlock::ComputeSubdomainSolvers()
     }
 #endif
 
-  REPORT_SUM_MEM(label_, "subdomain solvers", nnz, nnz, &extendedMatrix_->Comm());
   return 0;
   }
 

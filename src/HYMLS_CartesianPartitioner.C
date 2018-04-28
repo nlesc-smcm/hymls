@@ -20,9 +20,9 @@ namespace HYMLS {
 CartesianPartitioner::CartesianPartitioner(
   Teuchos::RCP<const Epetra_Map> map,
   Teuchos::RCP<Teuchos::ParameterList> const &params,
-  Teuchos::RCP<const Epetra_Comm> const &comm)
+  Epetra_Comm const &comm)
   : BasePartitioner(), label_("CartesianPartitioner"),
-    comm_(comm), baseMap_(map), cartesianMap_(Teuchos::null),
+    comm_(Teuchos::rcp(comm.Clone())), baseMap_(map), cartesianMap_(Teuchos::null),
     numLocalSubdomains_(-1), active_(true)
   {
   HYMLS_PROF3(label_, "Constructor");
@@ -342,7 +342,7 @@ int CartesianPartitioner::RemoveBoundarySeparators(Teuchos::Array<hymls_gidx> &i
 int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior_nodes,
   Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes)
   {
-  HYMLS_PROF2(label_,"GetGroups");
+  HYMLS_PROF3(label_,"GetGroups");
 
   // pressure nodes that need to be retained
   Teuchos::Array<hymls_gidx> retained_nodes;

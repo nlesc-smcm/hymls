@@ -27,7 +27,7 @@ TEUCHOS_UNIT_TEST(CartesianPartitioner, Partition2D)
   params->sublist("Preconditioner").set("Separator Length (y)", 2);
   params->sublist("Preconditioner").set("Separator Length (z)", 1);
 
-  HYMLS::CartesianPartitioner part(Teuchos::null, params, comm);
+  HYMLS::CartesianPartitioner part(Teuchos::null, params, *comm);
 
   // This will cause an exception when compiled with TESTING if it fails
   part.Partition(true);
@@ -53,7 +53,7 @@ TEUCHOS_UNIT_TEST(CartesianPartitioner, Partition3D)
   params->sublist("Preconditioner").set("Separator Length (y)", 2);
   params->sublist("Preconditioner").set("Separator Length (z)", 2);
 
-  HYMLS::CartesianPartitioner part(Teuchos::null, params, comm);
+  HYMLS::CartesianPartitioner part(Teuchos::null, params, *comm);
 
   // This will cause an exception when compiled with TESTING if it fails
   part.Partition(true);
@@ -77,7 +77,7 @@ TEUCHOS_UNIT_TEST(CartesianPartitioner, 5DOFNodes)
   params->sublist("Problem").set("Equations", "Bous-C");
   params->sublist("Preconditioner").set("Separator Length", 4);
 
-  HYMLS::CartesianPartitioner part(Teuchos::null, params, comm);
+  HYMLS::CartesianPartitioner part(Teuchos::null, params, *comm);
 
   // This will cause an exception when compiled with TESTING if it fails
   part.Partition(false);
@@ -119,7 +119,7 @@ TEUCHOS_UNIT_TEST(CartesianPartitioner, GID64)
   params->sublist("Problem").set("Degrees of Freedom", 4);
   params->sublist("Preconditioner").set("Separator Length", 4);
 
-  HYMLS::CartesianPartitioner part(Teuchos::null, params, comm);
+  HYMLS::CartesianPartitioner part(Teuchos::null, params, *comm);
   part.Partition(false);
 
   Teuchos::Array<hymls_gidx> interior_nodes;

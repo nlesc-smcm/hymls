@@ -54,7 +54,7 @@ BaseSolver::BaseSolver(Teuchos::RCP<const Epetra_RowMatrix> K,
   Teuchos::RCP<Teuchos::ParameterList> params,
   int numRhs, bool validate)
   :
-  PLA("Solver"), comm_(Teuchos::rcp(&(K->Comm()),false)),
+  PLA("Solver"), comm_(Teuchos::rcp(K->Comm().Clone())),
   matrix_(K), operator_(K), precond_(P),
   shiftA_(1.0), shiftB_(0.0),
   massMatrix_(Teuchos::null),
@@ -104,11 +104,8 @@ BaseSolver::BaseSolver(Teuchos::RCP<const Epetra_RowMatrix> K,
     }
   else if (solverType_=="GMRES")
     {
-    belosSolverPtr_ = Teuchos::rcp(new gmresSolMgrType
-      (belosProblemPtr_,belosListPtr));
-    int blockSize=belosList.get("Block Size",1);
-    int numBlocks=belosList.get("Num Blocks",300);
-    REPORT_MEM(label_,"GMRES (estimate)",numBlocks*blockSize*matrix_->NumMyRows(),0);
+    belosSolverPtr_ = Teuchos::rcp(new gmresSolMgrType(
+        belosProblemPtr_,belosListPtr));
     }
   else
     {

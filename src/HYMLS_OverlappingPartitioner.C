@@ -8,29 +8,28 @@
 #include "Teuchos_StrUtils.hpp"
 #include "Teuchos_Array.hpp"
 
-#include "Epetra_RowMatrix.h"
-
 #include "GaleriExt_Periodic.h"
 
 #include "Teuchos_StandardParameterEntryValidators.hpp"
 
 namespace HYMLS {
 
-  //constructor
+//constructor
 
-  // we call the base class constructor with a lot of null-pointers and create the
-  // data structures ourselves in the constructor. This means that the base class
-  // is not fully initialized during the constructor, but afterwards it is.
-  // This is OK because the base class constructor is mostly intended for spawning
-  // a new level from an existing one.
-OverlappingPartitioner::OverlappingPartitioner(Teuchos::RCP<const Epetra_RowMatrix> K,
+// we call the base class constructor with a lot of null-pointers and create the
+// data structures ourselves in the constructor. This means that the base class
+// is not fully initialized during the constructor, but afterwards it is.
+// This is OK because the base class constructor is mostly intended for spawning
+// a new level from an existing one.
+OverlappingPartitioner::OverlappingPartitioner(
+  Teuchos::RCP<const Epetra_Map> map,
   Teuchos::RCP<Teuchos::ParameterList> params, int level)
-  : HierarchicalMap(Teuchos::rcp(&(K->Comm()),false),
-    Teuchos::rcp(&(K->RowMatrixRowMap()),false),
-    0,"OverlappingPartitioner",level),
-    PLA("Problem"), matrix_(K), partitioner_(Teuchos::null)
+  :
+  HierarchicalMap(map, 0, "OverlappingPartitioner", level),
+  PLA("Problem"),
+  partitioner_(Teuchos::null)
   {
-  HYMLS_PROF3(Label(),"Constructor");
+  HYMLS_PROF2(Label(),"Constructor");
 
   setParameterList(params);
 
@@ -64,12 +63,12 @@ int OverlappingPartitioner::Partition()
   if (partitioningMethod_ == "Cartesian")
     {
     partitioner_ = Teuchos::rcp(new
-      CartesianPartitioner(GetMap(), getMyNonconstParamList(), comm_));
+      CartesianPartitioner(GetMap(), getMyNonconstParamList(), Comm()));
     }
   else if (partitioningMethod_ == "Skew Cartesian")
     {
     partitioner_ = Teuchos::rcp(new
-      SkewCartesianPartitioner(GetMap(), getMyNonconstParamList(), comm_));
+      SkewCartesianPartitioner(GetMap(), getMyNonconstParamList(), Comm()));
     }
   else
     {
@@ -136,10 +135,11 @@ int OverlappingPartitioner::DetectSeparators()
   return 0;
   }
 
-Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLevel
-        (Teuchos::RCP<const Epetra_RowMatrix> Ared, Teuchos::RCP<Teuchos::ParameterList> newList) const
+Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLevel(
+  Teuchos::RCP<const Epetra_Map> map,
+  Teuchos::RCP<Teuchos::ParameterList> newList) const
   {
-  HYMLS_PROF3(Label(), "SpawnNextLevel");
+  HYMLS_PROF2(Label(), "SpawnNextLevel");
 
   *newList = *getMyParamList();
   partitioner_->SetNextLevelParameters(*newList);
@@ -147,7 +147,7 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
   HYMLS_DEBVAR(*newList);
 
   Teuchos::RCP<const OverlappingPartitioner> newLevel;
-  newLevel = Teuchos::rcp(new OverlappingPartitioner(Ared, newList, Level()+1));
+  newLevel = Teuchos::rcp(new OverlappingPartitioner(map, newList, Level()+1));
   return newLevel;
   }
 

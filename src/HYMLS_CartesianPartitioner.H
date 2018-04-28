@@ -25,7 +25,7 @@ public:
   //! constructor
   CartesianPartitioner(Teuchos::RCP<const Epetra_Map> map,
     Teuchos::RCP<Teuchos::ParameterList> const &params,
-    Teuchos::RCP<const Epetra_Comm> const &comm);
+    Epetra_Comm const &comm);
 
   //! destructor
   virtual ~CartesianPartitioner();
@@ -67,9 +67,9 @@ public:
     }
 
   //! return the repartitioned/reordered map
-  inline const Epetra_Map& Map() const
+  inline Teuchos::RCP<const Epetra_Map> GetMap() const
     {
-    return *cartesianMap_;
+    return cartesianMap_;
     }
 
   //! return the repartitioned/reordered map

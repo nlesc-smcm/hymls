@@ -282,6 +282,13 @@ static void SignalHandler(int signum)
   //! stop timing specific part of the code
   static void StopTiming(std::string const &fname, bool print=false, Teuchos::RCP<Epetra_Time> T=Teuchos::null);
 
+  //! start memory profiling a specific part of the code
+  static std::tuple<long long, long long> StartMemory(std::string const &label);
+
+  //! stop memory profiling specific part of the code
+  static void StopMemory(std::string const &fname, bool print=false,
+                         long long memory=-1, long long max_memory=-1);
+
 #ifdef HYMLS_DEBUGGING
   //! set breakpoint (does nothing if HYMLS_DEBUGGING is not defined)
   //! function is the name of something that is being timed, e.g.
@@ -300,12 +307,6 @@ static void SignalHandler(int signum)
   
   //! print timing results
   static void PrintTiming(std::ostream& os);
-  
-  //! report memory usage to a global list. If the same  
-  //! label is passed in again, the entry is overwritten 
-  //! (it is assumed that the memory has been freed in   
-  //! the mean time). 
-  static void ReportMemUsage(std::string const &label, double bytes);
   
   //! report memory usage
   static void PrintMemUsage(std::ostream& os);
@@ -409,6 +410,10 @@ class TimerObject
   bool print_;
   //!
   Teuchos::RCP<Epetra_Time> T_;
+  //!
+  size_t memory_used_;
+  //!
+  size_t memory_allocated_;
   };
 
   }

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5.0)
-project(HYMLS CXX)
+project(HYMLS C CXX)
 
 option(HYMLS_USE_OPENMP OFF "allow using multi-threading inside HYMLS")
 
@@ -14,6 +14,7 @@ option(HYMLS_USE_JDQZPP OFF "try to find JDQZPP and enable it as eigensolver wit
 option(HYMLS_STORE_MATRICES "dump all matrices, maps etc. encountered (huge overhead)" OFF)
 option(HYMLS_DEBUGGING "turns on verbose debugging output" OFF)
 option(HYMLS_FUNCTION_TRACING "turns on very verbose output on every function entered/left" OFF)
+option(HYMLS_MEMORY_PROFILING "report memory usage after calling a function, is really slow" OFF)
 option(HYMLS_LONG_LONG "use long long global indices" OFF)
 
 # HYMLS version

@@ -96,6 +96,10 @@ if (HYMLS_USE_OPENMP)
   endif()
 endif()
 
+if (${HYMLS_MEMORY_PROFILING})
+  list(APPEND HYMLS_SOURCE HYMLS_Malloc)
+endif()
+
 add_library(hymls ${HYMLS_SOURCE})
 
 target_link_libraries(hymls ${Trilinos_LIBRARIES})
@@ -105,6 +109,10 @@ target_link_libraries(hymls ${MPI_CXX_LIBRARIES})
 if (${phist_FOUND})
   target_include_directories(hymls PUBLIC ${PHIST_INCLUDE_DIRS})
   target_link_libraries(hymls ${PHIST_LIBRARIES})
+endif()
+
+if (${HYMLS_MEMORY_PROFILING})
+  target_link_libraries(hymls ${CMAKE_DL_LIBS})
 endif()
 
 # Link HYMLS to all found libraries

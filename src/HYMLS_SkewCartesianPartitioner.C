@@ -77,9 +77,9 @@ namespace HYMLS {
 SkewCartesianPartitioner::SkewCartesianPartitioner(
   Teuchos::RCP<const Epetra_Map> map,
   Teuchos::RCP<Teuchos::ParameterList> const &params,
-  Teuchos::RCP<const Epetra_Comm> const &comm)
+  Epetra_Comm const &comm)
   : BasePartitioner(), label_("SkewCartesianPartitioner"),
-    comm_(comm), baseMap_(map), cartesianMap_(Teuchos::null),
+    comm_(Teuchos::rcp(comm.Clone())), baseMap_(map), cartesianMap_(Teuchos::null),
     npx_(-1), npy_(-1), npz_(-1),
     numLocalSubdomains_(-1),active_(true)
   {
@@ -213,6 +213,7 @@ int SkewCartesianPartitioner::NumLocalParts() const
 
 int SkewCartesianPartitioner::CreateSubdomainMap()
   {
+  HYMLS_PROF2(label_,"CreateSubdomainMap");
   int totNum2DCubes = npx_ * npy_; // number of cubes for fixed z
   int numPerLayer = 2 * totNum2DCubes + npx_ + npy_; // domains for fixed z
 
@@ -347,7 +348,7 @@ int SkewCartesianPartitioner::Partition(bool repart)
   if (repart)
     {
     Tools::Out("repartition for "+toString(nprocs_)+" procs");
-    HYMLS_PROF3(label_,"repartition map");
+    HYMLS_PROF2(label_,"repartition map");
 
     // Determine which gids belong to subdomains on this processor
     // by looping over the cubes in which they exist
@@ -729,7 +730,7 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::solveGroups(
 std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(int sd,
   std::vector<std::vector<hymls_gidx> > groups) const
   {
-  HYMLS_PROF2(label_, "createSubdomain");
+  HYMLS_PROF3(label_, "createSubdomain");
 
   int sdx, sdy, sdz;
   GetSubdomainPosition(sd, sx_, sdx, sdy, sdz);
@@ -845,7 +846,7 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(
 int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior_nodes,
   Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes)
   {
-  HYMLS_PROF2(label_,"GetGroups");
+  HYMLS_PROF3(label_,"GetGroups");
 
   int gsd = sdMap_->GID(sd);
 

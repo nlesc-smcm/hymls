@@ -2,6 +2,8 @@
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_RCP.hpp"
 
+#include <dlfcn.h>
+
 #include <cstdlib>
 #include <cstdio>
 #include <cstdarg>
@@ -84,7 +86,6 @@ RCP<Epetra_Time> Tools::StartTiming(std::string const &fname)
     return T;
   }
 
-
 void Tools::StopTiming(std::string const &fname, bool print, RCP<Epetra_Time> T)
   {
 #ifdef HYMLS_FUNCTION_TRACING
@@ -121,20 +122,159 @@ void Tools::StopTiming(std::string const &fname, bool print, RCP<Epetra_Time> T)
     }
   }
 
+std::string mem2string(long long mem)
+  {
+  double value = mem;
+  std::string unit = "B";
+  if (std::abs(value) > 1.0e3) {value*=1.0e-3; unit="kB";}
+  if (std::abs(value) > 1.0e3) {value*=1.0e-3; unit="MB";}
+  if (std::abs(value) > 1.0e3) {value*=1.0e-3; unit="GB";}
+  if (std::abs(value) > 1.0e3) {value*=1.0e-3; unit="TB";}
+
+  std::ostringstream ss;
+  ss << std::fixed;
+  ss.precision(2);
+  ss << value << " " << unit;
+  return ss.str();
+  }
+
+size_t (*getMem)() = NULL;
+size_t (*getMaxMem)() = NULL;
+
+std::tuple<long long, long long> Tools::StartMemory(std::string const &fname)
+  {
+  long long memory = -1;
+  long long max_memory = -1;
+#ifdef HYMLS_MEMORY_PROFILING
+  if (!getMem)
+    {
+    getMem = (size_t (*)())dlsym(RTLD_DEFAULT, "get_memory_usage");
+    getMaxMem = (size_t (*)())dlsym(RTLD_DEFAULT, "get_max_memory_usage");
+    }
+  if (!getMem)
+    {
+    getMem = [](){ return (size_t)0; };
+    getMaxMem = [](){ return (size_t)0; };
+    Tools::Warning("Memory profiler not loaded correctly", __FILE__, __LINE__);
+    }
+
+  if (InitializedIO())
+    {
+    long long local_memory = getMem();
+    comm_->SumAll(&local_memory, &memory, 1);
+    memList_.sublist("memory").set(fname, memory);
+
+    long long local_max_memory = getMaxMem();
+    comm_->SumAll(&local_max_memory, &max_memory, 1);
+    memList_.sublist("maximum memory").set(fname, max_memory);
+    }
+#endif
+  return std::make_tuple(memory, max_memory);
+  }
+
+void Tools::StopMemory(std::string const &fname, bool print,
+  long long start_memory, long long start_max_memory)
+  {
+#ifdef HYMLS_MEMORY_PROFILING
+  if (start_memory < 0)
+    start_memory = memList_.sublist("memory").get(fname, (long long)-1);
+
+  if (start_max_memory < 0)
+    start_max_memory = memList_.sublist("maximum memory").get(fname, (long long)-1);
+
+  if (start_memory < 0 || start_max_memory < 0)
+    return;
+
+  long long memory = 0;
+  long long local_memory = getMem();
+  comm_->SumAll(&local_memory, &memory, 1);
+  memory -= start_memory;
+
+  long long max_memory = 0;
+  long long local_max_memory = getMaxMem();
+  comm_->SumAll(&local_max_memory, &max_memory, 1);
+  max_memory -= start_max_memory;
+
+  long long total_used = memList_.sublist("total used").get(fname, (long long)0);
+  memList_.sublist("total used").set(fname, total_used + memory);
+
+  long long maximum_used = memList_.sublist("maximum used").get(fname, (long long)0);
+  memList_.sublist("maximum used").set(fname, std::max(maximum_used, memory));
+
+  long long max_increase = memList_.sublist("maximum allocated increase").get(fname, (long long)0);
+  memList_.sublist("maximum allocated increase").set(fname, std::max(max_increase, max_memory));
+
+  int ncalls = memList_.sublist("number of calls").get(fname, 0);
+  memList_.sublist("number of calls").set(fname, ncalls + 1);
+
+  if (print)
+    {
+    out() << "### memory: " << fname << " "<< mem2string(memory) << std::endl;
+    }
+#endif
+  }
+
+template<typename charT, typename traits = std::char_traits<charT> >
+class center_helper
+  {
+  std::basic_string<charT, traits> str_;
+
+public:
+  center_helper(std::basic_string<charT, traits> str)
+    :
+    str_(str)
+    {}
+
+  template<typename a, typename b>
+  friend std::basic_ostream<a, b>& operator<<(std::basic_ostream<a, b>& s, const center_helper<a, b>& c);
+  };
+
+template<typename charT, typename traits = std::char_traits<charT> >
+center_helper<charT, traits> centered(std::basic_string<charT, traits> str)
+  {
+  return center_helper<charT, traits>(str);
+  }
+
+center_helper<std::string::value_type, std::string::traits_type> centered(const std::string& str) {
+  return center_helper<std::string::value_type, std::string::traits_type>(str);
+  }
+
+template<typename charT, typename traits>
+std::basic_ostream<charT, traits>& operator<<(std::basic_ostream<charT, traits>& s, const center_helper<charT, traits>& c)
+  {
+  s << std::right;
+  std::streamsize w = s.width();
+  if (w > static_cast<std::streamsize>(c.str_.length()))
+    {
+    std::streamsize left = (w + c.str_.length()) / 2;
+    s.width(left);
+    s << c.str_;
+    s.width(w - left);
+    s << "";
+    }
+  else
+    {
+    s << c.str_;
+    }
+  return s;
+  }
+
 void Tools::PrintTiming(std::ostream& os)
   {
-
   ParameterList& idList=timerList_.sublist("timer id");
   ParameterList& ncallsList=timerList_.sublist("number of calls");
   ParameterList& elapsedList=timerList_.sublist("total time");
 
-  os << "================================== TIMING RESULTS =================================="<<std::endl;
-  os << "     Description                              ";
-  os << " # Calls \t Cumulative Time \t Time/call\n";
-  os << "=========================================================================================="<<std::endl;
+  os << std::setfill('=') << std::setw(120) << centered(" TIMING RESULTS ") << std::endl;
+  os << std::setfill(' ') << std::setw(120-17*3) << std::left << "Description"
+     << std::setfill(' ') << std::setw(17) << std::left << "# Calls"
+     << std::setfill(' ') << std::setw(17) << std::left << "Cumulative Time"
+     << std::setfill(' ') << std::setw(17) << std::left << "Time/call"
+     << std::endl;
+  os << std::setfill('=') << std::setw(120) << "" << std::endl;
 
-// first construct a correctly sorted list according to timer ID
-Teuchos::ParameterList sortedList;
+  // first construct a correctly sorted list according to timer ID
+  Teuchos::ParameterList sortedList;
   for (ParameterList::ConstIterator i=ncallsList.begin();i!=ncallsList.end();i++)
     {
     const string& fname = i->first;
@@ -143,51 +283,59 @@ Teuchos::ParameterList sortedList;
     label << std::setw(6) << std::setfill('0') << id << " " << fname;
     sortedList.set(label.str(),fname);
     }
-  
+
   for (ParameterList::ConstIterator i=sortedList.begin();i!=sortedList.end();i++)
     {
     const string& label = i->first;
     string fname = sortedList.get(label,"bad label");
     int ncalls = ncallsList.get(fname,0);
     double elapsed = elapsedList.get(fname,0.0);
-    os << fname << "\t" <<ncalls<<"\t"<<elapsed<<"\t" 
-       << ((ncalls>0)? elapsed/(double)ncalls : 0.0) <<std::endl;
+    os << std::setfill(' ') << std::setw(120-17*3) << std::left << fname
+       << std::setfill(' ') << std::setw(17) << std::left << ncalls
+       << std::setfill(' ') << std::setw(17) << std::left << elapsed
+       << std::setfill(' ') << std::setw(17) << std::left
+       << (ncalls > 0 ? elapsed/(double)ncalls : 0.0)
+       << std::endl;
     }
-  os << "=========================================================================================="<<std::endl;
-  }
-
-void Tools::ReportMemUsage(std::string const &label, double bytes)
-  {
-  memList_.set(label,bytes);
+  os << std::setfill('=') << std::setw(120) << "" << std::endl;
   }
 
 void Tools::PrintMemUsage(std::ostream& os)
   {
-  os << "=================================== MEMORY USAGE ==================================="<<std::endl;
-  double total = 0.0;
-  double value;
-  std::string unit, label;
-  for (ParameterList::ConstIterator i=memList_.begin();i!=memList_.end();i++)
+#ifdef HYMLS_MEMORY_PROFILING
+  os << std::setfill('=') << std::setw(137) << centered(" MEMORY USAGE ") << std::endl;
+  os << std::setfill(' ') << std::setw(137-17*4) << std::left << "Description"
+     << std::setfill(' ') << std::setw(17) << std::left << "# Calls"
+     << std::setfill(' ') << std::setw(17) << std::left << "Maximum Usage"
+     << std::setfill(' ') << std::setw(17) << std::left << "Average Usage"
+     << std::setfill(' ') << std::setw(17) << std::left << "Maximum Increase"
+     << std::endl;
+  os << std::setfill('=') << std::setw(137) << "" << std::endl;
+
+  for (auto &i: memList_.sublist("total used"))
     {
-    label = i->first;
-    unit = "B";
-    value = memList_.get(label,0.0);
-    total += value;
-    if (value > 1.0e3) {value*=1.0e-3; unit="kB";}
-    if (value > 1.0e3) {value*=1.0e-3; unit="MB";}
-    if (value > 1.0e3) {value*=1.0e-3; unit="GB";}
-    if (value > 1.0e3) {value*=1.0e-3; unit="TB";}
-    os << label << "\t" <<value<<"\t"<<unit<<"\n"; 
+    std::string label = i.first;
+    long long total = memList_.sublist("total used").get(label, (long long)0);
+    long long maximum = memList_.sublist("maximum used").get(label, (long long)0);
+    long long increase = memList_.sublist("maximum allocated increase").get(label, (long long)0);
+    int ncalls = memList_.sublist("number of calls").get(label, 1);
+    os << std::setfill(' ') << std::setw(137-17*4) << std::left << label
+       << std::setfill(' ') << std::setw(17) << std::left << ncalls
+       << std::setfill(' ') << std::setw(17) << std::left << mem2string(maximum)
+       << std::setfill(' ') << std::setw(17) << std::left
+       << mem2string(ncalls > 0 ? total / ncalls : 0)
+       << std::setfill(' ') << std::setw(17) << std::left << mem2string(increase)
+       << std::endl;
     }
-  os << "===================================================================================="<<std::endl;  
-  value = total; unit="B";
-  label = "TOTAL";
-    if (value > 1.0e3) {value*=1.0e-3; unit="kB";}
-    if (value > 1.0e3) {value*=1.0e-3; unit="MB";}
-    if (value > 1.0e3) {value*=1.0e-3; unit="GB";}
-    if (value > 1.0e3) {value*=1.0e-3; unit="TB";}
-    os << label << "\t" <<value<<"\t"<<unit<<"\n"; 
-  os << "===================================================================================="<<std::endl;  
+  
+  long long max_memory = 0;
+  long long local_max_memory = getMaxMem();
+  comm_->SumAll(&local_max_memory, &max_memory, 1);
+
+  os << std::setfill('=') << std::setw(137) << centered(" MAX MEMORY USAGE ") << std::endl;
+  os << "Total: " << mem2string(max_memory) << "\n";
+  os << std::setfill('=') << std::setw(137) << "" << std::endl;
+#endif
   return;
   }
 
@@ -306,14 +454,19 @@ bool Tools::GetCheckPoint(std::string fname, std::string& msg,
 
 
 TimerObject::TimerObject(std::string const &s, bool print)
+  :
+  s_(s),
+  print_(print)
   {
-  s_=s;
-  print_=print;
   T_=Tools::StartTiming(s);
+  auto m = Tools::StartMemory(s);
+  memory_used_ = std::get<0>(m);
+  memory_allocated_ = std::get<1>(m);
   }
 
 TimerObject::~TimerObject()
   {
   Tools::StopTiming(s_, print_, T_);
+  Tools::StopMemory(s_, print_, memory_used_, memory_allocated_);
   }
 }

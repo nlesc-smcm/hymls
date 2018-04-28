@@ -7,7 +7,6 @@
 
 #include "GaleriExt_Periodic.h"
 
-class Epetra_Comm;
 class Epetra_Map;
 
 namespace Teuchos {
@@ -69,15 +68,14 @@ class BasePartitioner
   
   //! get the (re-)partitioned map (here elements belonging
   //! to a subdomain have contiguous local indexing)
-  virtual const Epetra_Map& Map() const = 0;
+  virtual const Epetra_Map& Map() const {return *GetMap();}
   
   //! get the map with global IDs of the subdomains
   virtual const Epetra_Map& SubdomainMap() const = 0;
   
   //! get the (re-)partitioned map (here elements belonging
   //! to a subdomain have contiguous local indexing)
-  virtual Teuchos::RCP<const Epetra_Map> GetMap() const 
-    {return Teuchos::rcp(&Map(),false);}
+  virtual Teuchos::RCP<const Epetra_Map> GetMap() const = 0;
 
   //! global grid size
   hymls_gidx nx_, ny_, nz_;
