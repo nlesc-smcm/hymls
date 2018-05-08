@@ -384,11 +384,8 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
           {
           if (d == pvar && (itype == -1 || jtype == -1 || ktype == -1))
             continue;
-          else if ((itype == 0 && jtype == 0 && ktype == 0) ||
-                   // Pressure nodes that are not in tubes
-                   (d == pvar && ((itype == 0 && jtype == 0) ||
-                                  (itype == 0 && ktype == 0) ||
-                                  (jtype == 0 && ktype == 0))))
+          else if ((itype == 0 && jtype == 0 && ktype == 0) || (d == pvar && !(
+                itype == sx_-1 && jtype == sy_-1 && (nz_ <= 1 || ktype == sz_-1))))
             nodes = &interior_nodes;
           else
             {
