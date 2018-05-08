@@ -303,7 +303,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Laplace3D, nx, ny, nz, sx, sy, sz
       if (grp == 0)
         {
         // Interior
-        if (numGroups == 4)
+        if (isGroup[14] == 0 && isGroup[16] == 0 && isGroup[22] == 0)
           {
           // Right back bottom
           TEST_EQUALITY(opart.NumElements(sd, grp), sx * sy * sz);
@@ -620,7 +620,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Stokes3D, nx, ny, nz, sx, sy, sz)
     int numGroups = std::accumulate(isGroup.begin(), isGroup.end(), 0) * 3 // velocities
       - 2 // interiors
       + 1 // interior pressure
-      + isGroup[26]; // corner pressures
+      + isGroup[17] + isGroup[23] + isGroup[25] + isGroup[26]; // corner pressures
 
     TEST_EQUALITY(opart.NumGroups(sd), numGroups);
 
@@ -631,9 +631,9 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Stokes3D, nx, ny, nz, sx, sy, sz)
       if (grp == 0)
         {
         // Interior
-        if (numGroups == 4)
+        if (isGroup[14] == 0 && isGroup[16] == 0 && isGroup[22] == 0)
           {
-          // Corner
+          // Right back bottom
           TEST_EQUALITY(opart.NumElements(sd, grp), sx * sy * sz * dof - 1);
           int pos = 0;
           for (int i = 0; i < opart.NumElements(sd, grp) / dof; i++)
@@ -647,16 +647,16 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Stokes3D, nx, ny, nz, sx, sy, sz)
               }
             }
           }
-        else if (numGroups == 27)
+        else if (numGroups == 27 * 3 - 2 + 1 + 4)
           {
           // Center
-          TEST_EQUALITY(opart.NumElements(sd, grp), (sx-1) * (sy-1) * (sz-1) * (dof - 1) + sx * sy * sz - 2);
+          TEST_EQUALITY(opart.NumElements(sd, grp), (sx-1) * (sy-1) * (sz-1) * dof - 1 + (sx-1) * (sy-1) + (sx-1) * (sz-1) + (sy-1) * (sz-1));
           }
         }
       }
-    if (numGroups == 27)
+    if (numGroups == 27 * 3 - 2 + 1 + 4)
       {
-      TEST_EQUALITY(totalNodes, sx * sy * sz * dof + (sx-1) * (sy-1) * (dof-1) + (sx-1) * (sz-1) * (dof-1) + (sy-1) * (sz-1) * (dof-1));
+      TEST_EQUALITY(totalNodes, sx * sy * sz * dof + ((sx + 1) * (sy + 1) + (sx + 1) * sz + sy * sz) * (dof-1));
       }
     }
   }
