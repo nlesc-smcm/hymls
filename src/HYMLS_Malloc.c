@@ -27,7 +27,7 @@ static void dummy_add_ptr(void *ptr, size_t size)
 
 static int dummy_del_ptr(void *ptr)
 {
-    return 0;
+    return -1;
 }
 
 static void (*add_ptr)(void *ptr, size_t size) = dummy_add_ptr;
@@ -128,7 +128,7 @@ static int real_add_ptr_hash(void *ptr, size_t size)
         if (ptrbuf_iter->ptr == ptr)
         {
             if (ptrbuf_iter->size == size)
-                return 0;
+                return 1;
             else
                 _printf("Pointer of size %zu reallocated but not freed %p\n", size, ptr);
         }
@@ -169,7 +169,7 @@ static void ptrbuf_realloc()
         {
             if (ptrbuf_iter->ptr)
             {
-                if (real_add_ptr_hash(ptrbuf_iter->ptr, ptrbuf_iter->size))
+                if (real_add_ptr_hash(ptrbuf_iter->ptr, ptrbuf_iter->size) == -1)
                     ptrbuf_realloc();
             }
         }
@@ -180,12 +180,16 @@ static void ptrbuf_realloc()
 
 static void real_add_ptr(void *ptr, size_t size)
 {
-    if (!real_add_ptr_hash(ptr, size))
+    int ret = real_add_ptr_hash(ptr, size);
+
+    if (ret == 0)
     {
         total_size += size;
         max_total_size = total_size > max_total_size ? total_size : max_total_size;
-        return;
     }
+
+    if (ret >= 0)
+        return;
 
     ptrbuf_realloc();
 
@@ -295,7 +299,7 @@ void free(void *ptr)
     if (!malloc_initialized)
         hookfns();
 
-    if (!del_ptr(ptr))
+    if (del_ptr(ptr) == 0)
         real_free(ptr);
 }
 
