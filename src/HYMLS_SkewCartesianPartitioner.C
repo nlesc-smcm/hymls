@@ -563,7 +563,7 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::solveGroups(
   hymls_gidx dir2 = (dirY - dirX)/2 + dirZ; 
   hymls_gidx dir3 = dirZ;
 
-  // Create model problem
+  // Positions of shifted domains
   hymls_gidx positions[27] = {0, -dir3, dir3, -dir2, -dir2-dir3,
                               -dir2+dir3, dir2, dir2-dir3, dir2+dir3,
                               -dir1, -dir1-dir3, -dir1+dir3, -dir1-dir2,
@@ -577,18 +577,9 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::solveGroups(
   std::vector<hymls_gidx> tempList;
   for (auto &it: temp)
     for (auto &it2: it)
-      tempList.push_back(it2);
+      tempList.push_back(it2 + first);
 
-  // Setup all domains in the test problem
-  std::vector<std::vector<hymls_gidx> > domain;
-  for (auto &it: positions)
-    {
-    domain.emplace_back(tempList);
-    std::for_each(domain.back().begin(), domain.back().end(),
-      [it, first](hymls_gidx& d) { d += it + first;});
-    }
-
-  // Find groups. Note that domain[0] is the domain that we want to solve for
+  // Find groups
   std::vector<std::vector<hymls_gidx> > groups;
   std::vector<unsigned long long> groupDomains;
 
@@ -596,14 +587,14 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::solveGroups(
   groups.emplace_back(0);
   groupDomains.push_back(1);
 
-  for (auto &node: domain[0])
+  for (auto &node: tempList)
     {
     // For each node, first check to which domains it belongs and store it as bits
     unsigned long long listOfDomains = 0;
-    for (size_t i = 0; i < domain.size(); i++)
+    for (size_t i = 0; i < 27; i++)
       {
-      auto it = std::lower_bound(domain[i].begin(), domain[i].end(), node);
-      if (it != domain[i].end() && *it == node)
+      auto it = std::lower_bound(tempList.begin(), tempList.end(), node - positions[i]);
+      if (it != tempList.end() && *it == node - positions[i])
         listOfDomains += 1 << i;
       }
 
