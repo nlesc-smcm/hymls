@@ -6,6 +6,8 @@
 #include "Epetra_IntVector.h"
 #include "Epetra_Import.h"
 
+#include "Epetra_Distributor.h"
+
 using Teuchos::toString;
 
 namespace HYMLS {
@@ -189,59 +191,98 @@ int CartesianPartitioner::Partition(bool repart)
     Tools::Out("repartition for "+s4+" procs");
     HYMLS_PROF3(label_,"repartition map");
 
-    int numMyElements = numLocalSubdomains_ * sx_ * sy_ * sz_ * dof_;
-    hymls_gidx *myGlobalElements = new hymls_gidx[numMyElements];
+    Teuchos::RCP<Epetra_Distributor> Distor =
+      Teuchos::rcp(comm_->CreateDistributor());
+
+    int myPID = comm_->MyPID();
+
+    // check how many of the owned GIDs in the map need to be
+    // moved to someone else
+    int numSends = 0;
+    for (int lid = 0; lid < baseMap_->NumMyElements(); lid++)
+    {
+        hymls_gidx gid = baseMap_->GID64(lid);
+        if (PID(gid) != myPID)
+          numSends++;
+    }
+
+    int numLocal = baseMap_->NumMyElements() - numSends;
+
+    // determine which GIDs we have to move, and where they will go
+    hymls_gidx *sendGIDs = new hymls_gidx[numSends];
+    int *sendPIDs = new int[numSends];
+
     int pos = 0;
-    for (int sd = 0; sd < numLocalSubdomains_; sd++)
+    for (int i = 0; i < baseMap_->NumMyElements(); i++)
       {
-      int x, y, z;
-      Tools::ind2sub(npx_, npy_, npz_, sdMap_->GID(sd), x, y, z);
-      for (int k = z * sz_; k < (z + 1) * sz_; k++)
-        for (int j = y * sy_; j < (y + 1) * sy_; j++)
-          for (int i = x * sx_; i < (x + 1) * sx_; i++)
-            for (int var = 0; var < dof_; var++)
-              {
-              hymls_gidx gid = Tools::sub2ind(nx_, ny_, nz_, dof_, i, j, k, var);
-              if (sdMap_->LID((*this)(gid)) == sd)
-                {
-                if (pos >= numMyElements)
-                  {
-                  Tools::Error("Index out of range", __FILE__, __LINE__);
-                  }
-                myGlobalElements[pos++] = gid;
-                }
-              }
-      }
-
-    Epetra_Map tmpRepartitionedMap((hymls_gidx)(-1), pos,
-      myGlobalElements, (hymls_gidx)baseMap_->IndexBase64(), *comm_);
-
-    Epetra_IntVector vec(*baseMap_);
-    vec.PutValue(1);
-
-    Epetra_Import import(tmpRepartitionedMap, *baseMap_);
-    Epetra_IntVector repartVec(tmpRepartitionedMap);
-    repartVec.Import(vec, import, Insert);
-
-    pos = 0;
-    for (int i = 0; i < repartVec.MyLength(); i++)
-      {
-      if (repartVec[i] == 1)
+      hymls_gidx gid = baseMap_->GID64(i);
+      int pid = PID(gid); // global partition ID
+      if (pid != myPID)
         {
-        if (pos >= numMyElements)
+        if (pos >= numSends)
           {
-          Tools::Error("Index out of range", __FILE__, __LINE__);
+          Tools::Error("Sanity check failed with gid = " + Teuchos::toString(gid) +
+            ", pos = " + Teuchos::toString(pos) + ", numSends = " +
+            Teuchos::toString(numSends) + ".", __FILE__, __LINE__);
           }
-        myGlobalElements[pos++] = tmpRepartitionedMap.GID64(i);
+        sendGIDs[pos] = gid;
+        sendPIDs[pos++] = pid;
         }
       }
 
-    cartesianMap_ = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), pos,
-        myGlobalElements, (hymls_gidx)baseMap_->IndexBase64(), *comm_));
+    int numRecvs;
+    CHECK_ZERO(Distor->CreateFromSends(numSends, sendPIDs, true, numRecvs));
+ 
+    char* sbuf = reinterpret_cast<char*>(sendGIDs);
+    int numRecvChars = static_cast<int>(numRecvs * sizeof(hymls_gidx));
+    char* rbuf = new char[numRecvChars];
 
-    if (myGlobalElements)
-      delete [] myGlobalElements;
+    CHECK_ZERO(Distor->Do(sbuf, sizeof(hymls_gidx), numRecvChars, rbuf));
+
+    hymls_gidx *recvGIDs = reinterpret_cast<hymls_gidx*>(rbuf);
+    if (static_cast<int>(numRecvs * sizeof(hymls_gidx)) != numRecvChars)
+      {
+      Tools::Error("sanity check failed", __FILE__, __LINE__);
+      }
+
+    int NumMyElements = numLocal + numRecvs;
+    hymls_gidx *MyGlobalElements = new hymls_gidx[NumMyElements];
+    pos = 0;
+    for (int i = 0; i < baseMap_->NumMyElements(); i++)
+      {
+      hymls_gidx gid = baseMap_->GID64(i);
+      if (PID(gid) == myPID)
+        MyGlobalElements[pos++] = gid;
+      }
+
+    for (int i = 0; i < numRecvs; i++)
+      MyGlobalElements[pos+i] = recvGIDs[i];
+
+    std::sort(MyGlobalElements, MyGlobalElements + NumMyElements);
+
+    cartesianMap_ = Teuchos::rcp(new Epetra_Map(
+        -1, NumMyElements, MyGlobalElements, (hymls_gidx)baseMap_->IndexBase64(), *comm_));
+
+    delete [] sendPIDs;
+    delete [] sendGIDs;
+    delete [] rbuf;
+    delete [] MyGlobalElements;
     }
+
+#ifdef HYMLS_TESTING
+  // Now we have a cartesian processor partitioning and no nodes have to
+  // be moved between partitions. Some partitions may be empty, though.
+  // Check that we do not miss anything
+  for (int lid = 0; lid < repartitionedMap->NumMyElements(); lid++)
+    {
+    hymls_gidx gid = repartitionedMap->GID64(lid);
+    if (PID(gid) != comm_->MyPID())
+      {
+      Tools::Error("Repartitioning seems to be necessary/have failed for gid "
+        + Teuchos::toString(gid) + ".", __FILE__, __LINE__);
+      }
+    }
+#endif
 
   if (active_)
     {

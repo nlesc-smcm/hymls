@@ -264,4 +264,11 @@ void BasePartitioner::SetNextLevelParameters(Teuchos::ParameterList& params)
     precList.set("Coarsening Factor", cx_);
   }
 
+int BasePartitioner::PID(hymls_gidx gid) const
+  {
+  int i, j, k, var;
+  Tools::ind2sub(nx_, ny_, nz_, dof_, gid, i, j, k, var);
+  return PID(i, j, k);
+  }
+
   }//namespace
