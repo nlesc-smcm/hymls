@@ -22,15 +22,7 @@
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_Utils.hpp"
 
-#include "Trilinos_version.h"
-
-#if TRILINOS_MAJOR_MINOR_VERSION>=120601
-#include "BelosExtBlockGmresSolMgr.hpp"
-#define OWN_GMRES 1
-#else
 #include "BelosBlockGmresSolMgr.hpp"
-#warning "we cannot reuse GMRES basis information with older Trilinos versions than 12.6.1"
-#endif
 #include "BelosTypes.hpp"
 #include "BelosBlockCGSolMgr.hpp"
 //#include "BelosPCPGSolMgr.hpp"
@@ -41,11 +33,8 @@
 
 #include "HYMLS_no_debug.H"
 
-#ifdef OWN_GMRES
-typedef ::BelosExt::BlockGmresSolMgr<double,Epetra_MultiVector,Epetra_Operator> gmresSolMgrType;
-#else
 typedef ::Belos::BlockGmresSolMgr<double,Epetra_MultiVector,Epetra_Operator> gmresSolMgrType;
-#endif
+
 namespace HYMLS {
 
 // constructor

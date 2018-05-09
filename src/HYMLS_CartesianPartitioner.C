@@ -191,9 +191,9 @@ int CartesianPartitioner::Partition(bool repart)
     }
 
 #ifdef HYMLS_TESTING
-  // Now we have a cartesian processor partitioning and no nodes have to
-  // be moved between partitions. Some partitions may be empty, though.
-  // Check that we do not miss anything
+  // Now we have a cartesian processor partitioning and no nodes have
+  // to be moved between partitions. Some partitions may be empty,
+  // though. Check that we do not miss anything
   for (int lid = 0; lid < repartitionedMap->NumMyElements(); lid++)
     {
     hymls_gidx gid = repartitionedMap->GID64(lid);

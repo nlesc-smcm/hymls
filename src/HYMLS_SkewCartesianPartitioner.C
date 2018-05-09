@@ -351,6 +351,21 @@ int SkewCartesianPartitioner::Partition(bool repart)
     cartesianMap_ = RepartitionMap(baseMap_);
     }
 
+#ifdef HYMLS_TESTING
+  // Now we have a skew cartesian processor partitioning and no nodes
+  // have to be moved between partitions. Some partitions may be
+  // empty, though. Check that we do not miss anything
+  for (int lid = 0; lid < repartitionedMap->NumMyElements(); lid++)
+    {
+    hymls_gidx gid = repartitionedMap->GID64(lid);
+    if (PID(gid) != comm_->MyPID())
+      {
+      Tools::Error("Repartitioning seems to be necessary/have failed for gid "
+        + Teuchos::toString(gid) + ".", __FILE__, __LINE__);
+      }
+    }
+#endif
+
   if (active_)
     {
     Tools::Out("Number of Partitions: " + s4);
