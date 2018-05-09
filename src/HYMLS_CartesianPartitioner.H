@@ -83,7 +83,7 @@ public:
 
 protected:
 
-  //!
+  //! label
   std::string label_;
 
   //! communicator

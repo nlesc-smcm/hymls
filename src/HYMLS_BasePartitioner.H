@@ -79,6 +79,13 @@ public:
 
 protected:
 
+  //! Repartitioning may occur for two reasons, typically on coarser levels:
+  //! a) the number of subdomains becomes smaller than the number of processes,
+  //! b) the subdomains can't be nicely distributed among the processes.
+  //! In both cases some processes are deactivated.
+  virtual Teuchos::RCP<const Epetra_Map> RepartitionMap(
+    Teuchos::RCP<const Epetra_Map> baseMap) const;
+
   //! get processor on which a grid point is located
   virtual int PID(hymls_gidx gid) const;
 
