@@ -29,6 +29,7 @@ set(HYMLS_SOURCE HYMLS_Solver
     HYMLS_PLA
     HYMLS_Exception
     HYMLS_MatrixBlock
+    HYMLS_ShiftedOperator
     NOX_Epetra_LinearSystem_Hymls
     GaleriExt_CrsMatrices
     GaleriExt_Periodic
@@ -51,7 +52,6 @@ set(HEADERS ${HEADERS}
   HYMLS_no_debug.H
   HYMLS_OrthogonalTransform.H
   HYMLS_RestrictedOT.H
-  HYMLS_ShiftedOperator.H
   )
 
 include_directories(${PROJECT_SOURCE_DIR})

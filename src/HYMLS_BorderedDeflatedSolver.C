@@ -6,6 +6,8 @@
 #include "Epetra_SerialDenseMatrix.h"
 #include "Epetra_SerialDenseSolver.h"
 
+#include "BelosSolverManager.hpp"
+
 #include "AnasaziEpetraAdapter.hpp"
 #include "AnasaziSVQBOrthoManager.hpp"
 
