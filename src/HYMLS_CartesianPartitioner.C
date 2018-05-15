@@ -187,61 +187,23 @@ int CartesianPartitioner::Partition(bool repart)
   if (repart)
     {
     Tools::Out("repartition for "+s4+" procs");
-    HYMLS_PROF3(label_,"repartition map");
-
-    int numMyElements = numLocalSubdomains_ * sx_ * sy_ * sz_ * dof_;
-    hymls_gidx *myGlobalElements = new hymls_gidx[numMyElements];
-    int pos = 0;
-    for (int sd = 0; sd < numLocalSubdomains_; sd++)
-      {
-      int x, y, z;
-      Tools::ind2sub(npx_, npy_, npz_, sdMap_->GID(sd), x, y, z);
-      for (int k = z * sz_; k < (z + 1) * sz_; k++)
-        for (int j = y * sy_; j < (y + 1) * sy_; j++)
-          for (int i = x * sx_; i < (x + 1) * sx_; i++)
-            for (int var = 0; var < dof_; var++)
-              {
-              hymls_gidx gid = Tools::sub2ind(nx_, ny_, nz_, dof_, i, j, k, var);
-              if (sdMap_->LID((*this)(gid)) == sd)
-                {
-                if (pos >= numMyElements)
-                  {
-                  Tools::Error("Index out of range", __FILE__, __LINE__);
-                  }
-                myGlobalElements[pos++] = gid;
-                }
-              }
-      }
-
-    Epetra_Map tmpRepartitionedMap((hymls_gidx)(-1), pos,
-      myGlobalElements, (hymls_gidx)baseMap_->IndexBase64(), *comm_);
-
-    Epetra_IntVector vec(*baseMap_);
-    vec.PutValue(1);
-
-    Epetra_Import import(tmpRepartitionedMap, *baseMap_);
-    Epetra_IntVector repartVec(tmpRepartitionedMap);
-    repartVec.Import(vec, import, Insert);
-
-    pos = 0;
-    for (int i = 0; i < repartVec.MyLength(); i++)
-      {
-      if (repartVec[i] == 1)
-        {
-        if (pos >= numMyElements)
-          {
-          Tools::Error("Index out of range", __FILE__, __LINE__);
-          }
-        myGlobalElements[pos++] = tmpRepartitionedMap.GID64(i);
-        }
-      }
-
-    cartesianMap_ = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), pos,
-        myGlobalElements, (hymls_gidx)baseMap_->IndexBase64(), *comm_));
-
-    if (myGlobalElements)
-      delete [] myGlobalElements;
+    cartesianMap_ = RepartitionMap(baseMap_);
     }
+
+#ifdef HYMLS_TESTING
+  // Now we have a cartesian processor partitioning and no nodes have
+  // to be moved between partitions. Some partitions may be empty,
+  // though. Check that we do not miss anything
+  for (int lid = 0; lid < repartitionedMap->NumMyElements(); lid++)
+    {
+    hymls_gidx gid = repartitionedMap->GID64(lid);
+    if (PID(gid) != comm_->MyPID())
+      {
+      Tools::Error("Repartitioning seems to be necessary/have failed for gid "
+        + Teuchos::toString(gid) + ".", __FILE__, __LINE__);
+      }
+    }
+#endif
 
   if (active_)
     {

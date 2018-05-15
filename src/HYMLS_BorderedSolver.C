@@ -8,8 +8,12 @@
 #include "Epetra_SerialDenseMatrix.h"
 #include "Epetra_SerialDenseSVD.h"
 
-#include "BelosBlockGmresSolMgr.hpp"
 #include "BelosTypes.hpp"
+
+#include "BelosLinearProblem.hpp"
+#include "BelosSolverManager.hpp"
+
+#include "BelosBlockGmresSolMgr.hpp"
 #include "BelosBlockCGSolMgr.hpp"
 #include "HYMLS_BelosEpetraOperator.H"
 

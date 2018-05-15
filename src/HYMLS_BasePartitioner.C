@@ -7,6 +7,8 @@
 
 #include "Teuchos_StandardParameterEntryValidators.hpp"
 
+#include "Epetra_Distributor.h"
+
 #ifdef HYMLS_TESTING
 #include "HYMLS_Tester.H"
 #endif
@@ -262,6 +264,100 @@ void BasePartitioner::SetNextLevelParameters(Teuchos::ParameterList& params)
     }
   else
     precList.set("Coarsening Factor", cx_);
+  }
+
+Teuchos::RCP<const Epetra_Map> BasePartitioner::RepartitionMap(
+  Teuchos::RCP<const Epetra_Map> baseMap) const
+  {
+  HYMLS_PROF2("BasePartitioner", "RepartitionMap");
+
+  Epetra_Comm const &comm = baseMap->Comm();
+
+  Teuchos::RCP<Epetra_Distributor> Distor =
+    Teuchos::rcp(comm.CreateDistributor());
+
+  int myPID = comm.MyPID();
+
+  // check how many of the owned GIDs in the map need to be
+  // moved to someone else
+  int numSends = 0;
+  for (int lid = 0; lid < baseMap->NumMyElements(); lid++)
+    {
+    hymls_gidx gid = baseMap->GID64(lid);
+    if (PID(gid) != myPID)
+      numSends++;
+    }
+
+  int numLocal = baseMap->NumMyElements() - numSends;
+
+  // determine which GIDs we have to move, and where they will go
+  hymls_gidx *sendGIDs = new hymls_gidx[numSends];
+  int *sendPIDs = new int[numSends];
+
+  int pos = 0;
+  for (int i = 0; i < baseMap->NumMyElements(); i++)
+    {
+    hymls_gidx gid = baseMap->GID64(i);
+    int pid = PID(gid); // global partition ID
+    if (pid != myPID)
+      {
+      if (pos >= numSends)
+        {
+        Tools::Error("Sanity check failed with gid = " + Teuchos::toString(gid) +
+          ", pos = " + Teuchos::toString(pos) + ", numSends = " +
+          Teuchos::toString(numSends) + ".", __FILE__, __LINE__);
+        }
+      sendGIDs[pos] = gid;
+      sendPIDs[pos++] = pid;
+      }
+    }
+
+  int numRecvs;
+  CHECK_ZERO(Distor->CreateFromSends(numSends, sendPIDs, true, numRecvs));
+ 
+  char* sbuf = reinterpret_cast<char*>(sendGIDs);
+  int numRecvChars = static_cast<int>(numRecvs * sizeof(hymls_gidx));
+  char* rbuf = new char[numRecvChars];
+
+  CHECK_ZERO(Distor->Do(sbuf, sizeof(hymls_gidx), numRecvChars, rbuf));
+
+  hymls_gidx *recvGIDs = reinterpret_cast<hymls_gidx*>(rbuf);
+  if (static_cast<int>(numRecvs * sizeof(hymls_gidx)) != numRecvChars)
+    {
+    Tools::Error("sanity check failed", __FILE__, __LINE__);
+    }
+
+  int NumMyElements = numLocal + numRecvs;
+  hymls_gidx *MyGlobalElements = new hymls_gidx[NumMyElements];
+  pos = 0;
+  for (int i = 0; i < baseMap->NumMyElements(); i++)
+    {
+    hymls_gidx gid = baseMap->GID64(i);
+    if (PID(gid) == myPID)
+      MyGlobalElements[pos++] = gid;
+    }
+
+  for (int i = 0; i < numRecvs; i++)
+    MyGlobalElements[pos+i] = recvGIDs[i];
+
+  std::sort(MyGlobalElements, MyGlobalElements + NumMyElements);
+
+  Teuchos::RCP<const Epetra_Map> ret = Teuchos::rcp(new Epetra_Map(
+      -1, NumMyElements, MyGlobalElements, (hymls_gidx)baseMap->IndexBase64(), comm));
+
+  delete [] sendPIDs;
+  delete [] sendGIDs;
+  delete [] rbuf;
+  delete [] MyGlobalElements;
+
+  return ret;
+  }
+
+int BasePartitioner::PID(hymls_gidx gid) const
+  {
+  int i, j, k, var;
+  Tools::ind2sub(nx_, ny_, nz_, dof_, gid, i, j, k, var);
+  return PID(i, j, k);
   }
 
   }//namespace

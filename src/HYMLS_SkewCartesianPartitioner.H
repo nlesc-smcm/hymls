@@ -58,15 +58,13 @@ protected:
   int CreateSubdomainMap();
 
   //! Get a template for the different subdomains
-  std::vector<std::vector<hymls_gidx> > getTemplate() const;
+  int getTemplate();
 
   //! Get the groups from the template
-  std::vector<std::vector<hymls_gidx> > solveGroups(
-    std::vector<std::vector<hymls_gidx> > const &temp) const;
+  int solveGroups();
 
   //! Create the subdomain from the template
-  std::vector<std::vector<hymls_gidx> > createSubdomain(int sd,
-    std::vector<std::vector<hymls_gidx> > groups) const;
+  std::vector<std::vector<hymls_gidx> > createSubdomain(int sd) const;
 
 public:
 

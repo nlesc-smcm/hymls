@@ -160,12 +160,10 @@ std::tuple<long long, long long> Tools::StartMemory(std::string const &fname)
 
   if (InitializedIO())
     {
-    long long local_memory = getMem();
-    comm_->SumAll(&local_memory, &memory, 1);
+    memory = getMem();
     memList_.sublist("memory").set(fname, memory);
 
-    long long local_max_memory = getMaxMem();
-    comm_->SumAll(&local_max_memory, &max_memory, 1);
+    max_memory = getMaxMem();
     memList_.sublist("maximum memory").set(fname, max_memory);
     }
 #endif
@@ -186,14 +184,12 @@ void Tools::StopMemory(std::string const &fname, bool print,
     return;
 
   long long memory = 0;
-  long long local_memory = getMem();
+  long long local_memory = getMem() - start_memory;
   comm_->SumAll(&local_memory, &memory, 1);
-  memory -= start_memory;
 
   long long max_memory = 0;
-  long long local_max_memory = getMaxMem();
+  long long local_max_memory = getMaxMem() - start_max_memory;
   comm_->SumAll(&local_max_memory, &max_memory, 1);
-  max_memory -= start_max_memory;
 
   long long total_used = memList_.sublist("total used").get(fname, (long long)0);
   memList_.sublist("total used").set(fname, total_used + memory);

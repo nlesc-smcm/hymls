@@ -4,35 +4,24 @@
 #include "HYMLS_Tools.H"
 #include "HYMLS_MatrixUtils.H"
 #include "HYMLS_DenseUtils.H"
-#include "HYMLS_BorderedOperator.H"
 #include "HYMLS_ProjectedOperator.H"
 #include "HYMLS_ShiftedOperator.H"
 
-#include <Epetra_Time.h> 
-#include "Epetra_Comm.h"
-#include "Epetra_Map.h"
 #include "Epetra_RowMatrix.h"
 #include "Epetra_CrsMatrix.h"
 #include "Epetra_MultiVector.h"
-#include "Epetra_Vector.h"
-#include "Epetra_Import.h"
-#include "Epetra_SerialDenseMatrix.h"
-#include "Epetra_SerialDenseVector.h"
 
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_Utils.hpp"
 
-#include "Trilinos_version.h"
-
-#if TRILINOS_MAJOR_MINOR_VERSION>=120601
-#include "BelosExtBlockGmresSolMgr.hpp"
-#define OWN_GMRES 1
-#else
-#include "BelosBlockGmresSolMgr.hpp"
-#warning "we cannot reuse GMRES basis information with older Trilinos versions than 12.6.1"
-#endif
 #include "BelosTypes.hpp"
+
+#include "BelosLinearProblem.hpp"
+#include "BelosSolverManager.hpp"
+#include "BelosEpetraAdapter.hpp"
+
 #include "BelosBlockCGSolMgr.hpp"
+#include "BelosBlockGmresSolMgr.hpp"
 //#include "BelosPCPGSolMgr.hpp"
 #include "HYMLS_BelosEpetraOperator.H"
 
@@ -41,11 +30,11 @@
 
 #include "HYMLS_no_debug.H"
 
-#ifdef OWN_GMRES
-typedef ::BelosExt::BlockGmresSolMgr<double,Epetra_MultiVector,Epetra_Operator> gmresSolMgrType;
-#else
-typedef ::Belos::BlockGmresSolMgr<double,Epetra_MultiVector,Epetra_Operator> gmresSolMgrType;
-#endif
+using BelosGmresType = ::Belos::BlockGmresSolMgr<
+  double, Epetra_MultiVector, Epetra_Operator>;
+using BelosCGType = ::Belos::BlockCGSolMgr<
+  double, Epetra_MultiVector, Epetra_Operator>;
+
 namespace HYMLS {
 
 // constructor
@@ -65,11 +54,9 @@ BaseSolver::BaseSolver(Teuchos::RCP<const Epetra_RowMatrix> K,
   {
   HYMLS_PROF3(label_,"Constructor");
   setParameterList(params, validate && validateParameters_);
-  
-  belosRhs_=Teuchos::rcp(new Epetra_MultiVector(matrix_->OperatorRangeMap(),numRhs));
-  belosSol_=Teuchos::rcp(new Epetra_MultiVector(matrix_->OperatorDomainMap(),numRhs));
 
-  belosProblemPtr_=Teuchos::rcp(new belosProblemType_(operator_,belosSol_,belosRhs_));
+  belosProblemPtr_ = Teuchos::rcp(new BelosProblemType());
+  belosProblemPtr_->setOperator(operator_);
   
   this->SetPrecond(precond_);
 
@@ -89,9 +76,7 @@ BaseSolver::BaseSolver(Teuchos::RCP<const Epetra_RowMatrix> K,
   Teuchos::RCP<Teuchos::ParameterList> belosListPtr=rcp(&belosList,false);
   if (solverType_=="CG")
     {
-    belosSolverPtr_ = rcp(new 
-      ::Belos::BlockCGSolMgr<ST,MV,OP>
-      (belosProblemPtr_,belosListPtr));
+    belosSolverPtr_ = rcp(new BelosCGType(belosProblemPtr_,belosListPtr));
     }
   else if (solverType_=="PCG")
     {
@@ -104,7 +89,7 @@ BaseSolver::BaseSolver(Teuchos::RCP<const Epetra_RowMatrix> K,
     }
   else if (solverType_=="GMRES")
     {
-    belosSolverPtr_ = Teuchos::rcp(new gmresSolMgrType(
+    belosSolverPtr_ = Teuchos::rcp(new BelosGmresType(
         belosProblemPtr_,belosListPtr));
     }
   else
@@ -149,7 +134,7 @@ void BaseSolver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)
   precond_=P;
   if (precond_==Teuchos::null) return;
 
-  belosPrecPtr_=Teuchos::rcp(new belosPrecType_(precond_));
+  belosPrecPtr_=Teuchos::rcp(new BelosPrecType(precond_));
   std::string lor = PL().get("Left or Right Preconditioning",lor_default_);
   if (lor=="Left")
     {
@@ -157,7 +142,7 @@ void BaseSolver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)
     }
   else if (lor=="Right")
     {
-    belosProblemPtr_->setRightPrec(belosPrecPtr_);      
+    belosProblemPtr_->setRightPrec(belosPrecPtr_);
     }
   else if (lor=="None")
     {
@@ -281,7 +266,7 @@ int BaseSolver::setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V,
     {
     Teuchos::RCP<ProjectedOperator> newPrec = Teuchos::rcp(new ProjectedOperator(precond_, V, W, true));
 
-    belosPrecPtr_=Teuchos::rcp(new belosPrecType_(newPrec));
+    belosPrecPtr_=Teuchos::rcp(new BelosPrecType(newPrec));
     std::string lor = PL().get("Left or Right Preconditioning",lor_default_);
     if (lor=="Left")
       {
@@ -293,7 +278,6 @@ int BaseSolver::setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V,
       }
     }
   belosProblemPtr_->setOperator(Aorth_);
-  CHECK_TRUE(belosProblemPtr_->setProblem(belosSol_,belosRhs_));
   return 0;
   }
 
@@ -303,55 +287,40 @@ int BaseSolver::ApplyInverse(const Epetra_MultiVector& B,
   {
   HYMLS_PROF(label_,"ApplyInverse");
   int ierr = 0;
-
-  if (X.NumVectors()!=belosRhs_->NumVectors())
-    {
-    int numRhs=X.NumVectors();
-    belosRhs_=Teuchos::rcp(new Epetra_MultiVector(matrix_->OperatorRangeMap(),numRhs));
-    belosSol_=Teuchos::rcp(new Epetra_MultiVector(matrix_->OperatorDomainMap(),numRhs));
-    }
 #ifdef HYMLS_TESTING
   if (X.NumVectors()!=B.NumVectors())
     {
     Tools::Error("different number of input and output vectors",__FILE__,__LINE__);
     }
-  if (!(X.Map().SameAs(belosSol_->Map()) &&
-      B.Map().SameAs(belosRhs_->Map()) ))
-    {
-    Tools::Error("incompatible maps",__FILE__,__LINE__);
-    }
 #endif
 
-  //TODO: avoid this copy operation
-  *belosRhs_ = B;
+  Teuchos::RCP<const Epetra_MultiVector> belosRhs = Teuchos::rcp(&B, false);
+  Teuchos::RCP<Epetra_MultiVector> belosSol = Teuchos::rcp(&X, false);
 
   if (startVec_=="Random")
     {
 #ifdef HYMLS_DEBUGGING
     int seed=42;
-    MatrixUtils::Random(*belosSol_, seed);
+    MatrixUtils::Random(*belosSol, seed);
 #else
-    MatrixUtils::Random(*belosSol_);
+    MatrixUtils::Random(*belosSol);
 #endif
     }
   else if (startVec_=="Zero")
     {
     // set initial vector to 0
-    CHECK_ZERO(belosSol_->PutScalar(0.0));
-    }
-  else
-    {
-    *belosSol_=X;
+    CHECK_ZERO(belosSol->PutScalar(0.0));
     }
 
   // Make the initial guess orthogonal to the V_ space
   if (V_ != Teuchos::null)
     {
-    CHECK_ZERO(DenseUtils::ApplyOrth(*V_, *belosSol_, X, W_));
-    *belosSol_ = X;
+    Teuchos::RCP<Epetra_MultiVector> tmp = Teuchos::rcp(new Epetra_MultiVector(X));
+    CHECK_ZERO(DenseUtils::ApplyOrth(*V_, *belosSol, *tmp, W_));
+    *belosSol = *tmp;
     }
 
-  CHECK_TRUE(belosProblemPtr_->setProblem(belosSol_, belosRhs_));
+  CHECK_TRUE(belosProblemPtr_->setProblem(belosSol, belosRhs));
 
   ::Belos::ReturnType ret = ::Belos::Unconverged;
   bool status = true;
@@ -361,9 +330,6 @@ int BaseSolver::ApplyInverse(const Epetra_MultiVector& B,
   if (!status) Tools::Warning("caught an exception", __FILE__, __LINE__);
 
   numIter_ = belosSolverPtr_->getNumIters();
-
-  //TODO: avoid this copy operation
-  X = *belosSol_;
 
   if (ret != ::Belos::Converged)
     {

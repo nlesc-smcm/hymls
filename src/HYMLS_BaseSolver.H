@@ -8,11 +8,6 @@
 #include "Teuchos_ParameterList.hpp"
 #include "Epetra_Operator.h"
 
-#include "BelosLinearProblem.hpp"
-#include "BelosSolverManager.hpp"
-#include "BelosEpetraAdapter.hpp"
-#include "BelosOutputManager.hpp"
-
 #include "Epetra_RowMatrix.h"
 
 #include "HYMLS_PLA.H"
@@ -24,12 +19,17 @@ class Epetra_SerialDenseMatrix;
 class Epetra_Map;
 class Epetra_Import;
 
+namespace Belos {
+class EpetraOperator;
+class EpetraPrecOp;
+template<typename, typename, typename>
+class LinearProblem;
+template<typename, typename, typename>
+class SolverManager;
+  }
 
 namespace HYMLS {
 
-namespace Belos {
-class EpetraOperator;
-}
 /*! iterative solver class, basically         
    an Epetra wrapper for Belos extended with  
    some bordering and deflation functionality.
@@ -37,16 +37,14 @@ class EpetraOperator;
 class BaseSolver : public Epetra_Operator,
                    public PLA
   {
-  
+
+  using BelosProblemType = ::Belos::LinearProblem<
+    double, Epetra_MultiVector, Epetra_Operator>;
+  using BelosSolverType = ::Belos::SolverManager<
+    double, Epetra_MultiVector, Epetra_Operator>;
+  using BelosPrecType = ::Belos::EpetraPrecOp;
+
 public:
-
-  typedef double ST;
-  typedef Epetra_MultiVector MV;
-  typedef Epetra_Operator OP;
-  typedef ::Belos::EpetraPrecOp belosPrecType_;
-  typedef ::Belos::LinearProblem<ST,MV,OP> belosProblemType_;
-  typedef ::Belos::SolverManager<ST,MV,OP> belosSolverType_;
-
 
   //!                                                     
   //! Constructor                                         
@@ -196,22 +194,15 @@ protected:
 
   //! solver type and start vector type
   std::string solverType_, startVec_;
-  
-  //! rhs and sol vectors. I'm not sure if we need these vectors
-  //! in the object or could just pass on the input of ApplyInverse,
-  //! but since it is currently implemented like this we make them
-  //! mutable so they can be re-allocated in ApplyInverse() if the 
-  //! number of RHS changes
-  mutable Teuchos::RCP<Epetra_MultiVector> belosRhs_,belosSol_;
 
   //! Belos preconditioner interface
-  Teuchos::RCP<belosPrecType_> belosPrecPtr_;
+  Teuchos::RCP<BelosPrecType> belosPrecPtr_;
 
   //! Belos linear problem interface
-  Teuchos::RCP<belosProblemType_> belosProblemPtr_;
+  Teuchos::RCP<BelosProblemType> belosProblemPtr_;
 
   //! Belos solver
-  Teuchos::RCP<belosSolverType_> belosSolverPtr_;
+  Teuchos::RCP<BelosSolverType> belosSolverPtr_;
 
 //@}
 

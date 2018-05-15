@@ -27,7 +27,7 @@ static void dummy_add_ptr(void *ptr, size_t size)
 
 static int dummy_del_ptr(void *ptr)
 {
-    return 0;
+    return -1;
 }
 
 static void (*add_ptr)(void *ptr, size_t size) = dummy_add_ptr;
@@ -137,12 +137,10 @@ static int real_add_ptr_hash(void *ptr, size_t size)
         {
             ptrbuf_iter->ptr = ptr;
             ptrbuf_iter->size = size;
-            total_size += size;
-            max_total_size = total_size > max_total_size ? total_size : max_total_size;
-            return 1;
+            return 0;
         }
     }
-    return 0;
+    return -1;
 }
 
 static void ptrbuf_realloc()
@@ -171,7 +169,7 @@ static void ptrbuf_realloc()
         {
             if (ptrbuf_iter->ptr)
             {
-                if (!real_add_ptr_hash(ptrbuf_iter->ptr, ptrbuf_iter->size))
+                if (real_add_ptr_hash(ptrbuf_iter->ptr, ptrbuf_iter->size) == -1)
                     ptrbuf_realloc();
             }
         }
@@ -182,7 +180,16 @@ static void ptrbuf_realloc()
 
 static void real_add_ptr(void *ptr, size_t size)
 {
-    if (real_add_ptr_hash(ptr, size)) return;
+    int ret = real_add_ptr_hash(ptr, size);
+
+    if (ret == 0)
+    {
+        total_size += size;
+        max_total_size = total_size > max_total_size ? total_size : max_total_size;
+    }
+
+    if (ret >= 0)
+        return;
 
     ptrbuf_realloc();
 
@@ -191,7 +198,7 @@ static void real_add_ptr(void *ptr, size_t size)
 
 static int real_del_ptr(void *ptr)
 {
-    if (!ptr) return 0;
+    if (!ptr) return -1;
 
     ptr_size *ptrbuf_iter = ptrbuf + ((size_t)ptr % ptrbuf_size);
     for (; ptrbuf_iter != ptrbuf_end; ++ptrbuf_iter)
@@ -200,9 +207,9 @@ static int real_del_ptr(void *ptr)
             total_size -= ptrbuf_iter->size;
             ptrbuf_iter->ptr = NULL;
             ptrbuf_iter->size = 0;
-            return 1;
+            return 0;
         }
-    return 0;
+    return -1;
 }
 
 size_t get_memory_usage()
@@ -292,7 +299,7 @@ void free(void *ptr)
     if (!malloc_initialized)
         hookfns();
 
-    if (del_ptr(ptr))
+    if (del_ptr(ptr) == 0)
         real_free(ptr);
 }
 

@@ -19,7 +19,6 @@ class Epetra_Import;
 
 namespace Belos
   {
-class EpetraPrecOp;
 template<typename, typename, typename>
 class LinearProblem;
 template<typename, typename, typename>
@@ -42,6 +41,11 @@ class BorderedVector;
 */
 class BorderedSolver : public virtual BaseSolver
   {
+
+  using BelosProblemType = ::Belos::LinearProblem<
+    double, BorderedVector, BorderedOperator>;
+  using BelosSolverType = ::Belos::SolverManager<
+    double, BorderedVector, BorderedOperator>;
 
 public:
 
@@ -124,10 +128,10 @@ protected:
   Teuchos::RCP<BorderedOperator> belosPrecPtr_;
 
   //! Belos linear problem interface
-  Teuchos::RCP< ::Belos::LinearProblem<double, BorderedVector, BorderedOperator> > belosProblemPtr_;
+  Teuchos::RCP<BelosProblemType> belosProblemPtr_;
 
   //! Belos solver
-  Teuchos::RCP< ::Belos::SolverManager<double, BorderedVector, BorderedOperator> > belosSolverPtr_;
+  Teuchos::RCP<BelosSolverType> belosSolverPtr_;
 
   };
 

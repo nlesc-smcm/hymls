@@ -296,8 +296,7 @@ int SkewCartesianPartitioner::Partition(bool repart)
   if (comm_->MyPID() >= npx_ * npy_ * npz_)
     active_ = false;
 
-  int color = active_? 1: 0;
-
+  int color = active_ ? 1 : 0;
   CHECK_ZERO(comm_->SumAll(&color, &nprocs_, 1));
 
   while (nprocs_)
@@ -331,8 +330,8 @@ int SkewCartesianPartitioner::Partition(bool repart)
 
   CHECK_ZERO(CreateSubdomainMap());
 
-  template_ = getTemplate();
-  groups_ = solveGroups(template_);
+  CHECK_ZERO(getTemplate());
+  CHECK_ZERO(solveGroups());
 
   HYMLS_DEBVAR(*sdMap_);
 
@@ -348,85 +347,23 @@ int SkewCartesianPartitioner::Partition(bool repart)
   if (repart)
     {
     Tools::Out("repartition for "+toString(nprocs_)+" procs");
-    HYMLS_PROF2(label_,"repartition map");
-
-    // Determine which gids belong to subdomains on this processor
-    // by looping over the cubes in which they exist
-    int numMyElements = numLocalSubdomains_ * sx_ * sy_ * sz_ * dof_;
-    hymls_gidx *myGlobalElements = new hymls_gidx[numMyElements];
-    int pos = 0;
-    for (int sd = 0; sd < numLocalSubdomains_; sd++)
-      {
-      int gsd = sdMap_->GID(sd);
-      int x, y, z;
-      GetSubdomainPosition(gsd, sx_, x, y, z);
-
-      // Determine unique indices so we don't try to add the same node
-      // multiple times
-      std::vector<int> xindices;
-      for (int i = x; i < x + sx_; i++)
-        xindices.push_back(((i % nx_) + nx_) % nx_);
-      std::sort(xindices.begin(), xindices.end());
-      xindices.erase(std::unique(xindices.begin(), xindices.end()), xindices.end());
-
-      std::vector<int> yindices;
-      for (int j = y; j < y + sy_; j++)
-        yindices.push_back(((j % ny_) + ny_) % ny_);
-      std::sort(yindices.begin(), yindices.end());
-      yindices.erase(std::unique(yindices.begin(), yindices.end()), yindices.end());
-
-      std::vector<int> zindices;
-      for (int k = z; k < z + 2 * sz_; k++)
-        zindices.push_back(((k % nz_) + nz_) % nz_);
-      std::sort(zindices.begin(), zindices.end());
-      zindices.erase(std::unique(zindices.begin(), zindices.end()), zindices.end());
-
-      for (int k: zindices)
-        for (int j: yindices)
-          for(int i: xindices)
-            for (int var = 0; var < dof_; var++)
-              {
-              hymls_gidx gid = Tools::sub2ind(nx_, ny_, nz_, dof_, i, j, k, var);
-              if (sdMap_->LID((*this)(gid)) == sd)
-                {
-                if (pos >= numMyElements)
-                  {
-                  Tools::Error("Index out of range", __FILE__, __LINE__);
-                  }
-                myGlobalElements[pos++] = gid;
-                }
-              }
-      }
-
-    Epetra_Map tmpRepartitionedMap((hymls_gidx)(-1), pos,
-      myGlobalElements, (hymls_gidx)baseMap_->IndexBase64(), *comm_);
-
-    Epetra_IntVector vec(*baseMap_);
-    vec.PutValue(1);
-
-    Epetra_Import import(tmpRepartitionedMap, *baseMap_);
-    Epetra_IntVector repartVec(tmpRepartitionedMap);
-    repartVec.Import(vec, import, Insert);
-
-    pos = 0;
-    for (int i = 0; i < repartVec.MyLength(); i++)
-      {
-      if (repartVec[i] == 1)
-        {
-        if (pos >= numMyElements)
-          {
-          Tools::Error("Index out of range", __FILE__, __LINE__);
-          }
-        myGlobalElements[pos++] = tmpRepartitionedMap.GID64(i);
-        }
-      }
-
-    cartesianMap_ = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), pos,
-        myGlobalElements, (hymls_gidx)baseMap_->IndexBase64(), *comm_));
-
-    if (myGlobalElements)
-      delete [] myGlobalElements;
+    cartesianMap_ = RepartitionMap(baseMap_);
     }
+
+#ifdef HYMLS_TESTING
+  // Now we have a skew cartesian processor partitioning and no nodes
+  // have to be moved between partitions. Some partitions may be
+  // empty, though. Check that we do not miss anything
+  for (int lid = 0; lid < repartitionedMap->NumMyElements(); lid++)
+    {
+    hymls_gidx gid = repartitionedMap->GID64(lid);
+    if (PID(gid) != comm_->MyPID())
+      {
+      Tools::Error("Repartitioning seems to be necessary/have failed for gid "
+        + Teuchos::toString(gid) + ".", __FILE__, __LINE__);
+      }
+    }
+#endif
 
   if (active_)
     {
@@ -438,10 +375,12 @@ int SkewCartesianPartitioner::Partition(bool repart)
 
 // Builds a domain 'template' of given type at the origin. The template can
 // be moved around to create the proper domain.
-std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::getTemplate() const
+int SkewCartesianPartitioner::getTemplate()
   {
   HYMLS_PROF2(label_, "getTemplate");
-  // Principal directions
+
+  if (!active_)
+      return 0;
 
   hymls_gidx nx = sx_ * 4;
 
@@ -588,43 +527,45 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::getTemplate() co
   //   }
 
   // Merge the template layers
-  std::vector<std::vector<hymls_gidx> > newNodes;
-  newNodes.emplace_back();
+  template_.resize(0);
+  template_.emplace_back();
   for (int i = 0; i < dof_; i++)
     if (variableType_[i] == 2)
       {
       std::copy(nodes[2].front().begin(), nodes[2].front().end(),
-        std::back_inserter(newNodes.back()));
+        std::back_inserter(template_.back()));
       nodes[2].erase(nodes[2].begin());
 
-      std::for_each(newNodes.back().begin(), newNodes.back().end(),
+      std::for_each(template_.back().begin(), template_.back().end(),
         [i](hymls_gidx& d) { d += i;});
       break;
       }
 
   for (int j = 0; j < 2 * sx_ - 1; j++)
     {
-    newNodes.emplace_back();
+    template_.emplace_back();
     for (int i = 0; i < dof_; i++)
       {
-      int size = newNodes.back().size();
+      int size = template_.back().size();
       std::copy(nodes[variableType_[i]][j].begin(),
         nodes[variableType_[i]][j].end(),
-        std::back_inserter(newNodes.back()));
+        std::back_inserter(template_.back()));
 
-      std::for_each(newNodes.back().begin()+size, newNodes.back().end(),
+      std::for_each(template_.back().begin()+size, template_.back().end(),
         [i](hymls_gidx& d) { d += i;});
       }
-    std::sort(newNodes.back().begin(), newNodes.back().end());
+    std::sort(template_.back().begin(), template_.back().end());
     }
 
-  return newNodes;
+  return 0;
   }
 
-std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::solveGroups(
-  std::vector<std::vector<hymls_gidx> > const &temp) const
+int SkewCartesianPartitioner::solveGroups()
   {
   HYMLS_PROF2(label_, "solveGroups");
+
+  if (!active_)
+      return 0;
 
   hymls_gidx nx = sx_ * 4;
 
@@ -640,7 +581,7 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::solveGroups(
   hymls_gidx dir2 = (dirY - dirX)/2 + dirZ; 
   hymls_gidx dir3 = dirZ;
 
-  // Create model problem
+  // Positions of shifted domains
   hymls_gidx positions[27] = {0, -dir3, dir3, -dir2, -dir2-dir3,
                               -dir2+dir3, dir2, dir2-dir3, dir2+dir3,
                               -dir1, -dir1-dir3, -dir1+dir3, -dir1-dir2,
@@ -652,83 +593,73 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::solveGroups(
 
   // Turn the template into a list
   std::vector<hymls_gidx> tempList;
-  for (auto &it: temp)
+  for (auto &it: template_)
     for (auto &it2: it)
-      tempList.push_back(it2);
+      tempList.push_back(it2 + first);
 
-  // Setup all domains in the test problem
-  std::vector<std::vector<hymls_gidx> > domain;
-  for (auto &it: positions)
-    {
-    domain.emplace_back(tempList);
-    std::for_each(domain.back().begin(), domain.back().end(),
-      [it, first](hymls_gidx& d) { d += it + first;});
-    }
-
-  // Find groups. Note that domain[0] is the domain that we want to solve for
-  std::vector<std::vector<hymls_gidx> > groups;
+  // Find groups
+  groups_.resize(0);
   std::vector<unsigned long long> groupDomains;
 
   // First group is the interior
-  groups.emplace_back(0);
+  groups_.emplace_back(0);
   groupDomains.push_back(1);
 
-  for (auto &node: domain[0])
+  for (auto &node: tempList)
     {
     // For each node, first check to which domains it belongs and store it as bits
     unsigned long long listOfDomains = 0;
-    for (size_t i = 0; i < domain.size(); i++)
+    for (size_t i = 0; i < 27; i++)
       {
-      auto it = std::lower_bound(domain[i].begin(), domain[i].end(), node);
-      if (it != domain[i].end() && *it == node)
+      auto it = std::lower_bound(tempList.begin(), tempList.end(), node - positions[i]);
+      if (it != tempList.end() && *it == node - positions[i])
         listOfDomains += 1 << i;
       }
 
     // Now check whether a group for this list was already created, and if
     // not, create it. Then add the nodes+domains to this group
     bool newGroup = true;
-    for (size_t i = 0; i < groups.size(); i++)
+    for (size_t i = 0; i < groups_.size(); i++)
       if (groupDomains[i] == listOfDomains)
         {
         newGroup = false;
-        groups[i].push_back(node);
+        groups_[i].push_back(node);
         break;
         }
 
     if (newGroup)
       {
-      groups.emplace_back(1, node);
+      groups_.emplace_back(1, node);
       groupDomains.push_back(listOfDomains);
       }
     }
 
   // Now separate the u, v, w and p, skip the interior
   std::vector<std::vector<std::vector<hymls_gidx> > > newGroups;
-  for (size_t i = 1; i < groups.size(); i++)
+  for (size_t i = 1; i < groups_.size(); i++)
     {
-    auto group = groups[i];
+    auto group = groups_[i];
     newGroups.emplace_back(dof_);
 
-    for (auto &node: group)
+    for (auto const &node: group)
       newGroups.back()[((node % dof_) + dof_) % dof_].push_back(node);
     }
 
   // Remove empty groups from newGroups and place them after
   // the interior in groups
-  groups.resize(1);
+  groups_.resize(1);
   for (auto &cats: newGroups)
     for (auto &group: cats)
       if (!group.empty())
         {
         std::sort(group.begin(), group.end());
-        groups.push_back(group);
+        groups_.push_back(group);
         }
 
-  return groups;
+  return 0;
   }
 
-std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(int sd,
-  std::vector<std::vector<hymls_gidx> > groups) const
+std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(int sd) const
   {
   HYMLS_PROF3(label_, "createSubdomain");
 
@@ -739,11 +670,11 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(
 
   // Move the groups to the right position and cut off parts that fall
   // outside of the domain
-  std::vector<std::vector<hymls_gidx> > newGroups;
-  for (auto &group: groups)
+  std::vector<std::vector<hymls_gidx> > groups;
+  for (auto &group: groups_)
     {
-    newGroups.emplace_back();
-    for (hymls_gidx &node: group)
+    groups.emplace_back();
+    for (hymls_gidx const &node: group)
       {
       int var = node % dof_;
       int x = (node / dof_) % nx + sdx - 1 - sx_;
@@ -753,10 +684,9 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(
       if (perio_ & GaleriExt::Y_PERIO) y = (y + ny_) % ny_;
       if (perio_ & GaleriExt::Z_PERIO) z = (z + nz_) % nz_;
       if (x >= 0 && x < nx_ && y >= 0 && y < ny_ && z >= 0 && z < nz_)
-        newGroups.back().push_back(x * dof_ + nx_ * y * dof_ + nx_ * ny_ * z * dof_ + var);
+        groups.back().push_back(x * dof_ + nx_ * y * dof_ + nx_ * ny_ * z * dof_ + var);
       }
     }
-  groups = newGroups;
 
   // Remove empty groups
   groups.erase(std::remove_if(groups.begin()+1, groups.end(),
@@ -767,7 +697,7 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(
   for (int pvar = 0; pvar < dof_; pvar++)
     if (variableType_[pvar] == 3)
       {
-      for (hymls_gidx &node: groups[0])
+      for (hymls_gidx const &node: groups[0])
         if (((node % dof_) + dof_) % dof_ == pvar)
           {
           groups.emplace_back(1, node);
@@ -850,7 +780,7 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &inte
 
   int gsd = sdMap_->GID(sd);
 
-  std::vector<std::vector<hymls_gidx> > nodes = createSubdomain(gsd, groups_);
+  std::vector<std::vector<hymls_gidx> > nodes = createSubdomain(gsd);
   interior_nodes = nodes[0];
   std::copy(nodes.begin() + 1, nodes.end(), std::back_inserter(separator_nodes));
 

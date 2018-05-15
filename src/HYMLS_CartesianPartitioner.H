@@ -83,7 +83,7 @@ public:
 
 protected:
 
-  //!
+  //! label
   std::string label_;
 
   //! communicator
@@ -112,6 +112,8 @@ protected:
   bool active_;
 
 protected:
+
+  using BasePartitioner::PID;
 
   //! get processor on which a grid point is located
   int PID(int i, int j, int k) const;

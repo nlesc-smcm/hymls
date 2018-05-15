@@ -15,17 +15,17 @@ class ParameterList;
 
 namespace HYMLS {
 
-/*! Base class for partitioning in HYMLS - on this 
+/*! Base class for partitioning in HYMLS - on this
   partitioning we build our HID.
 */
 
 class BasePartitioner
   {
-  public:
+public:
 
   //! constructor
   BasePartitioner(){}
-  
+
   //! destructor
   virtual ~BasePartitioner(){}
 
@@ -35,47 +35,62 @@ class BasePartitioner
   //! get a pararmeterlist with increased separator lengths for
   //! the next level
   virtual void SetNextLevelParameters(Teuchos::ParameterList& params);
-  
+
   //! partition an [nx x ny x nz] grid with one DoF per node
-  //! into npx*npy*npz global subdomains. If repart==true,  
-  //! the partitioner is allowed to change the global       
-  //! distribution of the nodes, otherwise it may only      
-  //! partition the owned nodes on each processor.          
+  //! into npx*npy*npz global subdomains. If repart==true,
+  //! the partitioner is allowed to change the global
+  //! distribution of the nodes, otherwise it may only
+  //! partition the owned nodes on each processor.
   virtual int Partition(bool repart) = 0;
 
   //! Get interior and separator groups of the subdomain sd
   virtual int GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior_nodes,
     Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes) = 0;
-  
+
   //! get number of local partitions
   virtual int NumLocalParts() const = 0;
-  
+
   //! is this class fully set up?
   virtual bool Partitioned() const = 0;
-  
+
   //! return the number of variables per grid point
   //! (default implementation returns 1)
   virtual int DofPerNode() const {return dof_;}
-  
+
   //! for problems with multiple dof per node: get an
   //! integer indicating which variable type a gid has
   //! (this is used in HID to group separators by type)
   //! default implementation returns 0
   virtual int VariableType(hymls_gidx gid) const {return variableType_[gid % dof_];}
-  
-  //! get non-overlapping global subdomain id 
+
+  //! get non-overlapping global subdomain id
   virtual int operator()(hymls_gidx gid) const = 0;
-  
+
   //! get the (re-)partitioned map (here elements belonging
   //! to a subdomain have contiguous local indexing)
   virtual const Epetra_Map& Map() const {return *GetMap();}
-  
+
   //! get the map with global IDs of the subdomains
   virtual const Epetra_Map& SubdomainMap() const = 0;
-  
+
   //! get the (re-)partitioned map (here elements belonging
   //! to a subdomain have contiguous local indexing)
   virtual Teuchos::RCP<const Epetra_Map> GetMap() const = 0;
+
+protected:
+
+  //! Repartitioning may occur for two reasons, typically on coarser levels:
+  //! a) the number of subdomains becomes smaller than the number of processes,
+  //! b) the subdomains can't be nicely distributed among the processes.
+  //! In both cases some processes are deactivated.
+  virtual Teuchos::RCP<const Epetra_Map> RepartitionMap(
+    Teuchos::RCP<const Epetra_Map> baseMap) const;
+
+  //! get processor on which a grid point is located
+  virtual int PID(hymls_gidx gid) const;
+
+  //! get processor on which a grid point is located
+  virtual int PID(int i, int j, int k) const = 0;
 
   //! global grid size
   hymls_gidx nx_, ny_, nz_;
@@ -100,5 +115,5 @@ class BasePartitioner
 
   };
 
-}
+  }
 #endif
