@@ -102,7 +102,7 @@ int CartesianPartitioner::Partition(bool repart)
 
   if (baseMap_ == Teuchos::null)
     {
-    hymls_gidx n = nx_ * ny_ * nz_ * dof_;
+    hymls_gidx n = (hymls_gidx)nx_ * ny_ * nz_ * dof_;
     baseMap_ = Teuchos::rcp(new Epetra_Map(n, 0, *comm_));
     }
 
@@ -365,9 +365,9 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
               for (int i = itype; i < (itype ? itype+1 : sx_-1); i++)
                 {
                 hymls_gidx gid = d +
-                  ((i + xpos + nx_) % nx_) * dof_ +
-                  ((j + ypos + ny_) % ny_) * nx_ * dof_ +
-                  ((k + zpos + nz_) % nz_) * nx_ * ny_ * dof_;
+                  (hymls_gidx)((i + xpos + nx_) % nx_) * dof_ +
+                  (hymls_gidx)((j + ypos + ny_) % ny_) * nx_ * dof_ +
+                  (hymls_gidx)((k + zpos + nz_) % nz_) * nx_ * ny_ * dof_;
                 if ((d == pvar && !i && !j && !k))
                   {
                   // Retained pressure nodes

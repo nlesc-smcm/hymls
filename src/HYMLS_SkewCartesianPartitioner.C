@@ -13,16 +13,17 @@ struct Plane {
   std::vector<hymls_gidx> plane;
   };
 
-Plane buildPlane45(int firstNode, int length, int dirX, int dirY, int type)
+Plane buildPlane45(hymls_gidx firstNode, int length,
+  hymls_gidx dirX, hymls_gidx dirY, hymls_gidx type)
   {
-  int left = firstNode;
-  int right = firstNode;
+  hymls_gidx left = firstNode;
+  hymls_gidx right = firstNode;
   int height = 2 * length;
   bool extraLayer = false;
 
   // Skew direction in xy-plane
-  int dir1 = dirY + dirX;
-  int dir2 = dirY - dirX;
+  hymls_gidx dir1 = dirY + dirX;
+  hymls_gidx dir2 = dirY - dirX;
 
   // correction for u nodes
   if (type == 0)
@@ -42,7 +43,7 @@ Plane buildPlane45(int firstNode, int length, int dirX, int dirY, int type)
   plane.ptr.push_back(0);
   for (int i = 0; i < height-1; i++)
     {
-    for (int j = left; j <= right; j += dirX)
+    for (hymls_gidx j = left; j <= right; j += dirX)
       plane.plane.push_back(j);
     plane.ptr.push_back(plane.plane.size());
 
@@ -262,7 +263,7 @@ int SkewCartesianPartitioner::Partition(bool repart)
 
   if (baseMap_ == Teuchos::null)
     {
-    hymls_gidx n = nx_ * ny_ * nz_ * dof_;
+    hymls_gidx n = (hymls_gidx)nx_ * ny_ * nz_ * dof_;
     baseMap_ = Teuchos::rcp(new Epetra_Map(n, 0, *comm_));
     }
 
@@ -394,7 +395,7 @@ int SkewCartesianPartitioner::getTemplate()
                              dof_*sx_/2 - 0    + dirZ * sx_,
                              dof_*sx_/2 + dirY + dirZ * sx_,
                              dof_*sx_/2 + dirY + dirZ * sx_};
-  hymls_gidx baseLength[4] = {sx_/2, sx_/2 + 1, sx_/2 + 1, sx_/2};
+  int baseLength[4] = {sx_/2, sx_/2 + 1, sx_/2 + 1, sx_/2};
 
   std::vector<std::vector<std::vector<hymls_gidx> > > nodes;
 
@@ -479,10 +480,10 @@ int SkewCartesianPartitioner::getTemplate()
           // pressure nodes are an exception
           if (offset[0] < 0)
             {
-            activePtrs.erase(activePtrs.begin());
             activePtrs.push_back(activePtrs.back() + 1);
-            offset.erase(offset.begin());
+            activePtrs.erase(activePtrs.begin());
             offset.push_back(rowLength[activePtrs.back()]);
+            offset.erase(offset.begin());
             }
           }
         else
@@ -684,7 +685,10 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(
       if (perio_ & GaleriExt::Y_PERIO) y = (y + ny_) % ny_;
       if (perio_ & GaleriExt::Z_PERIO) z = (z + nz_) % nz_;
       if (x >= 0 && x < nx_ && y >= 0 && y < ny_ && z >= 0 && z < nz_)
-        groups.back().push_back(x * dof_ + nx_ * y * dof_ + nx_ * ny_ * z * dof_ + var);
+        groups.back().push_back(
+          (hymls_gidx)x * dof_ +
+          (hymls_gidx)nx_ * y * dof_ +
+          (hymls_gidx)nx_ * ny_ * z * dof_ + var);
       }
     }
 

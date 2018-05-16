@@ -93,7 +93,7 @@ protected:
   virtual int PID(int i, int j, int k) const = 0;
 
   //! global grid size
-  hymls_gidx nx_, ny_, nz_;
+  int nx_, ny_, nz_;
 
   //! subdomain size
   int sx_,sy_,sz_;
