@@ -246,7 +246,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 3DNodes)
       for (hymls_gidx &i: group)
         gids[i] = i;
     }
-  
+
   for (int i = 0; i < n; i++)
     TEST_EQUALITY(gids[i], i);
   }
@@ -284,7 +284,45 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 5DOFNodes)
       for (hymls_gidx &i: group)
         gids[i] = i;
     }
-  
+
+  for (int i = 0; i < n; i++)
+    TEST_EQUALITY(gids[i], i);
+  }
+
+TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 5DOFNodesSx2)
+  {
+  Teuchos::RCP<FakeComm> comm = Teuchos::rcp(new FakeComm);
+  comm->SetNumProc(1);
+  DISABLE_OUTPUT;
+
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
+    new Teuchos::ParameterList);
+  params->sublist("Problem").set("nx", 8);
+  params->sublist("Problem").set("ny", 8);
+  params->sublist("Problem").set("nz", 8);
+  params->sublist("Problem").set("Equations", "Bous-C");
+  params->sublist("Preconditioner").set("Separator Length", 2);
+
+  TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
+  part.Partition(false);
+
+  ENABLE_OUTPUT;
+  int n = part.Map().NumGlobalElements64();
+  std::vector<hymls_gidx> gids(n, 0);
+  for (int sd = 0; sd < part.NumLocalParts(); sd++)
+    {
+    Teuchos::Array<hymls_gidx> interior_nodes;
+    Teuchos::Array<Teuchos::Array<hymls_gidx> > separator_nodes;
+    part.GetGroups(sd, interior_nodes, separator_nodes);
+
+    for (hymls_gidx &i: interior_nodes)
+      gids[i] = i;
+
+    for (auto &group: separator_nodes)
+      for (hymls_gidx &i: group)
+        gids[i] = i;
+    }
+
   for (int i = 0; i < n; i++)
     TEST_EQUALITY(gids[i], i);
   }
@@ -459,13 +497,18 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, GID64)
   comm->SetMyPID(8191);
   DISABLE_OUTPUT;
 
+  int sx = 16;
+  hymls_gidx nx = 1024;
+  hymls_gidx ny = 1024;
+  hymls_gidx nz = 1024;
+
   Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
     new Teuchos::ParameterList);
-  params->sublist("Problem").set("nx", 1024);
-  params->sublist("Problem").set("ny", 1024);
-  params->sublist("Problem").set("nz", 1024);
+  params->sublist("Problem").set("nx", (int)nx);
+  params->sublist("Problem").set("ny", (int)ny);
+  params->sublist("Problem").set("nz", (int)nz);
   params->sublist("Problem").set("Degrees of Freedom", 4);
-  params->sublist("Preconditioner").set("Separator Length", 16);
+  params->sublist("Preconditioner").set("Separator Length", sx);
 
   TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
   part.Partition(false);
