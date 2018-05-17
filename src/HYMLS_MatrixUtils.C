@@ -1012,8 +1012,15 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
   // shortcut
   if (droptol == 0.0) return Teuchos::rcp_const_cast<Epetra_CrsMatrix> (A);
 
+  int NumRows = A->NumMyRows();
+  int *NumMyEntries = new int[NumRows];
+  for (int i = 0; i < NumRows; i++)
+    NumMyEntries[i] = A->NumMyEntries(i) + 1;
+
   Teuchos::RCP<Epetra_CrsMatrix> mat = Teuchos::rcp(
-    new Epetra_CrsMatrix(Copy, A->RowMap(), A->ColMap(), A->MaxNumEntries() + 1));
+    new Epetra_CrsMatrix(Copy, A->RowMap(), A->ColMap(), NumMyEntries));
+
+  delete[] NumMyEntries;
 
   // diagonal of A in column map
   Teuchos::RCP<Epetra_Vector> diagA;
@@ -1059,8 +1066,6 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
   int new_len;
   hymls_gidx *new_indices = new hymls_gidx[A->MaxNumEntries()+1];
   double *new_values = new double[A->MaxNumEntries()+1];
-
-  int NumRows = A->NumMyRows();
 
   double scal = 1.0;
   double scal_i = 1.0;
