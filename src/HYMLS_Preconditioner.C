@@ -96,8 +96,6 @@ int Preconditioner::SetParameters(Teuchos::ParameterList& List)
     List_->setParameters(List);
     }
 
-  scaleSchur_=PL().get("Scale Schur-Complement",false);
-
   sdSolverType_ = PL().get("Subdomain Solver Type", "Sparse");
   numThreadsSD_ = PL().get("Subdomain Solver Num Threads", numThreadsSD_);
 
@@ -157,11 +155,6 @@ int Preconditioner::SetParameters(Teuchos::ParameterList& List)
     VPL().set("Partitioner", "Cartesian",
         "Type of partitioner to be used to define the subdomains",
         partValidator);
-
-    VPL().set("Scale Schur-Complement",false,
-        "Apply scaling to the Schur complement before building an approximation.\n"
-        "This is only intended for Navier-Stokes type problems and it is a bit \n"
-        "ad-hoc right now.");
 
     VPL().set("Fix Pressure Level",true,
         "Put a Dirichlet condition on a single P-node on the coarsest grid");
@@ -527,19 +520,6 @@ int Preconditioner::InitializeCompute()
 #endif
     }
 
-  if (scaleSchur_)
-    {
-    schurScaLeft_=Schur_->ConstructLeftScaling();
-    schurScaRight_=Schur_->ConstructRightScaling();
-
-#ifdef HYMLS_STORE_MATRICES
-    MatrixUtils::Dump(*schurScaLeft_,"SchurScaLeft"+Teuchos::toString(myLevel_)+".txt");
-    MatrixUtils::Dump(*schurScaRight_,"SchurScaRight"+Teuchos::toString(myLevel_)+".txt");
-#endif
-
-    CHECK_ZERO(Schur_->Scale(schurScaLeft_,schurScaRight_));
-    }
-
   CHECK_ZERO(schurPrec_->Compute());
 
   computed_ = true;
@@ -888,13 +868,6 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
     CHECK_ZERO(DenseUtils::MatMul(*borderW1_,*borderQ1_,*borderSchurC_));
     CHECK_ZERO(borderSchurC_->Scale(-1.0));
     *borderSchurC_ += *C_;
-    
-    //TODO: if the Schur-complement is left- and right-scaled,
-    //      we also have to scale the borders
-    if (scaleSchur_)
-      {
-      Tools::Error("not implemented!",__FILE__,__LINE__);
-      }
 
     CHECK_ZERO(schurPrec_->setBorder(borderSchurV_,borderSchurW_,borderSchurC_));
     return 0;
@@ -977,20 +950,7 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
       q += T;
       }
 
-    // And now we solve the Schur complement system to compute x2
-    if (scaleSchur_)
-      {
-      // left-scale rhs with schurScaLeft_
-      CHECK_ZERO(schurRhs_->Multiply(1.0, *schurScaLeft_, *schurRhs_, 0.0));
-      }
-
     CHECK_ZERO(schurPrec_->ApplyInverse(*schurRhs_, q, *schurSol_, S));
-
-    if (scaleSchur_)
-      {
-      // unscale rhs with schurScaRight_
-      CHECK_ZERO(schurSol_->ReciprocalMultiply(1.0, *schurScaRight_, *schurSol_, 0.0))
-      }
 
     x2 = *schurSol_;
 
