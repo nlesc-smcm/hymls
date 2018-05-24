@@ -311,50 +311,22 @@ int Preconditioner::SetParameters(Teuchos::ParameterList& List)
   // partitioner which we need for the A12/A21 subdomain blocks
   rowMap_ = hid_->GetOverlappingMap();
 
-  importer_=Teuchos::rcp(new Epetra_Import(*rowMap_,*rangeMap_));
-
-  int MaxNumEntriesPerRow=matrix_->MaxNumEntries();
-
-  Teuchos::RCP<const Epetra_CrsMatrix> Acrs = Teuchos::null;
-
-  Acrs=Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_);
-
-  if (Teuchos::is_null(Acrs))
-    {
-    Tools::Error("Currently requires an Epetra_CrsMatrix!",__FILE__,__LINE__);
-    }
-
 #if defined(HYMLS_STORE_MATRICES) || defined(HYMLS_TESTING)
   MatrixUtils::Dump(*rangeMap_,"originalMap"+Teuchos::toString(myLevel_)+".txt");
   MatrixUtils::Dump(*rowMap_,"reorderedMap"+Teuchos::toString(myLevel_)+".txt");
 #endif
 
-  HYMLS_DEBUG("Reorder global matrix");
-  reorderedMatrix_=Teuchos::rcp(new Epetra_CrsMatrix(Copy,*rowMap_,MaxNumEntriesPerRow));
-
-  CHECK_ZERO(reorderedMatrix_->Import(*Acrs,*importer_,Insert));
-
-  CHECK_ZERO(reorderedMatrix_->FillComplete());
+  importer_=Teuchos::rcp(new Epetra_Import(*rowMap_,*rangeMap_));
 
   // Construct the matrix blocks we need for the Schur complement
-  A11_ = Teuchos::rcp(new MatrixBlock(Acrs, reorderedMatrix_, hid_,
+  A11_ = Teuchos::rcp(new MatrixBlock(hid_,
       HierarchicalMap::Interior, HierarchicalMap::Interior, myLevel_));
-  A12_ = Teuchos::rcp(new MatrixBlock(Acrs, reorderedMatrix_, hid_,
+  A12_ = Teuchos::rcp(new MatrixBlock(hid_,
       HierarchicalMap::Interior, HierarchicalMap::Separators, myLevel_));
-  A21_ = Teuchos::rcp(new MatrixBlock(Acrs, reorderedMatrix_, hid_,
+  A21_ = Teuchos::rcp(new MatrixBlock(hid_,
       HierarchicalMap::Separators, HierarchicalMap::Interior, myLevel_));
-  A22_ = Teuchos::rcp(new MatrixBlock(Acrs, reorderedMatrix_, hid_,
+  A22_ = Teuchos::rcp(new MatrixBlock(hid_,
       HierarchicalMap::Separators, HierarchicalMap::Separators, myLevel_));
-
-  // Compute the A12, A21, A22 blocks
-  CHECK_ZERO(A12_->Compute());
-  CHECK_ZERO(A21_->Compute());
-  CHECK_ZERO(A22_->Compute());
-
-  // Also construct the subdomain blocks separately for A12 and A21
-  CHECK_ZERO(A12_->ComputeSubdomainBlocks());
-  CHECK_ZERO(A21_->ComputeSubdomainBlocks());
-  CHECK_ZERO(A22_->ComputeSubdomainBlocks());
 
 #ifdef HYMLS_STORE_MATRICES
   MatrixUtils::Dump(*A12_->Block(), "Precond"+Teuchos::toString(myLevel_)+"_A12.txt");
@@ -442,32 +414,6 @@ Tools::out() << "=============================="<<std::endl;
   return 0;
   }
 
-
-int Preconditioner::InitializeCompute()
-  {
-  HYMLS_LPROF(label_,"InitializeCompute");
-
-
-  // (1) import values of matrix into local data structures.
-  //     This certainly has to be done before any Compute()
-
-  Teuchos::RCP<const Epetra_CrsMatrix> Acrs = 
-    Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_);
-
-  CHECK_ZERO(reorderedMatrix_->PutScalar(0.0));
-  CHECK_ZERO(reorderedMatrix_->Import(*Acrs,*importer_,Insert));
-
-#ifdef HYMLS_STORE_MATRICES
-  MatrixUtils::Dump(*Acrs,"originalMatrix"+Teuchos::toString(myLevel_)+".txt");
-#endif
-
-  CHECK_ZERO(A11_->Recompute(Acrs, reorderedMatrix_));
-  CHECK_ZERO(A12_->Recompute(Acrs, reorderedMatrix_));
-  CHECK_ZERO(A21_->Recompute(Acrs, reorderedMatrix_));
-  CHECK_ZERO(A22_->Recompute(Acrs, reorderedMatrix_));
-  return 0;
-  }
-
   // Returns true if the  preconditioner has been successfully initialized, false otherwise.
   bool Preconditioner::IsInitialized() const {return initialized_;}
 
@@ -485,11 +431,31 @@ int Preconditioner::InitializeCompute()
 
     time_->ResetStartTime();
 
-    InitializeCompute();
-
     {
-    HYMLS_LPROF(label_,"subdomain factorization");
-    A11_->ComputeSubdomainSolvers();
+    HYMLS_LPROF2(label_, "matrix block computation");
+
+    int MaxNumEntriesPerRow = matrix_->MaxNumEntries();
+    Teuchos::RCP<const Epetra_CrsMatrix> Acrs = Teuchos::null;
+    Acrs = Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_);
+
+    if (Teuchos::is_null(Acrs))
+      {
+      Tools::Error("Currently requires an Epetra_CrsMatrix!",__FILE__,__LINE__);
+      }
+
+    HYMLS_DEBUG("Reorder global matrix");
+    Teuchos::RCP<Epetra_CrsMatrix> reorderedMatrix =
+      Teuchos::rcp(new Epetra_CrsMatrix(Copy, *rowMap_, MaxNumEntriesPerRow));
+
+    CHECK_ZERO(reorderedMatrix->Import(*Acrs, *importer_, Insert));
+    CHECK_ZERO(reorderedMatrix->FillComplete());
+
+    // Compute the A12, A21, A22 blocks
+    CHECK_ZERO(A12_->Compute(Acrs, reorderedMatrix));
+    CHECK_ZERO(A21_->Compute(Acrs, reorderedMatrix));
+    CHECK_ZERO(A22_->Compute(Acrs, reorderedMatrix));
+
+    CHECK_ZERO(A11_->ComputeSubdomainSolvers(reorderedMatrix));
 
 #ifdef HYMLS_TESTING
     Tools::out() << "Preconditioner level " << myLevel_ << ", doFmatTests=" << Tester::doFmatTests_ << std::endl;

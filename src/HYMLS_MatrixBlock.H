@@ -16,6 +16,7 @@ class Epetra_MultiVector;
 class Epetra_Import;
 class Epetra_BlockMap;
 class Epetra_CrsMatrix;
+class Epetra_Comm;
 
 class Ifpack_Container;
 
@@ -38,8 +39,7 @@ public:
   //! The A12 block has Interior rows and Separator columns.
   //! The myLevel_ argument is there just for timing and debugging
   //! purposes.
-  MatrixBlock(Teuchos::RCP<const Epetra_CrsMatrix> matrix,
-    Teuchos::RCP<const Epetra_CrsMatrix> extendedMatrix,
+  MatrixBlock(
     Teuchos::RCP<const OverlappingPartitioner> hid,
     HierarchicalMap::SpawnStrategy rowStrategy,
     HierarchicalMap::SpawnStrategy colStrategy,
@@ -48,22 +48,15 @@ public:
   virtual ~MatrixBlock() {}
 
   //! Compute the actual block
-  int Compute();
-
-  //! Compute the blocks belonging to every subdomain
-  int ComputeSubdomainBlocks();
+  int Compute(Teuchos::RCP<const Epetra_CrsMatrix> matrix,
+  Teuchos::RCP<const Epetra_CrsMatrix> extendedMatrix);
 
   //! Initialize the subdomain solvers for the A11 block
   int InitializeSubdomainSolvers(std::string const &solverType,
   Teuchos::RCP<Teuchos::ParameterList>, int numThreads);
 
   //! Compute the subdomain solvers for the A11 block
-  int ComputeSubdomainSolvers();
-
-  //! Recompute the blocks and subdomain solver initialization
-  //! for a new matrix (with the same maps)
-  int Recompute(Teuchos::RCP<const Epetra_CrsMatrix> matrix,
-    Teuchos::RCP<const Epetra_CrsMatrix> extendedMatrix);
+  int ComputeSubdomainSolvers(Teuchos::RCP<const Epetra_CrsMatrix> extendedMatrix);
 
   //! Apply a block
   int Apply(const Epetra_MultiVector& X, Epetra_MultiVector& Y);
@@ -74,12 +67,6 @@ public:
   //! Set whether we want to use transpose Apply and ApplyInverse
   int SetUseTranspose(bool useTranspose);
 
-  //! Get the original matrix
-  Teuchos::RCP<const Epetra_CrsMatrix> Matrix() const {return matrix_;}
-
-  //! Get the extended matrix
-  Teuchos::RCP<const Epetra_CrsMatrix> ExtendedMatrix() const {return extendedMatrix_;}
-
   //! Get the matrix block
   Teuchos::RCP<const Epetra_CrsMatrix> Block() const;
 
@@ -88,6 +75,9 @@ public:
 
   //! Get the sd-th subdomain solver
   Teuchos::RCP<Ifpack_Container> SubdomainSolver(int sd) const;
+
+  //! Communicator object
+  Epetra_Comm const &Comm() const;
 
   //! Get the row map of the block
   const Epetra_Map &RowMap() const {return *rangeMap_;};
@@ -120,11 +110,6 @@ public:
   double ApplyInverseFlops() const;
 
 protected:
-  //! Original matrix (not the block)
-  Teuchos::RCP<const Epetra_CrsMatrix> matrix_;
-
-  //! Matrix extended with off-processor separator nodes
-  Teuchos::RCP<const Epetra_CrsMatrix> extendedMatrix_;
 
   //! Overlapping partitioner on which the blocks are based
   Teuchos::RCP<const OverlappingPartitioner> hid_;

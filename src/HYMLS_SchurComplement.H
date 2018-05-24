@@ -85,7 +85,7 @@ public:
   bool UseTranspose() const {return useTranspose_; }
 
   //! communicator
-  const Epetra_Comm &Comm() const {return A22_->Matrix()->Comm(); }
+  const Epetra_Comm &Comm() const {return A22_->Comm(); }
 
   //! Returns the Epetra_Map object associated with the domain of this operator.
   const Epetra_Map &OperatorDomainMap() const {return A22_->DomainMap(); }

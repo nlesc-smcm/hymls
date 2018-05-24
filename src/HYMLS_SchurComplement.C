@@ -237,7 +237,7 @@ int SchurComplement::Construct11(int sd, Epetra_SerialDenseMatrix &Sk,
   Epetra_MultiVector Aloc(A21.RowMap(), B.NumVectors());
   for (int j = 0; j < B.MyLength(); j++)
     {
-    const int lrid = A12.LRID(A11_->ExtendedMatrix()->GRID64(A11.ID(j)));
+    const int lrid = A12.LRID(hid.OverlappingMap().GID64(A11.ID(j)));
     for (int k = 0; k < nrows; k++)
       {
       B[k][lrid] = A11.LHS(j, k);
