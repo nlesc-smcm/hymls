@@ -83,8 +83,6 @@
     <!-- >2: not implemented.                                                   -->
     <Parameter name="Number of Levels" type="int" value="3"/>
     
-    <Parameter name="Scale Schur-Complement" type="bool" value="0"/>
-
     <!-- parameters for the direct solvers (Ifpack_Amesos) -->
 
     <!-- you can either make direct solver settings in a single list            -->
