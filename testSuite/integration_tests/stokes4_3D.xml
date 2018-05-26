@@ -80,9 +80,7 @@
     <!-- number of levels to be created (1: direct solver for Schur complement, -->
     <!-- 2: solve Schur iteratively and reduced Schur directly,                 -->
     <Parameter name="Number of Levels" type="int" value="1"/>
-    
-    <Parameter name="Scale Schur-Complement" type="bool" value="0"/>
-    
+        
     <!-- parameters for the direct solvers (Ifpack_Amesos) -->
 
     <!-- you can either make direct solver settings in a single list            -->

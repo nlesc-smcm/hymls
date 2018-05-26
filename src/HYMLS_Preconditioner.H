@@ -296,9 +296,6 @@ protected:
   //! matrix based on range map
   Teuchos::RCP<const Epetra_RowMatrix> matrix_;
   
-  //! internal reordered matrix (first interior and then separator vars)
-  Teuchos::RCP<Epetra_CrsMatrix> reorderedMatrix_;
-
   //! range/domain map of matrix_
   Teuchos::RCP<const Epetra_Map> rangeMap_;
 
@@ -320,9 +317,6 @@ protected:
   //! operator representation of our Schur-complement
   mutable Teuchos::RCP<SchurComplement> Schur_;
   
-  //! left- and right scaling for the Schur complement
-  bool scaleSchur_;
-  Teuchos::RCP<Epetra_Vector> schurScaLeft_, schurScaRight_;
 
   //! A11, A12, A21 and A22-part of matrix
   //! 1: associated with interior variables
@@ -428,9 +422,6 @@ protected:
   const HYMLS::OverlappingPartitioner& Partitioner() const {return *hid_;}
   
  private:
- 
-   //! executed as part of Initialize() and Compute() (import matrices etc)
-   int InitializeCompute();
    
    //! in this function we define a number of standard problems
    //! for which the solver can be set up by simply setting the
