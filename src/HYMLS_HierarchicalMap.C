@@ -111,36 +111,64 @@ int HierarchicalMap::FillComplete()
   Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > newGidList =
     Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >());
 
-  // Merge all GIDs on this processor into one list
-  Teuchos::Array<hymls_gidx> allGids;
+  // Merge all separator GIDs on this processor into one list.
+  // Put all interior GIDs that are present in the baseMap_ in the
+  // newGidList.
+  Teuchos::Array<hymls_gidx> separatorGIDs;
   for (int sd = 0; sd < NumMySubdomains(); sd++)
     {
-    std::copy((*gidList_)[sd].begin(), (*gidList_)[sd].end(),
-      std::back_inserter(allGids));
+    newGidList->append(Teuchos::Array<hymls_gidx>());
+    newGroupPointer->append(Teuchos::Array<hymls_gidx>(1));
+    for (int grp = 0; grp < NumGroups(sd); grp++)
+      {
+      hymls_gidx offset = *((*groupPointer_)[sd].begin() + grp);
+      int len = *((*groupPointer_)[sd].begin() + grp + 1) - offset;
+
+      if (grp == 0)
+        {
+        // Interior nodes don't need communication. Just add those
+        // that are present in the baseMap_
+        for (int j = 0; j < NumElements(sd,grp); j++)
+          {
+          hymls_gidx gid = GID(sd, grp, j);
+          if (baseMap_->MyGID(gid))
+            (*newGidList)[sd].append(gid);
+          }
+        int len = (*newGidList)[sd].size();
+        (*newGroupPointer)[sd].append(len);
+        }
+      else
+        {
+        std::copy((*gidList_)[sd].begin() + offset, (*gidList_)[sd].begin() + offset + len,
+          std::back_inserter(separatorGIDs));
+        }
+      }
     }
 
   // Make sure there is only one entry of each of them
-  std::sort(allGids.begin(), allGids.end());
-  auto end = std::unique(allGids.begin(), allGids.end());
+  std::sort(separatorGIDs.begin(), separatorGIDs.end());
+  auto end = std::unique(separatorGIDs.begin(), separatorGIDs.end());
 
   // Communicate between processors which elements are actually present in the
   // baseMap_ of the processor that owns the nodes. This is because the
   // Partitioner gives us all possible elements belonging to the subdomain,
   // not only the elements that are in the map
-  int numElements = std::distance(allGids.begin(), end);
+  int numElements = std::distance(separatorGIDs.begin(), end);
   Teuchos::RCP<Epetra_Map> tmpOverlappingMap =
-    Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), numElements, &allGids[0],
+    Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), numElements, &separatorGIDs[0],
         (hymls_gidx)baseMap_->IndexBase64(), Comm()));
 
   HYMLS_DEBVAR(*tmpOverlappingMap);
 
   Epetra_IntVector vec(*baseMap_);
-  for (auto i = allGids.begin(); i != end; ++i)
+  for (auto i = separatorGIDs.begin(); i != end; ++i)
     {
     int lid = baseMap_->LID(*i);
     if (lid != -1)
       vec[lid] = 1;
     }
+
+  separatorGIDs.clear();
 
   Epetra_Import imp(*tmpOverlappingMap, *baseMap_);
   Epetra_IntVector overlappingVec(*tmpOverlappingMap);
@@ -148,9 +176,7 @@ int HierarchicalMap::FillComplete()
 
   for (int sd = 0; sd < NumMySubdomains(); sd++)
     {
-    newGidList->append(Teuchos::Array<hymls_gidx>());
-    newGroupPointer->append(Teuchos::Array<hymls_gidx>(1));
-    for (int grp = 0; grp < NumGroups(sd); grp++)
+    for (int grp = 1; grp < NumGroups(sd); grp++)
       {
       Teuchos::Array<hymls_gidx> gidList;
       for (int j = 0; j < NumElements(sd,grp); j++)
@@ -165,7 +191,7 @@ int HierarchicalMap::FillComplete()
         }
       hymls_gidx offset = *((*newGroupPointer)[sd].end()-1);
       int len = gidList.size();
-      if (len > 0 || grp == 0)
+      if (len > 0)
         {
         (*newGroupPointer)[sd].append(offset + len);
         std::copy(gidList.begin(), gidList.end(), std::back_inserter((*newGidList)[sd]));
@@ -174,16 +200,16 @@ int HierarchicalMap::FillComplete()
     }
 
   // Make a new overlapping map with elements that are present on some processor
-  allGids.resize(0);
+  Teuchos::Array<hymls_gidx> allGIDs;
   for (int sd = 0; sd < NumMySubdomains(); sd++)
     {
     std::copy((*newGidList)[sd].begin(), (*newGidList)[sd].end(),
-      std::back_inserter(allGids));
+      std::back_inserter(allGIDs));
     }
-  std::sort(allGids.begin(), allGids.end());
-  auto last = std::unique(allGids.begin(), allGids.end());
-  overlappingMap_ = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), std::distance(allGids.begin(), last),
-      &allGids[0], (hymls_gidx)baseMap_->IndexBase64(), Comm()));
+  std::sort(allGIDs.begin(), allGIDs.end());
+  auto last = std::unique(allGIDs.begin(), allGIDs.end());
+  overlappingMap_ = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), std::distance(allGIDs.begin(), last),
+      &allGIDs[0], (hymls_gidx)baseMap_->IndexBase64(), Comm()));
 
   gidList_ = newGidList;
   groupPointer_ = newGroupPointer;
