@@ -48,10 +48,10 @@ public:
 protected:
 
   //! Get the position of the first node of the subdomain
-  int GetSubdomainPosition(int sd, int sx, int &x, int &y, int &z) const;
+  int GetSubdomainPosition(int sd, int sx, int sy, int sz, int &x, int &y, int &z) const;
 
   //! Get the subdomain id from the position of a node in the subdomain
-  int GetSubdomainID(int sx, int x, int y, int z) const;
+  int GetSubdomainID(int sx, int sy, int sz, int x, int y, int z) const;
 
   //! creates the map from global to local partition IDs. The implementation
   //! may assume that npx_, sx_ etc. are already set so that operator() works.
@@ -75,7 +75,7 @@ public:
   //! is this class fully set up?
   inline bool Partitioned() const
     {
-    return npx_ > 0;
+    return cartesianMap_ != Teuchos::null;
     }
 
   //! return the repartitioned/reordered map
@@ -90,8 +90,11 @@ public:
     return *sdMap_;
     }
 
-  //! return number of subdomains in this proc partition
+  //! return the number of subdomains in this proc partition
   int NumLocalParts() const;
+
+  //! return the global number of subdomains
+  int NumGlobalParts(int sx, int sy, int sz) const;
 
 protected:
 
@@ -114,12 +117,6 @@ protected:
   //! Subdomain template groups
   std::vector<std::vector<long long> > groups_;
 
-  //! number of subdomains
-  int npx_, npy_, npz_;
-
-  //! processor distribution
-  int nprocs_, nprocx_, nprocy_, nprocz_;
-
   //! number of subdomains on this proc
   int numLocalSubdomains_;
 
@@ -128,12 +125,6 @@ protected:
 
   //! indicates wether the processor is active (owns any nodes/subdomains)
   bool active_;
-
-protected:
-
-  //! get processor on which a grid point is located
-  int PID(int i, int j, int k) const;
-
   };
 
   }

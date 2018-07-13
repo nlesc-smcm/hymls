@@ -68,12 +68,6 @@ Plane buildPlane45(long long firstNode, int length,
 
 namespace HYMLS {
 
-// by default, everyone is assumed to own a part of the domain.
-// if in Partition() it turns out that there are more processor
-// partitions than subdomains, active_ is set to false for some
-// ranks, which will get an empty part of the reordered map
-// (cartesianMap_).
-
 // constructor
 SkewCartesianPartitioner::SkewCartesianPartitioner(
   Teuchos::RCP<const Epetra_Map> map,
@@ -81,8 +75,7 @@ SkewCartesianPartitioner::SkewCartesianPartitioner(
   Epetra_Comm const &comm)
   : BasePartitioner(), label_("SkewCartesianPartitioner"),
     comm_(Teuchos::rcp(comm.Clone())), baseMap_(map), cartesianMap_(Teuchos::null),
-    npx_(-1), npy_(-1), npz_(-1),
-    numLocalSubdomains_(-1),active_(true)
+    numLocalSubdomains_(-1), active_(true)
   {
   HYMLS_PROF3(label_, "Constructor");
 
@@ -104,7 +97,7 @@ int SkewCartesianPartitioner::operator()(int x, int y, int z) const
     Tools::Error("Partition() not yet called!", __FILE__, __LINE__);
     }
 #endif
-  int sd = GetSubdomainID(sx_, x, y, z);
+  int sd = GetSubdomainID(sx_, sy_, sz_, x, y, z);
 
   return sd;
   }
@@ -124,15 +117,16 @@ int SkewCartesianPartitioner::operator()(hymls_gidx gid) const
   }
 
 int SkewCartesianPartitioner::GetSubdomainPosition(
-  int sd, int sx, int &x, int &y, int &z) const
+  int sd, int sx, int sy, int sz, int &x, int &y, int &z) const
   {
   int npx = nx_ / sx;
-  int npy = ny_ / sx;
+  int npy = ny_ / sy;
+
   int totNum2DCubes = npx * npy; // number of cubes for fixed z
   int numPerLayer = 2 * totNum2DCubes + npx + npy; // domains for fixed z
   int numPerRow = 2 * npx + 1; // domains in a row (both lattices); fixed y
 
-  int Z = sd / numPerLayer;
+  int Z = numPerLayer > 0 ? sd / numPerLayer : 0;
   int Y = ((sd - Z * numPerLayer) / numPerRow) * 2 - 1;
   int X = ((sd - Z * numPerLayer) % numPerRow) * 2;
   if (X >= npx * 2)
@@ -142,24 +136,24 @@ int SkewCartesianPartitioner::GetSubdomainPosition(
     }
 
   x = (X * sx) / 2;
-  y = (Y * sx) / 2;
-  z = (Z - 1) * sx;
+  y = (Y * sx) / 2 + sx / 2;
+  z = Z * sx;
 
   if (x == nx_ - sx / 2 && perio_ & GaleriExt::X_PERIO)
     return 1;
-  if (y == ny_ - sx / 2 && perio_ & GaleriExt::Y_PERIO)
+  if (y == ny_ && perio_ & GaleriExt::Y_PERIO)
     return 1;
-  if (z == nz_ - sx && perio_ & GaleriExt::Z_PERIO)
+  if (z == nz_ && perio_ & GaleriExt::Z_PERIO)
     return 1;
   return 0;
   }
 
 int SkewCartesianPartitioner::GetSubdomainID(
-  int sx, int x, int y, int z) const
+  int sx, int sy, int sz, int x, int y, int z) const
   {
   int npx = nx_ / sx;
-  int npy = ny_ / sx;
-  int npz = std::max(nz_ / sx, 1);
+  int npy = ny_ / sy;
+  int npz = nz_ / sz;
 
   int dir1 = npx + 1;
   int dir2 = npx;
@@ -212,30 +206,44 @@ int SkewCartesianPartitioner::NumLocalParts() const
   return numLocalSubdomains_;
   }
 
-int SkewCartesianPartitioner::CreateSubdomainMap()
+int SkewCartesianPartitioner::NumGlobalParts(int sx, int sy, int sz) const
   {
-  HYMLS_PROF2(label_,"CreateSubdomainMap");
-  int totNum2DCubes = npx_ * npy_; // number of cubes for fixed z
-  int numPerLayer = 2 * totNum2DCubes + npx_ + npy_; // domains for fixed z
+  int npx = nx_ / sx;
+  int npy = ny_ / sy;
+  int npz = nz_ / sz;
+
+  int totNum2DCubes = npx * npy; // number of cubes for fixed z
+  int numPerLayer = 2 * totNum2DCubes + npx + npy; // domains for fixed z
 
   // First layer
   int NumGlobalElements = numPerLayer;
+
   // Other layers
   if (nz_ > 1)
-    NumGlobalElements += numPerLayer * npz_;
+    {
+    NumGlobalElements += numPerLayer * npz;
+    }
 
+  return std::max(NumGlobalElements, 1);
+  }
+
+int SkewCartesianPartitioner::CreateSubdomainMap()
+  {
+  HYMLS_PROF2(label_,"CreateSubdomainMap");
+
+  int NumGlobalElements = NumGlobalParts(sx_, sy_, sz_);
   int *MyGlobalElements = new int[NumGlobalElements];
   int NumMyElements = 0;
 
   for (int sd = 0; sd < NumGlobalElements; sd++)
     {
     int i, j, k;
-    if (GetSubdomainPosition(sd, sx_, i, j, k) == 1)
+    if (GetSubdomainPosition(sd, sx_, sy_, sz_, i, j, k) == 1)
       continue;
 
-    i = ((i + sx_ / 2 - 1) % nx_ + nx_) % nx_;
+    i = (i % nx_ + nx_) % nx_;
     j = (j % ny_ + ny_) % ny_;
-    k = ((k + sx_) % nz_ + nz_) % nz_;
+    k = (k % nz_ + nz_) % nz_;
 
     int pid = PID(i, j, k);
     if (pid == comm_->MyPID())
@@ -273,61 +281,34 @@ int SkewCartesianPartitioner::Partition(bool repart)
       __FILE__, __LINE__);
     }
 
-  npx_ = nx_ / sx_;
-  npy_ = ny_ / sy_;
-  npz_ = nz_ / sz_;
+  int npx = nx_ / sx_;
+  int npy = ny_ / sy_;
+  int npz = nz_ / sz_;
 
   std::string s1 = toString(nx_) + "x" + toString(ny_) + "x" + toString(nz_);
-  std::string s2 = toString(npx_) + "x" + toString(npy_) + "x" + toString(npz_);
+  std::string s2 = toString(npx) + "x" + toString(npy) + "x" + toString(npz);
 
-  if ((nx_ != npx_ * sx_) || (ny_ != npy_ * sy_) || (nz_ != npz_ * sz_))
+  if ((nx_ != npx * sx_) || (ny_ != npy * sy_) || (nz_ != npz * sz_))
     {
     std::string msg = "You are trying to partition an " + s1 + " domain into " + s2 + " parts.\n";
     Tools::Error(msg, __FILE__, __LINE__);
     }
 
+  s2 = Teuchos::toString(NumGlobalParts(sx_, sy_, sz_));
   std::string s3 = toString(sx_)+"x"+toString(sy_)+"x"+toString(sz_);
 
   Tools::Out("Partition domain: ");
   Tools::Out("Grid size: " + s1);
-  Tools::Out("Number of Subdomains: " + s2);
+  Tools::Out("Estimated Number of Subdomains: " + s2);
   Tools::Out("Subdomain size: " + s3);
 
-  // case where there are more processor partitions than subdomains (experimental)
-  if (comm_->MyPID() >= npx_ * npy_ * npz_)
-    active_ = false;
+  CHECK_ZERO(CreatePIDMap(*comm_));
 
-  int color = active_ ? 1 : 0;
-  CHECK_ZERO(comm_->SumAll(&color, &nprocs_, 1));
-
-  while (nprocs_)
-    {
-    if (!Tools::SplitBox(nx_, ny_, nz_, nprocs_, nprocx_, nprocy_, nprocz_, sx_, sy_, sz_))
-      {
-      break;
-      }
-    else
-      {
-      nprocs_--;
-      }
-    }
-
-  std::string s4 = Teuchos::toString(nprocx_) + "x" +
-    Teuchos::toString(nprocy_) + "x" + Teuchos::toString(nprocz_);
-
-  if (comm_->MyPID() >= nprocs_)
-    active_ = false;
-
-  // if some processors have no subdomains, we need to
-  // repartition the map even if it is a cartesian partitioned
-  // map already:
   if (nprocs_ < comm_->NumProc())
     repart = true;
 
-  HYMLS_DEBVAR(npx_);
-  HYMLS_DEBVAR(npy_);
-  HYMLS_DEBVAR(npz_);
-  HYMLS_DEBVAR(active_);
+  if (comm_->MyPID() >= nprocs_)
+    active_ = false;
 
   CHECK_ZERO(CreateSubdomainMap());
 
@@ -366,11 +347,10 @@ int SkewCartesianPartitioner::Partition(bool repart)
     }
 #endif
 
-  if (active_)
-    {
-    Tools::Out("Number of Partitions: " + s4);
-    Tools::Out("Number of Local Subdomains: " + toString(NumLocalParts()));
-    }
+  Tools::Out("Number of Partitions: " + toString(nprocs_));
+  Tools::Out("Number of Local Subdomains: " + toString(NumLocalParts()));
+  Tools::Out("Number of Global Subdomains: " + toString(sdMap_->NumGlobalElements()));
+
   return 0;
   }
 
@@ -665,7 +645,7 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(
   HYMLS_PROF3(label_, "createSubdomain");
 
   int sdx, sdy, sdz;
-  GetSubdomainPosition(sd, sx_, sdx, sdy, sdz);
+  GetSubdomainPosition(sd, sx_, sy_, sz_, sdx, sdy, sdz);
 
   int nx = 4 * sx_;
 
@@ -679,8 +659,8 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(
       {
       int var = node % dof_;
       int x = (node / dof_) % nx + sdx - 1 - sx_;
-      int y = (node / dof_ / nx) % nx + sdy - 1 - sx_;
-      int z = node / dof_ / nx / nx + sdz - sx_;
+      int y = (node / dof_ / nx) % nx + sdy - 1 - 3 * sx_ / 2;
+      int z = node / dof_ / nx / nx + sdz - 2 * sx_;
       if (perio_ & GaleriExt::X_PERIO) x = (x + nx_) % nx_;
       if (perio_ & GaleriExt::Y_PERIO) y = (y + ny_) % ny_;
       if (perio_ & GaleriExt::Z_PERIO) z = (z + nz_) % nz_;
@@ -782,6 +762,9 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &inte
   {
   HYMLS_PROF3(label_,"GetGroups");
 
+  interior_nodes.clear();
+  separator_nodes.clear();
+
   int gsd = sdMap_->GID(sd);
 
   std::vector<std::vector<hymls_gidx> > nodes = createSubdomain(gsd);
@@ -789,46 +772,6 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &inte
   std::copy(nodes.begin() + 1, nodes.end(), std::back_inserter(separator_nodes));
 
   return 0;
-  }
-
-//! get processor on which a grid point is located
-int SkewCartesianPartitioner::PID(int i, int j, int k) const
-  {
-  #ifdef HYMLS_TESTING
-  if (!Partitioned())
-    {
-    Tools::Error("Partition() not yet called!", __FILE__, __LINE__);
-    }
-#endif
-  int sx = nx_ / nprocx_;
-  int sy = ny_ / nprocy_;
-  int sz = nz_ / nprocz_;
-
-  int cl = std::min(sx, sy);
-  if (nz_ > 1)
-    cl = std::min(cl, sz);
-
-  int sd = GetSubdomainID(cl, i, j, k);
-  GetSubdomainPosition(sd, cl, i, j, k);
-
-  i = ((i + cl / 2 - 1) % nx_ + nx_) % nx_;
-  j = (j % ny_ + ny_) % ny_;
-  k = ((k + cl) % nz_ + nz_) % nz_;
-
-  // In which cube is the cell?
-  int sdx = i / sx;
-  int sdy = j / sy;
-  int sdz = k / sz;
-
-  int pid = (sdz * nprocy_ + sdy) * nprocx_ + sdx;
-
-#ifdef HYMLS_TESTING
-  if (pid < 0 || pid >= nprocx_ * nprocy_ * nprocz_)
-    Tools::Error("Invalid PID "+Teuchos::toString(pid),
-      __FILE__, __LINE__);
-#endif
-
-  return pid;
   }
 
   }

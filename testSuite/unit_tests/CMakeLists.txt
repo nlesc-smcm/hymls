@@ -32,8 +32,9 @@ add_test(NAME unit_tests_2 COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 2 ./unit_t
 add_test(NAME unit_tests_3 COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 3 ./unit_tests)
 add_test(NAME unit_tests_4 COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 ./unit_tests)
 add_test(NAME unit_tests_5 COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 5 ./unit_tests)
+add_test(NAME unit_tests_8 COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 8 ./unit_tests)
 
-set(test_list unit_tests_1 unit_tests_2 unit_tests_3 unit_tests_4 unit_tests_5)
+set(test_list unit_tests_1 unit_tests_2 unit_tests_3 unit_tests_4 unit_tests_5 unit_tests_8)
 set_tests_properties(${test_list} PROPERTIES PASS_REGULAR_EXPRESSION "TEST PASSED")
 set_tests_properties(${test_list} PROPERTIES FAIL_REGULAR_EXPRESSION "TEST FAILED")
 set_tests_properties(${test_list} PROPERTIES TIMEOUT 500)

@@ -1,5 +1,6 @@
 #include "HYMLS_BasePartitioner.H"
 #include "HYMLS_Tools.H"
+#include "HYMLS_MatrixUtils.H"
 
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_StrUtils.hpp"
@@ -266,6 +267,252 @@ void BasePartitioner::SetNextLevelParameters(Teuchos::ParameterList& params)
     precList.set("Coarsening Factor", cx_);
   }
 
+int FindCoarseningFactor(int cx)
+  {
+  int b = 1;
+  while (b < cx)
+    {
+    for (int p = 0; p < cx; p++)
+      if (pow(b, p) == cx)
+        return b;
+    b += 1;
+    }
+  return cx;
+  }
+
+int BasePartitioner::CreatePIDMap(Epetra_Comm const &comm)
+  {
+  int sx = sx_;
+  int sy = sy_;
+  int sz = sz_;
+
+  // If there is only 1 processor everyone is on PID 0.
+  int nparts = NumGlobalParts(sx, sy, sz);
+  if (comm.NumProc() == 1 || nparts == 1)
+    {
+    nprocs_ = 1;
+    pidMap_ = Teuchos::rcp(new Teuchos::Array<int>(nparts, 0));
+    return 0;
+    }
+  else
+    pidMap_ = Teuchos::rcp(new Teuchos::Array<int>(nparts, -1));
+
+  // Find the smallest possible coarsening factor
+  int cx = FindCoarseningFactor(cx_);
+  int cy = FindCoarseningFactor(cy_);
+  int cz = FindCoarseningFactor(cz_);
+
+  // Increase the subdomain size until the size of the subdomains is
+  // the entire domain.
+  while (sx < nx_ || sy < ny_ || sz < nz_)
+    {
+    sx = sx * cx;
+    sy = sy * cy;
+    if (nz_ > 1)
+      sz = sz * cz;
+    }
+
+  nparts = NumGlobalParts(sx, sy, sz);
+  if (nparts < 1)
+    Tools::Error("Amount of subdomains with separator length " +
+      Teuchos::toString(sx) + "x" + Teuchos::toString(sy) + "x" + Teuchos::toString(sz) +
+      " and domain size " +
+      Teuchos::toString(nx_) + "x" + Teuchos::toString(ny_) + "x" + Teuchos::toString(nz_) +
+      " is " + Teuchos::toString(nparts) + ".", __FILE__, __LINE__);
+
+  // Loop over subdomain sizes from large to small until all
+  // processors have some subdomain assigned to them.
+  nprocs_ = 0;
+  for (int j = 0; j < 1000; j++)
+    {
+    nparts = NumGlobalParts(sx, sy, sz);
+
+    for (int i = 0; i < nparts; i++)
+      {
+      int x, y, z;
+      // Get the position of the larger subdomain
+      GetSubdomainPosition(i, sx, sy, sz, x, y, z);
+
+      x = (x % nx_ + nx_) % nx_;
+      y = (y % ny_ + ny_) % ny_;
+      z = (z % nz_ + nz_) % nz_;
+
+      // Get first subdomain in the larger subdomain
+      int sd = GetSubdomainID(sx_, sy_, sz_, x, y, z);
+
+      if ((*pidMap_)[sd] != -1)
+        continue;
+
+      if (nprocs_ < comm.NumProc())
+        {
+        // Set the processor if there are still empty processors
+        // available
+        (*pidMap_)[sd] = nprocs_++;
+        }
+      else
+        {
+        // Set the processor the same as the one of the subdomain that
+        // is 1 size larger if no empty processors are available.
+        int sx2 = sx * cx;
+        int sy2 = sy * cy;
+        int sz2 = nz_ > 1 ? sz * cz : sz;
+
+        // Subdomain ID of the larger subdomain.
+        int sd2 = GetSubdomainID(sx2, sy2, sz2, x, y, z);
+
+        // Position of this subdomain.
+        GetSubdomainPosition(sd2, sx2, sy2, sz2, x, y, z);
+
+        x = (x % nx_ + nx_) % nx_;
+        y = (y % ny_ + ny_) % ny_;
+        z = (z % nz_ + nz_) % nz_;
+
+        // First subdomain in this larger subdomain. This one should
+        // have been assigned in the previous loop.
+        sd2 = GetSubdomainID(sx_, sy_, sz_, x, y, z);
+
+        if ((*pidMap_)[sd2] == -1)
+          Tools::Error("Invalid subdomain index " + Teuchos::toString(sd2) +
+            " with subdomain size " +
+            Teuchos::toString(sx) + "x" + Teuchos::toString(sy) + "x" + Teuchos::toString(sz) +
+            " and position " +
+            Teuchos::toString(x) + "x" + Teuchos::toString(y) + "x" + Teuchos::toString(z)
+            , __FILE__, __LINE__);
+
+        (*pidMap_)[sd] = (*pidMap_)[sd2];
+        }
+      }
+
+    sx = sx / cx;
+    sy = sy / cy;
+    if (nz_ > 1)
+      sz = sz / cz;
+
+    if (sx < sx_ || sy < sy_ || sz < sz_)
+      break;
+    }
+
+  // Every subdomain that is not yet assigned to a processor is
+  // assigned to the same processor as the subdomain that is 1 size
+  // larger.
+  sx = sx_ * cx;
+  sy = sy_ * cy;
+  if (nz_ > 1)
+    sz = sz_ * cz;
+
+  nparts = NumGlobalParts(sx_, sy_, sz_);
+  for (int i = 0; i < nparts; i++)
+    {
+    if ((*pidMap_)[i] == -1)
+      {
+      int x, y, z;
+
+      // Position of the current subdomain.
+      GetSubdomainPosition(i, sx_, sy_, sz_, x, y, z);
+
+      x = (x % nx_ + nx_) % nx_;
+      y = (y % ny_ + ny_) % ny_;
+      z = (z % nz_ + nz_) % nz_;
+
+      // Check if the subdomain at this position already has a PID
+      // assigned to it. This may happen at a boundary.
+      int sd = GetSubdomainID(sx_, sy_, sz_, x, y, z);
+      if ((*pidMap_)[sd] != -1)
+        {
+        (*pidMap_)[i] = (*pidMap_)[sd];
+        continue;
+        }
+
+      // Subdomain ID of the larger subdomain.
+      sd = GetSubdomainID(sx, sy, sz, x, y, z);
+
+      // Position of this subdomain.
+      GetSubdomainPosition(sd, sx, sy, sz, x, y, z);
+
+      x = (x % nx_ + nx_) % nx_;
+      y = (y % ny_ + ny_) % ny_;
+      z = (z % nz_ + nz_) % nz_;
+
+      // First subdomain in this larger subdomain. This one should
+      // have been assigned in the previous loop.
+      sd = GetSubdomainID(sx_, sy_, sz_, x, y, z);
+
+      if ((*pidMap_)[sd] == -1)
+        Tools::Error("Invalid subdomain index " + Teuchos::toString(sd) +
+          " with subdomain size " +
+          Teuchos::toString(sx) + "x" + Teuchos::toString(sy) + "x" + Teuchos::toString(sz) +
+          " and position " +
+          Teuchos::toString(x) + ", " + Teuchos::toString(y) + ", " + Teuchos::toString(z)
+          , __FILE__, __LINE__);
+
+      (*pidMap_)[i] = (*pidMap_)[sd];
+      }
+    }
+
+  return 0;
+  }
+
+Teuchos::RCP<const Epetra_Map> BasePartitioner::MoveMap(
+  Teuchos::RCP<const Epetra_Map> baseMap) const
+  {
+  HYMLS_PROF2("BasePartitioner", "MoveMap");
+
+  if (destinationPID_ < 0)
+    return Teuchos::null;
+
+  Epetra_Comm const &comm = baseMap->Comm();
+  const Epetra_MpiComm *epetraMpiComm = dynamic_cast<const Epetra_MpiComm *>(&comm);
+
+  // If we don't have an MPI comm, we can't do anything
+  if(!epetraMpiComm)
+    return Teuchos::null;
+
+  MPI_Comm newMpiComm;
+  MPI_Comm MpiComm = epetraMpiComm->Comm();
+
+  CHECK_ZERO(MPI_Comm_split(MpiComm, destinationPID_, 0, &newMpiComm));
+  Teuchos::RCP<Epetra_MpiComm> newEpetraMpiComm = Teuchos::rcp(new Epetra_MpiComm(newMpiComm));
+
+  int failed = false;
+  if ((destinationPID_ == comm.MyPID() and newEpetraMpiComm->MyPID() != 0) or
+    (newEpetraMpiComm->MyPID() == 0 and destinationPID_ != comm.MyPID()))
+    {
+    failed = true;
+    Tools::Warning("Processor with rank " + Teuchos::toString(comm.MyPID()) +
+      " and destination " + Teuchos::toString(destinationPID_) + 
+      " has rank " + Teuchos::toString(newEpetraMpiComm->MyPID()) +
+      " in the gather group. Using send and receive instead of move.",
+      __FILE__, __LINE__);
+    }
+  int globalFailed = false;
+  comm.MaxAll(&failed, &globalFailed, 1);
+  if (globalFailed)
+    return Teuchos::null;
+
+  // Create a map with the new communicator
+  hymls_gidx *myGlobalElements;
+#ifdef HYMLS_LONG_LONG
+  myGlobalElements = baseMap->MyGlobalElements64();
+#else
+  myGlobalElements = baseMap->MyGlobalElements();
+#endif
+  Teuchos::RCP<Epetra_Map> gatherMap = Teuchos::rcp(new Epetra_Map(
+      (hymls_gidx)-1, baseMap->NumMyElements(), myGlobalElements,
+    (hymls_gidx)baseMap->IndexBase64(), *newEpetraMpiComm));
+
+  // Gather on the first processor in each group
+  Teuchos::RCP<Epetra_Map> gatheredMap = MatrixUtils::Gather(*gatherMap, 0);
+
+  // Make a new map with the gathered elements
+#ifdef HYMLS_LONG_LONG
+  myGlobalElements = gatheredMap->MyGlobalElements64();
+#else
+  myGlobalElements = gatheredMap->MyGlobalElements();
+#endif
+  return Teuchos::rcp(new Epetra_Map((hymls_gidx)-1, gatheredMap->NumMyElements(),
+      myGlobalElements, (hymls_gidx)baseMap->IndexBase64(), comm));
+  }
+
 Teuchos::RCP<const Epetra_Map> BasePartitioner::RepartitionMap(
   Teuchos::RCP<const Epetra_Map> baseMap) const
   {
@@ -273,10 +520,13 @@ Teuchos::RCP<const Epetra_Map> BasePartitioner::RepartitionMap(
 
   Epetra_Comm const &comm = baseMap->Comm();
 
-  Teuchos::RCP<Epetra_Distributor> Distor =
-    Teuchos::rcp(comm.CreateDistributor());
-
   int myPID = comm.MyPID();
+
+  // In many cases, all GID have to be moved to the same
+  // processor. We treat this as a special case
+  int destinationPID = myPID;
+  if (baseMap->NumMyElements() > 0)
+      destinationPID = PID(baseMap->GID64(0));
 
   // check how many of the owned GIDs in the map need to be
   // moved to someone else
@@ -284,8 +534,21 @@ Teuchos::RCP<const Epetra_Map> BasePartitioner::RepartitionMap(
   for (int lid = 0; lid < baseMap->NumMyElements(); lid++)
     {
     hymls_gidx gid = baseMap->GID64(lid);
-    if (PID(gid) != myPID)
+    int pid = PID(gid);
+    if (pid != myPID)
       numSends++;
+    if (pid != destinationPID)
+        destinationPID = -1;
+    }
+
+  destinationPID_ = -1;
+  CHECK_ZERO(comm.MinAll(&destinationPID, &destinationPID_, 1));
+  if (destinationPID_ > -1)
+    {
+    destinationPID_ = destinationPID;
+    Teuchos::RCP<const Epetra_Map> moveMap = MoveMap(baseMap);
+    if (moveMap != Teuchos::null)
+      return moveMap;
     }
 
   int numLocal = baseMap->NumMyElements() - numSends;
@@ -312,9 +575,12 @@ Teuchos::RCP<const Epetra_Map> BasePartitioner::RepartitionMap(
       }
     }
 
+  Teuchos::RCP<Epetra_Distributor> Distor =
+      Teuchos::rcp(comm.CreateDistributor());
+
   int numRecvs;
   CHECK_ZERO(Distor->CreateFromSends(numSends, sendPIDs, true, numRecvs));
- 
+
   char* sbuf = reinterpret_cast<char*>(sendGIDs);
   int numRecvChars = static_cast<int>(numRecvs * sizeof(hymls_gidx));
   char* rbuf = new char[numRecvChars];
@@ -358,6 +624,11 @@ int BasePartitioner::PID(hymls_gidx gid) const
   int i, j, k, var;
   Tools::ind2sub(nx_, ny_, nz_, dof_, gid, i, j, k, var);
   return PID(i, j, k);
+  }
+
+int BasePartitioner::PID(int i, int j, int k) const
+  {
+  return (*pidMap_)[GetSubdomainID(sx_, sy_, sz_, i, j, k)];
   }
 
   }//namespace

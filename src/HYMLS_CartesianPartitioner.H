@@ -44,7 +44,14 @@ public:
   //! processor partitioning
   int Partition(bool repart=true);
 
-private:
+protected:
+
+  //! Get the position of the first node of the subdomain
+  int GetSubdomainPosition(int sd, int sx, int sy, int sz, int &x, int &y, int &z) const;
+
+  //! Get the subdomain id from the position of a node in the subdomain
+  int GetSubdomainID(int sx, int sy, int sz, int x, int y, int z) const;
+
   //! creates the map from global to local partition IDs. The implementation
   //! may assume that npx_, sx_ etc. are already set so that operator() works.
   int CreateSubdomainMap();
@@ -63,7 +70,7 @@ public:
   //! is this class fully set up?
   inline bool Partitioned() const
     {
-    return npx_ > 0;
+    return cartesianMap_ != Teuchos::null;
     }
 
   //! return the repartitioned/reordered map
@@ -78,8 +85,11 @@ public:
     return *sdMap_;
     }
 
-  //! return number of subdomains in this proc partition
+  //! return the number of subdomains in this proc partition
   int NumLocalParts() const;
+
+  //! return the global number of subdomains
+  int NumGlobalParts(int sx, int sy, int sz) const;
 
 protected:
 
@@ -96,27 +106,11 @@ protected:
   //! exactly one process/belong to only one partition)
   Teuchos::RCP<const Epetra_Map> cartesianMap_;
 
-  //! number of subdomains
-  int npx_,npy_,npz_;
-
-  //! processor distribution
-  int nprocx_,nprocy_,nprocz_;
-
   //! number of subdomains on this proc
   int numLocalSubdomains_;
 
   //! maps global to local subdomain ID
   Teuchos::RCP<Epetra_Map> sdMap_;
-
-  //! indicates wether the processor is active (owns any nodes/subdomains)
-  bool active_;
-
-protected:
-
-  using BasePartitioner::PID;
-
-  //! get processor on which a grid point is located
-  int PID(int i, int j, int k) const;
   };
 
   }

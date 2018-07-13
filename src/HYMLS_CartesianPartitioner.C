@@ -10,12 +10,6 @@ using Teuchos::toString;
 
 namespace HYMLS {
 
-// by default, everyone is assumed to own a part of the domain.
-// if in Partition() it turns out that there are more processor
-// partitions than subdomains, active_ is set to false for some
-// ranks, which will get an empty part of the reordered map
-// (cartesianMap_).
-
 // constructor
 CartesianPartitioner::CartesianPartitioner(
   Teuchos::RCP<const Epetra_Map> map,
@@ -23,7 +17,7 @@ CartesianPartitioner::CartesianPartitioner(
   Epetra_Comm const &comm)
   : BasePartitioner(), label_("CartesianPartitioner"),
     comm_(Teuchos::rcp(comm.Clone())), baseMap_(map), cartesianMap_(Teuchos::null),
-    numLocalSubdomains_(-1), active_(true)
+    numLocalSubdomains_(-1)
   {
   HYMLS_PROF3(label_, "Constructor");
 
@@ -45,7 +39,7 @@ int CartesianPartitioner::operator()(int i, int j, int k) const
     Tools::Error("Partition() not yet called!", __FILE__, __LINE__);
     }
 #endif
-  return (k / sz_ * npy_ + j / sy_) * npx_ + i / sx_;
+  return GetSubdomainID(sx_, sy_, sz_, i, j, k);
   }
 
 //! get non-overlapping subdomain id
@@ -62,7 +56,30 @@ int CartesianPartitioner::operator()(hymls_gidx gid) const
   return operator()(i, j, k);
   }
 
-//! return number of subdomains in this proc partition
+int CartesianPartitioner::GetSubdomainPosition(
+  int sd, int sx, int sy, int sz, int &x, int &y, int &z) const
+  {
+  int npx = std::max(nx_ / sx, 1);
+  int npy = std::max(ny_ / sy, 1);
+  int npz = std::max(nz_ / sz, 1);
+
+  x = (sd % npx) * sx;
+  y = ((sd / npx) % npy) * sy;
+  z = ((sd / npx / npy) % npz) * sz;
+
+  return 0;
+  }
+
+int CartesianPartitioner::GetSubdomainID(
+  int sx, int sy, int sz, int x, int y, int z) const
+  {
+  int npx = std::max(nx_ / sx, 1);
+  int npy = std::max(ny_ / sy, 1);
+
+  return (z / sz * npy + y / sy) * npx + x / sx;
+  }
+
+//! return the number of subdomains in this proc partition
 int CartesianPartitioner::NumLocalParts() const
   {
   if (numLocalSubdomains_<0)
@@ -72,22 +89,32 @@ int CartesianPartitioner::NumLocalParts() const
   return numLocalSubdomains_;
   }
 
+//! return the global number of subdomains
+int CartesianPartitioner::NumGlobalParts(int sx, int sy, int sz) const
+  {
+  int npx = std::max(nx_ / sx, 1);
+  int npy = std::max(ny_ / sy, 1);
+  int npz = std::max(nz_ / sz, 1);
+
+  return npx * npy * npz;
+  }
+
 int CartesianPartitioner::CreateSubdomainMap()
   {
   int NumMyElements = 0;
-  int NumGlobalElements = npx_ * npy_ * npz_;
+  int NumGlobalElements = NumGlobalParts(sx_, sy_, sz_);
   int *MyGlobalElements = new int[NumGlobalElements];
 
-  for (int k = 0; k < npz_; k++)
-    for (int j = 0; j < npy_; j++)
-      for (int i = 0; i < npx_; i++)
-        {
-        int pid = PID(sx_ * i, sy_ * j, sz_ * k);
-        if (pid == comm_->MyPID())
-          MyGlobalElements[NumMyElements++] = i + j * npx_ + k * npx_ * npy_;
-        }
+  for (int sd = 0; sd < NumGlobalElements; sd++)
+    {
+    int x, y, z;
+    GetSubdomainPosition(sd, sx_, sy_, sz_, x, y, z);
+    int pid = PID(x, y, z);
+    if (pid == comm_->MyPID())
+      MyGlobalElements[NumMyElements++] = sd;
+    }
 
-  sdMap_ = Teuchos::rcp(new Epetra_Map(NumGlobalElements,
+  sdMap_ = Teuchos::rcp(new Epetra_Map(-1,
       NumMyElements, MyGlobalElements, 0, *comm_));
 
   delete [] MyGlobalElements;
@@ -112,14 +139,14 @@ int CartesianPartitioner::Partition(bool repart)
       __FILE__, __LINE__);
     }
 
-  npx_ = nx_ / sx_;
-  npy_ = ny_ / sy_;
-  npz_ = nz_ / sz_;
+  int npx = nx_ / sx_;
+  int npy = ny_ / sy_;
+  int npz = nz_ / sz_;
 
   std::string s1=toString(nx_)+"x"+toString(ny_)+"x"+toString(nz_);
-  std::string s2=toString(npx_)+"x"+toString(npy_)+"x"+toString(npz_);
+  std::string s2=toString(npx)+"x"+toString(npy)+"x"+toString(npz);
 
-  if ((nx_!=npx_*sx_)||(ny_!=npy_*sy_)||(nz_!=npz_*sz_))
+  if ((nx_!=npx*sx_)||(ny_!=npy*sy_)||(nz_!=npz*sz_))
     {
     std::string msg = "You are trying to partition an "+s1+" domain into "+s2+" parts.\n"
       "We currently need nx to be a multiple of npx etc.";
@@ -133,43 +160,10 @@ int CartesianPartitioner::Partition(bool repart)
   Tools::Out("Number of Subdomains: "+s2);
   Tools::Out("Subdomain size: "+s3);
 
-  // case where there are more processor partitions than subdomains (experimental)
-  if (comm_->MyPID()>=npx_*npy_*npz_)
-    {
-    active_ = false;
-    }
+  CHECK_ZERO(CreatePIDMap(*comm_));
 
-  int color = active_? 1: 0;
-  int nprocs;
-
-  CHECK_ZERO(comm_->SumAll(&color,&nprocs,1));
-
-  while (nprocs)
-    {
-    if (!Tools::SplitBox(nx_, ny_, nz_, nprocs, nprocx_, nprocy_, nprocz_, sx_, sy_, sz_))
-      {
-      break;
-      }
-    else
-      {
-      nprocs--;
-      }
-    }
-  std::string s4 = Teuchos::toString(nprocx_)+"x"+Teuchos::toString(nprocy_)+"x"+Teuchos::toString(nprocz_);
-
-  if (comm_->MyPID() >= nprocs)
-    active_ = false;
-
-  // if some processors have no subdomains, we need to
-  // repartition the map even if it is a cartesian partitioned
-  // map already:
-  if (nprocs < comm_->NumProc())
+  if (nprocs_ != comm_->NumProc())
     repart = true;
-
-  HYMLS_DEBVAR(npx_);
-  HYMLS_DEBVAR(npy_);
-  HYMLS_DEBVAR(npz_);
-  HYMLS_DEBVAR(active_);
 
   CHECK_ZERO(CreateSubdomainMap());
 
@@ -186,7 +180,7 @@ int CartesianPartitioner::Partition(bool repart)
 // In both cases some processes are deactivated.
   if (repart)
     {
-    Tools::Out("repartition for "+s4+" procs");
+    Tools::Out("repartition for "+Teuchos::toString(nprocs_)+" procs");
     cartesianMap_ = RepartitionMap(baseMap_);
     }
 
@@ -205,11 +199,9 @@ int CartesianPartitioner::Partition(bool repart)
     }
 #endif
 
-  if (active_)
-    {
-    Tools::Out("Number of Partitions: " + s4);
-    Tools::Out("Number of Local Subdomains: " + toString(NumLocalParts()));
-    }
+  Tools::Out("Number of Partitions: " + Teuchos::toString(nprocs_));
+  Tools::Out("Number of Local Subdomains: " + toString(NumLocalParts()));
+
   return 0;
   }
 
@@ -306,15 +298,17 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
   {
   HYMLS_PROF3(label_,"GetGroups");
 
+  interior_nodes.clear();
+  separator_nodes.clear();
+
   // pressure nodes that need to be retained
   Teuchos::Array<hymls_gidx> retained_nodes;
 
   Teuchos::Array<hymls_gidx> *nodes;
 
   int gsd = sdMap_->GID(sd);
-  int xpos = (gsd % npx_) * sx_;
-  int ypos = ((gsd / npx_) % npy_) * sy_;
-  int zpos = ((gsd / npx_ / npy_) % npz_) * sz_;
+  int xpos, ypos, zpos;
+  GetSubdomainPosition(gsd, sx_, sy_, sz_, xpos, ypos, zpos);
 
   int pvar = -1;
   for (int i = 0; i < dof_; i++)
@@ -393,36 +387,6 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
     }
 
   return 0;
-  }
-
-//! get processor on which a grid point is located
-int CartesianPartitioner::PID(int i, int j, int k) const
-  {
-  // in which subdomain is the cell?
-  int sdx = i / sx_;
-  int sdy = j / sy_;
-  int sdz = k / sz_;
-
-  //how many subdomains are there per process?
-  int npx = npx_ / nprocx_;
-  int npy = npy_ / nprocy_;
-  int npz = npz_ / nprocz_;
-
-#ifdef HYMLS_TESTING
-  if ( (npx*nprocx_!=npx_) ||
-    (npy*nprocy_!=npy_) ||
-    (npz*nprocz_!=npz_) )
-    {
-    Tools::Error("case of irregular partitioning not implemented",
-      __FILE__,__LINE__);
-    }
-#endif
-  // so, where is the cell (on which process)?
-  int pidx = sdx / npx;
-  int pidy = sdy / npy;
-  int pidz = sdz / npz;
-
-  return (pidz * nprocy_ + pidy) * nprocx_ + pidx;
   }
 
   }

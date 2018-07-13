@@ -8,6 +8,7 @@
 #include "GaleriExt_Periodic.h"
 
 class Epetra_Map;
+class Epetra_Comm;
 
 namespace Teuchos {
 class ParameterList;
@@ -50,6 +51,9 @@ public:
   //! get number of local partitions
   virtual int NumLocalParts() const = 0;
 
+  //! get number of global partitions
+  virtual int NumGlobalParts(int sx, int sy, int sz) const = 0;
+
   //! is this class fully set up?
   virtual bool Partitioned() const = 0;
 
@@ -77,7 +81,20 @@ public:
   //! to a subdomain have contiguous local indexing)
   virtual Teuchos::RCP<const Epetra_Map> GetMap() const = 0;
 
+  //! move every local part of the map to a different processor
+  virtual Teuchos::RCP<const Epetra_Map> MoveMap(
+    Teuchos::RCP<const Epetra_Map> baseMap) const;
+
 protected:
+
+  //! Get the position of the first node of the subdomain
+  virtual int GetSubdomainPosition(int sd, int sx, int sy, int sz, int &x, int &y, int &z) const = 0;
+
+  //! Get the subdomain id from the position of a node in the subdomain
+  virtual int GetSubdomainID(int sx, int sy, int sz, int x, int y, int z) const = 0;
+
+  //! Create a map of what processor a subdomain belongs to
+  virtual int CreatePIDMap(Epetra_Comm const &comm);
 
   //! Repartitioning may occur for two reasons, typically on coarser levels:
   //! a) the number of subdomains becomes smaller than the number of processes,
@@ -90,7 +107,7 @@ protected:
   virtual int PID(hymls_gidx gid) const;
 
   //! get processor on which a grid point is located
-  virtual int PID(int i, int j, int k) const = 0;
+  virtual int PID(int i, int j, int k) const;
 
   //! global grid size
   int nx_, ny_, nz_;
@@ -107,11 +124,20 @@ protected:
   //! number of variables per node
   int dof_;
 
+  //! number of processors in use
+  int nprocs_;
+
   //! type of periodicity in the problem
   GaleriExt::PERIO_Flag perio_;
 
   //! type of the variables per node
   Teuchos::Array<int> variableType_;
+
+  //! map of what processor a subdomain belongs to
+  Teuchos::RCP<Teuchos::Array<int> > pidMap_;
+
+  //! pid which all nodes on this processor have to be moved to
+  mutable int destinationPID_;
 
   };
 

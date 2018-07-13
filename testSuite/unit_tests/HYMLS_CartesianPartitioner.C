@@ -103,12 +103,64 @@ TEUCHOS_UNIT_TEST(CartesianPartitioner, 5DOFNodes)
     TEST_EQUALITY(gids[i], i);
   }
 
+TEUCHOS_UNIT_TEST(CartesianPartitioner, SamePartEveryProc)
+  {
+  int nprocs = 64;
+  Teuchos::RCP<FakeComm> comm = Teuchos::rcp(new FakeComm);
+  DISABLE_OUTPUT;
+
+  comm->SetNumProc(nprocs);
+  for (int i = 0; i < nprocs; i++)
+    {
+    comm->SetMyPID(i);
+
+    Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
+      new Teuchos::ParameterList);
+    params->sublist("Problem").set("nx", 32);
+    params->sublist("Problem").set("ny", 32);
+    params->sublist("Problem").set("nz", 32);
+    params->sublist("Problem").set("Equations", "Stokes-C");
+    params->sublist("Preconditioner").set("Separator Length", 4);
+
+    HYMLS::CartesianPartitioner part(Teuchos::null, params, *comm);
+    part.Partition(false);
+
+    int exp = 32 / 4 * 32 / 4 * 32 / 4 / nprocs;
+    TEST_EQUALITY(part.NumLocalParts(), exp);
+    }
+  }
+
+TEUCHOS_UNIT_TEST(CartesianPartitioner, MoveMap)
+  {
+  Teuchos::RCP<Epetra_MpiComm> comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
+  DISABLE_OUTPUT;
+
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
+    new Teuchos::ParameterList);
+  params->sublist("Problem").set("nx", 16);
+  params->sublist("Problem").set("ny", 16);
+  params->sublist("Problem").set("Dimension", 2);
+  params->sublist("Problem").set("Degrees of Freedom", 3);
+  params->sublist("Preconditioner").set("Separator Length", 4);
+
+  HYMLS::CartesianPartitioner part(Teuchos::null, params, *comm);
+  part.Partition(true);
+
+  Teuchos::RCP<const Epetra_Map> map = part.GetMap();
+
+  params->sublist("Preconditioner").set("Separator Length", 8);
+
+  // This throws an exception if it fails
+  HYMLS::CartesianPartitioner part2(map, params, *comm);
+  part2.Partition(true);
+  }
+
 #ifdef HYMLS_LONG_LONG
 TEUCHOS_UNIT_TEST(CartesianPartitioner, GID64)
   {
   Teuchos::RCP<FakeComm> comm = Teuchos::rcp(new FakeComm);
-  comm->SetNumProc(8192);
-  comm->SetMyPID(8191);
+  comm->SetNumProc(4096);
+  comm->SetMyPID(4095);
   DISABLE_OUTPUT;
 
   Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
@@ -125,6 +177,8 @@ TEUCHOS_UNIT_TEST(CartesianPartitioner, GID64)
   Teuchos::Array<hymls_gidx> interior_nodes;
   Teuchos::Array<Teuchos::Array<hymls_gidx> > separator_nodes;
   part.GetGroups(part.NumLocalParts()-1, interior_nodes, separator_nodes);
+
+  ENABLE_OUTPUT;
 
   long long last = part.Map().NumGlobalElements64() - 1;
   TEST_EQUALITY(interior_nodes.back(), last);

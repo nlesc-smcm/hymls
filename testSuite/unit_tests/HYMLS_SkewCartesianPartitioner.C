@@ -28,12 +28,12 @@ public:
 
   int GetSubdomainPosition(int sd, int sx, int &x, int &y, int &z) const
     {
-    return HYMLS::SkewCartesianPartitioner::GetSubdomainPosition(sd, sx, x, y, z);
+    return HYMLS::SkewCartesianPartitioner::GetSubdomainPosition(sd, sx, sx, sx, x, y, z);
     }
 
   int GetSubdomainID(int sx, int x, int y, int z) const
     {
-    return HYMLS::SkewCartesianPartitioner::GetSubdomainID(sx, x, y, z);
+    return HYMLS::SkewCartesianPartitioner::GetSubdomainID(sx, sx, sx, x, y, z);
     }
   };
 
@@ -85,15 +85,10 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, PID)
 
   ENABLE_OUTPUT;
 
-  TEST_EQUALITY(part.PID(0, 0, 0), 1);
-  TEST_EQUALITY(part.PID(0, 1, 0), 0);
-  TEST_EQUALITY(part.PID(7, 0, 0), 0);
-  TEST_EQUALITY(part.PID(3, 4, 0), 1);
-  TEST_EQUALITY(part.PID(3, 4, 3), 3);
-  TEST_EQUALITY(part.PID(3, 4, 4), 3);
-  TEST_EQUALITY(part.PID(0, 0, 4), 3);
-  TEST_EQUALITY(part.PID(5, 5, 5), 2);
-  TEST_EQUALITY(part.PID(7, 7, 7), 3);
+  TEST_EQUALITY(part.PID(0, 0, 0), 0);
+  TEST_EQUALITY(part.PID(0, 1, 0), 3);
+  TEST_EQUALITY(part.PID(7, 0, 0), 3);
+  TEST_EQUALITY(part.PID(7, 7, 7), 1);
   }
 
 TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, GetSubdomain)
@@ -119,23 +114,84 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, GetSubdomain)
   part.Partition(false);
 
   ENABLE_OUTPUT;
+
   for (int sd = 0; sd < part.NumLocalParts(); sd++)
     {
-    int gsd = part.SubdomainMap().GID(sd);
     int i, j, k;
+    int gsd = part.SubdomainMap().GID(sd);
     part.GetSubdomainPosition(gsd, cl, i, j, k);
 
-    i = ((i + cl / 2 - 1) % nx + nx) % nx;
+    i = (i % nx + nx) % nx;
     j = (j % nx + nx) % nx;
-    k = ((k + cl) % nx + nx) % nx;
+    k = (k % nx + nx) % nx;
 
     int gsd2 = part.GetSubdomainID(cl, i, j, k);
+
+    // Just for printing
     TEST_EQUALITY(i, i);
     TEST_EQUALITY(j, j);
     TEST_EQUALITY(k, k);
+
+    // Actual test
     TEST_EQUALITY(gsd, gsd2);
     }
   }
+
+TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, GetSubdomain0)
+  {
+  Teuchos::RCP<FakeComm> comm = Teuchos::rcp(new FakeComm);
+  comm->SetNumProc(4);
+  DISABLE_OUTPUT;
+
+  for (int nx = 4; nx <= 32; nx *= 2)
+    for (int cl = 2; cl <= nx; cl *= 2)
+      {
+      Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
+        new Teuchos::ParameterList);
+      params->sublist("Problem").set("nx", nx);
+      params->sublist("Problem").set("ny", nx);
+      params->sublist("Problem").set("nz", nx);
+      params->sublist("Problem").set("Equations", "Stokes-C");
+      params->sublist("Preconditioner").set("Separator Length", cl);
+
+      TEST_EQUALITY(nx, nx);
+      TEST_EQUALITY(cl, cl);
+
+      TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
+
+      ENABLE_OUTPUT;
+
+      int i, j, k;
+      part.GetSubdomainPosition(0, cl, i, j, k);
+      TEST_EQUALITY(i, 0);
+      TEST_EQUALITY(j, 0);
+      TEST_EQUALITY(k, 0);
+      }
+  }
+
+TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NumGlobalParts)
+  {
+  Teuchos::RCP<FakeComm> comm = Teuchos::rcp(new FakeComm);
+  comm->SetNumProc(1);
+  DISABLE_OUTPUT;
+
+  int nx = 32;
+  int ny = 28;
+  int nz = 24;
+  int cl = 4;
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
+    new Teuchos::ParameterList);
+  params->sublist("Problem").set("nx", nx);
+  params->sublist("Problem").set("ny", ny);
+  params->sublist("Problem").set("nz", nz);
+  params->sublist("Problem").set("Equations", "Stokes-C");
+  params->sublist("Preconditioner").set("Separator Length", cl);
+
+  TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
+  part.Partition(false);
+
+  TEST_EQUALITY(part.NumGlobalParts(cl, cl, cl), part.NumLocalParts());
+ }
 
 TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 2DNodes)
   {
@@ -398,7 +454,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 1PSepPerDomain3D)
     }
   }
 
-TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NoEmptyProcs16)
+TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NoEmpty16Procs)
   {
   int nprocs = 16;
   Teuchos::RCP<FakeComm> comm = Teuchos::rcp(new FakeComm);
@@ -420,17 +476,49 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NoEmptyProcs16)
     TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
     part.Partition(false);
 
-    TEST_INEQUALITY(part.NumLocalParts(), 0);
+    TEST_COMPARE(part.NumLocalParts(), >, 5);
     }
-
   }
 
-TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NoEmptyProcs128)
+TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NoEmpty16Procs2D)
+  {
+  int nprocs = 16;
+  Teuchos::RCP<FakeComm> comm = Teuchos::rcp(new FakeComm);
+  DISABLE_OUTPUT;
+
+  int globalParts = 0;
+  comm->SetNumProc(nprocs);
+  for (int i = 0; i < nprocs; i++)
+    {
+    comm->SetMyPID(i);
+
+    Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
+      new Teuchos::ParameterList);
+    params->sublist("Problem").set("nx", 64);
+    params->sublist("Problem").set("ny", 64);
+    params->sublist("Problem").set("nz", 1);
+    params->sublist("Problem").set("Dimension", 2);
+    params->sublist("Problem").set("Equations", "Stokes-C");
+    params->sublist("Preconditioner").set("Separator Length", 4);
+
+    TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
+    part.Partition(false);
+
+    TEST_COMPARE(part.NumLocalParts(), >, 5);
+
+    globalParts += part.NumLocalParts();
+    if (i == nprocs - 1)
+      TEST_EQUALITY(part.NumGlobalParts(4, 4, 4), globalParts);
+    }
+  }
+
+TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NoEmpty128Procs)
   {
   int nprocs = 128;
   Teuchos::RCP<FakeComm> comm = Teuchos::rcp(new FakeComm);
   DISABLE_OUTPUT;
 
+  int globalParts = 0;
   comm->SetNumProc(nprocs);
   for (int i = 0; i < nprocs; i++)
     {
@@ -447,9 +535,66 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NoEmptyProcs128)
     TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
     part.Partition(false);
 
+    TEST_COMPARE(part.NumLocalParts(), >, 5);
+
+    globalParts += part.NumLocalParts();
+    if (i == nprocs - 1)
+      TEST_EQUALITY(part.NumGlobalParts(4, 4, 4), globalParts);
+    }
+  }
+
+TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NoEmpty128ProcsPeriodic)
+  {
+  int nprocs = 128;
+  Teuchos::RCP<FakeComm> comm = Teuchos::rcp(new FakeComm);
+  DISABLE_OUTPUT;
+
+  comm->SetNumProc(nprocs);
+  for (int i = 0; i < nprocs; i++)
+    {
+    comm->SetMyPID(i);
+
+    Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
+      new Teuchos::ParameterList);
+    params->sublist("Problem").set("nx", 32);
+    params->sublist("Problem").set("ny", 32);
+    params->sublist("Problem").set("nz", 32);
+    params->sublist("Problem").set("x-periodic", true);
+    params->sublist("Problem").set("y-periodic", true);
+    params->sublist("Problem").set("z-periodic", true);
+    params->sublist("Problem").set("Equations", "Stokes-C");
+    params->sublist("Preconditioner").set("Separator Length", 4);
+
+    TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
+    part.Partition(false);
+
     TEST_INEQUALITY(part.NumLocalParts(), 0);
     }
+  }
 
+TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, MoveMap)
+  {
+  Teuchos::RCP<Epetra_MpiComm> comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
+  DISABLE_OUTPUT;
+
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
+    new Teuchos::ParameterList);
+  params->sublist("Problem").set("nx", 16);
+  params->sublist("Problem").set("ny", 16);
+  params->sublist("Problem").set("Dimension", 2);
+  params->sublist("Problem").set("Equations", "Stokes-C");
+  params->sublist("Preconditioner").set("Separator Length", 4);
+
+  TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
+  part.Partition(true);
+
+  Teuchos::RCP<const Epetra_Map> map = part.GetMap();
+
+  params->sublist("Preconditioner").set("Separator Length", 8);
+
+  // This throws an exception if it fails
+  TestableSkewCartesianPartitioner part2(map, params, *comm);
+  part2.Partition(true);
   }
 
 TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, SameNumSubdomains)
