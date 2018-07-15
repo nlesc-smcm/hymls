@@ -280,7 +280,7 @@ int FindCoarseningFactor(int cx)
   return cx;
   }
 
-int BasePartitioner::CreatePIDMap(Epetra_Comm const &comm)
+int BasePartitioner::CreatePIDMap()
   {
   int sx = sx_;
   int sy = sy_;
@@ -288,7 +288,7 @@ int BasePartitioner::CreatePIDMap(Epetra_Comm const &comm)
 
   // If there is only 1 processor everyone is on PID 0.
   int nparts = NumGlobalParts(sx, sy, sz);
-  if (comm.NumProc() == 1 || nparts == 1)
+  if (comm_->NumProc() == 1 || nparts == 1)
     {
     nprocs_ = 1;
     pidMap_ = Teuchos::rcp(new Teuchos::Array<int>(nparts, 0));
@@ -343,7 +343,7 @@ int BasePartitioner::CreatePIDMap(Epetra_Comm const &comm)
       if ((*pidMap_)[sd] != -1)
         continue;
 
-      if (nprocs_ < comm.NumProc())
+      if (nprocs_ < comm_->NumProc())
         {
         // Set the processor if there are still empty processors
         // available
@@ -513,13 +513,10 @@ Teuchos::RCP<const Epetra_Map> BasePartitioner::MoveMap(
       myGlobalElements, (hymls_gidx)baseMap->IndexBase64(), comm));
   }
 
-Teuchos::RCP<const Epetra_Map> BasePartitioner::RepartitionMap(
-  Teuchos::RCP<const Epetra_Map> baseMap) const
+int BasePartitioner::SetDestinationPID(
+  Teuchos::RCP<const Epetra_Map> baseMap)
   {
-  HYMLS_PROF2("BasePartitioner", "RepartitionMap");
-
   Epetra_Comm const &comm = baseMap->Comm();
-
   int myPID = comm.MyPID();
 
   // In many cases, all GID have to be moved to the same
@@ -527,6 +524,34 @@ Teuchos::RCP<const Epetra_Map> BasePartitioner::RepartitionMap(
   int destinationPID = myPID;
   if (baseMap->NumMyElements() > 0)
       destinationPID = PID(baseMap->GID64(0));
+
+  for (int lid = 0; lid < baseMap->NumMyElements(); lid++)
+    {
+    hymls_gidx gid = baseMap->GID64(lid);
+    if (PID(gid) != destinationPID)
+        destinationPID = -1;
+    }
+
+  destinationPID_ = -1;
+  CHECK_ZERO(comm_->MinAll(&destinationPID, &destinationPID_, 1));
+  if (destinationPID_ > -1)
+    destinationPID_ = destinationPID;
+
+  return 0;
+  }
+
+
+Teuchos::RCP<const Epetra_Map> BasePartitioner::RepartitionMap(
+  Teuchos::RCP<const Epetra_Map> baseMap) const
+  {
+  HYMLS_PROF2("BasePartitioner", "RepartitionMap");
+
+  Teuchos::RCP<const Epetra_Map> moveMap = MoveMap(baseMap);
+  if (moveMap != Teuchos::null)
+    return moveMap;
+
+  Epetra_Comm const &comm = baseMap->Comm();
+  int myPID = comm.MyPID();
 
   // check how many of the owned GIDs in the map need to be
   // moved to someone else
@@ -537,18 +562,6 @@ Teuchos::RCP<const Epetra_Map> BasePartitioner::RepartitionMap(
     int pid = PID(gid);
     if (pid != myPID)
       numSends++;
-    if (pid != destinationPID)
-        destinationPID = -1;
-    }
-
-  destinationPID_ = -1;
-  CHECK_ZERO(comm.MinAll(&destinationPID, &destinationPID_, 1));
-  if (destinationPID_ > -1)
-    {
-    destinationPID_ = destinationPID;
-    Teuchos::RCP<const Epetra_Map> moveMap = MoveMap(baseMap);
-    if (moveMap != Teuchos::null)
-      return moveMap;
     }
 
   int numLocal = baseMap->NumMyElements() - numSends;

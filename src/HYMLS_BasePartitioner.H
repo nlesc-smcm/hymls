@@ -94,7 +94,7 @@ protected:
   virtual int GetSubdomainID(int sx, int sy, int sz, int x, int y, int z) const = 0;
 
   //! Create a map of what processor a subdomain belongs to
-  virtual int CreatePIDMap(Epetra_Comm const &comm);
+  virtual int CreatePIDMap();
 
   //! Repartitioning may occur for two reasons, typically on coarser levels:
   //! a) the number of subdomains becomes smaller than the number of processes,
@@ -103,11 +103,18 @@ protected:
   virtual Teuchos::RCP<const Epetra_Map> RepartitionMap(
     Teuchos::RCP<const Epetra_Map> baseMap) const;
 
+  //! Set the destination pid on the coarser grid
+  virtual int SetDestinationPID(
+    Teuchos::RCP<const Epetra_Map> baseMap);
+
   //! get processor on which a grid point is located
   virtual int PID(hymls_gidx gid) const;
 
   //! get processor on which a grid point is located
   virtual int PID(int i, int j, int k) const;
+
+  //! communicator
+  Teuchos::RCP<const Epetra_Comm> comm_;
 
   //! global grid size
   int nx_, ny_, nz_;

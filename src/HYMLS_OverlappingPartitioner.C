@@ -23,9 +23,10 @@ namespace HYMLS {
 // a new level from an existing one.
 OverlappingPartitioner::OverlappingPartitioner(
   Teuchos::RCP<const Epetra_Map> map,
-  Teuchos::RCP<Teuchos::ParameterList> params, int level)
+  Teuchos::RCP<Teuchos::ParameterList> params, int level,
+  Teuchos::RCP<const Epetra_Map> overlappingMap)
   :
-  HierarchicalMap(map, 0, "OverlappingPartitioner", level),
+  HierarchicalMap(map, overlappingMap, 0, "OverlappingPartitioner", level),
   PLA("Problem"),
   partitioner_(Teuchos::null)
   {
@@ -85,7 +86,10 @@ int OverlappingPartitioner::Partition()
   //   domains
   // - the data layout becomes more favorable because the nodes
   //   of a subdomain are contiguous in the partitioner's map.
-  SetMap(partitioner_->GetMap());
+  baseMap_ = partitioner_->GetMap();
+
+  if (baseOverlappingMap_ != Teuchos::null)
+    baseOverlappingMap_ = partitioner_->MoveMap(baseOverlappingMap_);
 
 #ifdef HYMLS_DEBUGGING__disabled_
 HYMLS_DEBUG("Partition numbers:");
@@ -137,6 +141,7 @@ int OverlappingPartitioner::DetectSeparators()
 
 Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLevel(
   Teuchos::RCP<const Epetra_Map> map,
+  Teuchos::RCP<const Epetra_Map> overlappingMap,
   Teuchos::RCP<Teuchos::ParameterList> newList) const
   {
   HYMLS_PROF2(Label(), "SpawnNextLevel");
@@ -147,7 +152,7 @@ Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLeve
   HYMLS_DEBVAR(*newList);
 
   Teuchos::RCP<const OverlappingPartitioner> newLevel;
-  newLevel = Teuchos::rcp(new OverlappingPartitioner(map, newList, Level()+1));
+  newLevel = Teuchos::rcp(new OverlappingPartitioner(map, newList, Level()+1, overlappingMap));
   return newLevel;
   }
 

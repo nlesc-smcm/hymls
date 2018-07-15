@@ -16,11 +16,12 @@ CartesianPartitioner::CartesianPartitioner(
   Teuchos::RCP<Teuchos::ParameterList> const &params,
   Epetra_Comm const &comm)
   : BasePartitioner(), label_("CartesianPartitioner"),
-    comm_(Teuchos::rcp(comm.Clone())), baseMap_(map), cartesianMap_(Teuchos::null),
+    baseMap_(map), cartesianMap_(Teuchos::null),
     numLocalSubdomains_(-1)
   {
   HYMLS_PROF3(label_, "Constructor");
 
+  comm_ = Teuchos::rcp(comm.Clone());
   SetParameters(*params);
   }
 
@@ -118,6 +119,9 @@ int CartesianPartitioner::CreateSubdomainMap()
       NumMyElements, MyGlobalElements, 0, *comm_));
 
   delete [] MyGlobalElements;
+
+  numLocalSubdomains_ = sdMap_->NumMyElements();
+
   return 0;
   }
 
@@ -160,16 +164,16 @@ int CartesianPartitioner::Partition(bool repart)
   Tools::Out("Number of Subdomains: "+s2);
   Tools::Out("Subdomain size: "+s3);
 
-  CHECK_ZERO(CreatePIDMap(*comm_));
+  CHECK_ZERO(CreatePIDMap());
 
   if (nprocs_ != comm_->NumProc())
     repart = true;
 
   CHECK_ZERO(CreateSubdomainMap());
 
-  HYMLS_DEBVAR(*sdMap_);
+  CHECK_ZERO(SetDestinationPID(baseMap_));
 
-  numLocalSubdomains_ = sdMap_->NumMyElements();
+  HYMLS_DEBVAR(*sdMap_);
 
 // create redistributed map:
   cartesianMap_ = baseMap_;

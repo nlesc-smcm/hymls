@@ -302,7 +302,7 @@ protected:
   Teuchos::RCP<Epetra_CrsMatrix> matrix_;
     
   //! map for the reduced problem (Vsum-nodes)
-  Teuchos::RCP<const Epetra_Map> vsumMap_,vsumColMap_;
+  Teuchos::RCP<const Epetra_Map> vsumMap_,vsumColMap_,overlappingVsumMap_;
   
   //! importer for Vsum nodes
   Teuchos::RCP<Epetra_Import> vsumImporter_;
@@ -489,6 +489,10 @@ private:
 
   //! Initialize reduced Schur solver
   int InitializeNextLevel();
+
+  //! Create a VSum map for computing the next level hid
+  Teuchos::RCP<const Epetra_Map> CreateVSumMap(
+    Teuchos::RCP<const HierarchicalMap> &sepObject) const;
 
   //! apply block diagonal of non-Vsums inverse to vector
   //! (this is called if variant_=="Block Diagonal")

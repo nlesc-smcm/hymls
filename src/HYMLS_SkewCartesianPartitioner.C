@@ -74,11 +74,12 @@ SkewCartesianPartitioner::SkewCartesianPartitioner(
   Teuchos::RCP<Teuchos::ParameterList> const &params,
   Epetra_Comm const &comm)
   : BasePartitioner(), label_("SkewCartesianPartitioner"),
-    comm_(Teuchos::rcp(comm.Clone())), baseMap_(map), cartesianMap_(Teuchos::null),
+    baseMap_(map), cartesianMap_(Teuchos::null),
     numLocalSubdomains_(-1), active_(true)
   {
   HYMLS_PROF3(label_, "Constructor");
 
+  comm_ = Teuchos::rcp(comm.Clone());
   SetParameters(*params);
   }
 
@@ -254,6 +255,9 @@ int SkewCartesianPartitioner::CreateSubdomainMap()
       NumMyElements, MyGlobalElements, 0, *comm_));
 
   delete[] MyGlobalElements;
+
+  numLocalSubdomains_ = sdMap_->NumMyElements();
+
   return 0;
   }
 
@@ -302,7 +306,7 @@ int SkewCartesianPartitioner::Partition(bool repart)
   Tools::Out("Estimated Number of Subdomains: " + s2);
   Tools::Out("Subdomain size: " + s3);
 
-  CHECK_ZERO(CreatePIDMap(*comm_));
+  CHECK_ZERO(CreatePIDMap());
 
   if (nprocs_ < comm_->NumProc())
     repart = true;
@@ -312,14 +316,14 @@ int SkewCartesianPartitioner::Partition(bool repart)
 
   CHECK_ZERO(CreateSubdomainMap());
 
+  CHECK_ZERO(SetDestinationPID(baseMap_));
+
   CHECK_ZERO(getTemplate());
   CHECK_ZERO(solveGroups());
 
   HYMLS_DEBVAR(*sdMap_);
 
-  numLocalSubdomains_ = sdMap_->NumMyElements();
-
-// create redistributed map:
+  // create redistributed map:
   cartesianMap_ = baseMap_;
 
 // repartitioning may occur for two reasons, typically on coarser levels:

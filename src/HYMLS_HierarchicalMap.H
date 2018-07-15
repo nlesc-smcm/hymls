@@ -47,6 +47,7 @@ public:
 
   // constructor - empty object
   HierarchicalMap(Teuchos::RCP<const Epetra_Map> baseMap,
+                  Teuchos::RCP<const Epetra_Map> baseOverlappingMap=Teuchos::null,
                   int numMySubdomains=0,
                   std::string label="HierarchicalMap",
                   int level=1);
@@ -229,20 +230,7 @@ public:
     return overlappingMap_;
     }
 
-  protected:
-
-  //! replace internal map. To be used with extreme care!
-  int SetMap(Teuchos::RCP<const Epetra_Map> map)
-    {
-    baseMap_=map;
-    return 0;
-    }
-
-  //!
-  Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > GetGroupPointer() const
-    {
-    return groupPointer_;
-    }
+protected:
 
   //@}
   
@@ -263,19 +251,19 @@ public:
   //! indicates if any more changes can be made (FillComplete() has been called)
   bool Filled() const {return overlappingMap_!=Teuchos::null;}
 
-    
-protected:
-
   //! communicator
   Teuchos::RCP<const Epetra_Comm> comm_;
-
-private:
   
   //! label
   std::string label_;
   
   //! initial map (p0)
   Teuchos::RCP<const Epetra_Map> baseMap_;
+
+  //! initial overlapping map from the previous level
+  Teuchos::RCP<const Epetra_Map> baseOverlappingMap_;
+
+private:
 
   //! overlapping map p1 (with minimal overlap between subdomains)
   Teuchos::RCP<const Epetra_Map> overlappingMap_;

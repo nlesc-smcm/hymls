@@ -96,9 +96,6 @@ protected:
   //! label
   std::string label_;
 
-  //! communicator
-  Teuchos::RCP<const Epetra_Comm> comm_;
-
   //! original non-overlapping map
   Teuchos::RCP<const Epetra_Map> baseMap_;
 

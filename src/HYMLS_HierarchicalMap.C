@@ -23,11 +23,13 @@ namespace HYMLS {
 //empty constructor
 HierarchicalMap::HierarchicalMap(
   Teuchos::RCP<const Epetra_Map> baseMap,
+  Teuchos::RCP<const Epetra_Map> baseOverlappingMap,
   int numMySubdomains,
   std::string label, int level)
   :
   label_(label),
   baseMap_(baseMap),
+  baseOverlappingMap_(baseOverlappingMap),
   overlappingMap_(Teuchos::null),
   myLevel_(level)
   {
@@ -45,6 +47,7 @@ HierarchicalMap::HierarchicalMap(
   :
   label_(label),
   baseMap_(baseMap),
+  baseOverlappingMap_(overlappingMap),
   overlappingMap_(overlappingMap),
   groupPointer_(groupPointer),
   gidList_(gidList),
@@ -111,6 +114,10 @@ int HierarchicalMap::FillComplete()
   Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > newGidList =
     Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >());
 
+  Teuchos::RCP<const Epetra_Map> map = baseMap_;
+  if (baseOverlappingMap_ != Teuchos::null)
+    map = baseOverlappingMap_;
+
   // Merge all separator GIDs on this processor into one list.
   // Put all interior GIDs that are present in the baseMap_ in the
   // newGidList.
@@ -121,80 +128,88 @@ int HierarchicalMap::FillComplete()
     newGroupPointer->append(Teuchos::Array<hymls_gidx>(1));
     for (int grp = 0; grp < NumGroups(sd); grp++)
       {
-      hymls_gidx offset = *((*groupPointer_)[sd].begin() + grp);
-      int len = *((*groupPointer_)[sd].begin() + grp + 1) - offset;
-
-      if (grp == 0)
+      if (grp == 0 || baseOverlappingMap_ != Teuchos::null)
         {
         // Interior nodes don't need communication. Just add those
         // that are present in the baseMap_
         for (int j = 0; j < NumElements(sd,grp); j++)
           {
           hymls_gidx gid = GID(sd, grp, j);
-          if (baseMap_->MyGID(gid))
+          if (map->MyGID(gid))
             (*newGidList)[sd].append(gid);
           }
-        int len = (*newGidList)[sd].size();
-        (*newGroupPointer)[sd].append(len);
+        hymls_gidx offset = *((*newGroupPointer)[sd].end()-1);
+        int len = (*newGidList)[sd].size() - offset;
+        if (len > 0)
+          (*newGroupPointer)[sd].append(len + offset);
         }
       else
         {
+        hymls_gidx offset = *((*groupPointer_)[sd].begin() + grp);
+        int len = *((*groupPointer_)[sd].begin() + grp + 1) - offset;
+
         std::copy((*gidList_)[sd].begin() + offset, (*gidList_)[sd].begin() + offset + len,
           std::back_inserter(separatorGIDs));
         }
       }
     }
 
-  // Make sure there is only one entry of each of them
-  std::sort(separatorGIDs.begin(), separatorGIDs.end());
-  auto end = std::unique(separatorGIDs.begin(), separatorGIDs.end());
-
-  // Communicate between processors which elements are actually present in the
-  // baseMap_ of the processor that owns the nodes. This is because the
-  // Partitioner gives us all possible elements belonging to the subdomain,
-  // not only the elements that are in the map
-  int numElements = std::distance(separatorGIDs.begin(), end);
-  Teuchos::RCP<Epetra_Map> tmpOverlappingMap =
-    Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), numElements, &separatorGIDs[0],
-        (hymls_gidx)baseMap_->IndexBase64(), Comm()));
-
-  HYMLS_DEBVAR(*tmpOverlappingMap);
-
-  Epetra_IntVector vec(*baseMap_);
-  for (auto i = separatorGIDs.begin(); i != end; ++i)
+  // Communication is only required if there is no overlapping map
+  // present already.
+  if (baseOverlappingMap_ == Teuchos::null)
     {
-    int lid = baseMap_->LID(*i);
-    if (lid != -1)
-      vec[lid] = 1;
-    }
+    // Make sure there is only one entry of each of them.
+    std::sort(separatorGIDs.begin(), separatorGIDs.end());
+    auto end = std::unique(separatorGIDs.begin(), separatorGIDs.end());
 
-  separatorGIDs.clear();
+    // Communicate between processors which elements are actually
+    // present in the baseMap_ of the processor that owns the nodes.
+    // This is because the Partitioner gives us all possible elements
+    // belonging to the subdomain, not only the elements that are in
+    // the map.
+    int numElements = std::distance(separatorGIDs.begin(), end);
+    Teuchos::RCP<Epetra_Map> tmpOverlappingMap =
+      Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), numElements, &separatorGIDs[0],
+          (hymls_gidx)baseMap_->IndexBase64(), Comm()));
 
-  Epetra_Import imp(*tmpOverlappingMap, *baseMap_);
-  Epetra_IntVector overlappingVec(*tmpOverlappingMap);
-  overlappingVec.Import(vec, imp, Insert);
+    HYMLS_DEBVAR(*tmpOverlappingMap);
 
-  for (int sd = 0; sd < NumMySubdomains(); sd++)
-    {
-    for (int grp = 1; grp < NumGroups(sd); grp++)
+    Epetra_IntVector vec(*baseMap_);
+    for (auto i = separatorGIDs.begin(); i != end; ++i)
       {
-      Teuchos::Array<hymls_gidx> gidList;
-      for (int j = 0; j < NumElements(sd,grp); j++)
+      int lid = baseMap_->LID(*i);
+      if (lid != -1)
+        vec[lid] = 1;
+      }
+
+    separatorGIDs.clear();
+
+    Epetra_Import imp(*tmpOverlappingMap, *baseMap_);
+    Epetra_IntVector overlappingVec(*tmpOverlappingMap);
+    overlappingVec.Import(vec, imp, Insert);
+
+    for (int sd = 0; sd < NumMySubdomains(); sd++)
+      {
+      for (int grp = 1; grp < NumGroups(sd); grp++)
         {
-        hymls_gidx gid = GID(sd, grp, j);
-        // If it is present in the overlappingVec the element actually belongs
-        // to the baseMap_ on some processor
-        if (overlappingVec[tmpOverlappingMap->LID(gid)])
+        Teuchos::Array<hymls_gidx> gidList;
+        for (int j = 0; j < NumElements(sd,grp); j++)
           {
-          gidList.append(gid);
+          hymls_gidx gid = GID(sd, grp, j);
+          // If it is present in the overlappingVec the element actually belongs
+          // to the baseMap_ on some processor
+          if (overlappingVec[tmpOverlappingMap->LID(gid)])
+            {
+            gidList.append(gid);
+            }
           }
-        }
-      hymls_gidx offset = *((*newGroupPointer)[sd].end()-1);
-      int len = gidList.size();
-      if (len > 0)
-        {
-        (*newGroupPointer)[sd].append(offset + len);
-        std::copy(gidList.begin(), gidList.end(), std::back_inserter((*newGidList)[sd]));
+        hymls_gidx offset = *((*newGroupPointer)[sd].end()-1);
+        int len = gidList.size();
+        if (len > 0)
+          {
+          (*newGroupPointer)[sd].append(offset + len);
+          std::copy(gidList.begin(), gidList.end(), std::back_inserter((*newGidList)[sd]));
+          }
         }
       }
     }

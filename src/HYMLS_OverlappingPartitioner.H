@@ -40,8 +40,9 @@ public:
 
   //! constructor
   OverlappingPartitioner(
-    Teuchos::RCP<const Epetra_Map> K,
-    Teuchos::RCP<Teuchos::ParameterList> params, int level=1);
+    Teuchos::RCP<const Epetra_Map> map,
+    Teuchos::RCP<Teuchos::ParameterList> params, int level=1,
+    Teuchos::RCP<const Epetra_Map> overlappingMap=Teuchos::null);
 
   //! destructor
   virtual ~OverlappingPartitioner();
@@ -61,6 +62,7 @@ public:
   //!
   Teuchos::RCP<const OverlappingPartitioner> SpawnNextLevel(
     Teuchos::RCP<const Epetra_Map> map,
+    Teuchos::RCP<const Epetra_Map> overlappingMap,
     Teuchos::RCP<Teuchos::ParameterList> newParamList) const;
 
   //! from the PLA base class

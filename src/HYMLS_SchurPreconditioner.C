@@ -808,59 +808,71 @@ int SchurPreconditioner::InitializeOT()
   return 0;
   }
 
+Teuchos::RCP<const Epetra_Map> SchurPreconditioner::CreateVSumMap(
+  Teuchos::RCP<const HierarchicalMap> &sepObject) const
+  {
+  int numBlocks = 0;
+  for (int sep = 0; sep < sepObject->NumMySubdomains(); sep++)
+    {
+    for (int grp = 1; grp < sepObject->NumGroups(sep); grp++)
+      {
+      if (applyDropping_)
+        {
+        if (sepObject->NumElements(sep, grp) > 0) numBlocks++;
+        }
+      else
+        {
+        numBlocks += sepObject->NumElements(sep, grp);
+        }
+      }
+    }
+
+  HYMLS_DEBVAR(numBlocks);
+
+  // create a map for the reduced Schur-complement. Note that this is a distributed
+  // matrix, in contrast to the other diagonal blocks, so we can't use an Ifpack
+  // container.
+  hymls_gidx *MyVsumElements = new hymls_gidx[numBlocks]; // one Vsum per block
+  int pos = 0;
+  for (int sep = 0; sep < sepObject->NumMySubdomains(); sep++)
+    {
+    HYMLS_DEBVAR(sep)
+      for (int grp = 1; grp < sepObject->NumGroups(sep); grp++)
+        {
+        if (sepObject->NumElements(sep,grp) > 0)
+          {
+          if (applyDropping_)
+            MyVsumElements[pos++] = sepObject->GID(sep,grp,0);
+          else
+            for (int i = 0; i < sepObject->NumElements(sep, grp); i++)
+              MyVsumElements[pos++] = sepObject->GID(sep,grp,i);
+          }
+        }
+    }
+
+  Teuchos::RCP<const Epetra_Map> ret = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1),
+      numBlocks, MyVsumElements,
+      (hymls_gidx)map_->IndexBase64(), map_->Comm()));
+
+  delete[] MyVsumElements;
+
+  return ret;
+  }
+
 int SchurPreconditioner::InitializeNextLevel()
   {
   HYMLS_LPROF2(label_,"InitializeNextLevel");
 
-  Teuchos::RCP<const HierarchicalMap> sepObject =
-    hid_->Spawn(HierarchicalMap::LocalSeparators);
-
   if (vsumMap_==Teuchos::null)
     {
-    int numBlocks = 0;
-    for (int sep = 0; sep < sepObject->NumMySubdomains(); sep++)
-      {
-      for (int grp = 1; grp < sepObject->NumGroups(sep); grp++)
-        {
-        if (applyDropping_)
-          {
-          if (sepObject->NumElements(sep, grp) > 0) numBlocks++;
-          }
-        else
-          {
-          numBlocks += sepObject->NumElements(sep, grp);
-          }
-        }
-      }
+    Teuchos::RCP<const HierarchicalMap> localSepObject =
+      hid_->Spawn(HierarchicalMap::LocalSeparators);
+    vsumMap_ = CreateVSumMap(localSepObject);
 
-    HYMLS_DEBVAR(numBlocks);
+    Teuchos::RCP<const HierarchicalMap> sepObject =
+      hid_->Spawn(HierarchicalMap::Separators);
+    overlappingVsumMap_ = CreateVSumMap(sepObject);
 
-    // create a map for the reduced Schur-complement. Note that this is a distributed
-    // matrix, in contrast to the other diagonal blocks, so we can't use an Ifpack
-    // container.
-    hymls_gidx *MyVsumElements = new hymls_gidx[numBlocks]; // one Vsum per block
-    int pos = 0;
-    for (int sep = 0; sep < sepObject->NumMySubdomains(); sep++)
-      {
-      HYMLS_DEBVAR(sep)
-        for (int grp = 1; grp < sepObject->NumGroups(sep); grp++)
-          {
-          if (sepObject->NumElements(sep,grp) > 0)
-            {
-            if (applyDropping_)
-              MyVsumElements[pos++] = sepObject->GID(sep,grp,0);
-            else
-              for (int i = 0; i < sepObject->NumElements(sep, grp); i++)
-                MyVsumElements[pos++] = sepObject->GID(sep,grp,i);
-            }
-          }
-      }
-
-    vsumMap_=Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1),
-        numBlocks, MyVsumElements,
-        (hymls_gidx)map_->IndexBase64(), map_->Comm()));
-
-    delete [] MyVsumElements;
     HYMLS_DEBUG(label_);
     HYMLS_DEBVAR(*vsumMap_);
 
@@ -912,7 +924,7 @@ int SchurPreconditioner::InitializeNextLevel()
       {
       bool stat=true;
       try {
-        nextLevelHID_ = hid_->SpawnNextLevel(vsumMap_,nextLevelParams_);
+        nextLevelHID_ = hid_->SpawnNextLevel(vsumMap_, overlappingVsumMap_, nextLevelParams_);
         } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,stat);
       if (!stat) Tools::Fatal("Failed to create next level ordering",__FILE__,__LINE__);
       }
