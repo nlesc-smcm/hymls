@@ -282,6 +282,8 @@ int FindCoarseningFactor(int cx)
 
 int BasePartitioner::CreatePIDMap()
   {
+  HYMLS_PROF2("BasePartitioner", "CreatePIDMap");
+
   int sx = sx_;
   int sy = sy_;
   int sz = sz_;

@@ -5,8 +5,6 @@
  * contact: jonas@math.rug.nl                                         *
  **********************************************************************/
 
-#include "HYMLS_no_debug.H"
-
 #include "Trilinos_version.h"
 
 #include "Teuchos_ParameterList.hpp"

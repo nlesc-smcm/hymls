@@ -1,15 +1,14 @@
-#include "HYMLS_no_debug.H"
-
 #include "HYMLS_Householder.H"
+
 #include "HYMLS_Tools.H"
+#include "HYMLS_MatrixUtils.H"
+
 #include "Epetra_SerialDenseMatrix.h"
 #include "Epetra_SerialDenseVector.h"
 #include "Epetra_CrsMatrix.h"
-#include "EpetraExt_MatrixMatrix.h"
-#include "HYMLS_MatrixUtils.H"
 #include "Epetra_RowMatrixTransposer.h"
 #include "Epetra_MultiVector.h"
-#include "Trilinos_version.h"
+#include "EpetraExt_MatrixMatrix.h"
 
 namespace HYMLS {
 

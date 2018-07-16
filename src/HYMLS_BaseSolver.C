@@ -28,8 +28,6 @@
 #include "Teuchos_StandardParameterEntryValidators.hpp"
 #include "Teuchos_StandardCatchMacros.hpp"
 
-#include "HYMLS_no_debug.H"
-
 using BelosGmresType = ::Belos::BlockGmresSolMgr<
   double, Epetra_MultiVector, Epetra_Operator>;
 using BelosCGType = ::Belos::BlockCGSolMgr<
