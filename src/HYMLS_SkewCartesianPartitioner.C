@@ -630,16 +630,22 @@ int SkewCartesianPartitioner::solveGroups()
       newGroups.back()[((node % dof_) + dof_) % dof_].push_back(node);
     }
 
-  // Remove empty groups from newGroups and place them after
-  // the interior in groups
+  // Remove empty groups from newGroups and place them after the
+  // interior in groups. Also retain the links between them in
+  // groupLinks.
   groups_.resize(1);
+  groupLinks_.resize(0);
   for (auto &cats: newGroups)
+    {
+    groupLinks_.push_back(Teuchos::Array<int>());
     for (auto &group: cats)
       if (!group.empty())
         {
         std::sort(group.begin(), group.end());
+        groupLinks_.back().push_back(groups_.size());
         groups_.push_back(group);
         }
+    }
 
   return 0;
   }
@@ -675,10 +681,6 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(
           (hymls_gidx)nx_ * ny_ * z * dof_ + var);
       }
     }
-
-  // Remove empty groups
-  groups.erase(std::remove_if(groups.begin()+1, groups.end(),
-      [](std::vector<hymls_gidx> &i){return i.empty();}), groups.end());
 
   // Get first pressure node from interior to a new group.
   // Assumes ordering of groups by size!
@@ -751,10 +753,6 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(
       }
     }
 
-  // Remove empty groups
-  groups.erase(std::remove_if(groups.begin()+1, groups.end(),
-      [](std::vector<hymls_gidx> &i){return i.empty();}), groups.end());
-
   // Sort the interior since there may now be new nodes at the back
   std::sort(groups[0].begin(), groups[0].end());
 
@@ -776,6 +774,14 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &inte
   std::copy(nodes.begin() + 1, nodes.end(), std::back_inserter(separator_nodes));
 
   return 0;
+  }
+
+Teuchos::Array<Teuchos::Array<int> > const &
+SkewCartesianPartitioner::GetGroupLinks(int sd) const
+  {
+  HYMLS_PROF3(label_,"GetGroupLinks");
+
+  return groupLinks_;
   }
 
   }

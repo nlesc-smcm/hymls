@@ -67,6 +67,9 @@ public:
   int GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior_nodes,
     Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes);
 
+  //! Get links between separator groups of the subdomain sd
+  Teuchos::Array<Teuchos::Array<int> > const &GetGroupLinks(int sd) const;
+
   //! is this class fully set up?
   inline bool Partitioned() const
     {
@@ -102,6 +105,9 @@ protected:
   //! non-overlapping cartesian map (all subdomains are owned by
   //! exactly one process/belong to only one partition)
   Teuchos::RCP<const Epetra_Map> cartesianMap_;
+
+  //! Subdomain template links between separator groups
+  Teuchos::Array<Teuchos::Array<int> > groupLinks_;
 
   //! number of subdomains on this proc
   int numLocalSubdomains_;

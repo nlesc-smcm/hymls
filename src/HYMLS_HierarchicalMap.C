@@ -77,6 +77,7 @@ int HierarchicalMap::Reset(int numMySubdomains)
   HYMLS_LPROF2(label_,"Reset");
   groupPointer_=Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >(numMySubdomains));
   gidList_=Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >(numMySubdomains));
+  groupLinks_=Teuchos::rcp(new Teuchos::Array<Teuchos::Array<Teuchos::Array<int> > >(numMySubdomains));
   for (int i=0;i<numMySubdomains;i++)
     {
     (*gidList_)[i].resize(0);
@@ -249,6 +250,15 @@ int HierarchicalMap::AddGroup(int sd, Teuchos::Array<hymls_gidx>& gidList)
     std::copy(gidList.begin(),gidList.end(),std::back_inserter((*gidList_)[sd]));
     }
   return (*groupPointer_)[sd].length()-1;
+  }
+
+int HierarchicalMap::AddGroupLinks(
+  int sd, Teuchos::Array<Teuchos::Array<int> > const &groupLinks)
+  {
+  HYMLS_LPROF3(label_,"AddGroupLinks");
+
+  (*groupLinks_)[sd] = groupLinks;
+  return 0;
   }
 
 Teuchos::Array<hymls_gidx> HierarchicalMap::GetGroup(int sd, int grp) const

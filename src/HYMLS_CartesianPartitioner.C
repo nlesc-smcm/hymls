@@ -175,7 +175,7 @@ int CartesianPartitioner::Partition(bool repart)
 
   HYMLS_DEBVAR(*sdMap_);
 
-// create redistributed map:
+  // create redistributed map:
   cartesianMap_ = baseMap_;
   
 // repartitioning may occur for two reasons, typically on coarser levels:
@@ -390,7 +390,20 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
     separator_nodes.back().append(*it);
     }
 
+  // TODO: Actually implement this
+  groupLinks_.resize(0);
+  for (int i = 0; i < separator_nodes.size(); i++)
+    groupLinks_.push_back(Teuchos::Array<int>(1, i+1));
+
   return 0;
+  }
+
+Teuchos::Array<Teuchos::Array<int> > const &
+CartesianPartitioner::GetGroupLinks(int sd) const
+  {
+  HYMLS_PROF3(label_,"GetGroupLinks");
+
+  return groupLinks_;
   }
 
   }

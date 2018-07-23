@@ -277,6 +277,9 @@ protected:
 
   //! switch for applying dropping
   bool applyDropping_;
+
+  //! switch for linking separator groups, for instance velocities
+  bool groupSeparators_;
   
   //! domain decomposition object
   Teuchos::RCP<const OverlappingPartitioner> hid_;

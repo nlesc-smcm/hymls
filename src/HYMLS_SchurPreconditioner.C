@@ -59,6 +59,7 @@ SchurPreconditioner::SchurPreconditioner(
     myLevel_(level), amActive_(true),
     variant_("Block Diagonal"),
     denseSwitch_(99), applyDropping_(true),
+    groupSeparators_(true),
     hid_(hid), map_(Teuchos::rcp(&(SC->OperatorDomainMap()),false)),
     testVector_(testVector),
     sparseMatrixOT_(Teuchos::null),
@@ -151,6 +152,7 @@ int SchurPreconditioner::SetParameters(Teuchos::ParameterList& List)
   denseSwitch_=PL().get("Dense Solvers on Level",denseSwitch_);
   subdivideSeparators_=PL().get("Subdivide Separators",false);
   applyDropping_ = PL().get("Apply Dropping", true);
+  groupSeparators_ = PL().get("Group Separators", true);
   int pos=1;
 
   fix_gid_.resize(0);
@@ -1098,18 +1100,49 @@ int SchurPreconditioner::AssembleTransformAndDrop()
       CHECK_NONNEG(matrix->InsertGlobalValues(indsPart.Length(),
           indsPart.Values(), Spart.A()));
       // now the non-Vsums
-      for (int grp=1;grp<hid_->NumGroups(sd);grp++)
+      if (groupSeparators_)
         {
-        int len = hid_->NumElements(sd,grp)-1;
-        indsPart.Resize(len);
-        if (Spart.N()<len) Spart.Reshape(2*len,2*len);
-        for (int j=0;j<len;j++)
+        for (int lnk = 0; lnk < hid_->NumLinks(sd); lnk++)
           {
-          indsPart[j]=hid_->GID(sd,grp,1+j);
-          }//j
-        //HYMLS_DEBVAR(indsPart);
-        CHECK_NONNEG(matrix->InsertGlobalValues(indsPart.Length(),
-            indsPart.Values(),Spart.A()));
+          int len = 0;
+          for (int grp = 0; grp < hid_->NumGroups(sd, lnk); grp++)
+            {
+            int grp2 = hid_->GroupFromLink(sd, lnk, grp);
+            len += hid_->NumElements(sd, grp2) - 1;
+            }
+
+          indsPart.Resize(len);
+          if (Spart.N()<len) Spart.Reshape(2*len,2*len);
+
+          int k = 0;
+          for (int grp = 0; grp < hid_->NumGroups(sd, lnk); grp++)
+            {
+            int grp2 = hid_->GroupFromLink(sd, lnk, grp);
+            int len2 = hid_->NumElements(sd, grp2) - 1;
+            for (int j = 0; j < len2; j++)
+              {
+              indsPart[k++] = hid_->GID(sd, grp2, 1+j);
+              }//j
+            }
+          CHECK_NONNEG(matrix->InsertGlobalValues(indsPart.Length(),
+              indsPart.Values(),Spart.A()));
+          }
+        }
+      else
+        {
+        for (int grp=1;grp<hid_->NumGroups(sd);grp++)
+          {
+          int len = hid_->NumElements(sd,grp)-1;
+          indsPart.Resize(len);
+          if (Spart.N()<len) Spart.Reshape(2*len,2*len);
+          for (int j=0;j<len;j++)
+            {
+            indsPart[j]=hid_->GID(sd,grp,1+j);
+            }//j
+          //HYMLS_DEBVAR(indsPart);
+          CHECK_NONNEG(matrix->InsertGlobalValues(indsPart.Length(),
+              indsPart.Values(),Spart.A()));
+          }
         }
       }
     // assemble with all zeros
@@ -1261,7 +1294,7 @@ int SchurPreconditioner::ConstructSCPart(int sd, Epetra_Vector const &localTestV
   int pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
   for (int grp = 1; grp < numGroups; grp++)
     {
-    HYMLS_LPROF3(label_,"Compute non-dropped part");
+    HYMLS_LPROF3(label_,"Compute non-dropped Vsum part");
     int len = hid_->NumElements(sd, grp);
     if (len > 0)
       {
@@ -1277,22 +1310,82 @@ int SchurPreconditioner::ConstructSCPart(int sd, Epetra_Vector const &localTestV
           pos4 += len2;
           }
         }
-
       pos1++;
-      if (len > 1)
+      pos3 += len;
+      }
+    }
+
+  pos3 = 0;
+  if (groupSeparators_)
+    {
+    HYMLS_LPROF3(label_,"Compute non-dropped non-Vsum part");
+    for (int lnk = 0; lnk < hid_->NumLinks(sd); lnk++)
+      {
+      int len = 0;
+      int numGroups = hid_->NumGroups(sd, lnk);
+      for (int grp = 0; grp < numGroups; grp++)
         {
-        SkArray.append(Epetra_SerialDenseMatrix(len-1, len-1));
-        for (int i = 0; i < len-1; i++)
-          for (int j = 0; j < len-1; j++)
+        int grp2 = hid_->GroupFromLink(sd, lnk, grp);
+        int len2 = hid_->NumElements(sd, grp2) - 1;
+        len += len2;
+        }
+
+      if (len > 0)
+        {
+        int *localIndices = new int[len];
+        hymls_gidx *globalIndices = new hymls_gidx[len];
+        SkArray.append(Epetra_SerialDenseMatrix(len, len));
+
+        len = 0;
+        pos1 = 0;
+        for (int grp = 0; grp < numGroups; grp++)
+          {
+          int grp2 = hid_->GroupFromLink(sd, lnk, grp);
+          int len2 = hid_->NumElements(sd, grp2) - 1;
+          len += len2;
+
+          for (int i = pos1; i < len; i++)
+            {
+            localIndices[i] = pos3+i+grp+1;
+            globalIndices[i] = indices[localIndices[i]];
+            }
+          pos1 += len2;
+          }
+
+        for (int i = 0; i < len; i++)
+          for (int j = 0; j < len; j++)
+            SkArray.back()(i, j) = Sk(localIndices[i], localIndices[j]);
+
+#ifdef HYMLS_LONG_LONG
+        indicesArray.append(Epetra_LongLongSerialDenseVector(Copy, globalIndices, len));
+#else
+        indicesArray.append(Epetra_IntSerialDenseVector(Copy, globalIndices, len));
+#endif
+        delete[] localIndices;
+        delete[] globalIndices;
+        }
+      pos3 += len + numGroups;
+      }
+    }
+  else
+    {
+    for (int grp = 1; grp < hid_->NumGroups(sd); grp++)
+      {
+      int len = hid_->NumElements(sd, grp) - 1;
+      if (len > 0)
+        {
+        SkArray.append(Epetra_SerialDenseMatrix(len, len));
+        for (int i = 0; i < len; i++)
+          for (int j = 0; j < len; j++)
             SkArray.back()(i, j) = Sk(pos3+i+1, pos3+j+1);
 
 #ifdef HYMLS_LONG_LONG
-        indicesArray.append(Epetra_LongLongSerialDenseVector(View, &indices[pos3+1], len-1));
+        indicesArray.append(Epetra_LongLongSerialDenseVector(View, &indices[pos3+1], len));
 #else
-        indicesArray.append(Epetra_IntSerialDenseVector(View, &indices[pos3+1], len-1));
+        indicesArray.append(Epetra_IntSerialDenseVector(View, &indices[pos3+1], len));
 #endif
         }
-      pos3 += len;
+      pos3 += len + 1;
       }
     }
 

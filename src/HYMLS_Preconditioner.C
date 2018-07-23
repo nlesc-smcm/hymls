@@ -256,6 +256,8 @@ int Preconditioner::SetParameters(Teuchos::ParameterList& List)
 
     VPL().set("Apply Dropping", true, "Whether dropping is applied in the Schur complement");
 
+    VPL().set("Group Separators", true, "Whether velocity nodes are eliminated together");
+
     return validParams_;
     }
 

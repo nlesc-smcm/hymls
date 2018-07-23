@@ -124,14 +124,26 @@ int OverlappingPartitioner::DetectSeparators()
 
     std::sort(interior_nodes.begin(), interior_nodes.end());
     AddGroup(sd, interior_nodes);
-    for (int i = 0; i < separator_nodes.size(); i++)
+
+    Teuchos::Array<Teuchos::Array<int> > const &groupLinks = partitioner_->GetGroupLinks(sd);
+    Teuchos::Array<Teuchos::Array<int> > newGroupLinks;
+    int separatorIdx = 1;
+    for (auto const &groupLink: groupLinks)
       {
-      if (separator_nodes[i].size() > 0)
+      newGroupLinks.push_back(Teuchos::Array<int>());
+      for (int gid: groupLink)
         {
-        std::sort(separator_nodes[i].begin(), separator_nodes[i].end());
-        AddGroup(sd, separator_nodes[i]);
+        if (separator_nodes[gid-1].size() > 0)
+          {
+          std::sort(separator_nodes[gid-1].begin(), separator_nodes[gid-1].end());
+          AddGroup(sd, separator_nodes[gid-1]);
+
+          newGroupLinks.back().push_back(separatorIdx);
+          separatorIdx++;
+          }
         }
       }
+    AddGroupLinks(sd, newGroupLinks);
     }
 
   // and rebuild map and global groupPointer

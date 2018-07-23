@@ -112,6 +112,23 @@ public:
     return NumGroups(sd)-1;
     }
 
+  //! number of linked groups
+  inline int NumLinks(int sd) const
+    {
+    return (*groupLinks_)[sd].size();
+    }
+
+  //! number of linked groups
+  inline int NumGroups(int sd, int link) const
+    {
+    return (*groupLinks_)[sd][link].size();
+    }
+
+  inline int GroupFromLink(int sd, int link, int j) const
+    {
+    return (*groupLinks_)[sd][link][j];
+    }
+
   //! total number of nodes in subdomain sd, group grp.
   //! grp 0 are the interior elements, group 1:NumSeparatorGroups are 
   //! the separator groups.
@@ -237,6 +254,10 @@ protected:
   //! add a group of GIDs to an existing subdomain. Returns the group id
   //! of the new group. FillComplete() should not have been called.
   int AddGroup(int sd, Teuchos::Array<hymls_gidx>& gidList);
+
+  //! add a link between separator groups
+  int AddGroupLinks(
+    int sd, Teuchos::Array<Teuchos::Array<int> > const &groupLinks);
   
   //! get back a group that was added as described above. Used for debugging purposes
   //! only
@@ -269,7 +290,10 @@ private:
   Teuchos::RCP<const Epetra_Map> overlappingMap_;
   
   //! pointer to index subdomains and groups
-  Teuchos::RCP<Teuchos::Array< Teuchos::Array<hymls_gidx> > > groupPointer_;
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > groupPointer_;
+  
+  //! pointer to separator groups that are linked
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<Teuchos::Array<int> > > > groupLinks_;
   
   //! list of ordered GIDs which will be transformed into a map in FillComplete
   Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > gidList_;
