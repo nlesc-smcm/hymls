@@ -583,11 +583,11 @@ int SkewCartesianPartitioner::solveGroups()
       tempList.push_back(it2 + first);
 
   // Find groups
-  groups_.resize(0);
+  std::vector<std::vector<long long> > groups;
   std::vector<unsigned long> groupDomains;
 
   // First group is the interior
-  groups_.emplace_back(0);
+  groups.emplace_back(0);
   groupDomains.push_back(1);
 
   for (auto &node: tempList)
@@ -604,81 +604,77 @@ int SkewCartesianPartitioner::solveGroups()
     // Now check whether a group for this list was already created, and if
     // not, create it. Then add the nodes+domains to this group
     bool newGroup = true;
-    for (size_t i = 0; i < groups_.size(); i++)
+    for (size_t i = 0; i < groups.size(); i++)
       if (groupDomains[i] == listOfDomains)
         {
         newGroup = false;
-        groups_[i].push_back(node);
+        groups[i].push_back(node);
         break;
         }
 
     if (newGroup)
       {
-      groups_.emplace_back(1, node);
+      groups.emplace_back(1, node);
       groupDomains.push_back(listOfDomains);
       }
     }
 
   // Now separate the u, v, w and p, skip the interior
-  std::vector<std::vector<std::vector<long long> > > newGroups;
-  for (size_t i = 1; i < groups_.size(); i++)
+  groups_.resize(0);
+  groups_.emplace_back(1, groups[0]);
+  for (size_t i = 1; i < groups.size(); i++)
     {
-    auto group = groups_[i];
-    newGroups.emplace_back(dof_);
+    auto &group = groups[i];
+    groups_.emplace_back(dof_);
 
     for (auto const &node: group)
-      newGroups.back()[((node % dof_) + dof_) % dof_].push_back(node);
-    }
-
-  // Remove empty groups from newGroups and place them after the
-  // interior in groups. Also retain the links between them in
-  // groupLinks.
-  groups_.resize(1);
-  groupLinks_.resize(0);
-  for (auto &cats: newGroups)
-    {
-    groupLinks_.push_back(Teuchos::Array<int>());
-    for (auto &group: cats)
-      if (!group.empty())
-        {
-        std::sort(group.begin(), group.end());
-        groupLinks_.back().push_back(groups_.size());
-        groups_.push_back(group);
-        }
+      groups_.back()[((node % dof_) + dof_) % dof_].push_back(node);
     }
 
   return 0;
   }
 
-std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(int sd) const
+int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior_nodes,
+  Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes,
+  Teuchos::Array<Teuchos::Array<int> > &group_links)
   {
-  HYMLS_PROF3(label_, "createSubdomain");
+  HYMLS_PROF3(label_,"GetGroups");
+
+  interior_nodes.clear();
+  separator_nodes.clear();
+  group_links.clear();
+
+  int gsd = sdMap_->GID(sd);
 
   int sdx, sdy, sdz;
-  GetSubdomainPosition(sd, sx_, sy_, sz_, sdx, sdy, sdz);
+  GetSubdomainPosition(gsd, sx_, sy_, sz_, sdx, sdy, sdz);
 
   int nx = 4 * sx_;
 
   // Move the groups to the right position and cut off parts that fall
   // outside of the domain
-  std::vector<std::vector<hymls_gidx> > groups;
-  for (auto &group: groups_)
+  std::vector<std::vector<std::vector<hymls_gidx> > > groups;
+  for (auto const &cat: groups_)
     {
     groups.emplace_back();
-    for (long long const &node: group)
+    for (auto const &group: cat)
       {
-      int var = node % dof_;
-      int x = (node / dof_) % nx + sdx - 1 - sx_;
-      int y = (node / dof_ / nx) % nx + sdy - 1 - 3 * sx_ / 2;
-      int z = node / dof_ / nx / nx + sdz - 2 * sx_;
-      if (perio_ & GaleriExt::X_PERIO) x = (x + nx_) % nx_;
-      if (perio_ & GaleriExt::Y_PERIO) y = (y + ny_) % ny_;
-      if (perio_ & GaleriExt::Z_PERIO) z = (z + nz_) % nz_;
-      if (x >= 0 && x < nx_ && y >= 0 && y < ny_ && z >= 0 && z < nz_)
-        groups.back().push_back(
-          (hymls_gidx)x * dof_ +
-          (hymls_gidx)nx_ * y * dof_ +
-          (hymls_gidx)nx_ * ny_ * z * dof_ + var);
+      groups.back().emplace_back();
+      for (long long const &node: group)
+        {
+        int var = node % dof_;
+        int x = (node / dof_) % nx + sdx - 1 - sx_;
+        int y = (node / dof_ / nx) % nx + sdy - 1 - 3 * sx_ / 2;
+        int z = node / dof_ / nx / nx + sdz - 2 * sx_;
+        if (perio_ & GaleriExt::X_PERIO) x = (x + nx_) % nx_;
+        if (perio_ & GaleriExt::Y_PERIO) y = (y + ny_) % ny_;
+        if (perio_ & GaleriExt::Z_PERIO) z = (z + nz_) % nz_;
+        if (x >= 0 && x < nx_ && y >= 0 && y < ny_ && z >= 0 && z < nz_)
+          groups.back().back().push_back(
+            (hymls_gidx)x * dof_ +
+            (hymls_gidx)nx_ * y * dof_ +
+            (hymls_gidx)nx_ * ny_ * z * dof_ + var);
+        }
       }
     }
 
@@ -687,11 +683,14 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(
   for (int pvar = 0; pvar < dof_; pvar++)
     if (variableType_[pvar] == 3)
       {
-      for (hymls_gidx const &node: groups[0])
+      for (hymls_gidx const &node: groups[0][0])
         if (((node % dof_) + dof_) % dof_ == pvar)
           {
-          groups.emplace_back(1, node);
-          groups[0].erase(std::remove(groups[0].begin(), groups[0].end(), node), groups[0].end());
+          groups.emplace_back();
+          groups.back().emplace_back(1, node);
+          groups[0][0].erase(
+            std::remove(groups[0][0].begin(), groups[0][0].end(), node),
+            groups[0][0].end());
           break;
           }
       break;
@@ -699,31 +698,37 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(
 
   // Split separator groups that that do not belong to the same subdomain.
   // This may happen for the w-groups since the w-separators are staggered
-  std::vector<std::vector<hymls_gidx> > oldGroups;
-  std::copy(groups.begin() + 1, groups.end(), std::back_inserter(oldGroups));
-  groups.resize(1);
-  for (auto &group: oldGroups)
+  int separatorIdx = 1;
+  std::copy(groups[0][0].begin(), groups[0][0].end(), std::back_inserter(interior_nodes));
+  for (int i = 1; i < (int)groups.size(); i++)
     {
-    std::map<int, std::vector<hymls_gidx> > newGroups;
-    for (hymls_gidx node: group)
+    group_links.push_back(Teuchos::Array<int>());
+    for (auto const &group: groups[i])
       {
-      int gsd = operator()(node);
-      auto newGroup = newGroups.find(gsd);
-      if (newGroup != newGroups.end())
-        newGroup->second.push_back(node);
-      else
-        newGroups.emplace(gsd, std::vector<hymls_gidx>(1, node));
+      std::map<int, std::vector<hymls_gidx> > newGroups;
+      for (hymls_gidx node: group)
+        {
+        int gsd = operator()(node);
+        auto newGroup = newGroups.find(gsd);
+        if (newGroup != newGroups.end())
+          newGroup->second.push_back(node);
+        else
+          newGroups.emplace(gsd, std::vector<hymls_gidx>(1, node));
+        }
+      for (auto &newGroup: newGroups)
+        {
+        separator_nodes.push_back(newGroup.second);
+        group_links.back().push_back(separatorIdx++);
+        }
       }
-    for (auto &newGroup: newGroups)
-      groups.push_back(newGroup.second);
     }
 
   // Remove separator nodes that lie on the boundary of the domain.
   // We need this because those nodes don't actually border any interior
   // nodes of the other subdomain
-  for (auto group = groups.begin() + 1; group != groups.end(); ++group)
+  for (auto group = separator_nodes.begin(); group != separator_nodes.end(); ++group)
     {
-    std::vector<hymls_gidx> groupCopy = *group;
+    Teuchos::Array<hymls_gidx> groupCopy = *group;
     for (hymls_gidx node: groupCopy)
       {
       int x = (node / dof_) % nx_;
@@ -732,56 +737,31 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(
       if (dof_ > 1 && x == nx_ - 1 && variableType_[node % dof_] == 0 &&
         !(perio_ & GaleriExt::X_PERIO))
         {
-        if (operator()(x, y, z) == sd)
-          groups[0].push_back(node);
+        if (operator()(x, y, z) == gsd)
+          interior_nodes.push_back(node);
         group->erase(std::remove(group->begin(), group->end(), node));
         }
       else if (dof_ > 1 && y == ny_ - 1 && variableType_[node % dof_] == 1 &&
         !(perio_ & GaleriExt::Y_PERIO))
         {
-        if (operator()(x, y, z) == sd)
-          groups[0].push_back(node);
+        if (operator()(x, y, z) == gsd)
+          interior_nodes.push_back(node);
         group->erase(std::remove(group->begin(), group->end(), node));
         }
       else if (nz_ > 1 && dof_ > 1 && z == nz_ - 1 && variableType_[node % dof_] == 2 &&
         !(perio_ & GaleriExt::Z_PERIO))
         {
-        if (operator()(x, y, z) == sd)
-          groups[0].push_back(node);
+        if (operator()(x, y, z) == gsd)
+          interior_nodes.push_back(node);
         group->erase(std::remove(group->begin(), group->end(), node));
         }
       }
     }
 
   // Sort the interior since there may now be new nodes at the back
-  std::sort(groups[0].begin(), groups[0].end());
-
-  return groups;
-  }
-
-int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior_nodes,
-  Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes)
-  {
-  HYMLS_PROF3(label_,"GetGroups");
-
-  interior_nodes.clear();
-  separator_nodes.clear();
-
-  int gsd = sdMap_->GID(sd);
-
-  std::vector<std::vector<hymls_gidx> > nodes = createSubdomain(gsd);
-  interior_nodes = nodes[0];
-  std::copy(nodes.begin() + 1, nodes.end(), std::back_inserter(separator_nodes));
+  std::sort(interior_nodes.begin(), interior_nodes.end());
 
   return 0;
-  }
-
-Teuchos::Array<Teuchos::Array<int> > const &
-SkewCartesianPartitioner::GetGroupLinks(int sd) const
-  {
-  HYMLS_PROF3(label_,"GetGroupLinks");
-
-  return groupLinks_;
   }
 
   }

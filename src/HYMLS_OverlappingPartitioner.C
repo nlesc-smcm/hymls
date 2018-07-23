@@ -114,21 +114,22 @@ int OverlappingPartitioner::DetectSeparators()
   Teuchos::Array<hymls_gidx> interior_nodes;
   // separator nodes
   Teuchos::Array<Teuchos::Array<hymls_gidx> > separator_nodes;
+  // links between separator nodes
+  Teuchos::Array<Teuchos::Array<int> > group_links;
 
   for (int sd = 0; sd < partitioner_->NumLocalParts(); sd++)
     {
     interior_nodes.resize(0);
     separator_nodes.resize(0);
 
-    CHECK_ZERO(partitioner_->GetGroups(sd, interior_nodes, separator_nodes));
+    CHECK_ZERO(partitioner_->GetGroups(sd, interior_nodes, separator_nodes, group_links));
 
     std::sort(interior_nodes.begin(), interior_nodes.end());
     AddGroup(sd, interior_nodes);
 
-    Teuchos::Array<Teuchos::Array<int> > const &groupLinks = partitioner_->GetGroupLinks(sd);
     Teuchos::Array<Teuchos::Array<int> > newGroupLinks;
     int separatorIdx = 1;
-    for (auto const &groupLink: groupLinks)
+    for (auto const &groupLink: group_links)
       {
       newGroupLinks.push_back(Teuchos::Array<int>());
       for (int gid: groupLink)
@@ -143,7 +144,13 @@ int OverlappingPartitioner::DetectSeparators()
           }
         }
       }
-    AddGroupLinks(sd, newGroupLinks);
+
+    // Remove empty groups
+    newGroupLinks.erase(std::remove_if(newGroupLinks.begin(), newGroupLinks.end(),
+        [](Teuchos::Array<int> const &i){return i.empty();}), newGroupLinks.end());
+
+    if (newGroupLinks.size() > 0)
+      AddGroupLinks(sd, newGroupLinks);
     }
 
   // and rebuild map and global groupPointer

@@ -1,7 +1,7 @@
-<ParameterList name="2D Stokes with periodic BCs and skew partitioning"><!--{-->
+<ParameterList name="3D Stokes with periodic BCs and skew partitioning"><!--{-->
 
   <Parameter name="Description" type="string"
-        value="2D Stokes with periodic BCs and skew partitioning"/>
+        value="3D Stokes with periodic BCs and skew partitioning"/>
 
   <!-- these first few settings are specific for the driver -->
   <!-- implemented in 'main.C' and are not passed on to the -->

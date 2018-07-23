@@ -298,7 +298,8 @@ int CartesianPartitioner::RemoveBoundarySeparators(Teuchos::Array<hymls_gidx> &i
   }
 
 int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior_nodes,
-  Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes)
+  Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes,
+  Teuchos::Array<Teuchos::Array<int> > &group_links)
   {
   HYMLS_PROF3(label_,"GetGroups");
 
@@ -391,19 +392,11 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
     }
 
   // TODO: Actually implement this
-  groupLinks_.resize(0);
+  group_links.resize(0);
   for (int i = 0; i < separator_nodes.size(); i++)
-    groupLinks_.push_back(Teuchos::Array<int>(1, i+1));
+    group_links.push_back(Teuchos::Array<int>(1, i+1));
 
   return 0;
-  }
-
-Teuchos::Array<Teuchos::Array<int> > const &
-CartesianPartitioner::GetGroupLinks(int sd) const
-  {
-  HYMLS_PROF3(label_,"GetGroupLinks");
-
-  return groupLinks_;
   }
 
   }

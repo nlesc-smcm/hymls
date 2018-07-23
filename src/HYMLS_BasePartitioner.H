@@ -46,10 +46,8 @@ public:
 
   //! Get interior and separator groups of the subdomain sd
   virtual int GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior_nodes,
-    Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes) = 0;
-
-  //! Get links between separator groups of the subdomain sd
-  virtual Teuchos::Array<Teuchos::Array<int> > const &GetGroupLinks(int sd) const = 0;
+    Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes,
+    Teuchos::Array<Teuchos::Array<int> > &group_links) = 0;
 
   //! get number of local partitions
   virtual int NumLocalParts() const = 0;

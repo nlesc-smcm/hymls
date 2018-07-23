@@ -973,6 +973,25 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes2D, nx, ny, sx, sy)
  
     TEST_EQUALITY(opart.NumGroups(sd), numGroups);
 
+    // Compute the number of links we expect
+    int numLinks = 4 + 4 + 1;
+    // Right
+    numLinks -= (gsd % nsx == nsx / 2 * 2) * 3;
+    // Bottom
+    numLinks -= (gsd > (nsl - nsx / 2 - 1)) * 5;
+    numLinks -= somewhatBottom;
+    // Left
+    numLinks -= (gsd % nsx == nsx / 2) * 5;
+    numLinks -= (gsd % nsx == 0);
+    // Top
+    numLinks -= (gsd < nsx / 2) * 5;
+    numLinks -= (gsd >= nsx / 2 and gsd < nsx);
+
+    if (numLinks < 4)
+      numLinks = 4;
+
+    TEST_EQUALITY(opart.NumLinks(sd), numLinks);
+
     int totalNodes = 0;
     for (int grp = 0; grp < opart.NumGroups(sd); grp++)
       {
