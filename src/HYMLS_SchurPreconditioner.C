@@ -215,7 +215,11 @@ int SchurPreconditioner::Initialize()
   if (myLevel_!=maxLevel_)
     {
     CHECK_ZERO(InitializeOT());
-    if (variant_ == "Block Diagonal" ||
+    if (variant_ == "Do Nothing" || !applyDropping_)
+      {
+      blockSolver_.resize(0);
+      }
+    else if (variant_ == "Block Diagonal" ||
       variant_ == "Lower Triangular" ||
       variant_ == "No Dropping")
       {
@@ -224,10 +228,6 @@ int SchurPreconditioner::Initialize()
     else if (variant_=="Domain Decomposition")
       {
       CHECK_ZERO(InitializeSingleBlock());
-      }
-    else if (variant_=="Do Nothing")
-      {
-      blockSolver_.resize(0);
       }
     else
       {
@@ -301,7 +301,11 @@ int SchurPreconditioner::InitializeCompute()
     }
   else
     {
-    if (variant_=="Block Diagonal"||
+    if (variant_ == "Do Nothing" || !applyDropping_)
+      {
+      blockSolver_.resize(0);
+      }
+    else if (variant_=="Block Diagonal"||
       variant_=="Lower Triangular")
       {
       CHECK_ZERO(InitializeBlocks());
@@ -309,10 +313,6 @@ int SchurPreconditioner::InitializeCompute()
     else if (variant_=="Domain Decomposition")
       {
       CHECK_ZERO(InitializeSingleBlock());
-      }
-    else if (variant_=="Do Nothing")
-      {
-      blockSolver_.resize(0);
       }
     else
       {
@@ -1035,6 +1035,11 @@ int SchurPreconditioner::Assemble()
     }
   CHECK_ZERO(SchurComplement_->Construct(matrix));
   matrix_ = MatrixUtils::DropByValue(matrix, HYMLS_SMALL_ENTRY);
+
+#ifdef HYMLS_STORE_MATRICES
+  MatrixUtils::Dump(*matrix_,"SchurPreconditioner"+Teuchos::toString(myLevel_)+".txt");
+#endif
+
   return 0;
   }
 
