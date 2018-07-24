@@ -770,6 +770,9 @@ int SchurPreconditioner::InitializeOT()
   {
   HYMLS_LPROF2(label_,"InitializeOT");
 
+  if (!applyDropping_)
+    return 0;
+
   // create orthogonal transform as a sparse matrix representation
   if (sparseMatrixOT_==Teuchos::null)
     {
@@ -1812,14 +1815,15 @@ int SchurPreconditioner::ApplyOT(bool trans, Epetra_MultiVector& v, double* flop
   // implementation 2: just apply the constructed sparse matrix.
   // This makes sure that the OT for the matrix and the vectors are
   // consistent.
+
+  if (!applyDropping_)
+    return 0;
+
   if (sparseMatrixOT_==Teuchos::null)
     {
     HYMLS::Tools::Error("orth. transform not available as matrix!",
       __FILE__, __LINE__);
     }
-
-  if (!applyDropping_)
-    return 0;
 
   Epetra_MultiVector tmp=v;
   if (trans)
