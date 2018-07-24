@@ -632,13 +632,13 @@ int SchurPreconditioner::InitializeBlocks()
   // number of blocks in this preconditioner (except next Schur-complement).
   // Some blocks may ultimately have 0 rows if they had only one element which
   // is retained as a 'Vsum'-node. That doesn't bother the solver, though.
-  int numBlocks=0;
-  for (int i=0;i<sepObject->NumMySubdomains();i++)
+  int numBlocks = 0;
+  for (int sd = 0; sd < sepObject->NumMySubdomains(); sd++)
     {
-    for (int grp=1;grp<sepObject->NumGroups(i);grp++)
-      {
-      numBlocks++;
-      }
+    if (groupSeparators_)
+      numBlocks += sepObject->NumLinks(sd);
+    else
+      numBlocks += sepObject->NumGroups(sd) - 1;
     }
 
 #ifdef HYMLS_TESTING
@@ -657,30 +657,69 @@ int SchurPreconditioner::InitializeBlocks()
 
   // create an array of solvers for all the diagonal blocks
   blockSolver_.resize(numBlocks);
-  double nnz=0.0;
-  int blk=0;
-  for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
+  double nnz = 0.0;
+  int blk = 0;
+  for (int sd = 0; sd < sepObject->NumMySubdomains(); sd++)
     {
-    for (int grp=1;grp<sepObject->NumGroups(sep);grp++)
+    if (groupSeparators_)
       {
-      // in the spawned sepObject, each local separator is a group of a subdomain.
-      // -1 because we remove one Vsum node from each block
-      int numRows=std::max((int)sepObject->NumElements(sep,grp)-1,0);
-      nnz+=numRows*numRows;
-      blockSolver_[blk]=Teuchos::rcp(new
-        Ifpack_DenseContainer(numRows));
-      CHECK_ZERO(blockSolver_[blk]->SetParameters(
-          PL().sublist("Dense Solver")));
-
-      CHECK_ZERO(blockSolver_[blk]->Initialize());
-
-      for (int j=0; j<numRows; j++)
+      for (int lnk = 0; lnk < sepObject->NumLinks(sd); lnk++)
         {
-        // skip first element, which is a Vsum
-        int LRID = map_->LID(sepObject->GID(sep,grp,j+1));
-        blockSolver_[blk]->ID(j) = LRID;
+        // in the spawned sepObject, each local separator is a group of a subdomain.
+        // -1 because we remove one Vsum node from each block
+        int numRows = 0;
+        for (int grp = 0; grp < sepObject->NumGroups(sd, lnk); grp++)
+          {
+          int grp2 = sepObject->GroupFromLink(sd, lnk, grp);
+          numRows += std::max((int)sepObject->NumElements(sd, grp2) - 1, 0);
+          }
+        nnz += numRows * numRows;
+
+        blockSolver_[blk] = Teuchos::rcp(new
+          Ifpack_DenseContainer(numRows));
+        CHECK_ZERO(blockSolver_[blk]->SetParameters(
+            PL().sublist("Dense Solver")));
+
+        CHECK_ZERO(blockSolver_[blk]->Initialize());
+
+        int k = 0;
+        for (int grp = 0; grp < sepObject->NumGroups(sd, lnk); grp++)
+          {
+          int grp2 = sepObject->GroupFromLink(sd, lnk, grp);
+          for (int j = 1; j < sepObject->NumElements(sd, grp2); j++)
+            {
+            // skip first element, which is a Vsum
+            int LRID = map_->LID(sepObject->GID(sd, grp2, j));
+            blockSolver_[blk]->ID(k++) = LRID;
+            }
+          }
+        blk++;
         }
-      blk++;
+      }
+    else
+      {
+      for (int grp = 1; grp < sepObject->NumGroups(sd); grp++)
+        {
+        // in the spawned sepObject, each local separator is a group of a subdomain.
+        // -1 because we remove one Vsum node from each block
+        int numRows = std::max((int)sepObject->NumElements(sd, grp) - 1, 0);
+        nnz += numRows * numRows;
+
+        blockSolver_[blk] = Teuchos::rcp(new
+          Ifpack_DenseContainer(numRows));
+        CHECK_ZERO(blockSolver_[blk]->SetParameters(
+            PL().sublist("Dense Solver")));
+
+        CHECK_ZERO(blockSolver_[blk]->Initialize());
+
+        for (int j  = 0; j < numRows; j++)
+          {
+          // skip first element, which is a Vsum
+          int LRID = map_->LID(sepObject->GID(sd, grp, j+1));
+          blockSolver_[blk]->ID(j) = LRID;
+          }
+        blk++;
+        }
       }
     }
   return 0;

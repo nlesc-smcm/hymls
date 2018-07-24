@@ -24,9 +24,8 @@ STRING(REPLACE "'" "\"" HYMLS_REVISION ${rev})
 set(HYMLS_TIMING_LEVEL 2 CACHE STRING "which function should be timed/traced (0: none, 1: major functions ... 99: all")
 
 if (CMAKE_BUILD_TYPE MATCHES "Debug")
-
   message(STATUS "enabling TESTING")
-  set(HYMLS_TESTING 1)
+  option(HYMLS_TESTING "turns on on the fly tests" ON)
 
   if (HYMLS_STORE_MATRICES)
     message(STATUS "enabling STORE_MATRICES output")
@@ -38,7 +37,8 @@ if (CMAKE_BUILD_TYPE MATCHES "Debug")
   if (HYMLS_FUNCTION_TRACING)
     message(STATUS "enabling FUNCTION_TRACING output")
   endif()
-
+else()
+  option(HYMLS_TESTING "turns on on the fly tests" OFF)
 endif()
 
 include("${PROJECT_SOURCE_DIR}/cmake/common.cmake")

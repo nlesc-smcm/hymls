@@ -292,11 +292,11 @@ private:
   //! pointer to index subdomains and groups
   Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > groupPointer_;
   
-  //! pointer to separator groups that are linked
-  Teuchos::RCP<Teuchos::Array<Teuchos::Array<Teuchos::Array<int> > > > groupLinks_;
-  
   //! list of ordered GIDs which will be transformed into a map in FillComplete
   Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > gidList_;
+  
+  //! pointer to separator groups that are linked
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<Teuchos::Array<int> > > > groupLinks_;
   
   //! array of spawned objects (so we avoid building the same thing over and over again)
   mutable Teuchos::Array<Teuchos::RCP<const HierarchicalMap> > spawnedObjects_;
@@ -315,6 +315,7 @@ private:
     Teuchos::RCP<const Epetra_Map> overlappingMap,
     Teuchos::RCP<Teuchos::Array< Teuchos::Array<hymls_gidx> > > groupPointer,
     Teuchos::RCP<Teuchos::Array< Teuchos::Array<hymls_gidx> > > gidList,
+    Teuchos::RCP<Teuchos::Array< Teuchos::Array<Teuchos::Array<int> > > > groupLinks,
     std::string label, int level);
   
   //! \name private member functions
