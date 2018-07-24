@@ -152,7 +152,7 @@ int SchurPreconditioner::SetParameters(Teuchos::ParameterList& List)
   denseSwitch_=PL().get("Dense Solvers on Level",denseSwitch_);
   subdivideSeparators_=PL().get("Subdivide Separators",false);
   applyDropping_ = PL().get("Apply Dropping", true);
-  groupSeparators_ = PL().get("Group Separators", true);
+  groupSeparators_ = PL().get("Group Separators", false);
   int pos=1;
 
   fix_gid_.resize(0);
