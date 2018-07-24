@@ -52,7 +52,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, operator)
   params->sublist("Preconditioner").set("Separator Length", 4);
 
   TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
-  part.Partition(false);
+  TEST_MAYTHROW(part.Partition(false));
 
   ENABLE_OUTPUT;
 
@@ -81,7 +81,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, PID)
   params->sublist("Preconditioner").set("Separator Length", 4);
 
   TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
-  part.Partition(false);
+  TEST_MAYTHROW(part.Partition(false));
 
   ENABLE_OUTPUT;
 
@@ -480,7 +480,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NoEmpty16Procs)
     params->sublist("Preconditioner").set("Separator Length", 4);
 
     TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
-    part.Partition(false);
+    TEST_MAYTHROW(part.Partition(false));
 
     TEST_COMPARE(part.NumLocalParts(), >, 5);
     }
@@ -508,7 +508,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NoEmpty16Procs2D)
     params->sublist("Preconditioner").set("Separator Length", 4);
 
     TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
-    part.Partition(false);
+    TEST_MAYTHROW(part.Partition(false));
 
     TEST_COMPARE(part.NumLocalParts(), >, 5);
 
@@ -539,7 +539,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NoEmpty128Procs)
     params->sublist("Preconditioner").set("Separator Length", 4);
 
     TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
-    part.Partition(false);
+    TEST_MAYTHROW(part.Partition(false));
 
     TEST_COMPARE(part.NumLocalParts(), >, 5);
 
@@ -572,7 +572,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NoEmpty128ProcsPeriodic)
     params->sublist("Preconditioner").set("Separator Length", 4);
 
     TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
-    part.Partition(false);
+    TEST_MAYTHROW(part.Partition(false));
 
     TEST_INEQUALITY(part.NumLocalParts(), 0);
     }
@@ -620,7 +620,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, SameNumSubdomains)
   params->sublist("Preconditioner").set("Separator Length", 4);
 
   TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
-  part.Partition(false);
+  TEST_MAYTHROW(part.Partition(false));
 
   int num = part.NumLocalParts();
 
@@ -634,7 +634,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, SameNumSubdomains)
   params->sublist("Preconditioner").set("Separator Length", 4);
 
   TestableSkewCartesianPartitioner part2(Teuchos::null, params, *comm);
-  part2.Partition(false);
+  TEST_MAYTHROW(part2.Partition(false));
 
   ENABLE_OUTPUT;
   TEST_EQUALITY(part2.NumLocalParts(), num);
@@ -662,7 +662,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, GID64)
   params->sublist("Preconditioner").set("Separator Length", sx);
 
   TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
-  part.Partition(false);
+  TEST_MAYTHROW(part.Partition(false));
 
   TEST_EQUALITY(part(nx-2, ny-1, nz-1), (nz / sx + 1 ) * (2 * nx / sx * ny / sx + ny / sx + nx / sx) - 1);
 

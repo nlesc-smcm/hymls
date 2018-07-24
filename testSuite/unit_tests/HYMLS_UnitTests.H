@@ -9,6 +9,15 @@
 #define TODO_TEST_EQUALITY( v1, v2 ) \
   TEST_INEQUALITY( v1, v2 )
 
+#define TEST_MAYTHROW(code)                     \
+    {                                           \
+        try {                                   \
+            code;                               \
+        }                                       \
+        catch (...) {                           \
+        }                                       \
+    }
+
 class Epetra_Comm;
 class Epetra_Map;
 

@@ -124,7 +124,7 @@ TEUCHOS_UNIT_TEST(CartesianPartitioner, SamePartEveryProc)
     params->sublist("Preconditioner").set("Separator Length", 4);
 
     HYMLS::CartesianPartitioner part(Teuchos::null, params, *comm);
-    part.Partition(false);
+    TEST_MAYTHROW(part.Partition(false));
 
     int exp = 32 / 4 * 32 / 4 * 32 / 4 / nprocs;
     TEST_EQUALITY(part.NumLocalParts(), exp);
@@ -173,7 +173,7 @@ TEUCHOS_UNIT_TEST(CartesianPartitioner, GID64)
   params->sublist("Preconditioner").set("Separator Length", 4);
 
   HYMLS::CartesianPartitioner part(Teuchos::null, params, *comm);
-  part.Partition(false);
+  TEST_MAYTHROW(part.Partition(false));
 
   Teuchos::Array<hymls_gidx> interior_nodes;
   Teuchos::Array<Teuchos::Array<hymls_gidx> > separator_nodes;
