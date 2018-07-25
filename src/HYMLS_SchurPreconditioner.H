@@ -278,6 +278,9 @@ protected:
   //! switch for applying dropping
   bool applyDropping_;
 
+  //! switch for applying the OT
+  bool applyOT_;
+
   //! switch for linking separator groups, for instance velocities
   bool groupSeparators_;
   

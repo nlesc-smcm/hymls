@@ -59,7 +59,7 @@ SchurPreconditioner::SchurPreconditioner(
     myLevel_(level), amActive_(true),
     variant_("Block Diagonal"),
     denseSwitch_(99), applyDropping_(true),
-    groupSeparators_(true),
+    applyOT_(true), groupSeparators_(false),
     hid_(hid), map_(Teuchos::rcp(&(SC->OperatorDomainMap()),false)),
     testVector_(testVector),
     sparseMatrixOT_(Teuchos::null),
@@ -152,6 +152,7 @@ int SchurPreconditioner::SetParameters(Teuchos::ParameterList& List)
   denseSwitch_=PL().get("Dense Solvers on Level",denseSwitch_);
   subdivideSeparators_=PL().get("Subdivide Separators",false);
   applyDropping_ = PL().get("Apply Dropping", true);
+  applyOT_ = PL().get("Apply Orthogonal Transformation", applyDropping_);
   groupSeparators_ = PL().get("Group Separators", false);
   int pos=1;
 
@@ -770,7 +771,7 @@ int SchurPreconditioner::InitializeOT()
   {
   HYMLS_LPROF2(label_,"InitializeOT");
 
-  if (!applyDropping_)
+  if (!applyOT_)
     return 0;
 
   // create orthogonal transform as a sparse matrix representation
@@ -1037,7 +1038,13 @@ int SchurPreconditioner::Assemble()
       Epetra_FECrsMatrix(Copy, SchurComplement_->A22().RowMap(), nzest));
     }
   CHECK_ZERO(SchurComplement_->Construct(matrix));
-  matrix_ = MatrixUtils::DropByValue(matrix, HYMLS_SMALL_ENTRY);
+
+  if (applyOT_)
+    matrix_ = OT->Apply(*sparseMatrixOT_, *matrix);
+  else
+    matrix_ = matrix;
+
+  matrix_ = MatrixUtils::DropByValue(matrix_, HYMLS_SMALL_ENTRY);
 
 #ifdef HYMLS_STORE_MATRICES
   MatrixUtils::Dump(*matrix_,"SchurPreconditioner"+Teuchos::toString(myLevel_)+".txt");
@@ -1816,7 +1823,7 @@ int SchurPreconditioner::ApplyOT(bool trans, Epetra_MultiVector& v, double* flop
   // This makes sure that the OT for the matrix and the vectors are
   // consistent.
 
-  if (!applyDropping_)
+  if (!applyOT_)
     return 0;
 
   if (sparseMatrixOT_==Teuchos::null)

@@ -256,7 +256,9 @@ int Preconditioner::SetParameters(Teuchos::ParameterList& List)
 
     VPL().set("Apply Dropping", true, "Whether dropping is applied in the Schur complement");
 
-    VPL().set("Group Separators", true, "Whether velocity nodes are eliminated together");
+    VPL().set("Apply Orthogonal Transformation", true, "Whether or not to apply the orthogonal transformation before dropping. In practice this should only be set to false in case \"Apply Dropping\" is set to false, in which case that is the default.");
+
+    VPL().set("Group Separators", false, "Whether velocity nodes are eliminated together");
 
     return validParams_;
     }
