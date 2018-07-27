@@ -200,7 +200,7 @@ Teuchos::RCP<Epetra_Map> create_map(const Epetra_Comm& comm,
   else
     HYMLS::Tools::Error("Partitioner not recognised", __FILE__, __LINE__);
 
-  part->Partition(true);
+  CHECK_ZERO(part->Partition(true));
 
   return Teuchos::rcp(new Epetra_Map(part->Map()));
   }
