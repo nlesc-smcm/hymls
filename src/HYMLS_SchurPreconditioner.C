@@ -58,7 +58,7 @@ SchurPreconditioner::SchurPreconditioner(
     SchurComplement_(Teuchos::rcp_dynamic_cast<const HYMLS::SchurComplement>(SC)),
     myLevel_(level), amActive_(true),
     variant_("Block Diagonal"),
-    denseSwitch_(99), applyDropping_(true),
+    denseSwitch_(99), applyDropping_(true), retainNodes_(1),
     hid_(hid), map_(Teuchos::rcp(&(SC->OperatorDomainMap()),false)),
     testVector_(testVector),
     sparseMatrixOT_(Teuchos::null),
@@ -151,6 +151,9 @@ int SchurPreconditioner::SetParameters(Teuchos::ParameterList& List)
   denseSwitch_=PL().get("Dense Solvers on Level",denseSwitch_);
   subdivideSeparators_=PL().get("Subdivide Separators",false);
   applyDropping_ = PL().get("Apply Dropping", true);
+  retainNodes_ = PL().get("Retain Nodes", 1);
+  retainNodes_ = PL().get("Retain Nodes at Level " + Teuchos::toString(myLevel_),
+                          retainNodes_);
   int pos=1;
 
   fix_gid_.resize(0);
@@ -824,7 +827,7 @@ int SchurPreconditioner::InitializeNextLevel()
         {
         if (applyDropping_)
           {
-          if (sepObject->NumElements(sep, grp) > 0) numBlocks++;
+          numBlocks += std::min(sepObject->NumElements(sep, grp), retainNodes_);
           }
         else
           {
@@ -845,13 +848,16 @@ int SchurPreconditioner::InitializeNextLevel()
       HYMLS_DEBVAR(sep)
         for (int grp = 1; grp < sepObject->NumGroups(sep); grp++)
           {
-          if (sepObject->NumElements(sep,grp) > 0)
+          if (applyDropping_)
             {
-            if (applyDropping_)
-              MyVsumElements[pos++] = sepObject->GID(sep,grp,0);
-            else
-              for (int i = 0; i < sepObject->NumElements(sep, grp); i++)
-                MyVsumElements[pos++] = sepObject->GID(sep,grp,i);
+            int retainNodes = std::min(sepObject->NumElements(sep, grp), retainNodes_);
+            for (int i = 0; i < retainNodes; i++)
+              MyVsumElements[pos++] = sepObject->GID(
+                sep, grp, sepObject->NumElements(sep, grp) / retainNodes * i);
+            }
+          else
+            for (int i = 0; i < sepObject->NumElements(sep, grp); i++)
+              MyVsumElements[pos++] = sepObject->GID(sep, grp, i);
             }
           }
       }
@@ -1069,16 +1075,17 @@ int SchurPreconditioner::AssembleTransformAndDrop()
     for (int sd=0;sd<hid_->NumMySubdomains();sd++)
       {
       // put in the Vsum-Vsum couplings
-      int numVsums = hid_->NumGroups(sd)-1;
+      int numVsums = hid_->NumGroups(sd)*retainNodes_-retainNodes_;
       indsPart.Resize(numVsums);
       if (numVsums>Spart.N()) Spart.Reshape(2*numVsums,2*numVsums);
       numVsums=0;
-      for (int grp=1;grp<hid_->NumGroups(sd);grp++)
+      for (int grp = 1; grp < hid_->NumGroups(sd); grp++)
         {
-        if (hid_->NumElements(sd,grp)>0)
-          {
-          indsPart[numVsums++]=hid_->GID(sd,grp,0);
-          }
+        int len = hid_->NumElements(sd, grp);
+        int retainNodes = std::min(len, retainNodes_);
+        for (int i = 0; i < len; i++)
+          if (i % len / retainNodes == 0)
+            indsPart[numVsums++] = hid_->GID(sd, grp, i);
         }
       indsPart.Resize(numVsums);
       //HYMLS_DEBVAR(sd);
@@ -1086,18 +1093,18 @@ int SchurPreconditioner::AssembleTransformAndDrop()
       CHECK_NONNEG(matrix->InsertGlobalValues(indsPart.Length(),
           indsPart.Values(), Spart.A()));
       // now the non-Vsums
-      for (int grp=1;grp<hid_->NumGroups(sd);grp++)
+      for (int grp = 1; grp < hid_->NumGroups(sd); grp++)
         {
-        int len = hid_->NumElements(sd,grp)-1;
+        int pos = 0;
+        int len = hid_->NumElements(sd, grp);
         indsPart.Resize(len);
         if (Spart.N()<len) Spart.Reshape(2*len,2*len);
-        for (int j=0;j<len;j++)
-          {
-          indsPart[j]=hid_->GID(sd,grp,1+j);
-          }//j
-        //HYMLS_DEBVAR(indsPart);
+        int retainNodes = std::min(len, retainNodes_);
+        for (int i = 0; i < len; i++)
+          if (i % len / retainNodes != 0)
+            indsPart[pos++] = hid_->GID(sd, grp, i);
         CHECK_NONNEG(matrix->InsertGlobalValues(indsPart.Length(),
-            indsPart.Values(),Spart.A()));
+            indsPart.Values(), Spart.A()));
         }
       }
     // assemble with all zeros
