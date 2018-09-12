@@ -26,10 +26,11 @@ HierarchicalMap::HierarchicalMap(
   std::string label, int level)
   :
   label_(label),
+  myLevel_(level),
+  retainNodes_(1),
   baseMap_(baseMap),
   baseOverlappingMap_(baseOverlappingMap),
-  overlappingMap_(Teuchos::null),
-  myLevel_(level)
+  overlappingMap_(Teuchos::null)
   {
   HYMLS_LPROF2(label_,"Constructor");
   Reset(numMySubdomains);
@@ -45,13 +46,14 @@ HierarchicalMap::HierarchicalMap(
   std::string label, int level)
   :
   label_(label),
+  myLevel_(level),
+  retainNodes_(1),
   baseMap_(baseMap),
   baseOverlappingMap_(overlappingMap),
   overlappingMap_(overlappingMap),
   groupPointer_(groupPointer),
   gidList_(gidList),
-  groupLinks_(groupLinks),
-  myLevel_(level)
+  groupLinks_(groupLinks)
   {
   HYMLS_LPROF2(label_,"HierarchicalMap Constructor");
   spawnedObjects_.resize(4); // can currently spawn Interior, Separator and 
@@ -227,8 +229,44 @@ int HierarchicalMap::FillComplete()
   overlappingMap_ = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), std::distance(allGIDs.begin(), last),
       &allGIDs[0], (hymls_gidx)baseMap_->IndexBase64(), Comm()));
 
+  // split separator groups if we want to retain multiple nodes per separator
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > splitGroupPointer =
+    newGroupPointer;
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<Teuchos::Array<int> > > > splitGroupLinks =
+    groupLinks_;
+  if (retainNodes_ != 1)
+    {
+    splitGroupPointer =
+      Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >());
+    splitGroupLinks =
+      Teuchos::rcp(new Teuchos::Array<Teuchos::Array<Teuchos::Array<int> > >());
+
+    for (int sd = 0; sd < NumMySubdomains(); sd++)
+      {
+      splitGroupPointer->append(Teuchos::Array<hymls_gidx>(1));
+      splitGroupLinks->append(Teuchos::Array<Teuchos::Array<int> >());
+      for (int lnk = 0; lnk < NumLinks(sd); lnk++)
+        {
+        splitGroupLinks->back().append(Teuchos::Array<int>());
+        for (int grp = 0; grp < NumGroups(sd, lnk); grp++)
+          {
+          int grp2 = GroupFromLink(sd, lnk, grp);
+          int len = (*newGroupPointer)[sd][grp2+1] - (*newGroupPointer)[sd][grp2];
+          int newLen = std::max((len + retainNodes_ - 1) / retainNodes_, 1);
+          for (int j = 0; j < len; j += newLen)
+            {
+            (*splitGroupPointer)[sd].append((*newGroupPointer)[sd][grp2] + j);
+            splitGroupLinks->back().back().append((*splitGroupPointer)[sd].size()-1);
+            }
+          }
+        }
+      (*splitGroupPointer)[sd].append((*newGroupPointer)[sd].back());
+      }
+    }
+
   gidList_ = newGidList;
-  groupPointer_ = newGroupPointer;
+  groupPointer_ = splitGroupPointer;
+  groupLinks_ = splitGroupLinks;
   return 0;
   }
 
@@ -240,7 +278,7 @@ int HierarchicalMap::AddGroup(int sd, Teuchos::Array<hymls_gidx>& gidList)
     {
     Tools::Warning("invalid subdomain index",__FILE__,__LINE__);
     return -1; // You should Reset with the right amount of sd
-    }
+    } 
 
   HYMLS_DEBVAR(sd);
   HYMLS_DEBVAR(gidList);

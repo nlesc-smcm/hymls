@@ -278,6 +278,12 @@ protected:
   //! label
   std::string label_;
   
+  //! level ID
+  int myLevel_;
+
+  //! amount of nodes retained per separator
+  int retainNodes_;
+  
   //! initial map (p0)
   Teuchos::RCP<const Epetra_Map> baseMap_;
 
@@ -303,9 +309,6 @@ private:
   
   //! array of spawned maps
   mutable Teuchos::Array<Teuchos::Array<Teuchos::RCP<const Epetra_Map> > > spawnedMaps_;
-  
-  //! level ID
-  int myLevel_;
   
   //! protected constructor - does not allow any more changes
   //! (FillComplete() has been called), this is used for spawning

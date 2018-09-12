@@ -55,7 +55,13 @@ void OverlappingPartitioner::setParameterList(
   if (partitioner_ != Teuchos::null)
     partitioner_->SetParameters(*params);
 
-  partitioningMethod_ = PL("Preconditioner").get("Partitioner", "Cartesian");
+  partitioningMethod_ = PL("Preconditioner").get(
+      "Partitioner", "Cartesian");
+  retainNodes_ = PL("Preconditioner").get(
+      "Retain Nodes", retainNodes_);
+  retainNodes_ = PL("Preconditioner").get(
+      "Retain Nodes at Level " + Teuchos::toString(myLevel_),
+                          retainNodes_);
   }
 
 int OverlappingPartitioner::Partition()

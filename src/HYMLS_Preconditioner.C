@@ -260,6 +260,14 @@ int Preconditioner::SetParameters(Teuchos::ParameterList& List)
 
     VPL().set("Group Separators", false, "Whether velocity nodes are eliminated together");
 
+    VPL().set("Retain Nodes", 1, "Amount of nodes that are retained per separator");
+
+    // FIXME: Can this be done without a for loop?
+    for (int i = 0; i < 10; i++)
+      VPL().set("Retain Nodes at Level " + Teuchos::toString(i), 1,
+        "Amount of nodes that are retained per separator at level "
+        + Teuchos::toString(i));
+
     return validParams_;
     }
 

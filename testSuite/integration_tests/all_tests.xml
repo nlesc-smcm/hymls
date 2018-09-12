@@ -30,4 +30,6 @@
   <Parameter name="Test 6c" type="string" value="stokes4_3D.xml"/>
   <!-- Direct solver multiple levels -->
   <Parameter name="Test 7" type="string" value="stokes5.xml"/>
+  <!-- Extra retained nodes -->
+  <Parameter name="Test 8" type="string" value="stokes6.xml"/>
 </ParameterList>
