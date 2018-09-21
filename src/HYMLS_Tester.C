@@ -263,28 +263,28 @@ namespace HYMLS {
     for (int i=0;i<A.NumMyRows();i++)
       {
       hymls_gidx gid_i= A.GRID64(i);
-      hymls_gidx sd_i = part(A.GRID64(i));
+      hymls_gidx sd_i = part.SubdomainMap().LID(part(A.GRID64(i)));
       // map containing only interior nodes of subdomain i
       Teuchos::RCP<const Epetra_Map> imap_i = hid.SpawnMap(sd_i,HierarchicalMap::Interior);
       // map containing only separator nodes of subdomain i
       Teuchos::RCP<const Epetra_Map> smap_i = hid.SpawnMap(sd_i,HierarchicalMap::Separators);
       bool hasInteriorCoupling=false; // check if an interior node of sd_i
                                       // has any edge inside the subdomain,
-                                      // if not the sd matrix has an empty 
+                                      // if not the sd matrix has an empty
                                       // row/column and is singular.
       ASSERT_ZERO(A.ExtractMyRowView(i,len,val,cols),status);
       for (int j=0;j<len;j++)
         {
         hymls_gidx gid_j= A.GCID64(cols[j]);
-        int sd_j = part(gid_j);
-          
+        int sd_j = part.SubdomainMap().LID(part(gid_j));
+
         if (sd_i!=sd_j)
           {
           if (A.RowMap().MyGID(gid_j))
             {
             // map containing only interior nodes of subdomain j
             Teuchos::RCP<const Epetra_Map> imap_j = hid.SpawnMap(sd_j,HierarchicalMap::Interior);
-           // map containing only separator nodes of subdomain j
+            // map containing only separator nodes of subdomain j
             Teuchos::RCP<const Epetra_Map> smap_j = hid.SpawnMap(sd_j,HierarchicalMap::Separators);
             // basic sanity check - no node can be both interior and separator or neither
             ASSERT_TRUE(imap_i->LID(gid_i)>=0 || smap_i->LID(gid_i)>=0, status);
@@ -299,17 +299,17 @@ namespace HYMLS {
             // b) i is interior of sd_i, j is separator of sd_i and sd_j (ok2)
             // c) corner situation, both i and j are separators,
             // and at least one of them is in a group of it's own (a retained node) (ok3)
-            bool ok1 = smap_i->LID(gid_i)>=0 && 
-                     smap_j->LID(gid_i)>=0 &&
-                     imap_j->LID(gid_j)>=0;
-            bool ok2 = smap_i->LID(gid_j)>=0 && 
-                     smap_j->LID(gid_j)>=0 &&
-                     imap_i->LID(gid_i)>=0;
+            bool ok1 = smap_i->LID(gid_i)>=0 &&
+              smap_j->LID(gid_i)>=0 &&
+              imap_j->LID(gid_j)>=0;
+            bool ok2 = smap_i->LID(gid_j)>=0 &&
+              smap_j->LID(gid_j)>=0 &&
+              imap_i->LID(gid_i)>=0;
             bool ok3=false;
             if (!(ok1||ok2))
               {
-              ok3 = smap_i->LID(gid_i)>=0 && 
-                    smap_j->LID(gid_j)>=0;
+              ok3 = smap_i->LID(gid_i)>=0 &&
+                smap_j->LID(gid_j)>=0;
               // we should do more tests if they are both
               // separator nodes, but covering all situations
               // is a bit difficult right now (TODO)
@@ -362,7 +362,7 @@ namespace HYMLS {
                   }
                 // gid_i or gid_j is in a singleton group
                 ok3 = hid.NumElements(sd_i,grp_i_sd_i)==1 ||
-                    hid.NumElements(sd_j,grp_j_sd_j)==1;
+                  hid.NumElements(sd_j,grp_j_sd_j)==1;
                 if (!ok3)
                   {
                   msg_ << "gid "<<gid_i<<" sd "<<sd_i<<", group "<<grp_i_sd_i;
@@ -392,7 +392,7 @@ namespace HYMLS {
                 msg_ <<" separators of sd_j: "<<*smap_j<<std::endl;
                 }
               msg_<<" edge between gid "<<gid_i<<" [sd "<<sd_i<<", "<<gid2str(gid_i)<<"] and "
-                                      <<gid_j<<" [sd "<<sd_j<<", "<<gid2str(gid_j)<<"] is incorrect\n";
+                  <<gid_j<<" [sd "<<sd_j<<", "<<gid2str(gid_j)<<"] is incorrect\n";
               status=false;
               }
             }
