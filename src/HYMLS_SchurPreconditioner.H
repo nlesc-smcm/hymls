@@ -277,10 +277,7 @@ protected:
 
   //! switch for applying dropping
   bool applyDropping_;
-
-  //! amount of nodes retained per separator
-  int retainNodes_;
-
+  
   //! domain decomposition object
   Teuchos::RCP<const OverlappingPartitioner> hid_;
   
