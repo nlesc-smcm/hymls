@@ -568,39 +568,39 @@ int SkewCartesianPartitioner::solveGroups()
   if (!active_)
       return 0;
 
-  hymls_gidx nx = sx_ * 4;
+  long long nx = sx_ * 4;
 
   // Principal directions for domain displacements
-  hymls_gidx dirX = dof_*sx_;
-  hymls_gidx dirY = dof_*nx*sx_;
-  hymls_gidx dirZ = dof_*nx*nx*sx_;
+  long long dirX = dof_*sx_;
+  long long dirY = dof_*nx*sx_;
+  long long dirZ = dof_*nx*nx*sx_;
 
   // Shift the central domain by 1,1,1
-  hymls_gidx first = dirX + dirY + dirZ;
+  long long first = dirX + dirY + dirZ;
 
-  hymls_gidx dir1 = (dirY + dirX)/2; 
-  hymls_gidx dir2 = (dirY - dirX)/2 + dirZ; 
-  hymls_gidx dir3 = dirZ;
+  long long dir1 = (dirY + dirX)/2;
+  long long dir2 = (dirY - dirX)/2 + dirZ;
+  long long dir3 = dirZ;
 
   // Positions of shifted domains
-  hymls_gidx positions[27] = {0, -dir3, dir3, -dir2, -dir2-dir3,
-                              -dir2+dir3, dir2, dir2-dir3, dir2+dir3,
-                              -dir1, -dir1-dir3, -dir1+dir3, -dir1-dir2,
-                              -dir1-dir2-dir3, -dir1-dir2+dir3, -dir1+dir2,
-                              -dir1+dir2-dir3, -dir1+dir2+dir3, dir1,
-                              dir1-dir3, dir1+dir3, dir1-dir2,
-                              dir1-dir2-dir3, dir1-dir2+dir3, dir1+dir2,
-                              dir1+dir2-dir3, dir1+dir2+dir3};
+  long long positions[27] = {0, -dir3, dir3, -dir2, -dir2-dir3,
+                             -dir2+dir3, dir2, dir2-dir3, dir2+dir3,
+                             -dir1, -dir1-dir3, -dir1+dir3, -dir1-dir2,
+                             -dir1-dir2-dir3, -dir1-dir2+dir3, -dir1+dir2,
+                             -dir1+dir2-dir3, -dir1+dir2+dir3, dir1,
+                             dir1-dir3, dir1+dir3, dir1-dir2,
+                             dir1-dir2-dir3, dir1-dir2+dir3, dir1+dir2,
+                             dir1+dir2-dir3, dir1+dir2+dir3};
 
   // Turn the template into a list
-  std::vector<hymls_gidx> tempList;
+  std::vector<long long> tempList;
   for (auto &it: template_)
     for (auto &it2: it)
       tempList.push_back(it2 + first);
 
   // Find groups
   groups_.resize(0);
-  std::vector<unsigned long long> groupDomains;
+  std::vector<unsigned long> groupDomains;
 
   // First group is the interior
   groups_.emplace_back(0);
@@ -609,8 +609,8 @@ int SkewCartesianPartitioner::solveGroups()
   for (auto &node: tempList)
     {
     // For each node, first check to which domains it belongs and store it as bits
-    unsigned long long listOfDomains = 0;
-    for (size_t i = 0; i < 27; i++)
+    unsigned long listOfDomains = 0;
+    for (int i = 0; i < 27; i++)
       {
       auto it = std::lower_bound(tempList.begin(), tempList.end(), node - positions[i]);
       if (it != tempList.end() && *it == node - positions[i])
