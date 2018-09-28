@@ -9,21 +9,21 @@
 using Teuchos::toString;
 
 struct Plane {
-  std::vector<hymls_gidx> ptr;
-  std::vector<hymls_gidx> plane;
+  std::vector<long long> ptr;
+  std::vector<long long> plane;
   };
 
-Plane buildPlane45(hymls_gidx firstNode, int length,
-  hymls_gidx dirX, hymls_gidx dirY, hymls_gidx type)
+Plane buildPlane45(long long firstNode, int length,
+  long long dirX, long long dirY, long long type)
   {
-  hymls_gidx left = firstNode;
-  hymls_gidx right = firstNode;
+  long long left = firstNode;
+  long long right = firstNode;
   int height = 2 * length;
   bool extraLayer = false;
 
   // Skew direction in xy-plane
-  hymls_gidx dir1 = dirY + dirX;
-  hymls_gidx dir2 = dirY - dirX;
+  long long dir1 = dirY + dirX;
+  long long dir2 = dirY - dirX;
 
   // correction for u nodes
   if (type == 0)
@@ -43,7 +43,7 @@ Plane buildPlane45(hymls_gidx firstNode, int length,
   plane.ptr.push_back(0);
   for (int i = 0; i < height-1; i++)
     {
-    for (hymls_gidx j = left; j <= right; j += dirX)
+    for (long long j = left; j <= right; j += dirX)
       plane.plane.push_back(j);
     plane.ptr.push_back(plane.plane.size());
 
@@ -383,21 +383,21 @@ int SkewCartesianPartitioner::getTemplate()
   if (!active_)
       return 0;
 
-  hymls_gidx nx = sx_ * 4;
+  long long nx = sx_ * 4;
 
   // Cartesian directions
-  hymls_gidx dirX = dof_;
-  hymls_gidx dirY = dof_*nx;
-  hymls_gidx dirZ = dof_*nx*nx;
+  long long dirX = dof_;
+  long long dirY = dof_*nx;
+  long long dirZ = dof_*nx*nx;
 
   // Info for each node type
-  hymls_gidx firstNode[4] = {dof_*sx_/2 + dirY + dirZ * sx_,
-                             dof_*sx_/2 - 0    + dirZ * sx_,
-                             dof_*sx_/2 + dirY + dirZ * sx_,
-                             dof_*sx_/2 + dirY + dirZ * sx_};
+  long long firstNode[4] = {dof_*sx_/2 + dirY + dirZ * sx_,
+                            dof_*sx_/2 - 0    + dirZ * sx_,
+                            dof_*sx_/2 + dirY + dirZ * sx_,
+                            dof_*sx_/2 + dirY + dirZ * sx_};
   int baseLength[4] = {sx_/2, sx_/2 + 1, sx_/2 + 1, sx_/2};
 
-  std::vector<std::vector<std::vector<hymls_gidx> > > nodes;
+  std::vector<std::vector<std::vector<long long> > > nodes;
 
   for (int type = 0; type < 4; type++)
     {
@@ -410,19 +410,19 @@ int SkewCartesianPartitioner::getTemplate()
     if (nz_ <= 1)
       continue;
 
-    std::vector<hymls_gidx> bottom;
-    std::vector<hymls_gidx> top = plane.plane;
+    std::vector<long long> bottom;
+    std::vector<long long> top = plane.plane;
 
     // Used in the loop to determine which nodes to assign to each layer
-    std::vector<hymls_gidx> rowLength;
+    std::vector<long long> rowLength;
     for (size_t i = 0; i < plane.ptr.size()-1; i++)
       rowLength.push_back(plane.ptr[i+1] - plane.ptr[i] - 1); // -1 ???
 
-    std::vector<hymls_gidx> activePtrs;
+    std::vector<long long> activePtrs;
     for (int i = 0; i < baseLength[type]; i++)
       activePtrs.push_back(i);
 
-    std::vector<hymls_gidx> offset;
+    std::vector<long long> offset;
     for (auto i: activePtrs)
       offset.push_back(rowLength[i]);
 
@@ -432,7 +432,7 @@ int SkewCartesianPartitioner::getTemplate()
       auto last = top.end();
       for (size_t j = 0; j < activePtrs.size(); j++)
         {
-        hymls_gidx val = plane.plane[plane.ptr[activePtrs[j]] + offset[j]];
+        long long val = plane.plane[plane.ptr[activePtrs[j]] + offset[j]];
         bottom.push_back(val);
         last = std::remove(top.begin(), last, val);
         }
@@ -444,37 +444,37 @@ int SkewCartesianPartitioner::getTemplate()
         // w layers are an exception with odd/even layers
         if (i % 2 == 1)
           {
-          for (hymls_gidx j: top)
+          for (long long j: top)
             nodes[type][sx_ + i].push_back(j + i * dirZ - dirY);
-          for (hymls_gidx j: top)
+          for (long long j: top)
             nodes[type][sx_ + 1 + i].push_back(j + (i + 1) * dirZ);
           }
         else
           {
-          for (hymls_gidx j: bottom)
+          for (long long j: bottom)
             nodes[type][i].push_back(j - (sx_ - i) * dirZ);
           if (i > 0)
-            for (hymls_gidx j: bottom)
+            for (long long j: bottom)
               nodes[type][i - 1].push_back(j - (sx_ - i + 1) * dirZ - dirY);
           else
-            for (hymls_gidx j: plane.plane)
+            for (long long j: plane.plane)
               nodes[type][sx_ - 1].push_back(j - dirZ - dirY);
           }
         }
       else
         {
-        hymls_gidx isPvar = type == 3;
+        long long isPvar = type == 3;
         if (i < sx_-isPvar)
-          for (hymls_gidx j: bottom)
+          for (long long j: bottom)
             nodes[type][i + isPvar].push_back(j - (sx_ - i - isPvar) * dirZ);
-        for (hymls_gidx j: top)
+        for (long long j: top)
           nodes[type][sx_ + 1 + i].push_back(j + (i + 1) * dirZ);
         }
 
       if (i < sx_ - 1)
         {
         // Update pointers and offset
-        std::for_each(offset.begin(), offset.end(), [](hymls_gidx& d) { d--;});
+        std::for_each(offset.begin(), offset.end(), [](long long& d) { d--;});
         if (type == 3)
           {
           // pressure nodes are an exception
@@ -538,7 +538,7 @@ int SkewCartesianPartitioner::getTemplate()
       nodes[2].erase(nodes[2].begin());
 
       std::for_each(template_.back().begin(), template_.back().end(),
-        [i](hymls_gidx& d) { d += i;});
+        [i](long long& d) { d += i;});
       break;
       }
 
@@ -553,7 +553,7 @@ int SkewCartesianPartitioner::getTemplate()
         std::back_inserter(template_.back()));
 
       std::for_each(template_.back().begin()+size, template_.back().end(),
-        [i](hymls_gidx& d) { d += i;});
+        [i](long long& d) { d += i;});
       }
     std::sort(template_.back().begin(), template_.back().end());
     }
@@ -636,7 +636,7 @@ int SkewCartesianPartitioner::solveGroups()
     }
 
   // Now separate the u, v, w and p, skip the interior
-  std::vector<std::vector<std::vector<hymls_gidx> > > newGroups;
+  std::vector<std::vector<std::vector<long long> > > newGroups;
   for (size_t i = 1; i < groups_.size(); i++)
     {
     auto group = groups_[i];

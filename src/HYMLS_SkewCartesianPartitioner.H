@@ -109,10 +109,10 @@ protected:
   Teuchos::RCP<const Epetra_Map> cartesianMap_;
 
   //! Subdomain template
-  std::vector<std::vector<hymls_gidx> > template_;
+  std::vector<std::vector<long long> > template_;
 
   //! Subdomain template groups
-  std::vector<std::vector<hymls_gidx> > groups_;
+  std::vector<std::vector<long long> > groups_;
 
   //! number of subdomains
   int npx_, npy_, npz_;
