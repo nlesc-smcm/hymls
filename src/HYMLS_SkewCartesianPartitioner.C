@@ -675,7 +675,7 @@ std::vector<std::vector<hymls_gidx> > SkewCartesianPartitioner::createSubdomain(
   for (auto &group: groups_)
     {
     groups.emplace_back();
-    for (hymls_gidx const &node: group)
+    for (long long const &node: group)
       {
       int var = node % dof_;
       int x = (node / dof_) % nx + sdx - 1 - sx_;
