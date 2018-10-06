@@ -194,9 +194,9 @@ int CartesianPartitioner::Partition(bool repart)
   // Now we have a cartesian processor partitioning and no nodes have
   // to be moved between partitions. Some partitions may be empty,
   // though. Check that we do not miss anything
-  for (int lid = 0; lid < repartitionedMap->NumMyElements(); lid++)
+  for (int lid = 0; lid < cartesianMap_->NumMyElements(); lid++)
     {
-    hymls_gidx gid = repartitionedMap->GID64(lid);
+    hymls_gidx gid = cartesianMap_->GID64(lid);
     if (PID(gid) != comm_->MyPID())
       {
       Tools::Error("Repartitioning seems to be necessary/have failed for gid "
