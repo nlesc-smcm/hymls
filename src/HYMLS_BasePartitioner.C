@@ -296,8 +296,10 @@ int BasePartitioner::CreatePIDMap()
     pidMap_ = Teuchos::rcp(new Teuchos::Array<int>(nparts, 0));
     return 0;
     }
-  else
-    pidMap_ = Teuchos::rcp(new Teuchos::Array<int>(nparts, -1));
+
+  pidMap_ = Teuchos::rcp(new Teuchos::Array<int>(nparts, -1));
+  Teuchos::Array<Teuchos::Array<int> > pidGroups(nparts);
+  Teuchos::Array<int> sdPidNum(nparts, 0);
 
   // Find the smallest possible coarsening factor
   int cx = FindCoarseningFactor(cx_);
@@ -322,12 +324,19 @@ int BasePartitioner::CreatePIDMap()
       Teuchos::toString(nx_) + "x" + Teuchos::toString(ny_) + "x" + Teuchos::toString(nz_) +
       " is " + Teuchos::toString(nparts) + ".", __FILE__, __LINE__);
 
+  int sx2 = sx;
+  int sy2 = sy;
+  int sz2 = sz;
+
   // Loop over subdomain sizes from large to small until all
   // processors have some subdomain assigned to them.
   nprocs_ = 0;
   for (int j = 0; j < 1000; j++)
     {
     nparts = NumGlobalParts(sx, sy, sz);
+
+    int prevNprocs = nprocs_;
+    Teuchos::Array<Teuchos::Array<int> > prevPidGroups = pidGroups;
 
     for (int i = 0; i < nparts; i++)
       {
@@ -342,66 +351,104 @@ int BasePartitioner::CreatePIDMap()
       // Get first subdomain in the larger subdomain
       int sd = GetSubdomainID(sx_, sy_, sz_, x, y, z);
 
-      if ((*pidMap_)[sd] != -1)
-        continue;
-
-      if (nprocs_ < comm_->NumProc())
-        {
-        // Set the processor if there are still empty processors
-        // available
-        (*pidMap_)[sd] = nprocs_++;
-        }
-      else
-        {
-        // Set the processor the same as the one of the subdomain that
-        // is 1 size larger if no empty processors are available.
-        int sx2 = sx * cx;
-        int sy2 = sy * cy;
-        int sz2 = nz_ > 1 ? sz * cz : sz;
-
-        // Subdomain ID of the larger subdomain.
-        int sd2 = GetSubdomainID(sx2, sy2, sz2, x, y, z);
-
-        // Position of this subdomain.
-        GetSubdomainPosition(sd2, sx2, sy2, sz2, x, y, z);
-
-        x = (x % nx_ + nx_) % nx_;
-        y = (y % ny_ + ny_) % ny_;
-        z = (z % nz_ + nz_) % nz_;
-
-        // First subdomain in this larger subdomain. This one should
-        // have been assigned in the previous loop.
-        sd2 = GetSubdomainID(sx_, sy_, sz_, x, y, z);
-
-        if ((*pidMap_)[sd2] == -1)
-          Tools::Error("Invalid subdomain index " + Teuchos::toString(sd2) +
-            " with subdomain size " +
-            Teuchos::toString(sx) + "x" + Teuchos::toString(sy) + "x" + Teuchos::toString(sz) +
-            " and position " +
-            Teuchos::toString(x) + "x" + Teuchos::toString(y) + "x" + Teuchos::toString(z)
-            , __FILE__, __LINE__);
-
-        (*pidMap_)[sd] = (*pidMap_)[sd2];
-        }
+      if (pidGroups[sd].length() == 0)
+        pidGroups[sd].append(nprocs_++);
       }
 
+    // If we don't have enough processors to perform this
+    // partitioning, go back to the previous one.
+    if (nprocs_ > comm_->NumProc())
+      {
+      nprocs_ = prevNprocs;
+      pidGroups = prevPidGroups;
+      break;
+      }
+
+    sx2 = sx;
+    sy2 = sy;
+    sz2 = sz;
+
+    // Refine
     sx = sx / cx;
     sy = sy / cy;
     if (nz_ > 1)
       sz = sz / cz;
-
+ 
     if (sx < sx_ || sy < sy_ || sz < sz_)
+      {
+      sx = sx2;
+      sy = sy2;
+      sz = sz2;
       break;
+      }
     }
 
-  // Every subdomain that is not yet assigned to a processor is
-  // assigned to the same processor as the subdomain that is 1 size
-  // larger.
-  sx = sx_ * cx;
-  sy = sy_ * cy;
-  if (nz_ > 1)
-    sz = sz_ * cz;
+  // Assign leftover processors to groups of domains that already have one
+  nparts = NumGlobalParts(sx_, sy_, sz_);
+  for (int j = 0; j < 1000; j++)
+    {
+    if (nprocs_ >= comm_->NumProc())
+      break;
+    for (int sd = 0; sd < nparts; sd++)
+      {
+      if (nprocs_ >= comm_->NumProc())
+        break;
 
+      if (pidGroups[sd].length() != 0)
+        pidGroups[sd].append(nprocs_++);
+      }
+    }
+
+  // Every subdomain of size sx that is not yet assigned to a
+  // processor is assigned to the same processor as the subdomain that
+  // is 1 size larger (sx2).
+  nparts = NumGlobalParts(sx, sy, sz);
+  for (int i = 0; i < nparts; i++)
+    {
+    int x, y, z;
+
+    // Get the position of the larger subdomain
+    GetSubdomainPosition(i, sx, sy, sz, x, y, z);
+
+    x = (x % nx_ + nx_) % nx_;
+    y = (y % ny_ + ny_) % ny_;
+    z = (z % nz_ + nz_) % nz_;
+
+    // Get first subdomain in the larger subdomain
+    int sd = GetSubdomainID(sx_, sy_, sz_, x, y, z);
+
+    // Check if the subdomain at this position already has a PID
+    // assigned to it. This may happen at a boundary.
+    if ((*pidMap_)[sd] != -1)
+      continue;
+
+    // Get ID of the subdomain that is one size larger
+    int sd2 = GetSubdomainID(sx2, sy2, sz2, x, y, z);
+
+    // Position of this subdomain.
+    GetSubdomainPosition(sd2, sx2, sy2, sz2, x, y, z);
+
+    x = (x % nx_ + nx_) % nx_;
+    y = (y % ny_ + ny_) % ny_;
+    z = (z % nz_ + nz_) % nz_;
+
+    // First subdomain in this larger subdomain. This one should
+    // have been assigned in the previous loop.
+    sd2 = GetSubdomainID(sx_, sy_, sz_, x, y, z);
+
+    if (pidGroups[sd2].length() == 0)
+      Tools::Error("Invalid subdomain index " + Teuchos::toString(sd) +
+        " with subdomain size " +
+        Teuchos::toString(sx) + "x" + Teuchos::toString(sy) + "x" + Teuchos::toString(sz) +
+        " and position " +
+        Teuchos::toString(x) + ", " + Teuchos::toString(y) + ", " + Teuchos::toString(z)
+        , __FILE__, __LINE__);
+
+    (*pidMap_)[sd] = pidGroups[sd2][sdPidNum[sd2]++ % pidGroups[sd2].length()];
+    }
+
+  // Now fill up all the actual subdomains with processors from a
+  // larger subdomain size
   nparts = NumGlobalParts(sx_, sy_, sz_);
   for (int i = 0; i < nparts; i++)
     {
@@ -450,6 +497,12 @@ int BasePartitioner::CreatePIDMap()
       (*pidMap_)[i] = (*pidMap_)[sd];
       }
     }
+
+  // Redetermine the amount of processors.
+  Teuchos::Array<int> pidMap(*pidMap_);
+  std::sort(pidMap.begin(), pidMap.end());
+  auto end = std::unique(pidMap.begin(), pidMap.end());
+  nprocs_ = std::distance(pidMap.begin(), end);
 
   return 0;
   }
