@@ -532,11 +532,11 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NoEmpty32Procs)
 
     Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
       new Teuchos::ParameterList);
-    params->sublist("Problem").set("nx", 128);
-    params->sublist("Problem").set("ny", 128);
-    params->sublist("Problem").set("nz", 128);
+    params->sublist("Problem").set("nx", 64);
+    params->sublist("Problem").set("ny", 64);
+    params->sublist("Problem").set("nz", 64);
     params->sublist("Problem").set("Equations", "Stokes-C");
-    params->sublist("Preconditioner").set("Separator Length", 8);
+    params->sublist("Preconditioner").set("Separator Length", 4);
 
     TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
     TEST_MAYTHROW(part.Partition(false));
@@ -545,7 +545,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NoEmpty32Procs)
 
     globalParts += part.NumLocalParts();
     if (i == nprocs - 1)
-      TEST_EQUALITY(part.NumGlobalParts(8, 8, 8), globalParts);
+      TEST_EQUALITY(part.NumGlobalParts(4, 4, 4), globalParts);
     }
   }
 
@@ -563,11 +563,11 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NoEmpty64Procs)
 
     Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
       new Teuchos::ParameterList);
-    params->sublist("Problem").set("nx", 128);
-    params->sublist("Problem").set("ny", 128);
-    params->sublist("Problem").set("nz", 128);
+    params->sublist("Problem").set("nx", 64);
+    params->sublist("Problem").set("ny", 64);
+    params->sublist("Problem").set("nz", 64);
     params->sublist("Problem").set("Equations", "Stokes-C");
-    params->sublist("Preconditioner").set("Separator Length", 8);
+    params->sublist("Preconditioner").set("Separator Length", 4);
 
     TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
     TEST_MAYTHROW(part.Partition(false));
@@ -576,7 +576,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NoEmpty64Procs)
 
     globalParts += part.NumLocalParts();
     if (i == nprocs - 1)
-      TEST_EQUALITY(part.NumGlobalParts(8, 8, 8), globalParts);
+      TEST_EQUALITY(part.NumGlobalParts(4, 4, 4), globalParts);
     }
   }
 
@@ -594,11 +594,11 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NoEmpty128Procs)
 
     Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
       new Teuchos::ParameterList);
-    params->sublist("Problem").set("nx", 128);
-    params->sublist("Problem").set("ny", 128);
-    params->sublist("Problem").set("nz", 128);
+    params->sublist("Problem").set("nx", 64);
+    params->sublist("Problem").set("ny", 64);
+    params->sublist("Problem").set("nz", 64);
     params->sublist("Problem").set("Equations", "Stokes-C");
-    params->sublist("Preconditioner").set("Separator Length", 8);
+    params->sublist("Preconditioner").set("Separator Length", 4);
 
     TestableSkewCartesianPartitioner part(Teuchos::null, params, *comm);
     TEST_MAYTHROW(part.Partition(false));
@@ -607,7 +607,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, NoEmpty128Procs)
 
     globalParts += part.NumLocalParts();
     if (i == nprocs - 1)
-      TEST_EQUALITY(part.NumGlobalParts(8, 8, 8), globalParts);
+      TEST_EQUALITY(part.NumGlobalParts(4, 4, 4), globalParts);
     }
   }
 
