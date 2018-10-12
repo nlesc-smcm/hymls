@@ -27,16 +27,45 @@ OverlappingPartitioner::OverlappingPartitioner(
   Teuchos::RCP<const Epetra_Map> overlappingMap)
   :
   HierarchicalMap(map, overlappingMap, 0, "OverlappingPartitioner", level),
-  PLA("Problem"),
-  partitioner_(Teuchos::null)
+  PLA("Problem")
   {
   HYMLS_PROF2(Label(),"Constructor");
 
   setParameterList(params);
 
-  CHECK_ZERO(Partition());
+  Teuchos::RCP<const BasePartitioner> partitioner = Partition();
 
-  CHECK_ZERO(DetectSeparators());
+  // Set the parameters for the next level
+  nextLevelParams_ = Teuchos::rcp(new Teuchos::ParameterList(*getMyParamList()));
+  partitioner->SetNextLevelParameters(*nextLevelParams_);
+
+  HYMLS_DEBVAR(*nextLevelParams_);
+
+  // we replace the map passed in by the user by the one generated
+  // by the partitioner. This has two purposes:
+  // - the partitioner may decide to repartition the domain, for
+  //   instance if there are more processor partitions than sub-
+  //   domains
+  // - the data layout becomes more favorable because the nodes
+  //   of a subdomain are contiguous in the partitioner's map.
+  baseMap_ = partitioner->GetMap();
+
+  if (baseOverlappingMap_ != Teuchos::null)
+      baseOverlappingMap_ = partitioner->MoveMap(baseOverlappingMap_);
+
+#ifdef HYMLS_DEBUGGING__disabled_
+  HYMLS_DEBUG("Partition numbers:");
+  for (int i=0;i<Map().NumMyElements();i++)
+  {
+      hymls_gidx gid = Map().GID64(i);
+      HYMLS_DEBUG(gid << " " << (*partitioner)(gid));
+  }
+#endif
+
+  // add the subdomains to the base class so we can start inserting groups of nodes
+  Reset(partitioner->NumLocalParts());
+
+  CHECK_ZERO(DetectSeparators(partitioner));
   HYMLS_DEBVAR(*this);
   return;
   }
@@ -52,8 +81,6 @@ void OverlappingPartitioner::setParameterList(
   HYMLS_PROF3(Label(),"setParameterList");
   
   setMyParamList(params);
-  if (partitioner_ != Teuchos::null)
-    partitioner_->SetParameters(*params);
 
   partitioningMethod_ = PL("Preconditioner").get(
       "Partitioner", "Cartesian");
@@ -64,17 +91,18 @@ void OverlappingPartitioner::setParameterList(
                           retainNodes_);
   }
 
-int OverlappingPartitioner::Partition()
+Teuchos::RCP<const BasePartitioner> OverlappingPartitioner::Partition()
   {
   HYMLS_PROF2(Label(), "Partition");
+  Teuchos::RCP<BasePartitioner> partitioner = Teuchos::null;
   if (partitioningMethod_ == "Cartesian")
     {
-    partitioner_ = Teuchos::rcp(new
+    partitioner = Teuchos::rcp(new
       CartesianPartitioner(GetMap(), getMyNonconstParamList(), Comm()));
     }
   else if (partitioningMethod_ == "Skew Cartesian")
     {
-    partitioner_ = Teuchos::rcp(new
+    partitioner = Teuchos::rcp(new
       SkewCartesianPartitioner(GetMap(), getMyNonconstParamList(), Comm()));
     }
   else
@@ -83,36 +111,12 @@ int OverlappingPartitioner::Partition()
       __FILE__, __LINE__);
     }
 
-  CHECK_ZERO(partitioner_->Partition(false));
+  CHECK_ZERO(partitioner->Partition(false));
 
-  // we replace the map passed in by the user by the one generated
-  // by the partitioner. This has two purposes:
-  // - the partitioner may decide to repartition the domain, for
-  //   instance if there are more processor partitions than sub-
-  //   domains
-  // - the data layout becomes more favorable because the nodes
-  //   of a subdomain are contiguous in the partitioner's map.
-  baseMap_ = partitioner_->GetMap();
-
-  if (baseOverlappingMap_ != Teuchos::null)
-    baseOverlappingMap_ = partitioner_->MoveMap(baseOverlappingMap_);
-
-#ifdef HYMLS_DEBUGGING__disabled_
-HYMLS_DEBUG("Partition numbers:");
-for (int i=0;i<Map().NumMyElements();i++)
-  {
-  hymls_gidx gid = Map().GID64(i);
-  HYMLS_DEBUG(gid << " " << (*partitioner_)(gid));
-  }
-#endif
-
-  // add the subdomains to the base class so we can start inserting groups of nodes
-  Reset(partitioner_->NumLocalParts());
-
-  return 0;
+  return partitioner;
   }
 
-int OverlappingPartitioner::DetectSeparators()
+int OverlappingPartitioner::DetectSeparators(Teuchos::RCP<const BasePartitioner> partitioner)
   {
   HYMLS_PROF2(Label(),"DetectSeparators");
 
@@ -123,12 +127,12 @@ int OverlappingPartitioner::DetectSeparators()
   // links between separator nodes
   Teuchos::Array<Teuchos::Array<int> > group_links;
 
-  for (int sd = 0; sd < partitioner_->NumLocalParts(); sd++)
+  for (int sd = 0; sd < partitioner->NumLocalParts(); sd++)
     {
     interior_nodes.resize(0);
     separator_nodes.resize(0);
 
-    CHECK_ZERO(partitioner_->GetGroups(sd, interior_nodes, separator_nodes, group_links));
+    CHECK_ZERO(partitioner->GetGroups(sd, interior_nodes, separator_nodes, group_links));
 
     std::sort(interior_nodes.begin(), interior_nodes.end());
     AddGroup(sd, interior_nodes);
@@ -166,18 +170,13 @@ int OverlappingPartitioner::DetectSeparators()
 
 Teuchos::RCP<const OverlappingPartitioner> OverlappingPartitioner::SpawnNextLevel(
   Teuchos::RCP<const Epetra_Map> map,
-  Teuchos::RCP<const Epetra_Map> overlappingMap,
-  Teuchos::RCP<Teuchos::ParameterList> newList) const
+  Teuchos::RCP<const Epetra_Map> overlappingMap) const
   {
   HYMLS_PROF2(Label(), "SpawnNextLevel");
 
-  *newList = *getMyParamList();
-  partitioner_->SetNextLevelParameters(*newList);
-
-  HYMLS_DEBVAR(*newList);
-
   Teuchos::RCP<const OverlappingPartitioner> newLevel;
-  newLevel = Teuchos::rcp(new OverlappingPartitioner(map, newList, Level()+1, overlappingMap));
+  newLevel = Teuchos::rcp(new OverlappingPartitioner(
+      map, nextLevelParams_, Level()+1, overlappingMap));
   return newLevel;
   }
 

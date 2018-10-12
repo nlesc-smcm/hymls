@@ -86,7 +86,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Laplace2D, nx, ny, sx, sy)
   ENABLE_OUTPUT;
   for (int sd = 0; sd < opart.NumMySubdomains(); sd++)
     {
-    int gsd = opart.Partitioner().SubdomainMap().GID(sd);
+    int gsd = part->SubdomainMap().GID(sd);
     hymls_gidx substart = gsd % nsx * nx / nsx * dof +
       gsd / nsx * ny / nsy * dof * nx;
 
@@ -248,7 +248,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Laplace3D, nx, ny, nz, sx, sy, sz
   ENABLE_OUTPUT;
   for (int sd = 0; sd < opart.NumMySubdomains(); sd++)
     {
-    int gsd = opart.Partitioner().SubdomainMap().GID(sd);
+    int gsd = part->SubdomainMap().GID(sd);
     hymls_gidx substart = gsd % nsx * nx / nsx * dof +
       (gsd % (nsx * nsy)) / nsx * ny / nsy * dof * nx +
       gsd / (nsx * nsy) * nz / nsz * dof * nx * ny;
@@ -380,7 +380,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Stokes2D, nx, ny, sx, sy)
   ENABLE_OUTPUT;
   for (int sd = 0; sd < opart.NumMySubdomains(); sd++)
     {
-    int gsd = opart.Partitioner().SubdomainMap().GID(sd);
+    int gsd = part->SubdomainMap().GID(sd);
     hymls_gidx substart = gsd % nsx * nx / nsx * dof +
       gsd / nsx * ny / nsy * dof * nx;
 
@@ -574,7 +574,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Stokes3D, nx, ny, nz, sx, sy, sz)
   ENABLE_OUTPUT;
   for (int sd = 0; sd < opart.NumMySubdomains(); sd++)
     {
-    int gsd = opart.Partitioner().SubdomainMap().GID(sd);
+    int gsd = part->SubdomainMap().GID(sd);
     hymls_gidx substart = gsd % nsx * nx / nsx * dof +
       (gsd % (nsx * nsy)) / nsx * ny / nsy * dof * nx +
       gsd / (nsx * nsy) * nz / nsz * dof * nx * ny;
@@ -716,7 +716,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewLaplace2D, nx, ny, sx, sy)
   ENABLE_OUTPUT;
   for (int sd = 0; sd < opart.NumMySubdomains(); sd++)
     {
-    int gsd = opart.Partitioner().SubdomainMap().GID(sd);
+    int gsd = part->SubdomainMap().GID(sd);
 
     // Get domain coordinates and its first node
     // Considers superposed lattices
@@ -936,7 +936,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes2D, nx, ny, sx, sy)
   ENABLE_OUTPUT;
   for (int sd = 0; sd < opart.NumMySubdomains(); sd++)
     {
-    int gsd = opart.Partitioner().SubdomainMap().GID(sd);
+    int gsd = part->SubdomainMap().GID(sd);
 
     // Get subdomain number for test output
     TEST_EQUALITY(gsd, gsd);

@@ -245,7 +245,8 @@ namespace HYMLS {
       msg_ << "test skipped, it works only for serial runs"<<std::endl;
       return status;
       }
-    const HYMLS::BasePartitioner& part = hid.Partitioner();
+    Teuchos::RCP<const HYMLS::BasePartitioner> part =
+      const_cast<HYMLS::OverlappingPartitioner&>(hid).Partition();
     int* cols;
     double* val;
     int len;
@@ -263,7 +264,7 @@ namespace HYMLS {
     for (int i=0;i<A.NumMyRows();i++)
       {
       hymls_gidx gid_i= A.GRID64(i);
-      hymls_gidx sd_i = part.SubdomainMap().LID(part(A.GRID64(i)));
+      hymls_gidx sd_i = part->SubdomainMap().LID((*part)(gid_i));
       // map containing only interior nodes of subdomain i
       Teuchos::RCP<const Epetra_Map> imap_i = hid.SpawnMap(sd_i,HierarchicalMap::Interior);
       // map containing only separator nodes of subdomain i
@@ -276,7 +277,7 @@ namespace HYMLS {
       for (int j=0;j<len;j++)
         {
         hymls_gidx gid_j= A.GCID64(cols[j]);
-        int sd_j = part.SubdomainMap().LID(part(gid_j));
+        int sd_j = part->SubdomainMap().LID((*part)(gid_j));
 
         if (sd_i!=sd_j)
           {
@@ -415,7 +416,7 @@ namespace HYMLS {
         for (int j=0;j<len;j++)
           {
           hymls_gidx gid_j= A.GCID64(cols[j]);
-          int sd_j = part(gid_j);
+          int sd_j = part->SubdomainMap().LID((*part)(gid_j));
           msg_ << gid_i << " " << gid_j << " [sd "<<sd_j<<", "<<gid2str(gid_j)<<"]\t" << val[j]<<std::endl;
           }
         msg_ <<" interior of sd_i: "<<*imap_i<<std::endl;

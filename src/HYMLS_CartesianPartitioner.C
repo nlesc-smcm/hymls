@@ -299,7 +299,7 @@ int CartesianPartitioner::RemoveBoundarySeparators(Teuchos::Array<hymls_gidx> &i
 
 int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior_nodes,
   Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes,
-  Teuchos::Array<Teuchos::Array<int> > &group_links)
+  Teuchos::Array<Teuchos::Array<int> > &group_links) const
   {
   HYMLS_PROF3(label_,"GetGroups");
 

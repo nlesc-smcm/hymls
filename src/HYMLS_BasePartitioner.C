@@ -240,10 +240,10 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
 #endif
   }
 
-void BasePartitioner::SetNextLevelParameters(Teuchos::ParameterList& params)
+void BasePartitioner::SetNextLevelParameters(Teuchos::ParameterList& params) const
   {
   Teuchos::ParameterList& precList = params.sublist("Preconditioner");
-  
+
   int new_sx = sx_ * cx_;
   int new_sy = sy_ * cy_;
   int new_sz = sz_ * cz_;

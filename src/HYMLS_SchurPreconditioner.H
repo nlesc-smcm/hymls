@@ -336,9 +336,6 @@ protected:
   //! partitioner for the next level
   Teuchos::RCP<const OverlappingPartitioner> nextLevelHID_;
   
-  //! parameters for the next level solver
-  Teuchos::RCP<Teuchos::ParameterList> nextLevelParams_;
-  
   //! sparse matrix representation of the reduced Schur-complement
   //! (associated with Vsum nodes)
   Teuchos::RCP<Epetra_CrsMatrix> reducedSchur_;

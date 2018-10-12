@@ -35,7 +35,7 @@ public:
 
   //! get a pararmeterlist with increased separator lengths for
   //! the next level
-  virtual void SetNextLevelParameters(Teuchos::ParameterList& params);
+  virtual void SetNextLevelParameters(Teuchos::ParameterList& params) const;
 
   //! partition an [nx x ny x nz] grid with one DoF per node
   //! into npx*npy*npz global subdomains. If repart==true,
@@ -47,7 +47,7 @@ public:
   //! Get interior and separator groups of the subdomain sd
   virtual int GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior_nodes,
     Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes,
-    Teuchos::Array<Teuchos::Array<int> > &group_links) = 0;
+    Teuchos::Array<Teuchos::Array<int> > &group_links) const = 0;
 
   //! get number of local partitions
   virtual int NumLocalParts() const = 0;

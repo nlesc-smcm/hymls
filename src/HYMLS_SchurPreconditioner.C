@@ -959,8 +959,6 @@ int SchurPreconditioner::InitializeNextLevel()
 
   HYMLS_DEBUG("Create solver for reduced Schur");
 
-  nextLevelParams_ = Teuchos::rcp(new Teuchos::ParameterList(*getMyParamList()));
-
   Teuchos::RCP<Epetra_Vector> nextTestVector = Teuchos::null;
 
   if (myLevel_+1!=maxLevel_)
@@ -969,7 +967,7 @@ int SchurPreconditioner::InitializeNextLevel()
       {
       bool stat=true;
       try {
-        nextLevelHID_ = hid_->SpawnNextLevel(vsumMap_, overlappingVsumMap_, nextLevelParams_);
+        nextLevelHID_ = hid_->SpawnNextLevel(vsumMap_, overlappingVsumMap_);
         } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,stat);
       if (!stat) Tools::Fatal("Failed to create next level ordering",__FILE__,__LINE__);
       }
@@ -981,10 +979,12 @@ int SchurPreconditioner::InitializeNextLevel()
       CHECK_ZERO(ApplyOT(false, transformedTestVector, &flopsCompute_));
       CHECK_ZERO(nextTestVector->Import(transformedTestVector, *vsumImporter_, Insert));
 
-      // create another level of HYMLS::Preconditioner,
+      // create another level of HYMLS::Preconditioner
+      Teuchos::RCP<Teuchos::ParameterList> nextLevelParams =
+        Teuchos::rcp(new Teuchos::ParameterList(*getMyParamList()));
       if (myLevel_>=denseSwitch_-1)
         {
-        nextLevelParams_->sublist("Preconditioner").set("Subdomain Solver Type","Dense");
+        nextLevelParams->sublist("Preconditioner").set("Subdomain Solver Type","Dense");
         }
 
       //TODO: move the direct solver thing to the Preconditioner class and rename
@@ -992,26 +992,33 @@ int SchurPreconditioner::InitializeNextLevel()
       //      outside the if statement because we will always create a Preconditioner
       //      object for the reduced problem.
       reducedSchurSolver_= Teuchos::rcp(new
-        Preconditioner(reducedSchur_,nextLevelParams_,nextLevelHID_,
+        Preconditioner(reducedSchur_, nextLevelParams, nextLevelHID_,
           myLevel_+1, nextTestVector));
       }
     else
       {
-      Teuchos::RCP<Preconditioner> prec=Teuchos::rcp_dynamic_cast<Preconditioner>
-        (reducedSchurSolver_);
-      if (prec==Teuchos::null) Tools::Error("dynamic cast failed",__FILE__,__LINE__);
+      Teuchos::RCP<Preconditioner> prec =
+        Teuchos::rcp_dynamic_cast<Preconditioner>(reducedSchurSolver_);
+
+      if (prec == Teuchos::null)
+        Tools::Error("dynamic cast failed", __FILE__, __LINE__);
+
       prec->SetMatrix(reducedSchur_);
       }
     }
   else
     {
+    Teuchos::RCP<Teuchos::ParameterList> nextLevelParams =
+      Teuchos::rcp(new Teuchos::ParameterList(*getMyParamList()));
+
     // fix pressure on coarsest level:
-    for (int i=0;i<fix_gid_.length();i++)
+    for (int i = 0; i < fix_gid_.length(); i++)
       {
-      CHECK_ZERO(MatrixUtils::PutDirichlet(*reducedSchur_,fix_gid_[i]));
+      CHECK_ZERO(MatrixUtils::PutDirichlet(*reducedSchur_, fix_gid_[i]));
       }
+
     reducedSchurSolver_= Teuchos::rcp(new
-      SchurPreconditioner(reducedSchur_,nextLevelHID_,nextLevelParams_,
+      SchurPreconditioner(reducedSchur_,nextLevelHID_,nextLevelParams,
         myLevel_+1, nextTestVector));
     }
 
