@@ -398,10 +398,10 @@ int SchurPreconditioner::Compute()
     // passed to direct solver - depends on what exactly we do
     Teuchos::RCP<Epetra_RowMatrix> S2 = Teuchos::null;
 
+#ifdef RESTRICT_ON_COARSE_LEVEL
     int reducedNumProc = -1;
     if (Teuchos::rcp_dynamic_cast<const Epetra_MpiComm>(comm_) != Teuchos::null)
       {
-#ifdef RESTRICT_ON_COARSE_LEVEL
       // restrict the matrix to the active processors
       if (restrictA_==Teuchos::null)
         {
