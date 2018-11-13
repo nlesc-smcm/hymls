@@ -2288,13 +2288,8 @@ int SchurPreconditioner::ApplyInverse(const Epetra_MultiVector& X,
 #ifdef RESTRICT_ON_COARSE_LEVEL
         if (Teuchos::rcp_dynamic_cast<const Epetra_MpiComm>(comm_) != Teuchos::null)
           {
-#ifndef OLD_TRILINOS
           CHECK_ZERO(restrictB_->restrict_comm(linearRhs_));
           CHECK_ZERO(restrictX_->restrict_comm(linearSol_));
-#else
-          restrictB_->restrict_comm(linearRhs_);
-          restrictX_->restrict_comm(linearSol_);
-#endif
           restrictedRhs_ = restrictB_->RestrictedMultiVector();
           restrictedSol_ = restrictX_->RestrictedMultiVector();
           }
