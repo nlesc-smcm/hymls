@@ -507,8 +507,19 @@ HYMLS_DEBVAR(*b);
   HYMLS::Tools::PrintTiming(HYMLS::Tools::out());
   HYMLS::Tools::PrintMemUsage(HYMLS::Tools::out());
 
-comm->Barrier();
-  HYMLS::Tools::Out("leaving main program");  
+  comm->Barrier();
+
+  map = Teuchos::null;
+  K = Teuchos::null;
+  u_ex = Teuchos::null;
+  f = Teuchos::null;
+  precond = Teuchos::null;
+  solver = Teuchos::null;
+  M = Teuchos::null;
+
+  comm->Barrier();
+
+  HYMLS::Tools::Out("leaving main program");
 
   MPI_Finalize();
   return 0;
