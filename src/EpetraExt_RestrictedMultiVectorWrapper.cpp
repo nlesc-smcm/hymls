@@ -69,6 +69,11 @@ RestrictedMultiVectorWrapper::RestrictedMultiVectorWrapper()
 
 
 RestrictedMultiVectorWrapper::~RestrictedMultiVectorWrapper() {
+    if (!subcomm_is_set && RestrictedComm_ != Teuchos::null)
+    {
+        MPI_Comm_free(&MPI_SubComm_);
+    }
+
 }
 
 

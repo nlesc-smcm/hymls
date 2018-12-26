@@ -71,6 +71,10 @@ RestrictedCrsMatrixWrapper::RestrictedCrsMatrixWrapper()
 }
 
 RestrictedCrsMatrixWrapper::~RestrictedCrsMatrixWrapper() {
+    if (!subcomm_is_set && RestrictedComm_ != Teuchos::null)
+    {
+        MPI_Comm_free(&MPI_SubComm_);
+    }
 }
 
 
