@@ -542,7 +542,10 @@ Teuchos::RCP<const Epetra_Map> BasePartitioner::MoveMap(
   int globalFailed = false;
   comm.MaxAll(&failed, &globalFailed, 1);
   if (globalFailed)
+    {
+    CHECK_ZERO(MPI_Comm_free(&newMpiComm));
     return Teuchos::null;
+    }
 
   // Create a map with the new communicator
   hymls_gidx *myGlobalElements;
@@ -564,8 +567,14 @@ Teuchos::RCP<const Epetra_Map> BasePartitioner::MoveMap(
 #else
   myGlobalElements = gatheredMap->MyGlobalElements();
 #endif
-  return Teuchos::rcp(new Epetra_Map((hymls_gidx)-1, gatheredMap->NumMyElements(),
-      myGlobalElements, (hymls_gidx)baseMap->IndexBase64(), comm));
+
+  Teuchos::RCP<Epetra_Map> out = Teuchos::rcp(new Epetra_Map(
+      (hymls_gidx)-1, gatheredMap->NumMyElements(),
+    myGlobalElements, (hymls_gidx)baseMap->IndexBase64(), comm));
+
+  CHECK_ZERO(MPI_Comm_free(&newMpiComm));
+
+  return out;
   }
 
 int BasePartitioner::SetDestinationPID(
