@@ -360,8 +360,12 @@ Teuchos::RCP<Epetra_Map> MatrixUtils::Gather(const Epetra_Map& map, int root)
   else
     {
     NumMyElements = NumGlobalElements;
-    std::sort(AllGlobalElements, AllGlobalElements + NumGlobalElements);
+    std::sort(AllGlobalElements, AllGlobalElements + NumMyElements);
+    auto end = std::unique(AllGlobalElements, AllGlobalElements + NumMyElements);
+    NumMyElements = std::distance(AllGlobalElements, end);
+    NumGlobalElements = NumMyElements;
     }
+  CHECK_ZERO(Comm.Broadcast(&NumGlobalElements, 1, root));
 
   // build the new (gathered) map
   Teuchos::RCP<Epetra_Map> gmap = Teuchos::rcp(new Epetra_Map
@@ -372,7 +376,6 @@ Teuchos::RCP<Epetra_Map> MatrixUtils::Gather(const Epetra_Map& map, int root)
     {
     delete [] AllGlobalElements;
     }
-
 
   delete [] MyGlobalElements;
 
