@@ -272,9 +272,6 @@ protected:
   //! indicates if any more changes can be made (FillComplete() has been called)
   bool Filled() const {return overlappingMap_!=Teuchos::null;}
 
-  //! communicator
-  Teuchos::RCP<const Epetra_Comm> comm_;
-  
   //! label
   std::string label_;
   
