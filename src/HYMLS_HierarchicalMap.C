@@ -172,7 +172,7 @@ int HierarchicalMap::FillComplete()
     // the map.
     int numElements = std::distance(separatorGIDs.begin(), end);
     Teuchos::RCP<Epetra_Map> tmpOverlappingMap =
-      Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), numElements, &separatorGIDs[0],
+      Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), numElements, separatorGIDs.getRawPtr(),
           (hymls_gidx)baseMap_->IndexBase64(), Comm()));
 
     HYMLS_DEBVAR(*tmpOverlappingMap);
@@ -227,7 +227,7 @@ int HierarchicalMap::FillComplete()
   std::sort(allGIDs.begin(), allGIDs.end());
   auto last = std::unique(allGIDs.begin(), allGIDs.end());
   overlappingMap_ = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), std::distance(allGIDs.begin(), last),
-      &allGIDs[0], (hymls_gidx)baseMap_->IndexBase64(), Comm()));
+      allGIDs.getRawPtr(), (hymls_gidx)baseMap_->IndexBase64(), Comm()));
 
   // split separator groups if we want to retain multiple nodes per separator
   Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > splitGroupPointer =
@@ -571,10 +571,10 @@ HierarchicalMap::SpawnSeparators() const
     }
 
   newOverlappingMap = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), overlappingGIDs.size(),
-      &overlappingGIDs[0], (hymls_gidx)baseMap_->IndexBase64(), Comm()));
+      overlappingGIDs.getRawPtr(), (hymls_gidx)baseMap_->IndexBase64(), Comm()));
 
   newMap = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), localGIDs.size(),
-      &localGIDs[0], (hymls_gidx)baseMap_->IndexBase64(), Comm()));
+      localGIDs.getRawPtr(), (hymls_gidx)baseMap_->IndexBase64(), Comm()));
 
   newObject = Teuchos::rcp(new HierarchicalMap(newMap, newOverlappingMap,
       newGroupPointer, newGidList, newGroupLinks, "Separator Nodes", myLevel_));
