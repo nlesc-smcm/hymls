@@ -145,7 +145,7 @@ class MatrixUtils
     //! read into MATLAB etc., but this is only meant for debugging etc.)
     static void Dump(const Epetra_MultiVector& x, const std::string& filename, bool 
         reindex=REINDEX_BY_DEFAULT,
-        PrintMethod how=GATHER);
+        PrintMethod how=MATRIXMARKET);
 
     //! dump Vector to file (the vector is gathered so it can be easily
     //! read into MATLAB etc., but this is only meant for debugging etc.)
