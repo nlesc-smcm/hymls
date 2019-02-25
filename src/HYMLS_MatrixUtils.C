@@ -1244,9 +1244,9 @@ int MatrixUtils::PutDirichlet(Epetra_CrsMatrix& A, hymls_gidx gid)
         {
         values[i] = 0.0;
         }
-      // put it back in
-      CHECK_ZERO(A.ReplaceGlobalValues(gid, len, values, indices));
       }
+    // put it back in
+    CHECK_ZERO(A.ReplaceGlobalValues(gid, len, values, indices));
     }
 
   // broadcast indices to everyone

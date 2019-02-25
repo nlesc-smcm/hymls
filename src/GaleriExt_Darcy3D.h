@@ -44,10 +44,10 @@ namespace Matrices {
 //! generate an F-matrix with A = diag(a) and +b -b in the B part
 template<typename int_type>
 inline
-Epetra_CrsMatrix* 
-Darcy3D(const Epetra_Map* Map, 
+Epetra_CrsMatrix*
+Darcy3D(const Epetra_Map* Map,
         const int nx, const int ny, const int nz,
-        const double a, const double b, 
+        const double a, const double b,
         PERIO_Flag perio=NO_PERIO)
 {
   Epetra_CrsMatrix* Matrix = new Epetra_CrsMatrix(Copy, *Map,  4);
@@ -57,118 +57,118 @@ Darcy3D(const Epetra_Map* Map,
   Map->MyGlobalElementsPtr(MyGlobalElements);
 
   int left, right, lower, upper, below, above;
-  
+
   std::vector<double> Values(6);
   std::vector<int_type> Indices(6);
-  
+
   double c = -b; // c==b => [A B'; B 0]. c==-b => A B'; -B 0]
-  
+
   int dof = 4;
-  
+
   if (dof*nx*ny*nz!=Map->NumGlobalElements64())
-    {
+  {
     throw("bad input map for GaleriExt::Darcy3D. Should have 4 dof/node");
-    }
+  }
 
   for (int i = 0 ; i < NumMyElements ; i++)
-    {
+  {
     int NumEntries = 0;
-    
+
     int_type ibase = std::floor(MyGlobalElements[i]/dof);
     int_type ivar   = MyGlobalElements[i]-ibase*dof;
     // first the regular 7-point stencil
     GetNeighboursCartesian3d(ibase, nx, ny, nz,
-			     left, right, lower, upper, below, above,
-			     perio);
+                             left, right, lower, upper, below, above,
+                             perio);
 
     if (ivar!=3)
-      {
+    {
       NumEntries=1;
       Values[0]=a;
       Indices[0]=MyGlobalElements[i];
       if (right != -1 && ivar==0)
-        {
+      {
         Indices[NumEntries] = ibase*dof+3;
         Values[NumEntries] = -b;
         ++NumEntries;
         Indices[NumEntries] = right*dof+3;
         Values[NumEntries] = b;
         ++NumEntries;
-        }
-      if (upper != -1 && ivar==1) 
-        {
+      }
+      if (upper != -1 && ivar==1)
+      {
         Indices[NumEntries] = ibase*dof+3;
         Values[NumEntries] = -b;
         ++NumEntries;
         Indices[NumEntries] = upper*dof+3;
         Values[NumEntries] = b;
         ++NumEntries;
-        }
-      if (above != -1 && ivar==2) 
-        {
+      }
+      if (above != -1 && ivar==2)
+      {
         Indices[NumEntries] = ibase*dof+3;
         Values[NumEntries] = -b;
         ++NumEntries;
         Indices[NumEntries] = above*dof+3;
         Values[NumEntries] = b;
         ++NumEntries;
-        }
       }
+    }
     else // P
-      {
+    {
       // div-rows
       if (right!=-1)
-        {
+      {
         Indices[NumEntries]=ibase*dof+0;
         Values[NumEntries]=-c;
         NumEntries++;
-        }
+      }
       if (upper!=-1)
-        {
+      {
         Indices[NumEntries]=ibase*dof+1;
         Values[NumEntries]=-c;
         NumEntries++;
-        }
+      }
       if (above!=-1)
-        {
+      {
         Indices[NumEntries]=ibase*dof+2;
         Values[NumEntries]=-c;
         NumEntries++;
-        }
+      }
       if (left!=-1)
-        {
+      {
         Indices[NumEntries]=left*dof+0;
         Values[NumEntries]=c;
         NumEntries++;
-        }
+      }
       if (lower!=-1)
-        {
+      {
         Indices[NumEntries]=lower*dof+1;
         Values[NumEntries]=c;
         NumEntries++;
-        }
+      }
       if (below!=-1)
-        {
+      {
         Indices[NumEntries]=below*dof+2;
         Values[NumEntries]=c;
         NumEntries++;
-        }
       }
-    
+    }
+
 #ifdef DEBUGGING_
-  std::cerr << i << " " << MyGlobalElements[i] << " " << ibase << " " << ivar << std::endl;
-  for (int jj=0;jj<NumEntries;jj++)
+    std::cerr << i << " " << MyGlobalElements[i] << " " << ibase << " " << ivar << std::endl;
+    for (int jj=0;jj<NumEntries;jj++)
     {
-    std::cerr << Indices[jj] << " ";
+      std::cerr << Indices[jj] << " ";
     }
-  std::cerr << std::endl;
-#endif    
-    
+    std::cerr << std::endl;
+#endif
+
     // put the off-diagonal entries
-    Matrix->InsertGlobalValues(MyGlobalElements[i], NumEntries, 
+    Matrix->InsertGlobalValues(MyGlobalElements[i], NumEntries,
                                &Values[0], &Indices[0]);
-  
-    }
+
+  }
   Matrix->FillComplete();
   Matrix->OptimizeStorage();
 
@@ -176,10 +176,10 @@ Darcy3D(const Epetra_Map* Map,
 }
 
 inline
-Epetra_CrsMatrix* 
-Darcy3D(const Epetra_Map* Map, 
-  const int nx, const int ny, const int nz,
-        const double a, const double b, 
+Epetra_CrsMatrix*
+Darcy3D(const Epetra_Map* Map,
+        const int nx, const int ny, const int nz,
+        const double a, const double b,
         PERIO_Flag perio=NO_PERIO)
 {
 #ifndef EPETRA_NO_32BIT_GLOBAL_INDICES
@@ -189,14 +189,14 @@ Darcy3D(const Epetra_Map* Map,
   else
 #endif
 #ifndef EPETRA_NO_64BIT_GLOBAL_INDICES
-  if(Map->GlobalIndicesLongLong()) {
-    return Darcy3D<long long>(Map, nx, ny, nz, a, b, perio);
-  }
-  else
+    if(Map->GlobalIndicesLongLong()) {
+      return Darcy3D<long long>(Map, nx, ny, nz, a, b, perio);
+    }
+    else
 #endif
-    throw "GaleriExt::Matrices::Cross2DN: GlobalIndices type unknown";
+      throw "GaleriExt::Matrices::Darcy3D: GlobalIndices type unknown";
 }
 
 } // namespace Matrices
-} // namespace Galeri
+} // namespace GaleriExt
 #endif
