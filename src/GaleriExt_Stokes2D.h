@@ -51,9 +51,9 @@ namespace Matrices {
 // Helper function
 template<typename int_type>
 inline Teuchos::RCP<Epetra_CrsMatrix>
-  get2DLaplaceMatrixForVar(Epetra_Map const *map,
-                           int nx, int ny, int var,
-                           PERIO_Flag perio)
+get2DLaplaceMatrixForVar(Epetra_Map const *map,
+                         int nx, int ny, int var,
+                         PERIO_Flag perio)
 {
   int dof = 3;
   int MaxNumMyElements1 = map->NumMyElements() / dof + 1;
@@ -71,9 +71,9 @@ inline Teuchos::RCP<Epetra_CrsMatrix>
 
   Teuchos::RCP<Epetra_Map> map1 = Teuchos::rcp(
     new Epetra_Map(NumGlobalElements1, NumMyElements1,
-      &MyGlobalElements1[0], (int_type)map->IndexBase64(),
-      map->Comm()));
- 
+                   &MyGlobalElements1[0], (int_type)map->IndexBase64(),
+                   map->Comm()));
+
   Teuchos::RCP<Epetra_CrsMatrix> Laplace = Teuchos::null;
   if (perio != NO_PERIO)
   {
@@ -86,11 +86,12 @@ inline Teuchos::RCP<Epetra_CrsMatrix>
 //! the A part scaled by a and the B part scaled
 //! by b, K=[A B; B' 0];
 template<typename int_type>
-inline Epetra_CrsMatrix* 
-Stokes2D(const Epetra_Map* Map, 
-        const int nx, const int ny,
-        const double a, const double b, 
-        PERIO_Flag perio=NO_PERIO)
+inline Epetra_CrsMatrix*
+Stokes2D(const Epetra_Map* Map,
+         const int nx, const int ny,
+         const double a, const double b,
+         PERIO_Flag perio=NO_PERIO,
+         char grid_type='C')
 {
   int dof = 3;
 
@@ -125,23 +126,23 @@ Stokes2D(const Epetra_Map* Map,
       if (right>0) GetNeighboursCartesian2d(right, nx, ny, dum1, rightright, dum2, dum3, perio);
       if (upper>0) GetNeighboursCartesian2d(upper, nx, ny, dum1, dum2, dum3, upup, perio);
 
-        // the left and border look like this:
-        //   
-        // /+-v-+               +-v-+/
-        // /|   |               |   |/
-        // /| p u       ....    u p u/
-        // /|   |               |   |/
-        // /+---+               +---+/
+      // the left and border look like this:
+      //
+      // /+-v-+               +-v-+/
+      // /|   |               |   |/
+      // /| p u       ....    u p u/
+      // /|   |               |   |/
+      // /+---+               +---+/
 
       if ((row+1)%dof==1) // u-variable
       {
         if (right==-1)
         {
           lenLaplace=1;
-          vals_laplace[0]=b/(a*a); 
+          vals_laplace[0]=b/(a*a);
           cols_laplace[0]=row0;
         }
-        else if (lower==-1 || upper==-1) 
+        else if (lower==-1 || upper==-1)
         {
           add_to_diag=a;
         }
@@ -162,7 +163,7 @@ Stokes2D(const Epetra_Map* Map,
           vals_laplace[0]=b/(a*a);
           cols_laplace[0]=row0;
         }
-        else if (left==-1 || right==-1) 
+        else if (left==-1 || right==-1)
         {
           add_to_diag=a;
         }
@@ -175,7 +176,7 @@ Stokes2D(const Epetra_Map* Map,
           }
         }
       }
-      
+
       for (int j=0; j<lenLaplace; j++)
       {
         // column index in final Stokes matrix
@@ -204,25 +205,25 @@ Stokes2D(const Epetra_Map* Map,
 }
 
 inline
-Epetra_CrsMatrix* 
-Stokes2D(const Epetra_Map* Map, 
-        const int nx, const int ny,
-        const double a, const double b, 
-        PERIO_Flag perio=NO_PERIO)
+Epetra_CrsMatrix*
+Stokes2D(const Epetra_Map* Map,
+         const int nx, const int ny,
+         const double a, const double b,
+         PERIO_Flag perio=NO_PERIO, char grid_type='C')
 {
 #ifndef EPETRA_NO_32BIT_GLOBAL_INDICES
   if(Map->GlobalIndicesInt()) {
-	  return Stokes2D<int>(Map, nx, ny, a, b, perio);
+    return Stokes2D<int>(Map, nx, ny, a, b, perio, grid_type);
   }
   else
 #endif
 #ifndef EPETRA_NO_64BIT_GLOBAL_INDICES
-  if(Map->GlobalIndicesLongLong()) {
-	  return Stokes2D<long long>(Map, nx, ny, a, b, perio);
-  }
-  else
+    if(Map->GlobalIndicesLongLong()) {
+      return Stokes2D<long long>(Map, nx, ny, a, b, perio, grid_type);
+    }
+    else
 #endif
-    throw "GaleriExt::Matrices::Stokes2D: GlobalIndices type unknown";
+      throw "GaleriExt::Matrices::Stokes2D: GlobalIndices type unknown";
 }
 
 } // namespace Matrices
