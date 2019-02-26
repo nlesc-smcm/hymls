@@ -163,7 +163,7 @@ DarcyB2D(const Epetra_Map* Map,
         const double a, const double b,
         PERIO_Flag perio=NO_PERIO)
 {
-  Epetra_CrsMatrix* Matrix = new Epetra_CrsMatrix(Copy, *Map,  4);
+  Epetra_CrsMatrix* Matrix = new Epetra_CrsMatrix(Copy, *Map,  8);
 
   int NumMyElements = Map->NumMyElements();
   int_type* MyGlobalElements = 0;
