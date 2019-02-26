@@ -210,7 +210,7 @@ DarcyB2D(const Epetra_Map* Map,
       Values[0]=a;
       Indices[0]=MyGlobalElements[i];
 
-      if (right != -1 && upper != -1)
+      if (right != -1 && upper != -1 && ivar == 0)
       {
         Indices[NumEntries] = ibase*dof+2;
         Values[NumEntries] = -b;
@@ -220,6 +220,21 @@ DarcyB2D(const Epetra_Map* Map,
         ++NumEntries;
         Indices[NumEntries] = upper*dof+2;
         Values[NumEntries] = -b;
+        ++NumEntries;
+        Indices[NumEntries] = top_right*dof+2;
+        Values[NumEntries] = b;
+        ++NumEntries;
+      }
+      else if (right != -1 && upper != -1 && ivar == 1)
+      {
+        Indices[NumEntries] = ibase*dof+2;
+        Values[NumEntries] = -b;
+        ++NumEntries;
+        Indices[NumEntries] = right*dof+2;
+        Values[NumEntries] = -b;
+        ++NumEntries;
+        Indices[NumEntries] = upper*dof+2;
+        Values[NumEntries] = b;
         ++NumEntries;
         Indices[NumEntries] = top_right*dof+2;
         Values[NumEntries] = b;
@@ -244,7 +259,7 @@ DarcyB2D(const Epetra_Map* Map,
         Values[NumEntries]=c;
         NumEntries++;
         Indices[NumEntries]=left*dof+1;
-        Values[NumEntries]=c;
+        Values[NumEntries]=-c;
         NumEntries++;
       }
       if (lower != -1 && right != -1)
@@ -253,7 +268,7 @@ DarcyB2D(const Epetra_Map* Map,
         Values[NumEntries]=-c;
         NumEntries++;
         Indices[NumEntries]=lower*dof+1;
-        Values[NumEntries]=-c;
+        Values[NumEntries]=c;
         NumEntries++;
       }
       if (lower != -1 && left != -1)
