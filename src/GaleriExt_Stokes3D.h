@@ -51,9 +51,9 @@ namespace Matrices {
 // Helper function
 template<typename int_type>
 inline Teuchos::RCP<Epetra_CrsMatrix>
-  get3DLaplaceMatrixForVar(Epetra_Map const *map,
-                           int nx, int ny, int nz, int var,
-                           PERIO_Flag perio)
+get3DLaplaceMatrixForVar(Epetra_Map const *map,
+                         int nx, int ny, int nz, int var,
+                         PERIO_Flag perio)
 {
   int dof = 4;
   int MaxNumMyElements1 = map->NumMyElements() / dof + 1;
@@ -71,9 +71,9 @@ inline Teuchos::RCP<Epetra_CrsMatrix>
 
   Teuchos::RCP<Epetra_Map> map1 = Teuchos::rcp(
     new Epetra_Map(NumGlobalElements1, NumMyElements1,
-      &MyGlobalElements1[0], (int_type)map->IndexBase64(),
-      map->Comm()));
- 
+                   &MyGlobalElements1[0], (int_type)map->IndexBase64(),
+                   map->Comm()));
+
   Teuchos::RCP<Epetra_CrsMatrix> Laplace = Teuchos::null;
   if (perio != NO_PERIO)
   {
@@ -87,17 +87,18 @@ inline Teuchos::RCP<Epetra_CrsMatrix>
 //! the A part scaled by a and the B part scaled
 //! by b, K=[A B; B' 0];
 template<typename int_type>
-inline Epetra_CrsMatrix* 
-Stokes3D(const Epetra_Map* Map, 
-        const int nx, const int ny, const int nz,
-        const double a, const double b, 
-        PERIO_Flag perio=NO_PERIO
-        )
+inline Epetra_CrsMatrix*
+Stokes3D(const Epetra_Map* Map,
+         const int nx, const int ny, const int nz,
+         const double a, const double b,
+         PERIO_Flag perio=NO_PERIO,
+         char grid_type='C'
+  )
 {
   int dof = 4;
 
   Teuchos::RCP<Epetra_CrsMatrix> Matrix = Teuchos::rcp(new Epetra_CrsMatrix(Copy, *Map,  9));
-  Teuchos::RCP<Epetra_CrsMatrix> Darcy  = Teuchos::rcp(Darcy3D(Map,nx,ny,nz,0.0,-b,perio));
+  Teuchos::RCP<Epetra_CrsMatrix> Darcy  = Teuchos::rcp(Darcy3D(Map,nx,ny,nz,0.0,-b,perio,grid_type));
   Teuchos::Array<Teuchos::RCP<Epetra_CrsMatrix> > Laplace(3);
   Laplace[0] = get3DLaplaceMatrixForVar<int_type>(Map, nx, ny, nz, 0, perio);
   Laplace[1] = get3DLaplaceMatrixForVar<int_type>(Map, nx, ny, nz, 1, perio);
@@ -129,26 +130,26 @@ Stokes3D(const Epetra_Map* Map,
       if (upper>0) GetNeighboursCartesian3d(upper, nx, ny, nz, dum1, dum2, dum3, upup, dum4, dum5, perio);
       if (above>0) GetNeighboursCartesian3d(above, nx, ny, nz, dum1, dum2, dum3, dum4, dum5, toptop, perio);
 
-        // the left and border look like this:
-        //   
-        // /+-v-+               +-v-+/
-        // /|   |               |   |/
-        // /| p u       ....    u p u/
-        // /|   |               |   |/
-        // /+---+               +---+/
+      // the left and border look like this:
+      //
+      // /+-v-+               +-v-+/
+      // /|   |               |   |/
+      // /| p u       ....    u p u/
+      // /|   |               |   |/
+      // /+---+               +---+/
 
       if ((row+1)%dof==1) // u-variable
       {
         if (right==-1)
         {
           lenLaplace=1;
-          vals_laplace[0]=-1.0/a; 
+          vals_laplace[0]=-1.0/a;
           cols_laplace[0]=row0;
         }
-        else 
+        else
         {
-        if (lower==-1 || upper==-1) add_to_diag+=a;
-        if (below==-1 || above==-1) add_to_diag+=a;
+          if (lower==-1 || upper==-1) add_to_diag+=a;
+          if (below==-1 || above==-1) add_to_diag+=a;
         }
         if (right>=0 && rightright==-1)
         {
@@ -169,8 +170,8 @@ Stokes3D(const Epetra_Map* Map,
         }
         else
         {
-        if (left==-1 || right==-1) add_to_diag+=a;
-        if (below==-1 || above==-1) add_to_diag+=a;
+          if (left==-1 || right==-1) add_to_diag+=a;
+          if (below==-1 || above==-1) add_to_diag+=a;
         }
         if (upper>0 && upup==-1)
         {
@@ -191,8 +192,8 @@ Stokes3D(const Epetra_Map* Map,
         }
         else
         {
-        if (left==-1 || right==-1) add_to_diag+=a;
-        if (lower==-1 || upper==-1) add_to_diag+=a;
+          if (left==-1 || right==-1) add_to_diag+=a;
+          if (lower==-1 || upper==-1) add_to_diag+=a;
         }
         if (above>0 && toptop==-1)
         {
@@ -203,7 +204,7 @@ Stokes3D(const Epetra_Map* Map,
           }
         }
       }
-      
+
       for (int j=0; j<lenLaplace; j++)
       {
         // column index in final Stokes matrix
@@ -232,27 +233,28 @@ Stokes3D(const Epetra_Map* Map,
 }
 
 inline
-Epetra_CrsMatrix* 
-Stokes3D(const Epetra_Map* Map, 
-  const int nx, const int ny, const int nz,
-  const double a, const double b, 
-  PERIO_Flag perio=NO_PERIO)
+Epetra_CrsMatrix*
+Stokes3D(const Epetra_Map* Map,
+         const int nx, const int ny, const int nz,
+         const double a, const double b,
+         PERIO_Flag perio=NO_PERIO,
+         char grid_type='C')
 {
 #ifndef EPETRA_NO_32BIT_GLOBAL_INDICES
   if(Map->GlobalIndicesInt()) {
-    return Stokes3D<int>(Map, nx, ny, nz, a, b, perio);
+    return Stokes3D<int>(Map, nx, ny, nz, a, b, perio, grid_type);
   }
   else
 #endif
 #ifndef EPETRA_NO_64BIT_GLOBAL_INDICES
   if(Map->GlobalIndicesLongLong()) {
-    return Stokes3D<long long>(Map, nx, ny, nz, a, b, perio);
+    return Stokes3D<long long>(Map, nx, ny, nz, a, b, perio, grid_type);
   }
   else
 #endif
-    throw "GaleriExt::Matrices::Stokes2D: GlobalIndices type unknown";
+    throw "GaleriExt::Matrices::Stokes3D: GlobalIndices type unknown";
 }
 
 } // namespace Matrices
-} // namespace Galeri
+} // namespace GaleriExt
 #endif

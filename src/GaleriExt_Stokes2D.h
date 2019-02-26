@@ -218,12 +218,12 @@ Stokes2D(const Epetra_Map* Map,
   else
 #endif
 #ifndef EPETRA_NO_64BIT_GLOBAL_INDICES
-    if(Map->GlobalIndicesLongLong()) {
-      return Stokes2D<long long>(Map, nx, ny, a, b, perio, grid_type);
-    }
-    else
+  if(Map->GlobalIndicesLongLong()) {
+    return Stokes2D<long long>(Map, nx, ny, a, b, perio, grid_type);
+  }
+  else
 #endif
-      throw "GaleriExt::Matrices::Stokes2D: GlobalIndices type unknown";
+    throw "GaleriExt::Matrices::Stokes2D: GlobalIndices type unknown";
 }
 
 } // namespace Matrices

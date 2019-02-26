@@ -54,8 +54,6 @@ set(HEADERS ${HEADERS}
   HYMLS_RestrictedOT.H
   )
 
-include_directories(${PROJECT_SOURCE_DIR})
-
 if (${phist_FOUND})
   message(STATUS "phist found in ${PHIST_INCLUDE_DIRS}")
 

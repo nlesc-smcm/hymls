@@ -102,3 +102,37 @@ TEUCHOS_UNIT_TEST(GaleriExt, Darcy3DSymmetry)
   TEST_FLOATING_EQUALITY(1.0, 1.0+norm_should_be_small, 1e-14);
 }
 
+TEUCHOS_UNIT_TEST(GaleriExt, DarcyB3DSymmetry)
+{
+  Epetra_MpiComm Comm(MPI_COMM_WORLD);
+
+  // create the 32x32 C-grid Stokes matrix using the function to be tested
+  const int nx = 10, ny = 10, nz = 10, dof = 4;
+  hymls_gidx n = nx*ny*nz*dof;
+  Teuchos::RCP<Epetra_Map> map_ptr = HYMLS::UnitTests::create_random_map(Comm, n, dof);
+  const Epetra_Map& map = *map_ptr;
+
+  Teuchos::RCP<Epetra_CrsMatrix> A_func = Teuchos::rcp(
+    GaleriExt::Matrices::Darcy3D(&map, nx, ny, nz, 0.0, 1.0, GaleriExt::NO_PERIO, 'B'));
+
+  Epetra_Vector v1(map);
+  v1.Random();
+  Epetra_Vector v2(map);
+  v2.Random();
+  Epetra_Vector v3(map);
+  v3.Random();
+
+  int ierr;
+  ierr = A_func->Multiply(false, v1, v2);
+  TEST_EQUALITY(0, ierr);
+
+  ierr = A_func->Multiply(true, v1, v3);
+  TEST_EQUALITY(0, ierr);
+
+  // Test skew-symmetry
+  double norm_should_be_small = 0.0;
+  v3.Update(1.0, v2, 1.0);
+  v3.Norm2(&norm_should_be_small);
+  TEST_FLOATING_EQUALITY(1.0, 1.0+norm_should_be_small, 1e-14);
+}
+
