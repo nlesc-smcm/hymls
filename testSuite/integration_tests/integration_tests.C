@@ -498,15 +498,36 @@ int testSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
       CHECK_ZERO(solver->ApplyInverse(*b,*x));
 
       // subtract constant from pressure if solving Stokes-C
-      if (eqn=="Stokes-C")
+      if (eqn == "Stokes-C")
         {
-        int dof=dim+1;
-        for (int k=0;k<numRhs;k++)
+        int dof = dim + 1;
+        for (int k = 0; k < numRhs; k++)
           {
           double pref = (*x)[k][dim] - (*x_ex)[k][dim];
-          for (int i=dim; i<x->MyLength();i+=dof)
+          for (int i = dim; i < x->MyLength(); i += dof)
             {
             (*x)[k][i] -= pref;
+            }
+          }
+        }
+
+      // subtract checkerboard from pressure if solving Stokes-B
+      if (eqn == "Stokes-B")
+        {
+        int nx = probl_params_cpy.get("nx", 32);
+        int ny = probl_params_cpy.get("ny", nx);
+        int dof = dim + 1;
+        for (int k = 0; k < numRhs; k++)
+          {
+          double pref1 = (*x)[k][dim] - (*x_ex)[k][dim];
+          double pref2 = (*x)[k][dim+dof] - (*x_ex)[k][dim+dof];
+          for (int i = dim; i < x->MyLength(); i += dof)
+            {
+            hymls_gidx gid = map.GID64(i);
+            if (((gid / dof) % nx + (gid / dof / nx) % ny) % 2 == 0)
+              (*x)[k][i] -= pref1;
+            else
+              (*x)[k][i] -= pref2;
             }
           }
         }

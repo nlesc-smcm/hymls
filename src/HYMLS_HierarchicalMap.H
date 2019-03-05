@@ -5,7 +5,6 @@
 
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_Array.hpp"
-#include "HYMLS_BasePartitioner.H"
 #include "Epetra_Map.h"
 
 // forward declarations

@@ -135,6 +135,9 @@ protected:
   //! number of processors in use
   int nprocs_;
 
+  //! number of pressure nodes to retain
+  int retain_;
+
   //! type of periodicity in the problem
   GaleriExt::PERIO_Flag perio_;
 

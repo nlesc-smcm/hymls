@@ -2,6 +2,7 @@
 #include "HYMLS_Tools.H"
 #include "HYMLS_OverlappingPartitioner.H"
 #include "HYMLS_HierarchicalMap.H"
+#include "HYMLS_BasePartitioner.H"
 #include "Teuchos_StandardCatchMacros.hpp"
 
 #include "Epetra_CrsGraph.h"

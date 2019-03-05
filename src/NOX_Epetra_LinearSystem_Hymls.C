@@ -260,7 +260,7 @@ applyJacobianInverse(Teuchos::ParameterList &p,
     scaling->scaleLinearSystem(Problem);
 
     if (utils.isPrintType(Utils::Details)) {
-      utils.out() << *scaling << endl;
+      utils.out() << *scaling << std::endl;
     }  
   }
   // ************* End linear system scaling *******************
@@ -291,7 +291,7 @@ applyJacobianInverse(Teuchos::ParameterList &p,
       cout << "Error: NOX::Epetra::LinearSystemAztecOO::applyJacobianInverse() - "
 	   << "Could not cast the Jacobian operator to an Epetra_RowMatrix!"
 	   << "Please set the \"Write Linear System\" parameter to false."
-	   << endl;
+	   << std::endl;
       throw "NOX Error";
     }
 

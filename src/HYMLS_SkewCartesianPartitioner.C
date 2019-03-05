@@ -678,8 +678,9 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &inte
       }
     }
 
-  // Get first pressure node from interior to a new group.
+  // Get first pressure nodes from interior to a new group.
   // Assumes ordering of groups by size!
+  int retained = 0;
   for (int pvar = 0; pvar < dof_; pvar++)
     if (variableType_[pvar] == 3)
       {
@@ -691,7 +692,8 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &inte
           groups[0][0].erase(
             std::remove(groups[0][0].begin(), groups[0][0].end(), node),
             groups[0][0].end());
-          break;
+          if (++retained >= retain_)
+            break;
           }
       break;
       }

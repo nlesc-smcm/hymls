@@ -127,7 +127,7 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
       if (precList.get("Fix Pressure Level", true))
         {
         // we fix the singularity by inserting a Dirichlet condition for
-        // global pressure node 2 
+        // global pressure node 2
         precList.set("Fix GID 1", factor * pvar);
         if (is_complex) precList.set("Fix GID 2", factor * pvar + 1);
         }
@@ -136,12 +136,12 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
 #endif
       if (eqn == "Stokes-B")
         {
-        /* 
+        /*
            we assume the following 'augmented B-grid',
            where the @ are dummy p-nodes, * are p-nodes
            and > are v-nodes. To transform this into an
            F-matrix, one has to apply a Givvens rotation
-           to the velocity field (giving an F-grid). 
+           to the velocity field (giving an F-grid).
            This currently has to be done manually outside
            the solver/preconditioner.
 
@@ -164,16 +164,21 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
         if (is_complex)
           Tools::Error("complex Stokes-B not implemented", __FILE__, __LINE__);
 
+        retain_ = probList.get("Retained Pressure Nodes", 2);
+
         if (precList.get("Fix Pressure Level", true))
           {
-          // we fix the singularity by inserting a Dirichlet condition for 
+          // we fix the singularity by inserting a Dirichlet condition for
           // global pressure in cells 0 and 1, since we retain two pressures
           // per subdomain both will be retained until the coarsest grid.
           // We use +nx*dof here to skip the dummy P-nodes (@).
-          precList.set("Fix GID 1", dim_ + nx_ * dof_);
-          precList.set("Fix GID 2", 2 * dim_ + nx_ * dof_);
+          precList.set("Fix GID 1", factor * pvar);
+          precList.set("Fix GID 2", factor * dof_ + factor * pvar);
           }
+        probList.set("Test F-Matrix Properties", false);
         }
+      else
+        retain_ = probList.get("Retained Pressure Nodes", 1);
       }
     else
       {
@@ -191,6 +196,7 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
     }
 
   dof_ = probList.get("Degrees of Freedom", 1);
+  retain_ = probList.get("Retained Pressure Nodes", 1);
 
   variableType_.resize(dof_);
 
@@ -373,7 +379,7 @@ int BasePartitioner::CreatePIDMap()
     sy = sy / cy;
     if (nz_ > 1)
       sz = sz / cz;
- 
+
     if (sx < sx_ || sy < sy_ || sz < sz_)
       {
       sx = sx2;
@@ -534,7 +540,7 @@ Teuchos::RCP<const Epetra_Map> BasePartitioner::MoveMap(
     {
     failed = true;
     Tools::Warning("Processor with rank " + Teuchos::toString(comm.MyPID()) +
-      " and destination " + Teuchos::toString(destinationPID_) + 
+      " and destination " + Teuchos::toString(destinationPID_) +
       " has rank " + Teuchos::toString(newEpetraMpiComm->MyPID()) +
       " in the gather group. Using send and receive instead of move.",
       __FILE__, __LINE__);
@@ -587,13 +593,13 @@ int BasePartitioner::SetDestinationPID(
   // processor. We treat this as a special case
   int destinationPID = myPID;
   if (baseMap->NumMyElements() > 0)
-      destinationPID = PID(baseMap->GID64(0));
+    destinationPID = PID(baseMap->GID64(0));
 
   for (int lid = 0; lid < baseMap->NumMyElements(); lid++)
     {
     hymls_gidx gid = baseMap->GID64(lid);
     if (PID(gid) != destinationPID)
-        destinationPID = -1;
+      destinationPID = -1;
     }
 
   destinationPID_ = -1;
@@ -653,7 +659,7 @@ Teuchos::RCP<const Epetra_Map> BasePartitioner::RepartitionMap(
     }
 
   Teuchos::RCP<Epetra_Distributor> Distor =
-      Teuchos::rcp(comm.CreateDistributor());
+    Teuchos::rcp(comm.CreateDistributor());
 
   int numRecvs;
   CHECK_ZERO(Distor->CreateFromSends(numSends, sendPIDs, true, numRecvs));

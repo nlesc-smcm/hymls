@@ -99,7 +99,7 @@ TEUCHOS_UNIT_TEST(GaleriExt, Darcy3DSymmetry)
   double norm_should_be_small = 0.0;
   v3.Update(1.0, v2, 1.0);
   v3.Norm2(&norm_should_be_small);
-  TEST_FLOATING_EQUALITY(1.0, 1.0+norm_should_be_small, 1e-14);
+  TEST_FLOATING_EQUALITY(1.0, 1.0+norm_should_be_small, 1e-13);
 }
 
 TEUCHOS_UNIT_TEST(GaleriExt, DarcyB3DSymmetry)
@@ -133,6 +133,6 @@ TEUCHOS_UNIT_TEST(GaleriExt, DarcyB3DSymmetry)
   double norm_should_be_small = 0.0;
   v3.Update(1.0, v2, 1.0);
   v3.Norm2(&norm_should_be_small);
-  TEST_FLOATING_EQUALITY(1.0, 1.0+norm_should_be_small, 1e-14);
+  TEST_FLOATING_EQUALITY(1.0, 1.0+norm_should_be_small, 1e-13);
 }
 

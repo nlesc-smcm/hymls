@@ -1754,7 +1754,7 @@ double SchurPreconditioner::NormInf() const
   }
 
 // Prints basic information on iostream. This function is used by operator<<.
-ostream& SchurPreconditioner::Print(std::ostream& os) const
+std::ostream& SchurPreconditioner::Print(std::ostream& os) const
   {
   os << label_ << std::endl;
   return os;

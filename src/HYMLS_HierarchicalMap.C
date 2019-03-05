@@ -1,8 +1,3 @@
-// if you activate this option, the resulting Schur-complement
-// and preconditioner look like those in MATLAB (with singletons
-// and pressures shifted to the end of the ordering). This only 
-// works for 2D Navier-Stokes, otherwise an error is thrown.
-
 #include <iostream>
 
 #include "HYMLS_HierarchicalMap.H"

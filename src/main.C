@@ -193,6 +193,12 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
     }
   HYMLS::Tools::StopMemory("main: Matrix",true);
 
+  if (store_matrix)
+    {
+    HYMLS::Tools::Out("store matrix...");
+    HYMLS::MatrixUtils::Dump(*K, "Matrix.txt",false);
+    }
+
   // create a random exact solution
   Teuchos::RCP<Epetra_MultiVector> x_ex = Teuchos::rcp(new Epetra_MultiVector(*map,numRhs));
 
@@ -466,13 +472,6 @@ HYMLS_DEBVAR(*b);
     }
  }//f - number of factorizations
 
-
-  if (store_matrix)
-    {
-    HYMLS::Tools::Out("store matrix...");
-    HYMLS::MatrixUtils::Dump(*K, "Matrix.txt",false);
-    }
-    
   if (store_solution)
     {
     HYMLS::Tools::Out("store solution...");

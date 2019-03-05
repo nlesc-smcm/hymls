@@ -21,6 +21,8 @@
 #include "Epetra_SerialDenseMatrix.h"
 #include "Epetra_SerialDenseVector.h"
 
+#include "EpetraExt_MatrixMatrix.h"
+
 #include "HYMLS_Tester.H"
 
 #ifdef HYMLS_TESTING
@@ -132,19 +134,6 @@ int Preconditioner::SetParameters(Teuchos::ParameterList& List)
     HYMLS_LPROF3(label_,"getValidParameters");
 
     validParams_=Teuchos::rcp(new Teuchos::ParameterList());
-
-    VPL("Problem").set("Dimension", 2,"number of spatial dimensions");
-
-    VPL("Problem").set("nx",16,"number of grid points in x-direction");
-    VPL("Problem").set("ny",16,"number of grid points in y-direction");
-    VPL("Problem").set("nz",1,"number of grid points in z-direction");
-
-    VPL("Problem").set("x-periodic", false, "assume periodicity in x-direction");
-    VPL("Problem").set("y-periodic", false, "assume periodicity in y-direction");
-    VPL("Problem").set("z-periodic", false, "assume periodicity in z-direction");
-
-    VPL("Problem").set("Periodicity", GaleriExt::NO_PERIO,
-      "Set periodicity by using a GaleriExt flag");
 
     Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
         partValidator = Teuchos::rcp(
@@ -642,7 +631,7 @@ Tools::out() << "=============================="<<std::endl;
 
 
   // Prints basic information on iostream. This function is used by operator<<.
-  ostream& Preconditioner::Print(std::ostream& os) const
+  std::ostream& Preconditioner::Print(std::ostream& os) const
     {
     HYMLS_LPROF2(label_,"Print");
     os << Label() << std::endl;
@@ -959,7 +948,7 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
     CHECK_ZERO(X.PutScalar(0.0));
     CHECK_ZERO(X.Export(x1, import1, Add));
     CHECK_ZERO(X.Export(x2, import2, Add));
-    
+
 #ifdef HYMLS_DEBUGGING
     if (dumpVectors_)
       {

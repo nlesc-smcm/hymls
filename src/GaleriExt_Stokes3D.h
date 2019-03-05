@@ -97,7 +97,7 @@ Stokes3D(const Epetra_Map* Map,
 {
   int dof = 4;
 
-  Teuchos::RCP<Epetra_CrsMatrix> Matrix = Teuchos::rcp(new Epetra_CrsMatrix(Copy, *Map,  9));
+  Teuchos::RCP<Epetra_CrsMatrix> Matrix = Teuchos::rcp(new Epetra_CrsMatrix(Copy, *Map, 24));
   Teuchos::RCP<Epetra_CrsMatrix> Darcy  = Teuchos::rcp(Darcy3D(Map,nx,ny,nz,0.0,-b,perio,grid_type));
   Teuchos::Array<Teuchos::RCP<Epetra_CrsMatrix> > Laplace(3);
   Laplace[0] = get3DLaplaceMatrixForVar<int_type>(Map, nx, ny, nz, 0, perio);
@@ -108,7 +108,7 @@ Stokes3D(const Epetra_Map* Map,
   for (int i=0; i<Map->NumMyElements(); i++)
   {
     int_type row = Map->GID64(i);
-    const int max_len=9;
+    const int max_len=24;
     int_type cols[max_len], cols_laplace[max_len];
     double vals[max_len],vals_laplace[max_len];
     int lenDarcy=0;

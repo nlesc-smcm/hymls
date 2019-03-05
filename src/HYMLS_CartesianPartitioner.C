@@ -346,10 +346,14 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
           if (d == pvar && (itype == -1 || jtype == -1 || ktype == -1))
             continue;
           else if ((itype == 0 && jtype == 0 && ktype == 0) ||
-                   // Pressure nodes that are not in tubes
-                   (d == pvar && ((itype == 0 && jtype == 0) ||
-                                  (itype == 0 && ktype == 0) ||
-                                  (jtype == 0 && ktype == 0))))
+              (d == pvar && (
+                // Pressure nodes that are not in tubes
+                (itype == 0 && jtype == 0) ||
+                (itype == 0 && ktype == 0) ||
+                (jtype == 0 && ktype == 0) ||
+                // B-grid
+                retain_ > 1)
+              ))
             nodes = &interior_nodes;
           else
             {
@@ -367,7 +371,8 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
                   (hymls_gidx)((i + xpos + nx_) % nx_) * dof_ +
                   (hymls_gidx)((j + ypos + ny_) % ny_) * nx_ * dof_ +
                   (hymls_gidx)((k + zpos + nz_) % nz_) * nx_ * ny_ * dof_;
-                if ((d == pvar && !i && !j && !k))
+                if (d == pvar && i >= 0 && j >= 0 && k >= 0 &&
+                    retained_nodes.length() < retain_)
                   {
                   // Retained pressure nodes
                   retained_nodes.append(gid);

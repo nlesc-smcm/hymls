@@ -178,7 +178,7 @@ public:
   double ApplyInverseFlops() const;
 
   //! Prints basic information on iostream. This function is used by operator<<.
-  ostream& Print(std::ostream& os) const;
+  std::ostream& Print(std::ostream& os) const;
 
   int SetUseTranspose(bool UseTranspose)
     {

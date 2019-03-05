@@ -95,8 +95,8 @@ Stokes2D(const Epetra_Map* Map,
 {
   int dof = 3;
 
-  Teuchos::RCP<Epetra_CrsMatrix> Matrix = Teuchos::rcp(new Epetra_CrsMatrix(Copy, *Map,  7));
-  Teuchos::RCP<Epetra_CrsMatrix> Darcy  = Teuchos::rcp(Darcy2D(Map,nx,ny,0.0,-b,perio));
+  Teuchos::RCP<Epetra_CrsMatrix> Matrix = Teuchos::rcp(new Epetra_CrsMatrix(Copy, *Map, 8));
+  Teuchos::RCP<Epetra_CrsMatrix> Darcy  = Teuchos::rcp(Darcy2D(Map,nx,ny,0.0,-b,perio,grid_type));
   Teuchos::Array<Teuchos::RCP<Epetra_CrsMatrix> > Laplace(2);
   Laplace[0] = get2DLaplaceMatrixForVar<int_type>(Map, nx, ny, 0, perio);
   Laplace[1] = get2DLaplaceMatrixForVar<int_type>(Map, nx, ny, 1, perio);
@@ -105,7 +105,7 @@ Stokes2D(const Epetra_Map* Map,
   for (int i=0; i<Map->NumMyElements(); i++)
   {
     int_type row = Map->GID64(i);
-    const int max_len=7;
+    const int max_len=8;
     int_type cols[max_len], cols_laplace[max_len];
     double vals[max_len],vals_laplace[max_len];
     int lenDarcy=0;
@@ -113,10 +113,11 @@ Stokes2D(const Epetra_Map* Map,
     Darcy->ExtractGlobalRowCopy(row,max_len,lenDarcy,vals,cols);
     // u or v node? add Laplace row entries
     int lenTotal=lenDarcy;
-    if ((row+1)%dof)
+    int ivar = row % dof;
+    if (ivar != 2)
     {
       int_type row0 = row/dof;
-      Laplace[row % dof]->ExtractGlobalRowCopy(row0,max_len,lenLaplace,vals_laplace,cols_laplace);
+      Laplace[ivar]->ExtractGlobalRowCopy(row0,max_len,lenLaplace,vals_laplace,cols_laplace);
       // compensation for missing nodes at the boundary (gives Dirichlet boundary conditions)
       double add_to_diag = 0.0;
       int left,right,lower,upper;
@@ -134,7 +135,7 @@ Stokes2D(const Epetra_Map* Map,
       // /|   |               |   |/
       // /+---+               +---+/
 
-      if ((row+1)%dof==1) // u-variable
+      if (ivar == 0 || grid_type == 'B') // u-variable
       {
         if (right==-1)
         {
@@ -155,7 +156,7 @@ Stokes2D(const Epetra_Map* Map,
           }
         }
       }
-      else if ((row+1)%dof==2) // v-variable
+      if (ivar == 1 || grid_type == 'B') // v-variable
       {
         if (upper==-1)
         {
