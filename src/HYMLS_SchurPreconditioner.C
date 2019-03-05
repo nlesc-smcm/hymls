@@ -582,10 +582,8 @@ int SchurPreconditioner::Compute()
 #ifdef HYMLS_TESTING
     Tools::Out("drop before going to next level");
 #endif
-    Teuchos::RCP<Epetra_CrsMatrix> tmp = MatrixUtils::DropByValue(reducedSchur_,
+    reducedSchur_ = MatrixUtils::DropByValue(reducedSchur_,
       HYMLS_SMALL_ENTRY, MatrixUtils::RelDropDiag);
-    *reducedSchur_ = *tmp;
-    tmp=Teuchos::null;
 
 #ifdef HYMLS_STORE_MATRICES
     MatrixUtils::Dump(*reducedSchur_,"ReducedSchur"+Teuchos::toString(myLevel_)+".txt");
