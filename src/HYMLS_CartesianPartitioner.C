@@ -217,37 +217,35 @@ int CartesianPartitioner::RemoveBoundarySeparators(Teuchos::Array<hymls_gidx> &i
   // boundaries.
 
   // Remove boundary separators and add them to the interior
-  Teuchos::Array<Teuchos::Array<hymls_gidx> >::iterator sep = separator_nodes.begin();
-  for (; sep != separator_nodes.end(); sep++)
+  for (auto sep = separator_nodes.begin(); sep != separator_nodes.end(); )
     {
     Teuchos::Array<hymls_gidx> &nodes = *sep;
     if (nodes.size() == 0)
-      separator_nodes.erase(sep);
+      sep = separator_nodes.erase(sep);
     else if ((nodes[0] / dof_ + 1) % nx_ == 0 && !(perio_ & GaleriExt::X_PERIO))
       {
       // Remove right side
       interior_nodes.insert(interior_nodes.end(), nodes.begin(), nodes.end());
-      separator_nodes.erase(sep);
+      sep = separator_nodes.erase(sep);
       }
     else if (ny_ > 1 && (nodes[0] / dof_ / nx_ + 1) % ny_ == 0 && !(perio_ & GaleriExt::Y_PERIO))
       {
       // Remove bottom side
       interior_nodes.insert(interior_nodes.end(), nodes.begin(), nodes.end());
-      separator_nodes.erase(sep);
+      sep = separator_nodes.erase(sep);
       }
     else if (nz_ > 1 && (nodes[0] / dof_ / nx_ / ny_ + 1) % nz_ == 0 && !(perio_ & GaleriExt::Z_PERIO))
       {
       // Remove back side
       interior_nodes.insert(interior_nodes.end(), nodes.begin(), nodes.end());
-      separator_nodes.erase(sep);
+      sep = separator_nodes.erase(sep);
       }
     else
-      continue;
-    sep = separator_nodes.begin();
+      ++sep;
     }
 
   // Add back boundary nodes to separators that are not along the boundaries
-  for (sep = separator_nodes.begin(); sep != separator_nodes.end(); sep++)
+  for (auto sep = separator_nodes.begin(); sep != separator_nodes.end(); ++sep)
     {
     hymls_gidx nodeID = -1;
     Teuchos::Array<hymls_gidx> &nodes = *sep;
