@@ -394,10 +394,18 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
     separator_nodes.back().append(*it);
     }
 
-  // TODO: Actually implement this
   group_links.resize(0);
-  for (int i = 0; i < separator_nodes.size(); i++)
-    group_links.push_back(Teuchos::Array<int>(1, i+1));
+  int idx = 1;
+  hymls_gidx prev_gid = -dof_;
+  for (auto &sep: separator_nodes)
+    {
+    hymls_gidx gid = sep[0];
+    if (prev_gid / dof_ == gid / dof_)
+      group_links.back().push_back(idx++);
+    else
+      group_links.push_back(Teuchos::Array<int>(1, idx++));
+    prev_gid = gid;
+    }
 
   return 0;
   }
