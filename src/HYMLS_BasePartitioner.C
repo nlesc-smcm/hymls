@@ -93,47 +93,44 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
       {
       if (!is_complex)
         {
-        probList.set("Degrees of Freedom", 1);
-        probList.sublist("Variable 0").set("Variable Type", "Laplace");
+        probList.get("Degrees of Freedom", 1);
+        probList.sublist("Variable 0").get("Variable Type", "Laplace");
         }
       else
         {
-        probList.set("Degrees of Freedom", 2);
-        probList.sublist("Variable 0").set("Variable Type", "Laplace");
-        probList.sublist("Variable 1").set("Variable Type", "Laplace");
+        probList.get("Degrees of Freedom", 2);
+        probList.sublist("Variable 0").get("Variable Type", "Laplace");
+        probList.sublist("Variable 1").get("Variable Type", "Laplace");
         }
       }
     else if (eqn == "Stokes-B" || eqn == "Stokes-C" || eqn == "Bous-C")
       {
-      probList.set("Degrees of Freedom", dim_ + 1);
+      probList.get("Degrees of Freedom", dim_ + 1);
       pvar = dim_;
       if (eqn == "Bous-C")
         {
-        probList.set("Degrees of Freedom", dim_ + 2);
+        probList.get("Degrees of Freedom", dim_ + 2);
         pvar = dim_ + 1;
         }
 
       dof_ = probList.get("Degrees of Freedom", 1);
       for (int i = 0; i < dim_ * factor; i++)
-        probList.sublist("Variable " + Teuchos::toString(i)).set("Variable Type", "Velocity");
+        probList.sublist("Variable " + Teuchos::toString(i)).get("Variable Type", "Velocity");
 
       for (int i = pvar * factor; i < pvar * factor + factor; i++)
-        probList.sublist("Variable " + Teuchos::toString(i)).set("Variable Type", "Pressure");
+        probList.sublist("Variable " + Teuchos::toString(i)).get("Variable Type", "Pressure");
 
       for (int i = 0; i < dof_; i++)
         if (!probList.isSublist("Variable " + Teuchos::toString(i)))
-          probList.sublist("Variable " + Teuchos::toString(i)).set("Variable Type", "Laplace");
+          probList.sublist("Variable " + Teuchos::toString(i)).get("Variable Type", "Laplace");
 
-      if (precList.get("Fix Pressure Level", true))
-        {
-        // we fix the singularity by inserting a Dirichlet condition for
-        // global pressure node 2
-        precList.set("Fix GID 1", factor * pvar);
-        if (is_complex) precList.set("Fix GID 2", factor * pvar + 1);
-        }
 #ifdef HYMLS_TESTING
-      probList.set("Test F-Matrix Properties", true);
+      if (eqn == "Stokes-C")
+        probList.get("Test F-Matrix Properties", true);
+      else
+        probList.get("Test F-Matrix Properties", false);
 #endif
+
       if (eqn == "Stokes-B")
         {
         /*
@@ -171,14 +168,21 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
           // we fix the singularity by inserting a Dirichlet condition for
           // global pressure in cells 0 and 1, since we retain two pressures
           // per subdomain both will be retained until the coarsest grid.
-          // We use +nx*dof here to skip the dummy P-nodes (@).
-          precList.set("Fix GID 1", factor * pvar);
-          precList.set("Fix GID 2", factor * dof_ + factor * pvar);
+          precList.get("Fix GID 1", factor * pvar);
+          precList.get("Fix GID 2", factor * dof_ + factor * pvar);
           }
-        probList.set("Test F-Matrix Properties", false);
         }
       else
+        {
+        if (precList.get("Fix Pressure Level", true))
+          {
+          // we fix the singularity by inserting a Dirichlet condition for
+          // the first global pressure node
+          precList.get("Fix GID 1", factor * pvar);
+          if (is_complex) precList.get("Fix GID 2", factor * pvar + 1);
+          }
         retain_ = probList.get("Retained Pressure Nodes", 1);
+        }
       }
     else
       {
