@@ -39,6 +39,14 @@ namespace HYMLS {
   } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,msg_,STATUS); \
   if (!STATUS) return STATUS; 
 
+#define ASSERT_TRUE2(FCN,STATUS,VALUE)                                  \
+  try {                                                                 \
+    STATUS = FCN;                                                       \
+    if (!STATUS) {msg_ << "call "<<#FCN<<" returned false with " <<     \
+        #VALUE << " = " << VALUE << std::endl;}                         \
+    } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,msg_,STATUS);              \
+  if (!STATUS) return STATUS;
+
 #define ASSERT_EQUALITY(FCN1,FCN2,STATUS) \
   try { \
   STATUS = (FCN1 == FCN2); \
@@ -252,11 +260,11 @@ namespace HYMLS {
     double* val;
     int len;
     // make sure everyting is correctly initialized for this test:
-    ASSERT_TRUE(nx_>=0,status);
-    ASSERT_TRUE(ny_>=0,status);
-    ASSERT_TRUE(nz_>=0,status);
-    ASSERT_TRUE(dof_>=0,status);
-    ASSERT_TRUE(dim_>=0,status);
+    ASSERT_TRUE2(nx_>=0,status,nx_);
+    ASSERT_TRUE2(ny_>=0,status,ny_);
+    ASSERT_TRUE2(nz_>=0,status,nz_);
+    ASSERT_TRUE2(dof_>=0,status,dof_);
+    ASSERT_TRUE2(dim_>=0,status,dim_);
     msg_ << "nx="<<nx_<<std::endl;
     msg_ << "ny="<<ny_<<std::endl;
     msg_ << "nz="<<nz_<<std::endl;
@@ -289,10 +297,10 @@ namespace HYMLS {
             // map containing only separator nodes of subdomain j
             Teuchos::RCP<const Epetra_Map> smap_j = hid.SpawnMap(sd_j,HierarchicalMap::Separators);
             // basic sanity check - no node can be both interior and separator or neither
-            ASSERT_TRUE(imap_i->LID(gid_i)>=0 || smap_i->LID(gid_i)>=0, status);
-            ASSERT_TRUE(!(imap_i->LID(gid_i)>=0 && smap_i->LID(gid_i)>=0), status);
-            ASSERT_TRUE(imap_j->LID(gid_j)>=0 || smap_j->LID(gid_j)>=0, status);
-            ASSERT_TRUE(!(imap_j->LID(gid_j)>=0 && smap_j->LID(gid_j)>=0), status);
+            ASSERT_TRUE2(imap_i->LID(gid_i)>=0 || smap_i->LID(gid_i)>=0, status, gid_i);
+            ASSERT_TRUE2(!(imap_i->LID(gid_i)>=0 && smap_i->LID(gid_i)>=0), status, gid_i);
+            ASSERT_TRUE2(imap_j->LID(gid_j)>=0 || smap_j->LID(gid_j)>=0, status, gid_j);
+            ASSERT_TRUE2(!(imap_j->LID(gid_j)>=0 && smap_j->LID(gid_j)>=0), status, gid_j);
 
             // check these options
             // a) i is a separator of sd_i and sd_j, j is interior of either sd_i or sd_j.
@@ -537,9 +545,9 @@ namespace HYMLS {
     std::stringstream ss;
     std::string var = (v==0 ? "U": 
                       (v==1 ? "V":
-                      (v==2 && dim_==2 ? "P":
-                      (v==2 && dim_==3 ? "W":
-                      (v==3 ? "P":"X")))));
+                      (v==pvar_ ? "P":
+                      (v==2 ? "W":
+                      "X"))));
     ss<<"("<<i<<","<<j<<","<<k<<"):"<<var;
     return ss.str();
     }
