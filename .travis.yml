@@ -1,0 +1,36 @@
+language: cpp
+
+dist: xenial
+addons:
+  apt:
+    packages:
+      - git
+      - build-essential
+      - gfortran
+      - libopenmpi-dev
+      - openmpi-bin
+      - cmake-data
+      - cmake
+      - trilinos-all-dev
+      - libx11-dev
+      - x11proto-core-dev
+      - libopenblas-dev
+      - libhdf5-openmpi-dev
+      # Manual Trilinos dependencies, which are bugged in 16.04
+      - libmumps-dev
+      - binutils-dev
+      - libiberty-dev
+      - libtbb-dev
+      - libsuperlu-dev
+      - libptscotch-dev
+
+cache: ccache
+
+install:
+  - mkdir build
+  - cd build
+  - cmake ..
+  - make
+
+script:
+  - make check
