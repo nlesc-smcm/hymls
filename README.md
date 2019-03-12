@@ -54,19 +54,3 @@ The line "make test" will run all unit and integration tests and exit with a non
 A more verbose variant is "make check", which runs the same tests but prints the output. The integration tests are run
 with 8 MPI processes.
 After installing HYMLS, other packages should be able to find it through the cmake config.
-
-# Building the example
-
-The example can be seen as a separate project. After installing HYMLS, the example will be able to find it as long as the install prefix is in your path. So building it could go like
-
-```
-cd ~/build/example
-PATH=$PATH:${HOME}/local/bin:$HOME/Trilinos/bin cmake ~/hymls/example
-make
-```
-
-and you can run it with
-
-```
-./main ~/hymls/example/params.xml
-```
