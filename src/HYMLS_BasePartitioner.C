@@ -105,12 +105,15 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
       }
     else if (eqn == "Stokes-B" || eqn == "Stokes-C" || eqn == "Bous-C")
       {
-      probList.get("Degrees of Freedom", dim_ + 1);
-      pvar = dim_;
       if (eqn == "Bous-C")
         {
         probList.get("Degrees of Freedom", dim_ + 2);
-        pvar = dim_ + 1;
+        pvar = probList.get("Pressure Variable", dim_ + 1);
+        }
+      else
+        {
+        probList.get("Degrees of Freedom", dim_ + 1);
+        pvar = probList.get("Pressure Variable", dim_);
         }
 
       dof_ = probList.get("Degrees of Freedom", 1);
@@ -210,6 +213,7 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
     {
     Teuchos::ParameterList& varList = probList.sublist("Variable " + Teuchos::toString(i));
     std::string variableType = varList.get("Variable Type", "Laplace");
+
     if (variableType == "Laplace")
       variableType_[i] = 1;
     else if (variableType == "Velocity U")
@@ -238,6 +242,8 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
   if (vcount > 3)
     Tools::Error("Can only have three 'Velocity' variables",
       __FILE__, __LINE__);
+
+  probList.get("Pressure Variable", pvar);
 
 #ifdef HYMLS_TESTING
   Tester::nx_ = nx_;
