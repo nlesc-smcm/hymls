@@ -420,16 +420,13 @@ protected:
   
   //! get the decomposition object
   const HYMLS::OverlappingPartitioner& Partitioner() const {return *hid_;}
-  
- private:
-   
-   //! in this function we define a number of standard problems
-   //! for which the solver can be set up by simply setting the
-   //! "Equations" parameter in the "Problem" list. If it is
-   //! not set, one has to set the "Partitioner" sublist,
-   //! which is a little tricky (see this function for examples)
-   int SetProblemDefinition(std::string eqn, Teuchos::ParameterList& list);
 
+private:
+  //! We use a constant vector to generate the orthogonal transformation
+  //! for each separator group on the first level, and then keep track
+  //! of the coefficients by applying the OT to the vector and extracting
+  //! the V-sums on each level.
+  Teuchos::RCP<Epetra_Vector> CreateTestVector();
 
   };
 

@@ -359,46 +359,10 @@ if (sdSolverType_=="Dense")
   
 Tools::out() << "=============================="<<std::endl;
 
-  // we use a constant vector to generate the orthogonal transformation 
-  // for each separator group on the first level, and then keep track   
-  // of the coefficients by applying the OT to the vector and extracting
-  // the V-sums on each level.
-  if (testVector_==Teuchos::null)
-    {
-    testVector_=Teuchos::rcp(new Epetra_Vector(*rangeMap_));
-    testVector_->PutScalar(1.0);
-    }
-  else
-    {
-    if (testVector_->Map().SameAs(*rangeMap_)==false)
-      {
-      Tools::Error("incompatible maps found!",__FILE__,__LINE__);
-      }
-    }
-    
-  Epetra_Vector tmpVec(*rowMap_);
-  Teuchos::RCP<Epetra_Vector> testVector2 = Teuchos::rcp(new Epetra_Vector(map2));
-  Teuchos::RCP<Epetra_Import> import2 = Teuchos::rcp(new Epetra_Import(map2, *rowMap_));
-  CHECK_ZERO(tmpVec.Import(*testVector_,*importer_,Insert));
-  CHECK_ZERO(testVector2->Import(tmpVec,*import2,Insert));
-
-#ifdef STORE_TESTVECTOR
-  Teuchos::RCP<Epetra_Import> importer = Teuchos::rcp(new Epetra_Import(Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_)->DomainMap(), *rangeMap_));
-  Epetra_Vector tmpVec2(Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_)->DomainMap());
-  tmpVec2.Import(*testVector_, *importer, Insert);
-
-  Epetra_Vector out(*rangeMap_);
-  matrix_->Multiply(false, tmpVec2, out);
-  MatrixUtils::Dump(*testVector_, "testVec"+Teuchos::toString(myLevel_)+".txt");
-  MatrixUtils::Dump(out, "multVec"+Teuchos::toString(myLevel_)+".txt");
-  MatrixUtils::Dump(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_), "multMat"+Teuchos::toString(myLevel_)+".txt");
-
-  MatrixUtils::Dump(*testVector2, "testVecDrop"+Teuchos::toString(myLevel_)+".txt");
-#endif
-
   HYMLS_DEBUG("Construct schur-preconditioner");
+  Teuchos::RCP<Epetra_Vector> testVector = CreateTestVector();
   schurPrec_=Teuchos::rcp(new SchurPreconditioner(Schur_,hid_,
-      getMyNonconstParamList(), myLevel_, testVector2));
+      getMyNonconstParamList(), myLevel_, testVector));
   
   CHECK_ZERO(schurPrec_->Initialize());
 
@@ -686,6 +650,46 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
     {
     schurPrec_->Visualize(mfilename);
     }
+  }
+
+Teuchos::RCP<Epetra_Vector> Preconditioner::CreateTestVector()
+  {
+  if (testVector_==Teuchos::null)
+    {
+    testVector_=Teuchos::rcp(new Epetra_Vector(*rangeMap_));
+    testVector_->PutScalar(1.0);
+    }
+  else
+    {
+    if (testVector_->Map().SameAs(*rangeMap_)==false)
+      {
+      Tools::Error("incompatible maps found!",__FILE__,__LINE__);
+      }
+    }
+
+  Epetra_Map const &map2 = A22_->RowMap();
+
+  Epetra_Vector tmpVec(*rowMap_);
+  Teuchos::RCP<Epetra_Vector> testVector2 = Teuchos::rcp(new Epetra_Vector(map2));
+  Teuchos::RCP<Epetra_Import> import2 = Teuchos::rcp(new Epetra_Import(map2, *rowMap_));
+  CHECK_ZERO(tmpVec.Import(*testVector_,*importer_,Insert));
+  CHECK_ZERO(testVector2->Import(tmpVec,*import2,Insert));
+
+#ifdef STORE_TESTVECTOR
+  Teuchos::RCP<Epetra_Import> importer = Teuchos::rcp(new Epetra_Import(Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_)->DomainMap(), *rangeMap_));
+  Epetra_Vector tmpVec2(Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_)->DomainMap());
+  tmpVec2.Import(*testVector_, *importer, Insert);
+
+  Epetra_Vector out(*rangeMap_);
+  matrix_->Multiply(false, tmpVec2, out);
+  MatrixUtils::Dump(*testVector_, "testVec"+Teuchos::toString(myLevel_)+".txt");
+  MatrixUtils::Dump(out, "multVec"+Teuchos::toString(myLevel_)+".txt");
+  MatrixUtils::Dump(*Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_), "multMat"+Teuchos::toString(myLevel_)+".txt");
+
+  MatrixUtils::Dump(*testVector2, "testVecDrop"+Teuchos::toString(myLevel_)+".txt");
+#endif
+
+  return testVector2;
   }
 
 //////////////////////////////////
