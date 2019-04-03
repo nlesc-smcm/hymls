@@ -22,16 +22,16 @@ class Householder : public OrthogonalTransform
   virtual ~Householder();
 
   //! compute X=H*X in place
-  int Apply(Epetra_SerialDenseMatrix& X) const;
+  // int Apply(Epetra_SerialDenseMatrix& X) const;
 
-  //! compute X=X*H' in place
-  int ApplyR(Epetra_SerialDenseMatrix& X) const;
+  // //! compute X=X*H' in place
+  // int ApplyR(Epetra_SerialDenseMatrix& X) const;
 
-  //! compute X=H*Y*H' in place
-  int ApplyLR(Epetra_SerialDenseMatrix& X) const;
+  // //! compute X=H*Y*H' in place
+  // int ApplyLR(Epetra_SerialDenseMatrix& X) const;
 
-  //! compute X=H'*X in place
-  int ApplyInverse(Epetra_SerialDenseMatrix& X) const;
+  // //! compute X=H'*X in place
+  // int ApplyInverse(Epetra_SerialDenseMatrix& X) const;
 
   //! compute X=H*X in place, with H=I-2v'v
   int Apply(Epetra_SerialDenseMatrix& X,
@@ -45,9 +45,9 @@ class Householder : public OrthogonalTransform
   int ApplyInverse(Epetra_SerialDenseMatrix& X,
              const Epetra_SerialDenseVector& v) const;
 
-  //! explicitly form the OT as a dense matrix. The dimension is given by
-  //! the size of the output matrix.
-  int Construct(Epetra_SerialDenseMatrix& M) const;
+  // //! explicitly form the OT as a dense matrix. The dimension is given by
+  // //! the size of the output matrix.
+  // int Construct(Epetra_SerialDenseMatrix& M) const;
 
   //! explicitly form the OT as a sparse matrix. The dimension and indices
   //! of the entries to be transformed are given by 
@@ -56,12 +56,12 @@ class Householder : public OrthogonalTransform
   //! for simultaneously applying many transforms. Always use the corresponding
   //! Apply() functions to apply the transform rather than sparse matrix-matrix
   //! products.
-  virtual int Construct(Epetra_CrsMatrix& H,
-#ifdef HYMLS_LONG_LONG
-    const Epetra_LongLongSerialDenseVector& inds) const;
-#else
-    const Epetra_IntSerialDenseVector& inds) const;
-#endif
+//   virtual int Construct(Epetra_CrsMatrix& H,
+// #ifdef HYMLS_LONG_LONG
+//     const Epetra_LongLongSerialDenseVector& inds) const;
+// #else
+//     const Epetra_IntSerialDenseVector& inds) const;
+// #endif
   //! cf. previous function
   virtual int Construct(Epetra_CrsMatrix& H,
 #ifdef HYMLS_LONG_LONG

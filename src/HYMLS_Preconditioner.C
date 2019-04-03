@@ -43,8 +43,8 @@ namespace HYMLS {
   // constructor
   Preconditioner::Preconditioner(Teuchos::RCP<const Epetra_RowMatrix> K, 
       Teuchos::RCP<Teuchos::ParameterList> params,
-      Teuchos::RCP<const OverlappingPartitioner> hid,
-      int myLevel, Teuchos::RCP<Epetra_Vector> testVector)
+      Teuchos::RCP<Epetra_Vector> testVector, int myLevel,
+      Teuchos::RCP<const OverlappingPartitioner> hid)
       : PLA("Preconditioner"),
         comm_(Teuchos::rcp(K->Comm().Clone())), matrix_(K),
         rangeMap_(Teuchos::rcp(new Epetra_Map(K->RowMatrixRowMap()))),

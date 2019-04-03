@@ -21,17 +21,17 @@ class OrthogonalTransform
   
   public:
   
-  //! compute X=Q*X in place
-  virtual int Apply(Epetra_SerialDenseMatrix& X) const = 0;
+  // //! compute X=Q*X in place
+  // virtual int Apply(Epetra_SerialDenseMatrix& X) const = 0;
 
-  //! compute X=X*Q' in place
-  virtual int ApplyR(Epetra_SerialDenseMatrix& X) const = 0;
+  // //! compute X=X*Q' in place
+  // virtual int ApplyR(Epetra_SerialDenseMatrix& X) const = 0;
 
-  //! compute X=Q*Y*Q' in place
-  virtual int ApplyLR(Epetra_SerialDenseMatrix& X) const = 0;
+  // //! compute X=Q*Y*Q' in place
+  // virtual int ApplyLR(Epetra_SerialDenseMatrix& X) const = 0;
 
-  //! compute X=Q'X in place
-  virtual int ApplyInverse(Epetra_SerialDenseMatrix& X) const = 0;
+  // //! compute X=Q'X in place
+  // virtual int ApplyInverse(Epetra_SerialDenseMatrix& X) const = 0;
 
   //! compute X=Q*X in place 
   //! with a vector passed in to define the transformation
@@ -48,9 +48,9 @@ class OrthogonalTransform
   virtual int ApplyInverse(Epetra_SerialDenseMatrix& X,
                      const Epetra_SerialDenseVector& v) const = 0;
 
-  //! explicitly form the OT as a dense matrix. The dimension is given by
-  //! the size of the output matrix.
-  virtual int Construct(Epetra_SerialDenseMatrix& M) const = 0;
+  // //! explicitly form the OT as a dense matrix. The dimension is given by
+  // //! the size of the output matrix.
+  // virtual int Construct(Epetra_SerialDenseMatrix& M) const = 0;
 
   //! explicitly form the OT as a sparse matrix. The dimension and indices
   //! of the entries to be transformed are given by 
@@ -60,12 +60,12 @@ class OrthogonalTransform
   //! Apply() functions to apply the transform rather than sparse matrix-matrix
   //! products. If vec is omitted, it is set to all ones. Otherwise it is used 
   //! as a test vector from which all but one entries should be eliminated.
-  virtual int Construct(Epetra_CrsMatrix& H,
-#ifdef HYMLS_LONG_LONG
-    const Epetra_LongLongSerialDenseVector& inds) const = 0;
-#else
-    const Epetra_IntSerialDenseVector& inds) const = 0;
-#endif
+//   virtual int Construct(Epetra_CrsMatrix& H,
+// #ifdef HYMLS_LONG_LONG
+//     const Epetra_LongLongSerialDenseVector& inds) const = 0;
+// #else
+//     const Epetra_IntSerialDenseVector& inds) const = 0;
+// #endif
   //! cf. previous function
   virtual int Construct(Epetra_CrsMatrix& H,
 #ifdef HYMLS_LONG_LONG

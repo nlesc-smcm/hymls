@@ -76,7 +76,7 @@ public:
   static bool isDDcorrect(const Epetra_CrsMatrix& A, const HYMLS::OverlappingPartitioner& hid);
 
   //! check that the vector V is divergence free, i.e. A*V has a zero p-part
-  static bool isDivFree(const Epetra_CrsMatrix& A, const Epetra_MultiVector &V, double tol=1e-4);
+  static bool isDivFree(const Epetra_CrsMatrix& A, const Epetra_MultiVector &V, double tol=1e-8);
 
   //! in the Schur-preconditioner, check that only V-P couplings are dropped which
   //! have been reduced to zero by a transformation

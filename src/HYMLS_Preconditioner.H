@@ -99,10 +99,10 @@ public:
   //! SpawnNextLevel())                                   
   //!                                                     
   Preconditioner(Teuchos::RCP<const Epetra_RowMatrix> K, 
-      Teuchos::RCP<Teuchos::ParameterList> params,
-      Teuchos::RCP<const OverlappingPartitioner> hid=Teuchos::null,
-      int myLevel=1,
-      Teuchos::RCP<Epetra_Vector> testVector=Teuchos::null);
+    Teuchos::RCP<Teuchos::ParameterList> params,
+    Teuchos::RCP<Epetra_Vector> testVector=Teuchos::null,
+    int myLevel=1,
+    Teuchos::RCP<const OverlappingPartitioner> hid=Teuchos::null);
 
   //! destructor
   virtual ~Preconditioner();

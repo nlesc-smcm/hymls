@@ -205,6 +205,45 @@ Teuchos::RCP<Epetra_Map> create_map(const Epetra_Comm& comm,
   return Teuchos::rcp(new Epetra_Map(part->Map()));
   }
 
+Teuchos::RCP<Epetra_Vector> create_testvector(
+  Teuchos::ParameterList &probl_params,
+  Epetra_CrsMatrix const &matrix)
+  {
+  std::string eqn = probl_params.get("Equations", "Laplace");
+
+  Teuchos::RCP<Epetra_Vector> testvector =
+    Teuchos::rcp(new Epetra_Vector(matrix.RowMap()));
+  testvector->PutScalar(1.0);
+
+  if (eqn == "Stokes-B")
+    {
+    int nx = probl_params.get("nx", 32);
+    int dof = probl_params.get("Degrees of Freedom", -1);
+    for (int i = 0; i < matrix.NumMyRows(); i++)
+      {
+      hymls_gidx grid = matrix.GRID64(i);
+      if (grid % dof == 0)
+        (*testvector)[i] = ((grid / dof) % 2) * 2 - 1;
+      else if (grid % dof == 1)
+        (*testvector)[i] = ((grid / dof / nx) % 2) * 2 - 1;
+      else
+        (*testvector)[i] = 1.0;
+      }
+    }
+
+  // Remove boundary conditions
+  for (int i = 0; i < matrix.NumMyRows(); i++)
+    {
+    int len;
+    double *values;
+    int *indices;
+    CHECK_ZERO(matrix.ExtractMyRowView(i, len, values, indices));
+    if (len == 1 && matrix.GCID64(indices[0]) == matrix.GRID64(i))
+      (*testvector)[i] = 0.0;
+    }
+  return testvector;
+  }
+
 Teuchos::RCP<Epetra_CrsMatrix> create_matrix(const Epetra_Map& map,
                                 Teuchos::ParameterList& probl_params,
                                 std::string galeriLabel,

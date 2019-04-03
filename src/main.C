@@ -19,6 +19,8 @@
 #include <signal.h>
 #endif
 
+#include "HYMLS_Tester.H"
+
 #include "main_utils.H"
 
 #ifdef EPETRA_HAVE_OMP
@@ -77,6 +79,7 @@ bool status=true;
   Teuchos::RCP<Epetra_CrsMatrix> K = Teuchos::null;
   Teuchos::RCP<Epetra_Vector> u_ex = Teuchos::null;
   Teuchos::RCP<Epetra_Vector> f = Teuchos::null;
+  Teuchos::RCP<Epetra_Vector> testvector = Teuchos::null;
   Teuchos::RCP<HYMLS::Preconditioner> precond = Teuchos::null;
   Teuchos::RCP<HYMLS::Solver> solver = Teuchos::null;
   Teuchos::RCP<Epetra_CrsMatrix> M = Teuchos::null;
@@ -315,10 +318,12 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
   Epetra_Vector diagK(*map);
   CHECK_ZERO(K->ExtractDiagonalCopy(diagK));
 
+  testvector = HYMLS::MainUtils::create_testvector(probl_params_cpy, *K);
+
   HYMLS::Tools::Out("Create Preconditioner");
 
   HYMLS::Tools::StartMemory("main: Initialize Preconditioner");
-  precond = Teuchos::rcp(new HYMLS::Preconditioner(K, params));
+  precond = Teuchos::rcp(new HYMLS::Preconditioner(K, params, testvector));
 
   HYMLS::Tools::Out("Initialize Preconditioner...");
   HYMLS::Tools::StartTiming("main: Initialize Preconditioner");
@@ -512,6 +517,7 @@ HYMLS_DEBVAR(*b);
   K = Teuchos::null;
   u_ex = Teuchos::null;
   f = Teuchos::null;
+  testvector = Teuchos::null;
   precond = Teuchos::null;
   solver = Teuchos::null;
   M = Teuchos::null;

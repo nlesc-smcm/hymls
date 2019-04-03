@@ -365,10 +365,13 @@ int runTest(Teuchos::RCP<const Epetra_Comm> comm,
     // want in the original list.
     getLinearSystem(comm, params_copy, K, M, b, x_ex, nullSpace);
 
+    Teuchos::RCP<Epetra_Vector> testvector =
+      HYMLS::MainUtils::create_testvector(params_copy->sublist("Problem"), *K);
+
     HYMLS::Tools::Out("Create Preconditioner");
 
     Teuchos::RCP<HYMLS::Preconditioner> precond = Teuchos::rcp(new HYMLS::Preconditioner(K,
-          params_copy));
+        params_copy, testvector));
 
     HYMLS::Tools::Out("Initialize Preconditioner...");
     CHECK_ZERO(precond->Initialize());

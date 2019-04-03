@@ -990,8 +990,8 @@ int SchurPreconditioner::InitializeNextLevel()
       //      outside the if statement because we will always create a Preconditioner
       //      object for the reduced problem.
       reducedSchurSolver_= Teuchos::rcp(new
-        Preconditioner(reducedSchur_, nextLevelParams, nextLevelHID_,
-          myLevel_+1, nextTestVector));
+        Preconditioner(reducedSchur_, nextLevelParams,
+          nextTestVector, myLevel_+1, nextLevelHID_));
       }
     else
       {

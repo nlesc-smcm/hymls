@@ -10,6 +10,11 @@
 #include "Epetra_MultiVector.h"
 #include "EpetraExt_MatrixMatrix.h"
 
+double sign(double x)
+{
+    return (x < 0) ? -1 : (x > 0);
+}
+
 namespace HYMLS {
 
  
@@ -26,133 +31,135 @@ namespace HYMLS {
      {
      }
    
-  //! compute X=Q*X in place
-  int Householder::Apply(Epetra_SerialDenseMatrix& X) const
-    {
-    HYMLS_PROF3(label_, "Apply (1)");
-    // X = (2vv'/v'v-I)Y
-    // can be written as X = Z-Y, Z= (2/nrmv^2 v'Y)v
-    // (we use a vector v which is 1 everywhere except that the first entry is 1+sqrt(n))
-    int n=X.M();
-    double sqn=sqrt((double)n);
-    double v1=1+sqn; // first vector element, all others are 1
-    double fac1 = 1.0/(n+sqn); // 2/v'v
-    for (int k=0;k<X.N();k++)
-      {
-      // v'x
-      double fac2 = sqn*X[k][0];
-      for (int i=0;i<n;i++) 
-        {
-        fac2+= X[k][i];
-        }
-      double fac=fac1*fac2;
-      X[k][0]=v1*fac-X[k][0];
-      for (int i=1;i<n;i++) 
-        {
-        X[k][i]=fac-X[k][i];
-        }
-      }
-    return 0;
-    }
+  // //! compute X=Q*X in place
+  // int Householder::Apply(Epetra_SerialDenseMatrix& X) const
+  //   {
+  //   HYMLS_PROF3(label_, "Apply (1)");
+  //   // X = (2vv'/v'v-I)Y
+  //   // can be written as X = Z-Y, Z= (2/nrmv^2 v'Y)v
+  //   // (we use a vector v which is 1 everywhere except that the first entry is 1+sqrt(n))
+  //   int n=X.M();
+  //   double sqn=sqrt((double)n);
+  //   double v1=1+sqn; // first vector element, all others are 1
+  //   double fac1 = 1.0/(n+sqn); // 2/v'v
+  //   for (int k=0;k<X.N();k++)
+  //     {
+  //     // v'x
+  //     double fac2 = sqn*X[k][0];
+  //     for (int i=0;i<n;i++) 
+  //       {
+  //       fac2+= X[k][i];
+  //       }
+  //     double fac=fac1*fac2;
+  //     X[k][0]=v1*fac-X[k][0];
+  //     for (int i=1;i<n;i++) 
+  //       {
+  //       X[k][i]=fac-X[k][i];
+  //       }
+  //     }
+  //   return 0;
+  //   }
 
-  //! compute X=X*Q' in place
-  int Householder::ApplyR(Epetra_SerialDenseMatrix& X) const
-    {
-    HYMLS_PROF3(label_, "ApplyR (1)");
-    int n=X.N();
-    double sqn=sqrt((double)n);
-    double v1=1+sqn; // first vector element, all others are 1
-    double fac1 = 1.0/(n+sqn); // 2/v'v
-    for (int k=0;k<X.M();k++)
-      {
-      // v'x
-      double fac2 = sqn*X[0][k];
-      for (int i=0;i<n;i++) 
-        {
-        fac2+= X[i][k];
-        }
-      double fac=fac1*fac2;
-      X[0][k]=v1*fac-X[0][k];
-      for (int i=1;i<n;i++) 
-        {
-        X[i][k]=fac-X[i][k];
-        }
-      }
-    return 0;
-    }
+  // //! compute X=X*Q' in place
+  // int Householder::ApplyR(Epetra_SerialDenseMatrix& X) const
+  //   {
+  //   HYMLS_PROF3(label_, "ApplyR (1)");
+  //   int n=X.N();
+  //   double sqn=sqrt((double)n);
+  //   double v1=1+sqn; // first vector element, all others are 1
+  //   double fac1 = 1.0/(n+sqn); // 2/v'v
+  //   for (int k=0;k<X.M();k++)
+  //     {
+  //     // v'x
+  //     double fac2 = sqn*X[0][k];
+  //     for (int i=0;i<n;i++) 
+  //       {
+  //       fac2+= X[i][k];
+  //       }
+  //     double fac=fac1*fac2;
+  //     X[0][k]=v1*fac-X[0][k];
+  //     for (int i=1;i<n;i++) 
+  //       {
+  //       X[i][k]=fac-X[i][k];
+  //       }
+  //     }
+  //   return 0;
+  //   }
 
-  //! compute X=Q*Y*Q' in place
-  int Householder::ApplyLR(Epetra_SerialDenseMatrix& Y) const
-    {
-    HYMLS_PROF3(label_, "ApplyLR (1)");
-    // let Y \in R^{m x n}
-    // Q = (1-alpha*vv')=Q', alpha = 2/(v'*v)
-    // Y = (I-alpha_m*vmvm') Y (1-alpha_n*vnvn')
-    //   = Y - alpha_n Avnvn' - alpha_m vmvm'A + alpha_n*alpha_m vmvm'Avnvn'
-    int n=Y.N();
-    int m=Y.M();
-    double sqn=sqrt((double)n);
-    double sqm=sqrt((double)m);
-    double alpha_n = 1.0/(n+sqn); // 2/v'v
-    double alpha_m = 1.0/(m+sqm); // 2/v'v
+  // //! compute X=Q*Y*Q' in place
+  // int Householder::ApplyLR(Epetra_SerialDenseMatrix& Y) const
+  //   {
+  //   HYMLS_PROF3(label_, "ApplyLR (1)");
+  //   // let Y \in R^{m x n}
+  //   // Q = (1-alpha*vv')=Q', alpha = 2/(v'*v)
+  //   // Y = (I-alpha_m*vmvm') Y (1-alpha_n*vnvn')
+  //   //   = Y - alpha_n Avnvn' - alpha_m vmvm'A + alpha_n*alpha_m vmvm'Avnvn'
+  //   int n=Y.N();
+  //   int m=Y.M();
+  //   double sqn=sqrt((double)n);
+  //   double sqm=sqrt((double)m);
+  //   double alpha_n = 1.0/(n+sqn); // 2/v'v
+  //   double alpha_m = 1.0/(m+sqm); // 2/v'v
 
-    // our implementation is very unoptimized right now, we 
-    // simply use matrix-vector products and do not make use
-    // of the special structure of the vectors or the operations
-    Epetra_SerialDenseVector vm(m);
-    Epetra_SerialDenseVector vn(n);
+  //   // our implementation is very unoptimized right now, we 
+  //   // simply use matrix-vector products and do not make use
+  //   // of the special structure of the vectors or the operations
+  //   Epetra_SerialDenseVector vm(m);
+  //   Epetra_SerialDenseVector vn(n);
     
-    vn(0)=1.0+sqn;
-    for (int i=1;i<n;i++) vn(i)=1.0;
-    vm(0)=1.0+sqm;
-    for (int i=1;i<m;i++) vm(i)=1.0;
+  //   vn(0)=1.0+sqn;
+  //   for (int i=1;i<n;i++) vn(i)=1.0;
+  //   vm(0)=1.0+sqm;
+  //   for (int i=1;i<m;i++) vm(i)=1.0;
     
-    // compute A*vn, an m-vector
-    Epetra_SerialDenseVector Avn(m);
-    // for some reason the 'const' attribute is missing on this function
-    CHECK_ZERO(Y.Multiply(false,vn,Avn));
+  //   // compute A*vn, an m-vector
+  //   Epetra_SerialDenseVector Avn(m);
+  //   // for some reason the 'const' attribute is missing on this function
+  //   CHECK_ZERO(Y.Multiply(false,vn,Avn));
     
-    // compute vm'*A, an n-vector
-    Epetra_SerialDenseVector vmTA(n);
-    CHECK_ZERO(Y.Multiply(true,vm,vmTA));
+  //   // compute vm'*A, an n-vector
+  //   Epetra_SerialDenseVector vmTA(n);
+  //   CHECK_ZERO(Y.Multiply(true,vm,vmTA));
     
-    double vTAv = vmTA.Dot(vn);
+  //   double vTAv = vmTA.Dot(vn);
         
-    // perform rank 1 updates
-    // (TODO: optimize this by avoiding all the multiplies with 1)
-    double factor = alpha_m*alpha_n*vTAv;
-    for (int j=0;j<n;j++)
-      for (int i=0;i<m;i++)
-        {
-        // X = Y - alpha_n Avnvn' - alpha_m vmvm'A + factor*vn*vm'
-        Y(i,j)=Y(i,j) - alpha_n*Avn(i)*vn(j) - alpha_m*vm(i)*vmTA(j)
-                      + factor*vm(i)*vn(j);
-        }
-    return 0;
-    }
+  //   // perform rank 1 updates
+  //   // (TODO: optimize this by avoiding all the multiplies with 1)
+  //   double factor = alpha_m*alpha_n*vTAv;
+  //   for (int j=0;j<n;j++)
+  //     for (int i=0;i<m;i++)
+  //       {
+  //       // X = Y - alpha_n Avnvn' - alpha_m vmvm'A + factor*vn*vm'
+  //       Y(i,j)=Y(i,j) - alpha_n*Avn(i)*vn(j) - alpha_m*vm(i)*vmTA(j)
+  //                     + factor*vm(i)*vn(j);
+  //       }
+  //   return 0;
+  //   }
     
 
-  int Householder::ApplyInverse(Epetra_SerialDenseMatrix& X) const
-    {
-    return Apply(X);
-    }
+  // int Householder::ApplyInverse(Epetra_SerialDenseMatrix& X) const
+  //   {
+  //   return Apply(X);
+  //   }
     
   //! compute X=Q*X in place
   int Householder::Apply(Epetra_SerialDenseMatrix& X,
-                   const Epetra_SerialDenseVector& v) const
+                   const Epetra_SerialDenseVector& v0) const
     {
     HYMLS_PROF3(label_, "Apply (2)");
     // X = (2vv'/v'v-I)Y
     // can be written as X = Z-Y, Z= (2/nrmv^2 v'Y)v
     const int n=X.M();
 #ifdef HYMLS_TESTING
-    if (v.Length()!=n)
+    if (v0.Length()!=n)
       {
       return -1;
       }
 #endif
+    Epetra_SerialDenseVector v(v0);
+    v.Scale(sign(v0(0)));
     const double nrmv=v.Norm2();
-    const double v1=v(0)+nrmv; // first vector element, all others are those in v
+    const double v1 = v(0) + nrmv; // first vector element, all others are those in v
     // this is 2/(v'v) with the adjusted v
     const double fac1 = 1.0/(nrmv*v1);
     double *Xrow;
@@ -178,21 +185,23 @@ namespace HYMLS {
 
   //! compute X=X*Q' in place
   int Householder::ApplyR(Epetra_SerialDenseMatrix& X,
-                    const Epetra_SerialDenseVector& v) const
+                    const Epetra_SerialDenseVector& v0) const
     {
     HYMLS_PROF3(label_, "ApplyR (2)");
     // X = (2vv'/v'v-I)Y
     // can be written as X = Z-X, Z= (2/nrmv^2 v'Y)v
     int n=X.N();
 #ifdef HYMLS_TESTING
-    if (v.Length()!=n)
+    if (v0.Length()!=n)
       {
       return -1;
       }
 #endif
+    Epetra_SerialDenseVector v(v0);
+    v.Scale(sign(v0(0)));
     // to zero out all but the first entry in v, use v
     const double nrmv=v.Norm2();
-    const double v1=v(0)+nrmv; // first vector element, all others are those in v
+    const double v1 = v(0) + nrmv; // first vector element, all others are those in v
     // this is 2/(v'v) with the adjusted v
     const double fac1 = 1.0/(nrmv*v1);
     const double *vvalues = v.Values();
@@ -220,56 +229,56 @@ namespace HYMLS {
     return Apply(X,v);
     }
 
-  //! explicitly form the OT as a dense matrix. The dimension is given by
-  //! the size of the output matrix.
-  int Householder::Construct(Epetra_SerialDenseMatrix& M) const
-    {
-    HYMLS_PROF3(label_, "Construct (1)");
-    int n=M.N();
-#ifdef HYMLS_TESTING
-    if (M.M()!=n)
-      {
-      return -1;
-      }
-#endif
+//   //! explicitly form the OT as a dense matrix. The dimension is given by
+//   //! the size of the output matrix.
+//   int Householder::Construct(Epetra_SerialDenseMatrix& M) const
+//     {
+//     HYMLS_PROF3(label_, "Construct (1)");
+//     int n=M.N();
+// #ifdef HYMLS_TESTING
+//     if (M.M()!=n)
+//       {
+//       return -1;
+//       }
+// #endif
 
-    double sqn=sqrt((double)n);
+//     double sqn=sqrt((double)n);
 
-    double alpha_n = 1.0/(n+sqn); // 2/v'v
+//     double alpha_n = 1.0/(n+sqn); // 2/v'v
 
-    Epetra_SerialDenseVector vn(n);
+//     Epetra_SerialDenseVector vn(n);
     
-    vn(0)=1.0+sqn;
-    for (int i=1;i<n;i++) vn(i)=1.0;
+//     vn(0)=1.0+sqn;
+//     for (int i=1;i<n;i++) vn(i)=1.0;
 
-    for (int i=0;i<n;i++)
-      {
-      for (int j=0;j<n;j++)
-        {
-        M(i,j)=vn(i)*vn(j)*alpha_n;
-        }
-      M(i,i)-=1.0;
-      }
-    return 0;
-    }
+//     for (int i=0;i<n;i++)
+//       {
+//       for (int j=0;j<n;j++)
+//         {
+//         M(i,j)=vn(i)*vn(j)*alpha_n;
+//         }
+//       M(i,i)-=1.0;
+//       }
+//     return 0;
+//     }
 
 
-  // explicitly form the OT as a sparse matrix. We only put in a sparse
-  // matrix representation of the vector w=v'/sqrt(v'v), so when applying the operator
-  // we have to apply I-2w'w.
-  int Householder::Construct(Epetra_CrsMatrix& H,
-#ifdef HYMLS_LONG_LONG
-    const Epetra_LongLongSerialDenseVector& inds) const
-#else
-    const Epetra_IntSerialDenseVector& inds) const
-#endif
-    {
-    HYMLS_PROF3(label_, "Construct (2)");
-    int n=inds.Length();
-    Epetra_SerialDenseVector vec(n);
-    for (int i=0;i<n;i++) vec[i]=1.0;
-    return this->Construct(H,inds,vec);
-    }
+//   // explicitly form the OT as a sparse matrix. We only put in a sparse
+//   // matrix representation of the vector w=v'/sqrt(v'v), so when applying the operator
+//   // we have to apply I-2w'w.
+//   int Householder::Construct(Epetra_CrsMatrix& H,
+// #ifdef HYMLS_LONG_LONG
+//     const Epetra_LongLongSerialDenseVector& inds) const
+// #else
+//     const Epetra_IntSerialDenseVector& inds) const
+// #endif
+//     {
+//     HYMLS_PROF3(label_, "Construct (2)");
+//     int n=inds.Length();
+//     Epetra_SerialDenseVector vec(n);
+//     for (int i=0;i<n;i++) vec[i]=1.0;
+//     return this->Construct(H,inds,vec);
+//     }
 
   int Householder::Construct(Epetra_CrsMatrix& H,
 #ifdef HYMLS_LONG_LONG
@@ -286,7 +295,8 @@ namespace HYMLS {
     int n=vec.Length();
     hymls_gidx row=inds[0];
     double nrm=vec.Norm2();
-    v[0]=v[0]+nrm;
+    v.Scale(sign(v[0]));
+    v[0] = v[0] + nrm;
     nrm=v.Norm2();
     CHECK_ZERO(v.Scale(1.0/nrm));
 
