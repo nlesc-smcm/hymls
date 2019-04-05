@@ -17,7 +17,8 @@
 #include "Teuchos_ParameterListAcceptorHelpers.hpp"
 #include "Teuchos_StandardCatchMacros.hpp"
 
-#include <BelosIMGSOrthoManager.hpp>
+#include "BelosEpetraAdapter.hpp"
+#include "BelosIMGSOrthoManager.hpp"
 
 #include "HYMLS_config.h"
 

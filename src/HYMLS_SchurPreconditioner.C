@@ -5,7 +5,6 @@
 #include "HYMLS_Macros.H"
 #include "HYMLS_Tools.H"
 #include "HYMLS_MatrixUtils.H"
-
 #include "HYMLS_OverlappingPartitioner.H"
 #include "HYMLS_SchurComplement.H"
 #include "HYMLS_Preconditioner.H"
@@ -16,16 +15,21 @@
 #include "Epetra_Map.h"
 #include "Epetra_RowMatrix.h"
 #include "Epetra_Import.h"
-#include "Epetra_IntVector.h"
 #include "Epetra_MultiVector.h"
 #include "Epetra_FECrsMatrix.h"
 #include "Epetra_SerialDenseVector.h"
-#include "Ifpack_Amesos.h"
+#include "Epetra_BlockMap.h"
+#include "Epetra_CrsMatrix.h"
+#include "Epetra_IntSerialDenseVector.h"
+#include "Epetra_MpiComm.h"
+#include "Epetra_Operator.h"
+#include "Epetra_Vector.h"
+
 #include "Teuchos_RCP.hpp"
-#include "Teuchos_ArrayView.hpp"
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_StandardCatchMacros.hpp"
 
+#include "Ifpack_Container.h"
 #include "Ifpack_DenseContainer.h"
 #include "Ifpack_SparseContainer.h"
 #include "Ifpack_Amesos.h"
@@ -34,12 +38,16 @@
 #include "EpetraExt_Reindex_MultiVector.h"
 #include "./EpetraExt_RestrictedCrsMatrixWrapper.h"
 #include "./EpetraExt_RestrictedMultiVectorWrapper.h"
-#include "EpetraExt_MatrixMatrix.h"
 
 #include "HYMLS_AugmentedMatrix.H"
 #include "HYMLS_Tester.H"
+#include "HYMLS_Epetra_Time.h"
+#include "HYMLS_HierarchicalMap.H"
+#include "HYMLS_OrthogonalTransform.H"
 
 #include <fstream>
+#include <algorithm>
+#include <iostream>
 
 namespace HYMLS {
 

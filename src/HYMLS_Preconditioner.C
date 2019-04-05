@@ -11,19 +11,20 @@
 #include "HYMLS_SchurPreconditioner.H"
 #include "HYMLS_MatrixBlock.H"
 
-#include <Epetra_Time.h> 
 #include "Epetra_Comm.h"
 #include "Epetra_SerialComm.h"
 #include "Epetra_Map.h"
 #include "Epetra_RowMatrix.h"
 #include "Epetra_Import.h"
-#include "Epetra_Export.h"
 #include "Epetra_SerialDenseMatrix.h"
-#include "Epetra_SerialDenseVector.h"
-
-#include "EpetraExt_MatrixMatrix.h"
+#include "Epetra_BlockMap.h"
+#include "Epetra_MultiVector.h"
+#include "Epetra_Vector.h"
 
 #include "HYMLS_Tester.H"
+#include "HYMLS_Epetra_Time.h"
+#include "HYMLS_HierarchicalMap.H"
+#include "HYMLS_Macros.H"
 
 #ifdef HYMLS_TESTING
 #include "Epetra_FECrsMatrix.h"
@@ -33,8 +34,6 @@
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_StandardParameterEntryValidators.hpp"
 #include "Teuchos_Utils.hpp"
-
-#include "Teuchos_StandardCatchMacros.hpp"
 
 #include <fstream>
 

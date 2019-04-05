@@ -4,21 +4,24 @@
 #include "HYMLS_config.h"
 
 #include "HYMLS_HierarchicalMap.H"
+
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_Array.hpp"
+
 #include "HYMLS_PLA.H"
+
+#include <string>
 
 namespace Teuchos
   {
 class ParameterList;
   }
 
+class Epetra_Map;
+
 namespace HYMLS {
 class BasePartitioner;
   }
-
-class Epetra_IntVector;
-class Epetra_Import;
 
 namespace HYMLS {
 

@@ -27,9 +27,9 @@
 #include "Teuchos_StandardParameterEntryValidators.hpp"
 #include "Teuchos_StandardCatchMacros.hpp"
 
-using BelosGmresType = ::Belos::BlockGmresSolMgr<
+using BelosGmresType = Belos::BlockGmresSolMgr<
   double, Epetra_MultiVector, Epetra_Operator>;
-using BelosCGType = ::Belos::BlockCGSolMgr<
+using BelosCGType = Belos::BlockCGSolMgr<
   double, Epetra_MultiVector, Epetra_Operator>;
 
 namespace HYMLS {

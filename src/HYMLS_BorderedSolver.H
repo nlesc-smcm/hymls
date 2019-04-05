@@ -1,21 +1,15 @@
 #ifndef HYMLS_BORDERED_SOLVER_H
 #define HYMLS_BORDERED_SOLVER_H
 
-#include "HYMLS_config.h"
-#include "HYMLS_Macros.H"
-
 #include "Teuchos_RCP.hpp"
-#include "Epetra_Operator.h"
 
 #include "HYMLS_BaseSolver.H"
 
 // forward declarations
 class Epetra_MultiVector;
-class Epetra_Comm;
 class Epetra_SerialDenseMatrix;
-class Epetra_SerialDenseSVD;
-class Epetra_Map;
-class Epetra_Import;
+class Epetra_Operator;
+class Epetra_RowMatrix;
 
 namespace Belos
   {
@@ -27,7 +21,7 @@ class SolverManager;
 
 namespace Teuchos
   {
-  class ParameterList;
+class ParameterList;
   }
 
 namespace HYMLS {
@@ -42,9 +36,9 @@ class BorderedVector;
 class BorderedSolver : public virtual BaseSolver
   {
 
-  using BelosProblemType = ::Belos::LinearProblem<
+  using BelosProblemType = Belos::LinearProblem<
     double, BorderedVector, BorderedOperator>;
-  using BelosSolverType = ::Belos::SolverManager<
+  using BelosSolverType = Belos::SolverManager<
     double, BorderedVector, BorderedOperator>;
 
 public:
@@ -115,9 +109,6 @@ protected:
 
   //! Schur-complement (LU-factored in place)
   Teuchos::RCP<Epetra_SerialDenseMatrix> S_;
-
-  //! solver for the Schur-complement (emtpy lapack interface)
-  Teuchos::RCP<Epetra_SerialDenseSVD> SVD_;
 
 //@}
 

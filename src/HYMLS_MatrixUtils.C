@@ -1424,6 +1424,7 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
 
 #ifdef HYMLS_DEBUGGING
   std::ofstream deb;
+  bool dump = false;
   if (dump)
     {
     deb.open("fill_reducing_ordering.m");

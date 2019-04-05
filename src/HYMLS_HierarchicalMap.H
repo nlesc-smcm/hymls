@@ -7,6 +7,9 @@
 #include "Teuchos_Array.hpp"
 #include "Epetra_Map.h"
 
+#include <iosfwd>
+#include <string>
+
 // forward declarations
 class Epetra_Comm;
 class Epetra_IntSerialDenseVector;

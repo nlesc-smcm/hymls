@@ -1,11 +1,7 @@
 #ifndef HYMLS_BASE_SOLVER_H
 #define HYMLS_BASE_SOLVER_H
 
-#include "HYMLS_config.h"
-#include "HYMLS_Macros.H"
-
 #include "Teuchos_RCP.hpp"
-#include "Teuchos_ParameterList.hpp"
 #include "Epetra_Operator.h"
 
 #include "Epetra_RowMatrix.h"
@@ -17,16 +13,16 @@ class Epetra_MultiVector;
 class Epetra_Comm;
 class Epetra_SerialDenseMatrix;
 class Epetra_Map;
-class Epetra_Import;
 
 namespace Belos {
-class EpetraOperator;
 class EpetraPrecOp;
 template<typename, typename, typename>
 class LinearProblem;
 template<typename, typename, typename>
 class SolverManager;
   }
+
+namespace Teuchos { class ParameterList; }
 
 namespace HYMLS {
 
@@ -38,11 +34,11 @@ class BaseSolver : public Epetra_Operator,
                    public PLA
   {
 
-  using BelosProblemType = ::Belos::LinearProblem<
+  using BelosProblemType = Belos::LinearProblem<
     double, Epetra_MultiVector, Epetra_Operator>;
-  using BelosSolverType = ::Belos::SolverManager<
+  using BelosSolverType = Belos::SolverManager<
     double, Epetra_MultiVector, Epetra_Operator>;
-  using BelosPrecType = ::Belos::EpetraPrecOp;
+  using BelosPrecType = Belos::EpetraPrecOp;
 
 public:
 

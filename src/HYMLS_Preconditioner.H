@@ -4,45 +4,36 @@
 #include "HYMLS_config.h"
 
 #include "Teuchos_RCP.hpp"
-#include "Teuchos_Array.hpp"
-#include "Epetra_RowMatrix.h"
 #include "Epetra_CrsMatrix.h"
 
 #include "Ifpack_Preconditioner.h"
-#include "Ifpack_Container.h"
-#include "Epetra_Time.h"
 
-#include "BelosLinearProblem.hpp"
-#include "BelosSolverManager.hpp"
-#include "BelosEpetraAdapter.hpp"
-#include "BelosOutputManager.hpp"
-
-#include "HYMLS_OverlappingPartitioner.H"
 #include "HYMLS_PLA.H"
-
 #include "HYMLS_BorderedOperator.H"
-#include "HYMLS_MatrixBlock.H"
+
+#include <iosfwd>
+#include <string>
 
 // forward declarations
 class Epetra_Comm;
 class Epetra_Map;
 class Epetra_Import;
-
-
-namespace HYMLS 
-  {
-  class SchurComplement;
-  class SchurPreconditioner;
-  }
+class Epetra_MultiVector;
+class Epetra_RowMatrix;
+class Epetra_Vector;
 
 namespace Teuchos 
   {
-  class ParameterList;
+class ParameterList;
   }
 
 namespace HYMLS {
 
-//! main solver class in HYMLS
+class SchurComplement;
+class SchurPreconditioner;
+class Epetra_Time;
+class MatrixBlock;
+class OverlappingPartitioner;
 
 /*! This class 
   - sets parameters for the problem
@@ -50,8 +41,6 @@ namespace HYMLS {
   - computes a factorization of the subdomain matrices
   - creates a HYMLS::SchurComplement
   - creates a HYMLS::SchurPreconditioner for the SC
-  - creates a Belos iterative solver
-  - solves the problem (in ApplyInverse())
   
   The solver has the following features:
   
@@ -63,15 +52,7 @@ namespace HYMLS {
   standard two-level method where the preconditioner does orthogonal
   transformation and dropping and creates a direct solver for the   
   Vsum problem. For more levels, it will create another instance of 
-  this "Preconditioner" class.                                      
-  
-  - monitoring and deflating the most unstable modes: to activate   
-  this, set the "Deflated Subspace Dimension" to a positive integer.
-  The solver computes the eigenvalues closest to 0 of the precondi- 
-  tioner. If an eigenvalue has croosed the imaginary axis, a message
-  is issued. That's all for now, the deflation still has to be      
-  implemented.
-  
+  this "Preconditioner" class.
 */
 class Preconditioner : public Ifpack_Preconditioner, 
                        public BorderedOperator,

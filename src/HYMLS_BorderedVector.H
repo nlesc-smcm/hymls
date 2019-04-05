@@ -1,7 +1,8 @@
 #ifndef HYMLS_BORDERED_VECTOR_H
 #define HYMLS_BORDERED_VECTOR_H
 
-#include <math.h>
+#include "HYMLS_config.h"
+
 #include <vector>
 
 #include <Trilinos_version.h>
@@ -14,8 +15,6 @@
 #include "BelosOperator.hpp"
 #include "BelosTypes.hpp"
 #include "BelosEpetraAdapter.hpp"
-
-#include "HYMLS_Tools.H"
 
 class Epetra_SerialDenseMatrix;
 

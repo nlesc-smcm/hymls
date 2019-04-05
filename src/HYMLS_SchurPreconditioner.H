@@ -5,15 +5,16 @@
 
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_Array.hpp"
+#include "Ifpack_CondestType.h"
 #include "Ifpack_Preconditioner.h"
-#include "Ifpack_Amesos.h"
-#include "Ifpack_SparseContainer.h"
-#include "Epetra_Time.h"
 
-#include "HYMLS_OverlappingPartitioner.H"
-#include "HYMLS_OrthogonalTransform.H"
+#include "Epetra_SerialDenseMatrix.h"
+
 #include "HYMLS_BorderedOperator.H"
 #include "HYMLS_PLA.H"
+
+#include <iosfwd>
+#include <string>
 
 // forward declarations
 class Epetra_Comm;
@@ -22,6 +23,11 @@ class Epetra_RowMatrix;
 class Epetra_FECrsMatrix;
 class Epetra_Import;
 class Ifpack_Container;
+class Epetra_CrsMatrix;
+class Epetra_IntSerialDenseVector;
+class Epetra_MultiVector;
+class Epetra_Operator;
+class Epetra_Vector;
 
 namespace EpetraExt
   {
@@ -29,21 +35,6 @@ namespace EpetraExt
   class CrsMatrix_Reindex;
   }
 
-namespace HYMLS 
-{
-namespace EpetraExt
-  {
-  class RestrictedCrsMatrixWrapper;
-  class RestrictedMultiVectorWrapper;
-  }
-}
-/*
-namespace HYMLS 
-  {
-  class OverlappingPartitioner;
-  class OrthogonalTransform;
-  }
-*/
 namespace Teuchos 
   {
   class ParameterList;
@@ -51,6 +42,16 @@ namespace Teuchos
 
 namespace HYMLS {
 
+namespace EpetraExt
+  {
+class RestrictedCrsMatrixWrapper;
+class RestrictedMultiVectorWrapper;
+  }
+
+class Epetra_Time;
+class HierarchicalMap;
+class OrthogonalTransform;
+class OverlappingPartitioner;
 class SchurComplement;
 
 //! Approximation of the Schur-Complement 

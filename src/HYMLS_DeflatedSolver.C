@@ -1,18 +1,30 @@
 #include "HYMLS_DeflatedSolver.H"
 
+#include "Teuchos_ParameterList.hpp"
+#include "Teuchos_StandardCatchMacros.hpp"
+
 #include "Epetra_MultiVector.h"
 #include "Epetra_Map.h"
+#include "Epetra_LocalMap.h"
 #include "Epetra_SerialDenseMatrix.h"
 #include "Epetra_SerialDenseSolver.h"
-
+#include "Epetra_RowMatrix.h"
+#include "Epetra_SerialComm.h"
+#include "Epetra_Operator.h"
 #include "Epetra_InvOperator.h"
+
 #include "HYMLS_EpetraExt_ProductOperator.H"
 
+#include "HYMLS_Macros.H"
+#include "HYMLS_Tools.H"
 #include "HYMLS_DenseUtils.H"
 #include "HYMLS_MatrixUtils.H"
 
+#include "AnasaziTypes.hpp"
 #include "AnasaziEpetraAdapter.hpp"
 #include "AnasaziSVQBOrthoManager.hpp"
+
+#include <iostream>
 
 namespace HYMLS {
 

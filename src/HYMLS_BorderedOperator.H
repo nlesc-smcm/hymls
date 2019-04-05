@@ -1,8 +1,6 @@
 #ifndef HYMLS_BORDERED_OPERATOR_H
 #define HYMLS_BORDERED_OPERATOR_H
 
-#include "HYMLS_config.h"
-
 #include "Teuchos_RCP.hpp"
 
 #include "BelosConfigDefs.hpp"

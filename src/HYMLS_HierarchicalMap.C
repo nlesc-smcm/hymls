@@ -1,14 +1,17 @@
-#include <iostream>
-
 #include "HYMLS_HierarchicalMap.H"
-#include "HYMLS_Tools.H"
 
+#include "HYMLS_Tools.H"
+#include "HYMLS_Macros.H"
+
+#include "Epetra_Comm.h"
+#include "Epetra_SerialComm.h"
 #include "Epetra_Map.h"
 #include "Epetra_IntVector.h"
 #include "Epetra_Import.h"
 #include "Epetra_IntSerialDenseVector.h"
 #include "Epetra_LongLongSerialDenseVector.h"
 
+#include <iostream>
 #include <algorithm>
 
 namespace HYMLS {

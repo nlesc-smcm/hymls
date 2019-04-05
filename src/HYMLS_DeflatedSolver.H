@@ -1,21 +1,21 @@
 #ifndef HYMLS_DEFLATED_SOLVER_H
 #define HYMLS_DEFLATED_SOLVER_H
 
-#include "HYMLS_config.h"
-
 #include "Teuchos_RCP.hpp"
-#include "Epetra_Operator.h"
-#include "Epetra_RowMatrix.h"
-#include "AnasaziTypes.hpp"
 
 #include "HYMLS_BaseSolver.H"
 
-  // forward declarations
+// forward declarations
 class Epetra_MultiVector;
 class Epetra_SerialDenseMatrix;
 class Epetra_SerialDenseSolver;
-class Epetra_Comm;
-class Epetra_Map;
+class Epetra_Operator;
+class Epetra_RowMatrix;
+
+namespace Anasazi
+  {
+template <class ScalarType, class MV> struct Eigensolution;
+  }
 
 namespace Teuchos
   {

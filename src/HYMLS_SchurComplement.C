@@ -1,16 +1,19 @@
+#include "HYMLS_config.h"
+
 #include "HYMLS_SchurComplement.H"
 #include "HYMLS_OverlappingPartitioner.H"
-#include "HYMLS_MatrixUtils.H"
+#include "HYMLS_Macros.H"
+#include "HYMLS_Tools.H"
 
 #include "Epetra_Map.h"
 #include "Epetra_MultiVector.h"
-#include "Epetra_Vector.h"
 #include "Epetra_CrsMatrix.h"
 #include "Epetra_FECrsMatrix.h"
 #include "Epetra_SerialDenseMatrix.h"
 #include "Epetra_IntSerialDenseVector.h"
 #include "Epetra_LongLongSerialDenseVector.h"
 
+#include "Ifpack_ConfigDefs.h"
 #include "Ifpack_Container.h"
 
 #include "EpetraExt_MatrixMatrix.h"

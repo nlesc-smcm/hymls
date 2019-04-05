@@ -26,6 +26,8 @@
 #include "HYMLS_Macros.H"
 #include "HYMLS_Exception.H"
 
+#include <fstream>
+
 namespace HYMLS
   {
   

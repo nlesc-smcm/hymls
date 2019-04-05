@@ -4,11 +4,12 @@
 #include "HYMLS_config.h"
 
 #include "Teuchos_RCP.hpp"
-#include "Epetra_Time.h"
 
-#include "HYMLS_Tools.H"
-#include "HYMLS_SchurPreconditioner.H"
+#include "Epetra_Operator.h"
+
 #include "HYMLS_MatrixBlock.H"
+
+#include <string>
 
 // forward declarations
 
@@ -22,10 +23,7 @@ class Epetra_SerialDenseMatrix;
 
 namespace HYMLS {
 
-class SchurPreconditioner;
-
-
-//class SchurPreconditioner;
+class OverlappingPartitioner;
 
 //! efficient implementation of the original Schur-complement of our solver
 

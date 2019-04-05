@@ -1,16 +1,19 @@
 #include "HYMLS_OverlappingPartitioner.H"
+
 #include "HYMLS_Tools.H"
+#include "HYMLS_BasePartitioner.H"
+#include "HYMLS_Macros.H"
 
 #include "HYMLS_CartesianPartitioner.H"
 #include "HYMLS_SkewCartesianPartitioner.H"
 
 #include "Teuchos_ParameterList.hpp"
-#include "Teuchos_StrUtils.hpp"
 #include "Teuchos_Array.hpp"
+#include "Teuchos_toString.hpp"
 
-#include "GaleriExt_Periodic.h"
+#include <algorithm>
 
-#include "Teuchos_StandardParameterEntryValidators.hpp"
+class Epetra_Map;
 
 namespace HYMLS {
 

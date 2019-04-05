@@ -1,15 +1,26 @@
 #include "HYMLS_BorderedDeflatedSolver.H"
 
+#include "HYMLS_BaseSolver.H"
+#include "HYMLS_Macros.H"
+#include "HYMLS_Tools.H"
 #include "HYMLS_DenseUtils.H"
-#include "HYMLS_ProjectedOperator.H"
 
+#include "Epetra_LocalMap.h"
+#include "Epetra_Map.h"
+#include "Epetra_MultiVector.h"
+#include "Epetra_Operator.h"
+#include "Epetra_RowMatrix.h"
+#include "Epetra_SerialComm.h"
 #include "Epetra_SerialDenseMatrix.h"
 #include "Epetra_SerialDenseSolver.h"
 
 #include "BelosSolverManager.hpp"
 
+#include "AnasaziTypes.hpp"
 #include "AnasaziEpetraAdapter.hpp"
 #include "AnasaziSVQBOrthoManager.hpp"
+
+namespace Teuchos { class ParameterList; }
 
 namespace HYMLS {
 
@@ -22,7 +33,7 @@ BorderedDeflatedSolver::BorderedDeflatedSolver(Teuchos::RCP<const Epetra_RowMatr
   BaseSolver(K, P, params, numRhs, validate),
   DeflatedSolver(K, P, params, numRhs, validate),
   BorderedSolver(K, P, params, numRhs, validate),
-  label_("HYMLS::BorderedDeflatedSolver")
+  label_("BorderedDeflatedSolver")
   {
   HYMLS_PROF3(label_,"Constructor");
   }

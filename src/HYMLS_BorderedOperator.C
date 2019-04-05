@@ -1,10 +1,15 @@
 #include "HYMLS_BorderedOperator.H"
 
+#include "HYMLS_config.h"
+
 #include "HYMLS_Macros.H"
 #include "HYMLS_Tools.H"
 #include "HYMLS_BorderedVector.H"
 #include "HYMLS_DenseUtils.H"
 
+#include "Epetra_Comm.h"
+#include "Epetra_Map.h"
+#include "Epetra_Operator.h"
 #include "Epetra_Import.h"
 #include "Epetra_MultiVector.h"
 #include "Epetra_SerialDenseMatrix.h"

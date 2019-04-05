@@ -1,21 +1,27 @@
 #include "HYMLS_BorderedSolver.H"
 
+#include "HYMLS_config.h"
+
 #include "HYMLS_BorderedOperator.H"
 #include "HYMLS_BorderedVector.H"
-#include "HYMLS_ProjectedOperator.H"
 #include "HYMLS_DenseUtils.H"
+#include "HYMLS_Macros.H"
+#include "HYMLS_Tools.H"
 
+#include "Epetra_Comm.h"
+#include "Epetra_MultiVector.h"
+#include "Epetra_Operator.h"
+#include "Epetra_RowMatrix.h"
 #include "Epetra_SerialDenseMatrix.h"
-#include "Epetra_SerialDenseSVD.h"
 
 #include "BelosTypes.hpp"
-
 #include "BelosLinearProblem.hpp"
 #include "BelosSolverManager.hpp"
-
 #include "BelosBlockGmresSolMgr.hpp"
 #include "BelosBlockCGSolMgr.hpp"
-#include "HYMLS_BelosEpetraOperator.H"
+
+#include "Teuchos_ParameterList.hpp"
+#include "Teuchos_StandardCatchMacros.hpp"
 
 namespace HYMLS {
 

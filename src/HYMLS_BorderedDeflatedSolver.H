@@ -1,14 +1,16 @@
 #ifndef HYMLS_BORDERED_DEFLATED_SOLVER_H
 #define HYMLS_BORDERED_DEFLATED_SOLVER_H
 
-#include "HYMLS_config.h"
-#include "HYMLS_Macros.H"
-
 #include "Teuchos_RCP.hpp"
-#include "Epetra_Operator.h"
 
 #include "HYMLS_BorderedSolver.H"
 #include "HYMLS_DeflatedSolver.H"
+
+class Epetra_MultiVector;
+class Epetra_Operator;
+class Epetra_RowMatrix;
+
+namespace Teuchos { class ParameterList; }
 
 namespace HYMLS {
 
