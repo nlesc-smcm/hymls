@@ -7,7 +7,7 @@ endif()
 
 set(BUILD_SHARED_LIBS ON)
 
-if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   message(STATUS "Using GNU compiler flags")
 
   # try to enable CCache as a 'compiler launcher'
