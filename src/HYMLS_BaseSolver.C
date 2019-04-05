@@ -23,7 +23,6 @@
 #include "BelosBlockCGSolMgr.hpp"
 #include "BelosBlockGmresSolMgr.hpp"
 //#include "BelosPCPGSolMgr.hpp"
-#include "HYMLS_BelosEpetraOperator.H"
 
 #include "Teuchos_StandardParameterEntryValidators.hpp"
 #include "Teuchos_StandardCatchMacros.hpp"

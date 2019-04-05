@@ -17,7 +17,6 @@ set(HYMLS_SOURCE HYMLS_Solver
     HYMLS_MatrixUtils
     HYMLS_DenseUtils
     HYMLS_ProjectedOperator
-    HYMLS_BelosEpetraOperator
     HYMLS_Epetra_Time
     HYMLS_EpetraExt_ProductOperator
     HYMLS_SparseDirectSolver

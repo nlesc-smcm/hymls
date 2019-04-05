@@ -182,9 +182,9 @@ protected:
   //! matrix
   Teuchos::RCP<const Epetra_RowMatrix> matrix_;
 
- //! operator for which we solve OP*x=b, typically same as matrix_ or
- //! beta*A+alpha*B (if SetShift was called)
- Teuchos::RCP<const Epetra_Operator> operator_;
+  //! operator for which we solve OP*x=b, typically same as matrix_ or
+  //! beta*A+alpha*B (if SetShift was called)
+  Teuchos::RCP<const Epetra_Operator> operator_;
 
   //! preconditioner
   Teuchos::RCP<Epetra_Operator> precond_;
@@ -204,24 +204,21 @@ protected:
   //! Belos solver
   Teuchos::RCP<BelosSolverType> belosSolverPtr_;
 
-//@}
+  //@}
 
-//@{
+  //@{
 
-//! mass matrix - can be set using SetmassMatrix(). If not set, the 
-//! standard eigenproblem is solved.
-Teuchos::RCP<const Epetra_RowMatrix> massMatrix_;
+  //! mass matrix - can be set using SetmassMatrix(). If not set, the 
+  //! standard eigenproblem is solved.
+  Teuchos::RCP<const Epetra_RowMatrix> massMatrix_;
 
-//! Borders of the matrix, which might be the eigenspace
+  //! Borders of the matrix, which might be the eigenspace
   Teuchos::RCP<const Epetra_MultiVector> V_, W_;
 
-//! projected operator (V_orth' A V_orth)
-Teuchos::RCP<Epetra_Operator> Aorth_;
+  //! projected operator (V_orth' A V_orth)
+  Teuchos::RCP<Epetra_Operator> Aorth_;
 
-//! a belos solver for Aorth_, disguised as an Epetra_Operator
-Teuchos::RCP<Belos::EpetraOperator> AorthSolver_;
-
-//@}
+  //@}
 
   //! use transposed operator?
   bool useTranspose_;
