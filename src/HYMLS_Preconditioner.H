@@ -22,7 +22,6 @@
 
 #include "HYMLS_BorderedOperator.H"
 #include "HYMLS_MatrixBlock.H"
-#include "HYMLS_BlockScaling.H"
 
 // forward declarations
 class Epetra_Comm;
@@ -274,17 +273,6 @@ public:
     initialized_=false;
     }
 
-    //! specify that the matrix on which this preconditioner was created was actually  
-    //! Sl*A*Sr and that the ApplyInverse() function should perform y <- Sr\(P\(Sl\x)).
-    //! If scaling==Teuchos::null, the scaling (if any) is removed.
-    //!
-    //! *note* that you only need to set the scaling object here if you want to use the
-    //! preconditioner to solve an *unscaled linear system*!
-    void SetBlockScaling(Teuchos::RCP<const HYMLS::BlockScaling> scaling)
-      {
-      scaling_=scaling;
-      }
-
 protected:
 
   //! communicator
@@ -333,9 +321,6 @@ protected:
   //! a test vector for constructing good orthogonal transformations
   //! (all ones on the first level, passed to the approximate SC)
   Teuchos::RCP<Epetra_Vector> testVector_;
-  
-  //! scaling (if any).
-  Teuchos::RCP<const HYMLS::BlockScaling> scaling_;
   
   //! preconditioning operator
   Teuchos::RCP<SchurPreconditioner> schurPrec_;

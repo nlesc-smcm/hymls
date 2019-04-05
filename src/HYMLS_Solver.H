@@ -1,20 +1,20 @@
 #ifndef HYMLS_SOLVER_H
 #define HYMLS_SOLVER_H
 
-#include "HYMLS_config.h"
-
 #include "Teuchos_RCP.hpp"
 #include "Epetra_Operator.h"
-#include "Epetra_RowMatrix.h"
 
 #include "HYMLS_PLA.H"
 #include "HYMLS_BaseSolver.H"
+
+#include <string>
 
   // forward declarations
 class Epetra_MultiVector;
 class Epetra_Comm;
 class Epetra_Map;
 class Epetra_SerialDenseMatrix;
+class Epetra_RowMatrix;
 
 namespace Teuchos
   {

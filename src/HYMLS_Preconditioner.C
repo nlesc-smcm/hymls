@@ -49,7 +49,6 @@ namespace HYMLS {
         comm_(Teuchos::rcp(K->Comm().Clone())), matrix_(K),
         rangeMap_(Teuchos::rcp(new Epetra_Map(K->RowMatrixRowMap()))),
         hid_(hid), myLevel_(myLevel), testVector_(testVector),
-        scaling_(Teuchos::null),
         useTranspose_(false), normInf_(-1.0),
         label_("Preconditioner"),
         initialized_(false), computed_(false),

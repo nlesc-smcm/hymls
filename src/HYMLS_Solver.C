@@ -3,6 +3,9 @@
 #include "HYMLS_BorderedSolver.H"
 #include "HYMLS_DeflatedSolver.H"
 #include "HYMLS_BorderedDeflatedSolver.H"
+#include "HYMLS_Macros.H"
+
+#include "Teuchos_ParameterList.hpp"
 
 namespace HYMLS {
 
