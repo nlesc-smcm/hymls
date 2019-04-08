@@ -1,14 +1,12 @@
 #ifndef HYMLS_AUGMENTED_MATRIX_H
 #define HYMLS_AUGMENTED_MATRIX_H
 
-#include "HYMLS_config.h"
 #include "Epetra_RowMatrix.h"
 #include "Epetra_Map.h"
 #include "Teuchos_RCP.hpp"
 
 class Epetra_Comm;
 class Epetra_Import;
-class Epetra_Export;
 class Epetra_Vector;
 class Epetra_MultiVector;
 class Epetra_SerialDenseMatrix;

@@ -3,6 +3,8 @@
 
 #include <mpi.h>
 
+#include "HYMLS_config.h"
+
 #include "Epetra_MpiComm.h"
 #include "Epetra_Map.h"
 #include "Epetra_Vector.h"
@@ -19,8 +21,6 @@
 
 #include "BelosEpetraAdapter.hpp"
 #include "BelosIMGSOrthoManager.hpp"
-
-#include "HYMLS_config.h"
 
 #ifdef HYMLS_DEBUGGING
 #include <signal.h>
@@ -47,6 +47,7 @@
 #include "EpetraExt_HDF5.h"
 #include "EpetraExt_Exception.h"
 */
+#include "HYMLS_Macros.H"
 #include "HYMLS_HyperCube.H"
 #include "HYMLS_Tools.H"
 #include "HYMLS_Preconditioner.H"

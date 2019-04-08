@@ -23,6 +23,8 @@
 
 #include "EpetraExt_RowMatrixOut.h"
 
+#include <fstream>
+
 class Epetra_RowMatrix;
 
 using namespace Teuchos;

@@ -1,19 +1,17 @@
 #ifndef HYMLS_SKEW_CARTESIAN_PARTITONER_H
 #define HYMLS_SKEW_CARTESIAN_PARTITONER_H
 
-#include "HYMLS_config.h"
-#include "Teuchos_RCP.hpp"
-#include "Teuchos_Array.hpp"
 #include "HYMLS_BasePartitioner.H"
 
-#include "GaleriExt_Periodic.h"
+#include "HYMLS_config.h"
+#include "Teuchos_RCP.hpp"
 
 class Epetra_Comm;
-class Epetra_Import;
 class Epetra_Map;
 
 namespace Teuchos {
 class ParameterList;
+template <typename T> class Array;
   }
 
 namespace HYMLS {

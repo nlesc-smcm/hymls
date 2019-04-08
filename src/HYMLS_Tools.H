@@ -6,6 +6,7 @@
 #include <stack>
 #include <cstdio>
 #include <string>
+#include <iosfwd>
 
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_FancyOStream.hpp"

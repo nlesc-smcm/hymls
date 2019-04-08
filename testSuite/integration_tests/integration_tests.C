@@ -670,7 +670,6 @@ int testEigenSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
   typedef double ST;
   typedef Epetra_MultiVector MV;
   typedef Epetra_Operator OP;
-  typedef HYMLS::Preconditioner PREC;
 
   Teuchos::RCP<Anasazi::BasicEigenproblem<ST, MV, OP> > eigProblem;
   eigProblem = Teuchos::rcp(new Anasazi::BasicEigenproblem<ST,MV,OP>());
@@ -690,6 +689,7 @@ int testEigenSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
     }
 
 #ifdef HYMLS_USE_PHIST
+  typedef HYMLS::Preconditioner PREC;
   Anasazi::PhistSolMgr<ST,MV,OP,PREC> jada(eigProblem, precond, eigList);
 #else
   Anasazi::BlockKrylovSchurSolMgr<ST,MV,OP> jada(eigProblem,eigList);

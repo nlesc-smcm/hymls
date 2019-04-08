@@ -4,7 +4,6 @@
 
 #include <iostream>
 
-#include "Epetra_MpiComm.h"
 #include "Epetra_Map.h"
 #include "Epetra_MultiVector.h"
 #include "Epetra_Vector.h"
@@ -17,7 +16,7 @@
 #include "EpetraExt_VectorIn.h"
 
 #include "HYMLS_Tools.H"
-#include "HYMLS_MatrixUtils.H"
+#include "HYMLS_Macros.H"
 #include "HYMLS_CartesianPartitioner.H"
 #include "HYMLS_SkewCartesianPartitioner.H"
 

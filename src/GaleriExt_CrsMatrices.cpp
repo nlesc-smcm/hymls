@@ -41,14 +41,15 @@
 
 #include "GaleriExt_CrsMatrices.h"
 #include "Galeri_Exception.h"
-#include "Epetra_Map.h"
-#include "Epetra_CrsMatrix.h"
 #include "Teuchos_ParameterList.hpp"
 
 #include "GaleriExt_Darcy2D.h"
 #include "GaleriExt_Darcy3D.h"
 #include "GaleriExt_Stokes2D.h"
 #include "GaleriExt_Stokes3D.h"
+
+class Epetra_CrsMatrix;
+class Epetra_Map;
 
 namespace GaleriExt {
 

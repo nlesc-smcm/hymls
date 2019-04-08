@@ -42,12 +42,11 @@
 #ifndef GALERIEXT_MATRICES_H
 #define GALERIEXT_MATRICES_H
 
-#include "Galeri_ConfigDefs.h"
-#include "Galeri_Exception.h"
-#include "Epetra_Comm.h"
-#include "Epetra_Map.h"
-#include "Epetra_CrsMatrix.h"
-#include "Teuchos_ParameterList.hpp"
+#include <string>
+
+class Epetra_CrsMatrix;
+class Epetra_Map;
+namespace Teuchos { class ParameterList; }
 
 namespace GaleriExt {
 

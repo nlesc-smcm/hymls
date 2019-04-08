@@ -5,12 +5,16 @@
 #include "HYMLS_Tools.H"
 #include "HYMLS_Macros.H"
 
-#include "Teuchos_Utils.hpp"
-
 #include "Epetra_Comm.h"
 #include "Epetra_Map.h"
-#include "Epetra_IntVector.h"
-#include "Epetra_Import.h"
+
+#include "Teuchos_Array.hpp"
+#include "Teuchos_toString.hpp"
+
+#include "GaleriExt_Periodic.h"
+
+#include <vector>
+#include <algorithm>
 
 using Teuchos::toString;
 

@@ -1,8 +1,6 @@
 #ifndef HYMLS_PLA_H
 #define HYMLS_PLA_H
 
-#include "HYMLS_config.h"
-
 #include "HYMLS_Tools.H"
 
 #include "Teuchos_RCP.hpp"

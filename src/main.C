@@ -3,6 +3,8 @@
 
 #include <mpi.h>
 
+#include "HYMLS_config.h"
+
 #include "Epetra_config.h"
 #include "Epetra_MpiComm.h"
 #include "Epetra_SerialComm.h"
@@ -17,11 +19,10 @@
 #include "Teuchos_XMLParameterListHelpers.hpp"
 #include "Teuchos_ParameterListAcceptorHelpers.hpp"
 #include "Teuchos_StandardCatchMacros.hpp"
+
 #ifdef HYMLS_DEBUGGING
 #include <signal.h>
 #endif
-
-#include "HYMLS_Tester.H"
 
 #include "main_utils.H"
 
@@ -35,6 +36,7 @@
 #include "EpetraExt_HDF5.h"
 #include "EpetraExt_Exception.h"
 */
+#include "HYMLS_Macros.H"
 #include "HYMLS_HyperCube.H"
 #include "HYMLS_Tools.H"
 #include "HYMLS_Preconditioner.H"

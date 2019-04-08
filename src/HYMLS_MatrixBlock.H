@@ -1,8 +1,6 @@
 #ifndef HYMLS_MATRIXBLOCK_H
 #define HYMLS_MATRIXBLOCK_H
 
-#include "HYMLS_config.h"
-
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_Array.hpp"
 
@@ -14,9 +12,9 @@ class ParameterList;
 
 class Epetra_MultiVector;
 class Epetra_Import;
-class Epetra_BlockMap;
 class Epetra_CrsMatrix;
 class Epetra_Comm;
+class Epetra_Map;
 
 class Ifpack_Container;
 

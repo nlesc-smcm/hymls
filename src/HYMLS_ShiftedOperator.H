@@ -1,12 +1,12 @@
 #ifndef HYMLS_SHIFTED_OPERATOR_H
 #define HYMLS_SHIFTED_OPERATOR_H
 
-#include "HYMLS_config.h"
-
 #include "Teuchos_RCP.hpp"
 #include "Epetra_Operator.h"
 
 class Epetra_MultiVector;
+class Epetra_Comm;
+class Epetra_Map;
 
 namespace HYMLS
   {

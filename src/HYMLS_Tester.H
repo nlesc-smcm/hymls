@@ -3,14 +3,12 @@
 
 #include "HYMLS_config.h"
 
+#include <string>
 #include <iostream>
 #include "Teuchos_ScalarTraits.hpp"
-#include "Teuchos_RCP.hpp"
 
-class Epetra_Operator;
 class Epetra_CrsMatrix;
 class Epetra_CrsGraph;
-class Epetra_IntVector;
 class Epetra_MultiVector;
 
 #ifdef HYMLS_TESTING

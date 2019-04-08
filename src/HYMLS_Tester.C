@@ -12,7 +12,10 @@
 #include "Epetra_CrsGraph.h"
 #include "Epetra_CrsMatrix.h"
 #include "Epetra_Vector.h"
-#include "Epetra_IntVector.h"
+#include "Epetra_RowMatrix.h"
+#include "Epetra_MultiVector.h"
+#include "Epetra_Map.h"
+#include "Epetra_BlockMap.h"
 
 #include "EpetraExt_Transpose_RowMatrix.h"
 #include "EpetraExt_Transpose_CrsGraph.h"
