@@ -1,10 +1,12 @@
+#include "HYMLS_HyperCube.H"
+
 #include <mpi.h>
 #include "Epetra_MpiComm.h"
 
+#include "Teuchos_Array.hpp"
 #include "Teuchos_StrUtils.hpp"
 
-#include "HYMLS_Tools.H"
-#include "HYMLS_HyperCube.H"
+#include "HYMLS_Macros.H"
 
 namespace HYMLS {
 

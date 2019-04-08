@@ -1,10 +1,14 @@
 #include "HYMLS_Tester.H"
+
 #include "HYMLS_Tools.H"
+#include "HYMLS_Macros.H"
 #include "HYMLS_OverlappingPartitioner.H"
 #include "HYMLS_HierarchicalMap.H"
 #include "HYMLS_BasePartitioner.H"
+
 #include "Teuchos_StandardCatchMacros.hpp"
 
+#include "Epetra_Comm.h"
 #include "Epetra_CrsGraph.h"
 #include "Epetra_CrsMatrix.h"
 #include "Epetra_Vector.h"

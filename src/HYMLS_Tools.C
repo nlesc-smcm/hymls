@@ -1,13 +1,27 @@
 #include "HYMLS_Tools.H"
+
+#include "mpi.h"
+
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_RCP.hpp"
+#include "Teuchos_toString.hpp"
 
 #include <dlfcn.h>
+#include <signal.h>
+#include <iostream>
 
-#include <cstdlib>
-#include <cstdio>
-#include <cstdarg>
-#include <stack>
+#include "Epetra_ConfigDefs.h"
+#include "Epetra_Comm.h"
+#include "Epetra_MpiComm.h"
+#include "Epetra_SerialComm.h"
+
+#include "HYMLS_Epetra_Time.h"
+#include "HYMLS_Exception.H"
+#include "HYMLS_Macros.H"
+
+#include "EpetraExt_RowMatrixOut.h"
+
+class Epetra_RowMatrix;
 
 using namespace Teuchos;
 
@@ -44,14 +58,279 @@ int Tools::timerCounter_=0;
 std::stack<std::string> Tools::functionStack_;
 std::streambuf* Tools::rdbuf_bak = std::cout.rdbuf();
 
-//////////////////////////////////////////////////////////////////
-// Timing functionality                                         //
-//////////////////////////////////////////////////////////////////
-
 const char* Tools::Revision()
   {
   return HYMLS_REVISION;
   }
+
+void Tools::InitializeIO(Teuchos::RCP<const Epetra_Comm> comm,
+  Teuchos::RCP<Teuchos::FancyOStream> output,
+  Teuchos::RCP<Teuchos::FancyOStream> debug)
+  {
+#ifdef HAVE_TEUCHOS_STACKTRACE
+  Teuchos::print_stack_on_segfault();
+#endif
+  traceLevel_=0;
+  if (comm == Teuchos::null)
+    comm_ = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
+  else
+    comm_ = comm;
+  if (output==Teuchos::null)
+    {
+    output_stream = Teuchos::rcp(new
+      Teuchos::FancyOStream(Teuchos::rcp(&std::cout,false)));
+
+    output_stream->setOutputToRootOnly(0);
+    output_stream->setShowProcRank(false);
+    }
+  else
+    {
+    output_stream=output;
+    }
+#ifdef HYMLS_DEBUGGING
+  if (debug==Teuchos::null)
+    {
+    std::string filename="debug"+Teuchos::toString(comm->MyPID())+".txt";
+    Teuchos::RCP<std::ofstream> ofs = Teuchos::rcp(new std::ofstream(filename.c_str()));
+    debug_stream = Teuchos::rcp(new Teuchos::FancyOStream(ofs));
+    }
+  else
+    {
+    debug_stream=debug;
+    }
+#endif
+
+  //redirect std::cout
+  if (output_stream->getOStream().get()!=&std::cout)
+    {
+    rdbuf_bak = std::cout.rdbuf();
+    std::cout.rdbuf(out().rdbuf());
+    }
+  else if (rdbuf_bak!=NULL && rdbuf_bak!=std::cout.rdbuf())
+    {
+    std::cout.rdbuf(rdbuf_bak);
+    }
+/*
+  Out("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+  Out("@@ START OF HYMLS OUTPUT                    @@");
+  Out("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+
+  HYMLS_DEBUG("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+  HYMLS_DEBUG("@@ START OF HYMLS HYMLS_DEBUGGING OUTPUT          @@");
+  HYMLS_DEBUG("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+*/
+  }
+
+void Tools::InitializeIO_std(Teuchos::RCP<const Epetra_Comm> comm,
+  Teuchos::RCP<std::ostream> output,
+  Teuchos::RCP<std::ostream> debug)
+  {
+  Teuchos::RCP<Teuchos::FancyOStream> fancy_out=Teuchos::null;
+  Teuchos::RCP<Teuchos::FancyOStream> fancy_deb=Teuchos::null;
+     
+  if (output!=Teuchos::null)
+    {
+    fancy_out = Teuchos::rcp(new Teuchos::FancyOStream(output));
+    }
+#ifdef HYMLS_DEBUGGING
+  if (debug!=Teuchos::null)
+    {
+    fancy_deb = Teuchos::rcp(new Teuchos::FancyOStream(debug));
+    }
+#endif
+  InitializeIO(comm,fancy_out,fancy_deb);
+  }
+
+void Tools::RestoreIO()
+  {
+  output_stream = Teuchos::rcp(new 
+    Teuchos::FancyOStream(Teuchos::rcp(&std::cerr,false)));
+
+  output_stream->setOutputToRootOnly(0);
+  output_stream->setShowProcRank(false);
+  }
+
+bool Tools::InitializedIO()
+  {
+  return output_stream != Teuchos::null;
+  }
+
+void Tools::Out(std::string msg)
+  {
+  if (!InitializedIO())
+    {
+    Warning("Output system not initialized!",__FILE__,__LINE__);
+    }
+  else
+    {
+    (*output_stream)  << msg << std::endl;
+#ifdef HYMLS_DEBUGGING
+    if (output_stream.get()!=debug_stream.get())
+      {
+      (*debug_stream)  << msg << std::endl;
+      }
+#endif
+    }
+  }
+
+void Tools::Out(const Epetra_RowMatrix& A, std::string filename)
+  {
+  EpetraExt::RowMatrixToMatlabFile(filename.c_str(),A);
+  }
+
+void Tools::Error(std::string msg, const char* file, int line)
+  {
+  throw HYMLS::Exception(msg,(std::string)file,line);
+  }
+
+void Tools::Fatal(std::string msg, const char* file, int line, bool printStack)
+  {
+  if (printStack) printFunctionStack(std::cerr);
+  //PrintMemUsage(std::cerr);
+  //std::cerr << std::endl;
+  std::cerr << "Fatal Error: "<<msg<<std::endl;
+  std::cerr << "(in "<<file<<", line "<<line<<")"<<std::endl;
+  HYMLS_DEBUG(std::flush);
+  out()<<std::flush;
+  output_stream=Teuchos::null;
+  debug_stream=Teuchos::null;
+
+  int initialized = 0;
+  MPI_Initialized(&initialized);
+  if (initialized)
+    MPI_Abort(MPI_COMM_WORLD, -1);
+  exit(-1);
+  }
+
+void Tools::Warning(std::string msg, const char* file, int line)
+  {
+  std::cerr << "HYMLS Warning: "<<msg<<std::endl;
+  std::cerr << "(in "<<file<<", line "<<line<<")"<<std::endl;
+  HYMLS_DEBUG("HYMLS Warning: "<<msg)
+    HYMLS_DEBUG("(in "<<file<<", line "<<line<<")");
+  }
+
+void Tools::SignalHandler(int signum)
+  {
+  std::string msg="Caught signal "+Teuchos::toString(signum);
+  if (signum==SIGINT) msg+=" (SIGINT, interrupt)";
+  else if (signum==SIGSEGV) msg+=" (SIGSEGV, segmentation fault)";
+  Fatal(msg,__FILE__,__LINE__);
+  }
+
+Teuchos::RCP<Teuchos::FancyOStream> Tools::getOutputStream()
+  {
+  if (!InitializedIO())
+    {
+    Teuchos::RCP<Epetra_SerialComm> comm = Teuchos::rcp(new Epetra_SerialComm());
+    Teuchos::RCP<std::ostream> tmp_stream = Teuchos::rcp(&std::cout, false);
+    InitializeIO_std(comm,tmp_stream,tmp_stream);
+    }
+  return output_stream;
+  }
+
+Teuchos::FancyOStream& Tools::out()
+  {
+  if (!InitializedIO())
+    {
+    Teuchos::RCP<Epetra_SerialComm> comm = Teuchos::rcp(new Epetra_SerialComm());
+    Teuchos::RCP<std::ostream> tmp_stream = Teuchos::rcp(&std::cout, false);
+    InitializeIO_std(comm,tmp_stream,tmp_stream);
+    }
+  return *output_stream;
+  }
+
+Teuchos::FancyOStream& Tools::deb()
+  {
+#ifdef HYMLS_DEBUGGING
+  if (!InitializedIO())
+    {
+    debug_stream = Teuchos::rcp(new
+      Teuchos::FancyOStream(Teuchos::rcp(&std::cerr,false)));
+
+    debug_stream->setOutputToRootOnly(-1);
+    debug_stream->setShowProcRank(true);
+    }
+#endif
+  return *debug_stream;
+  }
+
+std::string Tools::tabstring(int indent)
+  {
+  std::string ret="";
+  for (int i=0;i<std::max(0,indent);i++)
+    {
+    ret=ret+"  ";
+    }
+  return ret;
+  }
+
+int Tools::SplitBox(int nx, int ny, int nz, int nparts, int& ndx, int& ndy, int& ndz,
+  int sx, int sy, int sz)
+  {
+  // Factor the number of processors into two dimensions. (nprocs = npN*npM)
+
+//    HYMLS_DEBUG("SplitBox("<<nx<<","<<ny<<","<<nz<<")");
+//    HYMLS_DEBUG(" into "<<nparts<<" domains"<<std::endl);
+
+  double rmin = 1e100;
+  int ret = 1;
+
+  int npx = nx / sx;
+  int npy = ny / sy;
+  int npz = nz / sz;
+
+  std::string s1 = Teuchos::toString(nx) + "x" + Teuchos::toString(ny) + "x" + Teuchos::toString(nz);
+  std::string s2 = Teuchos::toString(npx) + "x" + Teuchos::toString(npy) + "x" + Teuchos::toString(npz);
+
+  // check all possibilities:
+  for (int t1 = 1; t1 <= nparts; t1++)
+    for (int t2 = 1; t2 <= (int)(nparts / t1); t2++)
+      {
+      int t3 = (int)(nparts/(t1*t2));
+
+      if (t1 * t2 * t3 == nparts)
+        {
+        std::string s3 = Teuchos::toString(t1) + "x" + Teuchos::toString(t2) + "x" + Teuchos::toString(t3);
+        int my_nx = nx / t1;
+        int my_ny = ny / t2;
+        int my_nz = nz / t3;
+        if ((my_nx * t1 != nx) || (my_ny * t2 != ny) || (my_nz * t3 != nz))
+          {
+          HYMLS_DEBUG("Can't partition a "+s1+" domain into "+s3+" parts.");
+          continue;
+          }
+
+        int my_npx = npx / t1;
+        int my_npy = npy / t2;
+        int my_npz = npz / t3;
+        if ((my_npx * sx != my_nx) || (my_npy * sy != my_ny) || (my_npz * sz != my_nz))
+          {
+          HYMLS_DEBUG("Can't partition "+s2+" domains onto "+s3+" processors.");
+          continue;
+          }
+
+        double r1 = std::abs((double)nx / (double)t1 - (double)ny / (double)t2);
+        double r2 = std::abs((double)nx / (double)t1 - (double)nz / (double)t3);
+        double r3 = std::abs((double)ny / (double)t2 - (double)nz / (double)t3);
+        double r = r1 + r2 + r3;
+
+        if (r < rmin)
+          {
+          rmin = r;
+          ndx = t1;
+          ndy = t2;
+          ndz = t3;
+          ret = 0;
+          }
+        }
+      }
+  return ret;
+  }
+
+//////////////////////////////////////////////////////////////////
+// Timing functionality                                         //
+//////////////////////////////////////////////////////////////////
 
 RCP<Epetra_Time> Tools::StartTiming(std::string const &fname)
   {

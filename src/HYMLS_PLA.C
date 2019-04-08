@@ -1,6 +1,6 @@
 #include "HYMLS_PLA.H"
-#include "Teuchos_RCP.hpp"
-#include "HYMLS_Tools.H"
+
+#include "HYMLS_Macros.H"
 
 namespace HYMLS {
 

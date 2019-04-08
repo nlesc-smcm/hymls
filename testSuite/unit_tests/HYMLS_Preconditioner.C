@@ -11,6 +11,7 @@
 #include <Epetra_Util.h>
 #include <Epetra_Import.h>
 
+#include "HYMLS_Macros.H"
 #include "HYMLS_SchurPreconditioner.H"
 #include "HYMLS_SchurComplement.H"
 #include "HYMLS_CartesianPartitioner.H"

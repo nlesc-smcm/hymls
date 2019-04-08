@@ -7,6 +7,7 @@
 #include "HYMLS_ProjectedOperator.H"
 #include "HYMLS_ShiftedOperator.H"
 
+#include "Epetra_Comm.h"
 #include "Epetra_RowMatrix.h"
 #include "Epetra_CrsMatrix.h"
 #include "Epetra_MultiVector.h"

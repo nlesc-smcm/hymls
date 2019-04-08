@@ -1,11 +1,12 @@
 #include "HYMLS_BorderedVector.H"
 
-#include <math.h>
-#include <vector>
-
 #include "HYMLS_Tools.H"
 
+#include "Epetra_Comm.h"
 #include "Epetra_SerialDenseMatrix.h"
+
+#include <math.h>
+#include <vector>
 
 namespace HYMLS {
 

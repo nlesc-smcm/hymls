@@ -1,5 +1,7 @@
 #include "HYMLS_Exception.H"
+
 #include "HYMLS_Tools.H"
+#include "HYMLS_Macros.H"
 
 namespace HYMLS {
 

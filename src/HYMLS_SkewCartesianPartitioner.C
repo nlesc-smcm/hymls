@@ -1,6 +1,10 @@
 #include "HYMLS_SkewCartesianPartitioner.H"
+
 #include "HYMLS_Tools.H"
+#include "HYMLS_Macros.H"
+
 #include "Teuchos_Utils.hpp"
+
 #include "Epetra_Comm.h"
 #include "Epetra_Map.h"
 #include "Epetra_IntVector.h"

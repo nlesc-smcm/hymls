@@ -1,8 +1,6 @@
 #ifndef HYMLS_HYPERCUBE_H
 #define HYMLS_HYPERCUBE_H
 
-#include "HYMLS_config.h"
-
 #include <iostream>
 #include "Teuchos_RCP.hpp"
 

@@ -14,6 +14,7 @@
 #include <Epetra_Util.h>
 
 #include "HYMLS_DenseUtils.H"
+#include "HYMLS_Exception.H"
 
 #include "HYMLS_UnitTests.H"
 

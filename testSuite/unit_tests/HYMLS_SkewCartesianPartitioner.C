@@ -3,6 +3,7 @@
 #include <Teuchos_RCP.hpp>
 #include <Teuchos_ParameterList.hpp>
 
+#include "Epetra_MpiComm.h"
 #include "Epetra_SerialComm.h"
 #include "Epetra_Map.h"
 

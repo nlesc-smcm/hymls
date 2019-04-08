@@ -8,6 +8,9 @@
 
 #include "Teuchos_StandardParameterEntryValidators.hpp"
 
+#include "Epetra_Map.h"
+#include "Epetra_Comm.h"
+#include "Epetra_MpiComm.h"
 #include "Epetra_Distributor.h"
 
 #ifdef HYMLS_TESTING

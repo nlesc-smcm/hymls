@@ -2,6 +2,7 @@
 #define HYMLS_MACROS_H
 
 #include "HYMLS_config.h"
+#include "HYMLS_Tools.H"
 
 #include "Teuchos_StandardCatchMacros.hpp"
 

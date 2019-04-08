@@ -7,6 +7,7 @@
 #include "HYMLS_config.h"
 
 #include "Epetra_MpiComm.h"
+#include "Epetra_SerialComm.h"
 #include "Epetra_Map.h"
 #include "Epetra_Vector.h"
 #include "Epetra_MultiVector.h"
@@ -40,6 +41,7 @@
 #include "HYMLS_Tester.H"
 #include "HYMLS_Preconditioner.H"
 #include "HYMLS_Solver.H"
+#include "HYMLS_Exception.H"
 #include "HYMLS_MatrixUtils.H"
 
 typedef enum
