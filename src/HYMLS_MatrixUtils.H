@@ -25,18 +25,15 @@
 #else
 #define REINDEX_BY_DEFAULT false
 #endif
-class Epetra_Comm;
+
 class Epetra_BlockMap;
 class Epetra_Operator;
 class Epetra_Map;
-class Epetra_Vector;
 class Epetra_IntVector;
 class Epetra_MultiVector;
 class Epetra_CrsGraph;
 class Epetra_CrsMatrix;
 class Epetra_RowMatrix;
-class Epetra_Import;
-class Ifpack_Container;
 
 namespace HYMLS {
 

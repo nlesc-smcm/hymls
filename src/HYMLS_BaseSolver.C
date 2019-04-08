@@ -1,6 +1,8 @@
 //#define BLOCK_IMPLEMENTATION 1
 #include "HYMLS_BaseSolver.H"
 
+#include "HYMLS_config.h"
+
 #include "HYMLS_Tools.H"
 #include "HYMLS_MatrixUtils.H"
 #include "HYMLS_DenseUtils.H"

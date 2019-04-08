@@ -42,8 +42,6 @@
 #ifndef HYMLS_EPETRAEXT_PRODUCT_OPERATOR_H
 #define HYMLS_EPETRAEXT_PRODUCT_OPERATOR_H
 
-#include "HYMLS_config.h"
-
 #include "Epetra_Operator.h"
 #include "Teuchos_RefCountPtr.hpp"
 #include "Teuchos_BLAS_types.hpp"

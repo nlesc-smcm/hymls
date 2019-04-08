@@ -1,12 +1,13 @@
 #ifndef HYMLS_PROJECTED_OPERATOR_H
 #define HYMLS_PROJECTED_OPERATOR_H
 
-#include "HYMLS_config.h"
-
 #include "Teuchos_RCP.hpp"
 #include "Epetra_Operator.h"
 #include "HYMLS_Tools.H"
 
+class Epetra_Comm;
+class Epetra_Map;
+class Epetra_MultiVector;
 class Epetra_SerialDenseSolver;
 class Epetra_SerialDenseMatrix;
 

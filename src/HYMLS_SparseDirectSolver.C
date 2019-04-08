@@ -1,6 +1,8 @@
 #include "Trilinos_version.h"
 #include "HYMLS_SparseDirectSolver.H"
 
+#include "HYMLS_config.h"
+
 #ifndef USE_AMESOS
 
 #include "Ifpack_Condest.h"

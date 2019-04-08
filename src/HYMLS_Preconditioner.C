@@ -2,6 +2,8 @@
 
 #include "HYMLS_Preconditioner.H"
 
+#include "HYMLS_config.h"
+
 #include "HYMLS_Tools.H"
 #include "HYMLS_MatrixUtils.H"
 #include "HYMLS_DenseUtils.H"

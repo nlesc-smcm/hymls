@@ -1,5 +1,7 @@
 #include "HYMLS_Tools.H"
 
+#include "HYMLS_config.h"
+
 #include "mpi.h"
 
 #include "Teuchos_ParameterList.hpp"

@@ -1,12 +1,9 @@
 #ifndef HYMLS_DENSE_UTILS_H
 #define HYMLS_DENSE_UTILS_H
 
-#include "HYMLS_config.h"
-
 #include "Teuchos_RCP.hpp"
 
 class Epetra_MultiVector;
-class Epetra_Operator;
 class Epetra_SerialDenseMatrix;
 class Epetra_SerialDenseVector;
 

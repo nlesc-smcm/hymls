@@ -1,6 +1,8 @@
 #ifndef ANASAZI_PHIST_SOLMGR_HPP
 #define ANASAZI_PHIST_SOLMGR_HPP
 
+#include "HYMLS_config.h"
+
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_RCPDecl.hpp"
 

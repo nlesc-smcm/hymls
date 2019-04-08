@@ -1,20 +1,18 @@
 #include "HYMLS_DenseUtils.H"
-#include "HYMLS_MatrixUtils.H"
-#include "HYMLS_Tools.H"
 
-#include "Epetra_Operator.h"
 #include "Epetra_MultiVector.h"
 #include "Epetra_LAPACK.h"
+#include "Epetra_BlockMap.h"
+#include "Epetra_LocalMap.h"
 #include "Epetra_SerialDenseMatrix.h"
 #include "Epetra_SerialDenseVector.h"
-
+#include "Epetra_Comm.h"
 #include "Epetra_SerialComm.h"
 
-#include "AnasaziBlockKrylovSchurSolMgr.hpp"
-#include "AnasaziBasicEigenproblem.hpp"
-#include "AnasaziEpetraAdapter.hpp"
+#include "Teuchos_toString.hpp"
 
 #include "HYMLS_Tools.H"
+#include "HYMLS_Macros.H"
 
 namespace HYMLS {
 

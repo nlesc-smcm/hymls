@@ -1,5 +1,7 @@
 #include "HYMLS_SkewCartesianPartitioner.H"
 
+#include "HYMLS_config.h"
+
 #include "HYMLS_Tools.H"
 #include "HYMLS_Macros.H"
 

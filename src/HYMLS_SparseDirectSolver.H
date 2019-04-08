@@ -1,8 +1,6 @@
 #ifndef HYMLS_SPARSE_DIRECT_SOLVER_H
 #define HYMLS_SPARSE_DIRECT_SOLVER_H
 
-#include "HYMLS_config.h"
-
 #include "Amesos_config.h"
 
 // use Amesos interfaces - no custom ordering or scaling,
@@ -29,7 +27,6 @@ class Epetra_Comm;
 class Epetra_MultiVector;
 class Epetra_Vector;
 class Epetra_RowMatrix;
-class Epetra_CrsMatrix;
 class Epetra_Import;
 
 class KluWrapper;
