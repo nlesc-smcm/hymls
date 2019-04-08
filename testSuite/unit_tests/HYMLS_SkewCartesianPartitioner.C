@@ -22,19 +22,19 @@ public:
     HYMLS::SkewCartesianPartitioner(map, params, comm)
     {}
 
-  int PID(int i, int j, int k)
+  int PID(int i, int j, int k) const
     {
     return HYMLS::SkewCartesianPartitioner::PID(i, j, k);
     }
 
-  int GetSubdomainPosition(int sd, int sx, int &x, int &y, int &z) const
+  int GetSubdomainPosition(int sd, int sx, int sy, int sz, int &x, int &y, int &z) const
     {
-    return HYMLS::SkewCartesianPartitioner::GetSubdomainPosition(sd, sx, sx, sx, x, y, z);
+    return HYMLS::SkewCartesianPartitioner::GetSubdomainPosition(sd, sx, sy, sz, x, y, z);
     }
 
-  int GetSubdomainID(int sx, int x, int y, int z) const
+  int GetSubdomainID(int sx, int sy, int sz, int x, int y, int z) const
     {
-    return HYMLS::SkewCartesianPartitioner::GetSubdomainID(sx, sx, sx, x, y, z);
+    return HYMLS::SkewCartesianPartitioner::GetSubdomainID(sx, sy, sz, x, y, z);
     }
   };
 
@@ -120,13 +120,13 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, GetSubdomain)
     {
     int i, j, k;
     int gsd = part.SubdomainMap().GID(sd);
-    part.GetSubdomainPosition(gsd, cl, i, j, k);
+    part.GetSubdomainPosition(gsd, cl, cl, cl, i, j, k);
 
     i = (i % nx + nx) % nx;
     j = (j % nx + nx) % nx;
     k = (k % nx + nx) % nx;
 
-    int gsd2 = part.GetSubdomainID(cl, i, j, k);
+    int gsd2 = part.GetSubdomainID(cl, cl, cl, i, j, k);
 
     // Just for printing
     TEST_EQUALITY(i, i);
@@ -163,7 +163,7 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, GetSubdomain0)
       ENABLE_OUTPUT;
 
       int i, j, k;
-      part.GetSubdomainPosition(0, cl, i, j, k);
+      part.GetSubdomainPosition(0, cl, cl, cl, i, j, k);
       TEST_EQUALITY(i, 0);
       TEST_EQUALITY(j, 0);
       TEST_EQUALITY(k, 0);
