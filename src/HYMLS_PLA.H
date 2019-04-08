@@ -5,7 +5,7 @@
 #include "Teuchos_ParameterListAcceptorDefaultBase.hpp"
 
 namespace HYMLS
-{
+  {
 
 //! base class to be used instead of Teuchos::ParameterListAcceptorDefaultBase.
 //! That name is a bit longish, and we add a member parameter list for valid
@@ -21,33 +21,33 @@ namespace HYMLS
 //!   - HYMLS::OverlappingPartitioner validates the "Problem" sublist.
 
 class PLA : public virtual Teuchos::ParameterListAcceptorDefaultBase
-{
+  {
 public:
 
-    virtual ~PLA();
+  virtual ~PLA();
 
 protected:
 
-    //! constructor - if a sublist name is passed in , PL() will return that
-    //! sublist rather then the global list.
-    PLA(std::string default_sublist="");
+  //! constructor - if a sublist name is passed in , PL() will return that
+  //! sublist rather then the global list.
+  PLA(std::string default_sublist="");
 
-    //! get ref to internal list
-    Teuchos::ParameterList& PL(std::string sublist="");
+  //! get ref to internal list
+  Teuchos::ParameterList& PL(std::string sublist="");
 
-    //!
-    const Teuchos::ParameterList& PL(std::string sublist="") const;
+  //!
+  const Teuchos::ParameterList& PL(std::string sublist="") const;
 
-    //!
-    Teuchos::ParameterList& VPL(std::string sublist="") const;
+  //!
+  Teuchos::ParameterList& VPL(std::string sublist="") const;
 
-    mutable Teuchos::RCP<Teuchos::ParameterList> validParams_;
+  mutable Teuchos::RCP<Teuchos::ParameterList> validParams_;
 
-    std::string default_sublist_;
+  std::string default_sublist_;
 
-    bool validateParameters_;
-};
+  bool validateParameters_;
+  };
 
-}
+  }
 
 #endif
