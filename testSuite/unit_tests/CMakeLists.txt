@@ -19,7 +19,7 @@ set(SOURCES
 
 # Configure the data xml file in which we can set parameters (like file names)
 configure_file(data.xml ${CMAKE_CURRENT_BINARY_DIR}/data.xml)
-configure_file(HYMLS_UnitTestData.H.in ${CMAKE_CURRENT_BINARY_DIR}/HYMLS_UnitTestData.H)
+configure_file(HYMLS_UnitTestData.hpp.in ${CMAKE_CURRENT_BINARY_DIR}/HYMLS_UnitTestData.hpp)
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 

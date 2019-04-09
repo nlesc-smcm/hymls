@@ -21,8 +21,8 @@
 #endif
 
 // Include this before phist
-#include "HYMLS_PhistWrapper.H"
-#include "HYMLS_PhistCustomCorrectionSolver.H"
+#include "HYMLS_PhistWrapper.hpp"
+#include "HYMLS_PhistCustomCorrectionSolver.hpp"
 
 #include "phist_macros.h"
 #include "phist_enums.h"
@@ -33,7 +33,7 @@
 #include "phist_subspacejada.h"
 #include "phist_schur_decomp.h"
 
-#include "HYMLS_Tester.H"
+#include "HYMLS_Tester.hpp"
 #include "Epetra_Util.h"
 
 

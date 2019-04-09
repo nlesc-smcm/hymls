@@ -46,10 +46,10 @@ set(HEADERS ${HEADERS}
   GaleriExt_Star3D.h
   GaleriExt_Stokes2D.h
   GaleriExt_Stokes3D.h
-  HYMLS_Macros.H
-  HYMLS_no_debug.H
-  HYMLS_OrthogonalTransform.H
-  HYMLS_RestrictedOT.H
+  HYMLS_Macros.hpp
+  HYMLS_no_debug.hpp
+  HYMLS_OrthogonalTransform.hpp
+  HYMLS_RestrictedOT.hpp
   )
 
 if (${phist_FOUND})
@@ -58,8 +58,8 @@ if (${phist_FOUND})
   list(APPEND HYMLS_SOURCE HYMLS_PhistCustomCorrectionSolver)
   
   list(APPEND HEADERS
-    HYMLS_PhistWrapper.H
-    HYMLS_PhistCustomCorrectionSolver.H
+    HYMLS_PhistWrapper.hpp
+    HYMLS_PhistCustomCorrectionSolver.hpp
     AnasaziPhistSolMgr.hpp)
 endif()
 
@@ -70,7 +70,7 @@ list(APPEND HEADERS "${CMAKE_CURRENT_BINARY_DIR}/HYMLS_config.h")
 
 # Add header files belonging to cpp files. Headers include eachother,
 #so for now just assume we want to install all header files that have a source.
-set(header_extensions ".h" ".H" ".hpp")
+set(header_extensions ".h" ".hpp")
 foreach(i ${HYMLS_SOURCE})
   foreach(j ${header_extensions})
     if (EXISTS "${PROJECT_SOURCE_DIR}/src/${i}${j}")
@@ -114,10 +114,10 @@ endif()
 # Link HYMLS to all found libraries
 target_link_libraries(hymls ${found_library_dependencies})
 
-add_executable(hymls_main main.C)
+add_executable(hymls_main main.cpp)
 target_link_libraries(hymls_main hymls)
 
-add_executable(hymls_main_eigs main_eigs.C)
+add_executable(hymls_main_eigs main_eigs.cpp)
 target_link_libraries(hymls_main_eigs hymls)
 
 set(INCLUDE_INSTALL_DIR include)

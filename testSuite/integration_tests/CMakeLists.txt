@@ -5,7 +5,7 @@ foreach (xml_file ${XMLFILES})
   configure_file(${xml_file} ${CMAKE_CURRENT_BINARY_DIR}/)
 endforeach()
 
-add_executable(integration_tests integration_tests.C)
+add_executable(integration_tests integration_tests.cpp)
 
 if (${phist_FOUND})
   target_link_libraries(integration_tests ${PHIST_LIBRARIES})
