@@ -20,7 +20,7 @@
 #include "Teuchos_StandardCatchMacros.hpp"
 #include "Teuchos_StrUtils.hpp"
 
-#include "main_utils.H"
+#include "HYMLS_MainUtils.H"
 
 #include "Teuchos_FancyOStream.hpp"
 

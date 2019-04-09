@@ -26,7 +26,7 @@
 #include <signal.h>
 #endif
 
-#include "main_utils.H"
+#include "HYMLS_MainUtils.H"
 
 #include "AnasaziBasicEigenproblem.hpp"
 #include "AnasaziEpetraAdapter.hpp"

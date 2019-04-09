@@ -16,7 +16,7 @@
 #include "Teuchos_ParameterListAcceptorHelpers.hpp"
 #include "Teuchos_StandardCatchMacros.hpp"
 
-#include "main_utils.H"
+#include "HYMLS_MainUtils.H"
 
 #include "Galeri_Maps.h"
 #include "Galeri_CrsMatrices.h"

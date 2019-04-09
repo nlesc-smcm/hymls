@@ -24,7 +24,7 @@
 #include <signal.h>
 #endif
 
-#include "main_utils.H"
+#include "HYMLS_MainUtils.H"
 
 #ifdef EPETRA_HAVE_OMP
 #include <omp.h>

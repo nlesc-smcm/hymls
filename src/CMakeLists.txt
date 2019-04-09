@@ -28,12 +28,12 @@ set(HYMLS_SOURCE HYMLS_Solver
     HYMLS_Exception
     HYMLS_MatrixBlock
     HYMLS_ShiftedOperator
+    HYMLS_MainUtils
     NOX_Epetra_LinearSystem_Hymls
     GaleriExt_CrsMatrices
     GaleriExt_Periodic
     EpetraExt_RestrictedCrsMatrixWrapper
-    EpetraExt_RestrictedMultiVectorWrapper
-    main_utils)
+    EpetraExt_RestrictedMultiVectorWrapper)
 
 set(HEADERS)
 
