@@ -5,11 +5,10 @@
 #include "Epetra_Operator.h"
 
 #include "HYMLS_PLA.hpp"
-#include "HYMLS_BaseSolver.hpp"
 
 #include <string>
 
-  // forward declarations
+// forward declarations
 class Epetra_MultiVector;
 class Epetra_Comm;
 class Epetra_Map;
@@ -18,14 +17,16 @@ class Epetra_RowMatrix;
 
 namespace Teuchos
   {
-  class ParameterList;
+class ParameterList;
   }
 
 namespace HYMLS {
 
+class BaseSolver;
+
 /*! iterative solver class, basically
-   an Epetra wrapper for Belos extended with
-   some bordering and deflation functionality.
+  an Epetra wrapper for Belos extended with
+  some bordering and deflation functionality.
 */
 class Solver : public Epetra_Operator,
                public PLA
@@ -51,122 +52,65 @@ public:
   Teuchos::RCP<const Teuchos::ParameterList> getValidParameters() const;
 
   //! set matrix for solve
-  void SetMatrix(Teuchos::RCP<const Epetra_RowMatrix> A)
-    {
-    solver_->SetMatrix(A);
-    }
+  void SetMatrix(Teuchos::RCP<const Epetra_RowMatrix> A);
 
   //! set preconditioner for solve
-  void SetPrecond(Teuchos::RCP<Epetra_Operator> P)
-    {
-    solver_->SetPrecond(P);
-    }
+  void SetPrecond(Teuchos::RCP<Epetra_Operator> P);
 
   //! for eigenvalue computations - set mass matrix
-  void SetMassMatrix(Teuchos::RCP<const Epetra_RowMatrix> B)
-    {
-    solver_->SetMassMatrix(B);
-    }
+  void SetMassMatrix(Teuchos::RCP<const Epetra_RowMatrix> B);
 
   //! Applies the operator
   int Apply(const Epetra_MultiVector& X,
-    Epetra_MultiVector& Y) const
-    {
-    return solver_->Apply(X, Y);
-    }
+    Epetra_MultiVector& Y) const;
 
   //! Applies the matrix
   int ApplyMatrix(const Epetra_MultiVector& X,
-    Epetra_MultiVector& Y) const
-    {
-    return solver_->ApplyMatrix(X, Y);
-    }
+    Epetra_MultiVector& Y) const;
 
   //! Applies the preconditioner
   int ApplyPrec(const Epetra_MultiVector& X,
-    Epetra_MultiVector& Y) const
-    {
-    return solver_->ApplyPrec(X, Y);
-    }
+    Epetra_MultiVector& Y) const;
 
   //! Applies the mass matrix
   int ApplyMass(const Epetra_MultiVector& X,
-    Epetra_MultiVector& Y) const
-    {
-    return solver_->ApplyMass(X, Y);
-    }
+    Epetra_MultiVector& Y) const;
 
   //! Applies the preconditioner to vector X, returns the result in Y.
   int ApplyInverse(const Epetra_MultiVector& X,
-    Epetra_MultiVector& Y) const
-    {
-    return solver_->ApplyInverse(X, Y);
-    }
+    Epetra_MultiVector& Y) const;
 
-  int SetUseTranspose(bool UseTranspose)
-    {
-    return solver_->SetUseTranspose(UseTranspose);
-    }
+  int SetUseTranspose(bool UseTranspose);
 
   //! not implemented.
-  bool HasNormInf() const
-    {
-    return solver_->HasNormInf();
-    }
+  bool HasNormInf() const;
 
   //! infinity norm
-  double NormInf() const
-    {
-    return solver_->NormInf();
-    }
+  double NormInf() const;
 
   //! label
-  const char* Label() const
-    {
-    return solver_->Label();
-    }
+  const char* Label() const;
 
   //! use transpose?
-  bool UseTranspose() const
-    {
-    return solver_->UseTranspose();
-    }
+  bool UseTranspose() const;
 
   //! communicator
-  const Epetra_Comm & Comm() const
-    {
-    return solver_->Comm();
-    }
+  const Epetra_Comm & Comm() const;
 
   //! Returns the Epetra_Map object associated with the domain of this operator.
-  const Epetra_Map & OperatorDomainMap() const
-    {
-    return solver_->OperatorDomainMap();
-    }
+  const Epetra_Map & OperatorDomainMap() const;
 
   //! Returns the Epetra_Map object associated with the range of this operator.
-  const Epetra_Map & OperatorRangeMap() const
-    {
-    return solver_->OperatorRangeMap();
-    }
+  const Epetra_Map & OperatorRangeMap() const;
   //@}
 
   //! setup the solver to solve (shiftA*A+shiftB*B)x=b
-  void setShift(double shiftA, double shiftB)
-    {
-    solver_->setShift(shiftA, shiftB);
-    }
+  void setShift(double shiftA, double shiftB);
 
-  void SetTolerance(double tol)
-    {
-    solver_->SetTolerance(tol);
-    }
+  void SetTolerance(double tol);
 
   //! get number of iterations performed in last ApplyInverse() call
-  int getNumIter() const
-    {
-    return solver_->getNumIter();
-    }
+  int getNumIter() const;
 
   //! For singular problems with a known null space, add the null space
   //! as a border so that in fact the linear system
@@ -178,18 +122,12 @@ public:
   //! be perpendicular to V. If the function is called repeatedly,
   //! the 'old' vectors are replaced.
   int setBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
-    Teuchos::RCP<const Epetra_MultiVector> const &W=Teuchos::null,
-    Teuchos::RCP<const Epetra_SerialDenseMatrix> const &C=Teuchos::null)
-    {
-    return solver_->setBorder(V, W, C);
-    }
+    Teuchos::RCP<const Epetra_MultiVector> const &W = Teuchos::null,
+    Teuchos::RCP<const Epetra_SerialDenseMatrix> const &C = Teuchos::null);
 
   //! use same preconditioner but operator (I-VV')A
   int setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V,
-    Teuchos::RCP<const Epetra_MultiVector> W = Teuchos::null)
-    {
-    return solver_->setProjectionVectors(V, W);
-    }
+    Teuchos::RCP<const Epetra_MultiVector> W = Teuchos::null);
 
   //! computes the modes closest to 0 and sets up the solver's deflation
   //! capabilities. If maxEigs==-2, the value "Deflated Subspace Dimension"
@@ -199,10 +137,7 @@ public:
   //! preconditioner to make it non-singular.
   //!
   //! \todo see todo in addBorder
-  int SetupDeflation()
-    {
-    return solver_->SetupDeflation();
-    }
+  int SetupDeflation();
 
 protected:
   //! Actual HYMLS solver without extra functionality
@@ -219,6 +154,6 @@ protected:
 
   };
 
-}
+  }
 
 #endif

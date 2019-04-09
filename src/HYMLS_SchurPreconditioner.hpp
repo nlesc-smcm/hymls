@@ -5,10 +5,9 @@
 
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_Array.hpp"
+
 #include "Ifpack_CondestType.h"
 #include "Ifpack_Preconditioner.h"
-
-#include "Epetra_SerialDenseMatrix.h"
 
 #include "HYMLS_BorderedOperator.hpp"
 #include "HYMLS_PLA.hpp"
@@ -25,6 +24,7 @@ class Epetra_Import;
 class Ifpack_Container;
 class Epetra_CrsMatrix;
 class Epetra_IntSerialDenseVector;
+class Epetra_SerialDensematrix;
 class Epetra_MultiVector;
 class Epetra_Operator;
 class Epetra_Vector;

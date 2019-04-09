@@ -1,4 +1,5 @@
 #include "HYMLS_Solver.hpp"
+
 #include "HYMLS_BaseSolver.hpp"
 #include "HYMLS_BorderedSolver.hpp"
 #include "HYMLS_DeflatedSolver.hpp"
@@ -41,8 +42,7 @@ Solver::~Solver()
   HYMLS_PROF3(label_, "Destructor");
   }
 
-//! set solver parameters (the list is the "HYMLS"->"Solver" sublist)
-void Solver::setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& params)
+void Solver::Solver::setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& params)
   {
   HYMLS_PROF3(label_, "SetParameterList");
 
@@ -64,7 +64,6 @@ void Solver::setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& params
     }
   }
 
-//! get a list of valid parameters for this object
 Teuchos::RCP<const Teuchos::ParameterList> Solver::getValidParameters() const
   {
   HYMLS_PROF3(label_, "getValidParameterList");
@@ -82,6 +81,124 @@ Teuchos::RCP<const Teuchos::ParameterList> Solver::getValidParameters() const
     "Use bordering instead of projections when projecting out vectors.");
 
   return validParams_;
+  }
+
+void Solver::SetMatrix(Teuchos::RCP<const Epetra_RowMatrix> A)
+  {
+  solver_->SetMatrix(A);
+  }
+
+void Solver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)
+  {
+  solver_->SetPrecond(P);
+  }
+
+void Solver::SetMassMatrix(Teuchos::RCP<const Epetra_RowMatrix> B)
+  {
+  solver_->SetMassMatrix(B);
+  }
+
+int Solver::Apply(const Epetra_MultiVector& X,
+  Epetra_MultiVector& Y) const
+  {
+  return solver_->Apply(X, Y);
+  }
+
+int Solver::ApplyMatrix(const Epetra_MultiVector& X,
+  Epetra_MultiVector& Y) const
+  {
+  return solver_->ApplyMatrix(X, Y);
+  }
+
+int Solver::ApplyPrec(const Epetra_MultiVector& X,
+  Epetra_MultiVector& Y) const
+  {
+  return solver_->ApplyPrec(X, Y);
+  }
+
+int Solver::ApplyMass(const Epetra_MultiVector& X,
+  Epetra_MultiVector& Y) const
+  {
+  return solver_->ApplyMass(X, Y);
+  }
+
+int Solver::ApplyInverse(const Epetra_MultiVector& X,
+  Epetra_MultiVector& Y) const
+  {
+  return solver_->ApplyInverse(X, Y);
+  }
+
+int Solver::SetUseTranspose(bool UseTranspose)
+  {
+  return solver_->SetUseTranspose(UseTranspose);
+  }
+
+bool Solver::HasNormInf() const
+  {
+  return solver_->HasNormInf();
+  }
+
+double Solver::NormInf() const
+  {
+  return solver_->NormInf();
+  }
+
+const char* Solver::Label() const
+  {
+  return solver_->Label();
+  }
+
+bool Solver::UseTranspose() const
+  {
+  return solver_->UseTranspose();
+  }
+
+const Epetra_Comm & Solver::Comm() const
+  {
+  return solver_->Comm();
+  }
+
+const Epetra_Map & Solver::OperatorDomainMap() const
+  {
+  return solver_->OperatorDomainMap();
+  }
+
+const Epetra_Map & Solver::OperatorRangeMap() const
+  {
+  return solver_->OperatorRangeMap();
+  }
+
+void Solver::setShift(double shiftA, double shiftB)
+  {
+  solver_->setShift(shiftA, shiftB);
+  }
+
+void Solver::SetTolerance(double tol)
+  {
+  solver_->SetTolerance(tol);
+  }
+
+int Solver::getNumIter() const
+  {
+  return solver_->getNumIter();
+  }
+
+int Solver::setBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
+  Teuchos::RCP<const Epetra_MultiVector> const &W,
+  Teuchos::RCP<const Epetra_SerialDenseMatrix> const &C)
+  {
+  return solver_->setBorder(V, W, C);
+  }
+
+int Solver::setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V,
+  Teuchos::RCP<const Epetra_MultiVector> W)
+  {
+  return solver_->setProjectionVectors(V, W);
+  }
+
+int Solver::SetupDeflation()
+  {
+  return solver_->SetupDeflation();
   }
 
   }//namespace HYMLS
