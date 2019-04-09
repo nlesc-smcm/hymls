@@ -173,6 +173,46 @@ void BaseSolver::SetMassMatrix(Teuchos::RCP<const Epetra_RowMatrix> mass)
   operator_=matrix_;
   }
 
+int BaseSolver::Apply(const Epetra_MultiVector& X,
+  Epetra_MultiVector& Y) const
+  {
+  return operator_->Apply(X,Y);
+  }
+
+int BaseSolver::ApplyMatrix(const Epetra_MultiVector& X,
+  Epetra_MultiVector& Y) const
+  {
+  return matrix_->Apply(X,Y);
+  }
+
+int BaseSolver::ApplyPrec(const Epetra_MultiVector& X,
+  Epetra_MultiVector& Y) const
+  {
+  return precond_->ApplyInverse(X,Y);
+  }
+
+int BaseSolver::ApplyMass(const Epetra_MultiVector& X,
+  Epetra_MultiVector& Y) const
+  {
+  return massMatrix_->Apply(X,Y);
+  }
+
+int BaseSolver::SetUseTranspose(bool UseTranspose)
+  {
+  useTranspose_=false; // not implemented.
+  return -1;
+  }
+
+const Epetra_Map & BaseSolver::OperatorDomainMap() const
+  {
+  return matrix_->OperatorDomainMap();
+  }
+
+const Epetra_Map & BaseSolver::OperatorRangeMap() const
+  {
+  return matrix_->OperatorRangeMap();
+  }
+
 void BaseSolver::setShift(double shiftA, double shiftB)
   {
   shiftA_=shiftA;

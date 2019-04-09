@@ -2,9 +2,8 @@
 #define HYMLS_BASE_SOLVER_H
 
 #include "Teuchos_RCP.hpp"
-#include "Epetra_Operator.h"
 
-#include "Epetra_RowMatrix.h"
+#include "Epetra_Operator.h"
 
 #include "HYMLS_PLA.hpp"
 
@@ -13,6 +12,7 @@ class Epetra_MultiVector;
 class Epetra_Comm;
 class Epetra_SerialDenseMatrix;
 class Epetra_Map;
+class Epetra_RowMatrix;
 
 namespace Belos {
 class EpetraPrecOp;
@@ -77,41 +77,26 @@ public:
 
   //! Applies the operator
   int Apply(const Epetra_MultiVector& X,
-                           Epetra_MultiVector& Y) const 
-    {
-    return operator_->Apply(X,Y);
-    }
+    Epetra_MultiVector& Y) const;
 
   //! Applies the matrix
   int ApplyMatrix(const Epetra_MultiVector& X,
-                           Epetra_MultiVector& Y) const 
-    {
-    return matrix_->Apply(X,Y);
-    }
+    Epetra_MultiVector& Y) const;
 
   //! Applies the preconditioner
   int ApplyPrec(const Epetra_MultiVector& X,
-                           Epetra_MultiVector& Y) const 
-    {
-    return precond_->ApplyInverse(X,Y);
-    }
+    Epetra_MultiVector& Y) const;
 
   //! Applies the mass matrix
   int ApplyMass(const Epetra_MultiVector& X,
-                           Epetra_MultiVector& Y) const 
-    {
-    return massMatrix_->Apply(X,Y);
-    }
+    Epetra_MultiVector& Y) const;
 
   //! Applies the preconditioner to vector X, returns the result in Y.
   virtual int ApplyInverse(const Epetra_MultiVector& X,
     Epetra_MultiVector& Y) const;
   
-  int SetUseTranspose(bool UseTranspose)
-    {
-    useTranspose_=false; // not implemented.
-    return -1;
-    }
+  int SetUseTranspose(bool UseTranspose);
+
   //! not implemented.
   bool HasNormInf() const {return false;}
 
@@ -128,10 +113,10 @@ public:
   const Epetra_Comm & Comm() const {return *comm_;}
   
   //! Returns the Epetra_Map object associated with the domain of this operator.
-  const Epetra_Map & OperatorDomainMap() const {return matrix_->OperatorDomainMap();}
+  const Epetra_Map & OperatorDomainMap() const;
   
   //! Returns the Epetra_Map object associated with the range of this operator.
-  const Epetra_Map & OperatorRangeMap() const {return matrix_->OperatorRangeMap();}
+  const Epetra_Map & OperatorRangeMap() const;
 
   //@}
 
