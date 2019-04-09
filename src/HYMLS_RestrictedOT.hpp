@@ -3,7 +3,6 @@
 
 #include "HYMLS_config.h"
 
-#include "HYMLS_Tools.hpp"
 #include "HYMLS_OrthogonalTransform.hpp"
 #include "Epetra_SerialDenseVector.h"
 #include "Epetra_SerialDenseMatrix.h"

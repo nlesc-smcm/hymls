@@ -12,6 +12,7 @@
 #include <Epetra_Import.h>
 
 #include "HYMLS_Macros.hpp"
+#include "HYMLS_MatrixBlock.hpp"
 #include "HYMLS_SchurPreconditioner.hpp"
 #include "HYMLS_SchurComplement.hpp"
 #include "HYMLS_CartesianPartitioner.hpp"

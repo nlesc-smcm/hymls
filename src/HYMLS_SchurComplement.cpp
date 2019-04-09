@@ -2,6 +2,7 @@
 
 #include "HYMLS_SchurComplement.hpp"
 #include "HYMLS_OverlappingPartitioner.hpp"
+#include "HYMLS_MatrixBlock.hpp"
 #include "HYMLS_Macros.hpp"
 #include "HYMLS_Tools.hpp"
 
@@ -61,6 +62,31 @@ int SchurComplement::ApplyInverse(const Epetra_MultiVector &X,
   {
   Tools::Warning("ApplyInverse() not available!", __FILE__, __LINE__);
   return -1;
+  }
+
+const Epetra_Comm &SchurComplement::Comm() const
+  {
+  return A22_->Comm();
+  }
+
+const Epetra_Map &SchurComplement::OperatorDomainMap() const
+  {
+  return A22_->DomainMap();
+  }
+
+const Epetra_Map &SchurComplement::OperatorRangeMap() const
+  {
+  return A22_->RangeMap();
+  }
+
+const Epetra_CrsMatrix &SchurComplement::A22() const
+  {
+  return *A22_->Block();
+  }
+
+const OverlappingPartitioner &SchurComplement::Partitioner() const
+  {
+  return A22_->Partitioner();
   }
 
 int SchurComplement::Construct(Teuchos::RCP<Epetra_FECrsMatrix> S) const

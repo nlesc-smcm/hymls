@@ -7,8 +7,6 @@
 
 #include "Epetra_Operator.h"
 
-#include "HYMLS_MatrixBlock.hpp"
-
 #include <string>
 
 // forward declarations
@@ -23,6 +21,7 @@ class Epetra_SerialDenseMatrix;
 
 namespace HYMLS {
 
+class MatrixBlock;
 class OverlappingPartitioner;
 
 //! efficient implementation of the original Schur-complement of our solver
@@ -37,7 +36,7 @@ class SchurComplement : public Epetra_Operator
 
 public:
 
-  friend class SchurPreconditioner; 
+  friend class SchurPreconditioner;
 
   //! constructor. The level parameter is just to get the
   //! label right, the mother defines A11, A12, A21 and A22
@@ -83,13 +82,13 @@ public:
   bool UseTranspose() const {return useTranspose_; }
 
   //! communicator
-  const Epetra_Comm &Comm() const {return A22_->Comm(); }
+  const Epetra_Comm &Comm() const;
 
   //! Returns the Epetra_Map object associated with the domain of this operator.
-  const Epetra_Map &OperatorDomainMap() const {return A22_->DomainMap(); }
+  const Epetra_Map &OperatorDomainMap() const;
 
   //! Returns the Epetra_Map object associated with the range of this operator.
-  const Epetra_Map &OperatorRangeMap() const {return A22_->RangeMap(); }
+  const Epetra_Map &OperatorRangeMap() const;
 
   //@}
 
@@ -158,12 +157,11 @@ protected:
 #endif
     double *flops = NULL) const;
 
-
   //! to allow the preconditioner access to parts of the unassembled Schur complement:
-  const Epetra_CrsMatrix &A22() const {return *A22_->Block(); }
+  const Epetra_CrsMatrix &A22() const;
 
   //! get the OverlappingPartitioner object
-  const OverlappingPartitioner &Partitioner() const {return A22_->Partitioner(); }
+  const OverlappingPartitioner &Partitioner() const;
 
 private:
 
