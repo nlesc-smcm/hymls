@@ -151,7 +151,7 @@ Stokes3D(const Epetra_Map* Map,
           if (lower==-1 || upper==-1) add_to_diag+=a;
           if (below==-1 || above==-1) add_to_diag+=a;
         }
-        if (right>=0 && rightright==-1)
+        if (right>0 && rightright==-1)
         {
           // remove coupling to velocity on boundary
           for (int j=0; j<lenLaplace; j++)

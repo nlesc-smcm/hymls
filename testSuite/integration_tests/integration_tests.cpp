@@ -328,7 +328,6 @@ void getLinearSystem(Teuchos::RCP<const Epetra_Comm> comm,
   if (nullSpace==Teuchos::null && nullSpaceType!="None")
     {
     nullSpace=HYMLS::MainUtils::create_nullspace(*K, nullSpaceType, problemList);
-    dim0=nullSpace->NumVectors();
     }
   return;
   }

@@ -1820,7 +1820,12 @@ int MatrixUtils::ExtractLocalBlock(const Epetra_RowMatrix& A, Epetra_CrsMatrix& 
     int iA = A.RowMatrixRowMap().LID(A_loc.GRID64(i));
 //    HYMLS_DEBUG("")
 //    HYMLS_DEBUG("row " << i << " " << iA << " " << A_loc.GRID(i));
-    if (iA < 0) return - 1;
+    if (iA < 0)
+      {
+      ierr = -1;
+      break;
+      }
+
     CHECK_ZERO(A.ExtractMyRowCopy(iA, maxLen, len, vals, inds));
 //    HYMLS_DEBVAR(len);
     int new_len = 0;

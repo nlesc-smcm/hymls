@@ -226,7 +226,6 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
   else if (nullSpaceType!="None")
     {
     nullSpace=HYMLS::MainUtils::create_nullspace(*K, nullSpaceType, probl_params);
-    dim0=nullSpace->NumVectors();
     }
 
   // create start vector
