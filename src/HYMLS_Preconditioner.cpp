@@ -22,6 +22,7 @@
 #include "Epetra_BlockMap.h"
 #include "Epetra_MultiVector.h"
 #include "Epetra_Vector.h"
+#include "Epetra_CrsMatrix.h"
 
 #include "HYMLS_Tester.hpp"
 #include "HYMLS_Epetra_Time.h"
