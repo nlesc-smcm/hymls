@@ -3,13 +3,12 @@
 
 #include "HYMLS_config.h"
 
-#include "Teuchos_RCP.hpp"
-#include "Epetra_CrsMatrix.h"
+#include "HYMLS_PLA.hpp"
+#include "HYMLS_BorderedOperator.hpp"
 
 #include "Ifpack_Preconditioner.h"
 
-#include "HYMLS_PLA.hpp"
-#include "HYMLS_BorderedOperator.hpp"
+#include "Teuchos_RCP.hpp"
 
 #include <iosfwd>
 #include <string>
@@ -20,6 +19,7 @@ class Epetra_Map;
 class Epetra_Import;
 class Epetra_MultiVector;
 class Epetra_RowMatrix;
+class Epetra_CrsMatrix;
 class Epetra_Vector;
 
 namespace Teuchos 
@@ -54,11 +54,11 @@ class OverlappingPartitioner;
   Vsum problem. For more levels, it will create another instance of 
   this "Preconditioner" class.
 */
-class Preconditioner : public Ifpack_Preconditioner, 
+class Preconditioner : public Ifpack_Preconditioner,
                        public BorderedOperator,
                        public PLA
   {
-  
+
 public:
 
   //! Our Schur-complement is our friend:

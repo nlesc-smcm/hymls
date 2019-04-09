@@ -4,17 +4,16 @@
 #include "HYMLS_config.h"
 
 #include "HYMLS_HierarchicalMap.hpp"
+#include "HYMLS_PLA.hpp"
 
 #include "Teuchos_RCP.hpp"
-#include "Teuchos_Array.hpp"
-
-#include "HYMLS_PLA.hpp"
 
 #include <string>
 
 namespace Teuchos
   {
 class ParameterList;
+template <typename T> class Array;
   }
 
 class Epetra_Map;
