@@ -22,7 +22,11 @@
 #include "Epetra_SerialDenseVector.h"
 #include "Epetra_BlockMap.h"
 #include "Epetra_CrsMatrix.h"
+#ifdef HYMLS_LONG_LONG
+#include "Epetra_LongLongSerialDenseVector.h"
+#else
 #include "Epetra_IntSerialDenseVector.h"
+#endif
 #include "Epetra_MpiComm.h"
 #include "Epetra_Operator.h"
 #include "Epetra_Vector.h"

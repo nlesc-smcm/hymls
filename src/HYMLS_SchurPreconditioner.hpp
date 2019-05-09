@@ -23,7 +23,11 @@ class Epetra_FECrsMatrix;
 class Epetra_Import;
 class Ifpack_Container;
 class Epetra_CrsMatrix;
+#ifdef HYMLS_LONG_LONG
+class Epetra_LongLongSerialDenseVector;
+#else
 class Epetra_IntSerialDenseVector;
+#endif
 class Epetra_SerialDensematrix;
 class Epetra_MultiVector;
 class Epetra_Operator;
