@@ -8,6 +8,8 @@
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_toString.hpp"
 
+#include <cstdlib>
+#include <cstdarg>
 #include <dlfcn.h>
 #include <signal.h>
 #include <iostream>
