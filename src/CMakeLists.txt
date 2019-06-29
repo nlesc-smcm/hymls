@@ -131,7 +131,11 @@ install(TARGETS hymls_main_eigs EXPORT HYMLSTargets RUNTIME DESTINATION ${BIN_IN
 # Install libraries
 set(library_list)
 
-install(TARGETS hymls EXPORT HYMLSTargets LIBRARY DESTINATION ${LIB_INSTALL_DIR})
+if (BUILD_SHARED_LIBS)
+  install(TARGETS hymls EXPORT HYMLSTargets LIBRARY DESTINATION ${LIB_INSTALL_DIR})
+else()
+  install(TARGETS hymls EXPORT HYMLSTargets ARCHIVE DESTINATION ${LIB_INSTALL_DIR})
+endif()
 list(APPEND library_list hymls)
 
 # Install headers
