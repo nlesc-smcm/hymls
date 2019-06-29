@@ -5,7 +5,7 @@ if (CMAKE_MAJOR_VERSION GREATER 2)
   set(HYMLS_HAVE_CXX11 ON)
 endif()
 
-set(BUILD_SHARED_LIBS ON)
+set(BUILD_SHARED_LIBS ON CACHE STRING "build shared library for hymls (libhymls.so rather than libhymls.a)")
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   message(STATUS "Using GNU compiler flags")
@@ -18,13 +18,13 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clan
   endif(CCACHE_FOUND)
 
   if (NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_C_FLAGS        "${CMAKE_C_FLAGS} -O2 -g -Wall -Wno-unknown-pragmas -Wno-deprecated-declarations")
-    set(CMAKE_CXX_FLAGS      "${CMAKE_CXX_FLAGS} -O2 -g -Wall -Wno-unknown-pragmas -Wno-deprecated-declarations")
-    set(CMAKE_Fortran_FLAGS  "${CMAKE_Fortran_FLAGS} -O2 -g -Wall -Wno-deprecated-declarations")
+    set(CMAKE_C_FLAGS        "${CMAKE_C_FLAGS} -O2 -DNDEBUG -g -Wall -Wno-unknown-pragmas -Wno-deprecated-declarations")
+    set(CMAKE_CXX_FLAGS      "${CMAKE_CXX_FLAGS} -O2 -DNDEBUG -g -Wall -Wno-unknown-pragmas -Wno-deprecated-declarations")
+    set(CMAKE_Fortran_FLAGS  "${CMAKE_Fortran_FLAGS} -O2 -DNDEBUG -g -Wall -Wno-deprecated-declarations")
   endif()
 
-  set(CMAKE_C_FLAGS_RELEASE        "-O3 -ffast-math -march=native")
-  set(CMAKE_CXX_FLAGS_RELEASE      "-O3 -ffast-math -march=native")
+  set(CMAKE_C_FLAGS_RELEASE        "-O3 -DNDEBUG -ffast-math -march=native")
+  set(CMAKE_CXX_FLAGS_RELEASE      "-O3 -DNDEBUG -ffast-math -march=native")
   set(CMAKE_Fortran_FLAGS_RELEASE  "-O3 -ffast-math -march=native")
 
   set (CMAKE_C_FLAGS_DEBUG       "-O0 -g -Wall -Wno-unknown-pragmas -Wno-deprecated-declarations")
@@ -38,14 +38,14 @@ elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
   message(STATUS "Using Intel compiler flags")
 
   if (NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_C_FLAGS        "${CMAKE_C_FLAGS} -O2 -g -mkl")
-    set(CMAKE_CXX_FLAGS      "${CMAKE_CXX_FLAGS} -O2 -g -mkl")
+    set(CMAKE_C_FLAGS        "${CMAKE_C_FLAGS} -O2 -DNDEBUG -g -mkl")
+    set(CMAKE_CXX_FLAGS      "${CMAKE_CXX_FLAGS} -O2 -DNDEBUG -g -mkl")
     set(CMAKE_Fortran_FLAGS  "${CMAKE_Fortran_FLAGS} -O2 -g -mkl")
   endif()
 
-  set(CMAKE_C_FLAGS_RELEASE        "-O3 -mkl -fast -march=native")
-  set(CMAKE_CXX_FLAGS_RELEASE      "-O3 -mkl -fast -march=native")
-  set(CMAKE_Fortran_FLAGS_RELEASE  "-O3 -mkl -fast -march=native")
+  set(CMAKE_C_FLAGS_RELEASE        "-O3 -DNDEBUG -mkl -march=native")
+  set(CMAKE_CXX_FLAGS_RELEASE      "-O3 -DNDEBUG -mkl -march=native")
+  set(CMAKE_Fortran_FLAGS_RELEASE  "-O3 -mkl -march=native")
 
   set (CMAKE_C_FLAGS_DEBUG       "-O0 -g -mkl")
   set (CMAKE_CXX_FLAGS_DEBUG     "-O0 -g -mkl")
