@@ -116,6 +116,8 @@ int HierarchicalMap::FillComplete()
     Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >());
   Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > newGidList =
     Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >());
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<Teuchos::Array<int> > > > newGroupLinks =
+    Teuchos::rcp(new Teuchos::Array<Teuchos::Array<Teuchos::Array<int> > >());
 
   Teuchos::RCP<const Epetra_Map> map = baseMap_;
   if (baseOverlappingMap_ != Teuchos::null)
@@ -193,29 +195,38 @@ int HierarchicalMap::FillComplete()
 
     for (int sd = 0; sd < NumMySubdomains(); sd++)
       {
-      for (int grp = 1; grp < NumGroups(sd); grp++)
+      newGroupLinks->append(Teuchos::Array<Teuchos::Array<int> >());
+      for (int lnk = 0; lnk < NumLinks(sd); lnk++)
         {
-        Teuchos::Array<hymls_gidx> gidList;
-        for (int j = 0; j < NumElements(sd,grp); j++)
+        newGroupLinks->back().append(Teuchos::Array<int>());
+        for (int grp = 0; grp < NumGroups(sd, lnk); grp++)
           {
-          hymls_gidx gid = GID(sd, grp, j);
-          // If it is present in the overlappingVec the element actually belongs
-          // to the baseMap_ on some processor
-          if (overlappingVec[tmpOverlappingMap->LID(gid)])
+          int grp2 = GroupFromLink(sd, lnk, grp);
+          Teuchos::Array<hymls_gidx> gidList;
+          for (int j = 0; j < NumElements(sd, grp2); j++)
             {
-            gidList.append(gid);
+            hymls_gidx gid = GID(sd, grp2, j);
+            // If it is present in the overlappingVec the element actually belongs
+            // to the baseMap_ on some processor
+            if (overlappingVec[tmpOverlappingMap->LID(gid)])
+              {
+              gidList.append(gid);
+              }
             }
-          }
-        hymls_gidx offset = *((*newGroupPointer)[sd].end()-1);
-        int len = gidList.size();
-        if (len > 0)
-          {
-          (*newGroupPointer)[sd].append(offset + len);
-          std::copy(gidList.begin(), gidList.end(), std::back_inserter((*newGidList)[sd]));
+          hymls_gidx offset = *((*newGroupPointer)[sd].end()-1);
+          int len = gidList.size();
+          if (len > 0)
+            {
+            (*newGroupPointer)[sd].append(offset + len);
+            std::copy(gidList.begin(), gidList.end(), std::back_inserter((*newGidList)[sd]));
+            newGroupLinks->back().back().append((*newGroupPointer)[sd].size()-1);
+            }
           }
         }
       }
     }
+
+  groupLinks_ = newGroupLinks;
 
   // Make a new overlapping map with elements that are present on some processor
   Teuchos::Array<hymls_gidx> allGIDs;

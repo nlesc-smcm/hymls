@@ -397,12 +397,18 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
 
   RemoveBoundarySeparators(interior_nodes, separator_nodes);
 
+  // Remove empty groups
+  separator_nodes.erase(std::remove_if(separator_nodes.begin(), separator_nodes.end(),
+      [](Teuchos::Array<hymls_gidx> &i){return i.empty();}), separator_nodes.end());
+
+  // Add retained nodes as separator groups
   for (auto it = retained_nodes.begin(); it != retained_nodes.end(); ++it)
     {
     separator_nodes.append(Teuchos::Array<hymls_gidx>());
     separator_nodes.back().append(*it);
     }
 
+  // Add links between groups at the same position
   group_links.resize(0);
   int idx = 1;
   hymls_gidx prev_gid = -dof_;
