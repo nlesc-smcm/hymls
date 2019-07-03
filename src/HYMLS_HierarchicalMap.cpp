@@ -226,12 +226,13 @@ int HierarchicalMap::FillComplete()
   overlappingMap_ = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), std::distance(allGIDs.begin(), last),
       allGIDs.getRawPtr(), (hymls_gidx)baseMap_->IndexBase64(), Comm()));
 
-  // split separator groups if we want to retain multiple nodes per separator
-  Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > splitGroupPointer =
-    newGroupPointer;
+  gidList_ = newGidList;
+  groupPointer_ = newGroupPointer;
+
   if (retainNodes_ != 1)
     {
-    splitGroupPointer =
+    // split separator groups if we want to retain multiple nodes per separator
+    Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > splitGroupPointer =
       Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >());
 
     for (int sd = 0; sd < NumMySubdomains(); sd++)
@@ -239,18 +240,16 @@ int HierarchicalMap::FillComplete()
       splitGroupPointer->append(Teuchos::Array<hymls_gidx>(1));
       for (int grp = 1; grp < NumGroups(sd); grp++)
         {
-        int len = (*newGroupPointer)[sd][grp+1] - (*newGroupPointer)[sd][grp];
+        int len = NumElements(sd, grp);
         int newLen = std::max((len + retainNodes_ - 1) / retainNodes_, 1);
         for (int j = 0; j < len; j += newLen)
-          {
           (*splitGroupPointer)[sd].append((*newGroupPointer)[sd][grp] + j);
-          }
         }
+      (*splitGroupPointer)[sd].append((*newGroupPointer)[sd].back());
       }
+    groupPointer_ = splitGroupPointer;
     }
 
-  gidList_ = newGidList;
-  groupPointer_ = splitGroupPointer;
   return 0;
   }
 
