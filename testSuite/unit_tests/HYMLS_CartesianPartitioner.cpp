@@ -89,8 +89,7 @@ TEUCHOS_UNIT_TEST(CartesianPartitioner, 5DOFNodes)
     {
     Teuchos::Array<hymls_gidx> interior_nodes;
     Teuchos::Array<Teuchos::Array<hymls_gidx> > separator_nodes;
-    Teuchos::Array<Teuchos::Array<int> > group_links;
-    part.GetGroups(sd, interior_nodes, separator_nodes, group_links);
+    part.GetGroups(sd, interior_nodes, separator_nodes);
 
     for (hymls_gidx &i: interior_nodes)
       gids[i] = i;
@@ -177,8 +176,7 @@ TEUCHOS_UNIT_TEST(CartesianPartitioner, GID64)
 
   Teuchos::Array<hymls_gidx> interior_nodes;
   Teuchos::Array<Teuchos::Array<hymls_gidx> > separator_nodes;
-  Teuchos::Array<Teuchos::Array<int> > group_links;
-  part.GetGroups(part.NumLocalParts()-1, interior_nodes, separator_nodes, group_links);
+  part.GetGroups(part.NumLocalParts()-1, interior_nodes, separator_nodes);
 
   ENABLE_OUTPUT;
 

@@ -73,7 +73,7 @@ SchurPreconditioner::SchurPreconditioner(
     myLevel_(level), amActive_(true),
     variant_("Block Diagonal"),
     denseSwitch_(99), applyDropping_(true),
-    applyOT_(true), groupSeparators_(false),
+    applyOT_(true),
     hid_(hid), map_(Teuchos::rcp(&(SC->OperatorDomainMap()),false)),
     testVector_(testVector),
     sparseMatrixOT_(Teuchos::null),
@@ -167,7 +167,6 @@ int SchurPreconditioner::SetParameters(Teuchos::ParameterList& List)
   subdivideSeparators_=PL().get("Subdivide Separators",false);
   applyDropping_ = PL().get("Apply Dropping", true);
   applyOT_ = PL().get("Apply Orthogonal Transformation", applyDropping_);
-  groupSeparators_ = PL().get("Group Separators", false);
   int pos=1;
 
   fix_gid_.resize(0);
@@ -648,10 +647,7 @@ int SchurPreconditioner::InitializeBlocks()
   int numBlocks = 0;
   for (int sd = 0; sd < sepObject->NumMySubdomains(); sd++)
     {
-    if (groupSeparators_)
-      numBlocks += sepObject->NumLinks(sd);
-    else
-      numBlocks += sepObject->NumGroups(sd) - 1;
+    numBlocks += sepObject->NumGroups(sd) - 1;
     }
 
 #ifdef HYMLS_TESTING
@@ -674,65 +670,27 @@ int SchurPreconditioner::InitializeBlocks()
   int blk = 0;
   for (int sd = 0; sd < sepObject->NumMySubdomains(); sd++)
     {
-    if (groupSeparators_)
+    for (int grp = 1; grp < sepObject->NumGroups(sd); grp++)
       {
-      for (int lnk = 0; lnk < sepObject->NumLinks(sd); lnk++)
+      // in the spawned sepObject, each local separator is a group of a subdomain.
+      // -1 because we remove one Vsum node from each block
+      int numRows = std::max((int)sepObject->NumElements(sd, grp) - 1, 0);
+      nnz += numRows * numRows;
+
+      blockSolver_[blk] = Teuchos::rcp(new
+        Ifpack_DenseContainer(numRows));
+      CHECK_ZERO(blockSolver_[blk]->SetParameters(
+          PL().sublist("Dense Solver")));
+
+      CHECK_ZERO(blockSolver_[blk]->Initialize());
+
+      for (int j  = 0; j < numRows; j++)
         {
-        // in the spawned sepObject, each local separator is a group of a subdomain.
-        // -1 because we remove one Vsum node from each block
-        int numRows = 0;
-        for (int grp = 0; grp < sepObject->NumGroups(sd, lnk); grp++)
-          {
-          int grp2 = sepObject->GroupFromLink(sd, lnk, grp);
-          numRows += std::max((int)sepObject->NumElements(sd, grp2) - 1, 0);
-          }
-        nnz += numRows * numRows;
-
-        blockSolver_[blk] = Teuchos::rcp(new
-          Ifpack_DenseContainer(numRows));
-        CHECK_ZERO(blockSolver_[blk]->SetParameters(
-            PL().sublist("Dense Solver")));
-
-        CHECK_ZERO(blockSolver_[blk]->Initialize());
-
-        int k = 0;
-        for (int grp = 0; grp < sepObject->NumGroups(sd, lnk); grp++)
-          {
-          int grp2 = sepObject->GroupFromLink(sd, lnk, grp);
-          for (int j = 1; j < sepObject->NumElements(sd, grp2); j++)
-            {
-            // skip first element, which is a Vsum
-            int LRID = map_->LID(sepObject->GID(sd, grp2, j));
-            blockSolver_[blk]->ID(k++) = LRID;
-            }
-          }
-        blk++;
+        // skip first element, which is a Vsum
+        int LRID = map_->LID(sepObject->GID(sd, grp, j+1));
+        blockSolver_[blk]->ID(j) = LRID;
         }
-      }
-    else
-      {
-      for (int grp = 1; grp < sepObject->NumGroups(sd); grp++)
-        {
-        // in the spawned sepObject, each local separator is a group of a subdomain.
-        // -1 because we remove one Vsum node from each block
-        int numRows = std::max((int)sepObject->NumElements(sd, grp) - 1, 0);
-        nnz += numRows * numRows;
-
-        blockSolver_[blk] = Teuchos::rcp(new
-          Ifpack_DenseContainer(numRows));
-        CHECK_ZERO(blockSolver_[blk]->SetParameters(
-            PL().sublist("Dense Solver")));
-
-        CHECK_ZERO(blockSolver_[blk]->Initialize());
-
-        for (int j  = 0; j < numRows; j++)
-          {
-          // skip first element, which is a Vsum
-          int LRID = map_->LID(sepObject->GID(sd, grp, j+1));
-          blockSolver_[blk]->ID(j) = LRID;
-          }
-        blk++;
-        }
+      blk++;
       }
     }
   return 0;
@@ -1173,49 +1131,18 @@ int SchurPreconditioner::AssembleTransformAndDrop()
       CHECK_NONNEG(matrix->InsertGlobalValues(indsPart.Length(),
           indsPart.Values(), Spart.A()));
       // now the non-Vsums
-      if (groupSeparators_)
+      for (int grp=1;grp<hid_->NumGroups(sd);grp++)
         {
-        for (int lnk = 0; lnk < hid_->NumLinks(sd); lnk++)
+        int len = hid_->NumElements(sd,grp)-1;
+        indsPart.Resize(len);
+        if (Spart.N()<len) Spart.Reshape(2*len,2*len);
+        for (int j=0;j<len;j++)
           {
-          int len = 0;
-          for (int grp = 0; grp < hid_->NumGroups(sd, lnk); grp++)
-            {
-            int grp2 = hid_->GroupFromLink(sd, lnk, grp);
-            len += hid_->NumElements(sd, grp2) - 1;
-            }
-
-          indsPart.Resize(len);
-          if (Spart.N()<len) Spart.Reshape(2*len,2*len);
-
-          int k = 0;
-          for (int grp = 0; grp < hid_->NumGroups(sd, lnk); grp++)
-            {
-            int grp2 = hid_->GroupFromLink(sd, lnk, grp);
-            int len2 = hid_->NumElements(sd, grp2) - 1;
-            for (int j = 0; j < len2; j++)
-              {
-              indsPart[k++] = hid_->GID(sd, grp2, 1+j);
-              }//j
-            }
-          CHECK_NONNEG(matrix->InsertGlobalValues(indsPart.Length(),
-              indsPart.Values(),Spart.A()));
-          }
-        }
-      else
-        {
-        for (int grp=1;grp<hid_->NumGroups(sd);grp++)
-          {
-          int len = hid_->NumElements(sd,grp)-1;
-          indsPart.Resize(len);
-          if (Spart.N()<len) Spart.Reshape(2*len,2*len);
-          for (int j=0;j<len;j++)
-            {
-            indsPart[j]=hid_->GID(sd,grp,1+j);
-            }//j
-          //HYMLS_DEBVAR(indsPart);
-          CHECK_NONNEG(matrix->InsertGlobalValues(indsPart.Length(),
-              indsPart.Values(),Spart.A()));
-          }
+          indsPart[j]=hid_->GID(sd,grp,1+j);
+          }//j
+        //HYMLS_DEBVAR(indsPart);
+        CHECK_NONNEG(matrix->InsertGlobalValues(indsPart.Length(),
+            indsPart.Values(),Spart.A()));
         }
       }
     // assemble with all zeros
@@ -1389,77 +1316,23 @@ int SchurPreconditioner::ConstructSCPart(int sd, Epetra_Vector const &localTestV
     }
 
   pos3 = 0;
-  if (groupSeparators_)
+  for (int grp = 1; grp < hid_->NumGroups(sd); grp++)
     {
-    HYMLS_LPROF3(label_,"Compute non-dropped non-Vsum part");
-    for (int lnk = 0; lnk < hid_->NumLinks(sd); lnk++)
+    int len = hid_->NumElements(sd, grp) - 1;
+    if (len > 0)
       {
-      int len = 0;
-      int numGroups = hid_->NumGroups(sd, lnk);
-      for (int grp = 0; grp < numGroups; grp++)
-        {
-        int grp2 = hid_->GroupFromLink(sd, lnk, grp);
-        int len2 = hid_->NumElements(sd, grp2) - 1;
-        len += len2;
-        }
-
-      if (len > 0)
-        {
-        int *localIndices = new int[len];
-        hymls_gidx *globalIndices = new hymls_gidx[len];
-        SkArray.append(Epetra_SerialDenseMatrix(len, len));
-
-        len = 0;
-        pos1 = 0;
-        for (int grp = 0; grp < numGroups; grp++)
-          {
-          int grp2 = hid_->GroupFromLink(sd, lnk, grp);
-          int len2 = hid_->NumElements(sd, grp2) - 1;
-          len += len2;
-
-          for (int i = pos1; i < len; i++)
-            {
-            localIndices[i] = pos3+i+grp+1;
-            globalIndices[i] = indices[localIndices[i]];
-            }
-          pos1 += len2;
-          }
-
-        for (int i = 0; i < len; i++)
-          for (int j = 0; j < len; j++)
-            SkArray.back()(i, j) = Sk(localIndices[i], localIndices[j]);
+      SkArray.append(Epetra_SerialDenseMatrix(len, len));
+      for (int i = 0; i < len; i++)
+        for (int j = 0; j < len; j++)
+          SkArray.back()(i, j) = Sk(pos3+i+1, pos3+j+1);
 
 #ifdef HYMLS_LONG_LONG
-        indicesArray.append(Epetra_LongLongSerialDenseVector(Copy, globalIndices, len));
+      indicesArray.append(Epetra_LongLongSerialDenseVector(View, &indices[pos3+1], len));
 #else
-        indicesArray.append(Epetra_IntSerialDenseVector(Copy, globalIndices, len));
+      indicesArray.append(Epetra_IntSerialDenseVector(View, &indices[pos3+1], len));
 #endif
-        delete[] localIndices;
-        delete[] globalIndices;
-        }
-      pos3 += len + numGroups;
       }
-    }
-  else
-    {
-    for (int grp = 1; grp < hid_->NumGroups(sd); grp++)
-      {
-      int len = hid_->NumElements(sd, grp) - 1;
-      if (len > 0)
-        {
-        SkArray.append(Epetra_SerialDenseMatrix(len, len));
-        for (int i = 0; i < len; i++)
-          for (int j = 0; j < len; j++)
-            SkArray.back()(i, j) = Sk(pos3+i+1, pos3+j+1);
-
-#ifdef HYMLS_LONG_LONG
-        indicesArray.append(Epetra_LongLongSerialDenseVector(View, &indices[pos3+1], len));
-#else
-        indicesArray.append(Epetra_IntSerialDenseVector(View, &indices[pos3+1], len));
-#endif
-        }
-      pos3 += len + 1;
-      }
+    pos3 += len + 1;
     }
 
   return 0;

@@ -286,9 +286,6 @@ protected:
   //! switch for applying the OT
   bool applyOT_;
 
-  //! switch for linking separator groups, for instance velocities
-  bool groupSeparators_;
-  
   //! domain decomposition object
   Teuchos::RCP<const OverlappingPartitioner> hid_;
   
