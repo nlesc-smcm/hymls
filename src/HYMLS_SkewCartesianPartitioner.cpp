@@ -645,14 +645,12 @@ int SkewCartesianPartitioner::solveGroups()
   }
 
 int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior_nodes,
-  Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes,
-  Teuchos::Array<Teuchos::Array<int> > &group_links) const
+  Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes) const
   {
   HYMLS_PROF3(label_,"GetGroups");
 
   interior_nodes.clear();
   separator_nodes.clear();
-  group_links.clear();
 
   int gsd = sdMap_->GID(sd);
 
@@ -710,11 +708,9 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &inte
 
   // Split separator groups that that do not belong to the same subdomain.
   // This may happen for the w-groups since the w-separators are staggered
-  int separatorIdx = 1;
   std::copy(groups[0][0].begin(), groups[0][0].end(), std::back_inserter(interior_nodes));
   for (int i = 1; i < (int)groups.size(); i++)
     {
-    group_links.push_back(Teuchos::Array<int>());
     for (auto const &group: groups[i])
       {
       std::map<int, std::vector<hymls_gidx> > newGroups;
@@ -728,12 +724,10 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &inte
           newGroups.emplace(gsd, std::vector<hymls_gidx>(1, node));
         }
       for (auto &newGroup: newGroups)
-        {
         separator_nodes.push_back(newGroup.second);
-        group_links.back().push_back(separatorIdx++);
-        }
       }
     }
+
 
   // Remove separator nodes that lie on the boundary of the domain.
   // We need this because those nodes don't actually border any interior

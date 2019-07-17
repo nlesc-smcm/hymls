@@ -114,23 +114,6 @@ public:
     return NumGroups(sd)-1;
     }
 
-  //! number of linked groups
-  inline int NumLinks(int sd) const
-    {
-    return (*groupLinks_)[sd].size();
-    }
-
-  //! number of linked groups
-  inline int NumGroups(int sd, int link) const
-    {
-    return (*groupLinks_)[sd][link].size();
-    }
-
-  inline int GroupFromLink(int sd, int link, int j) const
-    {
-    return (*groupLinks_)[sd][link][j];
-    }
-
   //! total number of nodes in subdomain sd, group grp.
   //! grp 0 are the interior elements, group 1:NumSeparatorGroups are 
   //! the separator groups.
@@ -138,7 +121,7 @@ public:
     {
     return static_cast<int>((*groupPointer_)[sd][grp+1] - (*groupPointer_)[sd][grp]);
     }
-    
+
   //! j'th element of subdomain sd, group grp. This function
   //! returns a local index for the map Map(). Again, grp=0 
   //! are interior nodes whereas grp=1:NumSeparatorGroups() 
@@ -256,10 +239,6 @@ protected:
   //! add a group of GIDs to an existing subdomain. Returns the group id
   //! of the new group. FillComplete() should not have been called.
   int AddGroup(int sd, Teuchos::Array<hymls_gidx>& gidList);
-
-  //! add a link between separator groups
-  int AddGroupLinks(
-    int sd, Teuchos::Array<Teuchos::Array<int> > const &groupLinks);
   
   //! get back a group that was added as described above. Used for debugging purposes
   //! only
@@ -300,9 +279,6 @@ private:
   //! list of ordered GIDs which will be transformed into a map in FillComplete
   Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > gidList_;
   
-  //! pointer to separator groups that are linked
-  Teuchos::RCP<Teuchos::Array<Teuchos::Array<Teuchos::Array<int> > > > groupLinks_;
-  
   //! array of spawned objects (so we avoid building the same thing over and over again)
   mutable Teuchos::Array<Teuchos::RCP<const HierarchicalMap> > spawnedObjects_;
   
@@ -317,7 +293,6 @@ private:
     Teuchos::RCP<const Epetra_Map> overlappingMap,
     Teuchos::RCP<Teuchos::Array< Teuchos::Array<hymls_gidx> > > groupPointer,
     Teuchos::RCP<Teuchos::Array< Teuchos::Array<hymls_gidx> > > gidList,
-    Teuchos::RCP<Teuchos::Array< Teuchos::Array<Teuchos::Array<int> > > > groupLinks,
     std::string label, int level);
   
   //! \name private member functions

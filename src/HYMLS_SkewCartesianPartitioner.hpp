@@ -68,8 +68,7 @@ public:
 
   //! Get interior and separator groups of the subdomain sd
   int GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior_nodes,
-    Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes,
-    Teuchos::Array<Teuchos::Array<int> > &group_links) const;
+    Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes) const;
 
   //! is this class fully set up?
   inline bool Partitioned() const
