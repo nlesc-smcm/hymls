@@ -33,5 +33,6 @@
   <!-- Extra retained nodes -->
   <Parameter name="Test 8" type="string" value="stokes6.xml"/>
   <!-- Stokes on a B-grid -->
-  <Parameter name="Test 9" type="string" value="stokes_B.xml"/>
+  <Parameter name="Test 9a" type="string" value="stokes_B.xml"/>
+  <Parameter name="Test 9b" type="string" value="stokes_THCM.xml"/>
 </ParameterList>

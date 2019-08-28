@@ -215,7 +215,7 @@ Teuchos::RCP<Epetra_Vector> create_testvector(
     Teuchos::rcp(new Epetra_Vector(matrix.RowMap()));
   testvector->PutScalar(1.0);
 
-  if (eqn == "Stokes-B")
+  if (eqn == "Stokes-B" || eqn == "Stokes-T")
     {
     int nx = probl_params.get("nx", 32);
     int dof = probl_params.get("Degrees of Freedom", -1);
@@ -328,6 +328,27 @@ Teuchos::RCP<Epetra_CrsMatrix> create_matrix(const Epetra_Map& map,
         HYMLS::Tools::Warning("GaleriExt::Stokes3D only gives correct matrix entries if nx=ny, but the graph is correct.\n",__FILE__,__LINE__);
       matrix = Teuchos::rcp(GaleriExt::Matrices::Stokes3D(&map,
           nx, ny, nz, nx*nx, 1, perio));
+      }
+    else
+      {
+      HYMLS::Tools::Error("not implemented!",__FILE__,__LINE__);
+      }
+    }
+  else if (galeriLabel == "Stokes-T")
+    {
+    if (dim == 2)
+      {
+      if (nx != ny)
+        HYMLS::Tools::Warning("GaleriExt::Stokes2D only gives correct matrix entries if nx=ny, but the graph is correct.\n",__FILE__,__LINE__);
+      matrix = Teuchos::rcp(GaleriExt::Matrices::Stokes2D(&map,
+          nx, ny, nx*nx, 1, perio, 'T'));
+      }
+    else if (dim == 3)
+      {
+      if (nx != ny || nx != nz)
+        HYMLS::Tools::Warning("GaleriExt::Stokes3D only gives correct matrix entries if nx=ny, but the graph is correct.\n",__FILE__,__LINE__);
+      matrix = Teuchos::rcp(GaleriExt::Matrices::Stokes3D(&map,
+          nx, ny, nz, nx*nx, 1, perio, 'T'));
       }
     else
       {
