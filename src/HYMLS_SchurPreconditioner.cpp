@@ -1023,9 +1023,9 @@ int SchurPreconditioner::Assemble()
 
   matrix_ = MatrixUtils::DropByValue(matrix_, HYMLS_SMALL_ENTRY);
 
-#ifdef HYMLS_STORE_MATRICES
+// #ifdef HYMLS_STORE_MATRICES
   MatrixUtils::Dump(*matrix_,"SchurPreconditioner"+Teuchos::toString(myLevel_)+".txt");
-#endif
+// #endif
 
   return 0;
   }
@@ -1226,9 +1226,9 @@ int SchurPreconditioner::AssembleTransformAndDrop()
     }//sd
   CHECK_ZERO(matrix->GlobalAssemble());
 
-#ifdef HYMLS_STORE_MATRICES
+// #ifdef HYMLS_STORE_MATRICES
   MatrixUtils::Dump(*matrix_,"SchurPreconditioner"+Teuchos::toString(myLevel_)+".txt");
-#endif
+// #endif
 
   HYMLS_TEST(Label(),
     noPcouplingsDropped(*matrix_,*hid_->Spawn(HierarchicalMap::LocalSeparators)),

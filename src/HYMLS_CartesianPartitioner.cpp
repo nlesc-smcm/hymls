@@ -243,12 +243,12 @@ int CartesianPartitioner::RemoveBoundarySeparators(Teuchos::Array<hymls_gidx> &i
       interior_nodes.insert(interior_nodes.end(), nodes.begin(), nodes.end());
       sep = separator_nodes.erase(sep);
       }
-    else if (nz_ > 1 && (nodes[0] / dof_ / nx_ / ny_ + 1) % nz_ == 0 && !(perio_ & GaleriExt::Z_PERIO))
-      {
-      // Remove back side
-      interior_nodes.insert(interior_nodes.end(), nodes.begin(), nodes.end());
-      sep = separator_nodes.erase(sep);
-      }
+    // else if (nz_ > 1 && (nodes[0] / dof_ / nx_ / ny_ + 1) % nz_ == 0 && !(perio_ & GaleriExt::Z_PERIO))
+    //   {
+    //   // Remove back side
+    //   interior_nodes.insert(interior_nodes.end(), nodes.begin(), nodes.end());
+    //   sep = separator_nodes.erase(sep);
+    //   }
     else
       ++sep;
     }
@@ -282,17 +282,17 @@ int CartesianPartitioner::RemoveBoundarySeparators(Teuchos::Array<hymls_gidx> &i
           interior_nodes.erase(it);
           }
         }
-      if (nz_ > 1 && (nodes[i] / dof_ / nx_ / ny_) % nz_ + 2 == nz_ && !(perio_ & GaleriExt::Z_PERIO))
-        {
-        nodeID = nodes[i] + dof_ * nx_ * ny_;
-        Teuchos::Array<hymls_gidx>::iterator it = std::find(
-          interior_nodes.begin(), interior_nodes.end(), nodeID);
-        if (it != interior_nodes.end())
-          {
-          nodes.push_back(nodeID);
-          interior_nodes.erase(it);
-          }
-        }
+      // if (nz_ > 1 && (nodes[i] / dof_ / nx_ / ny_) % nz_ + 2 == nz_ && !(perio_ & GaleriExt::Z_PERIO))
+      //   {
+      //   nodeID = nodes[i] + dof_ * nx_ * ny_;
+      //   Teuchos::Array<hymls_gidx>::iterator it = std::find(
+      //     interior_nodes.begin(), interior_nodes.end(), nodeID);
+      //   if (it != interior_nodes.end())
+      //     {
+      //     nodes.push_back(nodeID);
+      //     interior_nodes.erase(it);
+      //     }
+      //   }
       }
     std::sort(nodes.begin(), nodes.end());
     }
@@ -326,7 +326,7 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
     if (variableType_[i] == 3)
       pvar = i;
 
-  for (int ktype = (nz_ > 1 ? -1 : 0); ktype < (nz_ > 1 ? 2 : 1); ktype++)
+  for (int ktype = (nz_ > 1 ? -1 : 0); ktype < (nz_ > 1 ? 1 : 1); ktype++)
     {
     if (ktype == 1)
       ktype = sz_ - 1;
@@ -367,8 +367,14 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
             nodes = &separator_nodes.back();
             }
 
-          for (int k = ktype; k < ((ktype || nz_ <= 1) ? ktype+1 : sz_-1); k++)
+          for (int k = ktype; k < ((ktype || nz_ <= 1) ? ktype+1 : sz_); k++)
             {
+            if (nodes != &interior_nodes)
+              {
+              if (nodes->size())
+                separator_nodes.append(Teuchos::Array<hymls_gidx>());
+              nodes = &separator_nodes.back();
+              }
             for (int j = jtype; j < (jtype ? jtype+1 : sy_-1); j++)
               {
               for (int i = itype; i < (itype ? itype+1 : sx_-1); i++)

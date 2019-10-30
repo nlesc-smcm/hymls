@@ -25,6 +25,7 @@
 #endif
 
 #include "HYMLS_MainUtils.hpp"
+#include "HYMLS_Tester.hpp"
 
 #ifdef EPETRA_HAVE_OMP
 #include <omp.h>
@@ -368,6 +369,14 @@ for (int f=0;f<numComputes;f++)
     HYMLS::Tools::StopTiming("main: Compute Preconditioner",true);
     HYMLS::Tools::StopMemory("main: Compute Preconditioner",true);
     }
+
+  Epetra_MultiVector y(*x);
+  int dof = probl_params.get("Degrees of Freedom",dim);
+  CHECK_ZERO(x->Random());
+  for (int i = dim; i < x->MyLength(); i += dof)
+      (*x)[0][i] = 0.0;
+  CHECK_ZERO(precond->ApplyInverse(*x, y));
+  HYMLS_TEST("main", isDivFree(*K, y), __FILE__, __LINE__);
 
   if (nullSpace!=Teuchos::null)
     {
