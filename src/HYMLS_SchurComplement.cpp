@@ -170,7 +170,7 @@ int SchurComplement::Construct11(int sd, Epetra_SerialDenseMatrix &Sk,
 #endif
   double *count_flops) const
   {
-  HYMLS_LPROF3(label_, "Construct SDM");
+  HYMLS_LPROF3(label_, "Construct SDM (1)");
 #ifdef FLOPS_COUNT
   double flops = 0;
 #endif
@@ -313,7 +313,7 @@ int SchurComplement::Construct22(int sd, Epetra_SerialDenseMatrix &Sk,
 #endif
   double *count_flops) const
   {
-  HYMLS_LPROF3(label_, "Construct SDM");
+  HYMLS_LPROF3(label_, "Construct SDM (2)");
 
   const OverlappingPartitioner &hid = A22_->Partitioner();
   const Epetra_CrsMatrix &A22 = *A22_->SubBlock(sd);

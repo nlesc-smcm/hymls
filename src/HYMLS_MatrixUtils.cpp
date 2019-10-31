@@ -1392,7 +1392,7 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
 
     if (!fmatrix)
       {
-      std::cerr << "B-part has MaxNumEntries!=2\n"
+      std::cerr << "B-part has MaxNumEntries = " << B.MaxNumEntries() << "\n"
                 << "writing it to BadMatrixB.txt for you.\n";
       Dump(B, "BadMatrixB.txt");
       }
