@@ -53,6 +53,7 @@ RES_TOO_LARGE =2,
 ERR_TOO_LARGE =8,
 CAUGHT_EXCEPTION=16,
 INTERNAL_TESTS_FAILED=32,
+NOT_DIVERGENCE_FREE=64,
 SKIPPED=8192
 } ReturnCode;
 
@@ -248,6 +249,10 @@ void printError(int ierr)
       case INTERNAL_TESTS_FAILED:
         HYMLS::Tools::out() << "Internal tests failed." << std::endl;
         break;
+      case NOT_DIVERGENCE_FREE:
+        HYMLS::Tools::out() << "The preconditioner does not operate on the "
+                            << "divergence-free space." << std::endl;
+        break;
       default:
         break;
       }
@@ -414,9 +419,9 @@ int runTest(Teuchos::RCP<const Epetra_Comm> comm,
     message += "unknown exception";
     no_exception = false;
     }
-  if (!no_exception) ierr = ierr | CAUGHT_EXCEPTION;
+  if (!no_exception) ierr |= CAUGHT_EXCEPTION;
 
-  if (HYMLS::Tester::numFailedTests_ > 0) ierr = ierr | INTERNAL_TESTS_FAILED;
+  if (HYMLS::Tester::numFailedTests_ > 0) ierr |= INTERNAL_TESTS_FAILED;
 
   int global_ierr;
   comm->MaxAll(&ierr, &global_ierr, 1);
@@ -429,6 +434,39 @@ int runTest(Teuchos::RCP<const Epetra_Comm> comm,
 #endif
   return global_ierr;
   }
+
+int testDivFree(Epetra_BlockMap const &map, Teuchos::RCP<Epetra_CrsMatrix> &K,
+                Teuchos::RCP<HYMLS::Preconditioner> &precond,
+                int dim, std::string const &eqn)
+{
+    int ierr = PASSED;
+    if (eqn.rfind("Stokes", 0) == 0)
+    {
+        Teuchos::RCP<Epetra_Vector> x = Teuchos::rcp(new Epetra_Vector(map));
+        Teuchos::RCP<Epetra_Vector> b = Teuchos::rcp(new Epetra_Vector(map));
+        CHECK_ZERO(HYMLS::MatrixUtils::Random(*b));
+
+        int dof = dim + 1;
+        for (int i = dim; i < b->MyLength(); i += dof)
+            (*b)[i] = 0.0;
+
+        CHECK_ZERO(precond->ApplyInverse(*b, *x));
+        CHECK_ZERO(K->Apply(*x, *b));
+
+        for (int i = dim; i < b->MyLength(); i += dof)
+            if (std::abs((*b)[i]) > 1e-8)
+            {
+                ierr = NOT_DIVERGENCE_FREE;
+                break;
+            }
+
+        int global_ierr;
+        map.Comm().MaxAll(&ierr, &global_ierr, 1);
+        if (global_ierr)
+            HYMLS::MatrixUtils::Dump(*b, "BadDivergence.txt");
+    }
+    return ierr;
+}
 
 int testSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
     Teuchos::RCP<Teuchos::ParameterList> params, Teuchos::RCP<Epetra_CrsMatrix> &K,
@@ -476,6 +514,8 @@ int testSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
       {
       CHECK_ZERO(solver->SetupDeflation());
       }
+
+    ierr |= testDivFree(map, K, precond, dim, eqn);
 
     int xseed=-1;
 
@@ -598,8 +638,8 @@ int testSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
       delete[] resNorm;
       delete[] errNorm;
 
-      if (maxRes > target_rel_res_norm2) ierr = ierr | RES_TOO_LARGE;
-      if (maxErr > target_rel_err_norm2) ierr = ierr | ERR_TOO_LARGE;
+      if (maxRes > target_rel_res_norm2) ierr |= RES_TOO_LARGE;
+      if (maxErr > target_rel_err_norm2) ierr |= ERR_TOO_LARGE;
       int num_iter = solver->getNumIter();
       HYMLS::Tools::out() << std::endl;
 #ifdef HYMLS_DEBUGGING
@@ -614,7 +654,7 @@ int testSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
         HYMLS::MatrixUtils::Dump(*nullSpace,"BadNullSpace.txt");
         }
 #endif
-      if (num_iter > target_num_iter) ierr = ierr | MAX_ITER_EXCEEDED;
+      if (num_iter > target_num_iter) ierr |= MAX_ITER_EXCEEDED;
 
       message += "setup " + Teuchos::toString(f)
            + ", solve " + Teuchos::toString(s) + "\n"
@@ -769,10 +809,10 @@ int testEigenSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
     for (int i = 0; i < numEigs-1; i++)
       {
       if (std::abs(evals[i].imagpart) > target_err)
-        ierr = ierr | ERR_TOO_LARGE;
+        ierr |= ERR_TOO_LARGE;
 
       if (std::abs(evals[i].realpart + ev_list[i]) > target_err)
-        ierr = ierr | ERR_TOO_LARGE;
+        ierr |= ERR_TOO_LARGE;
 
       message += "found " + Teuchos::toString(evals[i].realpart)
            + ", expected: " + Teuchos::toString(-ev_list[i]) + "\n";
@@ -784,7 +824,7 @@ int testEigenSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
   writeParameterListToXmlFile(*finalList, filename1);
 
   int num_iter = jada.getNumIters();
-  if (num_iter > target_num_iter) ierr = ierr | MAX_ITER_EXCEEDED;
+  if (num_iter > target_num_iter) ierr |= MAX_ITER_EXCEEDED;
   message += "num iter: " + Teuchos::toString(num_iter)
     + ", expected: " + Teuchos::toString(target_num_iter) + "\n";
 
