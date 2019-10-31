@@ -393,91 +393,85 @@ int BaseSolver::ApplyInverse(const Epetra_MultiVector& B,
 #ifdef HYMLS_TESTING
 
   Tools::Out("explicit residual test");
-  Tools::out()<<"we were solving (a*A*x+b*B)*x=rhs\n" <<
-    "   with "<<X.NumVectors()<<" rhs\n" <<
-    "        a = "<<shiftA_<<"\n" <<
-    "        b = "<<shiftB_<<"\n";
-  if (massMatrix_==Teuchos::null)
-    Tools::out()<<
-      "        B = I\n"; 
-// compute explicit residual
+  Tools::out() << "we were solving (a*A*x+b*B)*x=rhs\n"
+               << "   with " << X.NumVectors() << " rhs\n"
+               << "        a = " << shiftA_ << "\n"
+               << "        b = " << shiftB_ << "\n";
+  if (massMatrix_ == Teuchos::null)
+    Tools::out() << "        B = I\n";
+
+  // compute explicit residual
   int dim = PL("Problem").get<int>("Dimension");
   int dof = PL("Problem").get<int>("Degrees of Freedom");
 
-  Epetra_MultiVector resid(X.Map(),X.NumVectors());
+  Epetra_BlockMap const &map = X.Map();
+  Epetra_MultiVector resid(map, X.NumVectors());
   CHECK_ZERO(matrix_->Apply(X,resid));
-  if (shiftB_!=0.0)
+  if (shiftB_ != 0.0)
     {
-    Epetra_MultiVector Bx=X;
-  
-    if (massMatrix_!=Teuchos::null)
+    Epetra_MultiVector Bx = X;
+    if (massMatrix_ != Teuchos::null)
       {
-      CHECK_ZERO(massMatrix_->Apply(X,Bx));
+      CHECK_ZERO(massMatrix_->Apply(X, Bx));
       }
-    CHECK_ZERO(resid.Update(shiftB_,Bx,shiftA_));
+    CHECK_ZERO(resid.Update(shiftB_, Bx, shiftA_));
     }
-  else if (shiftA_!=1.0)
+  else if (shiftA_ != 1.0)
     {
     CHECK_ZERO(resid.Scale(shiftA_));
     }
-  CHECK_ZERO(resid.Update(1.0,B,-1.0));
-  double *resNorm,*rhsNorm,*resNormV,*resNormP;
-  resNorm=new double[resid.NumVectors()];
-  resNormV=new double[resid.NumVectors()];
-  resNormP=new double[resid.NumVectors()];
-  rhsNorm =new double[resid.NumVectors()];
+  CHECK_ZERO(resid.Update(1.0, B, -1.0));
+
+  double *resNorm  = new double[resid.NumVectors()];
+  double *resNormV = new double[resid.NumVectors()];
+  double *resNormP = new double[resid.NumVectors()];
+  double *rhsNorm  = new double[resid.NumVectors()];
   B.Norm2(rhsNorm);
   resid.Norm2(resNorm);
 
-  if (dof>=dim)
+  if (dof >= dim)
     {
-    Epetra_MultiVector residV=resid;
-    Epetra_MultiVector residP=resid;
-    for (int i=0;i<resid.MyLength();i+=dof)
-      {
-      for (int j=0;j<resid.NumVectors();j++)
+    Epetra_MultiVector residV = resid;
+    Epetra_MultiVector residP = resid;
+    for (int j = 0; j < resid.NumVectors(); j++)
+      for (int i = 0; i < resid.MyLength(); i++)
         {
-        for (int k=0;k<dim;k++)
-          {
-          residP[j][i+k]=0.0;
-          }
-        for (int k=dim+1;k<dof;k++)
-          {
-          residP[j][i+k]=0.0;
-          }
-        residV[j][i+dim]=0.0;
+        hymls_gidx gid = map.GID64(i);
+        if (gid % dof  ==  dim)
+          residV[j][i] = 0.0;
+        else
+          residP[j][i] = 0.0;
         }
-      }  
     residV.Norm2(resNormV);
     residP.Norm2(resNormP);
     }
 
-  if (comm_->MyPID()==0)
+  if (comm_->MyPID() == 0)
     {
     Tools::out() << "Exp. res. norm(s): ";
-    for (int ii=0;ii<resid.NumVectors();ii++)
+    for (int i = 0; i < resid.NumVectors(); i++)
       {
-      Tools::out() << resNorm[ii] << " ";
+      Tools::out() << resNorm[i] << " ";
       }
     Tools::out() << std::endl;
     Tools::out() << "Rhs norm(s): ";
-    for (int ii=0;ii<resid.NumVectors();ii++)
+    for (int i = 0; i < resid.NumVectors(); i++)
       {
-      Tools::out() << rhsNorm[ii] << " ";
+      Tools::out() << rhsNorm[i] << " ";
       }
     Tools::out() << std::endl;
-    if (dof>=dim)
+    if (dof >= dim)
       {
       Tools::out() << "Exp. res. norm(s) of V-part: ";
-      for (int ii=0;ii<resid.NumVectors();ii++)
+      for (int i = 0; i < resid.NumVectors(); i++)
         {
-        Tools::out() << resNormV[ii] << " ";
+        Tools::out() << resNormV[i] << " ";
         }
       Tools::out() << std::endl;
       Tools::out() << "Exp. res. norm(s) of P-part: ";
-      for (int ii=0;ii<resid.NumVectors();ii++)
+      for (int i = 0; i < resid.NumVectors(); i++)
         {
-        Tools::out() << resNormP[ii] << " ";
+        Tools::out() << resNormP[i] << " ";
         }
       Tools::out() << std::endl;
       }
@@ -487,7 +481,6 @@ int BaseSolver::ApplyInverse(const Epetra_MultiVector& B,
   delete [] resNormV;
   delete [] resNormP;
 #endif
-
 
   return ierr;
   }
