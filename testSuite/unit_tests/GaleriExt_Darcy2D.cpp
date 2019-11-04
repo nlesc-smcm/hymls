@@ -21,12 +21,12 @@ TEUCHOS_UNIT_TEST(GaleriExt, Darcy2D)
   const Epetra_Map& map = *map_ptr;
   double a = 42.0;
 
-  Teuchos::RCP<Epetra_CrsMatrix> A_func = Teuchos::rcp(
+  Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(
     GaleriExt::Matrices::Darcy2D(&map, nx, ny, a, 1.0, GaleriExt::NO_PERIO));
 
   // test if the diagonal has <a> in the u/v and 0 in the p rows
   Epetra_Vector d(map);
-  A_func->ExtractDiagonalCopy(d);
+  A->ExtractDiagonalCopy(d);
 
   double max_dev_diag = 0.0;
   for (int i = 0; i < d.MyLength(); i += 3)
@@ -50,7 +50,7 @@ TEUCHOS_UNIT_TEST(GaleriExt, Darcy2D)
   v2.Random();
 
   int ierr;
-  ierr = A_func->Multiply(false, v1, v2);
+  ierr = A->Multiply(false, v1, v2);
   TEST_EQUALITY(0, ierr);
 
   double norm_should_be_small = 0.0;
@@ -65,7 +65,7 @@ TEUCHOS_UNIT_TEST(GaleriExt, Darcy2D)
   TEST_FLOATING_EQUALITY(1.0, 1.0+norm_should_be_small, 1e-14);
 }
 
-TEUCHOS_UNIT_TEST(GaleriExt, Darcy2DSymmetry)
+TEUCHOS_UNIT_TEST(GaleriExt, Darcy2D_Symmetry)
 {
   Epetra_MpiComm Comm(MPI_COMM_WORLD);
 
@@ -75,7 +75,7 @@ TEUCHOS_UNIT_TEST(GaleriExt, Darcy2DSymmetry)
   Teuchos::RCP<Epetra_Map> map_ptr = HYMLS::UnitTests::create_random_map(Comm, n, dof);
   const Epetra_Map& map = *map_ptr;
 
-  Teuchos::RCP<Epetra_CrsMatrix> A_func = Teuchos::rcp(
+  Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(
     GaleriExt::Matrices::Darcy2D(&map, nx, ny, 0.0, 1.0, GaleriExt::NO_PERIO));
 
   Epetra_Vector v1(map);
@@ -86,10 +86,10 @@ TEUCHOS_UNIT_TEST(GaleriExt, Darcy2DSymmetry)
   v3.Random();
 
   int ierr;
-  ierr = A_func->Multiply(false, v1, v2);
+  ierr = A->Multiply(false, v1, v2);
   TEST_EQUALITY(0, ierr);
 
-  ierr = A_func->Multiply(true, v1, v3);
+  ierr = A->Multiply(true, v1, v3);
   TEST_EQUALITY(0, ierr);
 
   // Test skew-symmetry
@@ -99,7 +99,7 @@ TEUCHOS_UNIT_TEST(GaleriExt, Darcy2DSymmetry)
   TEST_FLOATING_EQUALITY(1.0, 1.0+norm_should_be_small, 1e-14);
 }
 
-TEUCHOS_UNIT_TEST(GaleriExt, DarcyB2DSymmetry)
+TEUCHOS_UNIT_TEST(GaleriExt, DarcyB2D_Symmetry)
 {
   Epetra_MpiComm Comm(MPI_COMM_WORLD);
 
@@ -109,7 +109,7 @@ TEUCHOS_UNIT_TEST(GaleriExt, DarcyB2DSymmetry)
   Teuchos::RCP<Epetra_Map> map_ptr = HYMLS::UnitTests::create_random_map(Comm, n, dof);
   const Epetra_Map& map = *map_ptr;
 
-  Teuchos::RCP<Epetra_CrsMatrix> A_func = Teuchos::rcp(
+  Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(
     GaleriExt::Matrices::Darcy2D(&map, nx, ny, 0.0, 1.0, GaleriExt::NO_PERIO, 'B'));
 
   Epetra_Vector v1(map);
@@ -120,10 +120,10 @@ TEUCHOS_UNIT_TEST(GaleriExt, DarcyB2DSymmetry)
   v3.Random();
 
   int ierr;
-  ierr = A_func->Multiply(false, v1, v2);
+  ierr = A->Multiply(false, v1, v2);
   TEST_EQUALITY(0, ierr);
 
-  ierr = A_func->Multiply(true, v1, v3);
+  ierr = A->Multiply(true, v1, v3);
   TEST_EQUALITY(0, ierr);
 
   // Test skew-symmetry
@@ -131,5 +131,69 @@ TEUCHOS_UNIT_TEST(GaleriExt, DarcyB2DSymmetry)
   v3.Update(1.0, v2, 1.0);
   v3.Norm2(&norm_should_be_small);
   TEST_FLOATING_EQUALITY(1.0, 1.0+norm_should_be_small, 1e-14);
+}
+
+TEUCHOS_UNIT_TEST(GaleriExt, Darcy2D_RowSum)
+{
+  Epetra_MpiComm Comm(MPI_COMM_WORLD);
+
+  const int nx = 8, ny = 8, dof = 3;
+  hymls_gidx n = nx*ny*dof;
+  Teuchos::RCP<Epetra_Map> map_ptr = HYMLS::UnitTests::create_random_map(Comm, n, dof);
+  const Epetra_Map& map = *map_ptr;
+
+  Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(
+    GaleriExt::Matrices::Darcy2D(&map, nx, ny, 0.0, 1.0, GaleriExt::NO_PERIO));
+
+  Epetra_Vector v1(map);
+  v1.PutScalar(1.0);
+  Epetra_Vector v2(map);
+  v2.Random();
+
+  int ierr;
+  ierr = A->Multiply(false, v1, v2);
+  TEST_EQUALITY(0, ierr);
+
+  // Test rowsum zero
+  for (int i = 0; i < v1.MyLength(); i++)
+  {
+    hymls_gidx gid = A->GRID64(i);
+    if (gid % dof != 2)
+    {
+      TEST_FLOATING_EQUALITY(1.0, 1.0+v2[i], 1e-14);
+    }
+  }
+}
+
+TEUCHOS_UNIT_TEST(GaleriExt, DarcyB2D_RowSum)
+{
+  Epetra_MpiComm Comm(MPI_COMM_WORLD);
+
+  const int nx = 8, ny = 8, dof = 3;
+  hymls_gidx n = nx*ny*dof;
+  Teuchos::RCP<Epetra_Map> map_ptr = HYMLS::UnitTests::create_random_map(Comm, n, dof);
+  const Epetra_Map& map = *map_ptr;
+
+  Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(
+    GaleriExt::Matrices::Darcy2D(&map, nx, ny, 0.0, 1.0, GaleriExt::NO_PERIO, 'B'));
+
+  Epetra_Vector v1(map);
+  v1.PutScalar(1.0);
+  Epetra_Vector v2(map);
+  v2.Random();
+
+  int ierr;
+  ierr = A->Multiply(false, v1, v2);
+  TEST_EQUALITY(0, ierr);
+
+  // Test rowsum zero
+  for (int i = 0; i < v1.MyLength(); i++)
+  {
+    hymls_gidx gid = A->GRID64(i);
+    if (gid % dof != 2)
+    {
+      TEST_FLOATING_EQUALITY(1.0, 1.0+v2[i], 1e-14);
+    }
+  }
 }
 
