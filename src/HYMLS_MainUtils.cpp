@@ -376,9 +376,10 @@ Teuchos::RCP<Epetra_CrsMatrix> create_matrix(const Epetra_Map& map,
   }
 
   // try to construct the nullspace for the operator, right now we only implement
-  Teuchos::RCP<Epetra_MultiVector> create_nullspace(const Epetra_CrsMatrix& A,
-                                                    const std::string& nullSpaceType,
-                                                          Teuchos::ParameterList& probl_params)
+Teuchos::RCP<Epetra_MultiVector> create_nullspace(
+  const Epetra_BlockMap& map,
+  const std::string& nullSpaceType,
+  Teuchos::ParameterList& probl_params)
   {
   int dim  = probl_params.get("Dimension", -1);
   int dof = probl_params.get("Degrees of Freedom", -1);
@@ -392,7 +393,7 @@ Teuchos::RCP<Epetra_CrsMatrix> create_matrix(const Epetra_Map& map,
         __FILE__, __LINE__);
       }
 
-    nullSpace = Teuchos::rcp(new Epetra_MultiVector(A.OperatorDomainMap(), dof));
+    nullSpace = Teuchos::rcp(new Epetra_MultiVector(map, dof));
     CHECK_ZERO(nullSpace->PutScalar(0.0));
 
     for (int lid = 0; lid < nullSpace->MyLength(); lid++)
@@ -404,39 +405,49 @@ Teuchos::RCP<Epetra_CrsMatrix> create_matrix(const Epetra_Map& map,
   else if (nullSpaceType == "Constant P")
     {
     int pvar = probl_params.get("Pressure Variable", dim);
-    // NOTE: we assume u/v/w/p[/T] ordering here, it works for 2D and 3D as long
-    // as var[dim]=P
-    nullSpace = Teuchos::rcp(new Epetra_Vector(A.OperatorDomainMap()));
-    // TODO: this is all a bit ad-hoc
     if (pvar == -1 || dof == -1)
       {
       Tools::Error("'Dimension' or 'Degrees of Freedom' not set in 'Problem' sublist",
         __FILE__, __LINE__);
       }
+
+    nullSpace = Teuchos::rcp(new Epetra_Vector(map));
     CHECK_ZERO(nullSpace->PutScalar(0.0));
-    for (int i = dof - 1; i < nullSpace->MyLength(); i+= dof)
+    for (int lid = 0; lid < nullSpace->MyLength(); lid++)
       {
-      (*nullSpace)[0][i] = 1.0;
+      if (nullSpace->Map().GID64(lid) % dof == pvar)
+        (*nullSpace)[0][lid] = 1.0;
       }
     }
   else if (nullSpaceType == "Checkerboard")
     {
-    nullSpace = Teuchos::rcp(new Epetra_MultiVector(A.OperatorDomainMap(), 3));
+    int pvar = probl_params.get("Pressure Variable", dim);
+    if (pvar == -1 || dof == -1)
+      {
+      Tools::Error("'Dimension' or 'Degrees of Freedom' not set in 'Problem' sublist",
+        __FILE__, __LINE__);
+      }
+
+    nullSpace = Teuchos::rcp(new Epetra_MultiVector(map, 2));
+    CHECK_ZERO(nullSpace->PutScalar(0.0));
+
     int nx = probl_params.get("nx", 1);
     int ny = probl_params.get("ny", nx);
     int nz = probl_params.get("nz", dim > 2 ? nx : 1);
     for (int lid = 0; lid < nullSpace->MyLength(); lid++)
       {
-      hymls_gidx gid=nullSpace->Map().GID64(lid);
-      int i,j,k,v;
-      HYMLS::Tools::ind2sub(nx, ny, nz, dof, gid, i, j, k, v);
-      double val1 =  (double)(MOD(i+j+k,2));
-      double val2 =  1.0-val1;
-      (*nullSpace)[0][lid]=val1;
-      (*nullSpace)[1][lid]=val2;
-      (*nullSpace)[2][lid]=1.0;
+      hymls_gidx gid = nullSpace->Map().GID64(lid);
+      if (gid % dof == pvar)
+        {
+        int i, j, k, v;
+        HYMLS::Tools::ind2sub(nx, ny, nz, dof, gid, i, j, k, v);
+        double val1 = (i + j + k) % 2;
+        double val2 = 1.0 - val1;
+        (*nullSpace)[0][lid] = val1;
+        (*nullSpace)[1][lid] = val2;
+        }
       }
-    }    
+    }
   else if (nullSpaceType != "None")
     {
     Tools::Error("'Null Space'='"+nullSpaceType+"' not implemented",

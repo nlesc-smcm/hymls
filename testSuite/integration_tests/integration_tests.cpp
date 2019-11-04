@@ -13,6 +13,7 @@
 #include "Epetra_MultiVector.h"
 #include "Epetra_CrsMatrix.h"
 #include "Epetra_Import.h"
+#include "Epetra_SerialDenseMatrix.h"
 
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_ParameterList.hpp"
@@ -44,6 +45,7 @@
 #include "HYMLS_Solver.hpp"
 #include "HYMLS_Exception.hpp"
 #include "HYMLS_MatrixUtils.hpp"
+#include "HYMLS_DenseUtils.hpp"
 
 typedef enum
 {
@@ -333,7 +335,7 @@ void getLinearSystem(Teuchos::RCP<const Epetra_Comm> comm,
 
   if (nullSpace==Teuchos::null && nullSpaceType!="None")
     {
-    nullSpace=HYMLS::MainUtils::create_nullspace(*K, nullSpaceType, problemList);
+    nullSpace=HYMLS::MainUtils::create_nullspace(*map, nullSpaceType, problemList);
     }
   return;
   }
@@ -548,59 +550,26 @@ int testSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
 
       CHECK_ZERO(err->Update(1.0,*x,-1.0,*x_ex,0.0));
 
-      // subtract constant from pressure if solving Stokes-C
-      if (eqn == "Stokes-C")
-        {
-        int dof = dim + 1;
+      Teuchos::RCP<Epetra_MultiVector> projection = Teuchos::null;
+      probl_params_cpy.get("Degrees of Freedom", dim + 1);
 
-        std::vector<hymls_gidx> pvars(1);
-        pvars[0] = dim;
+      // Subtract constant from pressure when solving Stokes-C
+      if (eqn == "Stokes-C")// subtract constant from pressure if solving Stokes-C
+        projection = HYMLS::MainUtils::create_nullspace(map, "Constant P", probl_params_cpy);
 
-        Epetra_Map pmap((hymls_gidx)-1, 1, pvars.data(), (hymls_gidx)map.IndexBase64(), *comm);
-        Epetra_Import pimport(pmap, map);
-        Epetra_MultiVector pval(pmap, numRhs);
-        CHECK_ZERO(pval.Import(*err, pimport, Insert));
-
-        for (int k = 0; k < numRhs; k++)
-          for (int i = 0; i < x->MyLength(); i++)
-            {
-            hymls_gidx gid = map.GID64(i);
-            if (gid % dof == dim)
-              (*x)[k][i] -= pval[k][0];
-            }
-        CHECK_ZERO(err->Update(1.0,*x,-1.0,*x_ex,0.0));
-        }
-
-      // subtract checkerboard from pressure if solving Stokes-B
+      // Subtract checkerboard when solving Stokes-B
       if (eqn == "Stokes-B")
+        projection = HYMLS::MainUtils::create_nullspace(map, "Checkerboard", probl_params_cpy);
+
+      // Apply a projection to perform the subtraction
+      if (projection != Teuchos::null)
         {
-        int nx = probl_params_cpy.get("nx", 32);
-        int ny = probl_params_cpy.get("ny", nx);
-        int dof = dim + 1;
-
-        std::vector<hymls_gidx> pvars(2);
-        pvars[0] = dim;
-        pvars[1] = dim + dof;
-
-        Epetra_Map pmap((hymls_gidx)-1, 2, pvars.data(), (hymls_gidx)map.IndexBase64(), *comm);
-        Epetra_Import pimport(pmap, map);
-        Epetra_MultiVector pval(pmap, numRhs);
-        CHECK_ZERO(pval.Import(*err, pimport, Insert));
-
-        for (int k = 0; k < numRhs; k++)
-          {
-          for (int i = 0; i < x->MyLength(); i++)
-            {
-            hymls_gidx gid = map.GID64(i);
-            if (gid % dof == dim)
-              {
-              if (((gid / dof) % nx + (gid / dof / nx) % ny) % 2 == 0)
-                (*x)[k][i] -= pval[k][0];
-              else
-                (*x)[k][i] -= pval[k][1];
-              }
-            }
-          }
+        int m = projection->NumVectors();
+        int n = x->NumVectors();
+        Epetra_SerialDenseMatrix p(m, n);
+        Teuchos::RCP<Epetra_MultiVector> pv = HYMLS::DenseUtils::CreateView(p);
+        CHECK_ZERO(HYMLS::DenseUtils::MatMul(*projection, *err, p));
+        CHECK_ZERO(x->Multiply('N', 'N', -1.0, *projection, *pv, 1.0));
         CHECK_ZERO(err->Update(1.0,*x,-1.0,*x_ex,0.0));
         }
 

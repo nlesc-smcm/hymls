@@ -7,6 +7,7 @@
 #include "Teuchos_RCP.hpp"
 
 class Epetra_Comm;
+class Epetra_BlockMap;
 class Epetra_Map;
 class Epetra_CrsMatrix;
 class Epetra_Vector;
@@ -42,7 +43,7 @@ Teuchos::RCP<Epetra_CrsMatrix> create_matrix(const Epetra_Map& map,
 
 // given the "Problem" sublist, constructs a null space, for instance:
 // "Null Space Type"="Constant", "Constant P" etc.
-Teuchos::RCP<Epetra_MultiVector> create_nullspace(const Epetra_CrsMatrix& A,
+Teuchos::RCP<Epetra_MultiVector> create_nullspace(const Epetra_BlockMap& map,
   const std::string& nullSpaceType,
   Teuchos::ParameterList& probl_params);
 
