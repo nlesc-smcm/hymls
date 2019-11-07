@@ -104,6 +104,14 @@ Stokes3D(const Epetra_Map* Map,
   Laplace[1] = get3DLaplaceMatrixForVar<int_type>(Map, nx, ny, nz, 1, perio);
   Laplace[2] = get3DLaplaceMatrixForVar<int_type>(Map, nx, ny, nz, 2, perio);
 
+  enum {
+    CENTERED_NONE = 0,
+    CENTERED_X = 1,
+    CENTERED_Y = 2,
+    CENTERED_Z = 4
+  };
+  int staggering = CENTERED_NONE;
+
   // now create the combined Stokes matrix [A B'; B 0] from A=[Laplace 0; 0 Laplace] and Darcy=[I B'; B 0];
   for (int i=0; i<Map->NumMyElements(); i++)
   {
@@ -116,10 +124,11 @@ Stokes3D(const Epetra_Map* Map,
     Darcy->ExtractGlobalRowCopy(row,max_len,lenDarcy,vals,cols);
     // u or v node? add Laplace row entries
     int lenTotal=lenDarcy;
-    if ((row+1) % dof)
+    int ivar = row % dof;
+    if (ivar != 3)
     {
       int_type row0 = row / dof;
-      Laplace[row % dof]->ExtractGlobalRowCopy(row0,max_len,lenLaplace,vals_laplace,cols_laplace);
+      Laplace[ivar]->ExtractGlobalRowCopy(row0,max_len,lenLaplace,vals_laplace,cols_laplace);
       // compensation for missing nodes at the boundary (gives Dirichlet boundary conditions)
       double add_to_diag = 0.0;
       int left,right,lower,upper,below,above;
@@ -138,7 +147,18 @@ Stokes3D(const Epetra_Map* Map,
       // /|   |               |   |/
       // /+---+               +---+/
 
-      if ((row+1)%dof==1) // u-variable
+      if (grid_type == 'C' && ivar == 0)
+        staggering = CENTERED_Y | CENTERED_Z;
+      else if (grid_type == 'C' && ivar == 1)
+        staggering = CENTERED_X | CENTERED_Z;
+      else if (grid_type == 'C' && ivar == 2)
+        staggering = CENTERED_X | CENTERED_Y;
+      else if (grid_type == 'T' && ivar == 2)
+        staggering = CENTERED_X | CENTERED_Y;
+      else if (grid_type == 'T')
+        staggering = CENTERED_Z;
+
+      if (!(staggering & CENTERED_X)) // u-variable
       {
         if (right==-1)
         {
@@ -148,8 +168,8 @@ Stokes3D(const Epetra_Map* Map,
         }
         else
         {
-          if (lower==-1 || upper==-1) add_to_diag+=a;
-          if (below==-1 || above==-1) add_to_diag+=a;
+          if ((lower==-1 || upper==-1) && (staggering & CENTERED_Y)) add_to_diag+=a;
+          if ((below==-1 || above==-1) && (staggering & CENTERED_Z)) add_to_diag+=a;
         }
         if (right>0 && rightright==-1)
         {
@@ -160,8 +180,8 @@ Stokes3D(const Epetra_Map* Map,
           }
         }
       }
-      else if ((row+1)%dof==2) // v-variable
-      {
+      if (!(staggering & CENTERED_Y)) // v-variable
+      {  
         if (upper==-1)
         {
           lenLaplace=1;
@@ -170,8 +190,8 @@ Stokes3D(const Epetra_Map* Map,
         }
         else
         {
-          if (left==-1 || right==-1) add_to_diag+=a;
-          if (below==-1 || above==-1) add_to_diag+=a;
+          if ((left==-1 || right==-1) && (staggering & CENTERED_X)) add_to_diag+=a;
+          if ((below==-1 || above==-1) && (staggering & CENTERED_Z)) add_to_diag+=a;
         }
         if (upper>0 && upup==-1)
         {
@@ -182,7 +202,7 @@ Stokes3D(const Epetra_Map* Map,
           }
         }
       }
-      else if ((row+1)%dof==3) // w-variable
+      if (!(staggering & CENTERED_Z)) // w-variable
       {
         if (above==-1)
         {
@@ -192,8 +212,8 @@ Stokes3D(const Epetra_Map* Map,
         }
         else
         {
-          if (left==-1 || right==-1) add_to_diag+=a;
-          if (lower==-1 || upper==-1) add_to_diag+=a;
+          if ((left==-1 || right==-1) && (staggering & CENTERED_X)) add_to_diag+=a;
+          if ((lower==-1 || upper==-1) && (staggering & CENTERED_Y)) add_to_diag+=a;
         }
         if (above>0 && toptop==-1)
         {
@@ -208,7 +228,7 @@ Stokes3D(const Epetra_Map* Map,
       for (int j=0; j<lenLaplace; j++)
       {
         // column index in final Stokes matrix
-        int_type c=cols_laplace[j]*dof + row%dof;
+        int_type c=cols_laplace[j]*dof + ivar;
         if (c==row)
         {
           // find entry in existing values and replace it
@@ -219,7 +239,7 @@ Stokes3D(const Epetra_Map* Map,
         }
         else
         {
-          // add entry at the ent of the row
+          // add entry at the end of the row
           cols[lenTotal]=c;
           vals[lenTotal]=-vals_laplace[j]*a;
           lenTotal++;
@@ -237,8 +257,7 @@ Epetra_CrsMatrix*
 Stokes3D(const Epetra_Map* Map,
          const int nx, const int ny, const int nz,
          const double a, const double b,
-         PERIO_Flag perio=NO_PERIO,
-         char grid_type='C')
+         PERIO_Flag perio=NO_PERIO, char grid_type='C')
 {
 #ifndef EPETRA_NO_32BIT_GLOBAL_INDICES
   if(Map->GlobalIndicesInt()) {
