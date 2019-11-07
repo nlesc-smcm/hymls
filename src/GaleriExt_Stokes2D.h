@@ -101,6 +101,13 @@ Stokes2D(const Epetra_Map* Map,
   Laplace[0] = get2DLaplaceMatrixForVar<int_type>(Map, nx, ny, 0, perio);
   Laplace[1] = get2DLaplaceMatrixForVar<int_type>(Map, nx, ny, 1, perio);
 
+  enum {
+    CENTERED_NONE = 0,
+    CENTERED_X = 1,
+    CENTERED_Y = 2
+  };
+  int staggering = CENTERED_NONE;
+
   // now create the combined Stokes matrix [A B'; B 0] from A=[Laplace 0; 0 Laplace] and Darcy=[I B'; B 0];
   for (int i=0; i<Map->NumMyElements(); i++)
   {
@@ -135,7 +142,12 @@ Stokes2D(const Epetra_Map* Map,
       // /|   |               |   |/
       // /+---+               +---+/
 
-      if (ivar == 0 || grid_type == 'B') // u-variable
+      if (grid_type == 'C' && ivar == 0)
+        staggering = CENTERED_Y;
+      else if (grid_type == 'C' && ivar == 1)
+        staggering = CENTERED_X;
+
+      if (!(staggering & CENTERED_X)) // u-variable
       {
         if (right==-1)
         {
@@ -143,7 +155,7 @@ Stokes2D(const Epetra_Map* Map,
           vals_laplace[0]=b/(a*a);
           cols_laplace[0]=row0;
         }
-        else if (lower==-1 || upper==-1)
+        else if ((lower==-1 || upper==-1) && (staggering & CENTERED_Y))
         {
           add_to_diag=a;
         }
@@ -156,7 +168,7 @@ Stokes2D(const Epetra_Map* Map,
           }
         }
       }
-      if (ivar == 1 || grid_type == 'B') // v-variable
+      if (!(staggering & CENTERED_Y)) // v-variable
       {
         if (upper==-1)
         {
@@ -164,7 +176,7 @@ Stokes2D(const Epetra_Map* Map,
           vals_laplace[0]=b/(a*a);
           cols_laplace[0]=row0;
         }
-        else if (left==-1 || right==-1)
+        else if ((left==-1 || right==-1) && (staggering & CENTERED_X))
         {
           add_to_diag=a;
         }
@@ -181,7 +193,7 @@ Stokes2D(const Epetra_Map* Map,
       for (int j=0; j<lenLaplace; j++)
       {
         // column index in final Stokes matrix
-        int_type c=cols_laplace[j]*dof + row%dof;
+        int_type c=cols_laplace[j]*dof + ivar;
         if (c==row)
         {
           // find entry in existing values and replace it
@@ -192,7 +204,7 @@ Stokes2D(const Epetra_Map* Map,
         }
         else
         {
-          // add entry at the ent of the row
+          // add entry at the end of the row
           cols[lenTotal]=c;
           vals[lenTotal]=-vals_laplace[j]*a;
           lenTotal++;
@@ -228,5 +240,5 @@ Stokes2D(const Epetra_Map* Map,
 }
 
 } // namespace Matrices
-} // namespace Galeri
+} // namespace GaleriExt
 #endif
