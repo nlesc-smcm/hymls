@@ -218,6 +218,8 @@ Teuchos::RCP<Epetra_Vector> create_testvector(
   if (eqn == "Stokes-B" || eqn == "Stokes-T")
     {
     int nx = probl_params.get("nx", 32);
+    int ny = probl_params.get("ny", nx);
+    int dim = probl_params.get("Dimension", -1);
     int dof = probl_params.get("Degrees of Freedom", -1);
     for (int i = 0; i < matrix.NumMyRows(); i++)
       {
@@ -226,6 +228,8 @@ Teuchos::RCP<Epetra_Vector> create_testvector(
         (*testvector)[i] = ((grid / dof) % 2) * 2 - 1;
       else if (grid % dof == 1)
         (*testvector)[i] = ((grid / dof / nx) % 2) * 2 - 1;
+      else if (dim > 2 && grid % dof == 2 && eqn == "Stokes-B")
+        (*testvector)[i] = ((grid / dof / nx / ny) % 2) * 2 - 1;
       else
         (*testvector)[i] = 1.0;
       }
@@ -383,6 +387,7 @@ Teuchos::RCP<Epetra_MultiVector> create_nullspace(
   {
   int dim  = probl_params.get("Dimension", -1);
   int dof = probl_params.get("Degrees of Freedom", -1);
+  std::string eqn = probl_params.get("Equations", "Laplace");
 
   Teuchos::RCP<Epetra_MultiVector> nullSpace = Teuchos::null;
   if (nullSpaceType == "Constant")
@@ -434,6 +439,7 @@ Teuchos::RCP<Epetra_MultiVector> create_nullspace(
     int nx = probl_params.get("nx", 1);
     int ny = probl_params.get("ny", nx);
     int nz = probl_params.get("nz", dim > 2 ? nx : 1);
+    int stokes_b = eqn == "Stokes-B";
     for (int lid = 0; lid < nullSpace->MyLength(); lid++)
       {
       hymls_gidx gid = nullSpace->Map().GID64(lid);
@@ -441,7 +447,7 @@ Teuchos::RCP<Epetra_MultiVector> create_nullspace(
         {
         int i, j, k, v;
         HYMLS::Tools::ind2sub(nx, ny, nz, dof, gid, i, j, k, v);
-        double val1 = (i + j + k) % 2;
+        double val1 = (i + j + k * stokes_b) % 2;
         double val2 = 1.0 - val1;
         (*nullSpace)[0][lid] = val1;
         (*nullSpace)[1][lid] = val2;
