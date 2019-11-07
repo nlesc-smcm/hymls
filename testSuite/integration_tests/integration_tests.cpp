@@ -416,6 +416,11 @@ int runTest(Teuchos::RCP<const Epetra_Comm> comm,
     message += e.what();
     no_exception = false;
     }
+  catch (std::string &e)
+    {
+    message += e;
+    no_exception = false;
+    }
   catch (...)
     {
     message += "unknown exception";
