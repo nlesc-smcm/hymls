@@ -24,7 +24,7 @@
   </ParameterList>
   <ParameterList name="Problem"><!--{-->
   
-    <Parameter name="Equations" type="string" value="Stokes-B"/>
+    <Parameter name="Equations" type="string" value="Stokes-T"/>
     <Parameter name="Dimension" type="int" value="3"/>
     <Parameter name="Degrees of Freedom" type="int" value="4"/>
 
