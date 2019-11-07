@@ -28,9 +28,9 @@
     <Parameter name="Dimension" type="int" value="3"/>
     <Parameter name="Degrees of Freedom" type="int" value="4"/>
 
-    <Parameter name="nx" type="int" value="16"/>
-    <Parameter name="ny" type="int" value="16"/>
-    <Parameter name="nz" type="int" value="16"/>
+    <Parameter name="nx" type="int" value="8"/>
+    <Parameter name="ny" type="int" value="8"/>
+    <Parameter name="nz" type="int" value="8"/>
 
   </ParameterList><!--}-->
 
@@ -65,9 +65,9 @@
     <!-- <Parameter name="Apply Dropping" type="bool" value="false"/> -->
 
     <!-- you can either set 'Separator Length' or 'Number of Subdomains' -->
-    <Parameter name="Separator Length (x)" type="int" value="8"/>
-    <Parameter name="Separator Length (y)" type="int" value="8"/>
-    <Parameter name="Separator Length (z)" type="int" value="16"/>
+    <Parameter name="Separator Length (x)" type="int" value="4"/>
+    <Parameter name="Separator Length (y)" type="int" value="4"/>
+    <Parameter name="Separator Length (z)" type="int" value="8"/>
     <Parameter name="Coarsening Factor" type="int" value="2"/>
     
     <!-- number of levels to be created (1: direct solver for Schur complement, -->
