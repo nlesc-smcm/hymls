@@ -205,7 +205,6 @@ int MatrixBlock::ComputeSubdomainSolvers(Teuchos::RCP<const Epetra_CrsMatrix> ex
 
   HYMLS_DEBUG("compute subdomain solvers...");
 
-  int nnz = 0;
   for (int sd = 0; sd < hid_->NumMySubdomains(); sd++)
     {
     if (subdomainSolvers_[sd]->NumRows() > 0)
@@ -238,25 +237,6 @@ int MatrixBlock::ComputeSubdomainSolvers(Teuchos::RCP<const Epetra_CrsMatrix> ex
           Teuchos::toString(sd)+" on partition "+Teuchos::toString(Comm().MyPID()),
           __FILE__, __LINE__);
         }
-#endif
-
-      // Now some debugging code until the end of the function
-#ifndef NO_MEMORY_TRACING
-#ifndef USE_AMESOS
-      Teuchos::RCP<Ifpack_SparseContainer<SparseDirectSolver> > container =
-        Teuchos::rcp_dynamic_cast<Ifpack_SparseContainer<SparseDirectSolver> >(
-          subdomainSolvers_[sd]);
-      if (container != Teuchos::null)
-        {
-        nnz += container->Inverse()->NumGlobalNonzerosA();
-        nnz += container->Inverse()->NumGlobalNonzerosLU();
-        }
-      else
-        {
-        int nr = subdomainSolvers_[sd]->NumRows();
-        nnz += nr * nr;
-        }
-#endif
 #endif
 
 #ifdef STORE_SUBDOMAIN_MATRICES
