@@ -1296,32 +1296,23 @@ void SparseDirectSolver::DumpSolverStatus(std::string filePrefix,
   }
 
 // return number of nonzeros in original matrix
-double SparseDirectSolver::NumGlobalNonzerosA() const
+int SparseDirectSolver::NumGlobalNonzerosA() const
   {
   return Matrix_->NumGlobalNonzeros();
   }
 
-//! return number of nonzeros in factorization
-double SparseDirectSolver::NumGlobalNonzerosLU() const
+int SparseDirectSolver::NumGlobalNonzerosL() const
   {
-  double value=0.0;
-#ifdef HAVE_SUITESPARSE
-  if (method_==UMFPACK)
-    {
-    value = umf_Info_[UMFPACK_LNZ] +
-      umf_Info_[UMFPACK_UNZ];
-    // we have counted the diagonal twice, not sure if ones are
-    // stored in Umfpack but we don't care.
-    } else
-#endif
     if (method_==KLU)
-      {
-      // this is not correct of course, but in HYMLS::Preconditioner
-      // we count one double and one int per nonzero entry and thus
-      // it becomes correct again...
-      value = (double)(klu_->Common_->memusage)/(double)(sizeof(double)+sizeof(int));
-      }
-  return value;
+      return klu_->Numeric_->lnz;
+    return 0;
+  }
+
+int SparseDirectSolver::NumGlobalNonzerosU() const
+  {
+    if (method_==KLU)
+      return klu_->Numeric_->unz;
+    return 0;
   }
 
   }//namespace HYMLS

@@ -269,10 +269,13 @@ public:
   //@}
   
   //! return number of nonzeros in original matrix
-  double NumGlobalNonzerosA() const;
+  int NumGlobalNonzerosA() const;
 
-  //! return number of nonzeros in factorization
-  double NumGlobalNonzerosLU() const; 
+  //! return number of nonzeros in L
+  int NumGlobalNonzerosL() const;
+
+  //! return number of nonzeros in U
+  int NumGlobalNonzerosU() const;
 
 #ifdef STORE_SD_LU
 public:
