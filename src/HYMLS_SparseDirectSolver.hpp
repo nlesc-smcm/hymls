@@ -64,10 +64,7 @@ public:
   SparseDirectSolver(Epetra_RowMatrix* Matrix);
 
   //! Copy constructor.
-  SparseDirectSolver(const SparseDirectSolver& rhs);
-
-  //! Operator=.
-  SparseDirectSolver& operator=(const SparseDirectSolver& rhs);
+  SparseDirectSolver(const SparseDirectSolver& rhs) = delete;
 
   //! Destructor
   virtual ~SparseDirectSolver();

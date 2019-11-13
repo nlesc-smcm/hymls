@@ -120,19 +120,6 @@ SparseDirectSolver::SparseDirectSolver(Epetra_RowMatrix* Matrix_in) :
 
   }
 
-//==============================================================================
-SparseDirectSolver::SparseDirectSolver(const SparseDirectSolver& rhs) :
-  Matrix_(Teuchos::rcp( &rhs.Matrix(), false )),
-  label_(rhs.Label()),
-  IsEmpty_(false),
-  IsInitialized_(false),
-  IsComputed_(false),
-  Condest_(rhs.Condest()),
-  pardiso_initialized_(false)
-  {
-  Tools::Error("not implemented!",__FILE__,__LINE__);
-  }
-
 SparseDirectSolver::~SparseDirectSolver()
   {
   HYMLS_PROF3(label_,"Destructor");
