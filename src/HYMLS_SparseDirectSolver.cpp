@@ -98,9 +98,12 @@ SparseDirectSolver::SparseDirectSolver(Epetra_RowMatrix* Matrix_in) :
   MyPID_=Matrix_->Comm().MyPID();
 
   klu_=new KluWrapper();
+  klu_->Common_=new T_KLU(klu_common)();
+  DO_KLU(defaults)(klu_->Common_);
+
   umf_Symbolic_=NULL;
   umf_Numeric_=NULL;
-  klu_->Common_=NULL;
+
   scaLeft_=Teuchos::rcp(new Epetra_Vector(Matrix_->RowMatrixRowMap()));
   scaRight_=Teuchos::rcp(new Epetra_Vector(Matrix_->RowMatrixRowMap()));
   CHECK_ZERO(scaLeft_->PutScalar(1.0));
@@ -124,60 +127,47 @@ SparseDirectSolver::~SparseDirectSolver()
   {
   HYMLS_PROF3(label_,"Destructor");
 
-  if (method_==KLU)
+  if (klu_->Symbolic_)
     {
-    if (klu_->Symbolic_)
-      {
-      DO_KLU(free_symbolic)(&klu_->Symbolic_,klu_->Common_);
-      }
-    if (klu_->Numeric_)
-      {
-      DO_KLU(free_numeric)(&klu_->Numeric_,klu_->Common_);
-      }
-    if (klu_->Common_)
-      {
-      delete klu_->Common_;
-      }
+    DO_KLU(free_symbolic)(&klu_->Symbolic_,klu_->Common_);
+    }
+  if (klu_->Numeric_)
+    {
+    DO_KLU(free_numeric)(&klu_->Numeric_,klu_->Common_);
+    }
+  if (klu_->Common_)
+    {
+    delete klu_->Common_;
     }
 #ifdef HAVE_SUITESPARSE
-  else if (method_==UMFPACK)
+  if (umf_Symbolic_)
     {
-    if (umf_Symbolic_)
-      {
-      umfpack_di_free_symbolic (&umf_Symbolic_) ;
-      }
-    if (umf_Numeric_)
-      {
-      umfpack_di_free_numeric (&umf_Numeric_) ;
-      }
-    umf_Info_.resize(0);
-    umf_Control_.resize(0);
+    umfpack_di_free_symbolic (&umf_Symbolic_) ;
     }
+  if (umf_Numeric_)
+    {
+    umfpack_di_free_numeric (&umf_Numeric_) ;
+    }
+  umf_Info_.resize(0);
+  umf_Control_.resize(0);
 #endif
 #ifdef HAVE_PARDISO
-  else if (method_==PARDISO)
+  if (pardiso_initialized_)
     {
-    if (pardiso_initialized_)
-      {
-      int N = serialMatrix_->NumGlobalRows();
-      int NumVectors = 1;
-      int maxfct = 1; // Max number of factors in memory
-      int mnum = 1; // Maxtrix number
-      int phase = -1; // Release internal memory
-      int msglvl = 0; // No output
-      int error = 0;
-      double ddum; // Dummy variable
+    int N = serialMatrix_->NumGlobalRows();
+    int NumVectors = 1;
+    int maxfct = 1; // Max number of factors in memory
+    int mnum = 1; // Maxtrix number
+    int phase = -1; // Release internal memory
+    int msglvl = 0; // No output
+    int error = 0;
+    double ddum; // Dummy variable
 
-      pardiso(pardiso_pt_, &maxfct, &mnum, &pardiso_mtype_, &phase,
-        &N, &Aval_[0], &Ap_[0], &Ai_[0], &pardiso_perm_[0], &NumVectors,
-        pardiso_iparam_, &msglvl, &ddum, &ddum, &error);
-      }
+    pardiso(pardiso_pt_, &maxfct, &mnum, &pardiso_mtype_, &phase,
+      &N, &Aval_[0], &Ap_[0], &Ai_[0], &pardiso_perm_[0], &NumVectors,
+      pardiso_iparam_, &msglvl, &ddum, &ddum, &error);
     }
 #endif
-  else
-    {
-    Tools::Warning("destructor not implemented",__FILE__,__LINE__);
-    }
   delete klu_;
   }
 
@@ -220,7 +210,6 @@ int SparseDirectSolver::SetParameters(Teuchos::ParameterList& params)
 
   if (method_==KLU)
     {
-    klu_->Common_ = new T_KLU(klu_common)();
     DO_KLU(defaults)(klu_->Common_);
     }
 #ifdef HAVE_SUITESPARSE
