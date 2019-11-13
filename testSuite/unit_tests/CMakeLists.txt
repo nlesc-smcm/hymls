@@ -11,6 +11,7 @@ set(SOURCES
   HYMLS_Preconditioner
   HYMLS_ProjectedOperator
   HYMLS_Solver
+  HYMLS_SparseDirectSolver
   HYMLS_Tester
   HYMLS_Tools
   HYMLS_UnitTests
