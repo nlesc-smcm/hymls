@@ -329,12 +329,6 @@ int Preconditioner::SetParameters(Teuchos::ParameterList& List)
   A22_ = Teuchos::rcp(new MatrixBlock(hid_,
       HierarchicalMap::Separators, HierarchicalMap::Separators, myLevel_));
 
-#ifdef HYMLS_STORE_MATRICES
-  MatrixUtils::Dump(*A12_->Block(), "Precond"+Teuchos::toString(myLevel_)+"_A12.txt");
-  MatrixUtils::Dump(*A21_->Block(), "Precond"+Teuchos::toString(myLevel_)+"_A21.txt");
-  MatrixUtils::Dump(*A22_->Block(), "Precond"+Teuchos::toString(myLevel_)+"_A22.txt");
-#endif
-
   Teuchos::RCP<Teuchos::ParameterList> sd_list = Teuchos::rcp(new
     Teuchos::ParameterList(PL().sublist("Sparse Solver")));
 
@@ -419,6 +413,12 @@ Tools::out() << "=============================="<<std::endl;
     CHECK_ZERO(A12_->Compute(Acrs, reorderedMatrix));
     CHECK_ZERO(A21_->Compute(Acrs, reorderedMatrix));
     CHECK_ZERO(A22_->Compute(Acrs, reorderedMatrix));
+
+#ifdef HYMLS_STORE_MATRICES
+  MatrixUtils::Dump(*A12_->Block(), "Precond"+Teuchos::toString(myLevel_)+"_A12.txt");
+  MatrixUtils::Dump(*A21_->Block(), "Precond"+Teuchos::toString(myLevel_)+"_A21.txt");
+  MatrixUtils::Dump(*A22_->Block(), "Precond"+Teuchos::toString(myLevel_)+"_A22.txt");
+#endif
 
     CHECK_ZERO(A11_->ComputeSubdomainSolvers(reorderedMatrix));
 
