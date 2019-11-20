@@ -44,12 +44,15 @@
 #include "EpetraExt_Reindex_MultiVector.h"
 #include "./EpetraExt_RestrictedCrsMatrixWrapper.h"
 #include "./EpetraExt_RestrictedMultiVectorWrapper.h"
+#ifdef HYMLS_STORE_MATRICES
+#include "EpetraExt_RowMatrixOut.h"
+#endif
 
-#include "HYMLS_AugmentedMatrix.hpp"
 #include "HYMLS_Tester.hpp"
 #include "HYMLS_Epetra_Time.h"
 #include "HYMLS_HierarchicalMap.hpp"
 #include "HYMLS_OrthogonalTransform.hpp"
+#include "HYMLS_AugmentedMatrix.hpp"
 
 #include <fstream>
 #include <algorithm>
