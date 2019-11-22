@@ -314,7 +314,10 @@ int Preconditioner::SetParameters(Teuchos::ParameterList& List)
 
 #if defined(HYMLS_STORE_MATRICES) || defined(HYMLS_TESTING)
   MatrixUtils::Dump(*rangeMap_,"originalMap"+Teuchos::toString(myLevel_)+".txt");
-  MatrixUtils::Dump(*rowMap_,"reorderedMap"+Teuchos::toString(myLevel_)+".txt");
+  if (!rangeMap_->SameAs(*rowMap_))
+    {
+    MatrixUtils::Dump(*rowMap_,"reorderedMap"+Teuchos::toString(myLevel_)+".txt");
+    }
 #endif
 
   importer_=Teuchos::rcp(new Epetra_Import(*rowMap_,*rangeMap_));
@@ -415,9 +418,18 @@ Tools::out() << "=============================="<<std::endl;
     CHECK_ZERO(A22_->Compute(Acrs, reorderedMatrix));
 
 #ifdef HYMLS_STORE_MATRICES
+  MatrixUtils::Dump(A12_->Block()->RowMap(), "Precond"+Teuchos::toString(myLevel_)+"_Map1.txt");
+  MatrixUtils::Dump(A21_->Block()->RowMap(), "Precond"+Teuchos::toString(myLevel_)+"_Map2.txt");
+
   MatrixUtils::Dump(*A12_->Block(), "Precond"+Teuchos::toString(myLevel_)+"_A12.txt");
   MatrixUtils::Dump(*A21_->Block(), "Precond"+Teuchos::toString(myLevel_)+"_A21.txt");
   MatrixUtils::Dump(*A22_->Block(), "Precond"+Teuchos::toString(myLevel_)+"_A22.txt");
+
+  // note: the Compute and ComputeSubdomainSolvers functions both extract the matrix block,
+  // so normally we don't need to call Compute() for A11
+  CHECK_ZERO(A11_->Compute(Acrs, reorderedMatrix));
+  MatrixUtils::Dump(*A11_->Block(), "Precond"+Teuchos::toString(myLevel_)+"_A11.txt");
+
 #endif
 
     CHECK_ZERO(A11_->ComputeSubdomainSolvers(reorderedMatrix));
