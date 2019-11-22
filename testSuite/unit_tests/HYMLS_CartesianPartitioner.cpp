@@ -184,3 +184,29 @@ TEUCHOS_UNIT_TEST(CartesianPartitioner, GID64)
   TEST_EQUALITY(interior_nodes.back(), last);
   }
 #endif
+
+TEUCHOS_UNIT_TEST(CartesianPartitioner, SetSolidMask)
+  {
+  Teuchos::RCP<FakeComm> comm = Teuchos::rcp(new FakeComm);
+
+  DISABLE_OUTPUT;
+
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(
+    new Teuchos::ParameterList);
+  params->sublist("Problem").set("nx", 1024);
+  params->sublist("Problem").set("ny", 1024);
+  params->sublist("Problem").set("nz", 1024);
+  params->sublist("Problem").set("Degrees of Freedom", 4);
+  params->sublist("Preconditioner").set("Separator Length", 4);
+
+  HYMLS::CartesianPartitioner part(Teuchos::null, params, *comm);
+  TEST_MAYTHROW(part.Partition(false));
+  TEST_MAYTHROW(part.SetSolidMask([](hymls_gidx gid){return gid==42;}));
+
+  ENABLE_OUTPUT;
+
+  int varType42 = part.VariableType(42);
+  int varType53 = part.VariableType(53);
+  TEST_EQUALITY(varType42, -1);
+  TEST_EQUALITY(varType53, 53%4);
+  }

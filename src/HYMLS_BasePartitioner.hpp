@@ -25,13 +25,21 @@ class BasePartitioner
 public:
 
   //! constructor
-  BasePartitioner(){}
+  BasePartitioner()
+        : isSolid_([](hymls_gidx gid){return false;})
+  {}
 
   //! destructor
   virtual ~BasePartitioner(){}
 
   //! set parameters for the partitioner like separator length
   virtual void SetParameters(Teuchos::ParameterList& params);
+  
+  //! allows the user to provide a function that returns true if a given global index in the discretized PDE
+  //! belongs to a solid cell. This function is only called for global indices belonging to the processor's
+  //! subdomain, and is used to avoid retaining pressure nodes that belong to grid cells without a continuity
+  //! equation (solid cells may have a Dirichlet condition for the pressure instead).
+  virtual void SetSolidMask(bool (*solid_mask)(hymls_gidx)){isSolid_=solid_mask;}
 
   //! get a pararmeterlist with increased separator lengths for
   //! the next level
@@ -63,9 +71,16 @@ public:
 
   //! for problems with multiple dof per node: get an
   //! integer indicating which variable type a gid has
-  //! (this is used in HID to group separators by type)
-  //! default implementation returns 0
-  virtual int VariableType(hymls_gidx gid) const {return variableType_[gid % dof_];}
+  //! (this is used in HierarchicalMap to group separators by type)
+  //! default implementation returns gid%dof, or -1 if a mask
+  //! has been set using SetSolidCells and the corresponding global
+  //! index gid belongs to a solid cell.
+  virtual int VariableType(hymls_gidx gid) const 
+        {
+        int type=variableType_[gid % dof_];
+        if (isSolid_(gid)) type=-1;
+        return type;
+        }
 
   //! get non-overlapping global subdomain id
   virtual int operator()(hymls_gidx gid) const = 0;
@@ -145,6 +160,10 @@ protected:
 
   //! map of what processor a subdomain belongs to
   Teuchos::RCP<Teuchos::Array<int> > pidMap_;
+  
+  //! this function returns true if a given global index belongs to a solid cell.
+  //! It can be set by the user by calling SetSolidMask().
+  bool (*isSolid_)(hymls_gidx gid);
 
   //! pid which all nodes on this processor have to be moved to
   mutable int destinationPID_;
