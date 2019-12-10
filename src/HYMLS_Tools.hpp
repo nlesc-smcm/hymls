@@ -93,7 +93,6 @@ public:
   static void StopMemory(std::string const &fname, bool print=false,
     long long memory=-1, long long max_memory=-1);
 
-#ifdef HYMLS_DEBUGGING
   //! set breakpoint (does nothing if HYMLS_DEBUGGING is not defined)
   //! function is the name of something that is being timed, e.g.
   //! Solver: ApplyInverse", file and line are __FILE__ and __LINE__
@@ -107,7 +106,6 @@ public:
   //! false otherwise.
   static bool GetCheckPoint(std::string function, std::string& msg,
     std::string& file, int& line);
-#endif
 
   //! print timing results
   static void PrintTiming(std::ostream& os);

@@ -105,6 +105,10 @@ void Tools::InitializeIO(Teuchos::RCP<const Epetra_Comm> comm,
     debug_stream=debug;
     }
 #endif
+  if (debug==Teuchos::null)
+    {
+    debug_stream = output_stream;
+    }
 
   //redirect std::cout
   if (output_stream->getOStream().get()!=&std::cout)
@@ -710,29 +714,26 @@ hymls_gidx Tools::sub2ind(int nx, int ny, int nz, int i, int j, int k)
   return sub2ind(nx,ny,nz,1,i,j,k,0);
   }
 
-#ifdef HYMLS_DEBUGGING
 void Tools::SetCheckPoint(std::string fname, std::string msg,
-        std::string file, int line)
-        {
-        breakpointList_.sublist(fname).set("msg",msg);
-        breakpointList_.sublist(fname).set("file",file);
-        breakpointList_.sublist(fname).set("line",line);
-        }
+  std::string file, int line)
+  {
+  breakpointList_.sublist(fname).set("msg",msg);
+  breakpointList_.sublist(fname).set("file",file);
+  breakpointList_.sublist(fname).set("line",line);
+  }
 
 bool Tools::GetCheckPoint(std::string fname, std::string& msg,
-        std::string& file, int& line)
-        {
-        if (breakpointList_.isSublist(fname))
-          {
-          msg=breakpointList_.sublist(fname).get("msg",msg);
-          file=breakpointList_.sublist(fname).get("file",file);
-          line=breakpointList_.sublist(fname).get("line",line);
-          return true;
-          }
-        return false;
-        }
-#endif
-
+  std::string& file, int& line)
+  {
+  if (breakpointList_.isSublist(fname))
+    {
+    msg=breakpointList_.sublist(fname).get("msg",msg);
+    file=breakpointList_.sublist(fname).get("file",file);
+    line=breakpointList_.sublist(fname).get("line",line);
+    return true;
+    }
+  return false;
+  }
 
 TimerObject::TimerObject(std::string const &s, bool print)
   :
