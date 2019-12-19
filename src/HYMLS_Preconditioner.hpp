@@ -256,6 +256,9 @@ public:
 
 protected:
 
+  //! Transform the matrix to an F-matrix when possible
+  int TransformMatrix();
+
   //! communicator
   Teuchos::RCP<const Epetra_Comm> comm_;
 
@@ -305,6 +308,9 @@ protected:
   
   //! preconditioning operator
   Teuchos::RCP<SchurPreconditioner> schurPrec_;
+
+  //! Transformation matrix
+  Teuchos::RCP<Epetra_CrsMatrix> T_;
 
   //! \name data structures for solving a 'bordered' system
   //@{

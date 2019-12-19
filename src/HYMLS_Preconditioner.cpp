@@ -24,6 +24,8 @@
 #include "Epetra_Vector.h"
 #include "Epetra_CrsMatrix.h"
 
+#include "EpetraExt_MatrixMatrix.h"
+
 #include "HYMLS_Tester.hpp"
 #include "HYMLS_Epetra_Time.h"
 #include "HYMLS_HierarchicalMap.hpp"
@@ -395,6 +397,8 @@ Tools::out() << "=============================="<<std::endl;
 
     {
     HYMLS_LPROF2(label_, "matrix block computation");
+
+    TransformMatrix();
 
     int MaxNumEntriesPerRow = matrix_->MaxNumEntries();
     Teuchos::RCP<const Epetra_CrsMatrix> Acrs = Teuchos::null;
@@ -897,8 +901,21 @@ Teuchos::RCP<Epetra_Vector> Preconditioner::CreateTestVector()
     Epetra_MultiVector y2(map2, numvec);
 
     // We first import B into the parts of B belonging to their blocks
-    CHECK_ZERO(b1.Import(B, import1, Insert));
-    CHECK_ZERO(b2.Import(B, import2, Insert));
+    if (T_ != Teuchos::null)
+      {
+      Epetra_MultiVector BT(B);
+      Tools::StartTiming("TransformMatix: MV transform 1");
+      CHECK_ZERO(T_->Multiply(true, B, BT));
+      Tools::StopTiming("TransformMatix: MV transform 1");
+
+      CHECK_ZERO(b1.Import(BT, import1, Insert));
+      CHECK_ZERO(b2.Import(BT, import2, Insert));
+      }
+    else
+      {
+      CHECK_ZERO(b1.Import(B, import1, Insert));
+      CHECK_ZERO(b2.Import(B, import2, Insert));
+      }
 
     // We want to compute
     // A11*x1 + A12*x2 = b1
@@ -965,6 +982,13 @@ Teuchos::RCP<Epetra_Vector> Preconditioner::CreateTestVector()
     CHECK_ZERO(X.PutScalar(0.0));
     CHECK_ZERO(X.Export(x1, import1, Add));
     CHECK_ZERO(X.Export(x2, import2, Add));
+    if (T_ != Teuchos::null)
+      {
+      Tools::StartTiming("TransformMatix: MV transform 2");
+      Epetra_MultiVector XT(X);
+      CHECK_ZERO(T_->Multiply(false, XT, X));
+      Tools::StopTiming("TransformMatix: MV transform 2");
+      }
 
 #ifdef HYMLS_DEBUGGING
     if (dumpVectors_)
@@ -976,5 +1000,126 @@ Teuchos::RCP<Epetra_Vector> Preconditioner::CreateTestVector()
     timeApplyInverse_+=time_->ElapsedTime();
     return 0;
   }
+
+int Preconditioner::TransformMatrix()
+  {
+  HYMLS_LPROF2(label_, "TransformMatix");
+
+  bool isStokesB = false;
+  if (PL("Problem").isParameter("Equations"))
+    {
+    std::string eqn = PL("Problem").get("Equations", "Undefined Problem");
+    isStokesB = eqn == "Stokes-B" || eqn == "Stokes-T";
+    }
+
+  if (isStokesB && myLevel_ == 1)
+    {
+    Tools::StartTiming("TransformMatix: Construct T");
+    Epetra_Map const &map = matrix_->RowMatrixRowMap();
+    T_ = Teuchos::rcp(new Epetra_CrsMatrix(Copy, map, 2));
+    int dof = PL("Problem").get("Degrees of Freedom", 1);
+    hymls_gidx indices[2];
+    double values[2];
+    for (int i = 0; i < T_->NumMyRows(); i++)
+      {
+      int num = 1;
+      double val = sqrt(0.5);
+      hymls_gidx gid = map.GID64(i);
+
+      indices[0] = gid;
+      values[0] = 1.0;
+
+      if (gid % dof == 0)
+        {
+        values[0] = val;
+        indices[1] = gid+1;
+        values[1] = -val;
+        num = 2;
+        }
+      else if (gid % dof == 1)
+        {
+        values[0] = val;
+        indices[1] = gid-1;
+        values[1] = val;
+        num = 2;
+        }
+      CHECK_ZERO(T_->InsertGlobalValues(gid, num, values, indices));
+      }
+    CHECK_ZERO(T_->FillComplete());
+    Tools::StopTiming("TransformMatix: Construct T");
+
+    Teuchos::RCP<const Epetra_CrsMatrix> crsMatrix =
+      Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_);
+    if (crsMatrix == Teuchos::null)
+      Tools::Error("Stokes-B Preconditioner only supports Epetra_CrsMatrix", __FILE__, __LINE__);
+
+#ifdef HYMLS_STORE_MATRICES
+    MatrixUtils::Dump(*crsMatrix, "Matrix-Stokes-B.txt");
+#endif
+    Tools::StartTiming("Construct tmp matrices");
+
+    Teuchos::RCP<Epetra_CrsMatrix> tmp1 = Teuchos::rcp(new Epetra_CrsMatrix(*crsMatrix));
+    Teuchos::RCP<Epetra_CrsMatrix> tmp2 = Teuchos::rcp(new Epetra_CrsMatrix(Copy, map, 27));
+    Teuchos::RCP<Epetra_CrsMatrix> tmp3 = Teuchos::rcp(new Epetra_CrsMatrix(Copy, map, 27));
+    matrix_ = Teuchos::null;
+    crsMatrix = Teuchos::null;
+    Tools::StopTiming("Construct tmp matrices");
+
+    Tools::StartTiming("Scale matrix");
+    Epetra_Vector left(map);
+    Epetra_Vector right(map);
+    left.PutScalar(1.0);
+    right.PutScalar(1.0);
+
+    int nx = 16;
+    double ymin = 20. / 180. * M_PI;
+    double ymax = 60. / 180. * M_PI;
+    double dy = (ymax - ymin) / (double)nx;
+    for (int i = 0; i < T_->NumMyRows(); i++)
+      {
+      hymls_gidx gid = map.GID64(i);
+      int j = (gid / dof / nx) % nx;
+      double theta = ymin + (j + 1.0) * dy;
+      double theta2 = ymin + (j + 0.5) * dy;
+      if (gid % dof == 1)
+        right[i] = 1. / cos(theta);
+      if (gid % dof == 2)
+        right[i] = 1. / cos(theta2);
+      if (gid % dof == 0)
+        left[i] = cos(theta);
+      if (gid % dof == 3)
+        left[i] = cos(theta2);
+      }
+    tmp1->LeftScale(left);
+    tmp1->RightScale(right);
+    Tools::StopTiming("Scale matrix");
+
+#ifdef HYMLS_STORE_MATRICES
+    MatrixUtils::Dump(*tmp1, "ScaledMatrix-Stokes-B.txt");
+    MatrixUtils::Dump(*T_, "TransformationMatrix-Stokes-B.txt");
+#endif
+    Tools::StartTiming("TransformMatix: MM 1");
+
+    CHECK_ZERO(::EpetraExt::MatrixMatrix::Multiply(*T_, true, *tmp1, false, *tmp2));
+    tmp1 = Teuchos::null;
+
+    Tools::StopTiming("TransformMatix: MM 1");
+    Tools::StartTiming("TransformMatix: MM 2");
+    CHECK_ZERO(::EpetraExt::MatrixMatrix::Multiply(*tmp2, false, *T_, false, *tmp3));
+    tmp2 = Teuchos::null;
+    Tools::StopTiming("TransformMatix: MM 2");
+
+    Tools::StartTiming("TransformMatix: Drop");
+    matrix_ = MatrixUtils::DropByValue(tmp3);
+    Tools::StopTiming("TransformMatix: Drop");
+
+#ifdef HYMLS_STORE_MATRICES
+    MatrixUtils::Dump(*tmp3, "Transformed-Stokes-B.txt");
+#endif
+    }
+  return 0;
+  }
+
+
 
 }//namespace
