@@ -1289,7 +1289,7 @@ int MatrixUtils::FillReducingOrdering(const Epetra_CrsMatrix& Matrix,
   Teuchos::Array<int> & colperm,
   bool dummy)
   {
-  HYMLS_PROF3(Label(), "FillReducingOrdering");
+  HYMLS_PROF2(Label(), "FillReducingOrdering");
 
   if (!Matrix.Filled()) Tools::Error("matrix not filled", __FILE__, __LINE__);
 
