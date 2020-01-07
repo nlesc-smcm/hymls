@@ -28,6 +28,9 @@ public:
   //! destructor
   virtual ~CartesianPartitioner();
 
+  //! set parameters for the partitioner like separator length
+  void SetParameters(Teuchos::ParameterList& params);
+
   //! return global partition ID of a cell (i,j,k)
   int operator()(int i, int j, int k) const;
 
@@ -106,6 +109,9 @@ protected:
 
   //! maps global to local subdomain ID
   Teuchos::RCP<Epetra_Map> sdMap_;
+
+  //! Transform B-grid type matrix into an F-matrix
+  bool bgridTransform_;
   };
 
   }

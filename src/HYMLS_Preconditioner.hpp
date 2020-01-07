@@ -381,6 +381,9 @@ protected:
   //! max num threads to use for subdomain solve
   int numThreadsSD_;
 
+  //! Transform B-grid type matrix into an F-matrix
+  bool bgridTransform_;
+
 #ifdef HYMLS_DEBUGGING
 public:
 #else

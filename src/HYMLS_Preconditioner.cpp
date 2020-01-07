@@ -59,7 +59,7 @@ namespace HYMLS {
         numInitialize_(0), numCompute_(0), numApplyInverse_(0),
         flopsInitialize_(0.0), flopsCompute_(0.0), flopsApplyInverse_(0.0),
         timeInitialize_(0.0), timeCompute_(0.0), timeApplyInverse_(0.0),
-        numThreadsSD_(-1)
+        numThreadsSD_(-1), bgridTransform_(false)
     {
     HYMLS_LPROF3(label_,"Constructor");
     serialComm_=Teuchos::rcp(new Epetra_SerialComm());
@@ -102,6 +102,7 @@ int Preconditioner::SetParameters(Teuchos::ParameterList& List)
 
   sdSolverType_ = PL().get("Subdomain Solver Type", "Sparse");
   numThreadsSD_ = PL().get("Subdomain Solver Num Threads", numThreadsSD_);
+  bgridTransform_ = PL().get("B-Grid Transform", false);
 
   if (schurPrec_!=Teuchos::null)
     {
@@ -250,7 +251,7 @@ int Preconditioner::SetParameters(Teuchos::ParameterList& List)
 
     VPL().set("Apply Orthogonal Transformation", true, "Whether or not to apply the orthogonal transformation before dropping. In practice this should only be set to false in case \"Apply Dropping\" is set to false, in which case that is the default.");
 
-    VPL().set("Group Separators", false, "Whether velocity nodes are eliminated together");
+    VPL().set("B-Grid Transform", false, "Apply a transformation to turn a B-grid type matrix into an F-matrix");
 
     VPL().set("Retain Nodes", 1, "Amount of nodes that are retained per separator");
 
@@ -1005,14 +1006,10 @@ int Preconditioner::TransformMatrix()
   {
   HYMLS_LPROF2(label_, "TransformMatix");
 
-  bool isStokesB = false;
-  if (PL("Problem").isParameter("Equations"))
-    {
-    std::string eqn = PL("Problem").get("Equations", "Undefined Problem");
-    isStokesB = eqn == "Stokes-B" || eqn == "Stokes-T";
-    }
+  if (!bgridTransform_)
+    return 0;
 
-  if (isStokesB && myLevel_ == 1)
+  if (myLevel_ == 1)
     {
     Tools::StartTiming("TransformMatix: Construct T");
     Epetra_Map const &map = matrix_->RowMatrixRowMap();
@@ -1064,35 +1061,6 @@ int Preconditioner::TransformMatrix()
     matrix_ = Teuchos::null;
     crsMatrix = Teuchos::null;
     Tools::StopTiming("Construct tmp matrices");
-
-    Tools::StartTiming("Scale matrix");
-    Epetra_Vector left(map);
-    Epetra_Vector right(map);
-    left.PutScalar(1.0);
-    right.PutScalar(1.0);
-
-    int nx = 16;
-    double ymin = 20. / 180. * M_PI;
-    double ymax = 60. / 180. * M_PI;
-    double dy = (ymax - ymin) / (double)nx;
-    for (int i = 0; i < T_->NumMyRows(); i++)
-      {
-      hymls_gidx gid = map.GID64(i);
-      int j = (gid / dof / nx) % nx;
-      double theta = ymin + (j + 1.0) * dy;
-      double theta2 = ymin + (j + 0.5) * dy;
-      if (gid % dof == 1)
-        right[i] = 1. / cos(theta);
-      if (gid % dof == 2)
-        right[i] = 1. / cos(theta2);
-      if (gid % dof == 0)
-        left[i] = cos(theta);
-      if (gid % dof == 3)
-        left[i] = cos(theta2);
-      }
-    tmp1->LeftScale(left);
-    tmp1->RightScale(right);
-    Tools::StopTiming("Scale matrix");
 
 #ifdef HYMLS_STORE_MATRICES
     MatrixUtils::Dump(*tmp1, "ScaledMatrix-Stokes-B.txt");

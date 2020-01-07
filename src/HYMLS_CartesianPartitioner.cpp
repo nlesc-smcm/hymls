@@ -10,6 +10,7 @@
 
 #include "Teuchos_Array.hpp"
 #include "Teuchos_toString.hpp"
+#include "Teuchos_ParameterList.hpp"
 
 #include "GaleriExt_Periodic.h"
 
@@ -26,7 +27,8 @@ CartesianPartitioner::CartesianPartitioner(
   Epetra_Comm const &comm)
   : BasePartitioner(), label_("CartesianPartitioner"),
     baseMap_(map), cartesianMap_(Teuchos::null),
-    numLocalSubdomains_(-1)
+    numLocalSubdomains_(-1),
+    bgridTransform_(false)
   {
   HYMLS_PROF3(label_, "Constructor");
 
@@ -38,6 +40,14 @@ CartesianPartitioner::CartesianPartitioner(
 CartesianPartitioner::~CartesianPartitioner()
   {
   HYMLS_PROF3(label_,"Destructor");
+  }
+
+void CartesianPartitioner::SetParameters(Teuchos::ParameterList& params)
+  {
+  BasePartitioner::SetParameters(params);
+
+  Teuchos::ParameterList& precList = params.sublist("Preconditioner");
+  bgridTransform_ = precList.get("B-Grid Transform", false);
   }
 
 // get non-overlapping subdomain id
@@ -260,9 +270,9 @@ int CartesianPartitioner::RemoveBoundarySeparators(Teuchos::Array<hymls_gidx> &i
     Teuchos::Array<hymls_gidx> &nodes = *sep;
     for (int i = 0; i < nodes.size(); i++)
       {
-      if ((nodes[i] / dof_) % nx_ + 2 == nx_ && !(perio_ & GaleriExt::X_PERIO))
+      if ((nodes[i] / dof_) % nx_ + (2 + bgridTransform_) == nx_ && !(perio_ & GaleriExt::X_PERIO))
         {
-        nodeID = nodes[i] + dof_;
+        nodeID = nodes[i] + dof_ * (1 + bgridTransform_);
         Teuchos::Array<hymls_gidx>::iterator it = std::find(
           interior_nodes.begin(), interior_nodes.end(), nodeID);
         if (it != interior_nodes.end())
@@ -271,9 +281,9 @@ int CartesianPartitioner::RemoveBoundarySeparators(Teuchos::Array<hymls_gidx> &i
           interior_nodes.erase(it);
           }
         }
-      if (ny_ > 1 && (nodes[i] / dof_ / nx_) % ny_ + 2 == ny_ && !(perio_ & GaleriExt::Y_PERIO))
+      if (ny_ > 1 && (nodes[i] / dof_ / nx_) % ny_ + (2 + bgridTransform_) == ny_ && !(perio_ & GaleriExt::Y_PERIO))
         {
-        nodeID = nodes[i] + dof_ * nx_;
+        nodeID = nodes[i] + dof_ * nx_ * (1 + bgridTransform_);
         Teuchos::Array<hymls_gidx>::iterator it = std::find(
           interior_nodes.begin(), interior_nodes.end(), nodeID);
         if (it != interior_nodes.end())
@@ -282,9 +292,9 @@ int CartesianPartitioner::RemoveBoundarySeparators(Teuchos::Array<hymls_gidx> &i
           interior_nodes.erase(it);
           }
         }
-      if (nz_ > 1 && (nodes[i] / dof_ / nx_ / ny_) % nz_ + 2 == nz_ && !(perio_ & GaleriExt::Z_PERIO))
+      if (nz_ > 1 && (nodes[i] / dof_ / nx_ / ny_) % nz_ + (2 + bgridTransform_) == nz_ && !(perio_ & GaleriExt::Z_PERIO))
         {
-        nodeID = nodes[i] + dof_ * nx_ * ny_;
+        nodeID = nodes[i] + dof_ * nx_ * ny_ * (1 + bgridTransform_);
         Teuchos::Array<hymls_gidx>::iterator it = std::find(
           interior_nodes.begin(), interior_nodes.end(), nodeID);
         if (it != interior_nodes.end())
@@ -315,7 +325,7 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
   // pressure nodes that need to be retained
   Teuchos::Array<hymls_gidx> retained_nodes;
 
-  Teuchos::Array<hymls_gidx> *nodes;
+  Teuchos::Array<hymls_gidx> *nodes, *nodes2;
 
   int gsd = sdMap_->GID(sd);
   int xpos, ypos, zpos;
@@ -349,6 +359,7 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
 
         for (int d = 0; d < dof_; d++)
           {
+          nodes2 = NULL;
           if (d == pvar && (itype == -1 || jtype == -1 || ktype == -1))
             continue;
           else if ((itype == 0 && jtype == 0 && ktype == 0) ||
@@ -364,7 +375,12 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
           else
             {
             separator_nodes.append(Teuchos::Array<hymls_gidx>());
-            nodes = &separator_nodes.back();
+            if (bgridTransform_)
+              separator_nodes.append(Teuchos::Array<hymls_gidx>());
+            auto it = separator_nodes.end();
+            if (bgridTransform_)
+              nodes2 = &(*(--it));
+            nodes = &(*(--it));
             }
 
           for (int k = ktype; k < ((ktype || nz_ <= 1) ? ktype+1 : sz_-1); k++)
@@ -383,6 +399,8 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
                   // Retained pressure nodes
                   retained_nodes.append(gid);
                   }
+                else if (nodes2 && (i + xpos + j + ypos) % 2)
+                  nodes2->append(gid);
                 else
                   // Normal nodes in interiors and on separators
                   nodes->append(gid);
