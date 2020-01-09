@@ -79,9 +79,9 @@ int CartesianPartitioner::operator()(hymls_gidx gid) const
 int CartesianPartitioner::GetSubdomainPosition(
   int sd, int sx, int sy, int sz, int &x, int &y, int &z) const
   {
-  int npx = std::max(nx_ / sx, 1);
-  int npy = std::max(ny_ / sy, 1);
-  int npz = std::max(nz_ / sz, 1);
+  int npx = (nx_ - 1) / sx + 1;
+  int npy = (ny_ - 1) / sy + 1;
+  int npz = (nz_ - 1) / sz + 1;
 
   x = (sd % npx) * sx;
   y = ((sd / npx) % npy) * sy;
@@ -93,8 +93,8 @@ int CartesianPartitioner::GetSubdomainPosition(
 int CartesianPartitioner::GetSubdomainID(
   int sx, int sy, int sz, int x, int y, int z) const
   {
-  int npx = std::max(nx_ / sx, 1);
-  int npy = std::max(ny_ / sy, 1);
+  int npx = (nx_ - 1) / sx + 1;
+  int npy = (ny_ - 1) / sy + 1;
 
   return (z / sz * npy + y / sy) * npx + x / sx;
   }
@@ -112,9 +112,9 @@ int CartesianPartitioner::NumLocalParts() const
 //! return the global number of subdomains
 int CartesianPartitioner::NumGlobalParts(int sx, int sy, int sz) const
   {
-  int npx = std::max(nx_ / sx, 1);
-  int npy = std::max(ny_ / sy, 1);
-  int npz = std::max(nz_ / sz, 1);
+  int npx = (nx_ - 1) / sx + 1;
+  int npy = (ny_ - 1) / sy + 1;
+  int npz = (nz_ - 1) / sz + 1;
 
   return npx * npy * npz;
   }
@@ -162,20 +162,12 @@ int CartesianPartitioner::Partition(bool repart)
       __FILE__, __LINE__);
     }
 
-  int npx = nx_ / sx_;
-  int npy = ny_ / sy_;
-  int npz = nz_ / sz_;
+  int npx = (nx_ - 1) / sx_ + 1;
+  int npy = (ny_ - 1) / sy_ + 1;
+  int npz = (nz_ - 1) / sz_ + 1;
 
   std::string s1=toString(nx_)+"x"+toString(ny_)+"x"+toString(nz_);
   std::string s2=toString(npx)+"x"+toString(npy)+"x"+toString(npz);
-
-  if ((nx_!=npx*sx_)||(ny_!=npy*sy_)||(nz_!=npz*sz_))
-    {
-    std::string msg = "You are trying to partition an "+s1+" domain into "+s2+" parts.\n"
-      "We currently need nx to be a multiple of npx etc.";
-    Tools::Error(msg,__FILE__,__LINE__);
-    }
-
   std::string s3=toString(sx_)+"x"+toString(sy_)+"x"+toString(sz_);
 
   Tools::Out("Partition domain: ");
@@ -228,89 +220,29 @@ int CartesianPartitioner::Partition(bool repart)
   return 0;
   }
 
-int CartesianPartitioner::RemoveBoundarySeparators(Teuchos::Array<hymls_gidx> &interior_nodes,
-  Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes) const
+static int GetSubdomainStartAndEnd(
+  int pos, int type, int dim, int max, bool perio, int &start, int &end)
   {
-  // TODO: There should be a much easier way to do this, but I want to get rid
-  // of it eventually for consistency. We need those things anyway for periodic
-  // boundaries.
+  start = type;
+  if (type == 1)
+    start = max;
 
-  // Remove boundary separators and add them to the interior
-  for (auto sep = separator_nodes.begin(); sep != separator_nodes.end(); )
+  end = start + 1;
+  if (type == 0)
+    end = max;
+
+  if (!perio)
     {
-    Teuchos::Array<hymls_gidx> &nodes = *sep;
-    if (nodes.size() == 0)
-      sep = separator_nodes.erase(sep);
-    else if ((nodes[0] / dof_ + 1) % nx_ == 0 && !(perio_ & GaleriExt::X_PERIO))
+    if (pos == 0 && type == -1)
+      return 1;
+    if (pos + max + 1 == dim)
       {
-      // Remove right side
-      interior_nodes.insert(interior_nodes.end(), nodes.begin(), nodes.end());
-      sep = separator_nodes.erase(sep);
+      if (type == 1)
+        return 1;
+      if (type == 0)
+        end += 1;
       }
-    else if (ny_ > 1 && (nodes[0] / dof_ / nx_ + 1) % ny_ == 0 && !(perio_ & GaleriExt::Y_PERIO))
-      {
-      // Remove bottom side
-      interior_nodes.insert(interior_nodes.end(), nodes.begin(), nodes.end());
-      sep = separator_nodes.erase(sep);
-      }
-    else if (nz_ > 1 && (nodes[0] / dof_ / nx_ / ny_ + 1) % nz_ == 0 && !(perio_ & GaleriExt::Z_PERIO))
-      {
-      // Remove back side
-      interior_nodes.insert(interior_nodes.end(), nodes.begin(), nodes.end());
-      sep = separator_nodes.erase(sep);
-      }
-    else
-      ++sep;
     }
-
-  // Add back boundary nodes to separators that are not along the boundaries
-  for (auto sep = separator_nodes.begin(); sep != separator_nodes.end(); ++sep)
-    {
-    hymls_gidx nodeID = -1;
-    Teuchos::Array<hymls_gidx> &nodes = *sep;
-    for (int i = 0; i < nodes.size(); i++)
-      {
-      if ((nodes[i] / dof_) % nx_ + (2 + bgridTransform_) == nx_ && !(perio_ & GaleriExt::X_PERIO))
-        {
-        nodeID = nodes[i] + dof_ * (1 + bgridTransform_);
-        Teuchos::Array<hymls_gidx>::iterator it = std::find(
-          interior_nodes.begin(), interior_nodes.end(), nodeID);
-        if (it != interior_nodes.end())
-          {
-          nodes.push_back(nodeID);
-          interior_nodes.erase(it);
-          }
-        }
-      if (ny_ > 1 && (nodes[i] / dof_ / nx_) % ny_ + (2 + bgridTransform_) == ny_ && !(perio_ & GaleriExt::Y_PERIO))
-        {
-        nodeID = nodes[i] + dof_ * nx_ * (1 + bgridTransform_);
-        Teuchos::Array<hymls_gidx>::iterator it = std::find(
-          interior_nodes.begin(), interior_nodes.end(), nodeID);
-        if (it != interior_nodes.end())
-          {
-          nodes.push_back(nodeID);
-          interior_nodes.erase(it);
-          }
-        }
-      if (nz_ > 1 && (nodes[i] / dof_ / nx_ / ny_) % nz_ + (2 + bgridTransform_) == nz_ && !(perio_ & GaleriExt::Z_PERIO))
-        {
-        nodeID = nodes[i] + dof_ * nx_ * ny_ * (1 + bgridTransform_);
-        Teuchos::Array<hymls_gidx>::iterator it = std::find(
-          interior_nodes.begin(), interior_nodes.end(), nodeID);
-        if (it != interior_nodes.end())
-          {
-          nodes.push_back(nodeID);
-          interior_nodes.erase(it);
-          }
-        }
-      }
-    std::sort(nodes.begin(), nodes.end());
-    }
-
-  // Since we added some random nodes to the end of the interior
-  // we sort them here
-  std::sort(interior_nodes.begin(), interior_nodes.end());
-
   return 0;
   }
 
@@ -331,6 +263,10 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
   int xpos, ypos, zpos;
   GetSubdomainPosition(gsd, sx_, sy_, sz_, xpos, ypos, zpos);
 
+  int xmax = std::min(nx_ - xpos - 1, sx_ - 1);
+  int ymax = std::min(ny_ - ypos - 1, sy_ - 1);
+  int zmax = std::min(nz_ - zpos - 1, sz_ - 1);
+
   int pvar = -1;
   for (int i = 0; i < dof_; i++)
     if (variableType_[i] == 3)
@@ -338,23 +274,23 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
 
   for (int ktype = (nz_ > 1 ? -1 : 0); ktype < (nz_ > 1 ? 2 : 1); ktype++)
     {
-    if (ktype == 1)
-      ktype = sz_ - 1;
-    if (ktype == -1 && zpos == 0 && !(perio_ & GaleriExt::Z_PERIO))
+    int kstart, kend;
+    if (GetSubdomainStartAndEnd(
+        zpos, ktype, nz_, zmax, perio_ & GaleriExt::Z_PERIO, kstart, kend))
       continue;
- 
+
     for (int jtype = -1; jtype < 2; jtype++)
       {
-      if (jtype == 1)
-        jtype = sy_ - 1;
-      if (jtype == -1 && ypos == 0 && !(perio_ & GaleriExt::Y_PERIO))
+      int jstart, jend;
+      if (GetSubdomainStartAndEnd(
+          ypos, jtype, ny_, ymax, perio_ & GaleriExt::Y_PERIO, jstart, jend))
         continue;
 
       for (int itype = -1; itype < 2; itype++)
         {
-        if (itype == 1)
-          itype = sx_ - 1;
-        if (itype == -1 && xpos == 0 && !(perio_ & GaleriExt::X_PERIO))
+        int istart, iend;
+        if (GetSubdomainStartAndEnd(
+            xpos, itype, nx_, xmax, perio_ & GaleriExt::X_PERIO, istart, iend))
           continue;
 
         for (int d = 0; d < dof_; d++)
@@ -383,11 +319,11 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
             nodes = &(*(--it));
             }
 
-          for (int k = ktype; k < ((ktype || nz_ <= 1) ? ktype+1 : sz_-1); k++)
+          for (int k = kstart; k < kend; k++)
             {
-            for (int j = jtype; j < (jtype ? jtype+1 : sy_-1); j++)
+            for (int j = jstart; j < jend; j++)
               {
-              for (int i = itype; i < (itype ? itype+1 : sx_-1); i++)
+              for (int i = istart; i < iend; i++)
                 {
                 hymls_gidx gid = d +
                   (hymls_gidx)((i + xpos + nx_) % nx_) * dof_ +
@@ -411,8 +347,6 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
         }
       }
     }
-
-  RemoveBoundarySeparators(interior_nodes, separator_nodes);
 
   // Remove empty groups
   separator_nodes.erase(std::remove_if(separator_nodes.begin(), separator_nodes.end(),

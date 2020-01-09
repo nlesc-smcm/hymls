@@ -57,12 +57,6 @@ protected:
   //! may assume that npx_, sx_ etc. are already set so that operator() works.
   int CreateSubdomainMap();
 
-  //! Method to remove separators at the boundary when they are not
-  //! strictly needed. This is when there are no periodic boundary
-  //! conditions
-  int RemoveBoundarySeparators(Teuchos::Array<hymls_gidx> &interior_nodes,
-    Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes) const;
-
 public:
   //! Get interior and separator groups of the subdomain sd
   int GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior_nodes,
