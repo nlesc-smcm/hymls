@@ -36,4 +36,5 @@
   <Parameter name="Test 9a" type="string" value="stokes_B.xml"/>
   <Parameter name="Test 9b" type="string" value="stokes_THCM.xml"/>
   <Parameter name="Test 9c" type="string" value="stokes_THCM2.xml"/>
+  <Parameter name="Test 9d" type="string" value="stokes_THCM3.xml"/>
 </ParameterList>
