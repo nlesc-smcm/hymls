@@ -140,7 +140,7 @@ int HierarchicalMap::FillComplete()
           }
         hymls_gidx offset = *((*newGroupPointer)[sd].end()-1);
         int len = (*newGidList)[sd].size() - offset;
-        if (len > 0)
+        if (len > 0 || grp == 0)
           (*newGroupPointer)[sd].append(len + offset);
         }
       else
