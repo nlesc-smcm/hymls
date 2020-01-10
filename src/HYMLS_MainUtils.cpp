@@ -225,9 +225,9 @@ Teuchos::RCP<Epetra_Vector> create_testvector(
       {
       hymls_gidx grid = matrix.GRID64(i);
       if (grid % dof == 0)
-        (*testvector)[i] = ((grid / dof) % 2) * 2 - 1;
+        (*testvector)[i] = (((grid / dof) % nx) % 2) * 2 - 1;
       else if (grid % dof == 1)
-        (*testvector)[i] = ((grid / dof / nx) % 2) * 2 - 1;
+        (*testvector)[i] = (((grid / dof / nx) % ny) % 2) * 2 - 1;
       else if (dim > 2 && grid % dof == 2 && eqn == "Stokes-B")
         (*testvector)[i] = ((grid / dof / nx / ny) % 2) * 2 - 1;
       else

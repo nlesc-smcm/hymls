@@ -267,6 +267,9 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
   int ymax = std::min(ny_ - ypos - 1, sy_ - 1);
   int zmax = std::min(nz_ - zpos - 1, sz_ - 1);
 
+  if (xmax == 0 || ymax == 0 || (zmax == 0 && nz_ > 1))
+    Tools::Error("Can't have a subdomain of size 1", __FILE__, __LINE__);
+
   int pvar = -1;
   for (int i = 0; i < dof_; i++)
     if (variableType_[i] == 3)
