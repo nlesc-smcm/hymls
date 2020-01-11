@@ -35,7 +35,7 @@ Teuchos::RCP<Epetra_CrsMatrix> createStokesMatrix(int nx, char grid_type='C')
   for (int i = 0; i < A->NumMyRows(); i++)
     {
     int len;
-    CHECK_ZERO(A->ExtractGlobalRowCopy(i, maxlen, len, values.data(), indices.data()));
+    CHECK_ZERO(A->ExtractGlobalRowCopy(i, maxlen, len, &values[0], &indices[0]));
     if (std::find(pvars.begin(), pvars.end(), i) != pvars.end())
       {
       for (int j = 0; j < len; j++)
@@ -54,7 +54,7 @@ Teuchos::RCP<Epetra_CrsMatrix> createStokesMatrix(int nx, char grid_type='C')
           values[j] = 0.0;
         }
       }
-    CHECK_ZERO(A->ReplaceGlobalValues(i, len, values.data(), indices.data()));
+    CHECK_ZERO(A->ReplaceGlobalValues(i, len, &values[0], &indices[0]));
     }
   return HYMLS::MatrixUtils::DropByValue(A, HYMLS_SMALL_ENTRY, HYMLS::MatrixUtils::RelDropDiag);
   }
