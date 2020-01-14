@@ -55,35 +55,45 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
 
   perio_ = probList.get("Periodicity", perio_);
 
+  sx_ = -1;
+  sy_ = -1;
+  sz_ = nz_ > 1 ? -1 : 1;
+
   if (precList.isParameter("Separator Length (x)"))
-    {
-    sx_ = precList.get("Separator Length (x)", -1);
-    sy_ = precList.get("Separator Length (y)", sx_);
-    sz_ = precList.get("Separator Length (z)", nz_ > 1 ? sx_ : 1);
-    }
-  else
-    {
+    sx_ = precList.get("Separator Length (x)", sx_);
+  if (precList.isParameter("Separator Length (y)"))
+    sy_ = precList.get("Separator Length (y)", sy_);
+  if (precList.isParameter("Separator Length (z)"))
+    sz_ = precList.get("Separator Length (z)", sz_);
+
+  if (sx_ == -1)
     sx_ = precList.get("Separator Length", 4);
-    sy_ = sx_;
-    sz_ = nz_ > 1 ? sx_ : 1;
-    }
+  if (sy_ == -1)
+    sy_ = precList.get("Separator Length", sx_);
+  if (sz_ == -1)
+    sz_ = precList.get("Separator Length", sx_);
 
   if (sx_ <= 1)
     Tools::Error("Separator Length not set correctly",
       __FILE__, __LINE__);
 
+  cx_ = -1;
+  cy_ = -1;
+  cz_ = nz_ > 1 ? -1 : 1;
+
   if (precList.isParameter("Coarsening Factor (x)"))
-    {
-    cx_ = precList.get("Coarsening Factor (x)", -1);
-    cy_ = precList.get("Coarsening Factor (y)", cx_);
-    cz_ = precList.get("Coarsening Factor (z)", nz_ > sz_ ? cx_ : 1);
-    }
-  else
-    {
+    cx_ = precList.get("Coarsening Factor (x)", cx_);
+  if (precList.isParameter("Coarsening Factor (y)"))
+    cy_ = precList.get("Coarsening Factor (y)", cy_);
+  if (precList.isParameter("Coarsening Factor (z)"))
+    cz_ = precList.get("Coarsening Factor (z)", cz_);
+
+  if (cx_ == -1)
     cx_ = precList.get("Coarsening Factor", sx_);
-    cy_ = cx_;
-    cz_ = nz_ > sz_ ? cx_ : 1;
-    }
+  if (cy_ == -1)
+    cy_ = precList.get("Coarsening Factor", cx_);
+  if (cz_ == -1)
+    cz_ = precList.get("Coarsening Factor", cx_);
 
   if (cx_ <= 1)
     Tools::Error("Coarsening Factor not set correctly",
