@@ -151,13 +151,13 @@ int Preconditioner::SetParameters(Teuchos::ParameterList& List)
     VPL().set("Fix Pressure Level",true,
         "Put a Dirichlet condition on a single P-node on the coarsest grid");
 
-    VPL().set("Fix GID 1",-1,"put a Dirichlet condition for node x in the last Schur \n"
-                                 "complement. This is useful for e.g. fixing the pressure \n"
-                                 "level.");
-
-    VPL().set("Fix GID 2",-1,"put a Dirichlet condition for node x in the last Schur \n"
-                                 "complement. This is useful for e.g. fixing the pressure \n"
-                                 "level.");
+    for (int i = 1; i < 5; i++)
+      {
+      VPL().set("Fix GID " + Teuchos::toString(i), -1,
+        "Put a Dirichlet condition for node x in the last Schur \n"
+        "complement. This is useful for e.g. fixing the pressure \n"
+        "level.");
+      }
 
     int sepx=4;
     std::string doc = "Defines the subdomain size for Cartesian partitioning";
