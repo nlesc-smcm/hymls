@@ -1,7 +1,7 @@
-<ParameterList name="3D Stokes on a Lorenz-grid"><!--{-->
+<ParameterList name="3D Stokes on a Lorenz-grid with 0 w-block"><!--{-->
 
   <Parameter name="Description" type="string"
-        value="3D Stokes on a Lorenz-grid"/>
+        value="3D Stokes on a Lorenz-grid with 0 w-block"/>
 
   <!-- these first few settings are specific for the driver -->
   <!-- implemented in 'main.C' and are not passed on to the -->
@@ -23,8 +23,8 @@
     <Parameter name="Relative Error 2-Norm" type="double" value="1.0e-9"/>
   </ParameterList>
   <ParameterList name="Problem"><!--{-->
-  
-    <Parameter name="Equations" type="string" value="Stokes-T"/>
+
+    <Parameter name="Equations" type="string" value="Stokes-L"/>
     <Parameter name="Dimension" type="int" value="3"/>
     <Parameter name="Degrees of Freedom" type="int" value="4"/>
 
@@ -34,11 +34,11 @@
 
   </ParameterList><!--}-->
 
-  <!-- Krylov solver and deflation  -->  
+  <!-- Krylov solver and deflation  -->
   <ParameterList name="Solver"><!--{-->
 
     <!-- "CG", "GMRES", "PCPG" (only GMRES actually supported by our solver right now) -->
-    <Parameter name="Krylov Method" type="string" value="GMRES"/>  
+    <Parameter name="Krylov Method" type="string" value="GMRES"/>
     <Parameter name="Left or Right Preconditioning" type="string" value="Right"/>
     <Parameter name="Initial Vector" type="string" value="Zero"/>
 
@@ -69,16 +69,16 @@
     <Parameter name="Separator Length (y)" type="int" value="4"/>
     <Parameter name="Separator Length (z)" type="int" value="8"/>
     <Parameter name="Coarsening Factor" type="int" value="2"/>
-    
+
     <!-- number of levels to be created (1: direct solver for Schur complement, -->
     <!-- 2: solve Schur iteratively and reduced Schur directly,                 -->
     <Parameter name="Number of Levels" type="int" value="3"/>
-        
+
     <!-- parameters for the direct solvers (Ifpack_Amesos) -->
 
     <!-- you can either make direct solver settings in a single list            -->
     <!-- called "Direct Solver" or in separate lists for each level, like this: -->
- 
+
     <!-- settings for subdomain solver -->
     <ParameterList name="Sparse Solver">
       <!-- "Klu" is the default here. These systems are always sequential -->

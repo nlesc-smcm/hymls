@@ -153,9 +153,16 @@ Stokes3D(const Epetra_Map* Map,
         staggering = CENTERED_X | CENTERED_Z;
       else if (grid_type == 'C' && ivar == 2)
         staggering = CENTERED_X | CENTERED_Y;
-      else if (grid_type == 'T' && ivar == 2)
+      else if (grid_type == 'L' && ivar == 2)
         staggering = CENTERED_X | CENTERED_Y;
-      else if (grid_type == 'T')
+      else if (grid_type == 'T' && ivar == 2)
+      {
+        staggering = CENTERED_X | CENTERED_Y;
+        lenLaplace = 1;
+        vals_laplace[0] = 0.0;
+        cols_laplace[0] = row0;
+      }
+      else if (grid_type == 'T' || grid_type == 'L')
         staggering = CENTERED_Z;
 
       if (!(staggering & CENTERED_X)) // u-variable
@@ -224,6 +231,10 @@ Stokes3D(const Epetra_Map* Map,
           }
         }
       }
+
+      // zero block in THCM
+      if (grid_type == 'T' && ivar == 2)
+        add_to_diag = 0.0;
 
       for (int j=0; j<lenLaplace; j++)
       {

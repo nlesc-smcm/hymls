@@ -215,7 +215,7 @@ Teuchos::RCP<Epetra_Vector> create_testvector(
     Teuchos::rcp(new Epetra_Vector(matrix.RowMap()));
   testvector->PutScalar(1.0);
 
-  if (eqn == "Stokes-B" || eqn == "Stokes-T")
+  if (eqn == "Stokes-B" || eqn == "Stokes-L" || eqn == "Stokes-T")
     {
     int nx = probl_params.get("nx", 32);
     int ny = probl_params.get("ny", nx);

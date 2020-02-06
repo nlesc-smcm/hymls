@@ -119,7 +119,7 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
         probList.sublist("Variable 1").get("Variable Type", "Laplace");
         }
       }
-    else if (eqn == "Stokes-B" || eqn == "Stokes-C" || eqn == "Bous-C" || eqn == "Stokes-T")
+    else if (eqn.rfind("Stokes") == 0 || eqn == "Bous-C")
       {
       if (eqn == "Bous-C")
         {
@@ -150,7 +150,7 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
         probList.get("Test F-Matrix Properties", false);
 #endif
 
-      if (eqn == "Stokes-B" || eqn == "Stokes-T")
+      if (eqn == "Stokes-B" || eqn == "Stokes-L" || eqn == "Stokes-T")
         {
         /*
            we assume the following 'augmented B-grid',

@@ -563,7 +563,7 @@ int testSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
         projection = HYMLS::MainUtils::create_nullspace(map, "Constant P", probl_params_cpy);
 
       // Subtract checkerboard when solving Stokes-B
-      if (eqn == "Stokes-B" || eqn == "Stokes-T")
+      if (eqn == "Stokes-B" || eqn == "Stokes-L" || eqn == "Stokes-T")
         projection = HYMLS::MainUtils::create_nullspace(map, "Checkerboard", probl_params_cpy);
 
       // Apply a projection to perform the subtraction

@@ -1,7 +1,7 @@
-<ParameterList name="3D Stokes on a Lorenz-grid and a non-cubed domain with 0 w-block"><!--{-->
+<ParameterList name="3D Stokes on a Lorenz-grid and a non-cubed domain"><!--{-->
 
   <Parameter name="Description" type="string"
-        value="3D Stokes on a Lorenz-grid and a non-cubed domain with 0 w-block"/>
+        value="3D Stokes on a Lorenz-grid and a non-cubed domain"/>
 
   <!-- these first few settings are specific for the driver -->
   <!-- implemented in 'main.C' and are not passed on to the -->
@@ -14,11 +14,11 @@
     <!-- for each matrix, solve with several right-hand sides in a row -->
     <Parameter name="Number of solves" type="int" value="1"/>
     <!-- how to generate the matrix -->
-    <Parameter name="Galeri Label" type="string" value="Stokes-T"/>
+    <Parameter name="Galeri Label" type="string" value="Stokes-L"/>
   </ParameterList>
 
   <ParameterList name="Targets">
-    <Parameter name="Number of Iterations" type="int" value="100"/>
+    <Parameter name="Number of Iterations" type="int" value="90"/>
     <Parameter name="Relative Residual 2-Norm" type="double" value="1.0e-9"/>
     <Parameter name="Relative Error 2-Norm" type="double" value="1.0e-9"/>
   </ParameterList>

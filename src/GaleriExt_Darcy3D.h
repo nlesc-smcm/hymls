@@ -627,7 +627,7 @@ Darcy3D(const Epetra_Map* Map,
       return Darcy3D<int>(Map, nx, ny, nz, a, b, perio);
     else if (grid_type == 'B')
       return DarcyB3D<int>(Map, nx, ny, nz, a, b, perio);
-    else if (grid_type == 'T')
+    else if (grid_type == 'L' || grid_type == 'T')
       return DarcyTHCM3D<int>(Map, nx, ny, nz, a, b, perio);
     else
       throw "GaleriExt::Matrices::Darcy3D: Unknown grid type";
@@ -640,7 +640,7 @@ Darcy3D(const Epetra_Map* Map,
       return Darcy3D<long long>(Map, nx, ny, nz, a, b, perio);
     else if (grid_type == 'B')
       return DarcyB3D<long long>(Map, nx, ny, nz, a, b, perio);
-    else if (grid_type == 'T')
+    else if (grid_type == 'L' || grid_type == 'T')
       return DarcyTHCM3D<long long>(Map, nx, ny, nz, a, b, perio);
     else
       throw "GaleriExt::Matrices::Darcy3D: Unknown grid type";
