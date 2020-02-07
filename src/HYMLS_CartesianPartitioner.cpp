@@ -307,7 +307,7 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
                 (itype == 0 && ktype == 0) ||
                 (jtype == 0 && ktype == 0) ||
                 // B-grid
-                retain_ > 1)
+                retainPressures_ > 1)
               ))
             nodes = &interior_nodes;
           else
@@ -332,7 +332,7 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
                   (hymls_gidx)((j + ypos + ny_) % ny_) * nx_ * dof_ +
                   (hymls_gidx)((k + zpos + nz_) % nz_) * nx_ * ny_ * dof_;
                 if (d == pvar && i >= 0 && j >= 0 && k >= 0 &&
-                    retained_nodes.length() < retain_)
+                  retained_nodes.length() < retainPressures_)
                   {
                   // Retained pressure nodes
                   retained_nodes.append(gid);

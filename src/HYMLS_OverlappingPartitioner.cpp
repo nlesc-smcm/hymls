@@ -89,11 +89,6 @@ void OverlappingPartitioner::setParameterList(
 
   partitioningMethod_ = PL("Preconditioner").get(
       "Partitioner", "Cartesian");
-  retainNodes_ = PL("Preconditioner").get(
-      "Retain Nodes", retainNodes_);
-  retainNodes_ = PL("Preconditioner").get(
-      "Retain Nodes at Level " + Teuchos::toString(myLevel_),
-                          retainNodes_);
   }
 
 Teuchos::RCP<const BasePartitioner> OverlappingPartitioner::Partition()

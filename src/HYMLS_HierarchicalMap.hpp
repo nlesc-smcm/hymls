@@ -258,9 +258,6 @@ protected:
   
   //! level ID
   int myLevel_;
-
-  //! amount of nodes retained per separator
-  int retainNodes_;
   
   //! initial map (p0)
   Teuchos::RCP<const Epetra_Map> baseMap_;

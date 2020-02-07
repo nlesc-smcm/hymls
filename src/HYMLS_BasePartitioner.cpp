@@ -159,34 +159,34 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
       if (eqn == "Stokes-B" || eqn == "Stokes-L" || eqn == "Stokes-T")
         {
         /*
-           we assume the following 'augmented B-grid',
-           where the @ are dummy p-nodes, * are p-nodes
-           and > are v-nodes. To transform this into an
-           F-matrix, one has to apply a Givvens rotation
-           to the velocity field (giving an F-grid).
-           This currently has to be done manually outside
-           the solver/preconditioner.
+          we assume the following 'augmented B-grid',
+          where the @ are dummy p-nodes, * are p-nodes
+          and > are v-nodes. To transform this into an
+          F-matrix, one has to apply a Givvens rotation
+          to the velocity field (giving an F-grid).
+          This currently has to be done manually outside
+          the solver/preconditioner.
 
-           >---->---->---->>---->---->---->
-           @ | *  |  * |  * ||  * |  * | *  |
-           >---->---->---->>---->---->---->
-           @ | *  |  * |  * ||  * |  * | *  |
-           >---->---->---->>---->---->---->
-           @ |  * |  * | *  || *  |  * | *  |
-           >====>====>====>>====>====>====>
-           @ | *  |  * |  * ||  * |  * | *  |
-           >---->---->---->>---->---->---->
-           @ |  * |  * |  * || *  | *  |  * |
-           >---->---->---->>---->---->---->
-           @ |  * |  * | *  ||  * | *  |  * |
-           >---->---->---->>---->---->---->
-           @    @    @    @    @    @     @
+          >---->---->---->>---->---->---->
+          @ | *  |  * |  * ||  * |  * | *  |
+          >---->---->---->>---->---->---->
+          @ | *  |  * |  * ||  * |  * | *  |
+          >---->---->---->>---->---->---->
+          @ |  * |  * | *  || *  |  * | *  |
+          >====>====>====>>====>====>====>
+          @ | *  |  * |  * ||  * |  * | *  |
+          >---->---->---->>---->---->---->
+          @ |  * |  * |  * || *  | *  |  * |
+          >---->---->---->>---->---->---->
+          @ |  * |  * | *  ||  * | *  |  * |
+          >---->---->---->>---->---->---->
+          @    @    @    @    @    @     @
         */
         // case of one subdomain per partition not implemented for B-grid
         if (is_complex)
           Tools::Error("complex Stokes-B not implemented", __FILE__, __LINE__);
 
-        retain_ = probList.get("Retained Pressure Nodes", 2);
+        retainPressures_ = probList.get("Retained Pressure Nodes", 2);
 
         if (precList.get("Fix Pressure Level", true))
           {
@@ -206,7 +206,7 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
           precList.get("Fix GID 1", factor * pvar);
           if (is_complex) precList.get("Fix GID 2", factor * pvar + 1);
           }
-        retain_ = probList.get("Retained Pressure Nodes", 1);
+        retainPressures_ = probList.get("Retained Pressure Nodes", 1);
         }
       }
     else
@@ -225,7 +225,12 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
     }
 
   dof_ = probList.get("Degrees of Freedom", 1);
-  retain_ = probList.get("Retained Pressure Nodes", 1);
+  retainPressures_ = probList.get("Retained Pressure Nodes", 1);
+
+  retainSeparators_ = precList.get("Retain Nodes", -1);
+  if (precList.isParameter("Retain Nodes at Level " + Teuchos::toString(myLevel_)))
+    retainSeparators_ = precList.get("Retain Nodes at Level " + Teuchos::toString(myLevel_),
+      retainSeparators_);
 
   variableType_.resize(dof_);
 

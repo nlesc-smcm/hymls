@@ -699,7 +699,7 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &inte
           groups[0][0].erase(
             std::remove(groups[0][0].begin(), groups[0][0].end(), node),
             groups[0][0].end());
-          if (++retained >= retain_)
+          if (++retained >= retainPressures_)
             break;
           }
       break;
@@ -723,7 +723,23 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &inte
           newGroups.emplace(gsd, std::vector<hymls_gidx>(1, node));
         }
       for (auto &newGroup: newGroups)
-        separator_nodes.push_back(newGroup.second);
+        {
+        if (retainSeparators_ > 1)
+          {
+          int len = newGroup.second.size();
+          int newLen = std::max((len + retainSeparators_ - 1) / retainSeparators_, 1);
+          int numParts = (len - 1) / newLen + 1;
+          for (int j = 0; j < numParts; j++)
+            {
+            std::vector<hymls_gidx> newGroup2;
+            for (int i = j * newLen; i < (j + 1) * newLen && i < len; i++)
+              newGroup2.push_back(newGroup.second[i]);
+            separator_nodes.push_back(newGroup2);
+            }
+          }
+        else
+          separator_nodes.push_back(newGroup.second);
+        }
       }
     }
 

@@ -27,7 +27,6 @@ HierarchicalMap::HierarchicalMap(
   :
   label_(label),
   myLevel_(level),
-  retainNodes_(1),
   baseMap_(baseMap),
   baseOverlappingMap_(baseOverlappingMap),
   overlappingMap_(Teuchos::null)
@@ -46,7 +45,6 @@ HierarchicalMap::HierarchicalMap(
   :
   label_(label),
   myLevel_(level),
-  retainNodes_(1),
   baseMap_(baseMap),
   baseOverlappingMap_(overlappingMap),
   overlappingMap_(overlappingMap),
@@ -228,27 +226,6 @@ int HierarchicalMap::FillComplete()
 
   gidList_ = newGidList;
   groupPointer_ = newGroupPointer;
-
-  if (retainNodes_ != 1)
-    {
-    // split separator groups if we want to retain multiple nodes per separator
-    Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > splitGroupPointer =
-      Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >());
-
-    for (int sd = 0; sd < NumMySubdomains(); sd++)
-      {
-      splitGroupPointer->append(Teuchos::Array<hymls_gidx>(1));
-      for (int grp = 1; grp < NumGroups(sd); grp++)
-        {
-        int len = NumElements(sd, grp);
-        int newLen = std::max((len + retainNodes_ - 1) / retainNodes_, 1);
-        for (int j = 0; j < len; j += newLen)
-          (*splitGroupPointer)[sd].append((*newGroupPointer)[sd][grp] + j);
-        }
-      (*splitGroupPointer)[sd].append((*newGroupPointer)[sd].back());
-      }
-    groupPointer_ = splitGroupPointer;
-    }
 
   return 0;
   }

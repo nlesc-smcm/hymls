@@ -138,7 +138,10 @@ protected:
   int nprocs_;
 
   //! number of pressure nodes to retain
-  int retain_;
+  int retainPressures_;
+
+  //! amount of nodes retained per separator
+  int retainSeparators_;
 
   //! type of periodicity in the problem
   GaleriExt::PERIO_Flag perio_;
