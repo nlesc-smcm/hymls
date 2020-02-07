@@ -25,7 +25,7 @@ class BasePartitioner
 public:
 
   //! constructor
-  BasePartitioner(){}
+  BasePartitioner(Epetra_Comm const &comm, int level);
 
   //! destructor
   virtual ~BasePartitioner(){}
@@ -115,6 +115,9 @@ protected:
 
   //! communicator
   Teuchos::RCP<const Epetra_Comm> comm_;
+
+  //! level
+  int myLevel_;
 
   //! global grid size
   int nx_, ny_, nz_;

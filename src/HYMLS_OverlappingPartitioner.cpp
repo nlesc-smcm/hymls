@@ -103,12 +103,12 @@ Teuchos::RCP<const BasePartitioner> OverlappingPartitioner::Partition()
   if (partitioningMethod_ == "Cartesian")
     {
     partitioner = Teuchos::rcp(new
-      CartesianPartitioner(GetMap(), getMyNonconstParamList(), Comm()));
+      CartesianPartitioner(GetMap(), getMyNonconstParamList(), Comm(), myLevel_));
     }
   else if (partitioningMethod_ == "Skew Cartesian")
     {
     partitioner = Teuchos::rcp(new
-      SkewCartesianPartitioner(GetMap(), getMyNonconstParamList(), Comm()));
+      SkewCartesianPartitioner(GetMap(), getMyNonconstParamList(), Comm(), myLevel_));
     }
   else
     {

@@ -23,7 +23,7 @@ public:
   //! constructor
   CartesianPartitioner(Teuchos::RCP<const Epetra_Map> map,
     Teuchos::RCP<Teuchos::ParameterList> const &params,
-    Epetra_Comm const &comm);
+    Epetra_Comm const &comm, int level=-1);
 
   //! destructor
   virtual ~CartesianPartitioner();

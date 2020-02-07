@@ -24,15 +24,14 @@ namespace HYMLS {
 CartesianPartitioner::CartesianPartitioner(
   Teuchos::RCP<const Epetra_Map> map,
   Teuchos::RCP<Teuchos::ParameterList> const &params,
-  Epetra_Comm const &comm)
-  : BasePartitioner(), label_("CartesianPartitioner"),
+  Epetra_Comm const &comm, int level)
+  : BasePartitioner(comm, level), label_("CartesianPartitioner"),
     baseMap_(map), cartesianMap_(Teuchos::null),
     numLocalSubdomains_(-1),
     bgridTransform_(false)
   {
   HYMLS_PROF3(label_, "Constructor");
 
-  comm_ = Teuchos::rcp(comm.Clone());
   SetParameters(*params);
   }
 

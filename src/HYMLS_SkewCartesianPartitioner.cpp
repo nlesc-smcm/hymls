@@ -82,14 +82,13 @@ namespace HYMLS {
 SkewCartesianPartitioner::SkewCartesianPartitioner(
   Teuchos::RCP<const Epetra_Map> map,
   Teuchos::RCP<Teuchos::ParameterList> const &params,
-  Epetra_Comm const &comm)
-  : BasePartitioner(), label_("SkewCartesianPartitioner"),
+  Epetra_Comm const &comm, int level)
+  : BasePartitioner(comm, level), label_("SkewCartesianPartitioner"),
     baseMap_(map), cartesianMap_(Teuchos::null),
     numLocalSubdomains_(-1), active_(true)
   {
   HYMLS_PROF3(label_, "Constructor");
 
-  comm_ = Teuchos::rcp(comm.Clone());
   SetParameters(*params);
   }
 

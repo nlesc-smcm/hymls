@@ -22,6 +22,12 @@
 
 namespace HYMLS {
 
+BasePartitioner::BasePartitioner(Epetra_Comm const &comm, int level)
+  :
+  comm_(comm.Clone()),
+  myLevel_(level)
+  {}
+
 void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
   {
   HYMLS_PROF3("BasePartitioner", "setParameterList");
