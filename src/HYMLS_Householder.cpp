@@ -56,6 +56,9 @@ int Householder::Apply(Epetra_SerialDenseMatrix& X,
   const double nrmv = v.Norm2();
   const double v1 = v(0) + nrmv; // first vector element, all others are those in v
 
+  if (std::abs(v1) < HYMLS_SMALL_ENTRY || nrmv < HYMLS_SMALL_ENTRY)
+      return 0;
+
   // this is 2/(v'v) with the adjusted v
   const double fac1 = 1.0 / (nrmv * v1);
   for (int k = 0; k < X.N(); k++)
@@ -99,6 +102,9 @@ int Householder::ApplyR(Epetra_SerialDenseMatrix& X,
   const double nrmv = v.Norm2();
   const double v1 = v(0) + nrmv; // first vector element, all others are those in v
 
+  if (std::abs(v1) < HYMLS_SMALL_ENTRY || nrmv < HYMLS_SMALL_ENTRY)
+      return 0;
+
   // this is 2/(v'v) with the adjusted v
   const double fac1 = 1.0 / (nrmv * v1);
   for (int k = 0; k < X.M(); k++)
@@ -139,6 +145,10 @@ int Householder::Construct(Epetra_CrsMatrix& H,
   CHECK_ZERO(v.Scale(sign(v[0])));
   v[0] = v[0] + nrm;
   nrm = v.Norm2();
+
+  if (nrm < HYMLS_SMALL_ENTRY)
+      return 0;
+
   CHECK_ZERO(v.Scale(1.0 / nrm));
 
   if (H.Filled())
