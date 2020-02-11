@@ -724,10 +724,10 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &inte
         }
       for (auto &newGroup: newGroups)
         {
-        if (retainSeparators_ > 1)
+        if (rx_ > 1)
           {
           int len = newGroup.second.size();
-          int newLen = std::max((len + retainSeparators_ - 1) / retainSeparators_, 1);
+          int newLen = std::max((len + rx_ - 1) / rx_, 1);
           int numParts = (len - 1) / newLen + 1;
           for (int j = 0; j < numParts; j++)
             {

@@ -220,15 +220,19 @@ int CartesianPartitioner::Partition(bool repart)
   }
 
 static int GetSubdomainStartAndEnd(
-  int pos, int type, int dim, int max, bool perio, int &start, int &end)
+  int pos, int type, int type_max, int dim, int max, bool perio, int &start, int &end)
   {
+  int len = std::max((max + type_max - 1) / type_max, 1);
+
   start = type;
-  if (type == 1)
+  if (type == type_max)
     start = max;
+  else if (type > 0)
+    start = std::min(len * type, max);
 
   end = start + 1;
-  if (type == 0)
-    end = max;
+  if (type >= 0 && type < type_max)
+    end = std::min(len * (type + 1), max);
 
   if (!perio)
     {
@@ -236,12 +240,16 @@ static int GetSubdomainStartAndEnd(
       return 1;
     if (pos + max + 1 == dim)
       {
-      if (type == 1)
+      if (type == type_max)
         return 1;
-      if (type == 0)
+      if (type == type_max - 1)
         end += 1;
       }
     }
+
+  if (start == end)
+    return 1;
+
   return 0;
   }
 
@@ -274,25 +282,37 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
     if (variableType_[i] == 3)
       pvar = i;
 
-  for (int ktype = (nz_ > 1 ? -1 : 0); ktype < (nz_ > 1 ? 2 : 1); ktype++)
+  // FIXME: Retaining multiple nodes per separator may retain too many
+  // per face when not setting directions separately.
+
+  int ktype_max = rz_ > 1 ? rz_ : 1;
+  for (int ktype = -1; ktype <= ktype_max; ktype++)
     {
+    bool kinterior = ktype >= 0 && ktype < ktype_max;
+
     int kstart, kend;
     if (GetSubdomainStartAndEnd(
-        zpos, ktype, nz_, zmax, perio_ & GaleriExt::Z_PERIO, kstart, kend))
+        zpos, ktype, ktype_max, nz_, zmax, perio_ & GaleriExt::Z_PERIO, kstart, kend))
       continue;
 
-    for (int jtype = -1; jtype < 2; jtype++)
+    int jtype_max = ry_ > 1 ? ry_ : 1;
+    for (int jtype = -1; jtype <= jtype_max; jtype++)
       {
+      bool jinterior = jtype >= 0 && jtype < jtype_max;
+
       int jstart, jend;
       if (GetSubdomainStartAndEnd(
-          ypos, jtype, ny_, ymax, perio_ & GaleriExt::Y_PERIO, jstart, jend))
+          ypos, jtype, jtype_max, ny_, ymax, perio_ & GaleriExt::Y_PERIO, jstart, jend))
         continue;
 
-      for (int itype = -1; itype < 2; itype++)
+      int itype_max = rx_ > 1 ? rx_ : 1;
+      for (int itype = -1; itype <= itype_max; itype++)
         {
+        bool iinterior = itype >= 0 && itype < itype_max;
+
         int istart, iend;
         if (GetSubdomainStartAndEnd(
-            xpos, itype, nx_, xmax, perio_ & GaleriExt::X_PERIO, istart, iend))
+            xpos, itype, itype_max, nx_, xmax, perio_ & GaleriExt::X_PERIO, istart, iend))
           continue;
 
         for (int d = 0; d < dof_; d++)
@@ -300,12 +320,12 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
           nodes2 = NULL;
           if (d == pvar && (itype == -1 || jtype == -1 || ktype == -1))
             continue;
-          else if ((itype == 0 && jtype == 0 && ktype == 0) ||
+          else if ((iinterior && jinterior && kinterior) ||
               (d == pvar && (
                 // Pressure nodes that are not in tubes
-                (itype == 0 && jtype == 0) ||
-                (itype == 0 && ktype == 0) ||
-                (jtype == 0 && ktype == 0) ||
+                (iinterior && jinterior) ||
+                (iinterior && kinterior) ||
+                (jinterior && kinterior) ||
                 // B-grid
                 retainPressures_ > 1)
               ))

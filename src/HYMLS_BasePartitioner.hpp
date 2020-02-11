@@ -128,6 +128,9 @@ protected:
   //! coarsening factor
   int cx_,cy_,cz_;
 
+  //! amount of nodes retained per separator
+  int rx_,ry_,rz_;
+
   //! dimension of the problem
   int dim_;
 
@@ -139,9 +142,6 @@ protected:
 
   //! number of pressure nodes to retain
   int retainPressures_;
-
-  //! amount of nodes retained per separator
-  int retainSeparators_;
 
   //! type of periodicity in the problem
   GaleriExt::PERIO_Flag perio_;

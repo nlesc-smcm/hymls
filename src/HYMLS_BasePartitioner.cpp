@@ -105,6 +105,37 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
     Tools::Error("Coarsening Factor not set correctly",
       __FILE__, __LINE__);
 
+  rx_ = -1;
+  ry_ = -1;
+  rz_ = -1;
+
+  std::string retainAtLevel = "Retain Nodes at Level " + Teuchos::toString(myLevel_);
+  if (precList.isParameter("Retain Nodes (x)"))
+    rx_ = precList.get("Retain Nodes (x)", rx_);
+  if (precList.isParameter(retainAtLevel + " (x)"))
+    rx_ = precList.get(retainAtLevel + " (x)", rx_);
+  if (precList.isParameter("Retain Nodes (y)"))
+    ry_ = precList.get("Retain Nodes (y)", ry_);
+  if (precList.isParameter(retainAtLevel + " (y)"))
+    ry_ = precList.get(retainAtLevel + " (y)", ry_);
+  if (precList.isParameter("Retain Nodes (z)"))
+    rz_ = precList.get("Retain Nodes (z)", rz_);
+  if (precList.isParameter(retainAtLevel + " (z)"))
+    rz_ = precList.get(retainAtLevel + " (z)", rz_);
+
+  if (rx_ == -1 && precList.isParameter(retainAtLevel))
+      rx_ = precList.get(retainAtLevel, rx_);
+  if (rx_ == -1)
+    rx_ = precList.get("Retain Nodes", rx_);
+  if (ry_ == -1 && precList.isParameter(retainAtLevel))
+      ry_ = precList.get(retainAtLevel, ry_);
+  if (ry_ == -1)
+    ry_ = precList.get("Retain Nodes", ry_);
+  if (rz_ == -1 && precList.isParameter(retainAtLevel))
+      rz_ = precList.get(retainAtLevel, rz_);
+  if (rz_ == -1)
+    rz_ = precList.get("Retain Nodes", rz_);
+
   if (probList.isParameter("Equations"))
     {
     std::string eqn = probList.get("Equations", "Undefined Problem");
@@ -226,11 +257,6 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
 
   dof_ = probList.get("Degrees of Freedom", 1);
   retainPressures_ = probList.get("Retained Pressure Nodes", 1);
-
-  retainSeparators_ = precList.get("Retain Nodes", -1);
-  if (precList.isParameter("Retain Nodes at Level " + Teuchos::toString(myLevel_)))
-    retainSeparators_ = precList.get("Retain Nodes at Level " + Teuchos::toString(myLevel_),
-      retainSeparators_);
 
   variableType_.resize(dof_);
 
