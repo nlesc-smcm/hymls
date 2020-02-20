@@ -286,6 +286,11 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
       variableType_[i] = 3;
       pcount++;
       }
+    else if (variableType == "Interior")
+      variableType_[i] = 4;
+    else
+      Tools::Error("Variable type " + variableType + " does not exist",
+                   __FILE__, __LINE__);
     }
 
   if (pcount > 1)
