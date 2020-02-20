@@ -57,10 +57,6 @@ public:
   //! is this class fully set up?
   virtual bool Partitioned() const = 0;
 
-  //! return the number of variables per grid point
-  //! (default implementation returns 1)
-  virtual int DofPerNode() const {return dof_;}
-
   //! get non-overlapping global subdomain id
   virtual int operator()(hymls_gidx gid) const = 0;
 
