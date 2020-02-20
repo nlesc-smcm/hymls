@@ -268,26 +268,30 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
     std::string variableType = varList.get("Variable Type", "Laplace");
 
     if (variableType == "Laplace")
-      variableType_[i] = 1;
-    else if (variableType == "Velocity U")
-      variableType_[i] = 0;
-    else if (variableType == "Velocity V")
-      variableType_[i] = 1;
-    else if (variableType == "Velocity W")
-      variableType_[i] = 2;
-    else if (variableType == "Velocity")
+      variableType_[i] = VariableType::Velocity_V;
+    else if (variableType == "Velocity U" || (variableType == "Velocity" && vcount == 0))
       {
-      variableType_[i] = vcount;
+      variableType_[i] = VariableType::Velocity_U;
+      vcount++;
+      }
+    else if (variableType == "Velocity V" || (variableType == "Velocity" && vcount == 1))
+      {
+      variableType_[i] = VariableType::Velocity_V;
+      vcount++;
+      }
+    else if (variableType == "Velocity W" || (variableType == "Velocity" && vcount == 2))
+      {
+      variableType_[i] = VariableType::Velocity_W;
       vcount++;
       }
     else if (variableType == "Pressure")
       {
       pvar = i;
-      variableType_[i] = 3;
+      variableType_[i] = VariableType::Pressure;
       pcount++;
       }
     else if (variableType == "Interior")
-      variableType_[i] = 4;
+      variableType_[i] = VariableType::Interior;
     else
       Tools::Error("Variable type " + variableType + " does not exist",
                    __FILE__, __LINE__);
@@ -295,10 +299,6 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
 
   if (pcount > 1)
     Tools::Error("Can only have one 'Pressure' variable",
-      __FILE__, __LINE__);
-
-  if (vcount > 3)
-    Tools::Error("Can only have three 'Velocity' variables",
       __FILE__, __LINE__);
 
   probList.get("Pressure Variable", pvar);

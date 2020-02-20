@@ -22,6 +22,16 @@ namespace HYMLS {
 
 class BasePartitioner
   {
+protected:
+  enum class VariableType
+    {
+    Velocity_U,
+    Velocity_V,
+    Velocity_W,
+    Pressure,
+    Interior
+    };
+
 public:
 
   //! constructor
@@ -137,7 +147,7 @@ protected:
   GaleriExt::PERIO_Flag perio_;
 
   //! type of the variables per node
-  Teuchos::Array<int> variableType_;
+  Teuchos::Array<VariableType> variableType_;
 
   //! map of what processor a subdomain belongs to
   Teuchos::RCP<Teuchos::Array<int> > pidMap_;

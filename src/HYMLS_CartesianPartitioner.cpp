@@ -277,11 +277,6 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
   if (xmax == 0 || ymax == 0 || (zmax == 0 && nz_ > 1))
     Tools::Error("Can't have a subdomain of size 1", __FILE__, __LINE__);
 
-  int pvar = -1;
-  for (int i = 0; i < dof_; i++)
-    if (variableType_[i] == 3)
-      pvar = i;
-
   // FIXME: Retaining multiple nodes per separator may retain too many
   // per face when not setting directions separately.
 
@@ -318,11 +313,13 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
         for (int d = 0; d < dof_; d++)
           {
           nodes2 = NULL;
-          if ((d == pvar || variableType_[d] == 4) && (itype == -1 || jtype == -1 || ktype == -1))
+          if ((variableType_[d] == VariableType::Pressure ||
+              variableType_[d] == VariableType::Interior) &&
+            (itype == -1 || jtype == -1 || ktype == -1))
             continue;
           else if ((iinterior && jinterior && kinterior) ||
-            variableType_[d] == 4 || // Interior type
-              (d == pvar && (
+            variableType_[d] == VariableType::Interior ||
+              (variableType_[d] == VariableType::Pressure && (
                 // Pressure nodes that are not in tubes
                 (iinterior && jinterior) ||
                 (iinterior && kinterior) ||
@@ -352,7 +349,8 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
                   (hymls_gidx)((i + xpos + nx_) % nx_) * dof_ +
                   (hymls_gidx)((j + ypos + ny_) % ny_) * nx_ * dof_ +
                   (hymls_gidx)((k + zpos + nz_) % nz_) * nx_ * ny_ * dof_;
-                if (d == pvar && i >= 0 && j >= 0 && k >= 0 &&
+                if (variableType_[d] == VariableType::Pressure &&
+                  i >= 0 && j >= 0 && k >= 0 &&
                   retained_nodes.length() < retainPressures_)
                   {
                   // Retained pressure nodes

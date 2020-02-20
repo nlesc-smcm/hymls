@@ -24,7 +24,7 @@ struct Plane {
   };
 
 Plane buildPlane45(long long firstNode, int length,
-  long long dirX, long long dirY, long long type)
+  long long dirX, long long dirY, int type)
   {
   long long left = firstNode;
   long long right = firstNode;
@@ -392,6 +392,8 @@ int SkewCartesianPartitioner::getTemplate()
 
   std::vector<std::vector<std::vector<long long> > > nodes;
 
+  std::vector<VariableType> typeArray = {VariableType::Velocity_U, VariableType::Velocity_V, VariableType::Velocity_W, VariableType::Pressure};
+
   for (int type = 0; type < 4; type++)
     {
     nodes.emplace_back(2 * sx_ + 1);
@@ -432,7 +434,7 @@ int SkewCartesianPartitioner::getTemplate()
       top.erase(last, top.end());
 
       // Add layers
-      if (type == 2)
+      if (typeArray[type] == VariableType::Velocity_W)
         {
         // w layers are an exception with odd/even layers
         if (i % 2 == 1)
@@ -456,7 +458,7 @@ int SkewCartesianPartitioner::getTemplate()
         }
       else
         {
-        long long isPvar = type == 3;
+        long long isPvar = typeArray[type] == VariableType::Pressure;
         if (i < sx_-isPvar)
           for (long long j: bottom)
             nodes[type][i + isPvar].push_back(j - (sx_ - i - isPvar) * dirZ);
@@ -468,7 +470,7 @@ int SkewCartesianPartitioner::getTemplate()
         {
         // Update pointers and offset
         std::for_each(offset.begin(), offset.end(), [](long long& d) { d--;});
-        if (type == 3)
+        if (typeArray[type] == VariableType::Pressure)
           {
           // pressure nodes are an exception
           if (offset[0] < 0)
@@ -524,7 +526,7 @@ int SkewCartesianPartitioner::getTemplate()
   template_.resize(0);
   template_.emplace_back();
   for (int i = 0; i < dof_; i++)
-    if (variableType_[i] == 2)
+    if (variableType_[i] == VariableType::Velocity_W)
       {
       std::copy(nodes[2].front().begin(), nodes[2].front().end(),
         std::back_inserter(template_.back()));
@@ -540,13 +542,19 @@ int SkewCartesianPartitioner::getTemplate()
     template_.emplace_back();
     for (int i = 0; i < dof_; i++)
       {
-      int size = template_.back().size();
-      std::copy(nodes[variableType_[i]][j].begin(),
-        nodes[variableType_[i]][j].end(),
-        std::back_inserter(template_.back()));
+      for (int type = 0; type < 4; type++)
+        {
+        if (variableType_[i] == typeArray[type])
+          {
+          int size = template_.back().size();
+          std::copy(nodes[type][j].begin(),
+            nodes[type][j].end(),
+            std::back_inserter(template_.back()));
 
-      std::for_each(template_.back().begin()+size, template_.back().end(),
-        [i](long long& d) { d += i;});
+          std::for_each(template_.back().begin()+size, template_.back().end(),
+            [i](long long& d) { d += i;});
+          }
+        }
       }
     std::sort(template_.back().begin(), template_.back().end());
     }
@@ -688,22 +696,20 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &inte
   // Get first pressure nodes from interior to a new group.
   // Assumes ordering of groups by size!
   int retained = 0;
-  for (int pvar = 0; pvar < dof_; pvar++)
-    if (variableType_[pvar] == 3)
+  for (hymls_gidx const &node: groups[0][0])
+    {
+    int d = ((node % dof_) + dof_) % dof_;
+    if (variableType_[d] == VariableType::Pressure)
       {
-      for (hymls_gidx const &node: groups[0][0])
-        if (((node % dof_) + dof_) % dof_ == pvar)
-          {
-          groups.emplace_back();
-          groups.back().emplace_back(1, node);
-          groups[0][0].erase(
-            std::remove(groups[0][0].begin(), groups[0][0].end(), node),
-            groups[0][0].end());
-          if (++retained >= retainPressures_)
-            break;
-          }
-      break;
+      groups.emplace_back();
+      groups.back().emplace_back(1, node);
+      groups[0][0].erase(
+        std::remove(groups[0][0].begin(), groups[0][0].end(), node),
+        groups[0][0].end());
+      if (++retained >= retainPressures_)
+        break;
       }
+    }
 
   // Split separator groups that that do not belong to the same subdomain.
   // This may happen for the w-groups since the w-separators are staggered
@@ -755,21 +761,24 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &inte
       int x = (node / dof_) % nx_;
       int y = (node / dof_ / nx_) % ny_;
       int z = node / dof_ / nx_ / ny_;
-      if (dof_ > 1 && x == nx_ - 1 && variableType_[node % dof_] == 0 &&
+      if (dof_ > 1 && x == nx_ - 1 &&
+        variableType_[node % dof_] == VariableType::Velocity_U &&
         !(perio_ & GaleriExt::X_PERIO))
         {
         if (operator()(x, y, z) == gsd)
           interior_nodes.push_back(node);
         group->erase(std::remove(group->begin(), group->end(), node));
         }
-      else if (dof_ > 1 && y == ny_ - 1 && variableType_[node % dof_] == 1 &&
+      else if (dof_ > 1 && y == ny_ - 1 &&
+        variableType_[node % dof_] == VariableType::Velocity_V &&
         !(perio_ & GaleriExt::Y_PERIO))
         {
         if (operator()(x, y, z) == gsd)
           interior_nodes.push_back(node);
         group->erase(std::remove(group->begin(), group->end(), node));
         }
-      else if (nz_ > 1 && dof_ > 1 && z == nz_ - 1 && variableType_[node % dof_] == 2 &&
+      else if (nz_ > 1 && dof_ > 1 && z == nz_ - 1 &&
+        variableType_[node % dof_] == VariableType::Velocity_W &&
         !(perio_ & GaleriExt::Z_PERIO))
         {
         if (operator()(x, y, z) == gsd)
