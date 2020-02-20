@@ -1783,36 +1783,6 @@ int SchurPreconditioner::ComputeScaling(const Epetra_CrsMatrix& A,
       (*sca_right)[i] = dmax;
       }
     }
-// this is old stuff
-#if 0
-  if (hid_!=Teuchos::null)
-    {
-    const BasePartitioner& BP = hid_->Partitioner();
-    int p_node = BP.DofPerNode()-1;
-    double p_entry;
-    double* val;
-    int* ind;
-    int len;
-
-    for (int i=0;i<diagA.MyLength();i++)
-      {
-      CHECK_ZERO(A.ExtractMyRowView(i,len,val,ind));
-      p_entry=0.0;
-      for (int j=0;j<len;j++)
-        {
-        if (BP.VariableType(A.GCID64(ind[j]))==p_node)
-          {
-          p_entry=std::abs(val[j]);
-          }
-        }
-      if (p_entry>1.0e-8)
-        {
-        (*sca_left)[i] = 1.0/p_entry;
-        (*sca_right)[i] = 1.0/p_entry;
-        }
-      }
-    }
-#endif
   //MatrixUtils::Dump(*sca_left, "left_scale.txt");
   //MatrixUtils::Dump(*sca_right, "right_scale.txt");
 
