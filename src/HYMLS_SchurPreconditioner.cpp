@@ -708,32 +708,33 @@ int SchurPreconditioner::InitializeSingleBlock()
     = hid_->Spawn(HierarchicalMap::LocalSeparators);
 
   // count the number of owned elements and vsums
-  int numMyVsums=0;
+  int numMyVsums = 0;
   int numMyElements = 0;
-  for (int i=0;i<sepObject->NumMySubdomains();i++)
+  for (int sd = 0; sd < sepObject->NumMySubdomains(); sd++)
     {
-    numMyElements+=sepObject->NumElements(i);
-    numMyVsums+=sepObject->NumGroups(i)-1;
+    numMyElements += sepObject->NumElements(sd);
+    numMyVsums += sepObject->NumGroups(sd) - 1;
     }
   // we actually need the number of owned non-Vsums:
   int numRows = numMyElements - numMyVsums;
 
   // create a single solver for all the non-Vsums
   blockSolver_.resize(1);
-  blockSolver_[0]=Teuchos::rcp
+  blockSolver_[0] = Teuchos::rcp
     (new Ifpack_SparseContainer<Ifpack_Amesos>(numRows));
   CHECK_ZERO(blockSolver_[0]->SetParameters(
       PL().sublist("Sparse Solver")));
   CHECK_ZERO(blockSolver_[0]->Initialize());
-  int pos=0;
-  for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
+
+  int pos = 0;
+  for (int sd = 0; sd < sepObject->NumMySubdomains(); sd++)
     {
-    for (int grp=1;grp<sepObject->NumGroups(sep);grp++)
+    for (SeparatorGroup const &group: sepObject->SeparatorGroups(sd))
       {
       // skip first element, which is a Vsum
-      for (int j=1; j<sepObject->NumElements(sep,grp); j++)
+      for (int j = 1; j < group.length(); j++)
         {
-        int LRID = map_->LID(sepObject->GID(sep,grp,j));
+        int LRID = map_->LID(group.nodes()[j]);
         blockSolver_[0]->ID(pos++) = LRID;
         }
       }
