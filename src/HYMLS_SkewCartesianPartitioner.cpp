@@ -4,6 +4,7 @@
 
 #include "HYMLS_Tools.hpp"
 #include "HYMLS_Macros.hpp"
+#include "HYMLS_SeparatorGroup.hpp"
 
 #include "Epetra_Comm.h"
 #include "Epetra_Map.h"
@@ -659,6 +660,8 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &inte
   interior_nodes.clear();
   separator_nodes.clear();
 
+  Teuchos::Array<SeparatorGroup> separator_groups;
+
   int gsd = sdMap_->GID(sd);
 
   int sdx, sdy, sdz;
@@ -718,33 +721,37 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &inte
     {
     for (auto const &group: groups[i])
       {
-      std::map<int, std::vector<hymls_gidx> > newGroups;
+      std::map<int, SeparatorGroup> newGroups;
       for (hymls_gidx node: group)
         {
         int gsd = operator()(node);
         auto newGroup = newGroups.find(gsd);
         if (newGroup != newGroups.end())
-          newGroup->second.push_back(node);
+          newGroup->second.nodes().append(node);
         else
-          newGroups.emplace(gsd, std::vector<hymls_gidx>(1, node));
+          {
+          SeparatorGroup group;
+          group.nodes().append(node);
+          newGroups.emplace(gsd, group);
+          }
         }
       for (auto &newGroup: newGroups)
         {
         if (rx_ > 1)
           {
-          int len = newGroup.second.size();
+          int len = newGroup.second.nodes().size();
           int newLen = std::max((len + rx_ - 1) / rx_, 1);
           int numParts = (len - 1) / newLen + 1;
           for (int j = 0; j < numParts; j++)
             {
-            std::vector<hymls_gidx> newGroup2;
+            SeparatorGroup newGroup2;
             for (int i = j * newLen; i < (j + 1) * newLen && i < len; i++)
-              newGroup2.push_back(newGroup.second[i]);
-            separator_nodes.push_back(newGroup2);
+              newGroup2.nodes().append(newGroup.second.nodes()[i]);
+            separator_groups.append(newGroup2);
             }
           }
         else
-          separator_nodes.push_back(newGroup.second);
+          separator_groups.append(newGroup.second);
         }
       }
     }
@@ -753,9 +760,9 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &inte
   // Remove separator nodes that lie on the boundary of the domain.
   // We need this because those nodes don't actually border any interior
   // nodes of the other subdomain
-  for (auto group = separator_nodes.begin(); group != separator_nodes.end(); ++group)
+  for (auto group = separator_groups.begin(); group != separator_groups.end(); ++group)
     {
-    Teuchos::Array<hymls_gidx> groupCopy = *group;
+    Teuchos::Array<hymls_gidx> groupCopy = group->nodes();
     for (hymls_gidx node: groupCopy)
       {
       int x = (node / dof_) % nx_;
@@ -767,7 +774,7 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &inte
         {
         if (operator()(x, y, z) == gsd)
           interior_nodes.push_back(node);
-        group->erase(std::remove(group->begin(), group->end(), node));
+        group->nodes().erase(std::remove(group->nodes().begin(), group->nodes().end(), node));
         }
       else if (dof_ > 1 && y == ny_ - 1 &&
         variableType_[node % dof_] == VariableType::Velocity_V &&
@@ -775,7 +782,7 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &inte
         {
         if (operator()(x, y, z) == gsd)
           interior_nodes.push_back(node);
-        group->erase(std::remove(group->begin(), group->end(), node));
+        group->nodes().erase(std::remove(group->nodes().begin(), group->nodes().end(), node));
         }
       else if (nz_ > 1 && dof_ > 1 && z == nz_ - 1 &&
         variableType_[node % dof_] == VariableType::Velocity_W &&
@@ -783,10 +790,14 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &inte
         {
         if (operator()(x, y, z) == gsd)
           interior_nodes.push_back(node);
-        group->erase(std::remove(group->begin(), group->end(), node));
+        group->nodes().erase(std::remove(group->nodes().begin(), group->nodes().end(), node));
         }
       }
     }
+
+  for (auto &group: separator_groups)
+    if (!group.nodes().empty())
+      separator_nodes.append(group.nodes());
 
   // Sort the interior since there may now be new nodes at the back
   std::sort(interior_nodes.begin(), interior_nodes.end());
