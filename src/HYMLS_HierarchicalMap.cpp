@@ -78,12 +78,15 @@ int HierarchicalMap::Reset(int numMySubdomains)
   HYMLS_LPROF2(label_,"Reset");
   groupPointer_=Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >(numMySubdomains));
   gidList_=Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >(numMySubdomains));
+  separator_groups_ = Teuchos::rcp(new Teuchos::Array<Teuchos::Array<SeparatorGroup> >(numMySubdomains));
+
   for (int i=0;i<numMySubdomains;i++)
     {
     (*gidList_)[i].resize(0);
     (*groupPointer_)[i].resize(1);
     (*groupPointer_)[i][0]=0;
     }
+
   spawnedObjects_.resize(4); // can currently spawn Interior, Separator and 
   // LocalSeparator objects and 
   // return a self-reference (All)    
@@ -273,6 +276,7 @@ int HierarchicalMap::AddSeparatorGroup(int sd, SeparatorGroup const &group)
     std::copy(group.nodes().begin(), group.nodes().end(),
       std::back_inserter((*gidList_)[sd]));
     }
+  (*separator_groups_)[sd].append(group);
   return (*groupPointer_)[sd].length()-1;
   }
 

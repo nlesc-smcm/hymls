@@ -281,7 +281,10 @@ private:
   
   //! list of ordered GIDs which will be transformed into a map in FillComplete
   Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > gidList_;
-  
+
+  //! list of separator groups per subdomain
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<SeparatorGroup> > > separator_groups_;
+
   //! array of spawned objects (so we avoid building the same thing over and over again)
   mutable Teuchos::Array<Teuchos::RCP<const HierarchicalMap> > spawnedObjects_;
   
