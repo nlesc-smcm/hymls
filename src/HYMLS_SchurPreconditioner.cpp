@@ -777,25 +777,25 @@ int SchurPreconditioner::InitializeOT()
     sparseMatrixOT_ = Teuchos::rcp(new Epetra_CrsMatrix(Copy,*map_,nnzPerRow));
 
     // loop over all separators connected to a local subdomain
-    for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
+    for (int sd = 0; sd < sepObject->NumMySubdomains(); sd++)
       {
-      HYMLS_DEBVAR(sep);
-      // the LocalSeparator object has only local separators, but it may
+      HYMLS_DEBVAR(sd);
+      // The LocalSeparator object has only local separators, but it may
       // have several groups due to splitting of groups (i.e. for the B-grid,
-      // where velocities are grouped depending on how they connect ot the pressures)
-      for (int grp=1;grp<sepObject->NumGroups(sep);grp++)
+      // where velocities are grouped depending on how they connect to the pressures)
+      for (SeparatorGroup const &group: sepObject->SeparatorGroups(sd))
         {
-//        HYMLS_DEBVAR(grp);
-        int len = sepObject->NumElements(sep,grp);
-        if ((inds.Length()!=len) && (len>0))
+        HYMLS_DEBVAR(grp);
+        int len = group.length();
+        if (inds.Length() != len && len > 0)
           {
           inds.Size(len);
           vec.Size(len);
           }
+
         int pos = 0;
-        for (int j=0;j<len;j++)
+        for (hymls_gidx gid: group.nodes())
           {
-          hymls_gidx gid = sepObject->GID(sep,grp,j);
           int lid = sepMap.LID(gid);
           if (lid != -1)
             {
@@ -805,11 +805,11 @@ int SchurPreconditioner::InitializeOT()
           }
         inds.Resize(pos);
         vec.Resize(pos);
-        if (pos>0)
+        if (pos > 0)
           {
 //          HYMLS_DEBVAR(inds);
 //          HYMLS_DEBVAR(vec);
-          int ierr=OT->Construct(*sparseMatrixOT_,inds,vec);
+          int ierr = OT->Construct(*sparseMatrixOT_, inds, vec);
           if (ierr)
             {
             Tools::Warning("Error code "+Teuchos::toString(ierr)+" returned from Epetra call!",
