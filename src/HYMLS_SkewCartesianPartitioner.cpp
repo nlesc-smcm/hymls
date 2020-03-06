@@ -4,6 +4,7 @@
 
 #include "HYMLS_Tools.hpp"
 #include "HYMLS_Macros.hpp"
+#include "HYMLS_InteriorGroup.hpp"
 #include "HYMLS_SeparatorGroup.hpp"
 
 #include "Epetra_Comm.h"
@@ -660,6 +661,8 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &inte
   interior_nodes.clear();
   separator_groups.clear();
 
+  InteriorGroup interior_group;
+
   int gsd = sdMap_->GID(sd);
 
   int sdx, sdy, sdz;
@@ -714,7 +717,7 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &inte
 
   // Split separator groups that that do not belong to the same subdomain.
   // This may happen for the w-groups since the w-separators are staggered
-  std::copy(groups[0][0].begin(), groups[0][0].end(), std::back_inserter(interior_nodes));
+  std::copy(groups[0][0].begin(), groups[0][0].end(), std::back_inserter(interior_group.nodes()));
   for (int i = 1; i < (int)groups.size(); i++)
     {
     for (auto const &group: groups[i])
@@ -771,7 +774,7 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &inte
         !(perio_ & GaleriExt::X_PERIO))
         {
         if (operator()(x, y, z) == gsd)
-          interior_nodes.push_back(node);
+          interior_group.nodes().append(node);
         group->nodes().erase(std::remove(group->nodes().begin(), group->nodes().end(), node));
         }
       else if (dof_ > 1 && y == ny_ - 1 &&
@@ -779,7 +782,7 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &inte
         !(perio_ & GaleriExt::Y_PERIO))
         {
         if (operator()(x, y, z) == gsd)
-          interior_nodes.push_back(node);
+          interior_group.nodes().append(node);
         group->nodes().erase(std::remove(group->nodes().begin(), group->nodes().end(), node));
         }
       else if (nz_ > 1 && dof_ > 1 && z == nz_ - 1 &&
@@ -787,14 +790,16 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &inte
         !(perio_ & GaleriExt::Z_PERIO))
         {
         if (operator()(x, y, z) == gsd)
-          interior_nodes.push_back(node);
+          interior_group.nodes().append(node);
         group->nodes().erase(std::remove(group->nodes().begin(), group->nodes().end(), node));
         }
       }
     }
 
   // Sort the interior since there may now be new nodes at the back
-  std::sort(interior_nodes.begin(), interior_nodes.end());
+  std::sort(interior_group.nodes().begin(), interior_group.nodes().end());
+
+  interior_nodes = interior_group.nodes();
 
   return 0;
   }
