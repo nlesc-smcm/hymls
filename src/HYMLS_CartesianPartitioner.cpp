@@ -255,14 +255,12 @@ static int GetSubdomainStartAndEnd(
   }
 
 int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior_nodes,
-  Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes) const
+  Teuchos::Array<SeparatorGroup> &separator_groups) const
   {
   HYMLS_PROF3(label_,"GetGroups");
 
   interior_nodes.clear();
-  separator_nodes.clear();
-
-  Teuchos::Array<SeparatorGroup> separator_groups;
+  separator_groups.clear();
 
   // pressure nodes that need to be retained
   Teuchos::Array<hymls_gidx> retained_nodes;
@@ -375,15 +373,16 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
       }
     }
 
-  for (auto &group: separator_groups)
-    if (!group.nodes().empty())
-      separator_nodes.append(group.nodes());
+  // Remove empty groups
+  separator_groups.erase(std::remove_if(separator_groups.begin(), separator_groups.end(),
+      [](SeparatorGroup &i){return i.nodes().empty();}), separator_groups.end());
 
   // Add retained nodes as separator groups
   for (auto it = retained_nodes.begin(); it != retained_nodes.end(); ++it)
     {
-    separator_nodes.append(Teuchos::Array<hymls_gidx>());
-    separator_nodes.back().append(*it);
+    SeparatorGroup group;
+    group.nodes().append(*it);
+    separator_groups.append(group);
     }
 
   return 0;

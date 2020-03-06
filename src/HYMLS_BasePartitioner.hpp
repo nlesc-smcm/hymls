@@ -16,6 +16,8 @@ class ParameterList;
 
 namespace HYMLS {
 
+class SeparatorGroup;
+
 /*! Base class for partitioning in HYMLS - on this
   partitioning we build our HID.
 */
@@ -56,7 +58,7 @@ public:
 
   //! Get interior and separator groups of the subdomain sd
   virtual int GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior_nodes,
-    Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes) const = 0;
+    Teuchos::Array<SeparatorGroup> &separator_groups) const = 0;
 
   //! get number of local partitions
   virtual int NumLocalParts() const = 0;

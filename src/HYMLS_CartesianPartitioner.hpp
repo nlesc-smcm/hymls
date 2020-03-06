@@ -16,6 +16,8 @@ template <typename T> class Array;
 
 namespace HYMLS {
 
+class SeparatorGroup;
+
 class CartesianPartitioner : public BasePartitioner
   {
 public:
@@ -60,7 +62,7 @@ protected:
 public:
   //! Get interior and separator groups of the subdomain sd
   int GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior_nodes,
-    Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes) const;
+    Teuchos::Array<SeparatorGroup> &separator_group) const;
 
   //! is this class fully set up?
   inline bool Partitioned() const

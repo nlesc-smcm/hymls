@@ -11,6 +11,7 @@
 #include "HYMLS_UnitTests.hpp"
 #include "HYMLS_FakeComm.hpp"
 #include "HYMLS_Tools.hpp"
+#include "HYMLS_SeparatorGroup.hpp"
 
 class TestableSkewCartesianPartitioner: public HYMLS::SkewCartesianPartitioner
   {
@@ -217,14 +218,14 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 2DNodes)
   for (int sd = 0; sd < part.NumLocalParts(); sd++)
     {
     Teuchos::Array<hymls_gidx> interior_nodes;
-    Teuchos::Array<Teuchos::Array<hymls_gidx> > separator_nodes;
-    part.GetGroups(sd, interior_nodes, separator_nodes);
+    Teuchos::Array<HYMLS::SeparatorGroup> separator_groups;
+    part.GetGroups(sd, interior_nodes, separator_groups);
 
     for (hymls_gidx &i: interior_nodes)
       gids[i] = i;
 
-    for (auto &group: separator_nodes)
-      for (hymls_gidx &i: group)
+    for (auto &group: separator_groups)
+      for (hymls_gidx &i: group.nodes())
         gids[i] = i;
     }
 
@@ -258,11 +259,11 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 1PSepPerDomain2D)
     {
     int numPNodes = 0;
     Teuchos::Array<hymls_gidx> interior_nodes;
-    Teuchos::Array<Teuchos::Array<hymls_gidx> > separator_nodes;
-    part.GetGroups(sd, interior_nodes, separator_nodes);
+    Teuchos::Array<HYMLS::SeparatorGroup> separator_groups;
+    part.GetGroups(sd, interior_nodes, separator_groups);
 
-    for (auto &group: separator_nodes)
-      for (hymls_gidx &i: group)
+    for (auto &group: separator_groups)
+      for (hymls_gidx &i: group.nodes())
         if (i % 3 == 2)
           numPNodes++;
     TEST_EQUALITY(numPNodes, 1);
@@ -293,14 +294,14 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 3DNodes)
   for (int sd = 0; sd < part.NumLocalParts(); sd++)
     {
     Teuchos::Array<hymls_gidx> interior_nodes;
-    Teuchos::Array<Teuchos::Array<hymls_gidx> > separator_nodes;
-    part.GetGroups(sd, interior_nodes, separator_nodes);
+    Teuchos::Array<HYMLS::SeparatorGroup> separator_groups;
+    part.GetGroups(sd, interior_nodes, separator_groups);
 
     for (hymls_gidx &i: interior_nodes)
       gids[i] = i;
 
-    for (auto &group: separator_nodes)
-      for (hymls_gidx &i: group)
+    for (auto &group: separator_groups)
+      for (hymls_gidx &i: group.nodes())
         gids[i] = i;
     }
 
@@ -331,14 +332,14 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 5DOFNodes)
   for (int sd = 0; sd < part.NumLocalParts(); sd++)
     {
     Teuchos::Array<hymls_gidx> interior_nodes;
-    Teuchos::Array<Teuchos::Array<hymls_gidx> > separator_nodes;
-    part.GetGroups(sd, interior_nodes, separator_nodes);
+    Teuchos::Array<HYMLS::SeparatorGroup> separator_groups;
+    part.GetGroups(sd, interior_nodes, separator_groups);
 
     for (hymls_gidx &i: interior_nodes)
       gids[i] = i;
 
-    for (auto &group: separator_nodes)
-      for (hymls_gidx &i: group)
+    for (auto &group: separator_groups)
+      for (hymls_gidx &i: group.nodes())
         gids[i] = i;
     }
 
@@ -369,14 +370,14 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 5DOFNodesSx2)
   for (int sd = 0; sd < part.NumLocalParts(); sd++)
     {
     Teuchos::Array<hymls_gidx> interior_nodes;
-    Teuchos::Array<Teuchos::Array<hymls_gidx> > separator_nodes;
-    part.GetGroups(sd, interior_nodes, separator_nodes);
+    Teuchos::Array<HYMLS::SeparatorGroup> separator_groups;
+    part.GetGroups(sd, interior_nodes, separator_groups);
 
     for (hymls_gidx &i: interior_nodes)
       gids[i] = i;
 
-    for (auto &group: separator_nodes)
-      for (hymls_gidx &i: group)
+    for (auto &group: separator_groups)
+      for (hymls_gidx &i: group.nodes())
         gids[i] = i;
     }
 
@@ -444,11 +445,11 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, 1PSepPerDomain3D)
     {
     int numPNodes = 0;
     Teuchos::Array<hymls_gidx> interior_nodes;
-    Teuchos::Array<Teuchos::Array<hymls_gidx> > separator_nodes;
-    part.GetGroups(sd, interior_nodes, separator_nodes);
+    Teuchos::Array<HYMLS::SeparatorGroup> separator_groups;
+    part.GetGroups(sd, interior_nodes, separator_groups);
 
-    for (auto &group: separator_nodes)
-      for (hymls_gidx &i: group)
+    for (auto &group: separator_groups)
+      for (hymls_gidx &i: group.nodes())
         if (i % 4 == 3)
           numPNodes++;
     TEST_EQUALITY(numPNodes, 1);
@@ -724,8 +725,8 @@ TEUCHOS_UNIT_TEST(SkewCartesianPartitioner, GID64)
   TEST_EQUALITY(part(nx-2, ny-1, nz-1), (nz / sx + 1 ) * (2 * nx / sx * ny / sx + ny / sx + nx / sx) - 1);
 
   Teuchos::Array<hymls_gidx> interior_nodes;
-  Teuchos::Array<Teuchos::Array<hymls_gidx> > separator_nodes;
-  part.GetGroups(part.NumLocalParts()-1, interior_nodes, separator_nodes);
+  Teuchos::Array<HYMLS::SeparatorGroup> separator_groups;
+  part.GetGroups(part.NumLocalParts()-1, interior_nodes, separator_groups);
   for (hymls_gidx i: interior_nodes)
     TEST_COMPARE(i, >=, 0);
   }
