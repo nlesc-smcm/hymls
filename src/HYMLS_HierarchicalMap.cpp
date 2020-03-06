@@ -525,15 +525,14 @@ HierarchicalMap::SpawnSeparators() const
     {
     newGidList->append(Teuchos::Array<hymls_gidx>());
     newGroupPointer->append(Teuchos::Array<hymls_gidx>(2));
-    for (int grp = 1; grp < NumGroups(sd); grp++)
+    for (SeparatorGroup const &group: (*separator_groups_)[sd])
       {
-      if (NumElements(sd, grp) > 0 &&
-        std::find(done.begin(), done.end(), GID(sd, grp, 0)) == done.end())
+      hymls_gidx first_node = group.nodes()[0];
+      if (std::find(done.begin(), done.end(), first_node) == done.end())
         {
         Teuchos::Array<hymls_gidx> gidList;
-        for (int j = 0; j < NumElements(sd, grp); j++)
+        for (hymls_gidx gid: group.nodes())
           {
-          hymls_gidx gid = GID(sd, grp, j);
           gidList.append(gid);
           overlappingGIDs.append(gid);
           if (baseMap_->MyGID(gid))
@@ -548,7 +547,7 @@ HierarchicalMap::SpawnSeparators() const
           (*newGroupPointer)[sd].append(offset + len);
           std::copy(gidList.begin(), gidList.end(), std::back_inserter((*newGidList)[sd]));
           }
-        done.append(GID(sd, grp, 0));
+        done.append(first_node);
         }
       }
     }
