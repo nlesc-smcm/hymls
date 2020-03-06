@@ -1,6 +1,7 @@
 #include "HYMLS_HierarchicalMap.hpp"
 
 #include "HYMLS_Exception.hpp"
+#include "HYMLS_InteriorGroup.hpp"
 #include "HYMLS_SeparatorGroup.hpp"
 
 #include <Teuchos_RCP.hpp>
@@ -19,9 +20,9 @@ public:
     HierarchicalMap(baseMap)
     {}
 
-  int AddGroup(int sd, Teuchos::Array<hymls_gidx>& gidList)
+  int AddInteriorGroup(int sd, HYMLS::InteriorGroup const &group)
     {
-    return HYMLS::HierarchicalMap::AddGroup(sd, gidList);
+    return HYMLS::HierarchicalMap::AddInteriorGroup(sd, group);
     }
 
   int AddSeparatorGroup(int sd, HYMLS::SeparatorGroup const &group)
@@ -35,31 +36,29 @@ public:
     }
   };
 
-TEUCHOS_UNIT_TEST(HierarchicalMap, AddGroup)
+TEUCHOS_UNIT_TEST(HierarchicalMap, AddInteriorGroup)
   {
   Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
 
   hymls_gidx n = 100;
   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
 
-  Teuchos::Array<hymls_gidx> gidList(n);
+  HYMLS::InteriorGroup group;
   for (int i = 0; i < n; i++)
-    {
-    gidList[i] = i;
-    }
+    group.append(i);
 
   int ret;
 
   TestableHierarchicalMap hmap(map);
 
   // Can't add group to non-existing subdomain
-  ret = hmap.AddGroup(0, gidList);
+  ret = hmap.AddInteriorGroup(0, group);
   TEST_EQUALITY(ret, -1);
 
   // Can add group to an existing subdomain
   ret = hmap.Reset(1);
   TEST_EQUALITY(ret, 0);
-  ret = hmap.AddGroup(0, gidList);
+  ret = hmap.AddInteriorGroup(0, group);
   TEST_EQUALITY(ret, 1);
   }
 
@@ -111,18 +110,16 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumMyInteriorElements)
   hymls_gidx n = 100;
   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
 
-  Teuchos::Array<hymls_gidx> gidList(n);
+  HYMLS::InteriorGroup group;
   for (int i = 0; i < n; i++)
-    {
-    gidList[i] = i;
-    }
+    group.append(i);
 
   TestableHierarchicalMap hmap(map);
 
   hmap.Reset(2);
-  hmap.AddGroup(0, gidList);
-  hmap.AddGroup(1, gidList);
-  hmap.AddGroup(1, gidList);
+  hmap.AddInteriorGroup(0, group);
+  hmap.AddInteriorGroup(1, group);
+  hmap.AddInteriorGroup(1, group);
   int ret = hmap.NumMyInteriorElements();
   TEST_EQUALITY(ret, n*2);
   }
@@ -134,18 +131,16 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumElements)
   hymls_gidx n = 100;
   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
 
-  Teuchos::Array<hymls_gidx> gidList(n);
+  HYMLS::InteriorGroup group;
   for (int i = 0; i < n; i++)
-    {
-    gidList[i] = i;
-    }
+    group.append(i);
 
   TestableHierarchicalMap hmap(map);
 
   hmap.Reset(2);
-  hmap.AddGroup(0, gidList);
-  hmap.AddGroup(1, gidList);
-  hmap.AddGroup(1, gidList);
+  hmap.AddInteriorGroup(0, group);
+  hmap.AddInteriorGroup(1, group);
+  hmap.AddInteriorGroup(1, group);
   int ret = hmap.NumElements(1);
   TEST_EQUALITY(ret, n*2);
   }
@@ -157,18 +152,16 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumInteriorElements)
   hymls_gidx n = 100;
   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
 
-  Teuchos::Array<hymls_gidx> gidList(n);
+  HYMLS::InteriorGroup group;
   for (int i = 0; i < n; i++)
-    {
-    gidList[i] = i;
-    }
+    group.append(i);
 
   TestableHierarchicalMap hmap(map);
 
   hmap.Reset(2);
-  hmap.AddGroup(0, gidList);
-  hmap.AddGroup(1, gidList);
-  hmap.AddGroup(1, gidList);
+  hmap.AddInteriorGroup(0, group);
+  hmap.AddInteriorGroup(1, group);
+  hmap.AddInteriorGroup(1, group);
   int ret = hmap.NumInteriorElements(1);
   TEST_EQUALITY(ret, n);
   }
@@ -180,18 +173,16 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumSeparatorElements)
   hymls_gidx n = 100;
   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
 
-  Teuchos::Array<hymls_gidx> gidList(n);
+  HYMLS::InteriorGroup group;
   for (int i = 0; i < n; i++)
-    {
-    gidList[i] = i;
-    }
+    group.append(i);
 
   TestableHierarchicalMap hmap(map);
 
   hmap.Reset(2);
-  hmap.AddGroup(0, gidList);
-  hmap.AddGroup(1, gidList);
-  hmap.AddGroup(1, gidList);
+  hmap.AddInteriorGroup(0, group);
+  hmap.AddInteriorGroup(1, group);
+  hmap.AddInteriorGroup(1, group);
   int ret = hmap.NumSeparatorElements(1);
   TEST_EQUALITY(ret, n);
   ret = hmap.NumSeparatorElements(0);
@@ -205,18 +196,16 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumGroups)
   hymls_gidx n = 100;
   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
 
-  Teuchos::Array<hymls_gidx> gidList(n);
+  HYMLS::InteriorGroup group;
   for (int i = 0; i < n; i++)
-    {
-    gidList[i] = i;
-    }
+    group.append(i);
 
   TestableHierarchicalMap hmap(map);
 
   hmap.Reset(2);
-  hmap.AddGroup(0, gidList);
-  hmap.AddGroup(1, gidList);
-  hmap.AddGroup(1, gidList);
+  hmap.AddInteriorGroup(0, group);
+  hmap.AddInteriorGroup(1, group);
+  hmap.AddInteriorGroup(1, group);
   int ret = hmap.NumGroups(1);
   TEST_EQUALITY(ret, 2);
   ret = hmap.NumGroups(0);
@@ -230,18 +219,16 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumSeparatorGroups)
   hymls_gidx n = 100;
   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
 
-  Teuchos::Array<hymls_gidx> gidList(n);
+  HYMLS::InteriorGroup group;
   for (int i = 0; i < n; i++)
-    {
-    gidList[i] = i;
-    }
+    group.append(i);
 
   TestableHierarchicalMap hmap(map);
 
   hmap.Reset(2);
-  hmap.AddGroup(0, gidList);
-  hmap.AddGroup(1, gidList);
-  hmap.AddGroup(1, gidList);
+  hmap.AddInteriorGroup(0, group);
+  hmap.AddInteriorGroup(1, group);
+  hmap.AddInteriorGroup(1, group);
   int ret = hmap.NumSeparatorGroups(1);
   TEST_EQUALITY(ret, 1);
   ret = hmap.NumSeparatorGroups(0);
@@ -255,18 +242,16 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumElements2)
   hymls_gidx n = 100;
   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
 
-  Teuchos::Array<hymls_gidx> gidList(n);
+  HYMLS::InteriorGroup group;
   for (int i = 0; i < n; i++)
-    {
-    gidList[i] = i;
-    }
+    group.append(i);
 
   TestableHierarchicalMap hmap(map);
 
   hmap.Reset(2);
-  hmap.AddGroup(0, gidList);
-  hmap.AddGroup(1, gidList);
-  hmap.AddGroup(1, gidList);
+  hmap.AddInteriorGroup(0, group);
+  hmap.AddInteriorGroup(1, group);
+  hmap.AddInteriorGroup(1, group);
   int ret = hmap.NumElements(1, 1);
   TEST_EQUALITY(ret, n);
   ret = hmap.NumElements(1,0);
@@ -280,18 +265,18 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumElements2)
 //   int n = 100;
 //   Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
 
-//   Teuchos::Array<hymls_gidx> gidList(n);
+//   Teuchos::Array<hymls_gidx> group(n);
 //   for (int i = 0; i < n; i++)
 //     {
-//     gidList[i] = i;
+//     group[i] = i;
 //     }
 
 //   TestableHierarchicalMap hmap(map);
 
 //   hmap.Reset(2);
-//   hmap.AddGroup(0, gidList);
-//   hmap.AddGroup(1, gidList);
-//   hmap.AddGroup(1, gidList);
+//   hmap.AddInteriorGroup(0, group);
+//   hmap.AddInteriorGroup(1, group);
+//   hmap.AddInteriorGroup(1, group);
 //   int ret = hmap.LID(1, 1, 50);
 //   TEST_EQUALITY(ret, 150);
 //   }

@@ -17,6 +17,7 @@ class Epetra_LongLongSerialDenseVector;
 
 namespace HYMLS {
 
+class InteriorGroup;
 class SeparatorGroup;
 
 //! class for hierarchically partitioned maps
@@ -233,9 +234,9 @@ protected:
 
   //@}
   
-  //! add a group of GIDs to an existing subdomain. Returns the group id
-  //! of the new group. FillComplete() should not have been called.
-  int AddGroup(int sd, Teuchos::Array<hymls_gidx>& gidList);
+  //! add an interior group of GIDs to an existing subdomain.
+  //! FillComplete() should not have been called.
+  int AddInteriorGroup(int sd, InteriorGroup const &group);
 
   //! add a separator group of GIDs to an existing subdomain. Returns the group id
   //! of the new group. FillComplete() should not have been called.
@@ -276,6 +277,9 @@ private:
   
   //! list of ordered GIDs which will be transformed into a map in FillComplete
   Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > gidList_;
+
+  //! list of interior groups per subdomain
+  Teuchos::RCP<Teuchos::Array<InteriorGroup> > interior_groups_;
 
   //! list of separator groups per subdomain
   Teuchos::RCP<Teuchos::Array<Teuchos::Array<SeparatorGroup> > > separator_groups_;

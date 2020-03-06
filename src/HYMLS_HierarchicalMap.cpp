@@ -4,6 +4,7 @@
 
 #include "HYMLS_Tools.hpp"
 #include "HYMLS_Macros.hpp"
+#include "HYMLS_InteriorGroup.hpp"
 #include "HYMLS_SeparatorGroup.hpp"
 
 #include "Epetra_Comm.h"
@@ -80,6 +81,7 @@ int HierarchicalMap::Reset(int numMySubdomains)
   HYMLS_LPROF2(label_,"Reset");
   groupPointer_=Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >(numMySubdomains));
   gidList_=Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >(numMySubdomains));
+  interior_groups_ = Teuchos::rcp(new Teuchos::Array<InteriorGroup>(numMySubdomains));
   separator_groups_ = Teuchos::rcp(new Teuchos::Array<Teuchos::Array<SeparatorGroup> >(numMySubdomains));
 
   for (int i=0;i<numMySubdomains;i++)
@@ -255,25 +257,26 @@ int HierarchicalMap::FillComplete()
   return 0;
   }
 
-int HierarchicalMap::AddGroup(int sd, Teuchos::Array<hymls_gidx>& gidList)
+int HierarchicalMap::AddInteriorGroup(int sd, InteriorGroup const &group)
   {
-  HYMLS_LPROF3(label_,"AddGroup");
+  HYMLS_LPROF3(label_,"AddInteriorGroup");
 
-  if (sd>=groupPointer_->size())
+  if (sd >= groupPointer_->size())
     {
     Tools::Warning("invalid subdomain index",__FILE__,__LINE__);
     return -1; // You should Reset with the right amount of sd
     } 
 
   HYMLS_DEBVAR(sd);
-  HYMLS_DEBVAR(gidList);
+  HYMLS_DEBVAR(group.nodes());
   hymls_gidx offset=*((*groupPointer_)[sd].end()-1);
-  int len = gidList.size();
+  int len = group.length();
   (*groupPointer_)[sd].append(offset+len);
   if (len>0)
     {
-    std::copy(gidList.begin(),gidList.end(),std::back_inserter((*gidList_)[sd]));
+    std::copy(group.nodes().begin(),group.nodes().end(),std::back_inserter((*gidList_)[sd]));
     }
+  (*interior_groups_)[sd] = group;
   return (*groupPointer_)[sd].length()-1;
   }
 
