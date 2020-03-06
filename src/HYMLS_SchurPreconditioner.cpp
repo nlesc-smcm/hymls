@@ -528,11 +528,11 @@ int SchurPreconditioner::Compute()
     if (linear_indices)
       {
       int myLength = map_->NumMyElements();
-      newMap=Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1),myLength,0,*comm_));
+      newMap = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1),myLength,0,*comm_));
       }
 
     int off = 0;
-    for (int sd=0;sd<hid_->NumMySubdomains();sd++)
+    for (int sd = 0; sd < hid_->NumMySubdomains(); sd++)
       {
       begI << off << std::endl;
       off = off + hid_->NumInteriorElements(sd);
@@ -541,22 +541,22 @@ int SchurPreconditioner::Compute()
 
     int offset=0;
 
-    for (int sep=0;sep<sepObject->NumMySubdomains();sep++)
+    for (int sd = 0; sd < sepObject->NumMySubdomains(); sd++)
       {
-      for (int grp=1;grp<sepObject->NumGroups(sep);grp++)
+      for (SeparatorGroup const &group: sepObject->SeparatorGroups(sd))
         {
         begS << offset << std::endl;
-        offset = offset + sepObject->NumElements(sep,grp);
+        offset = offset + group.length();
         //begS << sepObject->LID(sep,grp,0)<<std::endl;
 
         // V-sum nodes
-        ofs << newMap->GID64(map_->LID(sepObject->GID(sep,grp,0))) << std::endl;
-        ofs2 << newMap->GID64(map_->LID(sepObject->GID(sep,grp,0))) << std::endl;
+        ofs << newMap->GID64(map_->LID(group.nodes()[0])) << std::endl;
+        ofs2 << newMap->GID64(map_->LID(group.nodes()[0])) << std::endl;
         // non-Vsum nodes
-        for (int j=1;j<sepObject->NumElements(sep,grp);j++)
+        for (int j = 1; j < group.length(); j++)
           {
-          ofs << newMap->GID64(map_->LID(sepObject->GID(sep,grp,j))) << std::endl;
-          ofs1 << newMap->GID64(map_->LID(sepObject->GID(sep,grp,j))) << std::endl;
+          ofs << newMap->GID64(map_->LID(group.nodes()[j])) << std::endl;
+          ofs1 << newMap->GID64(map_->LID(group.nodes()[j])) << std::endl;
           }
         }
       }
