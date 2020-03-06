@@ -1278,10 +1278,10 @@ int SchurPreconditioner::ConstructSCPart(int sd, Epetra_Vector const &localTestV
 
   int pos = 0;
   // Loop over all separators of the subdomain sd
-  for (int grp = 1; grp < numGroups; grp++)
+  for (SeparatorGroup const &group: hid_->SeparatorGroups(sd))
     {
     HYMLS_LPROF3(label_,"Apply OT");
-    int len = hid_->NumElements(sd, grp);
+    int len = group.length();
     Epetra_SerialDenseVector vView(View, &v[pos], len);
 
     // Apply the orthogonal transformation for each group
@@ -1300,17 +1300,17 @@ int SchurPreconditioner::ConstructSCPart(int sd, Epetra_Vector const &localTestV
   // than trying to add all the values and letting SumIntoGlobalValues
   // decide which ones to drop.
   int pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-  for (int grp = 1; grp < numGroups; grp++)
+  for (SeparatorGroup const &group: hid_->SeparatorGroups(sd))
     {
     HYMLS_LPROF3(label_,"Compute non-dropped Vsum part");
-    int len = hid_->NumElements(sd, grp);
+    int len = group.length();
     if (len > 0)
       {
       pos2 = 0;
       pos4 = 0;
-      for (int grp2 = 1; grp2 < numGroups; grp2++)
+      for (SeparatorGroup const &group2: hid_->SeparatorGroups(sd))
         {
-        int len2 = hid_->NumElements(sd, grp2);
+        int len2 = group2.length();
         if (len2 > 0)
           {
           SkArray[0](pos1, pos2) = Sk(pos3, pos4);
@@ -1324,9 +1324,9 @@ int SchurPreconditioner::ConstructSCPart(int sd, Epetra_Vector const &localTestV
     }
 
   pos3 = 0;
-  for (int grp = 1; grp < hid_->NumGroups(sd); grp++)
+  for (SeparatorGroup const &group: hid_->SeparatorGroups(sd))
     {
-    int len = hid_->NumElements(sd, grp) - 1;
+    int len = group.length() - 1;
     if (len > 0)
       {
       SkArray.append(Epetra_SerialDenseMatrix(len, len));
