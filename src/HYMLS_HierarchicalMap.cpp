@@ -699,23 +699,14 @@ int HierarchicalMap::getSeparatorGIDs(int sd, hymls_gidx *gids) const
     return -1;
     }
 
-  // create vector with global indices
   int pos = 0;
+  for (SeparatorGroup const &group: SeparatorGroups(sd))
+    for (hymls_gidx gid: group.nodes())
+      gids[pos++] = gid;
 
-  // loop over all groups except the first (first is interior elements),
-  // that is separator groups and retained elements
-  int numGroups = NumGroups(sd);
-  for (int grp = 1; grp < numGroups; grp++)
-    {
-    // loop over all elements of each separator group
-    int numElements = NumElements(sd, grp);
-    for (int j = 0; j < numElements; j++)
-      {
-      gids[pos++] = GID(sd, grp, j);
-      }
-    }
   return 0;
   }
+
 #ifdef HYMLS_LONG_LONG
 //! given a subdomain, returns a list of GIDs that belong to the subdomain
 int HierarchicalMap::getSeparatorGIDs(int sd, Epetra_LongLongSerialDenseVector &gids) const
