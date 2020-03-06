@@ -135,15 +135,19 @@ int HierarchicalMap::FillComplete()
 
     // Interior nodes don't need communication. Just add those
     // that are present in the baseMap_
-    for (int j = 0; j < NumElements(sd, 0); j++)
+    InteriorGroup new_group;
+    for (hymls_gidx gid: GetInteriorGroup(sd).nodes())
       {
-      hymls_gidx gid = GID(sd, 0, j);
       if (map->MyGID(gid))
+        {
         (*newGidList)[sd].append(gid);
+        new_group.append(gid);
+        }
       }
     hymls_gidx offset = *((*newGroupPointer)[sd].end() - 1);
     int len = (*newGidList)[sd].size() - offset;
     (*newGroupPointer)[sd].append(len + offset);
+    (*interior_groups_)[sd].nodes() = new_group.nodes();
 
     // Now add the separator groups. We can avoid communication
     // if the baseOverlappingMap_ is present.
