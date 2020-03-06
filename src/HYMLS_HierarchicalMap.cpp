@@ -154,7 +154,7 @@ int HierarchicalMap::FillComplete()
           if (map->MyGID(gid))
             {
             (*newGidList)[sd].append(gid);
-            new_group.nodes().append(gid);
+            new_group.append(gid);
             }
 
         hymls_gidx offset = *((*newGroupPointer)[sd].end()-1);
@@ -216,7 +216,7 @@ int HierarchicalMap::FillComplete()
           if (overlappingVec[tmpOverlappingMap->LID(gid)])
             {
             gidList.append(gid);
-            new_group.nodes().append(gid);
+            new_group.append(gid);
             }
           }
         hymls_gidx offset = *((*newGroupPointer)[sd].end()-1);

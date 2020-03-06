@@ -23,4 +23,9 @@ int SeparatorGroup::length() const
   return nodes_->length();
   }
 
+Teuchos::Array<hymls_gidx> &SeparatorGroup::append(hymls_gidx gid)
+  {
+  return nodes_->append(gid);
+  }
+
   }

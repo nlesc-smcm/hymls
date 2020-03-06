@@ -382,7 +382,7 @@ int CartesianPartitioner::GetGroups(int sd, InteriorGroup &interior_group,
   for (auto it = retained_nodes.begin(); it != retained_nodes.end(); ++it)
     {
     SeparatorGroup group;
-    group.nodes().append(*it);
+    group.append(*it);
     separator_groups.append(group);
     }
 

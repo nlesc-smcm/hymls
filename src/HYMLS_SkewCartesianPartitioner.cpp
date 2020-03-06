@@ -726,11 +726,11 @@ int SkewCartesianPartitioner::GetGroups(int sd, InteriorGroup &interior_group,
         int gsd = operator()(node);
         auto newGroup = newGroups.find(gsd);
         if (newGroup != newGroups.end())
-          newGroup->second.nodes().append(node);
+          newGroup->second.append(node);
         else
           {
           SeparatorGroup group;
-          group.nodes().append(node);
+          group.append(node);
           newGroups.emplace(gsd, group);
           }
         }
@@ -745,7 +745,7 @@ int SkewCartesianPartitioner::GetGroups(int sd, InteriorGroup &interior_group,
             {
             SeparatorGroup newGroup2;
             for (int i = j * newLen; i < (j + 1) * newLen && i < len; i++)
-              newGroup2.nodes().append(newGroup.second.nodes()[i]);
+              newGroup2.append(newGroup.second.nodes()[i]);
             separator_groups.append(newGroup2);
             }
           }
@@ -772,7 +772,7 @@ int SkewCartesianPartitioner::GetGroups(int sd, InteriorGroup &interior_group,
         !(perio_ & GaleriExt::X_PERIO))
         {
         if (operator()(x, y, z) == gsd)
-          interior_group.nodes().append(node);
+          interior_group.append(node);
         group->nodes().erase(std::remove(group->nodes().begin(), group->nodes().end(), node));
         }
       else if (dof_ > 1 && y == ny_ - 1 &&
@@ -780,7 +780,7 @@ int SkewCartesianPartitioner::GetGroups(int sd, InteriorGroup &interior_group,
         !(perio_ & GaleriExt::Y_PERIO))
         {
         if (operator()(x, y, z) == gsd)
-          interior_group.nodes().append(node);
+          interior_group.append(node);
         group->nodes().erase(std::remove(group->nodes().begin(), group->nodes().end(), node));
         }
       else if (nz_ > 1 && dof_ > 1 && z == nz_ - 1 &&
@@ -788,7 +788,7 @@ int SkewCartesianPartitioner::GetGroups(int sd, InteriorGroup &interior_group,
         !(perio_ & GaleriExt::Z_PERIO))
         {
         if (operator()(x, y, z) == gsd)
-          interior_group.nodes().append(node);
+          interior_group.append(node);
         group->nodes().erase(std::remove(group->nodes().begin(), group->nodes().end(), node));
         }
       }

@@ -21,6 +21,8 @@ public:
   Teuchos::Array<hymls_gidx> const &nodes() const;
 
   int length() const;
+
+  Teuchos::Array<hymls_gidx> &append(hymls_gidx gid);
   };
 
   }

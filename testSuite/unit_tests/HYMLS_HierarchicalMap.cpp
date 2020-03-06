@@ -72,7 +72,7 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, AddSeparatorGroup)
 
   HYMLS::SeparatorGroup group;
   for (int i = 0; i < n; i++)
-    group.nodes().append(i);
+    group.append(i);
 
   int ret;
 
