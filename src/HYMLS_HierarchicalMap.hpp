@@ -301,7 +301,8 @@ private:
     Teuchos::RCP<const Epetra_Map> overlappingMap,
     Teuchos::RCP<Teuchos::Array< Teuchos::Array<hymls_gidx> > > groupPointer,
     Teuchos::RCP<Teuchos::Array< Teuchos::Array<hymls_gidx> > > gidList,
-    Teuchos::RCP<Teuchos::Array< Teuchos::Array<SeparatorGroup> > > separator_groups,
+    Teuchos::RCP<Teuchos::Array<InteriorGroup> > interior_groups,
+    Teuchos::RCP<Teuchos::Array<Teuchos::Array<SeparatorGroup> > > separator_groups,
     std::string label, int level);
   
   //! \name private member functions

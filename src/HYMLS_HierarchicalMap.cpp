@@ -43,7 +43,8 @@ HierarchicalMap::HierarchicalMap(
   Teuchos::RCP<const Epetra_Map> overlappingMap,
   Teuchos::RCP<Teuchos::Array< Teuchos::Array<hymls_gidx> > > groupPointer,
   Teuchos::RCP<Teuchos::Array< Teuchos::Array<hymls_gidx> > > gidList,
-  Teuchos::RCP<Teuchos::Array< Teuchos::Array<SeparatorGroup> > > separator_groups,
+  Teuchos::RCP<Teuchos::Array<InteriorGroup> > interior_groups,
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<SeparatorGroup> > > separator_groups,
   std::string label, int level)
   :
   label_(label),
@@ -53,6 +54,7 @@ HierarchicalMap::HierarchicalMap(
   overlappingMap_(overlappingMap),
   groupPointer_(groupPointer),
   gidList_(gidList),
+  interior_groups_(interior_groups),
   separator_groups_(separator_groups)
   {
   HYMLS_LPROF2(label_,"HierarchicalMap Constructor");
@@ -514,7 +516,7 @@ HierarchicalMap::SpawnInterior() const
     }
 
   newObject = Teuchos::rcp(new HierarchicalMap(newMap, newMap,
-      newGroupPointer, gidList_, Teuchos::null, "Interior Nodes",myLevel_) );
+      newGroupPointer, gidList_, interior_groups_, Teuchos::null, "Interior Nodes",myLevel_) );
 
   return newObject;
   }
@@ -582,7 +584,7 @@ HierarchicalMap::SpawnSeparators() const
       localGIDs.getRawPtr(), (hymls_gidx)baseMap_->IndexBase64(), Comm()));
 
   newObject = Teuchos::rcp(new HierarchicalMap(newMap, newOverlappingMap,
-      newGroupPointer, newGidList, new_separator_groups, "Separator Nodes", myLevel_));
+      newGroupPointer, newGidList, Teuchos::null, new_separator_groups, "Separator Nodes", myLevel_));
 
   return newObject;
 
@@ -632,7 +634,7 @@ HierarchicalMap::SpawnLocalSeparators() const
     }
 
   newObject = Teuchos::rcp(new HierarchicalMap(sepObject->GetMap(), sepObject->GetMap(),
-      newGroupPointer, newGidList, new_separator_groups, "Local Separator Nodes", myLevel_));
+      newGroupPointer, newGidList, Teuchos::null, new_separator_groups, "Local Separator Nodes", myLevel_));
 
   return newObject;
   }
