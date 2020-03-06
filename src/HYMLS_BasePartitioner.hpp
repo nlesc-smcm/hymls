@@ -16,6 +16,7 @@ class ParameterList;
 
 namespace HYMLS {
 
+class InteriorGroup;
 class SeparatorGroup;
 
 /*! Base class for partitioning in HYMLS - on this
@@ -57,7 +58,7 @@ public:
   virtual int Partition(bool repart) = 0;
 
   //! Get interior and separator groups of the subdomain sd
-  virtual int GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior_nodes,
+  virtual int GetGroups(int sd, InteriorGroup &interior_group,
     Teuchos::Array<SeparatorGroup> &separator_groups) const = 0;
 
   //! get number of local partitions

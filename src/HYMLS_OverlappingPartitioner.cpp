@@ -6,6 +6,7 @@
 #include "HYMLS_BasePartitioner.hpp"
 #include "HYMLS_Macros.hpp"
 
+#include "HYMLS_InteriorGroup.hpp"
 #include "HYMLS_SeparatorGroup.hpp"
 #include "HYMLS_CartesianPartitioner.hpp"
 #include "HYMLS_SkewCartesianPartitioner.hpp"
@@ -121,20 +122,17 @@ int OverlappingPartitioner::DetectSeparators(Teuchos::RCP<const BasePartitioner>
   {
   HYMLS_PROF2(Label(),"DetectSeparators");
 
-  // nodes to be eliminated exactly in the next step
-  Teuchos::Array<hymls_gidx> interior_nodes;
-  // separator nodes
-  Teuchos::Array<SeparatorGroup> separator_groups;
-
   for (int sd = 0; sd < partitioner->NumLocalParts(); sd++)
     {
-    interior_nodes.resize(0);
-    separator_groups.resize(0);
+    // nodes to be eliminated exactly in the next step
+    InteriorGroup interior_group;
+    // separator nodes
+    Teuchos::Array<SeparatorGroup> separator_groups;
 
-    CHECK_ZERO(partitioner->GetGroups(sd, interior_nodes, separator_groups));
+    CHECK_ZERO(partitioner->GetGroups(sd, interior_group, separator_groups));
 
-    std::sort(interior_nodes.begin(), interior_nodes.end());
-    AddGroup(sd, interior_nodes);
+    std::sort(interior_group.nodes().begin(), interior_group.nodes().end());
+    AddGroup(sd, interior_group.nodes());
 
     for (auto &group: separator_groups)
       {

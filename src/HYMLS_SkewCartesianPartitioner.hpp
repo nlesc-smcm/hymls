@@ -16,6 +16,7 @@ template <typename T> class Array;
 
 namespace HYMLS {
 
+class InteriorGroup;
 class SeparatorGroup;
 
 class SkewCartesianPartitioner : public BasePartitioner
@@ -69,7 +70,7 @@ protected:
 public:
 
   //! Get interior and separator groups of the subdomain sd
-  int GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior_nodes,
+  int GetGroups(int sd, InteriorGroup &interior_group,
     Teuchos::Array<SeparatorGroup> &separator_groups) const;
 
   //! is this class fully set up?

@@ -653,15 +653,13 @@ int SkewCartesianPartitioner::solveGroups()
   return 0;
   }
 
-int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior_nodes,
+int SkewCartesianPartitioner::GetGroups(int sd, InteriorGroup &interior_group,
   Teuchos::Array<SeparatorGroup> &separator_groups) const
   {
   HYMLS_PROF3(label_,"GetGroups");
 
-  interior_nodes.clear();
+  interior_group.nodes().clear();
   separator_groups.clear();
-
-  InteriorGroup interior_group;
 
   int gsd = sdMap_->GID(sd);
 
@@ -798,8 +796,6 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &inte
 
   // Sort the interior since there may now be new nodes at the back
   std::sort(interior_group.nodes().begin(), interior_group.nodes().end());
-
-  interior_nodes = interior_group.nodes();
 
   return 0;
   }

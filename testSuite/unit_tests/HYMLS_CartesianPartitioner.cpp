@@ -10,6 +10,7 @@
 #include "HYMLS_UnitTests.hpp"
 #include "HYMLS_FakeComm.hpp"
 #include "HYMLS_Tools.hpp"
+#include "HYMLS_InteriorGroup.hpp"
 #include "HYMLS_SeparatorGroup.hpp"
 
 TEUCHOS_UNIT_TEST(CartesianPartitioner, Partition2D)
@@ -88,11 +89,11 @@ TEUCHOS_UNIT_TEST(CartesianPartitioner, 5DOFNodes)
   std::vector<hymls_gidx> gids(n, 0);
   for (int sd = 0; sd < part.NumLocalParts(); sd++)
     {
-    Teuchos::Array<hymls_gidx> interior_nodes;
+    HYMLS::InteriorGroup interior_group;
     Teuchos::Array<HYMLS::SeparatorGroup> separator_groups;
-    part.GetGroups(sd, interior_nodes, separator_groups);
+    part.GetGroups(sd, interior_group, separator_groups);
 
-    for (hymls_gidx &i: interior_nodes)
+    for (hymls_gidx &i: interior_group.nodes())
       gids[i] = i;
 
     for (auto &group: separator_groups)
@@ -175,13 +176,13 @@ TEUCHOS_UNIT_TEST(CartesianPartitioner, GID64)
   HYMLS::CartesianPartitioner part(Teuchos::null, params, *comm);
   TEST_MAYTHROW(part.Partition(false));
 
-  Teuchos::Array<hymls_gidx> interior_nodes;
+  HYMLS::InteriorGroup interior_group;
   Teuchos::Array<HYMLS::SeparatorGroup> separator_groups;
-  part.GetGroups(part.NumLocalParts()-1, interior_nodes, separator_groups);
+  part.GetGroups(part.NumLocalParts()-1, interior_group, separator_groups);
 
   ENABLE_OUTPUT;
 
   long long last = part.Map().NumGlobalElements64() - 1;
-  TEST_EQUALITY(interior_nodes.back(), last);
+  TEST_EQUALITY(interior_group.nodes().back(), last);
   }
 #endif
