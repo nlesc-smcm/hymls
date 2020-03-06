@@ -2,6 +2,8 @@
 
 #include "HYMLS_CartesianPartitioner.hpp"
 #include "HYMLS_SkewCartesianPartitioner.hpp"
+#include "HYMLS_InteriorGroup.hpp"
+#include "HYMLS_SeparatorGroup.hpp"
 
 #include <Teuchos_RCP.hpp>
 #include <Teuchos_ParameterList.hpp>
@@ -21,23 +23,23 @@
 #define FOR_EACH_6(FUN, X, ...) FUN(X) FOR_EACH_5(FUN, __VA_ARGS__)
 
 #define GET_MACRO(ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, NAME, ...) NAME
-#define FOR_EACH(FUN, ...) \
-  GET_MACRO(__VA_ARGS__, FOR_EACH_6, FOR_EACH_5, FOR_EACH_4, FOR_EACH_3,\
+#define FOR_EACH(FUN, ...)                                              \
+  GET_MACRO(__VA_ARGS__, FOR_EACH_6, FOR_EACH_5, FOR_EACH_4, FOR_EACH_3, \
     FOR_EACH_2, FOR_EACH_1)(FUN, __VA_ARGS__)
 
 #define ASSIGN_DATA_MEMBER(X) this->X = X;
 #define DECLARE_DATA_MEMBER(X) int X;
 #define FUNCTION_ARGUMENT(X) ,int X
 
-#define TEUCHOS_UNIT_TEST_DECL(TEST_GROUP, TEST_NAME, FIRST, ...)        \
+#define TEUCHOS_UNIT_TEST_DECL(TEST_GROUP, TEST_NAME, FIRST, ...)       \
   class TEST_GROUP##_##TEST_NAME##_UnitTest : public Teuchos::UnitTestBase \
     {                                                                   \
-    FOR_EACH(DECLARE_DATA_MEMBER, FIRST, __VA_ARGS__);                   \
+    FOR_EACH(DECLARE_DATA_MEMBER, FIRST, __VA_ARGS__);                  \
     public:                                                             \
     TEST_GROUP##_##TEST_NAME##_UnitTest(int FIRST FOR_EACH(FUNCTION_ARGUMENT, __VA_ARGS__)) \
       : Teuchos::UnitTestBase( #TEST_GROUP, #TEST_NAME )                \
       {                                                                 \
-      FOR_EACH(ASSIGN_DATA_MEMBER, FIRST, __VA_ARGS__);                  \
+      FOR_EACH(ASSIGN_DATA_MEMBER, FIRST, __VA_ARGS__);                 \
       }                                                                 \
     virtual void runUnitTestImpl( Teuchos::FancyOStream &out, bool &success ) const; \
     virtual std::string unitTestFile() const { return __FILE__; }       \
@@ -48,161 +50,165 @@
     Teuchos::FancyOStream &out, bool &success ) const                   \
 
 
-#define TEUCHOS_UNIT_TEST_INST(TEST_GROUP, TEST_NAME, NUM, ...)          \
+#define TEUCHOS_UNIT_TEST_INST(TEST_GROUP, TEST_NAME, NUM, ...)         \
   TEST_GROUP##_##TEST_NAME##_UnitTest                                   \
   instance_##TEST_GROUP##_##TEST_NAME##_##NUM##_UnitTest(__VA_ARGS__);
 
-TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Laplace2D, nx, ny, sx, sy)
+      TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Laplace2D, nx, ny, sx, sy)
+        {
+Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
+
+DISABLE_OUTPUT;
+
+int nsx = nx / sx;
+int nsy = ny / sy;
+
+int dof = 1;
+
+Teuchos::RCP<Teuchos::ParameterList> paramList = Teuchos::rcp(new Teuchos::ParameterList);
+Teuchos::ParameterList &problemList = paramList->sublist("Problem");
+problemList.set("nx", nx);
+problemList.set("ny", ny);
+problemList.set("nz", 1);
+
+problemList.set("Dimension", 2);
+problemList.set("Degrees of Freedom", dof);
+
+Teuchos::ParameterList &solverList = paramList->sublist("Preconditioner");
+solverList.set("Separator Length (x)", sx);
+solverList.set("Separator Length (y)", sy);
+solverList.set("Coarsening Factor", 2);
+
+Teuchos::RCP<HYMLS::CartesianPartitioner> part = Teuchos::rcp(
+  new HYMLS::CartesianPartitioner(Teuchos::null, paramList, *Comm));
+part->Partition(true);
+Teuchos::RCP<const Epetra_Map> map = part->GetMap();
+HYMLS::OverlappingPartitioner opart(map, paramList, 0);
+
+ENABLE_OUTPUT;
+for (int sd = 0; sd < opart.NumMySubdomains(); sd++)
   {
-  Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
+  int gsd = part->SubdomainMap().GID(sd);
+  hymls_gidx substart = gsd % nsx * nx / nsx * dof +
+    gsd / nsx * ny / nsy * dof * nx;
 
-  DISABLE_OUTPUT;
+  // Compute the number of groups we expect
+  std::vector<int> isGroup(9, 1);
 
-  int nsx = nx / sx;
-  int nsy = ny / sy;
-
-  int dof = 1;
-
-  Teuchos::RCP<Teuchos::ParameterList> paramList = Teuchos::rcp(new Teuchos::ParameterList);
-  Teuchos::ParameterList &problemList = paramList->sublist("Problem");
-  problemList.set("nx", nx);
-  problemList.set("ny", ny);
-  problemList.set("nz", 1);
-
-  problemList.set("Dimension", 2);
-  problemList.set("Degrees of Freedom", dof);
-
-  Teuchos::ParameterList &solverList = paramList->sublist("Preconditioner");
-  solverList.set("Separator Length (x)", sx);
-  solverList.set("Separator Length (y)", sy);
-  solverList.set("Coarsening Factor", 2);
-
-  Teuchos::RCP<HYMLS::CartesianPartitioner> part = Teuchos::rcp(
-    new HYMLS::CartesianPartitioner(Teuchos::null, paramList, *Comm));
-  part->Partition(true);
-  Teuchos::RCP<const Epetra_Map> map = part->GetMap();
-  HYMLS::OverlappingPartitioner opart(map, paramList, 0);
-
-  ENABLE_OUTPUT;
-  for (int sd = 0; sd < opart.NumMySubdomains(); sd++)
+  // Right
+  if ((gsd + 1) % nsx == 0)
     {
-    int gsd = part->SubdomainMap().GID(sd);
-    hymls_gidx substart = gsd % nsx * nx / nsx * dof +
-      gsd / nsx * ny / nsy * dof * nx;
+    isGroup[2] = 0;
+    isGroup[5] = 0;
+    isGroup[8] = 0;
+    }
+  // Bottom
+  if (gsd / nsx == nsy - 1)
+    {
+    isGroup[6] = 0;
+    isGroup[7] = 0;
+    isGroup[8] = 0;
+    }
+  // Left
+  if (gsd % nsx == 0)
+    {
+    isGroup[0] = 0;
+    isGroup[3] = 0;
+    isGroup[6] = 0;
+    }
+  // Top
+  if (gsd / nsx == 0)
+    {
+    isGroup[0] = 0;
+    isGroup[1] = 0;
+    isGroup[2] = 0;
+    }
+  int numGroups = std::accumulate(isGroup.begin(), isGroup.end(), 0);
 
-    // Compute the number of groups we expect
-    std::vector<int> isGroup(9, 1);
+  TEST_EQUALITY(opart.NumGroups(sd), numGroups);
 
-    // Right
-    if ((gsd + 1) % nsx == 0)
+  HYMLS::InteriorGroup const &group = opart.GetInteriorGroup(sd);
+  if ((gsd + 1) % nsx == 0 && gsd / nsx == nsy - 1)
+    {
+    TEST_EQUALITY(group.length(), sx * sy);
+    for (int i = 0; i < group.length(); i++)
       {
-      isGroup[2] = 0;
-      isGroup[5] = 0;
-      isGroup[8] = 0;
+      hymls_gidx gid = group.nodes()[i];
+      TEST_EQUALITY(gid, substart + i % sx + i / sx * nx);
       }
-    // Bottom
-    if (gsd / nsx == nsy - 1)
+    }
+  else if ((gsd + 1) % nsx == 0)
+    {
+    TEST_EQUALITY(group.length(), sx * (sy-1));
+    for (int i = 0; i < group.length(); i++)
       {
-      isGroup[6] = 0;
-      isGroup[7] = 0;
-      isGroup[8] = 0;
+      hymls_gidx gid = group.nodes()[i];
+      TEST_EQUALITY(gid, substart + i % sx + i / sx * nx);
       }
-    // Left
-    if (gsd % nsx == 0)
+    }
+  else if (gsd / nsx == nsy - 1)
+    {
+    TEST_EQUALITY(group.length(), sy * (sx-1));
+    for (int i = 0; i < group.length(); i++)
       {
-      isGroup[0] = 0;
-      isGroup[3] = 0;
-      isGroup[6] = 0;
+      hymls_gidx gid = group.nodes()[i];
+      TEST_EQUALITY(gid, substart + i % (sx-1) + i / (sx-1) * nx);
       }
-    // Top
-    if (gsd / nsx == 0)
+    }
+  else
+    {
+    TEST_EQUALITY(group.length(), (sx-1) * (sy-1));
+    for (int i = 0; i < group.length(); i++)
       {
-      isGroup[0] = 0;
-      isGroup[1] = 0;
-      isGroup[2] = 0;
+      hymls_gidx gid = group.nodes()[i];
+      TEST_EQUALITY(gid, substart + i % (sx-1) + i / (sx-1) * nx);
       }
-    int numGroups = std::accumulate(isGroup.begin(), isGroup.end(), 0);
+    }
 
-    TEST_EQUALITY(opart.NumGroups(sd), numGroups);
-
-    for (int grp = 0; grp < opart.NumGroups(sd); grp++)
+  for (HYMLS::SeparatorGroup const &group: opart.GetSeparatorGroups(sd))
+    {
+    if (group.nodes()[0] == substart - nx || group.nodes()[0] == substart + nx * (sy - 1))
       {
-      if (grp == 0)
+      // Top or bottom border
+      if ((gsd + 1) % nsx == 0)
         {
-        // Interior
-        if ((gsd + 1) % nsx == 0 && gsd / nsx == nsy - 1)
-          {
-          TEST_EQUALITY(opart.NumElements(sd, grp), sx * sy);
-          for (int i = 0; i < opart.NumElements(sd, grp); i++)
-            {
-            TEST_EQUALITY(opart.GID(sd, grp, i), substart + i % sx + i / sx * nx);
-            }
-          }
-        else if ((gsd + 1) % nsx == 0)
-          {
-          TEST_EQUALITY(opart.NumElements(sd, grp), sx * (sy-1));
-          for (int i = 0; i < opart.NumElements(sd, grp); i++)
-            {
-            TEST_EQUALITY(opart.GID(sd, grp, i), substart + i % sx + i / sx * nx);
-            }
-          }
-        else if (gsd / nsx == nsy - 1)
-          {
-          TEST_EQUALITY(opart.NumElements(sd, grp), sy * (sx-1));
-          for (int i = 0; i < opart.NumElements(sd, grp); i++)
-            {
-            TEST_EQUALITY(opart.GID(sd, grp, i), substart + i % (sx-1) + i / (sx-1) * nx);
-            }
-          }
-        else
-          {
-          TEST_EQUALITY(opart.NumElements(sd, grp), (sx-1) * (sy-1));
-          for (int i = 0; i < opart.NumElements(sd, grp); i++)
-            {
-            TEST_EQUALITY(opart.GID(sd, grp, i), substart + i % (sx-1) + i / (sx-1) * nx);
-            }
-          }
-        }
-      else if (opart.GID(sd, grp, 0) == substart - nx || opart.GID(sd, grp, 0) == substart + nx * (sy - 1))
-        {
-        // Top or bottom border
-        if ((gsd + 1) % nsx == 0)
-          {
-          TEST_EQUALITY(opart.NumElements(sd, grp), sx);
-          }
-        else
-          {
-          TEST_EQUALITY(opart.NumElements(sd, grp), sx - 1);
-          }
-        for (int i = 0; i < opart.NumElements(sd, grp); i++)
-          {
-          TEST_EQUALITY(opart.GID(sd, grp, i), opart.GID(sd, grp, 0) + i);
-          }
-        }
-      else if (opart.GID(sd, grp, 0) == substart + sx - 1 || opart.GID(sd, grp, 0) == substart - 1)
-        {
-        // Left or right border
-        if (gsd / nsx == nsy - 1)
-          {
-          TEST_EQUALITY(opart.NumElements(sd, grp), sy);
-          }
-        else
-          {
-          TEST_EQUALITY(opart.NumElements(sd, grp), sy - 1);
-          }
-        for (int i = 0; i < opart.NumElements(sd, grp); i++)
-          {
-          TEST_EQUALITY(opart.GID(sd, grp, i), opart.GID(sd, grp, 0) + i * nx);
-          }
+        TEST_EQUALITY(group.length(), sx);
         }
       else
         {
-        // Corner
-        TEST_EQUALITY(opart.NumElements(sd, grp), 1);
+        TEST_EQUALITY(group.length(), sx - 1);
         }
+      for (int i = 0; i < group.length(); i++)
+        {
+        hymls_gidx gid = group.nodes()[i];
+        TEST_EQUALITY(gid, group.nodes()[0] + i);
+        }
+      }
+    else if (group.nodes()[0] == substart + sx - 1 || group.nodes()[0] == substart - 1)
+      {
+      // Left or right border
+      if (gsd / nsx == nsy - 1)
+        {
+        TEST_EQUALITY(group.length(), sy);
+        }
+      else
+        {
+        TEST_EQUALITY(group.length(), sy - 1);
+        }
+      for (int i = 0; i < group.length(); i++)
+        {
+        hymls_gidx gid = group.nodes()[i];
+        TEST_EQUALITY(gid, group.nodes()[0] + i * nx);
+        }
+      }
+    else
+      {
+      // Corner
+      TEST_EQUALITY(group.length(), 1);
       }
     }
   }
+        }
 
 TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, Laplace2D, 1, 8, 8, 4, 4);
 TEUCHOS_UNIT_TEST_INST(OverlappingPartitioner, Laplace2D, 2, 16, 16, 4, 4);
@@ -296,29 +302,27 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Laplace3D, nx, ny, nz, sx, sy, sz
 
     TEST_EQUALITY(opart.NumGroups(sd), numGroups);
 
-    int totalNodes = 0;
-    for (int grp = 0; grp < opart.NumGroups(sd); grp++)
+    HYMLS::InteriorGroup const &group = opart.GetInteriorGroup(sd);
+    if (isGroup[14] == 0 && isGroup[16] == 0 && isGroup[22] == 0)
       {
-      totalNodes += opart.NumElements(sd, grp);
-      if (grp == 0)
+      // Right back bottom
+      TEST_EQUALITY(group.length(), sx * sy * sz);
+      for (int i = 0; i < group.length(); i++)
         {
-        // Interior
-        if (isGroup[14] == 0 && isGroup[16] == 0 && isGroup[22] == 0)
-          {
-          // Right back bottom
-          TEST_EQUALITY(opart.NumElements(sd, grp), sx * sy * sz);
-          for (int i = 0; i < opart.NumElements(sd, grp); i++)
-            {
-            TEST_EQUALITY(opart.GID(sd, grp, i), substart + i % sx + ((i / sx) % sy) * nx + i / (sx * sy) * nx * ny);
-            }
-          }
-        else if (numGroups == 27)
-          {
-          // Center
-          TEST_EQUALITY(opart.NumElements(sd, grp), (sx-1) * (sy-1) * (sz-1));
-          }
+        hymls_gidx gid = group.nodes()[i];
+        TEST_EQUALITY(gid, substart + i % sx + ((i / sx) % sy) * nx + i / (sx * sy) * nx * ny);
         }
       }
+    else if (numGroups == 27)
+      {
+      // Center
+      TEST_EQUALITY(group.length(), (sx-1) * (sy-1) * (sz-1));
+      }
+
+    int totalNodes = group.length();
+    for (HYMLS::SeparatorGroup const &group: opart.GetSeparatorGroups(sd))
+      totalNodes += group.length();
+
     if (numGroups == 27)
       {
       TEST_EQUALITY(totalNodes, sx * sy * sz + (sx + 1) * (sy + 1) + (sx + 1) * sz + sy * sz);
@@ -420,103 +424,106 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Stokes2D, nx, ny, sx, sy)
 
     TEST_EQUALITY(opart.NumGroups(sd), numGroups);
 
-    for (int grp = 0; grp < opart.NumGroups(sd); grp++)
+    HYMLS::InteriorGroup const &group = opart.GetInteriorGroup(sd);
+    if ((gsd + 1) % nsx == 0 && gsd / nsx == nsy - 1)
       {
-      if (grp == 0)
-        {
-        // Interior
-        if ((gsd + 1) % nsx == 0 && gsd / nsx == nsy - 1)
-          {
-          TEST_EQUALITY(opart.NumElements(sd, grp), sx * sy * dof - 1);
-          int pos = 0;
-          for (int y = 0; y < sy; y++)
-            for (int x = 0; x < sx; x++)
-              for (int d = 0; d < dof; d++)
-                if (!(d == 2 && pos == 2) && !(d == 2 && x == sx-1 && y == sy-1))
-                  {
-                  int gid = opart.GID(sd, grp, pos++);
-                  TEST_EQUALITY(gid, substart + x * dof + y * nx * dof + d);
-                  }
-          }
-        else if ((gsd + 1) % nsx == 0)
-          {
-          TEST_EQUALITY(opart.NumElements(sd, grp), sx * (sy-1) * 2 + sx * sy - 1);
-          int pos = 0;
-          for (int y = 0; y < sy; y++)
-            for (int x = 0; x < sx; x++)
-              for (int d = 0; d < dof; d++)
-                if (((x < sx && y < sy - 1) || d == 2)
-                  && !(d == 2 && pos == 2) && !(d == 2 && x == sx-1 && y == sy-1))
-                  {
-                  int gid = opart.GID(sd, grp, pos++);
-                  TEST_EQUALITY(gid, substart + x * dof + y * nx * dof + d);
-                  }
-          }
-        else if (gsd / nsx == nsy - 1)
-          {
-          TEST_EQUALITY(opart.NumElements(sd, grp), sy * (sx-1) * 2 + sx * sy - 1);
-          int pos = 0;
-          for (int y = 0; y < sy; y++)
-            for (int x = 0; x < sx; x++)
-              for (int d = 0; d < dof; d++)
-                if (((x < sx - 1 && y < sy) || d == 2)
-                  && !(d == 2 && pos == 2) && !(d == 2 && x == sx-1 && y == sy-1))
-                  {
-                  int gid = opart.GID(sd, grp, pos++);
-                  TEST_EQUALITY(gid, substart + x * dof + y * nx * dof + d);
-                  }
-          }
-        else
-          {
-          TEST_EQUALITY(opart.NumElements(sd, grp), (sx-1) * (sy-1) * 2 + sx * sy - 2);
-          int pos = 0;
-          for (int y = 0; y < sy; y++)
-            for (int x = 0; x < sx; x++)
-              for (int d = 0; d < dof; d++)
-                if (((x < sx - 1 && y < sy - 1) || d == 2)
-                  && !(d == 2 && pos == 2) && !(d == 2 && x == sx-1 && y == sy-1))
-                  {
-                  int gid = opart.GID(sd, grp, pos++);
-                  TEST_EQUALITY(gid, substart + x * dof + y * nx * dof + d);
-                  }
-          }
-        }
-      else if (opart.GID(sd, grp, 0) / dof == substart / dof - nx || opart.GID(sd, grp, 0) / dof == substart / dof + nx * (sx - 1))
+      TEST_EQUALITY(group.length(), sx * sy * dof - 1);
+      int pos = 0;
+      for (int y = 0; y < sy; y++)
+        for (int x = 0; x < sx; x++)
+          for (int d = 0; d < dof; d++)
+            if (!(d == 2 && pos == 2) && !(d == 2 && x == sx-1 && y == sy-1))
+              {
+              int gid = group.nodes()[pos];
+              pos++;
+              TEST_EQUALITY(gid, substart + x * dof + y * nx * dof + d);
+              }
+      }
+    else if ((gsd + 1) % nsx == 0)
+      {
+      TEST_EQUALITY(group.length(), sx * (sy-1) * 2 + sx * sy - 1);
+      int pos = 0;
+      for (int y = 0; y < sy; y++)
+        for (int x = 0; x < sx; x++)
+          for (int d = 0; d < dof; d++)
+            if (((x < sx && y < sy - 1) || d == 2)
+              && !(d == 2 && pos == 2) && !(d == 2 && x == sx-1 && y == sy-1))
+              {
+              int gid = group.nodes()[pos];
+              pos++;
+              TEST_EQUALITY(gid, substart + x * dof + y * nx * dof + d);
+              }
+      }
+    else if (gsd / nsx == nsy - 1)
+      {
+      TEST_EQUALITY(group.length(), sy * (sx-1) * 2 + sx * sy - 1);
+      int pos = 0;
+      for (int y = 0; y < sy; y++)
+        for (int x = 0; x < sx; x++)
+          for (int d = 0; d < dof; d++)
+            if (((x < sx - 1 && y < sy) || d == 2)
+              && !(d == 2 && pos == 2) && !(d == 2 && x == sx-1 && y == sy-1))
+              {
+              int gid = group.nodes()[pos];
+              pos++;
+              TEST_EQUALITY(gid, substart + x * dof + y * nx * dof + d);
+              }
+      }
+    else
+      {
+      TEST_EQUALITY(group.length(), (sx-1) * (sy-1) * 2 + sx * sy - 2);
+      int pos = 0;
+      for (int y = 0; y < sy; y++)
+        for (int x = 0; x < sx; x++)
+          for (int d = 0; d < dof; d++)
+            if (((x < sx - 1 && y < sy - 1) || d == 2)
+              && !(d == 2 && pos == 2) && !(d == 2 && x == sx-1 && y == sy-1))
+              {
+              int gid = group.nodes()[pos];
+              pos++;
+              TEST_EQUALITY(gid, substart + x * dof + y * nx * dof + d);
+              }
+      }
+    for (HYMLS::SeparatorGroup const &group: opart.GetSeparatorGroups(sd))
+      {
+      if (group.nodes()[0] / dof == substart / dof - nx || group.nodes()[0] / dof == substart / dof + nx * (sx - 1))
         {
         // Right border
         if ((gsd + 1) % nsx == 0)
           {
-          TEST_EQUALITY(opart.NumElements(sd, grp), sx);
+          TEST_EQUALITY(group.length(), sx);
           }
         else
           {
-          TEST_EQUALITY(opart.NumElements(sd, grp), sx - 1);
+          TEST_EQUALITY(group.length(), sx - 1);
           }
-        for (int i = 0; i < opart.NumElements(sd, grp); i++)
+        for (int i = 0; i < group.length(); i++)
           {
-          TEST_EQUALITY(opart.GID(sd, grp, i), opart.GID(sd, grp, 0) + i * dof);
+          hymls_gidx gid = group.nodes()[i];
+          TEST_EQUALITY(gid, group.nodes()[0] + i * dof);
           }
         }
-      else if (opart.GID(sd, grp, 0) / dof == substart / dof + sy - 1 || opart.GID(sd, grp, 0) / dof == substart / dof - 1)
+      else if (group.nodes()[0] / dof == substart / dof + sy - 1 || group.nodes()[0] / dof == substart / dof - 1)
         {
         // Bottom border
         if (gsd / nsx == nsy - 1)
           {
-          TEST_EQUALITY(opart.NumElements(sd, grp), sy);
+          TEST_EQUALITY(group.length(), sy);
           }
         else
           {
-          TEST_EQUALITY(opart.NumElements(sd, grp), sy - 1);
+          TEST_EQUALITY(group.length(), sy - 1);
           }
-        for (int i = 0; i < opart.NumElements(sd, grp); i++)
+        for (int i = 0; i < group.length(); i++)
           {
-          TEST_EQUALITY(opart.GID(sd, grp, i), opart.GID(sd, grp, 0) + i * nx * dof);
+          hymls_gidx gid = group.nodes()[i];
+          TEST_EQUALITY(gid, group.nodes()[0] + i * nx * dof);
           }
         }
       else
         {
         // Corner
-        TEST_EQUALITY(opart.NumElements(sd, grp), 1);
+        TEST_EQUALITY(group.length(), 1);
         }
       }
     }
@@ -624,36 +631,33 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Stokes3D, nx, ny, nz, sx, sy, sz)
 
     TEST_EQUALITY(opart.NumGroups(sd), numGroups);
 
-    int totalNodes = 0;
-    for (int grp = 0; grp < opart.NumGroups(sd); grp++)
+    HYMLS::InteriorGroup const &group = opart.GetInteriorGroup(sd);
+    if (isGroup[14] == 0 && isGroup[16] == 0 && isGroup[22] == 0)
       {
-      totalNodes += opart.NumElements(sd, grp);
-      if (grp == 0)
+      // Right back bottom
+      TEST_EQUALITY(group.length(), sx * sy * sz * dof - 1);
+      int pos = 0;
+      for (int i = 0; i < group.length() / dof; i++)
         {
-        // Interior
-        if (isGroup[14] == 0 && isGroup[16] == 0 && isGroup[22] == 0)
+        for (int d = 0; d < dof; d++)
           {
-          // Right back bottom
-          TEST_EQUALITY(opart.NumElements(sd, grp), sx * sy * sz * dof - 1);
-          int pos = 0;
-          for (int i = 0; i < opart.NumElements(sd, grp) / dof; i++)
-            {
-            for (int d = 0; d < dof; d++)
-              {
-              if (d == 3 && pos == 3)
-                continue;
-              TEST_EQUALITY(opart.GID(sd, grp, pos), substart + (i % sx) * dof + ((i / sx) % sy) * nx * dof + i / (sx * sy) * nx * ny * dof + d);
-              pos++;
-              }
-            }
-          }
-        else if (numGroups == 27 * 3 - 2 + 1 + 4)
-          {
-          // Center
-          TEST_EQUALITY(opart.NumElements(sd, grp), (sx-1) * (sy-1) * (sz-1) * dof - 1 + (sx-1) * (sy-1) + (sx-1) * (sz-1) + (sy-1) * (sz-1));
+          if (d == 3 && pos == 3)
+            continue;
+          TEST_EQUALITY(group.nodes()[pos], substart + (i % sx) * dof + ((i / sx) % sy) * nx * dof + i / (sx * sy) * nx * ny * dof + d);
+          pos++;
           }
         }
       }
+    else if (numGroups == 27 * 3 - 2 + 1 + 4)
+      {
+      // Center
+      TEST_EQUALITY(group.length(), (sx-1) * (sy-1) * (sz-1) * dof - 1 + (sx-1) * (sy-1) + (sx-1) * (sz-1) + (sy-1) * (sz-1));
+      }
+
+    int totalNodes = group.length();
+    for (HYMLS::SeparatorGroup const &group: opart.GetSeparatorGroups(sd))
+      totalNodes += group.length();
+
     if (numGroups == 27 * 3 - 2 + 1 + 4)
       {
       TEST_EQUALITY(totalNodes, sx * sy * sz * dof + ((sx + 1) * (sy + 1) + (sx + 1) * sz + sy * sz) * (dof-1));
@@ -747,122 +751,122 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewLaplace2D, nx, ny, sx, sy)
 
     TEST_EQUALITY(opart.NumGroups(sd), numGroups);
 
-    for (int grp = 0; grp < opart.NumGroups(sd); grp++)
+    HYMLS::InteriorGroup const &group = opart.GetInteriorGroup(sd);
+    if (gsd % nsx == nsx / 2 * 2)
       {
-      if (grp == 0)
+      // Right
+      TEST_EQUALITY(group.length(), osx * osy);
+      int m = 0;
+      int pos = 0;
+      for (int j = 0; j < osx * 2 - 1; j++)
         {
-        // Interior
-        if (gsd % nsx == nsx / 2 * 2)
+        for (int i = -m; i <= 0; i++)
           {
-          // Right
-          TEST_EQUALITY(opart.NumElements(sd, grp), osx * osy);
-          int m = 0;
-          int pos = 0;
-          for (int j = 0; j < osx * 2 - 1; j++)
-            {
-            for (int i = -m; i <= 0; i++)
-              {
-              TEST_EQUALITY(opart.GID(sd, grp, pos), substart + i + j * nx);
-              pos++;
-              }
-            if (j < osx - 1)
-              m++;
-            else
-              m--;
-            }
+          TEST_EQUALITY(group.nodes()[pos], substart + i + j * nx);
+          pos++;
           }
-        else if (gsd > (nsl - nsx / 2 - 1))
-          {
-          // Bottom
-          TEST_EQUALITY(opart.NumElements(sd, grp), osy * osx);
-          int m = 0;
-          int pos = 0;
-          for (int j = 0; j < osx; j++)
-            {
-            for (int i = -m; i <= m; i++)
-              {
-              TEST_EQUALITY(opart.GID(sd, grp, pos), substart + i + j * nx);
-              pos++;
-              }
-            m++;
-            }
-          }
-        else if (gsd % nsx == nsx / 2)
-          {
-          // Left
-          TEST_EQUALITY(opart.NumElements(sd, grp), osy * osx - osx - (osx - 1));
-          int m = 1;
-          int pos = 0;
-          for (int j = 0; j < osx * 2 - 1; j++)
-            {
-            for (int i = 1; i < m; i++)
-              {
-              TEST_EQUALITY(opart.GID(sd, grp, pos), substart + i + j * nx);
-              pos++;
-              }
-            if (j < osx - 1)
-              m++;
-            else
-              m--;
-            }
-          }
-        else if (gsd < nsx / 2)
-          {
-          // Top
-          TEST_EQUALITY(opart.NumElements(sd, grp), osy * osx - osx - (osx - 1));
-          int m = osx - 2;
-          int pos = 0;
-          for (int j = 0; j < osx - 1; j++)
-            {
-            for (int i = -m; i <= m; i++)
-              {
-              TEST_EQUALITY(opart.GID(sd, grp, pos), substart + nx * osy + i + j * nx);
-              pos++;
-              }
-            m--;
-            }
-          }
+        if (j < osx - 1)
+          m++;
         else
-          {
-          TEST_EQUALITY(opart.NumElements(sd, grp), 2 * osx * osy - osx - (osx - 1));
-          int m = 0;
-          int pos = 0;
-          for (int j = 0; j < osx * 2 - 1; j++)
-            {
-            for (int i = -m; i <= m; i++)
-              {
-              TEST_EQUALITY(opart.GID(sd, grp, pos), substart + i + j * nx);
-              pos++;
-              }
-            if (j < osx - 1)
-              m++;
-            else
-              m--;
-            }
-          }
+          m--;
         }
-      else if (opart.GID(sd, grp, 0) == substart + dof || opart.GID(sd, grp, 0) == substart + nx * osy - osy + 1)
+      }
+    else if (gsd > (nsl - nsx / 2 - 1))
+      {
+      // Bottom
+      TEST_EQUALITY(group.length(), osy * osx);
+      int m = 0;
+      int pos = 0;
+      for (int j = 0; j < osx; j++)
+        {
+        for (int i = -m; i <= m; i++)
+          {
+          TEST_EQUALITY(group.nodes()[pos], substart + i + j * nx);
+          pos++;
+          }
+        m++;
+        }
+      }
+    else if (gsd % nsx == nsx / 2)
+      {
+      // Left
+      TEST_EQUALITY(group.length(), osy * osx - osx - (osx - 1));
+      int m = 1;
+      int pos = 0;
+      for (int j = 0; j < osx * 2 - 1; j++)
+        {
+        for (int i = 1; i < m; i++)
+          {
+          TEST_EQUALITY(group.nodes()[pos], substart + i + j * nx);
+          pos++;
+          }
+        if (j < osx - 1)
+          m++;
+        else
+          m--;
+        }
+      }
+    else if (gsd < nsx / 2)
+      {
+      // Top
+      TEST_EQUALITY(group.length(), osy * osx - osx - (osx - 1));
+      int m = osx - 2;
+      int pos = 0;
+      for (int j = 0; j < osx - 1; j++)
+        {
+        for (int i = -m; i <= m; i++)
+          {
+          TEST_EQUALITY(group.nodes()[pos], substart + nx * osy + i + j * nx);
+          pos++;
+          }
+        m--;
+        }
+      }
+    else
+      {
+      TEST_EQUALITY(group.length(), 2 * osx * osy - osx - (osx - 1));
+      int m = 0;
+      int pos = 0;
+      for (int j = 0; j < osx * 2 - 1; j++)
+        {
+        for (int i = -m; i <= m; i++)
+          {
+          TEST_EQUALITY(group.nodes()[pos], substart + i + j * nx);
+          pos++;
+          }
+        if (j < osx - 1)
+          m++;
+        else
+          m--;
+        }
+      }
+
+    for (HYMLS::SeparatorGroup const &group: opart.GetSeparatorGroups(sd))
+      {
+      if (group.nodes()[0] == substart + dof || group.nodes()[0] == substart + nx * osy - osy + 1)
         {
         // Top left to bottom right
-        TEST_EQUALITY(opart.NumElements(sd, grp), osy - 1);
-        for (int i = 0; i < opart.NumElements(sd, grp); i++)
+        TEST_EQUALITY(group.length(), osy - 1);
+        for (int i = 0; i < group.length(); i++)
           {
-          TEST_EQUALITY(opart.GID(sd, grp, i), opart.GID(sd, grp, 0) + i * (nx + 1));
+          hymls_gidx gid = group.nodes()[i];
+          TEST_EQUALITY(gid, group.nodes()[0] + i * (nx + 1));
           }
         }
-      else if (opart.GID(sd, grp, 0) == substart - dof || opart.GID(sd, grp, 0) == substart + nx * osy + osy - 1)
+      else if (group.nodes()[0] == substart - dof || group.nodes()[0] == substart + nx * osy + osy - 1)
         {
         // Top right to bottom left
-        TEST_EQUALITY(opart.NumElements(sd, grp), osy - 1);
-        for (int i = 0; i < opart.NumElements(sd, grp); i++)
+        TEST_EQUALITY(group.length(), osy - 1);
+        for (int i = 0; i < group.length(); i++)
           {
-          TEST_EQUALITY(opart.GID(sd, grp, i), opart.GID(sd, grp, 0) + i * (nx - 1));
+          hymls_gidx gid = group.nodes()[i];
+          TEST_EQUALITY(gid, group.nodes()[0] + i * (nx - 1));
           }
         }
       else
         {
         // Corner
-        TEST_EQUALITY(opart.NumElements(sd, grp), 1);
+        TEST_EQUALITY(group.length(), 1);
         }
       }
     }
@@ -970,205 +974,207 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes2D, nx, ny, sx, sy)
  
     TEST_EQUALITY(opart.NumGroups(sd), numGroups);
 
-    int totalNodes = 0;
-    for (int grp = 0; grp < opart.NumGroups(sd); grp++)
+    HYMLS::InteriorGroup const &group = opart.GetInteriorGroup(sd);
+    if (gsd % nsx == nsx / 2 * 2)
       {
-      totalNodes += opart.NumElements(sd, grp);
-      if (grp == 0)
+      // Right
+      TEST_EQUALITY(group.length(), osx * osy * 3 + osy + osy  - 1 + somewhatBottom);
+      int m = 0;
+      int pos = 0;
+      for (int j = 0; j < osx * 2 - 1; j++)
         {
-        // Interior
-        if (gsd % nsx == nsx / 2 * 2)
-          {
-          // Right
-          TEST_EQUALITY(opart.NumElements(sd, grp), osx * osy * 3 + osy + osy  - 1 + somewhatBottom);
-          int m = 0;
-          int pos = 0;
-          for (int j = 0; j < osx * 2 - 1; j++)
+        for (int i = -m; i <= 0; i++)
+          for (int d = 0; d < dof; d++)
             {
-            for (int i = -m; i <= 0; i++)
-              for (int d = 0; d < dof; d++)
-                {
-                // First p-node in the interior
-                if (d == 2 && j == 0 && i == -m)
-                  continue;
-                if (d == 1 && i == -m && j > osx - 1 && !(j == 0 && somewhatBottom))
-                  continue;
-                TEST_EQUALITY(opart.GID(sd, grp, pos), substart + i * dof + j * nx * dof + d);
-                pos++;
-                }
-            if (j < osx - 1)
-              m++;
-            else if (j > osx - 1)
-              m--;
+            // First p-node in the interior
+            if (d == 2 && j == 0 && i == -m)
+              continue;
+            if (d == 1 && i == -m && j > osx - 1 && !(j == 0 && somewhatBottom))
+              continue;
+            TEST_EQUALITY(group.nodes()[pos], substart + i * dof + j * nx * dof + d);
+            pos++;
             }
-          }
-        else if (gsd > (nsl - nsx / 2 - 1))
-          {
-          // Bottom
-          TEST_EQUALITY(opart.NumElements(sd, grp), osy * osx * 3 - 1 - osx);
-          int m = 0;
-          int pos = 0;
-          for (int j = 0; j < osx; j++)
-            {
-            for (int i = -m; i <= m; i++)
-              for (int d = 0; d < dof; d++)
-                {
-                // First p-node in the interior
-                if (d == 2 && j == 0 && i == -m)
-                  continue;
-                if (d == 0 && i == m)
-                  continue;
-                TEST_EQUALITY(opart.GID(sd, grp, pos), substart + i * dof + j * nx * dof + d);
-                pos++;
-                }
-            m++;
-            }
-          }
-        else if (gsd % nsx == nsx / 2)
-          {
-          // Left
-          TEST_EQUALITY(opart.NumElements(sd, grp), (osy * osx - osx - (osx - 1)) * 3 - 1);
-          int m = 1;
-          int pos = 0;
-          for (int j = 0; j < osx * 2 - 1; j++)
-            {
-            for (int i = 1; i < m; i++)
-              for (int d = 0; d < dof; d++)
-                {
-                // First p-node in the interior
-                if (d == 2 && j == 1 && i == 1)
-                  continue;
-                if (d == 0 && i == m-1 && j <= osx - 1)
-                  continue;
-                if (d != 2 && i == m-1 && j > osx - 1)
-                  continue;
-                TEST_EQUALITY(opart.GID(sd, grp, pos), substart + i * dof + j * nx * dof + d);
-                pos++;
-                }
-            if (j < osx - 1)
-              m++;
-            else if (j > osx - 1)
-              m--;
-            }
-          }
-        else if (gsd < nsx / 2)
-          {
-          // Top
-          TEST_EQUALITY(opart.NumElements(sd, grp), (osy * osx - osx - (osx - 1)) * 3 + 2 * osx - 2 + osx - 1);
-          int m = osx - 1;
-          int pos = 0;
-          for (int j = 0; j < osx - 1; j++)
-            {
-            for (int i = -m; i <= m; i++)
-              for (int d = 0; d < dof; d++)
-                {
-                // First p-node in the interior
-                if (d == 2 && j == 0 && i == -m)
-                  continue;
-                if ((d == 1 && (i == -m || i == m)) || (d == 0 && (i == m)))
-                  continue;
-                TEST_EQUALITY(opart.GID(sd, grp, pos), substart + nx * osy * dof + i * dof + j * nx * dof + d);
-                pos++;
-                }
-            m--;
-            }
-          }
-        else
-          {
-          TEST_EQUALITY(opart.NumElements(sd, grp), osy * osy * 2 * 3 - (osx + osx - 1) - 1 - osx * 2 + somewhatBottom);
-          int m = 0;
-          int pos = 0;
-          for (int j = 0; j < osx * 2 - 1; j++)
-            {
-            for (int i = -m; i <= m; i++)
-              for (int d = 0; d < dof; d++)
-                {
-                // First p-node in the interior
-                if (d == 2 && j == 0 && i == -m)
-                  continue;
-                if (d == 1 && (i == -m || i == m) && j > osx - 1 && !(j == 0 && somewhatBottom))
-                  continue;
-                if (d == 0 && ((i == m && j <= osx - 1) || (i == m && j > osx - 1)))
-                  continue;
-                TEST_EQUALITY(opart.GID(sd, grp, pos), substart + i * dof + j * nx * dof + d);
-                pos++;
-                }
-            if (j < osx - 1)
-              m++;
-            else if (j > osx - 1)
-              m--;
-            }
-          }
+        if (j < osx - 1)
+          m++;
+        else if (j > osx - 1)
+          m--;
         }
-      else if (opart.GID(sd, grp, 0) % dof != 0 &&
-          (std::abs(opart.GID(sd, grp, 0) - (substart + dof) - 0.5) < 1 ||
-          std::abs(opart.GID(sd, grp, 0) - (substart + nx * osy * dof - osy * dof + dof) - 0.5) < 1))
+      }
+    else if (gsd > (nsl - nsx / 2 - 1))
+      {
+      // Bottom
+      TEST_EQUALITY(group.length(), osy * osx * 3 - 1 - osx);
+      int m = 0;
+      int pos = 0;
+      for (int j = 0; j < osx; j++)
+        {
+        for (int i = -m; i <= m; i++)
+          for (int d = 0; d < dof; d++)
+            {
+            // First p-node in the interior
+            if (d == 2 && j == 0 && i == -m)
+              continue;
+            if (d == 0 && i == m)
+              continue;
+            TEST_EQUALITY(group.nodes()[pos], substart + i * dof + j * nx * dof + d);
+            pos++;
+            }
+        m++;
+        }
+      }
+    else if (gsd % nsx == nsx / 2)
+      {
+      // Left
+      TEST_EQUALITY(group.length(), (osy * osx - osx - (osx - 1)) * 3 - 1);
+      int m = 1;
+      int pos = 0;
+      for (int j = 0; j < osx * 2 - 1; j++)
+        {
+        for (int i = 1; i < m; i++)
+          for (int d = 0; d < dof; d++)
+            {
+            // First p-node in the interior
+            if (d == 2 && j == 1 && i == 1)
+              continue;
+            if (d == 0 && i == m-1 && j <= osx - 1)
+              continue;
+            if (d != 2 && i == m-1 && j > osx - 1)
+              continue;
+            TEST_EQUALITY(group.nodes()[pos], substart + i * dof + j * nx * dof + d);
+            pos++;
+            }
+        if (j < osx - 1)
+          m++;
+        else if (j > osx - 1)
+          m--;
+        }
+      }
+    else if (gsd < nsx / 2)
+      {
+      // Top
+      TEST_EQUALITY(group.length(), (osy * osx - osx - (osx - 1)) * 3 + 2 * osx - 2 + osx - 1);
+      int m = osx - 1;
+      int pos = 0;
+      for (int j = 0; j < osx - 1; j++)
+        {
+        for (int i = -m; i <= m; i++)
+          for (int d = 0; d < dof; d++)
+            {
+            // First p-node in the interior
+            if (d == 2 && j == 0 && i == -m)
+              continue;
+            if ((d == 1 && (i == -m || i == m)) || (d == 0 && (i == m)))
+              continue;
+            TEST_EQUALITY(group.nodes()[pos], substart + nx * osy * dof + i * dof + j * nx * dof + d);
+            pos++;
+            }
+        m--;
+        }
+      }
+    else
+      {
+      TEST_EQUALITY(group.length(), osy * osy * 2 * 3 - (osx + osx - 1) - 1 - osx * 2 + somewhatBottom);
+      int m = 0;
+      int pos = 0;
+      for (int j = 0; j < osx * 2 - 1; j++)
+        {
+        for (int i = -m; i <= m; i++)
+          for (int d = 0; d < dof; d++)
+            {
+            // First p-node in the interior
+            if (d == 2 && j == 0 && i == -m)
+              continue;
+            if (d == 1 && (i == -m || i == m) && j > osx - 1 && !(j == 0 && somewhatBottom))
+              continue;
+            if (d == 0 && ((i == m && j <= osx - 1) || (i == m && j > osx - 1)))
+              continue;
+            TEST_EQUALITY(group.nodes()[pos], substart + i * dof + j * nx * dof + d);
+            pos++;
+            }
+        if (j < osx - 1)
+          m++;
+        else if (j > osx - 1)
+          m--;
+        }
+      }
+
+    int totalNodes = group.length();
+    for (HYMLS::SeparatorGroup const &group: opart.GetSeparatorGroups(sd))
+      {
+      totalNodes += group.length();
+      if (group.nodes()[0] % dof != 0 &&
+          (std::abs(group.nodes()[0] - (substart + dof) - 0.5) < 1 ||
+          std::abs(group.nodes()[0] - (substart + nx * osy * dof - osy * dof + dof) - 0.5) < 1))
         {
         // Top left to bottom right
-        TEST_EQUALITY(opart.NumElements(sd, grp), osy - 1);
-        for (int i = 0; i < opart.NumElements(sd, grp); i++)
+        TEST_EQUALITY(group.length(), osy - 1);
+        for (int i = 0; i < group.length(); i++)
           {
-          TEST_EQUALITY(opart.GID(sd, grp, i), opart.GID(sd, grp, 0) + dof * i * (nx + 1));
+          hymls_gidx gid = group.nodes()[i];
+          TEST_EQUALITY(gid, group.nodes()[0] + dof * i * (nx + 1));
           }
         }
-      else if (opart.GID(sd, grp, 0) % dof != 0 &&
-          (std::abs(opart.GID(sd, grp, 0) - (substart - dof) - 0.5) < 1 ||
-          std::abs(opart.GID(sd, grp, 0) - (substart + nx * osy * dof + osy * dof - dof) - 0.5) < 1))
+      else if (group.nodes()[0] % dof != 0 &&
+          (std::abs(group.nodes()[0] - (substart - dof) - 0.5) < 1 ||
+          std::abs(group.nodes()[0] - (substart + nx * osy * dof + osy * dof - dof) - 0.5) < 1))
         {
         // Top right to bottom left
-        TEST_EQUALITY(opart.NumElements(sd, grp), osy - 1);
-        for (int i = 0; i < opart.NumElements(sd, grp); i++)
+        TEST_EQUALITY(group.length(), osy - 1);
+        for (int i = 0; i < group.length(); i++)
           {
-          TEST_EQUALITY(opart.GID(sd, grp, i), opart.GID(sd, grp, 0) + dof * i * (nx - 1));
+          hymls_gidx gid = group.nodes()[i];
+          TEST_EQUALITY(gid, group.nodes()[0] + dof * i * (nx - 1));
           }
         }
-      else if (opart.GID(sd, grp, 0) % dof == 0 &&
-          (opart.GID(sd, grp, 0) == substart ||
-          opart.GID(sd, grp, 0) == substart + dof * (nx+1) ||
-          opart.GID(sd, grp, 0) == substart + nx * osy * dof - osy * dof ||
-          opart.GID(sd, grp, 0) == substart + nx * osy * dof - osy * dof + dof * (nx+1)))
+      else if (group.nodes()[0] % dof == 0 &&
+          (group.nodes()[0] == substart ||
+          group.nodes()[0] == substart + dof * (nx+1) ||
+          group.nodes()[0] == substart + nx * osy * dof - osy * dof ||
+          group.nodes()[0] == substart + nx * osy * dof - osy * dof + dof * (nx+1)))
         {
         // Top left to bottom right
-        if (gsd % nsx == nsx / 2 * 2 && opart.GID(sd, grp, 0) == substart)
+        if (gsd % nsx == nsx / 2 * 2 && group.nodes()[0] == substart)
           {
-          TEST_EQUALITY(opart.NumElements(sd, grp), 1);
+          TEST_EQUALITY(group.length(), 1);
           }
-        else if (opart.GID(sd, grp, 0) == substart + dof * (nx+1) ||
-          opart.GID(sd, grp, 0) == substart + nx * osy * dof - osy * dof + dof * (nx+1))
+        else if (group.nodes()[0] == substart + dof * (nx+1) ||
+          group.nodes()[0] == substart + nx * osy * dof - osy * dof + dof * (nx+1))
           {
-          TEST_EQUALITY(opart.NumElements(sd, grp), osy-1);
+          TEST_EQUALITY(group.length(), osy-1);
           }
         else
           {
-          TEST_EQUALITY(opart.NumElements(sd, grp), osy);
+          TEST_EQUALITY(group.length(), osy);
           }
-        for (int i = 0; i < opart.NumElements(sd, grp); i++)
+        for (int i = 0; i < group.length(); i++)
           {
-          TEST_EQUALITY(opart.GID(sd, grp, i), opart.GID(sd, grp, 0) + dof * i * (nx + 1));
+          hymls_gidx gid = group.nodes()[i];
+          TEST_EQUALITY(gid, group.nodes()[0] + dof * i * (nx + 1));
           }
         }
-      else if (opart.GID(sd, grp, 0) % dof == 0 &&
-          (opart.GID(sd, grp, 0) == substart - dof ||
-          opart.GID(sd, grp, 0) == substart + nx * osy * dof + osy * dof - dof))
+      else if (group.nodes()[0] % dof == 0 &&
+          (group.nodes()[0] == substart - dof ||
+          group.nodes()[0] == substart + nx * osy * dof + osy * dof - dof))
         {
         // Top right to bottom left
-        if (gsd % nsx == nsx / 2 || (gsd % nsx == 0 && opart.GID(sd, grp, 0) == substart - dof))
+        if (gsd % nsx == nsx / 2 || (gsd % nsx == 0 && group.nodes()[0] == substart - dof))
           {
-          TEST_EQUALITY(opart.NumElements(sd, grp), osy-1);
+          TEST_EQUALITY(group.length(), osy-1);
           }
         else
           {
-          TEST_EQUALITY(opart.NumElements(sd, grp), osy);
+          TEST_EQUALITY(group.length(), osy);
           }
-        for (int i = 0; i < opart.NumElements(sd, grp); i++)
+        for (int i = 0; i < group.length(); i++)
           {
-          TEST_EQUALITY(opart.GID(sd, grp, i), opart.GID(sd, grp, 0) + dof * i * (nx - 1));
+          hymls_gidx gid = group.nodes()[i];
+          TEST_EQUALITY(gid, group.nodes()[0] + dof * i * (nx - 1));
           }
         }
       else
         {
         // Corner
-        TEST_EQUALITY(opart.NumElements(sd, grp), 1);
+        TEST_EQUALITY(group.length(), 1);
         }
       }
     if (numGroups == 14)
@@ -1227,11 +1233,14 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes3D, nx, ny, nz, sx, sy,
   for (int sd = 0; sd < opart.NumMySubdomains(); sd++)
     {
     int totalNodes[4] = {0, 0, 0, 0};
-    for (int grp = 0; grp < opart.NumGroups(sd); grp++)
-      {
-      for (int pos = 0; pos < opart.NumElements(sd, grp); pos++)
-        totalNodes[opart.GID(sd, grp, pos) % dof]++;
-      }
+    HYMLS::InteriorGroup const &group = opart.GetInteriorGroup(sd);
+    for (hymls_gidx gid: group.nodes())
+      totalNodes[gid % dof]++;
+
+    for (HYMLS::SeparatorGroup const &group: opart.GetSeparatorGroups(sd))
+      for (hymls_gidx gid: group.nodes())
+        totalNodes[gid % dof]++;
+
     if (opart.NumGroups(sd) == 84)
       {
       TEST_EQUALITY(totalNodes[0],
