@@ -1117,35 +1117,37 @@ int SchurPreconditioner::AssembleTransformAndDrop()
     // NOTE: this is where the 'dropping' occurs, so if we
     //       want to implement different schemes we have
     //       to adjust this loop in the first place.
-    for (int sd=0;sd<hid_->NumMySubdomains();sd++)
+    for (int sd = 0; sd < hid_->NumMySubdomains(); sd++)
       {
       // put in the Vsum-Vsum couplings
-      int numVsums = hid_->NumGroups(sd)-1;
+      int numVsums = hid_->NumGroups(sd) - 1;
       indsPart.Resize(numVsums);
-      if (numVsums>Spart.N()) Spart.Reshape(2*numVsums,2*numVsums);
-      numVsums=0;
-      for (int grp=1;grp<hid_->NumGroups(sd);grp++)
+      if (numVsums>Spart.N())
+        Spart.Reshape(2 * numVsums, 2 * numVsums);
+
+      numVsums = 0;
+      for (SeparatorGroup const &group: hid_->SeparatorGroups(sd))
         {
-        if (hid_->NumElements(sd,grp)>0)
-          {
-          indsPart[numVsums++]=hid_->GID(sd,grp,0);
-          }
+        if (group.length() > 0)
+          indsPart[numVsums++] = group.nodes()[0];
         }
+
       indsPart.Resize(numVsums);
       //HYMLS_DEBVAR(sd);
       //HYMLS_DEBVAR(indsPart);
       CHECK_NONNEG(matrix->InsertGlobalValues(indsPart.Length(),
           indsPart.Values(), Spart.A()));
       // now the non-Vsums
-      for (int grp=1;grp<hid_->NumGroups(sd);grp++)
+      for (SeparatorGroup const &group: hid_->SeparatorGroups(sd))
         {
-        int len = hid_->NumElements(sd,grp)-1;
+        int len = group.length() - 1;
         indsPart.Resize(len);
-        if (Spart.N()<len) Spart.Reshape(2*len,2*len);
-        for (int j=0;j<len;j++)
-          {
-          indsPart[j]=hid_->GID(sd,grp,1+j);
-          }//j
+        if (Spart.N() < len)
+          Spart.Reshape(2 * len, 2 * len);
+
+        for (int j = 0; j < len; j++)
+          indsPart[j] = group.nodes()[j+1];
+
         //HYMLS_DEBVAR(indsPart);
         CHECK_NONNEG(matrix->InsertGlobalValues(indsPart.Length(),
             indsPart.Values(),Spart.A()));
@@ -1207,7 +1209,7 @@ int SchurPreconditioner::AssembleTransformAndDrop()
   CHECK_ZERO(matrix->GlobalAssemble(false, Insert));
 
   // loop over all subdomains
-  for (int sd=0;sd<hid_->NumMySubdomains();sd++)
+  for (int sd = 0; sd < hid_->NumMySubdomains(); sd++)
     {
     HYMLS_LPROF3(label_, "Add -A21*A11\\A12 part");
     // construct the local contribution of the SC
