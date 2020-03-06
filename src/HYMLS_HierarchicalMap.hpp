@@ -259,6 +259,9 @@ protected:
   //! indicates if any more changes can be made (FillComplete() has been called)
   bool Filled() const {return overlappingMap_!=Teuchos::null;}
 
+  //! returns the separator groups for a certain subdomain
+  Teuchos::Array<SeparatorGroup> const &SeparatorGroups(int sd) const;
+
   //! label
   std::string label_;
   

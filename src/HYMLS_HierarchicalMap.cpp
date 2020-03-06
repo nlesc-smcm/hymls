@@ -295,6 +295,11 @@ int HierarchicalMap::AddSeparatorGroup(int sd, SeparatorGroup const &group)
   return (*separator_groups_)[sd].length() - 1;
   }
 
+Teuchos::Array<SeparatorGroup> const &HierarchicalMap::SeparatorGroups(int sd) const
+  {
+  return (*separator_groups_)[sd];
+  }
+
 Teuchos::Array<hymls_gidx> HierarchicalMap::GetGroup(int sd, int grp) const
   {
   HYMLS_LPROF3(label_,"GetGroup");
@@ -547,7 +552,8 @@ HierarchicalMap::SpawnSeparators() const
         if (len > 0)
           {
           (*newGroupPointer)[sd].append(offset + len);
-          std::copy(group.nodes().begin(), group.nodes().end(), std::back_inserter((*newGidList)[sd]));
+          std::copy(group.nodes().begin(), group.nodes().end(),
+            std::back_inserter((*newGidList)[sd]));
           }
         else
           Tools::Error("This should not happen", __FILE__, __LINE__);
@@ -582,7 +588,9 @@ HierarchicalMap::SpawnLocalSeparators() const
     Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >());
   Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > newGroupPointer =
     Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >());
-  
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<SeparatorGroup> > > new_separator_groups =
+    Teuchos::rcp(new Teuchos::Array<Teuchos::Array<SeparatorGroup> >(NumMySubdomains()));
+
   // Start out from the standard Separator object. All local separators are located
   // in its baseMap_
   Teuchos::RCP<const HierarchicalMap> sepObject = Spawn(Separators);
@@ -591,25 +599,28 @@ HierarchicalMap::SpawnLocalSeparators() const
     {
     newGidList->append(Teuchos::Array<hymls_gidx>());
     newGroupPointer->append(Teuchos::Array<hymls_gidx>(2));
-    for (int grp = 1; grp < sepObject->NumGroups(sd); grp++)
+    for (SeparatorGroup const &group: sepObject->SeparatorGroups(sd))
       {
-      if (sepObject->NumElements(sd, grp) > 0 &&
-        sepObject->GetMap()->MyGID(sepObject->GID(sd, grp, 0)))
+      hymls_gidx first_node = group.nodes()[0];
+      if (sepObject->GetMap()->MyGID(first_node))
         {
-        Teuchos::Array<hymls_gidx> gidList = sepObject->GetGroup(sd, grp);
         hymls_gidx offset = *((*newGroupPointer)[sd].end()-1);
-        int len = gidList.size();
+        int len = group.nodes().size();
         if (len > 0)
           {
           (*newGroupPointer)[sd].append(offset + len);
-          std::copy(gidList.begin(), gidList.end(), std::back_inserter((*newGidList)[sd]));
+          std::copy(group.nodes().begin(), group.nodes().end(),
+            std::back_inserter((*newGidList)[sd]));
           }
+        else
+          Tools::Error("This should not happen", __FILE__, __LINE__);
+        (*new_separator_groups)[sd].append(group);
         }
       }
     }
 
   newObject = Teuchos::rcp(new HierarchicalMap(sepObject->GetMap(), sepObject->GetMap(),
-      newGroupPointer, newGidList, Teuchos::null, "Local Separator Nodes", myLevel_));
+      newGroupPointer, newGidList, new_separator_groups, "Local Separator Nodes", myLevel_));
 
   return newObject;
   }
