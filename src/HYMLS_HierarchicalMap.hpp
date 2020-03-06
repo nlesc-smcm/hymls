@@ -153,6 +153,9 @@ public:
   //! given a subdomain, returns a list of GIDs that belong to the subdomain
   int getSeparatorGIDs(int sd, Epetra_IntSerialDenseVector &inds) const;
 #endif
+
+  //! returns the separator groups for a certain subdomain
+  Teuchos::Array<SeparatorGroup> const &SeparatorGroups(int sd) const;
   //@}
 
   //! creates a 'next generation' object that retains certain nodes.
@@ -258,9 +261,6 @@ protected:
   
   //! indicates if any more changes can be made (FillComplete() has been called)
   bool Filled() const {return overlappingMap_!=Teuchos::null;}
-
-  //! returns the separator groups for a certain subdomain
-  Teuchos::Array<SeparatorGroup> const &SeparatorGroups(int sd) const;
 
   //! label
   std::string label_;

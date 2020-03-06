@@ -12,6 +12,7 @@
 #include "HYMLS_Preconditioner.hpp"
 #include "HYMLS_Householder.hpp"
 #include "HYMLS_RestrictedOT.hpp"
+#include "HYMLS_SeparatorGroup.hpp"
 
 #include "Epetra_Comm.h"
 #include "Epetra_Map.h"
@@ -654,11 +655,11 @@ int SchurPreconditioner::InitializeBlocks()
     }
 
 #ifdef HYMLS_TESTING
-  for (int i=0;i<sepObject->NumMySubdomains();i++)
+  for (int sd = 0; sd < sepObject->NumMySubdomains(); sd++)
     {
-    for (int grp=1;grp<sepObject->NumGroups(i);grp++)
+    for (SeparatorGroup const &group: sepObject->SeparatorGroups(sd))
       {
-      if (sepObject->NumElements(i,grp)==0)
+      if (group.nodes().length() == 0)
         {
         HYMLS::Tools::Warning("there is an empty separator, which is probably dangerous",
           __FILE__,__LINE__);
@@ -673,11 +674,11 @@ int SchurPreconditioner::InitializeBlocks()
   int blk = 0;
   for (int sd = 0; sd < sepObject->NumMySubdomains(); sd++)
     {
-    for (int grp = 1; grp < sepObject->NumGroups(sd); grp++)
+    for (SeparatorGroup const &group: sepObject->SeparatorGroups(sd))
       {
       // in the spawned sepObject, each local separator is a group of a subdomain.
       // -1 because we remove one Vsum node from each block
-      int numRows = std::max((int)sepObject->NumElements(sd, grp) - 1, 0);
+      int numRows = std::max(group.nodes().length() - 1, 0);
       nnz += numRows * numRows;
 
       blockSolver_[blk] = Teuchos::rcp(new
@@ -690,7 +691,7 @@ int SchurPreconditioner::InitializeBlocks()
       for (int j  = 0; j < numRows; j++)
         {
         // skip first element, which is a Vsum
-        int LRID = map_->LID(sepObject->GID(sd, grp, j+1));
+        int LRID = map_->LID(group.nodes()[j+1]);
         blockSolver_[blk]->ID(j) = LRID;
         }
       blk++;
