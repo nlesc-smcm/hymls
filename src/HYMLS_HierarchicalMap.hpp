@@ -117,25 +117,6 @@ public:
     return static_cast<int>((*groupPointer_)[sd][grp+1] - (*groupPointer_)[sd][grp]);
     }
 
-  //! j'th element of subdomain sd, group grp. This function
-  //! returns a local index for the map Map(). Again, grp=0 
-  //! are interior nodes whereas grp=1:NumSeparatorGroups() 
-  //! are separators.
-  // inline int LID(int sd, int grp, int j) const
-  //   {
-  //   return (*groupPointer_)[sd][grp]+j;
-  //   }
-
-  //! j'th element of subdomain sd, group grp. This function
-  //! returns a global index. Again, grp=0 are interior nodes
-  //! whereas grp=1:NumSeparatorGroups() are separators.
-  inline hymls_gidx GID(int sd, int grp, int j) const
-    {
-    // return overlappingMap_->GID(this->LID(sd,grp,j));
-    return (*gidList_)[sd][(*groupPointer_)[sd][grp]+j];
-    // return GetGroup(sd, grp)[j];
-    }
-
   //! given a subdomain, returns a list of GIDs that belong to the subdomain
   int getSeparatorGIDs(int sd, hymls_gidx *gids) const;
 
