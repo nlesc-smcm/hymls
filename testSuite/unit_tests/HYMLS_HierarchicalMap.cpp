@@ -1,6 +1,7 @@
 #include "HYMLS_HierarchicalMap.hpp"
 
 #include "HYMLS_Exception.hpp"
+#include "HYMLS_SeparatorGroup.hpp"
 
 #include <Teuchos_RCP.hpp>
 #include <Teuchos_Array.hpp>
@@ -21,6 +22,11 @@ public:
   int AddGroup(int sd, Teuchos::Array<hymls_gidx>& gidList)
     {
     return HYMLS::HierarchicalMap::AddGroup(sd, gidList);
+    }
+
+  int AddSeparatorGroup(int sd, HYMLS::SeparatorGroup const &group)
+    {
+    return HYMLS::HierarchicalMap::AddSeparatorGroup(sd, group);
     }
 
   int Reset(int sd)
@@ -54,6 +60,34 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, AddGroup)
   ret = hmap.Reset(1);
   TEST_EQUALITY(ret, 0);
   ret = hmap.AddGroup(0, gidList);
+  TEST_EQUALITY(ret, 1);
+  }
+
+TEUCHOS_UNIT_TEST(HierarchicalMap, AddSeparatorGroup)
+  {
+  Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
+
+  hymls_gidx n = 100;
+  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
+
+  HYMLS::SeparatorGroup group;
+  for (int i = 0; i < n; i++)
+    group.nodes().append(i);
+
+  int ret;
+
+  TestableHierarchicalMap hmap(map);
+
+  // Can't add group to non-existing subdomain
+  ret = hmap.AddSeparatorGroup(0, group);
+  TEST_EQUALITY(ret, -1);
+
+  // Can add group to an existing subdomain
+  ret = hmap.Reset(1);
+  TEST_EQUALITY(ret, 0);
+  ret = hmap.AddSeparatorGroup(0, group);
+  TEST_EQUALITY(ret, 0);
+  ret = hmap.AddSeparatorGroup(0, group);
   TEST_EQUALITY(ret, 1);
   }
 
