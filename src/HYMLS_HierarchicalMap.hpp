@@ -17,6 +17,8 @@ class Epetra_LongLongSerialDenseVector;
 
 namespace HYMLS {
 
+class SeparatorGroup;
+
 //! class for hierarchically partitioned maps
 
 /*! This class allows constructing Epetra_Maps which are sub-maps
@@ -239,6 +241,10 @@ protected:
   //! add a group of GIDs to an existing subdomain. Returns the group id
   //! of the new group. FillComplete() should not have been called.
   int AddGroup(int sd, Teuchos::Array<hymls_gidx>& gidList);
+
+  //! add a separator group of GIDs to an existing subdomain. Returns the group id
+  //! of the new group. FillComplete() should not have been called.
+  int AddSeparatorGroup(int sd, SeparatorGroup const &group);
   
   //! get back a group that was added as described above. Used for debugging purposes
   //! only

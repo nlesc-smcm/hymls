@@ -4,6 +4,7 @@
 
 #include "HYMLS_Tools.hpp"
 #include "HYMLS_Macros.hpp"
+#include "HYMLS_SeparatorGroup.hpp"
 
 #include "Epetra_Comm.h"
 #include "Epetra_SerialComm.h"
@@ -248,6 +249,29 @@ int HierarchicalMap::AddGroup(int sd, Teuchos::Array<hymls_gidx>& gidList)
   if (len>0)
     {
     std::copy(gidList.begin(),gidList.end(),std::back_inserter((*gidList_)[sd]));
+    }
+  return (*groupPointer_)[sd].length()-1;
+  }
+
+int HierarchicalMap::AddSeparatorGroup(int sd, SeparatorGroup const &group)
+  {
+  HYMLS_LPROF3(label_,"AddSeparatorGroup");
+
+  if (sd>=groupPointer_->size())
+    {
+    Tools::Warning("invalid subdomain index",__FILE__,__LINE__);
+    return -1; // You should Reset with the right amount of sd
+    } 
+
+  HYMLS_DEBVAR(sd);
+  HYMLS_DEBVAR(group.nodes());
+  hymls_gidx offset=*((*groupPointer_)[sd].end()-1);
+  int len = group.nodes().size();
+  (*groupPointer_)[sd].append(offset+len);
+  if (len>0)
+    {
+    std::copy(group.nodes().begin(), group.nodes().end(),
+      std::back_inserter((*gidList_)[sd]));
     }
   return (*groupPointer_)[sd].length()-1;
   }

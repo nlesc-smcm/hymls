@@ -17,6 +17,8 @@ public:
   SeparatorGroup();
 
   Teuchos::Array<hymls_gidx> &nodes();
+
+  Teuchos::Array<hymls_gidx> const &nodes() const;
   };
 
   }

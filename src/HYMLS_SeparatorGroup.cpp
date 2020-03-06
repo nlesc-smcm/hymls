@@ -13,4 +13,9 @@ Teuchos::Array<hymls_gidx> &SeparatorGroup::nodes()
   return *nodes_;
   }
 
+Teuchos::Array<hymls_gidx> const &SeparatorGroup::nodes() const
+  {
+  return *nodes_;
+  }
+
   }
