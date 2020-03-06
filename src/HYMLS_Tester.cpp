@@ -5,6 +5,7 @@
 #include "HYMLS_OverlappingPartitioner.hpp"
 #include "HYMLS_HierarchicalMap.hpp"
 #include "HYMLS_BasePartitioner.hpp"
+#include "HYMLS_SeparatorGroup.hpp"
 
 #include "Teuchos_StandardCatchMacros.hpp"
 
@@ -337,64 +338,73 @@ namespace HYMLS {
                 // in a singleton group. That one should be a separator of
                 // both sd_i and sd_j, whereas the other is in only one of
                 // the two.
-                int grp_i_sd_i=-1;
-                int grp_j_sd_i=-1;
-                for (int grp=1;grp<hid.NumGroups(sd_i);grp++)
+
+                int grp_i_sd_i = -1;
+                int grp_j_sd_i = -1;
+
+                int grp = 0;
+                for (SeparatorGroup const &group: hid.SeparatorGroups(sd_i))
                   {
-                  for (int jj=0; jj<hid.NumElements(sd_i,grp);jj++)
+                  for (hymls_gidx gid: group.nodes())
                     {
-                    if (hid.GID(sd_i,grp,jj)==gid_i)
+                    if (gid == gid_i)
                       {
                       // check that the gid is only in one group
-                      ASSERT_TRUE(grp_i_sd_i==-1,status);
-                      grp_i_sd_i=grp;
+                      ASSERT_TRUE(grp_i_sd_i == -1, status);
+                      grp_i_sd_i = grp;
                       }
-                    if (hid.GID(sd_i,grp,jj)==gid_j)
+                    if (gid == gid_j)
                       {
                       // check that the gid is only in one group
-                      ASSERT_TRUE(grp_j_sd_i==-1,status);
-                      grp_j_sd_i=grp;
+                      ASSERT_TRUE(grp_j_sd_i == -1, status);
+                      grp_j_sd_i = grp;
                       }
                     }
+                  grp++;
                   }
-                int grp_i_sd_j=-1;
-                int grp_j_sd_j=-1;
-                for (int grp=1;grp<hid.NumGroups(sd_j);grp++)
+
+                int grp_i_sd_j = -1;
+                int grp_j_sd_j = -1;
+
+                grp = 0;
+                for (SeparatorGroup const &group: hid.SeparatorGroups(sd_i))
                   {
-                  for (int jj=0; jj<hid.NumElements(sd_j,grp);jj++)
+                  for (hymls_gidx gid: group.nodes())
                     {
-                    if (hid.GID(sd_j,grp,jj)==gid_i)
+                    if (gid == gid_i)
                       {
                       // check that the gid is only in one group
-                      ASSERT_TRUE(grp_i_sd_j==-1,status);
-                      grp_i_sd_j=grp;
+                      ASSERT_TRUE(grp_i_sd_j == -1, status);
+                      grp_i_sd_j = grp;
                       }
-                    if (hid.GID(sd_j,grp,jj)==gid_j)
+                    if (gid == gid_j)
                       {
                       // check that the gid is only in one group
-                      ASSERT_TRUE(grp_j_sd_j==-1,status);
-                      grp_j_sd_j=grp;
+                      ASSERT_TRUE(grp_j_sd_j == -1, status);
+                      grp_j_sd_j = grp;
                       }
                     }
+                  grp++;
                   }
+
                 // gid_i or gid_j is in a singleton group
-                ok3 = hid.NumElements(sd_i,grp_i_sd_i)==1 ||
-                  hid.NumElements(sd_j,grp_j_sd_j)==1;
+                ok3 = hid.SeparatorGroups(sd_i)[grp_i_sd_i].length() == 1 ||
+                  hid.SeparatorGroups(sd_j)[grp_j_sd_j].length() == 1;
                 if (!ok3)
                   {
                   msg_ << "gid "<<gid_i<<" sd "<<sd_i<<", group "<<grp_i_sd_i;
-                  msg_ << " ("<<hid.NumElements(sd_i,grp_i_sd_i)<<" elements)"<<std::endl;
+                  msg_ << " ("<<hid.SeparatorGroups(sd_i)[grp_i_sd_i].length()<<" elements)"<<std::endl;
                   if (grp_i_sd_j>0)
                     {
                     msg_ << "gid "<<gid_i<<" sd "<<sd_j<<", group "<<grp_i_sd_j;
-                    msg_ << " ("<<hid.NumElements(sd_j,grp_i_sd_j)<<" elements)"<<std::endl;
+                    msg_ << " ("<<hid.SeparatorGroups(sd_j)[grp_i_sd_j].length()<<" elements)"<<std::endl;
                     }
                   msg_ << "gid "<<gid_j<<" sd "<<sd_j<<", group "<<grp_j_sd_j;
-                  msg_ << "("<<hid.NumElements(sd_j,grp_j_sd_j)<<" elements)"<<std::endl;
+                  msg_ << "("<<hid.SeparatorGroups(sd_j)[grp_j_sd_j].length()<<" elements)"<<std::endl;
                   if (grp_j_sd_i>0)
                     {
                     msg_ << "gid "<<gid_j<<" sd "<<sd_i<<", group "<<grp_j_sd_i<<std::endl;
-                    msg_ << " ("<<hid.NumElements(sd_i,grp_j_sd_i)<<" elements)"<<std::endl;
+                    msg_ << " ("<<hid.SeparatorGroups(sd_i)[grp_j_sd_i].length()<<" elements)"<<std::endl;
                     }
                   }
                 }
@@ -443,43 +453,45 @@ namespace HYMLS {
     return status;
     }
 
-  bool Tester::noPcouplingsDropped(const Epetra_CrsMatrix& transSC,
-                                    const HierarchicalMap& sepObject)
+bool Tester::noPcouplingsDropped(const Epetra_CrsMatrix& transSC,
+  const HierarchicalMap& sepObject)
   {
-    bool status=true;
-    if (!doFmatTests_) return status; 
-    HYMLS_PROF(Label(),"noPcouplingsDropped");
+  bool status = true;
+  if (!doFmatTests_)
+    return status;
 
-    msg_<<"dof="<<dof_<<", pvar="<<pvar_<<std::endl;
+  HYMLS_PROF(Label(),"noPcouplingsDropped");
 
-    int len;
-    double* val;
-    int* cols;
+  msg_ << "dof=" << dof_ << ", pvar=" << pvar_ << std::endl;
 
-  // loop over all separators
-  for (int sep=0;sep<sepObject.NumMySubdomains();sep++)
+  int len;
+  double* val;
+  int* cols;
+
+  // loop over all subdomains
+  for (int sd = 0; sd < sepObject.NumMySubdomains(); sd++)
     {
     // loop over all local separator groups
-    for (int grp=1;grp<sepObject.NumGroups(sep);grp++)
+    for (SeparatorGroup const &group: sepObject.SeparatorGroups(sd))
       {
       // loop over all elements in the group, skipping the first one (the V-sum node)
-      for (int i=1;i<sepObject.NumElements(sep,grp);i++)
+      for (int i = 1; i < group.length(); i++)
         {
-        hymls_gidx grid=sepObject.GID(sep,grp,i);
+        hymls_gidx grid = group.nodes()[i];
         // if this element is a V-node, check that any P-node couplings are 0
-        if (MOD(grid,dof_)!=pvar_)
+        if (MOD(grid,dof_) != pvar_)
           {
           int lrid = transSC.LRID(grid);
-          ASSERT_ZERO(transSC.ExtractMyRowView(lrid,len,val,cols),status);
-          for (int j=0;j<len;j++)
+          ASSERT_ZERO(transSC.ExtractMyRowView(lrid, len, val, cols) ,status);
+          for (int j = 0; j < len; j++)
             {
             hymls_gidx gcid = transSC.GCID64(cols[j]);
-            if (MOD(gcid,dof_)==pvar_ && std::abs(val[j])>float_tol())
+            if (MOD(gcid, dof_) == pvar_ && std::abs(val[j]) > float_tol())
               {
-              msg_ << "Coupling between non-Vsum-node "<<grid<<" "<<gid2str(grid)<<
-              " and P-node "<<gcid<<" "<<gid2str(gcid)<<" found.\n";
-              msg_ << "This coupling of size "<<std::abs(val[j])<<" will be dropped.\n";
-              status=false;
+              msg_ << "Coupling between non-Vsum-node " << grid << " " << gid2str(grid)
+                   << " and P-node " << gcid << " " << gid2str(gcid) << " found.\n";
+              msg_ << "This coupling of size " << std::abs(val[j]) << " will be dropped.\n";
+              status = false;
               }
             }
           }
