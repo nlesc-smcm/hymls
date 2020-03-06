@@ -148,6 +148,9 @@ public:
 #endif
 
   //! returns the separator groups for a certain subdomain
+  InteriorGroup const &GetInteriorGroup(int sd) const;
+
+  //! returns the separator groups for a certain subdomain
   Teuchos::Array<SeparatorGroup> const &SeparatorGroups(int sd) const;
   //@}
 

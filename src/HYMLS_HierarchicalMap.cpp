@@ -298,6 +298,11 @@ int HierarchicalMap::AddSeparatorGroup(int sd, SeparatorGroup const &group)
   return (*separator_groups_)[sd].length() - 1;
   }
 
+InteriorGroup const &HierarchicalMap::GetInteriorGroup(int sd) const
+  {
+  return (*interior_groups_)[sd];
+  }
+
 Teuchos::Array<SeparatorGroup> const &HierarchicalMap::SeparatorGroups(int sd) const
   {
   return (*separator_groups_)[sd];
