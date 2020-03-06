@@ -4,6 +4,7 @@
 
 #include "HYMLS_Tools.hpp"
 #include "HYMLS_Macros.hpp"
+#include "HYMLS_InteriorGroup.hpp"
 #include "HYMLS_SeparatorGroup.hpp"
 
 #include "Epetra_Comm.h"
@@ -262,6 +263,8 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
   interior_nodes.clear();
   separator_groups.clear();
 
+  InteriorGroup interior_group;
+
   // pressure nodes that need to be retained
   Teuchos::Array<hymls_gidx> retained_nodes;
 
@@ -328,7 +331,7 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
                 // B-grid
                 retainPressures_ > 1)
               ))
-            nodes = &interior_nodes;
+            nodes = &interior_group.nodes();
           else
             {
             SeparatorGroup separator;
@@ -384,6 +387,8 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
     group.nodes().append(*it);
     separator_groups.append(group);
     }
+
+  interior_nodes = interior_group.nodes();
 
   return 0;
   }
