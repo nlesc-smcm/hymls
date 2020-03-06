@@ -4,6 +4,7 @@
 
 #include "HYMLS_Tools.hpp"
 #include "HYMLS_Macros.hpp"
+#include "HYMLS_SeparatorGroup.hpp"
 
 #include "Epetra_Comm.h"
 #include "Epetra_Map.h"
@@ -261,6 +262,8 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
   interior_nodes.clear();
   separator_nodes.clear();
 
+  Teuchos::Array<SeparatorGroup> separator_groups;
+
   // pressure nodes that need to be retained
   Teuchos::Array<hymls_gidx> retained_nodes;
 
@@ -330,13 +333,16 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
             nodes = &interior_nodes;
           else
             {
-            separator_nodes.append(Teuchos::Array<hymls_gidx>());
+            SeparatorGroup separator;
+            nodes = &separator.nodes();
+            separator_groups.append(separator);
+
             if (bgridTransform_)
-              separator_nodes.append(Teuchos::Array<hymls_gidx>());
-            auto it = separator_nodes.end();
-            if (bgridTransform_)
-              nodes2 = &(*(--it));
-            nodes = &(*(--it));
+              {
+              SeparatorGroup separator;
+              separator_groups.append(separator);
+              nodes2 = &separator.nodes();
+              }
             }
 
           for (int k = kstart; k < kend; k++)
@@ -369,9 +375,9 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
       }
     }
 
-  // Remove empty groups
-  separator_nodes.erase(std::remove_if(separator_nodes.begin(), separator_nodes.end(),
-      [](Teuchos::Array<hymls_gidx> &i){return i.empty();}), separator_nodes.end());
+  for (auto &group: separator_groups)
+    if (!group.nodes().empty())
+      separator_nodes.append(group.nodes());
 
   // Add retained nodes as separator groups
   for (auto it = retained_nodes.begin(); it != retained_nodes.end(); ++it)

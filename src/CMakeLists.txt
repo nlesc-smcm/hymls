@@ -8,6 +8,7 @@ set(HYMLS_SOURCE HYMLS_Solver
     HYMLS_Preconditioner
     HYMLS_SchurComplement
     HYMLS_SchurPreconditioner
+    HYMLS_SeparatorGroup
     HYMLS_OverlappingPartitioner
     HYMLS_HierarchicalMap
     HYMLS_BasePartitioner
