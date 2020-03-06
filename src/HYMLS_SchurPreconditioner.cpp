@@ -659,7 +659,7 @@ int SchurPreconditioner::InitializeBlocks()
     {
     for (SeparatorGroup const &group: sepObject->SeparatorGroups(sd))
       {
-      if (group.nodes().length() == 0)
+      if (group.length() == 0)
         {
         HYMLS::Tools::Warning("there is an empty separator, which is probably dangerous",
           __FILE__,__LINE__);
@@ -678,7 +678,7 @@ int SchurPreconditioner::InitializeBlocks()
       {
       // in the spawned sepObject, each local separator is a group of a subdomain.
       // -1 because we remove one Vsum node from each block
-      int numRows = std::max(group.nodes().length() - 1, 0);
+      int numRows = std::max(group.length() - 1, 0);
       nnz += numRows * numRows;
 
       blockSolver_[blk] = Teuchos::rcp(new

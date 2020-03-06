@@ -548,7 +548,7 @@ HierarchicalMap::SpawnSeparators() const
             }
           }
         hymls_gidx offset = *((*newGroupPointer)[sd].end()-1);
-        int len = group.nodes().size();
+        int len = group.length();
         if (len > 0)
           {
           (*newGroupPointer)[sd].append(offset + len);
@@ -605,7 +605,7 @@ HierarchicalMap::SpawnLocalSeparators() const
       if (sepObject->GetMap()->MyGID(first_node))
         {
         hymls_gidx offset = *((*newGroupPointer)[sd].end()-1);
-        int len = group.nodes().size();
+        int len = group.length();
         if (len > 0)
           {
           (*newGroupPointer)[sd].append(offset + len);

@@ -737,7 +737,7 @@ int SkewCartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &inte
         {
         if (rx_ > 1)
           {
-          int len = newGroup.second.nodes().size();
+          int len = newGroup.second.length();
           int newLen = std::max((len + rx_ - 1) / rx_, 1);
           int numParts = (len - 1) / newLen + 1;
           for (int j = 0; j < numParts; j++)
