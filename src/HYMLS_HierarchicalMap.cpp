@@ -143,18 +143,23 @@ int HierarchicalMap::FillComplete()
 
     // Now add the separator groups. We can avoid communication
     // if the baseOverlappingMap_ is present.
-    for (SeparatorGroup const &group: (*separator_groups_)[sd])
+    for (SeparatorGroup &group: (*separator_groups_)[sd])
       {
       if (baseOverlappingMap_ != Teuchos::null)
         {
+        SeparatorGroup new_group;
         for (hymls_gidx gid: group.nodes())
           if (map->MyGID(gid))
+            {
             (*newGidList)[sd].append(gid);
+            new_group.nodes().append(gid);
+            }
 
         hymls_gidx offset = *((*newGroupPointer)[sd].end()-1);
         int len = (*newGidList)[sd].size() - offset;
         if (len > 0)
           (*newGroupPointer)[sd].append(len + offset);
+        group.nodes() = new_group.nodes();
         }
       else
         std::copy(group.nodes().begin(), group.nodes().end(),
@@ -198,8 +203,9 @@ int HierarchicalMap::FillComplete()
 
     for (int sd = 0; sd < NumMySubdomains(); sd++)
       {
-      for (SeparatorGroup const &group: (*separator_groups_)[sd])
+      for (SeparatorGroup &group: (*separator_groups_)[sd])
         {
+        SeparatorGroup new_group;
         Teuchos::Array<hymls_gidx> gidList;
         for (hymls_gidx gid: group.nodes())
           {
@@ -208,6 +214,7 @@ int HierarchicalMap::FillComplete()
           if (overlappingVec[tmpOverlappingMap->LID(gid)])
             {
             gidList.append(gid);
+            new_group.nodes().append(gid);
             }
           }
         hymls_gidx offset = *((*newGroupPointer)[sd].end()-1);
@@ -217,6 +224,7 @@ int HierarchicalMap::FillComplete()
           (*newGroupPointer)[sd].append(offset + len);
           std::copy(gidList.begin(), gidList.end(), std::back_inserter((*newGidList)[sd]));
           }
+        group.nodes() = new_group.nodes();
         }
       }
     }
@@ -227,6 +235,12 @@ int HierarchicalMap::FillComplete()
     {
     std::copy((*newGidList)[sd].begin(), (*newGidList)[sd].end(),
       std::back_inserter(allGIDs));
+
+    // Remove empty separator groups
+    (*separator_groups_)[sd].erase(std::remove_if(
+        (*separator_groups_)[sd].begin(), (*separator_groups_)[sd].end(),
+        [](SeparatorGroup const &i){return i.nodes().empty();}),
+      (*separator_groups_)[sd].end());
     }
   std::sort(allGIDs.begin(), allGIDs.end());
   auto last = std::unique(allGIDs.begin(), allGIDs.end());
