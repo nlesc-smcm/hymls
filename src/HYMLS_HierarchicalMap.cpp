@@ -303,7 +303,7 @@ InteriorGroup const &HierarchicalMap::GetInteriorGroup(int sd) const
   return (*interior_groups_)[sd];
   }
 
-Teuchos::Array<SeparatorGroup> const &HierarchicalMap::SeparatorGroups(int sd) const
+Teuchos::Array<SeparatorGroup> const &HierarchicalMap::GetSeparatorGroups(int sd) const
   {
   return (*separator_groups_)[sd];
   }
@@ -607,7 +607,7 @@ HierarchicalMap::SpawnLocalSeparators() const
     {
     newGidList->append(Teuchos::Array<hymls_gidx>());
     newGroupPointer->append(Teuchos::Array<hymls_gidx>(2));
-    for (SeparatorGroup const &group: sepObject->SeparatorGroups(sd))
+    for (SeparatorGroup const &group: sepObject->GetSeparatorGroups(sd))
       {
       hymls_gidx first_node = group.nodes()[0];
       if (sepObject->GetMap()->MyGID(first_node))
@@ -708,7 +708,7 @@ int HierarchicalMap::getSeparatorGIDs(int sd, hymls_gidx *gids) const
     }
 
   int pos = 0;
-  for (SeparatorGroup const &group: SeparatorGroups(sd))
+  for (SeparatorGroup const &group: GetSeparatorGroups(sd))
     for (hymls_gidx gid: group.nodes())
       gids[pos++] = gid;
 

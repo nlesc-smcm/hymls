@@ -343,7 +343,7 @@ namespace HYMLS {
                 int grp_j_sd_i = -1;
 
                 int grp = 0;
-                for (SeparatorGroup const &group: hid.SeparatorGroups(sd_i))
+                for (SeparatorGroup const &group: hid.GetSeparatorGroups(sd_i))
                   {
                   for (hymls_gidx gid: group.nodes())
                     {
@@ -367,7 +367,7 @@ namespace HYMLS {
                 int grp_j_sd_j = -1;
 
                 grp = 0;
-                for (SeparatorGroup const &group: hid.SeparatorGroups(sd_i))
+                for (SeparatorGroup const &group: hid.GetSeparatorGroups(sd_i))
                   {
                   for (hymls_gidx gid: group.nodes())
                     {
@@ -388,23 +388,23 @@ namespace HYMLS {
                   }
 
                 // gid_i or gid_j is in a singleton group
-                ok3 = hid.SeparatorGroups(sd_i)[grp_i_sd_i].length() == 1 ||
-                  hid.SeparatorGroups(sd_j)[grp_j_sd_j].length() == 1;
+                ok3 = hid.GetSeparatorGroups(sd_i)[grp_i_sd_i].length() == 1 ||
+                  hid.GetSeparatorGroups(sd_j)[grp_j_sd_j].length() == 1;
                 if (!ok3)
                   {
                   msg_ << "gid "<<gid_i<<" sd "<<sd_i<<", group "<<grp_i_sd_i;
-                  msg_ << " ("<<hid.SeparatorGroups(sd_i)[grp_i_sd_i].length()<<" elements)"<<std::endl;
+                  msg_ << " ("<<hid.GetSeparatorGroups(sd_i)[grp_i_sd_i].length()<<" elements)"<<std::endl;
                   if (grp_i_sd_j>0)
                     {
                     msg_ << "gid "<<gid_i<<" sd "<<sd_j<<", group "<<grp_i_sd_j;
-                    msg_ << " ("<<hid.SeparatorGroups(sd_j)[grp_i_sd_j].length()<<" elements)"<<std::endl;
+                    msg_ << " ("<<hid.GetSeparatorGroups(sd_j)[grp_i_sd_j].length()<<" elements)"<<std::endl;
                     }
                   msg_ << "gid "<<gid_j<<" sd "<<sd_j<<", group "<<grp_j_sd_j;
-                  msg_ << "("<<hid.SeparatorGroups(sd_j)[grp_j_sd_j].length()<<" elements)"<<std::endl;
+                  msg_ << "("<<hid.GetSeparatorGroups(sd_j)[grp_j_sd_j].length()<<" elements)"<<std::endl;
                   if (grp_j_sd_i>0)
                     {
                     msg_ << "gid "<<gid_j<<" sd "<<sd_i<<", group "<<grp_j_sd_i<<std::endl;
-                    msg_ << " ("<<hid.SeparatorGroups(sd_i)[grp_j_sd_i].length()<<" elements)"<<std::endl;
+                    msg_ << " ("<<hid.GetSeparatorGroups(sd_i)[grp_j_sd_i].length()<<" elements)"<<std::endl;
                     }
                   }
                 }
@@ -472,7 +472,7 @@ bool Tester::noPcouplingsDropped(const Epetra_CrsMatrix& transSC,
   for (int sd = 0; sd < sepObject.NumMySubdomains(); sd++)
     {
     // loop over all local separator groups
-    for (SeparatorGroup const &group: sepObject.SeparatorGroups(sd))
+    for (SeparatorGroup const &group: sepObject.GetSeparatorGroups(sd))
       {
       // loop over all elements in the group, skipping the first one (the V-sum node)
       for (int i = 1; i < group.length(); i++)

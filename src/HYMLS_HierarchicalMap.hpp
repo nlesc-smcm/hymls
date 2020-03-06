@@ -151,7 +151,7 @@ public:
   InteriorGroup const &GetInteriorGroup(int sd) const;
 
   //! returns the separator groups for a certain subdomain
-  Teuchos::Array<SeparatorGroup> const &SeparatorGroups(int sd) const;
+  Teuchos::Array<SeparatorGroup> const &GetSeparatorGroups(int sd) const;
   //@}
 
   //! creates a 'next generation' object that retains certain nodes.

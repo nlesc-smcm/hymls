@@ -543,7 +543,7 @@ int SchurPreconditioner::Compute()
 
     for (int sd = 0; sd < sepObject->NumMySubdomains(); sd++)
       {
-      for (SeparatorGroup const &group: sepObject->SeparatorGroups(sd))
+      for (SeparatorGroup const &group: sepObject->GetSeparatorGroups(sd))
         {
         begS << offset << std::endl;
         offset = offset + group.length();
@@ -657,7 +657,7 @@ int SchurPreconditioner::InitializeBlocks()
 #ifdef HYMLS_TESTING
   for (int sd = 0; sd < sepObject->NumMySubdomains(); sd++)
     {
-    for (SeparatorGroup const &group: sepObject->SeparatorGroups(sd))
+    for (SeparatorGroup const &group: sepObject->GetSeparatorGroups(sd))
       {
       if (group.length() == 0)
         {
@@ -674,7 +674,7 @@ int SchurPreconditioner::InitializeBlocks()
   int blk = 0;
   for (int sd = 0; sd < sepObject->NumMySubdomains(); sd++)
     {
-    for (SeparatorGroup const &group: sepObject->SeparatorGroups(sd))
+    for (SeparatorGroup const &group: sepObject->GetSeparatorGroups(sd))
       {
       // in the spawned sepObject, each local separator is a group of a subdomain.
       // -1 because we remove one Vsum node from each block
@@ -729,7 +729,7 @@ int SchurPreconditioner::InitializeSingleBlock()
   int pos = 0;
   for (int sd = 0; sd < sepObject->NumMySubdomains(); sd++)
     {
-    for (SeparatorGroup const &group: sepObject->SeparatorGroups(sd))
+    for (SeparatorGroup const &group: sepObject->GetSeparatorGroups(sd))
       {
       // skip first element, which is a Vsum
       for (int j = 1; j < group.length(); j++)
@@ -783,7 +783,7 @@ int SchurPreconditioner::InitializeOT()
       // The LocalSeparator object has only local separators, but it may
       // have several groups due to splitting of groups (i.e. for the B-grid,
       // where velocities are grouped depending on how they connect to the pressures)
-      for (SeparatorGroup const &group: sepObject->SeparatorGroups(sd))
+      for (SeparatorGroup const &group: sepObject->GetSeparatorGroups(sd))
         {
         HYMLS_DEBVAR(grp);
         int len = group.length();
@@ -834,7 +834,7 @@ Teuchos::RCP<const Epetra_Map> SchurPreconditioner::CreateVSumMap(
   int numBlocks = 0;
   for (int sd = 0; sd < sepObject->NumMySubdomains(); sd++)
     {
-    for (SeparatorGroup const &group: sepObject->SeparatorGroups(sd))
+    for (SeparatorGroup const &group: sepObject->GetSeparatorGroups(sd))
       {
       if (applyDropping_)
         {
@@ -858,7 +858,7 @@ Teuchos::RCP<const Epetra_Map> SchurPreconditioner::CreateVSumMap(
   for (int sd = 0; sd < sepObject->NumMySubdomains(); sd++)
     {
     HYMLS_DEBVAR(sep)
-    for (SeparatorGroup const &group: sepObject->SeparatorGroups(sd))
+    for (SeparatorGroup const &group: sepObject->GetSeparatorGroups(sd))
       {
       if (group.length() > 0)
         {
@@ -1126,7 +1126,7 @@ int SchurPreconditioner::AssembleTransformAndDrop()
         Spart.Reshape(2 * numVsums, 2 * numVsums);
 
       numVsums = 0;
-      for (SeparatorGroup const &group: hid_->SeparatorGroups(sd))
+      for (SeparatorGroup const &group: hid_->GetSeparatorGroups(sd))
         {
         if (group.length() > 0)
           indsPart[numVsums++] = group.nodes()[0];
@@ -1138,7 +1138,7 @@ int SchurPreconditioner::AssembleTransformAndDrop()
       CHECK_NONNEG(matrix->InsertGlobalValues(indsPart.Length(),
           indsPart.Values(), Spart.A()));
       // now the non-Vsums
-      for (SeparatorGroup const &group: hid_->SeparatorGroups(sd))
+      for (SeparatorGroup const &group: hid_->GetSeparatorGroups(sd))
         {
         int len = group.length() - 1;
         indsPart.Resize(len);
@@ -1278,7 +1278,7 @@ int SchurPreconditioner::ConstructSCPart(int sd, Epetra_Vector const &localTestV
 
   int pos = 0;
   // Loop over all separators of the subdomain sd
-  for (SeparatorGroup const &group: hid_->SeparatorGroups(sd))
+  for (SeparatorGroup const &group: hid_->GetSeparatorGroups(sd))
     {
     HYMLS_LPROF3(label_,"Apply OT");
     int len = group.length();
@@ -1300,7 +1300,7 @@ int SchurPreconditioner::ConstructSCPart(int sd, Epetra_Vector const &localTestV
   // than trying to add all the values and letting SumIntoGlobalValues
   // decide which ones to drop.
   int pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-  for (SeparatorGroup const &group: hid_->SeparatorGroups(sd))
+  for (SeparatorGroup const &group: hid_->GetSeparatorGroups(sd))
     {
     HYMLS_LPROF3(label_,"Compute non-dropped Vsum part");
     int len = group.length();
@@ -1308,7 +1308,7 @@ int SchurPreconditioner::ConstructSCPart(int sd, Epetra_Vector const &localTestV
       {
       pos2 = 0;
       pos4 = 0;
-      for (SeparatorGroup const &group2: hid_->SeparatorGroups(sd))
+      for (SeparatorGroup const &group2: hid_->GetSeparatorGroups(sd))
         {
         int len2 = group2.length();
         if (len2 > 0)
@@ -1324,7 +1324,7 @@ int SchurPreconditioner::ConstructSCPart(int sd, Epetra_Vector const &localTestV
     }
 
   pos3 = 0;
-  for (SeparatorGroup const &group: hid_->SeparatorGroups(sd))
+  for (SeparatorGroup const &group: hid_->GetSeparatorGroups(sd))
     {
     int len = group.length() - 1;
     if (len > 0)
