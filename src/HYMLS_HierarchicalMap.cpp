@@ -491,9 +491,9 @@ HierarchicalMap::SpawnInterior() const
   int pos = 0;
   for (int sd = 0; sd < NumMySubdomains(); sd++)
     {
-    int len = (*groupPointer_)[sd][1];
-    std::copy((*gidList_)[sd].begin(), (*gidList_)[sd].begin()+len, myElements+pos);
-    pos += len;
+    InteriorGroup const &group = GetInteriorGroup(sd);
+    std::copy(group.nodes().begin(), group.nodes().end(), myElements + pos);
+    pos += group.length();
     }
 
   newMap = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), pos, myElements, base, Comm()));
