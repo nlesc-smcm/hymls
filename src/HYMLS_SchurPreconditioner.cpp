@@ -832,17 +832,18 @@ Teuchos::RCP<const Epetra_Map> SchurPreconditioner::CreateVSumMap(
   Teuchos::RCP<const HierarchicalMap> &sepObject) const
   {
   int numBlocks = 0;
-  for (int sep = 0; sep < sepObject->NumMySubdomains(); sep++)
+  for (int sd = 0; sd < sepObject->NumMySubdomains(); sd++)
     {
-    for (int grp = 1; grp < sepObject->NumGroups(sep); grp++)
+    for (SeparatorGroup const &group: sepObject->SeparatorGroups(sd))
       {
       if (applyDropping_)
         {
-        if (sepObject->NumElements(sep, grp) > 0) numBlocks++;
+        if (group.length() > 0)
+          numBlocks++;
         }
       else
         {
-        numBlocks += sepObject->NumElements(sep, grp);
+        numBlocks += group.length();
         }
       }
     }
@@ -854,20 +855,20 @@ Teuchos::RCP<const Epetra_Map> SchurPreconditioner::CreateVSumMap(
   // container.
   hymls_gidx *MyVsumElements = new hymls_gidx[numBlocks]; // one Vsum per block
   int pos = 0;
-  for (int sep = 0; sep < sepObject->NumMySubdomains(); sep++)
+  for (int sd = 0; sd < sepObject->NumMySubdomains(); sd++)
     {
     HYMLS_DEBVAR(sep)
-      for (int grp = 1; grp < sepObject->NumGroups(sep); grp++)
+    for (SeparatorGroup const &group: sepObject->SeparatorGroups(sd))
+      {
+      if (group.length() > 0)
         {
-        if (sepObject->NumElements(sep,grp) > 0)
-          {
-          if (applyDropping_)
-            MyVsumElements[pos++] = sepObject->GID(sep,grp,0);
-          else
-            for (int i = 0; i < sepObject->NumElements(sep, grp); i++)
-              MyVsumElements[pos++] = sepObject->GID(sep,grp,i);
-          }
+        if (applyDropping_)
+          MyVsumElements[pos++] = group.nodes()[0];
+        else
+          for (hymls_gidx gid: group.nodes())
+            MyVsumElements[pos++] = gid;
         }
+      }
     }
 
   Teuchos::RCP<const Epetra_Map> ret = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1),
