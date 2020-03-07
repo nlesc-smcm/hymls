@@ -206,12 +206,6 @@ private:
 
   //! overlapping map p1 (with minimal overlap between subdomains)
   Teuchos::RCP<const Epetra_Map> overlappingMap_;
-  
-  //! pointer to index subdomains and groups
-  Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > groupPointer_;
-  
-  //! list of ordered GIDs which will be transformed into a map in FillComplete
-  Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > gidList_;
 
   //! list of interior groups per subdomain
   Teuchos::RCP<Teuchos::Array<InteriorGroup> > interior_groups_;
@@ -231,8 +225,6 @@ private:
   HierarchicalMap(
     Teuchos::RCP<const Epetra_Map> baseMap,
     Teuchos::RCP<const Epetra_Map> overlappingMap,
-    Teuchos::RCP<Teuchos::Array< Teuchos::Array<hymls_gidx> > > groupPointer,
-    Teuchos::RCP<Teuchos::Array< Teuchos::Array<hymls_gidx> > > gidList,
     Teuchos::RCP<Teuchos::Array<InteriorGroup> > interior_groups,
     Teuchos::RCP<Teuchos::Array<Teuchos::Array<SeparatorGroup> > > separator_groups,
     std::string label, int level);
