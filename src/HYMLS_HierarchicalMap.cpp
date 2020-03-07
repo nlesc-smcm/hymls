@@ -595,58 +595,66 @@ HierarchicalMap::SpawnLocalSeparators() const
   return newObject;
   }
 
-  Teuchos::RCP<const Epetra_Map> HierarchicalMap::SpawnMap
-        (int sd, SpawnStrategy strat) const
+Teuchos::RCP<const Epetra_Map> HierarchicalMap::SpawnMap(int sd, SpawnStrategy strat) const
+  {
+  HYMLS_LPROF3(label_,"SpawnMap");
+  if ((sd<0)||(sd>NumMySubdomains()))
     {
-    HYMLS_LPROF3(label_,"SpawnMap");
-    if ((sd<0)||(sd>NumMySubdomains()))
-      {
-      Tools::Error("subdomain index out of range",__FILE__,__LINE__);
-      }
-    int idx=(int)strat;
-    if (idx>=spawnedMaps_.size())
-      {
-      Tools::Error("strategy index out of range",__FILE__,__LINE__);
-      }
-      
-    if (spawnedMaps_[idx].size()<NumMySubdomains())
-      {
-      spawnedMaps_[idx].resize(NumMySubdomains());
-      for (int i=0;i<NumMySubdomains();i++) spawnedMaps_[idx][sd]=Teuchos::null;
-      }
-
-    Teuchos::RCP<const Epetra_Map> map = spawnedMaps_[idx][sd];
-
-    if (map == Teuchos::null)
-      {
-      HYMLS_DEBUG("Spawn map for subdomain " << sd);
-      Epetra_SerialComm comm;
-      hymls_gidx offset = -1;
-      int length = -1;
-      if (strat == Interior)
-        {
-        HYMLS_DEBUG("interior map");
-
-        InteriorGroup const &group = GetInteriorGroup(sd);
-        map = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), group.length(), group.nodes().data(),
-            (hymls_gidx)baseMap_->IndexBase64(), comm));
-        }
-      else if (strat == Separators)
-        {
-        HYMLS_DEBUG("separator map");
-        offset = (*groupPointer_)[sd][1];
-        length = NumSeparatorElements(sd);
-
-        map = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), length, &((*gidList_)[sd][0+offset]),
-            (hymls_gidx)baseMap_->IndexBase64(), comm));
-        }
-      HYMLS_DEBVAR(offset);
-      HYMLS_DEBVAR(length);
-      spawnedMaps_[idx][sd] = map;
-      }
-    
-    return map;
+    Tools::Error("subdomain index out of range",__FILE__,__LINE__);
     }
+  int idx=(int)strat;
+  if (idx>=spawnedMaps_.size())
+    {
+    Tools::Error("strategy index out of range",__FILE__,__LINE__);
+    }
+      
+  if (spawnedMaps_[idx].size()<NumMySubdomains())
+    {
+    spawnedMaps_[idx].resize(NumMySubdomains());
+    for (int i=0;i<NumMySubdomains();i++) spawnedMaps_[idx][sd]=Teuchos::null;
+    }
+
+  Teuchos::RCP<const Epetra_Map> map = spawnedMaps_[idx][sd];
+
+  if (map == Teuchos::null)
+    {
+    HYMLS_DEBUG("Spawn map for subdomain " << sd);
+
+    Epetra_SerialComm comm;
+    if (strat == Interior)
+      {
+      HYMLS_DEBUG("interior map");
+
+      InteriorGroup const &group = GetInteriorGroup(sd);
+      map = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), group.length(), group.nodes().data(),
+          (hymls_gidx)baseMap_->IndexBase64(), comm));
+      }
+    else if (strat == Separators)
+      {
+      HYMLS_DEBUG("separator map");
+
+      int length = NumSeparatorElements(sd);
+      hymls_gidx *gids = new hymls_gidx[length];
+
+      int pos = 0;
+      for (SeparatorGroup const &group: GetSeparatorGroups(sd))
+        for (hymls_gidx gid: group.nodes())
+          gids[pos++] = gid;
+
+      map = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), length, gids,
+          (hymls_gidx)baseMap_->IndexBase64(), comm));
+
+      delete[] gids;
+      }
+    else
+      {
+      Tools::Error("Bad strategy!", __FILE__, __LINE__);
+      }
+    spawnedMaps_[idx][sd] = map;
+    }
+
+  return map;
+  }
 
 // this doesn't formally belong to this class but has to be implemented somewhere
 std::ostream & operator << (std::ostream& os, const HierarchicalMap& h)
