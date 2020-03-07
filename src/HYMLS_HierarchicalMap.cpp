@@ -618,40 +618,44 @@ HierarchicalMap::SpawnLocalSeparators() const
       spawnedMaps_[idx].resize(NumMySubdomains());
       for (int i=0;i<NumMySubdomains();i++) spawnedMaps_[idx][sd]=Teuchos::null;
       }
-      
+
     Teuchos::RCP<const Epetra_Map> map = spawnedMaps_[idx][sd];
-    
-    if (map==Teuchos::null)
+
+    if (map == Teuchos::null)
       {
       HYMLS_DEBUG("Spawn map for subdomain " << sd);
-      // int* MyElements = overlappingMap_->MyGlobalElements();      
+      Epetra_SerialComm comm;
       hymls_gidx offset = -1;
       int length = -1;
-      if (strat==Interior)
+      if (strat == Interior)
         {
         HYMLS_DEBUG("interior map");
-        offset = (*groupPointer_)[sd][0];
-        length = NumInteriorElements(sd);
+
+        InteriorGroup const &group = GetInteriorGroup(sd);
+        map = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), group.length(), group.nodes().data(),
+            (hymls_gidx)baseMap_->IndexBase64(), comm));
         }
-      else if (strat==Separators)
+      else if (strat == Separators)
         {
         HYMLS_DEBUG("separator map");
         offset = (*groupPointer_)[sd][1];
         length = NumSeparatorElements(sd);
+
+        map = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), length, &((*gidList_)[sd][0+offset]),
+            (hymls_gidx)baseMap_->IndexBase64(), comm));
         }
-      else if (strat==All)
+      else if (strat == All)
         {
         HYMLS_DEBUG("complete map");
         offset = (*groupPointer_)[sd][0];
         length = NumInteriorElements(sd) + NumSeparatorElements(sd);
+
+        map = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), length, &((*gidList_)[sd][0+offset]),
+            (hymls_gidx)baseMap_->IndexBase64(), comm));
         }
       HYMLS_DEBVAR(offset);
       HYMLS_DEBVAR(length);
-      Epetra_SerialComm comm;
-      map = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), length, &((*gidList_)[sd][0+offset]),
-          (hymls_gidx)baseMap_->IndexBase64(), comm));
-                
-      spawnedMaps_[idx][sd]=map;
+      spawnedMaps_[idx][sd] = map;
       }
     
     return map;
