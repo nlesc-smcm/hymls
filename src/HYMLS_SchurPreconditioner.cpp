@@ -550,13 +550,13 @@ int SchurPreconditioner::Compute()
         //begS << sepObject->LID(sep,grp,0)<<std::endl;
 
         // V-sum nodes
-        ofs << newMap->GID64(map_->LID(group.nodes()[0])) << std::endl;
-        ofs2 << newMap->GID64(map_->LID(group.nodes()[0])) << std::endl;
+        ofs << newMap->GID64(map_->LID(group[0])) << std::endl;
+        ofs2 << newMap->GID64(map_->LID(group[0])) << std::endl;
         // non-Vsum nodes
         for (int j = 1; j < group.length(); j++)
           {
-          ofs << newMap->GID64(map_->LID(group.nodes()[j])) << std::endl;
-          ofs1 << newMap->GID64(map_->LID(group.nodes()[j])) << std::endl;
+          ofs << newMap->GID64(map_->LID(group[j])) << std::endl;
+          ofs1 << newMap->GID64(map_->LID(group[j])) << std::endl;
           }
         }
       }
@@ -691,7 +691,7 @@ int SchurPreconditioner::InitializeBlocks()
       for (int j  = 0; j < numRows; j++)
         {
         // skip first element, which is a Vsum
-        int LRID = map_->LID(group.nodes()[j+1]);
+        int LRID = map_->LID(group[j+1]);
         blockSolver_[blk]->ID(j) = LRID;
         }
       blk++;
@@ -734,7 +734,7 @@ int SchurPreconditioner::InitializeSingleBlock()
       // skip first element, which is a Vsum
       for (int j = 1; j < group.length(); j++)
         {
-        int LRID = map_->LID(group.nodes()[j]);
+        int LRID = map_->LID(group[j]);
         blockSolver_[0]->ID(pos++) = LRID;
         }
       }
@@ -863,7 +863,7 @@ Teuchos::RCP<const Epetra_Map> SchurPreconditioner::CreateVSumMap(
       if (group.length() > 0)
         {
         if (applyDropping_)
-          MyVsumElements[pos++] = group.nodes()[0];
+          MyVsumElements[pos++] = group[0];
         else
           for (hymls_gidx gid: group.nodes())
             MyVsumElements[pos++] = gid;
@@ -1123,7 +1123,7 @@ int SchurPreconditioner::AssembleTransformAndDrop()
       for (SeparatorGroup const &group: hid_->GetSeparatorGroups(sd))
         {
         if (group.length() > 0)
-          indsPart[numVsums++] = group.nodes()[0];
+          indsPart[numVsums++] = group[0];
         }
 
       indsPart.Resize(numVsums);
@@ -1140,7 +1140,7 @@ int SchurPreconditioner::AssembleTransformAndDrop()
           Spart.Reshape(2 * len, 2 * len);
 
         for (int j = 0; j < len; j++)
-          indsPart[j] = group.nodes()[j+1];
+          indsPart[j] = group[j+1];
 
         //HYMLS_DEBVAR(indsPart);
         CHECK_NONNEG(matrix->InsertGlobalValues(indsPart.Length(),
