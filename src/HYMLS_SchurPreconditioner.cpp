@@ -712,7 +712,7 @@ int SchurPreconditioner::InitializeSingleBlock()
   int numMyElements = 0;
   for (int sd = 0; sd < sepObject->NumMySubdomains(); sd++)
     {
-    numMyElements += sepObject->NumElements(sd);
+    numMyElements += sepObject->NumSeparatorElements(sd);
     numMyVsums += sepObject->NumGroups(sd) - 1;
     }
   // we actually need the number of owned non-Vsums:
@@ -1013,10 +1013,7 @@ int SchurPreconditioner::Assemble()
     {
     int nzest = 0;
     if (hid_->NumMySubdomains() > 0)
-      {
-      nzest = hid_->NumElements(0);
-      if (hid_->NumGroups(0) > 0) nzest -= hid_->NumElements(0,0);
-      }
+      nzest = hid_->NumSeparatorElements(0);
     matrix = Teuchos::rcp(new
       Epetra_FECrsMatrix(Copy, SchurComplement_->A22().RowMap(), nzest));
     }
@@ -1082,11 +1079,8 @@ int SchurPreconditioner::AssembleTransformAndDrop()
   if (matrix==Teuchos::null)
     {
     int nzest = 0;
-    if (hid_->NumMySubdomains()>0)
-      {
-      nzest = hid_->NumElements(0);
-      if (hid_->NumGroups(0)>0) nzest -= hid_->NumElements(0,0);
-      }
+    if (hid_->NumMySubdomains() > 0)
+      nzest = hid_->NumSeparatorElements(0);
     matrix = Teuchos::rcp(new Epetra_FECrsMatrix(Copy,*map_,nzest));
     matrix_=matrix;
     }
