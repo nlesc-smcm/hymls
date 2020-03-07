@@ -538,8 +538,10 @@ Teuchos::RCP<const Epetra_Map> HierarchicalMap::SpawnMap(int sd, SpawnStrategy s
 
       int pos = 0;
       for (SeparatorGroup const &group: GetSeparatorGroups(sd))
-        for (hymls_gidx gid: group.nodes())
-          gids[pos++] = gid;
+        {
+        std::copy(group.nodes().begin(), group.nodes().end(), gids + pos);
+        pos += group.length();
+        }
 
       map = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), length, gids,
           (hymls_gidx)baseMap_->IndexBase64(), comm));
