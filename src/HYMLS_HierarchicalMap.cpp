@@ -438,7 +438,7 @@ HierarchicalMap::SpawnSeparators() const
     {
     for (SeparatorGroup const &group: (*separator_groups_)[sd])
       {
-      hymls_gidx first_node = group.nodes()[0];
+      hymls_gidx first_node = group[0];
       if (std::find(done.begin(), done.end(), first_node) == done.end())
         {
         for (hymls_gidx gid: group.nodes())
@@ -484,7 +484,7 @@ HierarchicalMap::SpawnLocalSeparators() const
     {
     for (SeparatorGroup const &group: sepObject->GetSeparatorGroups(sd))
       {
-      hymls_gidx first_node = group.nodes()[0];
+      hymls_gidx first_node = group[0];
       if (sepObject->GetMap()->MyGID(first_node))
         (*new_separator_groups)[sd].append(group);
       }
