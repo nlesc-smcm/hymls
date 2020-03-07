@@ -131,12 +131,12 @@ int OverlappingPartitioner::DetectSeparators(Teuchos::RCP<const BasePartitioner>
 
     CHECK_ZERO(partitioner->GetGroups(sd, interior_group, separator_groups));
 
-    std::sort(interior_group.nodes().begin(), interior_group.nodes().end());
+    interior_group.sort();
     AddInteriorGroup(sd, interior_group);
 
     for (auto &group: separator_groups)
       {
-      std::sort(group.nodes().begin(), group.nodes().end());
+      group.sort();
       AddSeparatorGroup(sd, group);
       }
     }

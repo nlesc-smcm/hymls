@@ -23,6 +23,8 @@ public:
   int length() const;
 
   Teuchos::Array<hymls_gidx> &append(hymls_gidx gid);
+
+  void sort();
   };
 
   }

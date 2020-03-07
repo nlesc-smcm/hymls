@@ -795,7 +795,7 @@ int SkewCartesianPartitioner::GetGroups(int sd, InteriorGroup &interior_group,
     }
 
   // Sort the interior since there may now be new nodes at the back
-  std::sort(interior_group.nodes().begin(), interior_group.nodes().end());
+  interior_group.sort();
 
   return 0;
   }

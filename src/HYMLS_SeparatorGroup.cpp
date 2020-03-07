@@ -28,4 +28,9 @@ Teuchos::Array<hymls_gidx> &SeparatorGroup::append(hymls_gidx gid)
   return nodes_->append(gid);
   }
 
+void SeparatorGroup::sort()
+  {
+  std::sort(nodes_->begin(), nodes_->end());
+  }
+
   }
