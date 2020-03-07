@@ -332,96 +332,61 @@ Teuchos::Array<SeparatorGroup> const &HierarchicalMap::GetSeparatorGroups(int sd
   return (*separator_groups_)[sd];
   }
 
-  //! print domain decomposition to file
-  std::ostream& HierarchicalMap::Print(std::ostream& os) const
+//! print domain decomposition to file
+std::ostream& HierarchicalMap::Print(std::ostream& os) const
+  {
+  if (!Filled())
     {
-    if (!Filled())
-      {
-      os << "(object not filled)" << std::endl;
-      return os;
-      }
-    HYMLS_LPROF3(label_,"Print");
-    int rank=Comm().MyPID();
+    os << "(object not filled)" << std::endl;
+    return os;
+    }
+  HYMLS_LPROF3(label_,"Print");
+  int rank=Comm().MyPID();
     
-    if (rank==0)
-      {
-      os << "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" << std::endl;
-      os << "% Domain decomposition and separators, level " << myLevel_ << "       %" << std::endl;
-      os << "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" << std::endl;
-      os << std::endl;
-      }
+  if (rank==0)
+    {
+    os << "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" << std::endl;
+    os << "% Domain decomposition and separators, level " << myLevel_ << "       %" << std::endl;
+    os << "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" << std::endl;
+    os << std::endl;
+    }
 
-    for (int proc=0;proc<Comm().NumProc();proc++)
+  Comm().Barrier();
+
+  for (int proc = 0; proc < Comm().NumProc(); proc++)
+    {
+    if (proc == rank)
       {
-      if (proc==rank)
+      os << "%Partition " << rank << std::endl;
+      os << "%=============" << std::endl;
+      for (int sd = 0; sd < NumMySubdomains(); sd++)
         {
-        os << "%Partition " << rank << std::endl;
-        os << "%=============" << std::endl;
-        //os << "% Number of rows in groupPointer: " << (*groupPointer_).size() << std::endl;
-        for (int sd=0;sd<NumMySubdomains();sd++)
+        os << "p{" << myLevel_ << "}{" << rank + 1 << "}.groups{" << sd + 1 << "} = {";
+
+        os << "[";
+        InteriorGroup const &group = GetInteriorGroup(sd);
+        for (hymls_gidx gid: group.nodes())
+          os << gid << ",";
+        os << "]";
+
+        for (SeparatorGroup const &group: GetSeparatorGroups(sd))
           {
-          os << "p{" << myLevel_ << "}{" << rank+1 << "}.grpPtr{" << sd+1 << "}=[";
-          for (int i=0;i<(*groupPointer_)[sd].size()-1;i++)
-            {
-            os << (*groupPointer_)[sd][i] << ",";
-            }
-          os << *((*groupPointer_)[sd].end()-1) << "];" << std::endl;
-          os << "   p{" << myLevel_ << "}{" << rank+1 << "}.sd{" << sd+1 << "} = [";
-          for (int grp=0;grp<(*groupPointer_)[sd].size()-1;grp++)
-            {
-            for (int i=(*groupPointer_)[sd][grp]; i<(*groupPointer_)[sd][grp+1];i++)
-              {
-              os << " " << (*gidList_)[sd][i];
-              }
-            os << " ..." << std::endl;
-            }
-          os << "];" << std::endl << std::endl;
-          }
-        }//rank
-      Comm().Barrier();
-      }//proc
-
-    if (rank==0)
-      {
-      os << "%$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$%\n" << std::endl;
-      }
-
-    Comm().Barrier();
-
-    for (int proc = 0; proc < Comm().NumProc(); proc++)
-      {
-      if (proc == rank)
-        {
-        os << "%Partition " << rank << std::endl;
-        os << "%=============" << std::endl;
-        for (int sd = 0; sd < NumMySubdomains(); sd++)
-          {
-          os << "p{" << myLevel_ << "}{" << rank + 1 << "}.groups{" << sd + 1 << "} = {";
-
+          os << ",..." << std::endl;
           os << "[";
-          InteriorGroup const &group = GetInteriorGroup(sd);
           for (hymls_gidx gid: group.nodes())
             os << gid << ",";
           os << "]";
-
-          for (SeparatorGroup const &group: GetSeparatorGroups(sd))
-            {
-            os << ",..." << std::endl;
-            os << "[";
-            for (hymls_gidx gid: group.nodes())
-              os << gid << ",";
-            os << "]";
-            }
-          os << "};\n" << std::endl;
           }
-        }//rank
-      Comm().Barrier();
-      }//proc
+        os << "};\n" << std::endl;
+        }
+      }//rank
+    Comm().Barrier();
+    }//proc
 
-    if (rank==0)
-      {
-      os << "%$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$%" << std::endl;
-      }
+  if (rank==0)
+    {
+    os << "%$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$%" << std::endl;
+    }
   return os;
   }
 
