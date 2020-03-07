@@ -285,23 +285,18 @@ int HierarchicalMap::AddInteriorGroup(int sd, InteriorGroup const &group)
   {
   HYMLS_LPROF3(label_,"AddInteriorGroup");
 
-  if (sd >= groupPointer_->size())
+  if (sd >= interior_groups_->size())
     {
-    Tools::Warning("invalid subdomain index",__FILE__,__LINE__);
+    Tools::Warning("invalid subdomain index", __FILE__, __LINE__);
     return -1; // You should Reset with the right amount of sd
-    } 
+    }
 
   HYMLS_DEBVAR(sd);
   HYMLS_DEBVAR(group.nodes());
-  hymls_gidx offset=*((*groupPointer_)[sd].end()-1);
-  int len = group.length();
-  (*groupPointer_)[sd].append(offset+len);
-  if (len>0)
-    {
-    std::copy(group.nodes().begin(),group.nodes().end(),std::back_inserter((*gidList_)[sd]));
-    }
+
   (*interior_groups_)[sd] = group;
-  return (*groupPointer_)[sd].length()-1;
+
+  return 0;
   }
 
 int HierarchicalMap::AddSeparatorGroup(int sd, SeparatorGroup const &group)
@@ -312,7 +307,7 @@ int HierarchicalMap::AddSeparatorGroup(int sd, SeparatorGroup const &group)
     {
     Tools::Warning("invalid subdomain index", __FILE__, __LINE__);
     return -1; // You should Reset with the right amount of sd
-    } 
+    }
 
   HYMLS_DEBVAR(sd);
   HYMLS_DEBVAR(group.nodes());

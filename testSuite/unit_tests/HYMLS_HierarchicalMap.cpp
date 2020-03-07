@@ -59,7 +59,7 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, AddInteriorGroup)
   ret = hmap.Reset(1);
   TEST_EQUALITY(ret, 0);
   ret = hmap.AddInteriorGroup(0, group);
-  TEST_EQUALITY(ret, 1);
+  TEST_EQUALITY(ret, 0);
   }
 
 TEUCHOS_UNIT_TEST(HierarchicalMap, AddSeparatorGroup)
