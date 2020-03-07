@@ -651,7 +651,7 @@ int SchurPreconditioner::InitializeBlocks()
   int numBlocks = 0;
   for (int sd = 0; sd < sepObject->NumMySubdomains(); sd++)
     {
-    numBlocks += sepObject->NumGroups(sd) - 1;
+    numBlocks += sepObject->NumSeparatorGroups(sd);
     }
 
 #ifdef HYMLS_TESTING
@@ -713,7 +713,7 @@ int SchurPreconditioner::InitializeSingleBlock()
   for (int sd = 0; sd < sepObject->NumMySubdomains(); sd++)
     {
     numMyElements += sepObject->NumSeparatorElements(sd);
-    numMyVsums += sepObject->NumGroups(sd) - 1;
+    numMyVsums += sepObject->NumSeparatorGroups(sd);
     }
   // we actually need the number of owned non-Vsums:
   int numRows = numMyElements - numMyVsums;
@@ -1114,7 +1114,7 @@ int SchurPreconditioner::AssembleTransformAndDrop()
     for (int sd = 0; sd < hid_->NumMySubdomains(); sd++)
       {
       // put in the Vsum-Vsum couplings
-      int numVsums = hid_->NumGroups(sd) - 1;
+      int numVsums = hid_->NumSeparatorGroups(sd);
       indsPart.Resize(numVsums);
       if (numVsums>Spart.N())
         Spart.Reshape(2 * numVsums, 2 * numVsums);
@@ -1265,8 +1265,7 @@ int SchurPreconditioner::ConstructSCPart(int sd, Epetra_Vector const &localTestV
   for (int i = 0; i < indices.Length(); i++)
     v[i] = localTestVector[sepMap.LID(indices[i])];
 
-  int numGroups = hid_->NumGroups(sd);
-  int numVsums = numGroups - 1;
+  int numVsums = hid_->NumSeparatorGroups(sd);
   indicesArray[0].Resize(numVsums);
   numVsums = 0;
 
