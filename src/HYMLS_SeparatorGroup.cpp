@@ -8,6 +8,11 @@ SeparatorGroup::SeparatorGroup()
   nodes_(new Teuchos::Array<hymls_gidx>())
   {}
 
+hymls_gidx SeparatorGroup::operator[](int i) const
+  {
+  return (*nodes_)[i];
+  }
+
 Teuchos::Array<hymls_gidx> &SeparatorGroup::nodes()
   {
   return *nodes_;

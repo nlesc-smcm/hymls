@@ -16,6 +16,8 @@ class SeparatorGroup
 public:
   SeparatorGroup();
 
+  hymls_gidx operator[](int i) const;
+
   Teuchos::Array<hymls_gidx> &nodes();
 
   Teuchos::Array<hymls_gidx> const &nodes() const;
