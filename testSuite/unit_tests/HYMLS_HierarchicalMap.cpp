@@ -103,27 +103,6 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumMySubdomains)
   TEST_EQUALITY(ret, 3);
   }
 
-TEUCHOS_UNIT_TEST(HierarchicalMap, NumMyInteriorElements)
-  {
-  Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
-
-  hymls_gidx n = 100;
-  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(n, 0, *Comm));
-
-  HYMLS::InteriorGroup group;
-  for (int i = 0; i < n; i++)
-    group.append(i);
-
-  TestableHierarchicalMap hmap(map);
-
-  hmap.Reset(2);
-  hmap.AddInteriorGroup(0, group);
-  hmap.AddInteriorGroup(1, group);
-  hmap.AddInteriorGroup(1, group);
-  int ret = hmap.NumMyInteriorElements();
-  TEST_EQUALITY(ret, n*2);
-  }
-
 TEUCHOS_UNIT_TEST(HierarchicalMap, NumElements)
   {
   Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));

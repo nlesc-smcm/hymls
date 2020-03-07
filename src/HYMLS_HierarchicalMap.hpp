@@ -70,14 +70,6 @@ public:
   //! get the local number of subdomains
   inline int NumMySubdomains() const {return groupPointer_->size();}
 
-  //! total number of interior elements
-  inline int NumMyInteriorElements() const
-    {
-    int sum=0;
-    for (int sd=0;sd<NumMySubdomains();sd++) sum+=NumInteriorElements(sd);
-    return sum;
-    }
-  
   //! total number of nodes in subdomain sd (interior and separators)  
   inline int NumElements(int sd) const
     {

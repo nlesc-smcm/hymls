@@ -485,11 +485,14 @@ HierarchicalMap::SpawnInterior() const
     Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >());
   Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > newGidList =
     Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >());
-  
+
   hymls_gidx base = baseMap_->IndexBase64();  
-  
-  int num = NumMyInteriorElements();
-  hymls_gidx *myElements = new hymls_gidx[num];
+
+  int num_interior_elements = 0;
+  for (int sd = 0; sd < NumMySubdomains(); sd++)
+    num_interior_elements += GetInteriorGroup(sd).length();
+
+  hymls_gidx *myElements = new hymls_gidx[num_interior_elements];
   int pos = 0;
   for (int sd = 0; sd < NumMySubdomains(); sd++)
     {
