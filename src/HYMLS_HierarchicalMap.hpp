@@ -77,10 +77,10 @@ public:
 
 #ifdef HYMLS_LONG_LONG
   //! given a subdomain, returns a list of GIDs that belong to the subdomain
-  int getSeparatorGIDs(int sd, Epetra_LongLongSerialDenseVector &inds) const;
+  int GetSeparatorGIDs(int sd, Epetra_LongLongSerialDenseVector &inds) const;
 #else
   //! given a subdomain, returns a list of GIDs that belong to the subdomain
-  int getSeparatorGIDs(int sd, Epetra_IntSerialDenseVector &inds) const;
+  int GetSeparatorGIDs(int sd, Epetra_IntSerialDenseVector &inds) const;
 #endif
 
   //! returns the separator groups for a certain subdomain

@@ -1184,7 +1184,7 @@ int SchurPreconditioner::AssembleTransformAndDrop()
     // (for all separators around the subdomain)
 
     // Get the global indices of the separators
-    CHECK_ZERO(hid_->getSeparatorGIDs(sd, indices));
+    CHECK_ZERO(hid_->GetSeparatorGIDs(sd, indices));
 
     // Construct the local A22
     CHECK_ZERO(SchurComplement_->Construct22(sd, Sk, indices));
@@ -1210,7 +1210,7 @@ int SchurPreconditioner::AssembleTransformAndDrop()
     // (for all separators around the subdomain)
 
     // Get the global indices of the separators
-    CHECK_ZERO(hid_->getSeparatorGIDs(sd, indices));
+    CHECK_ZERO(hid_->GetSeparatorGIDs(sd, indices));
 
     // Construct the local -A21*A11\A12
     CHECK_ZERO(SchurComplement_->Construct11(sd, Sk, indices));

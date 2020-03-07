@@ -115,7 +115,7 @@ int SchurComplement::Construct(Teuchos::RCP<Epetra_FECrsMatrix> S) const
 
     for (int k = 0; k < hid.NumMySubdomains(); k++)
       {
-      CHECK_ZERO(hid.getSeparatorGIDs(k, indices));
+      CHECK_ZERO(hid.GetSeparatorGIDs(k, indices));
       HYMLS_DEBVAR(k);
       HYMLS_DEBVAR(indices);
       if (indices.Length() != Sk.N())
@@ -145,7 +145,7 @@ int SchurComplement::Construct(Teuchos::RCP<Epetra_FECrsMatrix> S) const
   for (int k = 0; k < hid.NumMySubdomains(); k++)
     {
     // construct values for separators around subdomain k
-    CHECK_ZERO(hid.getSeparatorGIDs(k, indices));
+    CHECK_ZERO(hid.GetSeparatorGIDs(k, indices));
     CHECK_ZERO(Construct11(k, Sk, indices, &flopsCompute_));
 
     CHECK_ZERO(S->SumIntoGlobalValues(indices, Sk));

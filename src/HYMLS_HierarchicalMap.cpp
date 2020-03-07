@@ -564,7 +564,7 @@ std::ostream & operator << (std::ostream& os, const HierarchicalMap& h)
 
 #ifdef HYMLS_LONG_LONG
 //! given a subdomain, returns a list of GIDs that belong to the subdomain
-int HierarchicalMap::getSeparatorGIDs(int sd, Epetra_LongLongSerialDenseVector &gids) const
+int HierarchicalMap::GetSeparatorGIDs(int sd, Epetra_LongLongSerialDenseVector &gids) const
   {
   HYMLS_LPROF3(label_, "getSubdomainGIDs");
   if (sd < 0 || sd > NumMySubdomains())
@@ -585,7 +585,7 @@ int HierarchicalMap::getSeparatorGIDs(int sd, Epetra_LongLongSerialDenseVector &
   }
 #else
 //! given a subdomain, returns a list of GIDs that belong to the subdomain
-int HierarchicalMap::getSeparatorGIDs(int sd, Epetra_IntSerialDenseVector &gids) const
+int HierarchicalMap::GetSeparatorGIDs(int sd, Epetra_IntSerialDenseVector &gids) const
   {
   HYMLS_LPROF3(label_, "getSubdomainGIDs");
   if (sd < 0 || sd > NumMySubdomains())
