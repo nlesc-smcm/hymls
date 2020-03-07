@@ -662,24 +662,6 @@ std::ostream & operator << (std::ostream& os, const HierarchicalMap& h)
   return h.Print(os);
   }
 
-//! given a subdomain, returns a list of GIDs that belong to the subdomain
-int HierarchicalMap::getSeparatorGIDs(int sd, hymls_gidx *gids) const
-  {
-  HYMLS_LPROF3(label_, "getSubdomainGIDs");
-  if (sd < 0 || sd > NumMySubdomains())
-    {
-    Tools::Warning("Subdomain index out of range!", __FILE__, __LINE__);
-    return -1;
-    }
-
-  int pos = 0;
-  for (SeparatorGroup const &group: GetSeparatorGroups(sd))
-    for (hymls_gidx gid: group.nodes())
-      gids[pos++] = gid;
-
-  return 0;
-  }
-
 #ifdef HYMLS_LONG_LONG
 //! given a subdomain, returns a list of GIDs that belong to the subdomain
 int HierarchicalMap::getSeparatorGIDs(int sd, Epetra_LongLongSerialDenseVector &gids) const
@@ -691,15 +673,15 @@ int HierarchicalMap::getSeparatorGIDs(int sd, Epetra_LongLongSerialDenseVector &
     return -1;
     }
 
-  int nrows = NumSeparatorElements(sd);
+  Teuchos::RCP<const Epetra_Map> map = SpawnMap(sd, Separators);
 
-  // resize input arrays if necessary
-  if (gids.Length() != nrows)
+// resize input arrays if necessary
+  if (gids.Length() != map->NumMyElements())
     {
-    CHECK_ZERO(gids.Size(nrows));
+    CHECK_ZERO(gids.Size(map->NumMyElements()));
     }
 
-  return getSeparatorGIDs(sd, gids.Values());
+  return map->MyGlobalElements(gids.Values());
   }
 #else
 //! given a subdomain, returns a list of GIDs that belong to the subdomain
@@ -712,15 +694,15 @@ int HierarchicalMap::getSeparatorGIDs(int sd, Epetra_IntSerialDenseVector &gids)
     return -1;
     }
 
-  int nrows = NumSeparatorElements(sd);
+  Teuchos::RCP<const Epetra_Map> map = SpawnMap(sd, Separators);
 
   // resize input arrays if necessary
-  if (gids.Length() != nrows)
+  if (gids.Length() != map->NumMyElements())
     {
-    CHECK_ZERO(gids.Size(nrows));
+    CHECK_ZERO(gids.Size(map->NumMyElements()));
     }
 
-  return getSeparatorGIDs(sd, gids.Values());
+  return map->MyGlobalElements(gids.Values());
   }
 #endif
 }

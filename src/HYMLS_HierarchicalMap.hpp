@@ -75,9 +75,6 @@ public:
   //! The number of separator groups in subdomain sd
   int NumSeparatorGroups(int sd) const;
 
-  //! given a subdomain, returns a list of GIDs that belong to the subdomain
-  int getSeparatorGIDs(int sd, hymls_gidx *gids) const;
-
 #ifdef HYMLS_LONG_LONG
   //! given a subdomain, returns a list of GIDs that belong to the subdomain
   int getSeparatorGIDs(int sd, Epetra_LongLongSerialDenseVector &inds) const;
