@@ -477,7 +477,7 @@ bool Tester::noPcouplingsDropped(const Epetra_CrsMatrix& transSC,
       // loop over all elements in the group, skipping the first one (the V-sum node)
       for (int i = 1; i < group.length(); i++)
         {
-        hymls_gidx grid = group.nodes()[i];
+        hymls_gidx grid = group[i];
         // if this element is a V-node, check that any P-node couplings are 0
         if (MOD(grid,dof_) != pvar_)
           {
