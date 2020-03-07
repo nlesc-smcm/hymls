@@ -78,10 +78,7 @@ public:
     }
 
   //! total number of interior nodes in subdomain sd
-  inline int NumInteriorElements(int sd) const
-    {
-    return NumElements(sd,0);
-    }
+  int NumInteriorElements(int sd) const;
 
   //! total number of separator nodes in subdomain sd
   inline int NumSeparatorElements(int sd) const

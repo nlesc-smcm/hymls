@@ -78,6 +78,11 @@ HierarchicalMap::~HierarchicalMap()
   HYMLS_LPROF3(label_,"Destructor");
   }
 
+int HierarchicalMap::NumInteriorElements(int sd) const
+  {
+  return GetInteriorGroup(sd).length();
+  }
+
 int HierarchicalMap::Reset(int numMySubdomains)
   {
   HYMLS_LPROF2(label_,"Reset");
