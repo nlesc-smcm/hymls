@@ -268,14 +268,17 @@ int HierarchicalMap::FillComplete()
   Teuchos::Array<hymls_gidx> allGIDs;
   for (int sd = 0; sd < NumMySubdomains(); sd++)
     {
-    std::copy((*newGidList)[sd].begin(), (*newGidList)[sd].end(),
-      std::back_inserter(allGIDs));
-
     // Remove empty separator groups
     (*separator_groups_)[sd].erase(std::remove_if(
         (*separator_groups_)[sd].begin(), (*separator_groups_)[sd].end(),
         [](SeparatorGroup const &i){return i.nodes().empty();}),
       (*separator_groups_)[sd].end());
+
+    InteriorGroup const &group = GetInteriorGroup(sd);
+    std::copy(group.nodes().begin(), group.nodes().end(), std::back_inserter(allGIDs));
+
+    for (SeparatorGroup const &group: GetSeparatorGroups(sd))
+      std::copy(group.nodes().begin(), group.nodes().end(), std::back_inserter(allGIDs));
     }
   std::sort(allGIDs.begin(), allGIDs.end());
   auto last = std::unique(allGIDs.begin(), allGIDs.end());
