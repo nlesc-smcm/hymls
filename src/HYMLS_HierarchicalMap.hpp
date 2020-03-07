@@ -37,17 +37,13 @@ class HierarchicalMap
   
 public:
 
-  enum SpawnStrategy 
+  enum SpawnStrategy
     {
-    Interior=0,   /* retain only interior (level 0) nodes (no overlap)  */
-    
-    Separators=1, /* retain all separator elements as new 'interior'    */
-                /* nodes, and keep separators between physical        */
-                /* partitions (processors) as separators.             */
-    LocalSeparators=2, /* retain all local separators, possibly regrouped  */
-    All=3       /* retain all elements. This is most useful for creating */
-                /* subdomain maps using SpawnMap(), for Spawn() it just  */
-                /* returns this object.                                  */
+    Interior,       // retain only interior (level 0) nodes (no overlap).
+    Separators,     // retain all separator elements as new 'interior'
+                    // nodes, and keep separators between physical
+                    // partitions (processors) as separators.
+    LocalSeparators // retain all local separators, possibly regrouped.
     };
 
   // constructor - empty object

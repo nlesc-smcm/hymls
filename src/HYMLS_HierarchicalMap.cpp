@@ -417,10 +417,6 @@ HierarchicalMap::Spawn(SpawnStrategy strat) const
       {
       object=SpawnLocalSeparators();
       }
-    else if (strat==All)
-      {
-      object=Teuchos::rcp(this,false);
-      }
     else
       {
       Tools::Error("Bad strategy!",__FILE__,__LINE__);
@@ -640,15 +636,6 @@ HierarchicalMap::SpawnLocalSeparators() const
         HYMLS_DEBUG("separator map");
         offset = (*groupPointer_)[sd][1];
         length = NumSeparatorElements(sd);
-
-        map = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), length, &((*gidList_)[sd][0+offset]),
-            (hymls_gidx)baseMap_->IndexBase64(), comm));
-        }
-      else if (strat == All)
-        {
-        HYMLS_DEBUG("complete map");
-        offset = (*groupPointer_)[sd][0];
-        length = NumInteriorElements(sd) + NumSeparatorElements(sd);
 
         map = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), length, &((*gidList_)[sd][0+offset]),
             (hymls_gidx)baseMap_->IndexBase64(), comm));
