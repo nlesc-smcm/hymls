@@ -205,11 +205,7 @@ protected:
   //! add a separator group of GIDs to an existing subdomain. Returns the group id
   //! of the new group. FillComplete() should not have been called.
   int AddSeparatorGroup(int sd, SeparatorGroup const &group);
-  
-  //! get back a group that was added as described above. Used for debugging purposes
-  //! only
-  Teuchos::Array<hymls_gidx> GetGroup(int sd, int grp) const;
-  
+
   //! delete the map and all subdomains and groups that have been added so far
   int Reset(int num_sd);
 

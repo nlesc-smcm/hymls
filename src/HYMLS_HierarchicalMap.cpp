@@ -327,28 +327,6 @@ Teuchos::Array<SeparatorGroup> const &HierarchicalMap::GetSeparatorGroups(int sd
   return (*separator_groups_)[sd];
   }
 
-Teuchos::Array<hymls_gidx> HierarchicalMap::GetGroup(int sd, int grp) const
-  {
-  HYMLS_LPROF3(label_,"GetGroup");
-
-  if (sd >= groupPointer_->size())
-    Tools::Error("Invalid subdomain index", __FILE__, __LINE__);
-
-  if (grp >= (*groupPointer_)[sd].size())
-    Tools::Error("Invalid group index", __FILE__, __LINE__);
-
-  hymls_gidx offset = *((*groupPointer_)[sd].begin() + grp);
-  int len = *((*groupPointer_)[sd].begin() + grp + 1) - offset;
-
-  if (offset + len > (*gidList_)[sd].size())
-    Tools::Error("Invalid group index", __FILE__, __LINE__);
-
-  Teuchos::Array<hymls_gidx> gidList;
-  std::copy((*gidList_)[sd].begin() + offset, (*gidList_)[sd].begin() + offset + len,std::back_inserter(gidList));
-
-  return gidList;
-  }
-
   //! print domain decomposition to file
   std::ostream& HierarchicalMap::Print(std::ostream& os) const
     {
