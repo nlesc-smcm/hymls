@@ -58,18 +58,15 @@ HierarchicalMap::HierarchicalMap(
   separator_groups_(separator_groups)
   {
   HYMLS_LPROF2(label_,"HierarchicalMap Constructor");
-  spawnedObjects_.resize(4); // can currently spawn Interior, Separator and 
-  // LocalSeparator objects and 
-  // return a self-reference (All)    
-  spawnedMaps_.resize(4);
-  for (int i=0;i<spawnedObjects_.size();i++) spawnedObjects_[i]=Teuchos::null;
-  for (int i=0;i<spawnedMaps_.size();i++)  
+  spawnedObjects_.resize(3); // can currently spawn Interior, Separator and LocalSeparator objects
+  spawnedMaps_.resize(3);
+  for (int i = 0; i < spawnedObjects_.size(); i++)
+    spawnedObjects_[i] = Teuchos::null;
+  for (int i = 0; i < spawnedMaps_.size(); i++)
     {
     spawnedMaps_[i].resize(NumMySubdomains());
-    for (int sd=0;sd<NumMySubdomains();sd++)
-      {
-      spawnedMaps_[i][sd]=Teuchos::null;
-      }
+    for (int sd = 0; sd < NumMySubdomains(); sd++)
+      spawnedMaps_[i][sd] = Teuchos::null;
     }
   }
 
@@ -118,12 +115,11 @@ int HierarchicalMap::Reset(int numMySubdomains)
     (*groupPointer_)[i][0]=0;
     }
 
-  spawnedObjects_.resize(4); // can currently spawn Interior, Separator and 
-  // LocalSeparator objects and 
-  // return a self-reference (All)    
-  spawnedMaps_.resize(4);
-  for (int i=0;i<spawnedObjects_.size();i++) spawnedObjects_[i]=Teuchos::null;
-  overlappingMap_=Teuchos::null;
+  spawnedObjects_.resize(3); // can currently spawn Interior, Separator and LocalSeparator objects
+  spawnedMaps_.resize(3);
+  for (int i = 0; i < spawnedObjects_.size(); i++)
+    spawnedObjects_[i] = Teuchos::null;
+  overlappingMap_ = Teuchos::null;
   return 0;
   }
 
