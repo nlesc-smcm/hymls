@@ -683,7 +683,7 @@ HierarchicalMap::SpawnLocalSeparators() const
         {
         HYMLS_DEBUG("complete map");
         offset = (*groupPointer_)[sd][0];
-        length = NumElements(sd);
+        length = NumInteriorElements(sd) + NumSeparatorElements(sd);
         }
       HYMLS_DEBVAR(offset);
       HYMLS_DEBVAR(length);

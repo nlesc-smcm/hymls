@@ -70,13 +70,6 @@ public:
   //! get the local number of subdomains
   inline int NumMySubdomains() const {return groupPointer_->size();}
 
-  //! total number of nodes in subdomain sd (interior and separators)  
-  inline int NumElements(int sd) const
-    {
-    return static_cast<int>(
-      *((*groupPointer_)[sd].end()-1) - *((*groupPointer_)[sd].begin()));
-    }
-
   //! total number of interior nodes in subdomain sd
   int NumInteriorElements(int sd) const;
 
@@ -85,14 +78,6 @@ public:
 
   //! The number of separator groups in subdomain sd
   int NumSeparatorGroups(int sd) const;
-
-  //! total number of nodes in subdomain sd, group grp.
-  //! grp 0 are the interior elements, group 1:NumSeparatorGroups are 
-  //! the separator groups.
-  inline int NumElements(int sd, int grp) const
-    {
-    return static_cast<int>((*groupPointer_)[sd][grp+1] - (*groupPointer_)[sd][grp]);
-    }
 
   //! given a subdomain, returns a list of GIDs that belong to the subdomain
   int getSeparatorGIDs(int sd, hymls_gidx *gids) const;
