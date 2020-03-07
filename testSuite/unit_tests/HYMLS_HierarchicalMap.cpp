@@ -161,7 +161,7 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumSeparatorElements)
   hmap.Reset(2);
   hmap.AddInteriorGroup(0, group);
   hmap.AddInteriorGroup(1, group);
-  hmap.AddInteriorGroup(1, group);
+  hmap.AddSeparatorGroup(1, group);
   int ret = hmap.NumSeparatorElements(1);
   TEST_EQUALITY(ret, n);
   ret = hmap.NumSeparatorElements(0);

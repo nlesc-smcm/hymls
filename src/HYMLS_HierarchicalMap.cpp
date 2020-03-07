@@ -83,6 +83,14 @@ int HierarchicalMap::NumInteriorElements(int sd) const
   return GetInteriorGroup(sd).length();
   }
 
+int HierarchicalMap::NumSeparatorElements(int sd) const
+  {
+  int num = 0;
+  for (SeparatorGroup const &group: GetSeparatorGroups(sd))
+    num += group.length();
+  return num;
+  }
+
 int HierarchicalMap::Reset(int numMySubdomains)
   {
   HYMLS_LPROF2(label_,"Reset");

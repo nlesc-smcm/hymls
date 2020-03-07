@@ -81,10 +81,7 @@ public:
   int NumInteriorElements(int sd) const;
 
   //! total number of separator nodes in subdomain sd
-  inline int NumSeparatorElements(int sd) const
-    {
-    return static_cast<int>(*((*groupPointer_)[sd].end()-1) - (*groupPointer_)[sd][1]);
-    }
+  int NumSeparatorElements(int sd) const;
 
   //! number of groups in subdomain sd (interior + separator)
   inline int NumGroups(int sd) const
