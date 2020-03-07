@@ -125,7 +125,7 @@ for (int sd = 0; sd < opart.NumMySubdomains(); sd++)
     }
   int numGroups = std::accumulate(isGroup.begin(), isGroup.end(), 0);
 
-  TEST_EQUALITY(opart.NumGroups(sd), numGroups);
+  TEST_EQUALITY(opart.NumSeparatorGroups(sd), numGroups-1);
 
   HYMLS::InteriorGroup const &group = opart.GetInteriorGroup(sd);
   if ((gsd + 1) % nsx == 0 && gsd / nsx == nsy - 1)
@@ -300,7 +300,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Laplace3D, nx, ny, nz, sx, sy, sz
       }
     int numGroups = std::accumulate(isGroup.begin(), isGroup.end(), 0);
 
-    TEST_EQUALITY(opart.NumGroups(sd), numGroups);
+    TEST_EQUALITY(opart.NumSeparatorGroups(sd), numGroups-1);
 
     HYMLS::InteriorGroup const &group = opart.GetInteriorGroup(sd);
     if (isGroup[14] == 0 && isGroup[16] == 0 && isGroup[22] == 0)
@@ -422,7 +422,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Stokes2D, nx, ny, sx, sy)
       + 1 // interior pressure
       + isGroup[8]; // corner pressures
 
-    TEST_EQUALITY(opart.NumGroups(sd), numGroups);
+    TEST_EQUALITY(opart.NumSeparatorGroups(sd), numGroups-1);
 
     HYMLS::InteriorGroup const &group = opart.GetInteriorGroup(sd);
     if ((gsd + 1) % nsx == 0 && gsd / nsx == nsy - 1)
@@ -629,7 +629,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, Stokes3D, nx, ny, nz, sx, sy, sz)
       + 1 // interior pressure
       + isGroup[17] + isGroup[23] + isGroup[25] + isGroup[26]; // corner pressures
 
-    TEST_EQUALITY(opart.NumGroups(sd), numGroups);
+    TEST_EQUALITY(opart.NumSeparatorGroups(sd), numGroups-1);
 
     HYMLS::InteriorGroup const &group = opart.GetInteriorGroup(sd);
     if (isGroup[14] == 0 && isGroup[16] == 0 && isGroup[22] == 0)
@@ -749,7 +749,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewLaplace2D, nx, ny, sx, sy)
     if (numGroups < 4)
       numGroups = 4;
 
-    TEST_EQUALITY(opart.NumGroups(sd), numGroups);
+    TEST_EQUALITY(opart.NumSeparatorGroups(sd), numGroups-1);
 
     HYMLS::InteriorGroup const &group = opart.GetInteriorGroup(sd);
     if (gsd % nsx == nsx / 2 * 2)
@@ -972,7 +972,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes2D, nx, ny, sx, sy)
     if (numGroups < 7)
       numGroups = 7;
  
-    TEST_EQUALITY(opart.NumGroups(sd), numGroups);
+    TEST_EQUALITY(opart.NumSeparatorGroups(sd), numGroups-1);
 
     HYMLS::InteriorGroup const &group = opart.GetInteriorGroup(sd);
     if (gsd % nsx == nsx / 2 * 2)
@@ -1241,7 +1241,7 @@ TEUCHOS_UNIT_TEST_DECL(OverlappingPartitioner, SkewStokes3D, nx, ny, nz, sx, sy,
       for (hymls_gidx gid: group.nodes())
         totalNodes[gid % dof]++;
 
-    if (opart.NumGroups(sd) == 84)
+    if (opart.NumSeparatorGroups(sd) == 83)
       {
       TEST_EQUALITY(totalNodes[0],
         sx / 2 * ((sx - 1) * sx + sx ) +

@@ -168,7 +168,7 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumSeparatorElements)
   TEST_EQUALITY(ret, 0);
   }
 
-TEUCHOS_UNIT_TEST(HierarchicalMap, NumGroups)
+TEUCHOS_UNIT_TEST(HierarchicalMap, NumSeparatorGroups)
   {
   Teuchos::RCP<Epetra_MpiComm> Comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
 
@@ -182,12 +182,12 @@ TEUCHOS_UNIT_TEST(HierarchicalMap, NumGroups)
   TestableHierarchicalMap hmap(map);
 
   hmap.Reset(2);
-  hmap.AddInteriorGroup(0, group);
-  hmap.AddInteriorGroup(1, group);
-  hmap.AddInteriorGroup(1, group);
-  int ret = hmap.NumGroups(1);
+  hmap.AddSeparatorGroup(0, group);
+  hmap.AddSeparatorGroup(1, group);
+  hmap.AddSeparatorGroup(1, group);
+  int ret = hmap.NumSeparatorGroups(1);
   TEST_EQUALITY(ret, 2);
-  ret = hmap.NumGroups(0);
+  ret = hmap.NumSeparatorGroups(0);
   TEST_EQUALITY(ret, 1);
   }
 

@@ -83,12 +83,6 @@ public:
   //! total number of separator nodes in subdomain sd
   int NumSeparatorElements(int sd) const;
 
-  //! number of groups in subdomain sd (interior + separator)
-  inline int NumGroups(int sd) const
-    {
-    return (*groupPointer_)[sd].size()-1;
-    }
-
   //! The number of separator groups in subdomain sd
   int NumSeparatorGroups(int sd) const;
 
