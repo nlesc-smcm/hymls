@@ -745,7 +745,7 @@ int SkewCartesianPartitioner::GetGroups(int sd, InteriorGroup &interior_group,
             {
             SeparatorGroup newGroup2;
             for (int i = j * newLen; i < (j + 1) * newLen && i < len; i++)
-              newGroup2.append(newGroup.second.nodes()[i]);
+              newGroup2.append(newGroup.second[i]);
             separator_groups.append(newGroup2);
             }
           }
