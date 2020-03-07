@@ -91,6 +91,11 @@ int HierarchicalMap::NumSeparatorElements(int sd) const
   return num;
   }
 
+int HierarchicalMap::NumSeparatorGroups(int sd) const
+  {
+  return GetSeparatorGroups(sd).length();
+  }
+
 int HierarchicalMap::Reset(int numMySubdomains)
   {
   HYMLS_LPROF2(label_,"Reset");

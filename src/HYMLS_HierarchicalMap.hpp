@@ -89,6 +89,9 @@ public:
     return (*groupPointer_)[sd].size()-1;
     }
 
+  //! The number of separator groups in subdomain sd
+  int NumSeparatorGroups(int sd) const;
+
   //! total number of nodes in subdomain sd, group grp.
   //! grp 0 are the interior elements, group 1:NumSeparatorGroups are 
   //! the separator groups.
