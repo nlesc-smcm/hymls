@@ -78,6 +78,13 @@ HierarchicalMap::~HierarchicalMap()
   HYMLS_LPROF3(label_,"Destructor");
   }
 
+int HierarchicalMap::NumMySubdomains() const
+  {
+  if (interior_groups_ != Teuchos::null)
+    return interior_groups_->length();
+  return separator_groups_->length();
+  }
+
 int HierarchicalMap::NumInteriorElements(int sd) const
   {
   return GetInteriorGroup(sd).length();
