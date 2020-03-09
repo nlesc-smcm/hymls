@@ -282,7 +282,10 @@ int CartesianPartitioner::GetGroups(int sd, InteriorGroup &interior_group,
   // FIXME: Retaining multiple nodes per separator may retain too many
   // per face when not setting directions separately.
 
+  int itype_max = rx_ > 1 ? rx_ : 1;
+  int jtype_max = ry_ > 1 ? ry_ : 1;
   int ktype_max = rz_ > 1 ? rz_ : 1;
+
   for (int ktype = -1; ktype <= ktype_max; ktype++)
     {
     bool kinterior = ktype >= 0 && ktype < ktype_max;
@@ -292,7 +295,6 @@ int CartesianPartitioner::GetGroups(int sd, InteriorGroup &interior_group,
         zpos, ktype, ktype_max, nz_, zmax, perio_ & GaleriExt::Z_PERIO, kstart, kend))
       continue;
 
-    int jtype_max = ry_ > 1 ? ry_ : 1;
     for (int jtype = -1; jtype <= jtype_max; jtype++)
       {
       bool jinterior = jtype >= 0 && jtype < jtype_max;
@@ -302,7 +304,6 @@ int CartesianPartitioner::GetGroups(int sd, InteriorGroup &interior_group,
           ypos, jtype, jtype_max, ny_, ymax, perio_ & GaleriExt::Y_PERIO, jstart, jend))
         continue;
 
-      int itype_max = rx_ > 1 ? rx_ : 1;
       for (int itype = -1; itype <= itype_max; itype++)
         {
         bool iinterior = itype >= 0 && itype < itype_max;
