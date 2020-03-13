@@ -222,29 +222,29 @@ int CartesianPartitioner::Partition(bool repart)
   }
 
 static int GetSubdomainStartAndEnd(
-  int pos, int type, int type_max, int dim, int max, bool perio, int &start, int &end)
+  int pos, int idx, int idx_max, int dim, int max, bool perio, int &start, int &end)
   {
-  int len = std::max((max + type_max - 1) / type_max, 1);
+  int len = std::max((max + idx_max - 1) / idx_max, 1);
 
-  start = type;
-  if (type == type_max)
+  start = idx;
+  if (idx == idx_max)
     start = max;
-  else if (type > 0)
-    start = std::min(len * type, max);
+  else if (idx > 0)
+    start = std::min(len * idx, max);
 
   end = start + 1;
-  if (type >= 0 && type < type_max)
-    end = std::min(len * (type + 1), max);
+  if (idx >= 0 && idx < idx_max)
+    end = std::min(len * (idx + 1), max);
 
   if (!perio)
     {
-    if (pos == 0 && type == -1)
+    if (pos == 0 && idx == -1)
       return 1;
     if (pos + max + 1 == dim)
       {
-      if (type == type_max)
+      if (idx == idx_max)
         return 1;
-      if (type == type_max - 1)
+      if (idx == idx_max - 1)
         end += 1;
       }
     }
@@ -282,35 +282,35 @@ int CartesianPartitioner::GetGroups(int sd, InteriorGroup &interior_group,
   // FIXME: Retaining multiple nodes per separator may retain too many
   // per face when not setting directions separately.
 
-  int itype_max = rx_ > 1 ? rx_ : 1;
-  int jtype_max = ry_ > 1 ? ry_ : 1;
-  int ktype_max = rz_ > 1 ? rz_ : 1;
+  int iidx_max = rx_ > 1 ? rx_ : 1;
+  int jidx_max = ry_ > 1 ? ry_ : 1;
+  int kidx_max = rz_ > 1 ? rz_ : 1;
 
-  for (int ktype = -1; ktype <= ktype_max; ktype++)
+  for (int kidx = -1; kidx <= kidx_max; kidx++)
     {
-    bool kinterior = ktype >= 0 && ktype < ktype_max;
+    bool kinterior = kidx >= 0 && kidx < kidx_max;
 
     int kstart, kend;
     if (GetSubdomainStartAndEnd(
-        zpos, ktype, ktype_max, nz_, zmax, perio_ & GaleriExt::Z_PERIO, kstart, kend))
+        zpos, kidx, kidx_max, nz_, zmax, perio_ & GaleriExt::Z_PERIO, kstart, kend))
       continue;
 
-    for (int jtype = -1; jtype <= jtype_max; jtype++)
+    for (int jidx = -1; jidx <= jidx_max; jidx++)
       {
-      bool jinterior = jtype >= 0 && jtype < jtype_max;
+      bool jinterior = jidx >= 0 && jidx < jidx_max;
 
       int jstart, jend;
       if (GetSubdomainStartAndEnd(
-          ypos, jtype, jtype_max, ny_, ymax, perio_ & GaleriExt::Y_PERIO, jstart, jend))
+          ypos, jidx, jidx_max, ny_, ymax, perio_ & GaleriExt::Y_PERIO, jstart, jend))
         continue;
 
-      for (int itype = -1; itype <= itype_max; itype++)
+      for (int iidx = -1; iidx <= iidx_max; iidx++)
         {
-        bool iinterior = itype >= 0 && itype < itype_max;
+        bool iinterior = iidx >= 0 && iidx < iidx_max;
 
         int istart, iend;
         if (GetSubdomainStartAndEnd(
-            xpos, itype, itype_max, nx_, xmax, perio_ & GaleriExt::X_PERIO, istart, iend))
+            xpos, iidx, iidx_max, nx_, xmax, perio_ & GaleriExt::X_PERIO, istart, iend))
           continue;
 
         for (int d = 0; d < dof_; d++)
@@ -318,7 +318,7 @@ int CartesianPartitioner::GetGroups(int sd, InteriorGroup &interior_group,
           nodes2 = NULL;
           if ((variableType_[d] == VariableType::Pressure ||
               variableType_[d] == VariableType::Interior) &&
-            (itype == -1 || jtype == -1 || ktype == -1))
+            (iidx == -1 || jidx == -1 || kidx == -1))
             continue;
           else if ((iinterior && jinterior && kinterior) ||
             variableType_[d] == VariableType::Interior ||
