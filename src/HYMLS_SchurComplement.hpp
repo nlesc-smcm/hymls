@@ -151,9 +151,9 @@ protected:
 
   int Construct22(int k, Epetra_SerialDenseMatrix & Sk,
 #ifdef HYMLS_LONG_LONG
-    const Epetra_LongLongSerialDenseVector &inds,
+    Epetra_LongLongSerialDenseVector &inds,
 #else
-    const Epetra_IntSerialDenseVector &inds,
+    Epetra_IntSerialDenseVector &inds,
 #endif
     double *flops = NULL) const;
 

@@ -292,9 +292,9 @@ int SchurComplement::Construct11(int sd, Epetra_SerialDenseMatrix &Sk,
 
 int SchurComplement::Construct22(int sd, Epetra_SerialDenseMatrix &Sk,
 #ifdef HYMLS_LONG_LONG
-  const Epetra_LongLongSerialDenseVector &inds,
+  Epetra_LongLongSerialDenseVector &inds,
 #else
-  const Epetra_IntSerialDenseVector &inds,
+  Epetra_IntSerialDenseVector &inds,
 #endif
   double *count_flops) const
   {
@@ -309,19 +309,12 @@ int SchurComplement::Construct22(int sd, Epetra_SerialDenseMatrix &Sk,
     return -1;
     }
 
-  int nrows = hid.NumSeparatorElements(sd);
+  int nrows = A22.NumMyRows();
 
-  if (inds.Length() != nrows)
-    {
-    return -1; // caller probably did not call Construct(indices)
-    }
+  CHECK_ZERO(inds.Size(nrows));
+  CHECK_ZERO(Sk.Shape(nrows, nrows));
 
-  if (Sk.M() != nrows || Sk.N() != nrows)
-    {
-    CHECK_ZERO(Sk.Shape(nrows, nrows));
-    }
-
-  CHECK_ZERO(Sk.Scale(0.0));
+  CHECK_ZERO(A22.RowMap().MyGlobalElements(inds.Values()));
 
   int len;
   int *indices;
@@ -330,8 +323,7 @@ int SchurComplement::Construct22(int sd, Epetra_SerialDenseMatrix &Sk,
   for (int i = 0; i < nrows; i++)
     {
     // A22 part
-    int lrid = A22.RowMap().LID(inds[i]);
-    CHECK_ZERO(A22.ExtractMyRowView(lrid, len, values, indices));
+    CHECK_ZERO(A22.ExtractMyRowView(i, len, values, indices));
     for (int k = 0; k < len; k++)
       {
       const hymls_gidx gcid = A22.GCID64(indices[k]);
