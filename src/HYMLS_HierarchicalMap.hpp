@@ -23,18 +23,18 @@ class SeparatorGroup;
 //! class for hierarchically partitioned maps
 
 /*! This class allows constructing Epetra_Maps which are sub-maps
-    of a given base-map. The terminology we use comes from the   
-    HYMLS application of a map partitioned into 
-        - partitions (1 per proc)
-        - subdomains (many per proc)
-        - groups (several per subdomain
-    
-    The groups are again divided into 'interior' and 'separator' groups,
-    the first (main) group of each subdomain is called interior
+  of a given base-map. The terminology we use comes from the
+  HYMLS application of a map partitioned into
+  - partitions (1 per proc)
+  - subdomains (many per proc)
+  - groups (several per subdomain
+
+  The groups are again divided into 'interior' and 'separator' groups,
+  the first (main) group of each subdomain is called interior
 */
 class HierarchicalMap
   {
-  
+
 public:
 
   enum SpawnStrategy
@@ -48,21 +48,21 @@ public:
 
   // constructor - empty object
   HierarchicalMap(Teuchos::RCP<const Epetra_Map> baseMap,
-                  Teuchos::RCP<const Epetra_Map> baseOverlappingMap=Teuchos::null,
-                  int numMySubdomains=0,
-                  std::string label="HierarchicalMap",
-                  int level=1);
+    Teuchos::RCP<const Epetra_Map> baseOverlappingMap=Teuchos::null,
+    int numMySubdomains=0,
+    std::string label="HierarchicalMap",
+    int level=1);
 
   //! destructor
   virtual ~HierarchicalMap();
 
   //! print domain decomposition to file
   std::ostream& Print(std::ostream& os) const;
-  
+
   //! \name Functions to access the reordering defined by this class
-  
+
   //@{
-  
+
   //! get the local number of subdomains
   int NumMySubdomains() const;
 
@@ -91,80 +91,80 @@ public:
   //@}
 
   //! creates a 'next generation' object that retains certain nodes.
-  
-  /*!                                                                   
-                                                                        
-  Currently this function allows doing the following:                   
-                                                                        
-  strat==Interior:    returns an object that has the same number of     
-                      subdomains but only one group per subdomain,      
-                      the interior nodes. The new object's Map() is     
-                      a map without overlap that contains only the      
-                      interior nodes of this object.                    
-                                                                        
-   strat==Separators: the new object contains all the local separator   
-                      groups as new interior groups (each group forms   
-                      the interior of exactly one subdomain). The last   
-                      subdomain has a number of separator groups        
-                      containing the off-processor separators connecting
-                      to subdomains in the original 'this' object.      
-                                                                        
-    TODO: in the second case there may be a smarter implementation that 
-          retains more information about the non-local separators.      
-                                                                        
-   strat=LocalSeparators: This object is used for constructing the      
-                          orthogonal transform, it has only local sepa- 
-                          rators.
-                                                                        
-    The 'Interior' object's Map() gives the variables to be eliminated  
-    in the first place.                                                 
-                                                                        
-    The 'Separator' object's Map() gives the map for the Schur-         
-    complement. Its indexing functions can be used to loop over the     
-    rows of a sparse matrix (new interior nodes) or its columns (new    
-    interior+separator nodes).                                          
-                                                                        
+
+  /*!
+
+    Currently this function allows doing the following:
+
+    strat==Interior:    returns an object that has the same number of
+    subdomains but only one group per subdomain,
+    the interior nodes. The new object's Map() is
+    a map without overlap that contains only the
+    interior nodes of this object.
+
+    strat==Separators: the new object contains all the local separator
+    groups as new interior groups (each group forms
+    the interior of exactly one subdomain). The last
+    subdomain has a number of separator groups
+    containing the off-processor separators connecting
+    to subdomains in the original 'this' object.
+
+    TODO: in the second case there may be a smarter implementation that
+    retains more information about the non-local separators.
+
+    strat=LocalSeparators: This object is used for constructing the
+    orthogonal transform, it has only local sepa-
+    rators.
+
+    The 'Interior' object's Map() gives the variables to be eliminated
+    in the first place.
+
+    The 'Separator' object's Map() gives the map for the Schur-
+    complement. Its indexing functions can be used to loop over the
+    rows of a sparse matrix (new interior nodes) or its columns (new
+    interior+separator nodes).
+
   */
   virtual Teuchos::RCP<const HierarchicalMap> Spawn(SpawnStrategy strat) const;
 
   //! spawn a map containing all Interior or all Separator nodes belonging to one subdomain,
   //! or All nodes belonging to one subdomain.
   Teuchos::RCP<const Epetra_Map> SpawnMap(int sd, SpawnStrategy strat) const;
-  
+
 
   //!\name data member access
-  //@{  
-  
+  //@{
+
   //!
   const Epetra_Comm& Comm() const {return baseMap_->Comm();}
 
   //!
   std::string Label() const {return label_;}
-  
+
   //! get a reference to the non-overlapping map used inside this class
-  const Epetra_Map& Map() const 
+  const Epetra_Map& Map() const
     {
     return *baseMap_;
     }
 
   //! get a reference to the overlapping map used inside this class
-  const Epetra_Map& OverlappingMap() const 
+  const Epetra_Map& OverlappingMap() const
     {
     return *overlappingMap_;
     }
 
   //!
   int Level() const {return myLevel_;}
-  
-    
+
+
   //! get a pointer to the non-overlapping map used inside this class
-  Teuchos::RCP<const Epetra_Map> GetMap() const 
+  Teuchos::RCP<const Epetra_Map> GetMap() const
     {
     return baseMap_;
     }
 
   //! get a reference to the overlapping map used inside this class
-  Teuchos::RCP<const Epetra_Map> GetOverlappingMap() const 
+  Teuchos::RCP<const Epetra_Map> GetOverlappingMap() const
     {
     return overlappingMap_;
     }
@@ -172,7 +172,7 @@ public:
 protected:
 
   //@}
-  
+
   //! add an interior group of GIDs to an existing subdomain.
   //! FillComplete() should not have been called.
   int AddInteriorGroup(int sd, InteriorGroup const &group);
@@ -186,16 +186,16 @@ protected:
 
   //! finalize the setup procedure by building the map
   int FillComplete();
-  
+
   //! indicates if any more changes can be made (FillComplete() has been called)
   bool Filled() const {return overlappingMap_!=Teuchos::null;}
 
   //! label
   std::string label_;
-  
+
   //! level ID
   int myLevel_;
-  
+
   //! initial map (p0)
   Teuchos::RCP<const Epetra_Map> baseMap_;
 
@@ -215,10 +215,10 @@ private:
 
   //! array of spawned objects (so we avoid building the same thing over and over again)
   mutable Teuchos::Array<Teuchos::RCP<const HierarchicalMap> > spawnedObjects_;
-  
+
   //! array of spawned maps
   mutable Teuchos::Array<Teuchos::Array<Teuchos::RCP<const Epetra_Map> > > spawnedMaps_;
-  
+
   //! protected constructor - does not allow any more changes
   //! (FillComplete() has been called), this is used for spawning
   //! objects like a map with all separators etc.
@@ -228,7 +228,7 @@ private:
     Teuchos::RCP<Teuchos::Array<InteriorGroup> > interior_groups,
     Teuchos::RCP<Teuchos::Array<Teuchos::Array<SeparatorGroup> > > separator_groups,
     std::string label, int level);
-  
+
   //! \name private member functions
   //! @{
 
@@ -239,10 +239,10 @@ private:
   //!
   Teuchos::RCP<const HierarchicalMap> SpawnLocalSeparators() const;
 
-  //@}    
+  //@}
   };
 
 std::ostream & operator<<(std::ostream& os, const HierarchicalMap& h);
 
-}
+  }
 #endif

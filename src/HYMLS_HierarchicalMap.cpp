@@ -219,7 +219,7 @@ int HierarchicalMap::FillComplete()
     // Remove empty separator groups
     (*separator_groups_)[sd].erase(std::remove_if(
         (*separator_groups_)[sd].begin(), (*separator_groups_)[sd].end(),
-        [](SeparatorGroup const &i){return i.nodes().empty();}),
+      [](SeparatorGroup const &i){return i.nodes().empty();}),
       (*separator_groups_)[sd].end());
 
     InteriorGroup const &group = GetInteriorGroup(sd);
@@ -294,7 +294,7 @@ std::ostream& HierarchicalMap::Print(std::ostream& os) const
     }
   HYMLS_LPROF3(label_,"Print");
   int rank=Comm().MyPID();
-    
+
   if (rank==0)
     {
     os << "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" << std::endl;
@@ -342,7 +342,7 @@ std::ostream& HierarchicalMap::Print(std::ostream& os) const
   return os;
   }
 
-Teuchos::RCP<const HierarchicalMap> 
+Teuchos::RCP<const HierarchicalMap>
 HierarchicalMap::Spawn(SpawnStrategy strat) const
   {
   if (!Filled())
@@ -469,7 +469,7 @@ HierarchicalMap::SpawnSeparators() const
 
 Teuchos::RCP<const HierarchicalMap>
 HierarchicalMap::SpawnLocalSeparators() const
-  { 
+  {
   HYMLS_LPROF3(label_, "SpawnLocalSeparators");
 
   Teuchos::RCP<const HierarchicalMap> newObject = Teuchos::null;
@@ -607,4 +607,4 @@ int HierarchicalMap::GetSeparatorGIDs(int sd, Epetra_IntSerialDenseVector &gids)
   return map->MyGlobalElements(gids.Values());
   }
 #endif
-}
+  }
