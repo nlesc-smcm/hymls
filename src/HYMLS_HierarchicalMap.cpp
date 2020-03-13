@@ -235,6 +235,26 @@ int HierarchicalMap::FillComplete()
   overlappingMap_ = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), std::distance(allGIDs.begin(), last),
       allGIDs.getRawPtr(), (hymls_gidx)baseMap_->IndexBase64(), Comm()));
 
+  // Link together separator groups that have the same type, e.g. when they
+  // are on the same separator.
+  linked_separator_groups_ = Teuchos::rcp(
+    new Teuchos::Array<Teuchos::Array<Teuchos::Array<SeparatorGroup> > >(NumMySubdomains()));
+
+  for (int sd = 0; sd < NumMySubdomains(); sd++)
+    for (SeparatorGroup const &group: GetSeparatorGroups(sd))
+      {
+      bool found = false;
+      for (auto &linked_groups: (*linked_separator_groups_)[sd])
+          if (group.type() == linked_groups[0].type())
+            {
+            linked_groups.append(group);
+            found = true;
+            break;
+            }
+      if (!found)
+        (*linked_separator_groups_)[sd].append(Teuchos::Array<SeparatorGroup>(1, group));
+      }
+
   return 0;
   }
 

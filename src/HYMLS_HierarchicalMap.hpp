@@ -213,6 +213,10 @@ private:
   //! list of separator groups per subdomain
   Teuchos::RCP<Teuchos::Array<Teuchos::Array<SeparatorGroup> > > separator_groups_;
 
+  //! list of separator groups per subdomain that are linked together,
+  //! for instance because they are on the same separator.
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<Teuchos::Array<SeparatorGroup> > > > linked_separator_groups_;
+
   //! array of spawned objects (so we avoid building the same thing over and over again)
   mutable Teuchos::Array<Teuchos::RCP<const HierarchicalMap> > spawnedObjects_;
 
