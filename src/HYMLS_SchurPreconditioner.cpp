@@ -857,7 +857,7 @@ Teuchos::RCP<const Epetra_Map> SchurPreconditioner::CreateVSumMap(
   int pos = 0;
   for (int sd = 0; sd < sepObject->NumMySubdomains(); sd++)
     {
-    HYMLS_DEBVAR(sep)
+    HYMLS_DEBVAR(sep);
     for (SeparatorGroup const &group: sepObject->GetSeparatorGroups(sd))
       {
       if (group.length() > 0)
