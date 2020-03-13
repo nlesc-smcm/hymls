@@ -30,6 +30,8 @@ public:
 
   void sort();
 
+  int type() const;
+
   void set_type(int type);
   };
 
