@@ -222,9 +222,16 @@ int CartesianPartitioner::Partition(bool repart)
   }
 
 static int GetSubdomainStartAndEnd(
-  int pos, int idx, int idx_max, int dim, int max, bool perio, int &start, int &end)
+  int pos, int idx, int idx_max, int dim, int max, bool perio, int &type, int &start, int &end)
   {
   int len = std::max((max + idx_max - 1) / idx_max, 1);
+
+  if (idx == idx_max)
+    type = 1;
+  else if (idx >= 0)
+    type = 0;
+  else
+    type = -1;
 
   start = idx;
   if (idx == idx_max)
@@ -233,7 +240,7 @@ static int GetSubdomainStartAndEnd(
     start = std::min(len * idx, max);
 
   end = start + 1;
-  if (idx >= 0 && idx < idx_max)
+  if (type == 0)
     end = std::min(len * (idx + 1), max);
 
   if (!perio)
@@ -290,27 +297,27 @@ int CartesianPartitioner::GetGroups(int sd, InteriorGroup &interior_group,
     {
     bool kinterior = kidx >= 0 && kidx < kidx_max;
 
-    int kstart, kend;
+    int ktype, kstart, kend;
     if (GetSubdomainStartAndEnd(
-        zpos, kidx, kidx_max, nz_, zmax, perio_ & GaleriExt::Z_PERIO, kstart, kend))
+        zpos, kidx, kidx_max, nz_, zmax, perio_ & GaleriExt::Z_PERIO, ktype, kstart, kend))
       continue;
 
     for (int jidx = -1; jidx <= jidx_max; jidx++)
       {
       bool jinterior = jidx >= 0 && jidx < jidx_max;
 
-      int jstart, jend;
+      int jtype, jstart, jend;
       if (GetSubdomainStartAndEnd(
-          ypos, jidx, jidx_max, ny_, ymax, perio_ & GaleriExt::Y_PERIO, jstart, jend))
+          ypos, jidx, jidx_max, ny_, ymax, perio_ & GaleriExt::Y_PERIO, jtype, jstart, jend))
         continue;
 
       for (int iidx = -1; iidx <= iidx_max; iidx++)
         {
         bool iinterior = iidx >= 0 && iidx < iidx_max;
 
-        int istart, iend;
+        int itype, istart, iend;
         if (GetSubdomainStartAndEnd(
-            xpos, iidx, iidx_max, nx_, xmax, perio_ & GaleriExt::X_PERIO, istart, iend))
+            xpos, iidx, iidx_max, nx_, xmax, perio_ & GaleriExt::X_PERIO, itype, istart, iend))
           continue;
 
         for (int d = 0; d < dof_; d++)
