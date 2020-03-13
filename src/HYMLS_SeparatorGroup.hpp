@@ -13,6 +13,8 @@ class SeparatorGroup
   {
   Teuchos::RCP<Teuchos::Array<hymls_gidx> > nodes_;
 
+  int type_;
+
 public:
   SeparatorGroup();
 
@@ -27,6 +29,8 @@ public:
   Teuchos::Array<hymls_gidx> &append(hymls_gidx gid);
 
   void sort();
+
+  void set_type(int type);
   };
 
   }

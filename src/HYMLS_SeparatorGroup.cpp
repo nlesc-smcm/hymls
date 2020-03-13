@@ -38,4 +38,9 @@ void SeparatorGroup::sort()
   std::sort(nodes_->begin(), nodes_->end());
   }
 
+void SeparatorGroup::set_type(int type)
+  {
+  type_ = type;
+  }
+
   }
