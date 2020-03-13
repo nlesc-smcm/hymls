@@ -526,7 +526,7 @@ Teuchos::RCP<const Epetra_Map> HierarchicalMap::SpawnMap(int sd, SpawnStrategy s
       HYMLS_DEBUG("interior map");
 
       InteriorGroup const &group = GetInteriorGroup(sd);
-      map = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), group.length(), group.nodes().data(),
+      map = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), group.length(), &group[0],
           (hymls_gidx)baseMap_->IndexBase64(), comm));
       }
     else if (strat == Separators)
