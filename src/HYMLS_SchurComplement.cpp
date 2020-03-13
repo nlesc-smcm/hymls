@@ -3,6 +3,7 @@
 #include "HYMLS_SchurComplement.hpp"
 #include "HYMLS_OverlappingPartitioner.hpp"
 #include "HYMLS_MatrixBlock.hpp"
+#include "HYMLS_DenseUtils.hpp"
 #include "HYMLS_Macros.hpp"
 #include "HYMLS_Tools.hpp"
 
@@ -164,9 +165,9 @@ int SchurComplement::Construct(Teuchos::RCP<Epetra_FECrsMatrix> S) const
 
 int SchurComplement::Construct11(int sd, Epetra_SerialDenseMatrix &Sk,
 #ifdef HYMLS_LONG_LONG
-  const Epetra_LongLongSerialDenseVector &inds,
+  Epetra_LongLongSerialDenseVector &inds,
 #else
-  const Epetra_IntSerialDenseVector &inds,
+  Epetra_IntSerialDenseVector &inds,
 #endif
   double *count_flops) const
   {
@@ -197,22 +198,17 @@ int SchurComplement::Construct11(int sd, Epetra_SerialDenseMatrix &Sk,
     }
 #endif
 
-  int nrows = hid.NumSeparatorElements(sd);
+  int nrows = A21.NumMyRows();
 
-  if (inds.Length() != nrows)
-    {
-    return -1; // caller probably did not call Construct(indices)
-    }
-
-  if (Sk.M() != nrows || Sk.N() != nrows)
-    {
-    CHECK_ZERO(Sk.Shape(nrows, nrows));
-    }
+  CHECK_ZERO(inds.Size(nrows));
+  CHECK_ZERO(Sk.Shape(nrows, nrows));
 
   if (A11.NumRows() == 0)
     {
     return 0; // has only an A22-contribution (no interior elements)
     }
+
+  CHECK_ZERO(A21.RowMap().MyGlobalElements(inds.Values()));
 
   A11.SetNumVectors(nrows);
 
@@ -263,7 +259,6 @@ int SchurComplement::Construct11(int sd, Epetra_SerialDenseMatrix &Sk,
 
   // get the solution, B=A11\A12, as a MultiVector in the domain map of operator A21
   Epetra_MultiVector B(A12.RowMap(), nrows);
-  Epetra_MultiVector Aloc(A21.RowMap(), B.NumVectors());
   for (int j = 0; j < B.MyLength(); j++)
     {
     const int lrid = A12.LRID(hid.OverlappingMap().GID64(A11.ID(j)));
@@ -278,23 +273,13 @@ int SchurComplement::Construct11(int sd, Epetra_SerialDenseMatrix &Sk,
   // subdomain. Some separators may not be on this CPU: those need to be imported
   // manually later on.
 
-  CHECK_ZERO(A21.Multiply(false, B, Aloc));
+  Teuchos::RCP<Epetra_MultiVector> SkView = DenseUtils::CreateView(Sk);
+  CHECK_ZERO(A21.Multiply(false, B, *SkView));
+  CHECK_ZERO(SkView->Scale(-1.0));
 
 #ifdef FLOPS_COUNT
   flops += 2 * B.NumVectors() *A21.NumGlobalNonzeros64();
 #endif
-  // re-index and put into final block
-
-//    HYMLS_DEBUG("Copy into Sk matrix");
-  for (int i = 0; i < nrows; i++)
-    {
-    // A21*A11\A12 part
-    int lrid = A21.RowMap().LID(inds[i]);
-    for (int j = 0; j < nrows; j++)
-      {
-      Sk(i, j) = -Aloc[j][lrid];
-      }
-    }
 
   A11.SetNumVectors(1);
 
