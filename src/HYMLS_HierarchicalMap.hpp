@@ -75,6 +75,9 @@ public:
   //! The number of separator groups in subdomain sd
   int NumSeparatorGroups(int sd) const;
 
+  //! The number of separator groups in subdomain sd
+  int NumLinkedSeparatorGroups(int sd) const;
+
 #ifdef HYMLS_LONG_LONG
   //! given a subdomain, returns a list of GIDs that belong to the subdomain
   int GetSeparatorGIDs(int sd, Epetra_LongLongSerialDenseVector &inds) const;
@@ -88,6 +91,9 @@ public:
 
   //! returns the separator groups for a certain subdomain
   Teuchos::Array<SeparatorGroup> const &GetSeparatorGroups(int sd) const;
+
+  //! returns the separator groups for a certain subdomain
+  Teuchos::Array<Teuchos::Array<SeparatorGroup> > const &GetLinkedSeparatorGroups(int sd) const;
   //@}
 
   //! creates a 'next generation' object that retains certain nodes.
@@ -231,10 +237,15 @@ private:
     Teuchos::RCP<const Epetra_Map> overlappingMap,
     Teuchos::RCP<Teuchos::Array<InteriorGroup> > interior_groups,
     Teuchos::RCP<Teuchos::Array<Teuchos::Array<SeparatorGroup> > > separator_groups,
+    Teuchos::RCP<Teuchos::Array<Teuchos::Array<Teuchos::Array<SeparatorGroup> > > > linked_separator_groups,
     std::string label, int level);
 
   //! \name private member functions
   //! @{
+
+  int LinkSeparators(
+    Teuchos::RCP<Teuchos::Array<Teuchos::Array<SeparatorGroup> > > separator_groups,
+    Teuchos::RCP<Teuchos::Array<Teuchos::Array<Teuchos::Array<SeparatorGroup> > > > linked_separator_groups) const;
 
   //!
   Teuchos::RCP<const HierarchicalMap> SpawnInterior() const;

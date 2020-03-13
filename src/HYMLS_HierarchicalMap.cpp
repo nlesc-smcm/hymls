@@ -43,6 +43,7 @@ HierarchicalMap::HierarchicalMap(
   Teuchos::RCP<const Epetra_Map> overlappingMap,
   Teuchos::RCP<Teuchos::Array<InteriorGroup> > interior_groups,
   Teuchos::RCP<Teuchos::Array<Teuchos::Array<SeparatorGroup> > > separator_groups,
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<Teuchos::Array<SeparatorGroup> > > > linked_separator_groups,
   std::string label, int level)
   :
   label_(label),
@@ -51,7 +52,8 @@ HierarchicalMap::HierarchicalMap(
   baseOverlappingMap_(overlappingMap),
   overlappingMap_(overlappingMap),
   interior_groups_(interior_groups),
-  separator_groups_(separator_groups)
+  separator_groups_(separator_groups),
+  linked_separator_groups_(linked_separator_groups)
   {
   HYMLS_LPROF2(label_,"HierarchicalMap Constructor");
   spawnedObjects_.resize(3); // can currently spawn Interior, Separator and LocalSeparator objects
@@ -96,6 +98,11 @@ int HierarchicalMap::NumSeparatorGroups(int sd) const
   return GetSeparatorGroups(sd).length();
   }
 
+int HierarchicalMap::NumLinkedSeparatorGroups(int sd) const
+  {
+  return GetLinkedSeparatorGroups(sd).length();
+  }
+
 int HierarchicalMap::Reset(int numMySubdomains)
   {
   HYMLS_LPROF2(label_, "Reset");
@@ -107,6 +114,27 @@ int HierarchicalMap::Reset(int numMySubdomains)
   for (int i = 0; i < spawnedObjects_.size(); i++)
     spawnedObjects_[i] = Teuchos::null;
   overlappingMap_ = Teuchos::null;
+  return 0;
+  }
+
+int HierarchicalMap::LinkSeparators(
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<SeparatorGroup> > > separator_groups,
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<Teuchos::Array<SeparatorGroup> > > > linked_separator_groups) const
+  {
+  for (int sd = 0; sd < NumMySubdomains(); sd++)
+    for (SeparatorGroup const &group: (*separator_groups)[sd])
+      {
+      bool found = false;
+      for (auto &linked_groups: (*linked_separator_groups)[sd])
+        if (group.type() == linked_groups[0].type())
+          {
+          linked_groups.append(group);
+          found = true;
+          break;
+          }
+      if (!found)
+        (*linked_separator_groups)[sd].append(Teuchos::Array<SeparatorGroup>(1, group));
+      }
   return 0;
   }
 
@@ -240,20 +268,7 @@ int HierarchicalMap::FillComplete()
   linked_separator_groups_ = Teuchos::rcp(
     new Teuchos::Array<Teuchos::Array<Teuchos::Array<SeparatorGroup> > >(NumMySubdomains()));
 
-  for (int sd = 0; sd < NumMySubdomains(); sd++)
-    for (SeparatorGroup const &group: GetSeparatorGroups(sd))
-      {
-      bool found = false;
-      for (auto &linked_groups: (*linked_separator_groups_)[sd])
-          if (group.type() == linked_groups[0].type())
-            {
-            linked_groups.append(group);
-            found = true;
-            break;
-            }
-      if (!found)
-        (*linked_separator_groups_)[sd].append(Teuchos::Array<SeparatorGroup>(1, group));
-      }
+  LinkSeparators(separator_groups_, linked_separator_groups_);
 
   return 0;
   }
@@ -302,6 +317,11 @@ InteriorGroup const &HierarchicalMap::GetInteriorGroup(int sd) const
 Teuchos::Array<SeparatorGroup> const &HierarchicalMap::GetSeparatorGroups(int sd) const
   {
   return (*separator_groups_)[sd];
+  }
+
+Teuchos::Array<Teuchos::Array<SeparatorGroup> > const &HierarchicalMap::GetLinkedSeparatorGroups(int sd) const
+  {
+  return (*linked_separator_groups_)[sd];
   }
 
 //! print domain decomposition to file
@@ -429,7 +449,7 @@ HierarchicalMap::SpawnInterior() const
   delete [] myElements;
 
   newObject = Teuchos::rcp(new HierarchicalMap(newMap, newMap,
-      interior_groups_, Teuchos::null, "Interior Nodes", myLevel_));
+      interior_groups_, Teuchos::null, Teuchos::null, "Interior Nodes", myLevel_));
 
   return newObject;
   }
@@ -449,6 +469,8 @@ HierarchicalMap::SpawnSeparators() const
   Teuchos::RCP<Epetra_Map> newOverlappingMap = Teuchos::null;
   Teuchos::RCP<Teuchos::Array<Teuchos::Array<SeparatorGroup> > > new_separator_groups =
     Teuchos::rcp(new Teuchos::Array<Teuchos::Array<SeparatorGroup> >(NumMySubdomains()));
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<Teuchos::Array<SeparatorGroup> > > > new_linked_separator_groups =
+    Teuchos::rcp(new Teuchos::Array<Teuchos::Array<Teuchos::Array<SeparatorGroup> > >(NumMySubdomains()));
 
   Teuchos::Array<hymls_gidx> done;
   Teuchos::Array<hymls_gidx> localGIDs;
@@ -456,7 +478,7 @@ HierarchicalMap::SpawnSeparators() const
 
   for (int sd = 0; sd < NumMySubdomains(); sd++)
     {
-    for (SeparatorGroup const &group: (*separator_groups_)[sd])
+    for (SeparatorGroup const &group: GetSeparatorGroups(sd))
       {
       hymls_gidx first_node = group[0];
       if (std::find(done.begin(), done.end(), first_node) == done.end())
@@ -479,8 +501,10 @@ HierarchicalMap::SpawnSeparators() const
   newMap = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), localGIDs.size(),
       localGIDs.getRawPtr(), (hymls_gidx)baseMap_->IndexBase64(), Comm()));
 
+  LinkSeparators(new_separator_groups, new_linked_separator_groups);
+
   newObject = Teuchos::rcp(new HierarchicalMap(newMap, newOverlappingMap,
-      Teuchos::null, new_separator_groups, "Separator Nodes", myLevel_));
+      Teuchos::null, new_separator_groups, new_linked_separator_groups, "Separator Nodes", myLevel_));
 
   return newObject;
   }
@@ -495,6 +519,8 @@ HierarchicalMap::SpawnLocalSeparators() const
   Teuchos::RCP<const HierarchicalMap> newObject = Teuchos::null;
   Teuchos::RCP<Teuchos::Array<Teuchos::Array<SeparatorGroup> > > new_separator_groups =
     Teuchos::rcp(new Teuchos::Array<Teuchos::Array<SeparatorGroup> >(NumMySubdomains()));
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<Teuchos::Array<SeparatorGroup> > > > new_linked_separator_groups =
+    Teuchos::rcp(new Teuchos::Array<Teuchos::Array<Teuchos::Array<SeparatorGroup> > >(NumMySubdomains()));
 
   // Start out from the standard Separator object. All local separators are located
   // in its baseMap_
@@ -510,8 +536,10 @@ HierarchicalMap::SpawnLocalSeparators() const
       }
     }
 
+  LinkSeparators(new_separator_groups, new_linked_separator_groups);
+
   newObject = Teuchos::rcp(new HierarchicalMap(sepObject->GetMap(), sepObject->GetMap(),
-      Teuchos::null, new_separator_groups, "Local Separator Nodes", myLevel_));
+      Teuchos::null, new_separator_groups, new_linked_separator_groups, "Local Separator Nodes", myLevel_));
 
   return newObject;
   }
