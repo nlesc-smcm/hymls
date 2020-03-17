@@ -475,30 +475,19 @@ HierarchicalMap::SpawnSeparators() const
   Teuchos::RCP<const HierarchicalMap> newObject = Teuchos::null;
   Teuchos::RCP<Epetra_Map> newMap = Teuchos::null;
   Teuchos::RCP<Epetra_Map> newOverlappingMap = Teuchos::null;
-  Teuchos::RCP<Teuchos::Array<Teuchos::Array<SeparatorGroup> > > new_separator_groups =
-    Teuchos::rcp(new Teuchos::Array<Teuchos::Array<SeparatorGroup> >(NumMySubdomains()));
-  Teuchos::RCP<Teuchos::Array<Teuchos::Array<Teuchos::Array<SeparatorGroup> > > > new_linked_separator_groups =
-    Teuchos::rcp(new Teuchos::Array<Teuchos::Array<Teuchos::Array<SeparatorGroup> > >(NumMySubdomains()));
 
-  Teuchos::Array<hymls_gidx> done;
   Teuchos::Array<hymls_gidx> localGIDs;
   Teuchos::Array<hymls_gidx> overlappingGIDs;
 
   for (int sd = 0; sd < NumMySubdomains(); sd++)
     {
-    for (SeparatorGroup const &group: GetSeparatorGroups(sd))
+    for (SeparatorGroup const &group: (*unique_separator_groups_)[sd])
       {
-      hymls_gidx first_node = group[0];
-      if (std::find(done.begin(), done.end(), first_node) == done.end())
+      for (hymls_gidx gid: group.nodes())
         {
-        for (hymls_gidx gid: group.nodes())
-          {
-          overlappingGIDs.append(gid);
-          if (baseMap_->MyGID(gid))
-            localGIDs.append(gid);
-          }
-        (*new_separator_groups)[sd].append(group);
-        done.append(first_node);
+        overlappingGIDs.append(gid);
+        if (baseMap_->MyGID(gid))
+          localGIDs.append(gid);
         }
       }
     }
@@ -509,10 +498,8 @@ HierarchicalMap::SpawnSeparators() const
   newMap = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), localGIDs.size(),
       localGIDs.getRawPtr(), (hymls_gidx)baseMap_->IndexBase64(), Comm()));
 
-  LinkSeparators(new_separator_groups, new_linked_separator_groups);
-
   newObject = Teuchos::rcp(new HierarchicalMap(newMap, newOverlappingMap,
-      Teuchos::null, new_separator_groups, new_linked_separator_groups, "Separator Nodes", myLevel_));
+      Teuchos::null, separator_groups_, linked_separator_groups_, "Separator Nodes", myLevel_));
 
   return newObject;
   }
