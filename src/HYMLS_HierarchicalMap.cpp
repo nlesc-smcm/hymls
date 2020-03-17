@@ -240,8 +240,10 @@ int HierarchicalMap::FillComplete()
       }
     }
 
-  // Make a new overlapping map with elements that are present on some processor
-  Teuchos::Array<hymls_gidx> allGIDs;
+  unique_separator_groups_ = Teuchos::rcp(new Teuchos::Array<Teuchos::Array<SeparatorGroup> >(NumMySubdomains()));
+
+  Teuchos::Array<hymls_gidx> all_gids;
+  Teuchos::Array<hymls_gidx> unique_group_ids;
   for (int sd = 0; sd < NumMySubdomains(); sd++)
     {
     // Remove empty separator groups
@@ -251,17 +253,23 @@ int HierarchicalMap::FillComplete()
       (*separator_groups_)[sd].end());
 
     InteriorGroup const &group = GetInteriorGroup(sd);
-    std::copy(group.nodes().begin(), group.nodes().end(), std::back_inserter(allGIDs));
+    std::copy(group.nodes().begin(), group.nodes().end(), std::back_inserter(all_gids));
 
     for (SeparatorGroup const &group: GetSeparatorGroups(sd))
-      std::copy(group.nodes().begin(), group.nodes().end(), std::back_inserter(allGIDs));
+      {
+      // Only copy unique groups and cache those
+      if (std::find_if(unique_group_ids.begin(), unique_group_ids.end(), [group](
+            hymls_gidx gid) {return gid == group[0];}) == unique_group_ids.end())
+        {
+        (*unique_separator_groups_)[sd].append(group);
+        unique_group_ids.append(group[0]);
+        std::copy(group.nodes().begin(), group.nodes().end(), std::back_inserter(all_gids));
+        }
+      }
     }
 
-  std::sort(allGIDs.begin(), allGIDs.end());
-  auto last = std::unique(allGIDs.begin(), allGIDs.end());
-
-  overlappingMap_ = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), std::distance(allGIDs.begin(), last),
-      allGIDs.getRawPtr(), (hymls_gidx)baseMap_->IndexBase64(), Comm()));
+  overlappingMap_ = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), all_gids.length(),
+      all_gids.getRawPtr(), (hymls_gidx)baseMap_->IndexBase64(), Comm()));
 
   // Link together separator groups that have the same type, e.g. when they
   // are on the same separator.
