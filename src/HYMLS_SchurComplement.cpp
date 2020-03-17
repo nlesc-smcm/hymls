@@ -210,7 +210,7 @@ int SchurComplement::Construct11(int sd, Epetra_SerialDenseMatrix &Sk,
 
   CHECK_ZERO(A21.RowMap().MyGlobalElements(inds.Values()));
 
-  A11.SetNumVectors(nrows);
+  CHECK_ZERO(A11.SetNumVectors(nrows));
 
   HYMLS_DEBVAR(sd);
   HYMLS_DEBVAR(inds);
@@ -281,7 +281,7 @@ int SchurComplement::Construct11(int sd, Epetra_SerialDenseMatrix &Sk,
   flops += 2 * B.NumVectors() *A21.NumGlobalNonzeros64();
 #endif
 
-  A11.SetNumVectors(1);
+  CHECK_ZERO(A11.SetNumVectors(1));
 
 //    HYMLS_DEBUG("Block constructed successfully!");
 #ifdef FLOPS_COUNT
