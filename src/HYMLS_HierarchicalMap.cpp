@@ -536,10 +536,9 @@ HierarchicalMap::SpawnLocalSeparators() const
 
   for (int sd = 0; sd < sepObject->NumMySubdomains(); sd++)
     {
-    for (SeparatorGroup const &group: sepObject->GetSeparatorGroups(sd))
+    for (SeparatorGroup const &group: (*unique_separator_groups_)[sd])
       {
-      hymls_gidx first_node = group[0];
-      if (sepObject->GetMap()->MyGID(first_node))
+      if (sepObject->GetMap()->MyGID(group[0]))
         (*new_separator_groups)[sd].append(group);
       }
     }
