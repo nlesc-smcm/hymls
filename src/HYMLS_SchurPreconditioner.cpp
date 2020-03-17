@@ -1115,9 +1115,9 @@ int SchurPreconditioner::AssembleTransformAndDrop()
       {
       // put in the Vsum-Vsum couplings
       int numVsums = hid_->NumSeparatorGroups(sd);
-      indsPart.Resize(numVsums);
-      if (numVsums>Spart.N())
-        Spart.Reshape(2 * numVsums, 2 * numVsums);
+      indsPart.Size(numVsums);
+      if (numVsums > Spart.N())
+        Spart.Shape(2 * numVsums, 2 * numVsums);
 
       numVsums = 0;
       for (SeparatorGroup const &group: hid_->GetSeparatorGroups(sd))
@@ -1125,26 +1125,20 @@ int SchurPreconditioner::AssembleTransformAndDrop()
         if (group.length() > 0)
           indsPart[numVsums++] = group[0];
         }
+      CHECK_NONNEG(matrix->InsertGlobalValues(numVsums, indsPart.Values(), Spart.A()));
 
-      indsPart.Resize(numVsums);
-      //HYMLS_DEBVAR(sd);
-      //HYMLS_DEBVAR(indsPart);
-      CHECK_NONNEG(matrix->InsertGlobalValues(indsPart.Length(),
-          indsPart.Values(), Spart.A()));
       // now the non-Vsums
       for (SeparatorGroup const &group: hid_->GetSeparatorGroups(sd))
         {
         int len = group.length() - 1;
-        indsPart.Resize(len);
+        indsPart.Size(len);
         if (Spart.N() < len)
-          Spart.Reshape(2 * len, 2 * len);
+          Spart.Shape(2 * len, 2 * len);
 
         for (int j = 0; j < len; j++)
           indsPart[j] = group[j+1];
 
-        //HYMLS_DEBVAR(indsPart);
-        CHECK_NONNEG(matrix->InsertGlobalValues(indsPart.Length(),
-            indsPart.Values(),Spart.A()));
+        CHECK_NONNEG(matrix->InsertGlobalValues(len, indsPart.Values(), Spart.A()));
         }
       }
     // assemble with all zeros
