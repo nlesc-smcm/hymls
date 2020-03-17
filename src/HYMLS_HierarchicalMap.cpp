@@ -575,11 +575,13 @@ Teuchos::RCP<const Epetra_Map> HierarchicalMap::SpawnMap(int sd, SpawnStrategy s
       {
       HYMLS_DEBUG("separator map");
 
-      int length = NumSeparatorElements(sd);
+      Teuchos::RCP<const HierarchicalMap> object = Spawn(Separators);
+
+      int length = object->NumSeparatorElements(sd);
       hymls_gidx *gids = new hymls_gidx[length];
 
       int pos = 0;
-      for (SeparatorGroup const &group: GetSeparatorGroups(sd))
+      for (SeparatorGroup const &group: object->GetSeparatorGroups(sd))
         {
         std::copy(group.nodes().begin(), group.nodes().end(), gids + pos);
         pos += group.length();
