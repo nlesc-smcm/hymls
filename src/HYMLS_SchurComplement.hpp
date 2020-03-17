@@ -157,14 +157,8 @@ protected:
 #endif
     double *flops = NULL) const;
 
-  //! to allow the preconditioner access to parts of the unassembled Schur complement:
-  const Epetra_CrsMatrix &A22() const;
-
   //! get the OverlappingPartitioner object
   const OverlappingPartitioner &Partitioner() const;
-
-private:
-
   }; 
 
   }

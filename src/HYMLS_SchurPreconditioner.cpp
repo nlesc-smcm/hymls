@@ -1015,7 +1015,7 @@ int SchurPreconditioner::Assemble()
     if (hid_->NumMySubdomains() > 0)
       nzest = hid_->NumSeparatorElements(0);
     matrix = Teuchos::rcp(new
-      Epetra_FECrsMatrix(Copy, SchurComplement_->A22().RowMap(), nzest));
+      Epetra_FECrsMatrix(Copy, SchurComplement_->OperatorDomainMap(), nzest));
     }
   CHECK_ZERO(SchurComplement_->Construct(matrix));
 

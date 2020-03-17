@@ -34,7 +34,7 @@ public:
 
   Epetra_CrsMatrix const &A22()
     {
-    return HYMLS::SchurComplement::A22();
+    return *A22_->Block();
     }
   };
 class TestablePreconditioner: public HYMLS::Preconditioner

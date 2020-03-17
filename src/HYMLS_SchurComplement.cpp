@@ -80,11 +80,6 @@ const Epetra_Map &SchurComplement::OperatorRangeMap() const
   return A22_->RangeMap();
   }
 
-const Epetra_CrsMatrix &SchurComplement::A22() const
-  {
-  return *A22_->Block();
-  }
-
 const OverlappingPartitioner &SchurComplement::Partitioner() const
   {
   return A22_->Partitioner();
