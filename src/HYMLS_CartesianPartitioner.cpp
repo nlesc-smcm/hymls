@@ -341,16 +341,16 @@ int CartesianPartitioner::GetGroups(int sd, InteriorGroup &interior_group,
           else
             {
             SeparatorGroup separator;
-            separator.set_type(d + itype * dof_ + jtype * 3 * dof_ + ktype * 9 * dof_);
+            separator.set_type(2 * (d + dof_ * (itype + 3 * (jtype + 3 * ktype))));
             separator_groups.append(separator);
             nodes = &separator.nodes();
 
             if (bgridTransform_)
               {
-              SeparatorGroup separator;
-              separator.set_type(d + itype * dof_ + jtype * 3 * dof_ + ktype * 9 * dof_);
-              separator_groups.append(separator);
-              nodes2 = &separator.nodes();
+              SeparatorGroup separator2;
+              separator2.set_type(separator.type() + 1);
+              separator_groups.append(separator2);
+              nodes2 = &separator2.nodes();
               }
             }
 
