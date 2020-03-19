@@ -102,59 +102,29 @@ int SchurComplement::Construct(Teuchos::RCP<Epetra_FECrsMatrix> S) const
 
   if (!S->Filled())
     {
-
-    // start out by just putting the structure together.
-    // I do this because the SumInto function will fail
-    // unless the values have been put in already. On the
-    // other hand, the Insert function will overwrite stuff
-    // we put in previously.
-
     for (int k = 0; k < hid.NumMySubdomains(); k++)
       {
-      CHECK_ZERO(hid.GetSeparatorGIDs(k, indices));
-      HYMLS_DEBVAR(k);
-      HYMLS_DEBVAR(indices);
-      if (indices.Length() != Sk.N())
-        {
-        Sk.Shape(indices.Length(), indices.Length());
-        }
-      int ierr = S->InsertGlobalValues(indices, Sk);
-      if (ierr < 0)
-        {
-        Tools::Warning("error " + Teuchos::toString(ierr) + " returned from call S->InsertGlobalValues",
-          __FILE__, __LINE__);
-        return ierr;
-        }
+      // First put in the A22 part, which defines the structure.
+      CHECK_ZERO(Construct22(k, Sk, indices, &flopsCompute_));
+      CHECK_NONNEG(S->InsertGlobalValues(indices, Sk));
       }
 
-    HYMLS_DEBUG("SchurComplement: Assembly with all zeros...");
-    //assemble without calling FillComplete because we
-    // still miss A22 in the pattern
-    CHECK_ZERO(S->GlobalAssemble(false));
-    }
-  else
-    {
-    CHECK_ZERO(S->PutScalar(0.0));
+    HYMLS_DEBUG("SchurComplement: Assembly to get the structure...");
+    CHECK_ZERO(S->GlobalAssemble());
     }
 
-  // Add A21*A11\A12
+  CHECK_ZERO(::EpetraExt::MatrixMatrix::Add(*A22_->Block(), false, 1.0, *S, 0.0));
+
   for (int k = 0; k < hid.NumMySubdomains(); k++)
     {
-    // construct values for separators around subdomain k
-    CHECK_ZERO(hid.GetSeparatorGIDs(k, indices));
+    // Now add the -A21*A11\A12 part
     CHECK_ZERO(Construct11(k, Sk, indices, &flopsCompute_));
-
     CHECK_ZERO(S->SumIntoGlobalValues(indices, Sk));
     }
-  CHECK_ZERO(S->GlobalAssemble(false));
-  CHECK_ZERO(::EpetraExt::MatrixMatrix::Add(*A22_->Block(), false, 1.0,
-      *S, 1.0));
-
-  // finish construction by creating local IDs:
-  CHECK_ZERO(S->FillComplete());
 
   HYMLS_DEBUG("SchurComplement - GlobalAssembly");
-  // CHECK_ZERO(S->GlobalAssemble());
+  CHECK_ZERO(S->GlobalAssemble());
+
   return 0;
   }
 
