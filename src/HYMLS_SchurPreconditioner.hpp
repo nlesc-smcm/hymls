@@ -473,11 +473,11 @@ private:
 #else
     Epetra_IntSerialDenseVector &indices,
 #endif
-    Teuchos::Array<Epetra_SerialDenseMatrix> &SkArray,
+    Teuchos::Array<Teuchos::RCP<Epetra_SerialDenseMatrix> > &SkArray,
 #ifdef HYMLS_LONG_LONG
-    Teuchos::Array<Epetra_LongLongSerialDenseVector> &indicesArray
+    Teuchos::Array<Teuchos::RCP<Epetra_LongLongSerialDenseVector> > &indicesArray
 #else
-    Teuchos::Array<Epetra_IntSerialDenseVector> &indicesArray
+    Teuchos::Array<Teuchos::RCP<Epetra_IntSerialDenseVector> > &indicesArray
 #endif
     ) const;
 

@@ -1178,16 +1178,16 @@ int SchurPreconditioner::AssembleTransformAndDrop()
     // Construct the local A22
     CHECK_ZERO(SchurComplement_->Construct22(sd, Sk, indices));
 
-    Teuchos::Array<Epetra_SerialDenseMatrix> SkArray;
+    Teuchos::Array<Teuchos::RCP<Epetra_SerialDenseMatrix> > SkArray;
 #ifdef HYMLS_LONG_LONG
-    Teuchos::Array<Epetra_LongLongSerialDenseVector> indicesArray;
+    Teuchos::Array<Teuchos::RCP<Epetra_LongLongSerialDenseVector> > indicesArray;
 #else
-    Teuchos::Array<Epetra_IntSerialDenseVector> indicesArray;
+    Teuchos::Array<Teuchos::RCP<Epetra_IntSerialDenseVector> > indicesArray;
 #endif
     CHECK_ZERO(ConstructSCPart(sd, localTestVector, Sk, indices, SkArray, indicesArray));
 
     for (int i = 0; i < SkArray.length(); i++)
-      CHECK_ZERO(matrix->ReplaceGlobalValues(indicesArray[i], SkArray[i]));
+      CHECK_ZERO(matrix->ReplaceGlobalValues(*indicesArray[i], *SkArray[i]));
     }//sd
   CHECK_ZERO(matrix->GlobalAssemble(false, Insert));
 
@@ -1201,16 +1201,16 @@ int SchurPreconditioner::AssembleTransformAndDrop()
     // Construct the local -A21*A11\A12
     CHECK_ZERO(SchurComplement_->Construct11(sd, Sk, indices));
 
-    Teuchos::Array<Epetra_SerialDenseMatrix> SkArray;
+    Teuchos::Array<Teuchos::RCP<Epetra_SerialDenseMatrix> > SkArray;
 #ifdef HYMLS_LONG_LONG
-    Teuchos::Array<Epetra_LongLongSerialDenseVector> indicesArray;
+    Teuchos::Array<Teuchos::RCP<Epetra_LongLongSerialDenseVector> > indicesArray;
 #else
-    Teuchos::Array<Epetra_IntSerialDenseVector> indicesArray;
+    Teuchos::Array<Teuchos::RCP<Epetra_IntSerialDenseVector> > indicesArray;
 #endif
     CHECK_ZERO(ConstructSCPart(sd, localTestVector, Sk, indices, SkArray, indicesArray));
 
     for (int i = 0; i < SkArray.length(); i++)
-      CHECK_ZERO(matrix->SumIntoGlobalValues(indicesArray[i], SkArray[i]));
+      CHECK_ZERO(matrix->SumIntoGlobalValues(*indicesArray[i], *SkArray[i]));
     }//sd
   CHECK_ZERO(matrix->GlobalAssemble());
 
@@ -1231,18 +1231,15 @@ int SchurPreconditioner::ConstructSCPart(int sd, Epetra_Vector const &localTestV
 #else
   Epetra_IntSerialDenseVector &indices,
 #endif
-  Teuchos::Array<Epetra_SerialDenseMatrix> &SkArray,
+  Teuchos::Array<Teuchos::RCP<Epetra_SerialDenseMatrix> > &SkArray,
 #ifdef HYMLS_LONG_LONG
-  Teuchos::Array<Epetra_LongLongSerialDenseVector> &indicesArray
+  Teuchos::Array<Teuchos::RCP<Epetra_LongLongSerialDenseVector> > &indicesArray
 #else
-  Teuchos::Array<Epetra_IntSerialDenseVector> &indicesArray
+  Teuchos::Array<Teuchos::RCP<Epetra_IntSerialDenseVector> > &indicesArray
 #endif
   ) const
   {
   Epetra_SerialDenseVector v;
-
-  SkArray.resize(1);
-  indicesArray.resize(1);
 
   // Get the part of the testvector that belongs to the
   // separators
@@ -1251,75 +1248,86 @@ int SchurPreconditioner::ConstructSCPart(int sd, Epetra_Vector const &localTestV
   for (int i = 0; i < indices.Length(); i++)
     v[i] = localTestVector[sepMap.LID(indices[i])];
 
-  int numVsums = hid_->NumSeparatorGroups(sd);
-  indicesArray[0].Resize(numVsums);
-  numVsums = 0;
+  const int numVSums = hid_->NumSeparatorGroups(sd);
 
-  int pos = 0;
+  SkArray.append(Teuchos::rcp(new Epetra_SerialDenseMatrix(numVSums, numVSums)));
+  Epetra_SerialDenseMatrix &VSumSk = *SkArray.back();
+#ifdef HYMLS_LONG_LONG
+  indicesArray.append(Teuchos::rcp(new Epetra_LongLongSerialDenseVector(numVSums)));
+  Epetra_LongLongSerialDenseVector &VSumIndices = *indicesArray.back();
+#else
+  indicesArray.append(Teuchos::rcp(new Epetra_IntSerialDenseVector(numVSums)));
+  Epetra_IntSerialDenseVector &VSumIndices = *indicesArray.back();
+#endif
+
+  int i = 0, j = 0, pos = 0;
   // Loop over all separators of the subdomain sd
   for (SeparatorGroup const &group: hid_->GetSeparatorGroups(sd))
     {
     HYMLS_LPROF3(label_,"Apply OT");
-    int len = group.length();
+    const int len = group.length();
     Epetra_SerialDenseVector vView(View, &v[pos], len);
 
     // Apply the orthogonal transformation for each group
     // separately
     RestrictedOT::Apply(Sk, pos, *OT, vView);
 
-    if (len > 0)
-      indicesArray[0][numVsums++] = indices[pos];
+    VSumIndices[i++] = indices[pos];
 
     pos += len;
     }
-  indicesArray[0].Resize(numVsums);
-  SkArray[0].Shape(numVsums, numVsums);
+
+  Teuchos::RCP<const Epetra_Map> map = hid_->SpawnMap(sd, HierarchicalMap::Separators);
 
   // Only add Vsum-Vsum couplings and non-Vsums. This is way faster than
   // than trying to add all the values and letting SumIntoGlobalValues
   // decide which ones to drop.
-  int pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-  for (SeparatorGroup const &group: hid_->GetSeparatorGroups(sd))
+  i = 0;
+  for (SeparatorGroup const &group1: hid_->GetSeparatorGroups(sd))
     {
-    HYMLS_LPROF3(label_,"Compute non-dropped Vsum part");
-    int len = group.length();
-    if (len > 0)
+    HYMLS_LPROF3(label_, "Compute non-dropped Vsum part");
+
+    j = 0;
+    const int lid1 = map->LID(group1[0]);
+    for (SeparatorGroup const &group2: hid_->GetSeparatorGroups(sd))
       {
-      pos2 = 0;
-      pos4 = 0;
-      for (SeparatorGroup const &group2: hid_->GetSeparatorGroups(sd))
-        {
-        int len2 = group2.length();
-        if (len2 > 0)
-          {
-          SkArray[0](pos1, pos2) = Sk(pos3, pos4);
-          pos2++;
-          pos4 += len2;
-          }
-        }
-      pos1++;
-      pos3 += len;
+      const int lid2 = map->LID(group2[0]);
+      VSumSk(i, j++) = Sk(lid1, lid2);
       }
+    i++;
     }
 
-  pos3 = 0;
-  for (SeparatorGroup const &group: hid_->GetSeparatorGroups(sd))
+  for (auto const &linked_groups: hid_->GetLinkedSeparatorGroups(sd))
     {
-    int len = group.length() - 1;
-    if (len > 0)
-      {
-      SkArray.append(Epetra_SerialDenseMatrix(len, len));
-      for (int i = 0; i < len; i++)
-        for (int j = 0; j < len; j++)
-          SkArray.back()(i, j) = Sk(pos3+i+1, pos3+j+1);
+    HYMLS_LPROF3(label_, "Compute non-Vsum part");
 
+    int len = 0;
+    for (SeparatorGroup const &group: linked_groups)
+      len += group.length() - 1;
+
+    SkArray.append(Teuchos::rcp(new Epetra_SerialDenseMatrix(len, len)));
+    Epetra_SerialDenseMatrix &localSk = *SkArray.back();
 #ifdef HYMLS_LONG_LONG
-      indicesArray.append(Epetra_LongLongSerialDenseVector(View, &indices[pos3+1], len));
+    indicesArray.append(Teuchos::rcp(new Epetra_LongLongSerialDenseVector(len)));
+    Epetra_LongLongSerialDenseVector &globalIndices = *indicesArray.back();
 #else
-      indicesArray.append(Epetra_IntSerialDenseVector(View, &indices[pos3+1], len));
+    indicesArray.append(Teuchos::rcp(new Epetra_IntSerialDenseVector(len)));
+    Epetra_IntSerialDenseVector &globalIndices = *indicesArray.back();
 #endif
-      }
-    pos3 += len + 1;
+    Teuchos::Array<int> localIndices(len);
+
+    int i = 0;
+    for (SeparatorGroup const &group: linked_groups)
+      for (int j = 1; j < group.length(); j++)
+        {
+        globalIndices[i] = group[j];
+        localIndices[i] = map->LID(group[j]);
+        i++;
+        }
+
+    for (int i = 0; i < len; i++)
+      for (int j = 0; j < len; j++)
+        localSk(i, j) = Sk(localIndices[i], localIndices[j]);
     }
 
   return 0;
