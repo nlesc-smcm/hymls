@@ -785,7 +785,6 @@ int SchurPreconditioner::InitializeOT()
       // where velocities are grouped depending on how they connect to the pressures)
       for (SeparatorGroup const &group: sepObject->GetSeparatorGroups(sd))
         {
-        HYMLS_DEBVAR(grp);
         int len = group.length();
         if (inds.Length() != len && len > 0)
           {
@@ -857,7 +856,6 @@ Teuchos::RCP<const Epetra_Map> SchurPreconditioner::CreateVSumMap(
   int pos = 0;
   for (int sd = 0; sd < sepObject->NumMySubdomains(); sd++)
     {
-    HYMLS_DEBVAR(sep);
     for (SeparatorGroup const &group: sepObject->GetSeparatorGroups(sd))
       {
       if (group.length() > 0)
