@@ -1140,7 +1140,7 @@ int SchurPreconditioner::AssembleTransformAndDrop()
         }
       }
     // assemble with all zeros
-    HYMLS_DEBVAR("assemble pattern of transformed SC");
+    HYMLS_DEBUG("assemble pattern of transformed SC");
     CHECK_ZERO(matrix->GlobalAssemble());
     }
 
@@ -1168,12 +1168,13 @@ int SchurPreconditioner::AssembleTransformAndDrop()
   // group and sum them into the pattern defined above, dropping everything
   // that is not defined in the matrix pattern.
 
-  // loop over all subdomains
-  for (int sd=0;sd<hid_->NumMySubdomains();sd++)
+  HYMLS_DEBUG("Add A22 part");
+  for (int sd = 0; sd < hid_->NumMySubdomains(); sd++)
     {
     HYMLS_LPROF3(label_, "Add A22 part");
     // construct the local contribution of the SC
     // (for all separators around the subdomain)
+    HYMLS_DEBVAR(sd);
 
     // Construct the local A22
     CHECK_ZERO(SchurComplement_->Construct22(sd, Sk, indices));
@@ -1187,16 +1188,20 @@ int SchurPreconditioner::AssembleTransformAndDrop()
     CHECK_ZERO(ConstructSCPart(sd, localTestVector, Sk, indices, SkArray, indicesArray));
 
     for (int i = 0; i < SkArray.length(); i++)
+      {
+      HYMLS_DEBVAR(i);
       CHECK_ZERO(matrix->ReplaceGlobalValues(*indicesArray[i], *SkArray[i]));
+      }
     }//sd
   CHECK_ZERO(matrix->GlobalAssemble(false, Insert));
 
-  // loop over all subdomains
+  HYMLS_DEBUG("-A21*A11\\A12 part");
   for (int sd = 0; sd < hid_->NumMySubdomains(); sd++)
     {
     HYMLS_LPROF3(label_, "Add -A21*A11\\A12 part");
     // construct the local contribution of the SC
     // (for all separators around the subdomain)
+    HYMLS_DEBVAR(sd);
 
     // Construct the local -A21*A11\A12
     CHECK_ZERO(SchurComplement_->Construct11(sd, Sk, indices));
@@ -1210,7 +1215,10 @@ int SchurPreconditioner::AssembleTransformAndDrop()
     CHECK_ZERO(ConstructSCPart(sd, localTestVector, Sk, indices, SkArray, indicesArray));
 
     for (int i = 0; i < SkArray.length(); i++)
+      {
+      HYMLS_DEBVAR(i);
       CHECK_ZERO(matrix->SumIntoGlobalValues(*indicesArray[i], *SkArray[i]));
+      }
     }//sd
   CHECK_ZERO(matrix->GlobalAssemble());
 
@@ -1320,8 +1328,10 @@ int SchurPreconditioner::ConstructSCPart(int sd, Epetra_Vector const &localTestV
     for (SeparatorGroup const &group: linked_groups)
       for (int j = 1; j < group.length(); j++)
         {
-        globalIndices[i] = group[j];
-        localIndices[i] = map->LID(group[j]);
+        hymls_gidx gid = group[j];
+        HYMLS_DEBUG(i << " " << j << " " << gid << " " << map->LID(gid));
+        globalIndices[i] = gid;
+        localIndices[i] = map->LID(gid);
         i++;
         }
 
