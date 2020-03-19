@@ -5,7 +5,8 @@ namespace HYMLS
 
 SeparatorGroup::SeparatorGroup()
   :
-  nodes_(new Teuchos::Array<hymls_gidx>())
+    nodes_(new Teuchos::Array<hymls_gidx>()),
+    type_(-1)
   {}
 
 hymls_gidx const &SeparatorGroup::operator[](int i) const
