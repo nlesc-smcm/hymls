@@ -608,47 +608,4 @@ std::ostream & operator << (std::ostream& os, const HierarchicalMap& h)
   return h.Print(os);
   }
 
-#ifdef HYMLS_LONG_LONG
-//! given a subdomain, returns a list of GIDs that belong to the subdomain
-int HierarchicalMap::GetSeparatorGIDs(int sd, Epetra_LongLongSerialDenseVector &gids) const
-  {
-  HYMLS_LPROF3(label_, "getSubdomainGIDs");
-  if (sd < 0 || sd > NumMySubdomains())
-    {
-    Tools::Warning("Subdomain index out of range!", __FILE__, __LINE__);
-    return -1;
-    }
-
-  Teuchos::RCP<const Epetra_Map> map = SpawnMap(sd, Separators);
-
-// resize input arrays if necessary
-  if (gids.Length() != map->NumMyElements())
-    {
-    CHECK_ZERO(gids.Size(map->NumMyElements()));
-    }
-
-  return map->MyGlobalElements(gids.Values());
-  }
-#else
-//! given a subdomain, returns a list of GIDs that belong to the subdomain
-int HierarchicalMap::GetSeparatorGIDs(int sd, Epetra_IntSerialDenseVector &gids) const
-  {
-  HYMLS_LPROF3(label_, "getSubdomainGIDs");
-  if (sd < 0 || sd > NumMySubdomains())
-    {
-    Tools::Warning("Subdomain index out of range!", __FILE__, __LINE__);
-    return -1;
-    }
-
-  Teuchos::RCP<const Epetra_Map> map = SpawnMap(sd, Separators);
-
-  // resize input arrays if necessary
-  if (gids.Length() != map->NumMyElements())
-    {
-    CHECK_ZERO(gids.Size(map->NumMyElements()));
-    }
-
-  return map->MyGlobalElements(gids.Values());
-  }
-#endif
   }
