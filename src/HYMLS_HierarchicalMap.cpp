@@ -125,13 +125,16 @@ int HierarchicalMap::LinkSeparators(
     for (SeparatorGroup const &group: (*separator_groups)[sd])
       {
       bool found = false;
-      for (auto &linked_groups: (*linked_separator_groups)[sd])
-        if (group.type() == linked_groups[0].type())
-          {
-          linked_groups.append(group);
-          found = true;
-          break;
-          }
+      if (group.type() >= 0)
+        {
+        for (auto &linked_groups: (*linked_separator_groups)[sd])
+          if (group.type() == linked_groups[0].type())
+            {
+            linked_groups.append(group);
+            found = true;
+            break;
+            }
+        }
       if (!found)
         (*linked_separator_groups)[sd].append(Teuchos::Array<SeparatorGroup>(1, group));
       }
