@@ -1126,15 +1126,20 @@ int SchurPreconditioner::AssembleTransformAndDrop()
       CHECK_NONNEG(matrix->InsertGlobalValues(numVsums, indsPart.Values(), Spart.A()));
 
       // now the non-Vsums
-      for (SeparatorGroup const &group: hid_->GetSeparatorGroups(sd))
+      for (auto const &linked_groups: hid_->GetLinkedSeparatorGroups(sd))
         {
-        int len = group.length() - 1;
+        int len = 0;
+        for (SeparatorGroup const &group: linked_groups)
+          len += group.length() - 1;
+
         indsPart.Size(len);
         if (Spart.N() < len)
           Spart.Shape(2 * len, 2 * len);
 
-        for (int j = 0; j < len; j++)
-          indsPart[j] = group[j+1];
+        int i = 0;
+        for (SeparatorGroup const &group: linked_groups)
+          for (int j = 1; j < group.length(); j++)
+            indsPart[i++] = group[j];
 
         CHECK_NONNEG(matrix->InsertGlobalValues(len, indsPart.Values(), Spart.A()));
         }
