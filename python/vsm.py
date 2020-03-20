@@ -60,6 +60,12 @@ def main():
             row = int(spline[0])
             col = int(spline[1])
             val = float(spline[2])
+
+            # Drop small values in the matrix
+            if abs(val) < 1e-15:
+                nnz -= 1
+                continue
+
             while len(rows) <= row:
                 rows.append(list())
             rows[row].append((col, val))
