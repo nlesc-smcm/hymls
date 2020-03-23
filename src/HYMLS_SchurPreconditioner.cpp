@@ -645,45 +645,35 @@ int SchurPreconditioner::InitializeBlocks()
   Teuchos::RCP<const HierarchicalMap> sepObject
     = hid_->Spawn(HierarchicalMap::LocalSeparators);
 
-  // number of blocks in this preconditioner (except next Schur-complement).
-  // Some blocks may ultimately have 0 rows if they had only one element which
-  // is retained as a 'Vsum'-node. That doesn't bother the solver, though.
-  int numBlocks = 0;
-  for (int sd = 0; sd < sepObject->NumMySubdomains(); sd++)
-    {
-    numBlocks += sepObject->NumSeparatorGroups(sd);
-    }
-
   // create an array of solvers for all the diagonal blocks
-  blockSolver_.resize(numBlocks);
-  double nnz = 0.0;
-  int blk = 0;
+  blockSolver_.resize(0);
   for (int sd = 0; sd < sepObject->NumMySubdomains(); sd++)
     {
-    for (SeparatorGroup const &group: sepObject->GetSeparatorGroups(sd))
+    for (auto const &linked_groups: sepObject->GetLinkedSeparatorGroups(sd))
       {
-      if (group.length() == 0)
-        HYMLS::Tools::Error("there is an empty separator, which is probably dangerous", __FILE__, __LINE__);
+      int numRows = 0;
+      for (SeparatorGroup const &group: linked_groups)
+        {
+        if (group.length() == 0)
+          HYMLS::Tools::Error("there is an empty separator, which is probably dangerous", __FILE__, __LINE__);
 
-      // in the spawned sepObject, each local separator is a group of a subdomain.
-      // -1 because we remove one Vsum node from each block
-      int numRows = std::max(group.length() - 1, 0);
-      nnz += numRows * numRows;
+        // in the spawned sepObject, each local separator is a group of a subdomain.
+        // -1 because we remove one Vsum node from each block
+        numRows += std::max(group.length() - 1, 0);
+        }
 
-      blockSolver_[blk] = Teuchos::rcp(new
-        Ifpack_DenseContainer(numRows));
-      CHECK_ZERO(blockSolver_[blk]->SetParameters(
-          PL().sublist("Dense Solver")));
+      blockSolver_.append(Teuchos::rcp(new Ifpack_DenseContainer(numRows)));
+      CHECK_ZERO(blockSolver_.back()->SetParameters(PL().sublist("Dense Solver")));
+      CHECK_ZERO(blockSolver_.back()->Initialize());
 
-      CHECK_ZERO(blockSolver_[blk]->Initialize());
-
-      for (int j  = 0; j < numRows; j++)
+      int k = 0;
+      for (SeparatorGroup const &group: linked_groups)
+        for (int j = 1; j < group.length(); j++)
         {
         // skip first element, which is a Vsum
-        int LRID = map_->LID(group[j+1]);
-        blockSolver_[blk]->ID(j) = LRID;
+        int LRID = map_->LID(group[j]);
+        blockSolver_.back()->ID(k++) = LRID;
         }
-      blk++;
       }
     }
   return 0;
