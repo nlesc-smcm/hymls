@@ -227,11 +227,11 @@ static int GetSubdomainStartAndEnd(
   int len = std::max((max + idx_max - 1) / idx_max, 1);
 
   if (idx == idx_max)
-    type = 1;
+    type = 2;
   else if (idx >= 0)
-    type = 0;
+    type = 1;
   else
-    type = -1;
+    type = 0;
 
   start = idx;
   if (idx == idx_max)
@@ -240,7 +240,7 @@ static int GetSubdomainStartAndEnd(
     start = std::min(len * idx, max);
 
   end = start + 1;
-  if (type == 0)
+  if (type == 1)
     end = std::min(len * (idx + 1), max);
 
   if (!perio)
