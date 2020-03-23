@@ -1,0 +1,94 @@
+<ParameterList name="3D Stokes on a Lorenz-grid and a non-cubed domain with 0 w-block and no w-separators"><!--{-->
+
+  <Parameter name="Description" type="string"
+        value="3D Stokes on a Lorenz-grid and a non-cubed domain with 0 w-block and no w-separators"/>
+
+  <!-- these first few settings are specific for the driver -->
+  <!-- implemented in 'main.C' and are not passed on to the -->
+  <!-- HYMLS solver classes.                                -->
+  <ParameterList name="Driver">
+
+    <Parameter name="Number of refinements" type="int" value="0"/>
+    <!-- will create a series of slightly perturbed matrices -->
+    <Parameter name="Number of factorizations" type="int" value="1"/>
+    <!-- for each matrix, solve with several right-hand sides in a row -->
+    <Parameter name="Number of solves" type="int" value="1"/>
+    <!-- how to generate the matrix -->
+    <Parameter name="Galeri Label" type="string" value="Stokes-T"/>
+  </ParameterList>
+
+  <ParameterList name="Targets">
+    <Parameter name="Number of Iterations" type="int" value="35"/>
+    <Parameter name="Relative Residual 2-Norm" type="double" value="1.0e-9"/>
+    <Parameter name="Relative Error 2-Norm" type="double" value="1.0e-9"/>
+  </ParameterList>
+  <ParameterList name="Problem"><!--{-->
+
+    <Parameter name="Equations" type="string" value="Stokes-L"/>
+    <Parameter name="Dimension" type="int" value="3"/>
+    <Parameter name="Degrees of Freedom" type="int" value="4"/>
+
+    <Parameter name="nx" type="int" value="10"/>
+    <Parameter name="ny" type="int" value="11"/>
+    <Parameter name="nz" type="int" value="8"/>
+
+    <ParameterList name="Variable 2">
+      <Parameter name="Variable Type" type="string" value="Interior"/>
+    </ParameterList>
+  </ParameterList><!--}-->
+
+  <!-- Krylov solver and deflation  -->
+  <ParameterList name="Solver"><!--{-->
+
+    <!-- "CG", "GMRES", "PCPG" (only GMRES actually supported by our solver right now) -->
+    <Parameter name="Krylov Method" type="string" value="GMRES"/>
+    <Parameter name="Left or Right Preconditioning" type="string" value="Right"/>
+    <Parameter name="Initial Vector" type="string" value="Zero"/>
+
+    <!-- parameters for the iterative solver (Belos) -->
+    <ParameterList name="Iterative Solver">
+      <Parameter name="Maximum Iterations" type="int" value="200"/>
+      <Parameter name="Maximum Restarts" type="int" value="1"/>
+      <Parameter name="Convergence Tolerance" type="double" value="1.0e-10"/>
+      <Parameter name="Flexible Gmres" type="bool" value="0"/>
+      <Parameter name="Explicit Residual Test" type="bool" value="1"/>
+      <Parameter name="Implicit Residual Scaling" type="string" value="Norm of RHS"/>
+      <Parameter name="Explicit Residual Scaling" type="string" value="Norm of RHS"/>
+    </ParameterList>
+  </ParameterList><!--}-->
+
+  <!-- multi-level preconditioner -->
+  <ParameterList name="Preconditioner"><!--{-->
+
+    <!-- cartesian partitioner for Stokes-C problems -->
+    <Parameter name="Partitioner" type="string" value="Cartesian"/>
+
+    <Parameter name="Fix Pressure Level" type="bool" value="true"/>
+
+    <!-- <Parameter name="Apply Dropping" type="bool" value="false"/> -->
+
+    <!-- you can either set 'Separator Length' or 'Number of Subdomains' -->
+    <Parameter name="Separator Length (x)" type="int" value="4"/>
+    <Parameter name="Separator Length (y)" type="int" value="4"/>
+    <Parameter name="Separator Length (z)" type="int" value="8"/>
+    <Parameter name="Coarsening Factor" type="int" value="2"/>
+
+    <!-- number of levels to be created (1: direct solver for Schur complement, -->
+    <!-- 2: solve Schur iteratively and reduced Schur directly,                 -->
+    <Parameter name="Number of Levels" type="int" value="2"/>
+
+    <!-- parameters for the direct solvers (Ifpack_Amesos) -->
+
+    <!-- you can either make direct solver settings in a single list            -->
+    <!-- called "Direct Solver" or in separate lists for each level, like this: -->
+
+    <!-- settings for subdomain solver -->
+    <ParameterList name="Sparse Solver">
+      <!-- "Klu" is the default here. These systems are always sequential -->
+      <Parameter name="amesos: solver type" type="string" value="Klu"/>
+      <Parameter name="Custom Ordering" type="bool" value="0"/>
+      <Parameter name="Custom Scaling" type="bool" value="1"/>
+      <Parameter name="OutputLevel" type="int" value="1"/>
+    </ParameterList>
+  </ParameterList><!--}-->
+</ParameterList><!--}-->
