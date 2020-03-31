@@ -136,6 +136,10 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
   if (rz_ == -1)
     rz_ = precList.get("Retain Nodes", rz_);
 
+  link_retained_nodes_ = precList.get("Eliminate Retained Nodes Together", true);
+
+  link_velocities_ = precList.get("Eliminate Velocities Together", false);
+
   if (probList.isParameter("Equations"))
     {
     std::string eqn = probList.get("Equations", "Undefined Problem");

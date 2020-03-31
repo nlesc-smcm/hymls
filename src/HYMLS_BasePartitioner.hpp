@@ -146,6 +146,12 @@ protected:
   //! number of pressure nodes to retain
   int retainPressures_;
 
+  //! Eliminate retained nodes together
+  bool link_retained_nodes_;
+
+  //! Eliminate velocities together
+  bool link_velocities_;
+
   //! type of periodicity in the problem
   GaleriExt::PERIO_Flag perio_;
 

@@ -151,6 +151,12 @@ Preconditioner::getValidParameters() const
   VPL().set("Fix Pressure Level",true,
     "Put a Dirichlet condition on a single P-node on the coarsest grid");
 
+  VPL().set("Eliminate Retained Nodes Together", true,
+      "Eliminate split separator groups formed by retaining more nodes per separator together");
+
+  VPL().set("Eliminate Velocities Together", false,
+      "Eliminate non-Vsum velocities (u,v,w) that are on the same separaotor together");
+
   for (int i = 1; i < 5; i++)
     {
     VPL().set("Fix GID " + Teuchos::toString(i), -1,
