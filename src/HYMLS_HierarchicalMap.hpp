@@ -12,8 +12,6 @@
 
 // forward declarations
 class Epetra_Comm;
-class Epetra_IntSerialDenseVector;
-class Epetra_LongLongSerialDenseVector;
 
 namespace HYMLS {
 

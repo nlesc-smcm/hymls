@@ -11,6 +11,7 @@
 
 #include "HYMLS_BorderedOperator.hpp"
 #include "HYMLS_PLA.hpp"
+#include "HYMLS_IndexVector.hpp"
 
 #include <iosfwd>
 #include <string>
@@ -23,11 +24,7 @@ class Epetra_FECrsMatrix;
 class Epetra_Import;
 class Ifpack_Container;
 class Epetra_CrsMatrix;
-#ifdef HYMLS_LONG_LONG
-class Epetra_LongLongSerialDenseVector;
-#else
-class Epetra_IntSerialDenseVector;
-#endif
+
 class Epetra_SerialDensematrix;
 class Epetra_MultiVector;
 class Epetra_Operator;
@@ -468,17 +465,9 @@ private:
   //! Helper function for AssembleTransformAndDrop
   int ConstructSCPart(int k, Epetra_Vector const &localTestVector,
     Epetra_SerialDenseMatrix & Sk,
-#ifdef HYMLS_LONG_LONG
-    Epetra_LongLongSerialDenseVector &indices,
-#else
-    Epetra_IntSerialDenseVector &indices,
-#endif
+    IndexVector &indices,
     Teuchos::Array<Teuchos::RCP<Epetra_SerialDenseMatrix> > &SkArray,
-#ifdef HYMLS_LONG_LONG
-    Teuchos::Array<Teuchos::RCP<Epetra_LongLongSerialDenseVector> > &indicesArray
-#else
-    Teuchos::Array<Teuchos::RCP<Epetra_IntSerialDenseVector> > &indicesArray
-#endif
+    Teuchos::Array<Teuchos::RCP<IndexVector> > &indicesArray
     ) const;
 
   //! Initialize dense solvers for diagonal blocks

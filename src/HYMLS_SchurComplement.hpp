@@ -6,6 +6,7 @@
 #include "Teuchos_RCP.hpp"
 
 #include "Epetra_Operator.h"
+#include "HYMLS_IndexVector.hpp"
 
 #include <string>
 
@@ -15,8 +16,6 @@ class Epetra_Comm;
 class Epetra_Map;
 class Epetra_CrsMatrix;
 class Epetra_FECrsMatrix;
-class Epetra_IntSerialDenseVector;
-class Epetra_LongLongSerialDenseVector;
 class Epetra_SerialDenseMatrix;
 
 namespace HYMLS {
@@ -142,19 +141,11 @@ protected:
   //! in principle OK, but may be inefficient if it happens very often.
   //!
   int Construct11(int k, Epetra_SerialDenseMatrix & Sk,
-#ifdef HYMLS_LONG_LONG
-    Epetra_LongLongSerialDenseVector &inds,
-#else
-    Epetra_IntSerialDenseVector &inds,
-#endif
+    IndexVector &inds,
     double *flops = NULL) const;
 
   int Construct22(int k, Epetra_SerialDenseMatrix & Sk,
-#ifdef HYMLS_LONG_LONG
-    Epetra_LongLongSerialDenseVector &inds,
-#else
-    Epetra_IntSerialDenseVector &inds,
-#endif
+    IndexVector &inds,
     double *flops = NULL) const;
 
   //! get the OverlappingPartitioner object

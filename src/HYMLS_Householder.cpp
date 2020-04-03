@@ -36,7 +36,7 @@ Householder::~Householder()
 
 //! compute X=Q*X in place
 int Householder::Apply(Epetra_SerialDenseMatrix& X,
-  Epetra_SerialDenseVector v) const
+  const Epetra_SerialDenseVector& z) const
   {
   HYMLS_PROF3(label_, "Apply (2)");
 
@@ -45,9 +45,12 @@ int Householder::Apply(Epetra_SerialDenseMatrix& X,
 
   const int n = X.M();
 #ifdef HYMLS_TESTING
-  if (v.Length() != n)
+  if (z.Length() != n)
     return -1;
 #endif
+
+  Epetra_SerialDenseVector v=z;
+
 
   // Scale with the first element of the test vector to assure
   // that the first element is always positive
@@ -81,7 +84,7 @@ int Householder::Apply(Epetra_SerialDenseMatrix& X,
 
 //! compute X=X*Q' in place
 int Householder::ApplyR(Epetra_SerialDenseMatrix& X,
-  Epetra_SerialDenseVector v) const
+  const Epetra_SerialDenseVector& z) const
   {
   HYMLS_PROF3(label_, "ApplyR (2)");
 
@@ -90,10 +93,12 @@ int Householder::ApplyR(Epetra_SerialDenseMatrix& X,
 
   int n = X.N();
 #ifdef HYMLS_TESTING
-  if (v.Length() != n)
+  if (z.Length() != n)
     return -1;
 #endif
 
+  Epetra_SerialDenseVector v=z;
+  
   // Scale with the first element of the test vector to assure
   // that the first element is always positive
   CHECK_ZERO(v.Scale(sign(v(0))));
@@ -126,19 +131,17 @@ int Householder::ApplyR(Epetra_SerialDenseMatrix& X,
   }
 
 int Householder::Construct(Epetra_CrsMatrix& H,
-#ifdef HYMLS_LONG_LONG
-  const Epetra_LongLongSerialDenseVector& inds,
-#else
-  const Epetra_IntSerialDenseVector& inds,
-#endif
-  Epetra_SerialDenseVector v) const
+  const IndexVector& inds,
+  const Epetra_SerialDenseVector& z) const
   {
   HYMLS_PROF3(label_, "Construct (3)");
   // v is the test vector to be zeroed out by this transform,
   // construct the according v for the Householder reflection:
-  int n = v.Length();
+  int n = z.Length();
   hymls_gidx row = inds[0];
-  double nrm = v.Norm2();
+  double nrm = z.Norm2();
+
+  Epetra_SerialDenseVector v=z;
   
   // Scale with the first element of the test vector to assure
   // that the first element is always positive

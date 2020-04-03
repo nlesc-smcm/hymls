@@ -4,6 +4,7 @@
 
 #include "HYMLS_config.h"
 
+#include "HYMLS_IndexVector.hpp"
 #include "HYMLS_Macros.hpp"
 #include "HYMLS_Tools.hpp"
 #include "HYMLS_MatrixUtils.hpp"
@@ -23,11 +24,7 @@
 #include "Epetra_SerialDenseVector.h"
 #include "Epetra_BlockMap.h"
 #include "Epetra_CrsMatrix.h"
-#ifdef HYMLS_LONG_LONG
-#include "Epetra_LongLongSerialDenseVector.h"
-#else
-#include "Epetra_IntSerialDenseVector.h"
-#endif
+
 #include "Epetra_MpiComm.h"
 #include "Epetra_Operator.h"
 #include "Epetra_Vector.h"
@@ -60,7 +57,6 @@
 #include <iostream>
 
 namespace HYMLS {
-
 
 // private constructor
 SchurPreconditioner::SchurPreconditioner(
@@ -744,11 +740,7 @@ int SchurPreconditioner::InitializeOT()
     Epetra_Vector localTestVector(sepMap);
     CHECK_ZERO(localTestVector.Import(*testVector_,import,Insert));
 
-#ifdef HYMLS_LONG_LONG
-    Epetra_LongLongSerialDenseVector inds;
-#else
-    Epetra_IntSerialDenseVector inds;
-#endif
+    IndexVector inds;
     Epetra_SerialDenseVector vec;
 
     int nnzPerRow = sepObject->NumMySubdomains()>0? sepObject->NumSeparatorElements(0) : 0;
@@ -1067,13 +1059,8 @@ int SchurPreconditioner::AssembleTransformAndDrop()
 
   // part remaining after dropping
   Epetra_SerialDenseMatrix Spart;
-#ifdef HYMLS_LONG_LONG
-  Epetra_LongLongSerialDenseVector indices;
-  Epetra_LongLongSerialDenseVector indsPart;
-#else
-  Epetra_IntSerialDenseVector indices;
-  Epetra_IntSerialDenseVector indsPart;
-#endif
+  IndexVector indices;
+  IndexVector indsPart;
 
   // put the pattern into matrix_
   if (!matrix->Filled())
@@ -1164,11 +1151,7 @@ int SchurPreconditioner::AssembleTransformAndDrop()
     CHECK_ZERO(SchurComplement_->Construct22(sd, Sk, indices));
 
     Teuchos::Array<Teuchos::RCP<Epetra_SerialDenseMatrix> > SkArray;
-#ifdef HYMLS_LONG_LONG
-    Teuchos::Array<Teuchos::RCP<Epetra_LongLongSerialDenseVector> > indicesArray;
-#else
-    Teuchos::Array<Teuchos::RCP<Epetra_IntSerialDenseVector> > indicesArray;
-#endif
+    Teuchos::Array<Teuchos::RCP<IndexVector> > indicesArray;
     CHECK_ZERO(ConstructSCPart(sd, localTestVector, Sk, indices, SkArray, indicesArray));
 
     for (int i = 0; i < SkArray.length(); i++)
@@ -1191,11 +1174,7 @@ int SchurPreconditioner::AssembleTransformAndDrop()
     CHECK_ZERO(SchurComplement_->Construct11(sd, Sk, indices));
 
     Teuchos::Array<Teuchos::RCP<Epetra_SerialDenseMatrix> > SkArray;
-#ifdef HYMLS_LONG_LONG
-    Teuchos::Array<Teuchos::RCP<Epetra_LongLongSerialDenseVector> > indicesArray;
-#else
-    Teuchos::Array<Teuchos::RCP<Epetra_IntSerialDenseVector> > indicesArray;
-#endif
+    Teuchos::Array<Teuchos::RCP<IndexVector> > indicesArray;
     CHECK_ZERO(ConstructSCPart(sd, localTestVector, Sk, indices, SkArray, indicesArray));
 
     for (int i = 0; i < SkArray.length(); i++)
@@ -1218,17 +1197,9 @@ int SchurPreconditioner::AssembleTransformAndDrop()
 
 int SchurPreconditioner::ConstructSCPart(int sd, Epetra_Vector const &localTestVector,
   Epetra_SerialDenseMatrix & Sk,
-#ifdef HYMLS_LONG_LONG
-  Epetra_LongLongSerialDenseVector &indices,
-#else
-  Epetra_IntSerialDenseVector &indices,
-#endif
+  IndexVector &indices,
   Teuchos::Array<Teuchos::RCP<Epetra_SerialDenseMatrix> > &SkArray,
-#ifdef HYMLS_LONG_LONG
-  Teuchos::Array<Teuchos::RCP<Epetra_LongLongSerialDenseVector> > &indicesArray
-#else
-  Teuchos::Array<Teuchos::RCP<Epetra_IntSerialDenseVector> > &indicesArray
-#endif
+  Teuchos::Array<Teuchos::RCP<IndexVector> > &indicesArray
   ) const
   {
   Epetra_SerialDenseVector v;
@@ -1244,13 +1215,8 @@ int SchurPreconditioner::ConstructSCPart(int sd, Epetra_Vector const &localTestV
 
   SkArray.append(Teuchos::rcp(new Epetra_SerialDenseMatrix(numVSums, numVSums)));
   Epetra_SerialDenseMatrix &VSumSk = *SkArray.back();
-#ifdef HYMLS_LONG_LONG
-  indicesArray.append(Teuchos::rcp(new Epetra_LongLongSerialDenseVector(numVSums)));
-  Epetra_LongLongSerialDenseVector &VSumIndices = *indicesArray.back();
-#else
-  indicesArray.append(Teuchos::rcp(new Epetra_IntSerialDenseVector(numVSums)));
-  Epetra_IntSerialDenseVector &VSumIndices = *indicesArray.back();
-#endif
+  indicesArray.append(Teuchos::rcp(new IndexVector(numVSums)));
+  IndexVector &VSumIndices = *indicesArray.back();
 
   int i = 0, j = 0, pos = 0;
   // Loop over all separators of the subdomain sd
@@ -1299,13 +1265,9 @@ int SchurPreconditioner::ConstructSCPart(int sd, Epetra_Vector const &localTestV
 
     SkArray.append(Teuchos::rcp(new Epetra_SerialDenseMatrix(len, len)));
     Epetra_SerialDenseMatrix &localSk = *SkArray.back();
-#ifdef HYMLS_LONG_LONG
-    indicesArray.append(Teuchos::rcp(new Epetra_LongLongSerialDenseVector(len)));
-    Epetra_LongLongSerialDenseVector &globalIndices = *indicesArray.back();
-#else
-    indicesArray.append(Teuchos::rcp(new Epetra_IntSerialDenseVector(len)));
-    Epetra_IntSerialDenseVector &globalIndices = *indicesArray.back();
-#endif
+    indicesArray.append(Teuchos::rcp(new IndexVector(len)));
+    IndexVector &globalIndices = *indicesArray.back();
+
     Teuchos::Array<int> localIndices(len);
 
     int i = 0;

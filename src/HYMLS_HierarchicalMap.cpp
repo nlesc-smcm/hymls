@@ -12,8 +12,7 @@
 #include "Epetra_Map.h"
 #include "Epetra_IntVector.h"
 #include "Epetra_Import.h"
-#include "Epetra_IntSerialDenseVector.h"
-#include "Epetra_LongLongSerialDenseVector.h"
+#include "HYMLS_IndexVector.hpp"
 
 #include <iostream>
 #include <algorithm>

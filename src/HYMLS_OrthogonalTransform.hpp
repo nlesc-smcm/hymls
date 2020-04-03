@@ -2,13 +2,11 @@
 #define HYMLS_ORTHOGONAL_TRANSFORM_H
 
 #include "HYMLS_config.h"
-
 #include "Teuchos_RCP.hpp"
+#include "HYMLS_IndexVector.hpp"
 
 class Epetra_SerialDenseMatrix;
 class Epetra_SerialDenseVector;
-class Epetra_IntSerialDenseVector;
-class Epetra_LongLongSerialDenseVector;
 class Epetra_CrsMatrix;
 class Epetra_MultiVector;
 
@@ -24,12 +22,12 @@ public:
   //! compute X=Q*X in place
   //! with a vector passed in to define the transformation
   virtual int Apply(Epetra_SerialDenseMatrix& X,
-    Epetra_SerialDenseVector v) const = 0;
+    const Epetra_SerialDenseVector& v) const = 0;
 
   //! compute X=X*Q' in place
   //! with a vector passed in to define the transformation
   virtual int ApplyR(Epetra_SerialDenseMatrix& X,
-    Epetra_SerialDenseVector v) const = 0;
+    const Epetra_SerialDenseVector& v) const = 0;
 
   //! explicitly form the OT as a sparse matrix. The dimension and indices
   //! of the entries to be transformed are given by
@@ -40,12 +38,8 @@ public:
   //! products. If vec is omitted, it is set to all ones. Otherwise it is used
   //! as a test vector from which all but one entries should be eliminated.
   virtual int Construct(Epetra_CrsMatrix& H,
-#ifdef HYMLS_LONG_LONG
-    const Epetra_LongLongSerialDenseVector& inds,
-#else
-    const Epetra_IntSerialDenseVector& inds,
-#endif
-    Epetra_SerialDenseVector vec) const = 0;
+    const IndexVector& inds,
+    const Epetra_SerialDenseVector& vec) const = 0;
 
   //! apply a sparse matrix representation of a set of transforms from the left
   //! and right to a sparse matrix.

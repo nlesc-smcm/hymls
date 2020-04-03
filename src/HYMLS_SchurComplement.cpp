@@ -12,8 +12,7 @@
 #include "Epetra_CrsMatrix.h"
 #include "Epetra_FECrsMatrix.h"
 #include "Epetra_SerialDenseMatrix.h"
-#include "Epetra_IntSerialDenseVector.h"
-#include "Epetra_LongLongSerialDenseVector.h"
+#include "HYMLS_IndexVector.hpp"
 
 #include "Ifpack_ConfigDefs.h"
 #include "Ifpack_Container.h"
@@ -88,11 +87,7 @@ const OverlappingPartitioner &SchurComplement::Partitioner() const
 int SchurComplement::Construct(Teuchos::RCP<Epetra_FECrsMatrix> S) const
   {
   HYMLS_LPROF3(label_, "Construct FEC");
-#ifdef HYMLS_LONG_LONG
-  Epetra_LongLongSerialDenseVector indices;
-#else
-  Epetra_IntSerialDenseVector indices;
-#endif
+  IndexVector indices;
   Epetra_SerialDenseMatrix Sk;
 
   const Epetra_Map &map = A22_->RowMap();
@@ -129,11 +124,7 @@ int SchurComplement::Construct(Teuchos::RCP<Epetra_FECrsMatrix> S) const
   }
 
 int SchurComplement::Construct11(int sd, Epetra_SerialDenseMatrix &Sk,
-#ifdef HYMLS_LONG_LONG
-  Epetra_LongLongSerialDenseVector &inds,
-#else
-  Epetra_IntSerialDenseVector &inds,
-#endif
+  IndexVector &inds,
   double *count_flops) const
   {
   HYMLS_LPROF3(label_, "Construct SDM (1)");
@@ -256,11 +247,7 @@ int SchurComplement::Construct11(int sd, Epetra_SerialDenseMatrix &Sk,
   }
 
 int SchurComplement::Construct22(int sd, Epetra_SerialDenseMatrix &Sk,
-#ifdef HYMLS_LONG_LONG
-  Epetra_LongLongSerialDenseVector &inds,
-#else
-  Epetra_IntSerialDenseVector &inds,
-#endif
+  IndexVector &inds,
   double *count_flops) const
   {
   HYMLS_LPROF3(label_, "Construct SDM (2)");

@@ -2,14 +2,16 @@
 #define HYMLS_HOUSEHOLDER_H
 
 #include "HYMLS_config.h"
-
+#include "HYMLS_IndexVector.hpp"
 #include "HYMLS_OrthogonalTransform.hpp"
 
 class Epetra_RowMatrixTransposer;
 
 namespace HYMLS {
 
-//! Householder transform I-2vv'/v'v, where v_1=1+sqrt(n) and v_j=1 for 1<j<=n
+//! Householder transform 2vv'/(v'v)-I, where v=z+e_1||z||_2 and z is a 'test vetor'.
+//! This transformation eliminates all but the first element of z when applied to that
+//! test vector, H*z=e_1*||z||_2
 class Householder : public OrthogonalTransform
   {
 
@@ -21,33 +23,34 @@ public:
   //!
   virtual ~Householder();
 
-  //! compute X=H*X in place, with H=I-2v'v
+  //! compute X=H*X in place, with H=2vv'/(v'v)-I, and v=z+e_1*||z||_2
   int Apply(Epetra_SerialDenseMatrix& X,
-    Epetra_SerialDenseVector v) const;
+    const Epetra_SerialDenseVector& z) const;
 
-  //! compute X=X*H' in place, with H=I-2v'v
+  //! compute X=X*H' in place, with H=2vv'-I, v=z+e_1||z||_2
   int ApplyR(Epetra_SerialDenseMatrix& X,
-    Epetra_SerialDenseVector v) const;
+    const Epetra_SerialDenseVector& z) const;
 
-  //! explicitly form the OT as a sparse matrix. The dimension and indices
-  //! of the entries to be transformed are given by
+  //! explicitly form the structurally orthogonal operator V as a sparse matrix. 
+  //! For every separator group it may contain exactly one non-zero column (stored
+  //! as row of V' here). We can then use the V matrix to apply VV'/(V'V)-I for all
+  //! separator groups simultaneously. The columns of V (stored as rows of V') will
+  //! be normalized so that applying the operator can be implemented by matrix-vector
+  //! and matrix-matrix products.
+  //! The dimension and indices of the entries z to be transformed are given by
   //! the size of the input vector. The function may be called repeatedly
   //! for different sets of indices (separator groups) to construct a matrix
   //! for simultaneously applying many transforms. Always use the corresponding
   //! Apply() functions to apply the transform rather than sparse matrix-matrix
   //! products.
-  virtual int Construct(Epetra_CrsMatrix& H,
-#ifdef HYMLS_LONG_LONG
-    const Epetra_LongLongSerialDenseVector& inds,
-#else
-    const Epetra_IntSerialDenseVector& inds,
-#endif
-    Epetra_SerialDenseVector vec) const;
+  virtual int Construct(Epetra_CrsMatrix& V,
+    const IndexVector& inds,
+    const Epetra_SerialDenseVector& vec) const;
 
-  //! apply a sparse matrix representation of a set of transforms from the left
-  //! and right to a sparse matrix.
+  //! apply a sparse matrix representation V of a set of transforms from the left
+  //! and right to a sparse matrix: result <- (2V'V-I)*A*(2V'V-I)
   Teuchos::RCP<Epetra_CrsMatrix> Apply(
-    const Epetra_CrsMatrix& T, const Epetra_CrsMatrix& A) const ;
+    const Epetra_CrsMatrix& V, const Epetra_CrsMatrix& A) const ;
 
   //! apply a sparse matrix representation of a set of transforms from the left
   //! and right to a sparse matrix. This variant is to be preferred if the
@@ -55,10 +58,10 @@ public:
   int Apply(
     Epetra_CrsMatrix& TAT, const Epetra_CrsMatrix& T, const Epetra_CrsMatrix& A) const;
 
-  //! apply a sparse matrix representation of a set of transforms from the left
-  //! to a vector.
+  //! apply a sparse matrix representation V of a set of transforms from the left
+  //! to a vector, result <- (2VV'-I)x.
   int Apply(
-    Epetra_MultiVector& Tv, const Epetra_CrsMatrix& T, const Epetra_MultiVector& v) const;
+    Epetra_MultiVector& Tv, const Epetra_CrsMatrix& T, const Epetra_MultiVector& x) const;
 
   //! apply a sparse matrix representation of a set of transforms from the left
   //! to a vector.
