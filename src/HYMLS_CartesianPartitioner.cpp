@@ -341,13 +341,13 @@ int CartesianPartitioner::GetGroups(int sd, InteriorGroup &interior_group,
           else
             {
             SeparatorGroup separator;
-            int type = -2;
-            if (link_retained_nodes_ || link_velocities_)
+            int type = -1000;
+            if (link_retained_nodes_)
               type = 2 * dof_ * (itype + 3 * (jtype + 3 * ktype));
-            if (!link_velocities_ ||
-                (variableType_[d] != VariableType::Velocity_U &&
-                variableType_[d] != VariableType::Velocity_V &&
-                variableType_[d] != VariableType::Velocity_W))
+            if (!(link_velocities_ && (
+                  variableType_[d] == VariableType::Velocity_U ||
+                  variableType_[d] == VariableType::Velocity_V ||
+                  variableType_[d] == VariableType::Velocity_W)))
               type += 2 * d;
             separator.set_type(type);
             separator_groups.append(separator);

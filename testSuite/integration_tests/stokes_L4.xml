@@ -1,7 +1,7 @@
-<ParameterList name="3D Stokes on a Lorenz-grid and a non-cubed domain with 0 w-block and retaining more nodes in the z-direction"><!--{-->
+<ParameterList name="3D Stokes on a Lorenz-grid and a non-cubed domain while retaining more nodes in the z-direction"><!--{-->
 
   <Parameter name="Description" type="string"
-        value="3D Stokes on a Lorenz-grid and a non-cubed domain with 0 w-block and retaining more nodes in the z-direction"/>
+        value="3D Stokes on a Lorenz-grid and a non-cubed domain while retaining more nodes in the z-direction"/>
 
   <!-- these first few settings are specific for the driver -->
   <!-- implemented in 'main.C' and are not passed on to the -->
@@ -14,11 +14,11 @@
     <!-- for each matrix, solve with several right-hand sides in a row -->
     <Parameter name="Number of solves" type="int" value="1"/>
     <!-- how to generate the matrix -->
-    <Parameter name="Galeri Label" type="string" value="Stokes-T"/>
+    <Parameter name="Galeri Label" type="string" value="Stokes-L"/>
   </ParameterList>
 
   <ParameterList name="Targets">
-    <Parameter name="Number of Iterations" type="int" value="60"/>
+    <Parameter name="Number of Iterations" type="int" value="50"/>
     <Parameter name="Relative Residual 2-Norm" type="double" value="1.0e-9"/>
     <Parameter name="Relative Error 2-Norm" type="double" value="1.0e-9"/>
   </ParameterList>
@@ -31,6 +31,7 @@
     <Parameter name="nx" type="int" value="10"/>
     <Parameter name="ny" type="int" value="11"/>
     <Parameter name="nz" type="int" value="8"/>
+
   </ParameterList><!--}-->
 
   <!-- Krylov solver and deflation  -->
@@ -61,8 +62,6 @@
 
     <Parameter name="Fix Pressure Level" type="bool" value="true"/>
 
-    <!-- <Parameter name="Apply Dropping" type="bool" value="false"/> -->
-
     <!-- you can either set 'Separator Length' or 'Number of Subdomains' -->
     <Parameter name="Separator Length (x)" type="int" value="4"/>
     <Parameter name="Separator Length (y)" type="int" value="4"/>
@@ -73,7 +72,7 @@
 
     <!-- number of levels to be created (1: direct solver for Schur complement, -->
     <!-- 2: solve Schur iteratively and reduced Schur directly,                 -->
-    <Parameter name="Number of Levels" type="int" value="2"/>
+    <Parameter name="Number of Levels" type="int" value="3"/>
 
     <!-- parameters for the direct solvers (Ifpack_Amesos) -->
 
