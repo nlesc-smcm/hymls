@@ -1,20 +1,6 @@
 #ifndef HYMLS_SPARSE_DIRECT_SOLVER_H
 #define HYMLS_SPARSE_DIRECT_SOLVER_H
 
-#include "Amesos_config.h"
-
-// use Amesos interfaces - no custom ordering or scaling,
-// just Amesos options are accepted (in fact this whole  
-// class turns into a 'typedef')
-//#define USE_AMESOS 1
-
-#ifdef USE_AMESOS
-#include "Ifpack_Amesos.h"
-namespace HYMLS {
-typedef Ifpack_Amesos SparseDirectSolver;
-}
-#else
-
 #include "Ifpack_Preconditioner.h"
 #include "Teuchos_RCP.hpp"
 
@@ -435,8 +421,7 @@ private:
   int PardisoSolve(const Epetra_MultiVector& B, Epetra_MultiVector& X) const;
 
 };
-}//namespace HYMLS
 
-#endif // USE_AMESOS is not defined - own interface to SuiteSparse or KLU
+}//namespace HYMLS
 
 #endif // HYMLS_SPARSE_DIRECT_SOLVER_H_H

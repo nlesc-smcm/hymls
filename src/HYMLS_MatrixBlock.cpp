@@ -159,6 +159,11 @@ int MatrixBlock::InitializeSubdomainSolvers(std::string const &solverType,
       subdomainSolvers_[sd] =
         Teuchos::rcp(new Ifpack_SparseContainer<SparseDirectSolver>(nrows));
       }
+    else if (solverType == "Amesos")
+      {
+      subdomainSolvers_[sd] =
+        Teuchos::rcp(new Ifpack_SparseContainer<Ifpack_Amesos>(nrows));
+      }
     else
       {
       Tools::Error("invalid 'Subdomain Solver Type' in 'Solver' sublist",

@@ -213,12 +213,12 @@ Preconditioner::getValidParameters() const
     "recursive application of the approximation technique");
 
   Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
-    sparseDenseValidator = Teuchos::rcp(
+    solverTypeValidator = Teuchos::rcp(
       new Teuchos::StringToIntegralParameterEntryValidator<int>(
-        Teuchos::tuple<std::string>( "Sparse","Dense"),"Subdomain Solver Type"));
+        Teuchos::tuple<std::string>("Sparse", "Dense", "Amesos"),"Subdomain Solver Type"));
 
-  VPL().set("Subdomain Solver Type","Sparse",
-    "Sparse or dense subdomain solver?", sparseDenseValidator);
+  VPL().set("Subdomain Solver Type", "Sparse",
+    "Sparse or dense subdomain solver?", solverTypeValidator);
 
   VPL().set("Dense Solvers on Level",99,
     "Switch to dense subdomain solver on levels larger than this value");
