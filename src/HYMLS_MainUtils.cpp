@@ -241,8 +241,17 @@ Teuchos::RCP<Epetra_Vector> create_testvector(
     int len;
     double *values;
     int *indices;
+    bool is_diag = true;
     CHECK_ZERO(matrix.ExtractMyRowView(i, len, values, indices));
-    if (len == 1 && matrix.GCID64(indices[0]) == matrix.GRID64(i))
+    for (int j = 0; j < len; j++)
+    {
+        if (values[j] && matrix.GCID64(indices[j]) != matrix.GRID64(i))
+        {
+            is_diag = false;
+            break;
+        }
+    }
+    if (is_diag)
       (*testvector)[i] = 0.0;
     }
   return testvector;
