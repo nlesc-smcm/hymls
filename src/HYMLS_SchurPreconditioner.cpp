@@ -72,7 +72,6 @@ SchurPreconditioner::SchurPreconditioner(
   : PLA("Preconditioner"),
     comm_(Teuchos::rcp(SC->Comm().Clone())),
     SchurMatrix_(Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(SC)),
-    tmpMatrix_(Teuchos::null),
     SchurComplement_(Teuchos::rcp_dynamic_cast<const HYMLS::SchurComplement>(SC)),
     myLevel_(level), amActive_(true),
     variant_("Block Diagonal"),
@@ -253,9 +252,13 @@ int SchurPreconditioner::Initialize()
         __FILE__,__LINE__);
       }
     }
+  else
+    applyOT_ = false;
+
   numInitialize_++;
-  initialized_=true;
-  timeInitialize_+=time_->ElapsedTime();
+  initialized_ = true;
+  timeInitialize_ += time_->ElapsedTime();
+
   return 0;
   }
 
@@ -271,51 +274,11 @@ int SchurPreconditioner::InitializeCompute()
 
   if (myLevel_==maxLevel_)
     {
-    // this should happen only if HYMLS is used as a direct method
-    // ("Number of Levels" is 1) because then the Preconditioner
-    // class will construct a SchurPreconditioner on the coarsest
-    // level, otherwise a SchurPreconditioner constructs it with
-    // a sparse matrix directly.
-    if (SchurComplement_==Teuchos::null && SchurMatrix_==Teuchos::null)
+    if (SchurComplement_ != Teuchos::null)
       {
-      HYMLS::Tools::Error("no matrix and no SC object available on coarsest level",
-        __FILE__,__LINE__);
+      CHECK_ZERO(Assemble());
+      SchurMatrix_ = matrix_;
       }
-    if (SchurComplement_!=Teuchos::null)
-      {
-      HYMLS_DEBUG("This is probably a one-level method.");
-      if (tmpMatrix_!=Teuchos::null)
-        {
-        HYMLS_DEBUG("This is not the first call to InitializeCompute()");
-        // Check that the SchurMatrix_ was previously constructed
-        // by this same function. As it is never passed out of the
-        // object we can adjust it in that case.
-        if (SchurMatrix_.get()!=tmpMatrix_.get())
-          {
-          Tools::Error("we seem to have both a SchurComplement object and a sparse\n"
-            " matrix representation. This case is not allowed!",
-            __FILE__,__LINE__);
-          }
-        }
-      else
-        {
-        HYMLS_DEBUG("This is the first call to InitializeCompute()");
-        tmpMatrix_ = Teuchos::rcp(new Epetra_FECrsMatrix(Copy,*map_,32));
-        }
-      SchurComplement_->Construct(tmpMatrix_);
-      if (SchurMatrix_.get()!=tmpMatrix_.get())
-        {
-        HYMLS_DEBUG("Set Pointer.");
-        SchurMatrix_ = tmpMatrix_;
-        }
-      }
-#ifdef HYMLS_STORE_MATRICES
-    HYMLS::MatrixUtils::Dump(*SchurMatrix_,"FinalSC.txt");
-#endif
-
-#if defined(HYMLS_STORE_MATRICES) || defined(HYMLS_TESTING)
-    HYMLS::MatrixUtils::Dump(SchurMatrix_->RowMap(),"finalMap.txt");
-#endif
     }
   else
     {
@@ -355,8 +318,8 @@ int SchurPreconditioner::InitializeCompute()
       Tools::Error("SchurComplement not accessible",__FILE__,__LINE__);
       }
 
-    CHECK_ZERO(InitializeNextLevel())
-      }
+    CHECK_ZERO(InitializeNextLevel());
+    }
 
   return 0;
   }
@@ -988,8 +951,8 @@ int SchurPreconditioner::Assemble()
     Teuchos::rcp_dynamic_cast<Epetra_FECrsMatrix>(matrix_);
   if (matrix == Teuchos::null)
     {
-    int nzest = 0;
-    if (hid_->NumMySubdomains() > 0)
+    int nzest = 32;
+    if (hid_ != Teuchos::null && hid_->NumMySubdomains() > 0)
       nzest = hid_->NumSeparatorElements(0);
     matrix = Teuchos::rcp(new
       Epetra_FECrsMatrix(Copy, SchurComplement_->OperatorDomainMap(), nzest));
