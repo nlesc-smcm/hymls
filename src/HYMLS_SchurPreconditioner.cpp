@@ -147,7 +147,6 @@ int SchurPreconditioner::SetParameters(Teuchos::ParameterList& List)
   maxLevel_=PL().get("Number of Levels",myLevel_);
   variant_ = PL().get("Preconditioner Variant","Block Diagonal");
   denseSwitch_=PL().get("Dense Solvers on Level",denseSwitch_);
-  subdivideSeparators_=PL().get("Subdivide Separators",false);
   applyDropping_ = PL().get("Apply Dropping", true);
   applyOT_ = PL().get("Apply Orthogonal Transformation", applyDropping_);
   int pos=1;

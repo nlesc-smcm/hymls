@@ -372,14 +372,6 @@ protected:
   //! level
   Teuchos::Array<hymls_gidx> fix_gid_;
 
-  //! subdivide separators created by the standard decomposition.
-  //! This is necessary for i.e. THCM, where each subdomain retains
-  //! two pressures. Velocities may couple to either of these, giving
-  //! cross patterns in the reduced 'Grad' part. The subdivisino is
-  //! based on the Grad-part, so that the transform is applied to variables
-  //! coupling to the same set of pressures.
-  bool subdivideSeparators_;
-
   mutable bool dumpVectors_;
 
   //! \name data structures for bordering
