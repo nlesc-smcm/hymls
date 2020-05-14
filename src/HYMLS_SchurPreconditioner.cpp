@@ -216,8 +216,7 @@ int SchurPreconditioner::Initialize()
       blockSolver_.resize(0);
       }
     else if (variant_ == "Block Diagonal" ||
-      variant_ == "Lower Triangular" ||
-      variant_ == "No Dropping")
+      variant_ == "Lower Triangular")
       {
       CHECK_ZERO(InitializeBlocks());
       }
