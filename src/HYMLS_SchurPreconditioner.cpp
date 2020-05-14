@@ -79,7 +79,6 @@ SchurPreconditioner::SchurPreconditioner(
     sparseMatrixOT_(Teuchos::null),
     matrix_(Teuchos::null),
     nextLevelHID_(Teuchos::null),
-    linearRhs_(Teuchos::null), linearSol_(Teuchos::null),
     useTranspose_(false), haveBorder_(false), normInf_(-1.0),
     label_("SchurPreconditioner"),
     initialized_(false),computed_(false),
@@ -438,13 +437,7 @@ int SchurPreconditioner::Compute()
     if (ierr!=0)
       {
 #ifdef HYMLS_STORE_MATRICES
-      Teuchos::RCP<const Epetra_CrsMatrix> dumpMatrix
-        = reducedSchur_;
-      if (myLevel_==maxLevel_)
-        {
-        dumpMatrix = linearMatrix_;
-        }
-      MatrixUtils::Dump(*dumpMatrix,"BadMatrix"+Teuchos::toString(myLevel_)+".txt");
+      MatrixUtils::Dump(*reducedSchur_,"BadMatrix"+Teuchos::toString(myLevel_)+".txt");
 #endif
       Tools::Error("factorization returned value "+Teuchos::toString(ierr)+
         " on level "+Teuchos::toString(myLevel_),__FILE__,__LINE__);

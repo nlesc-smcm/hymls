@@ -297,9 +297,6 @@ protected:
   //! importer for Vsum nodes
   Teuchos::RCP<Epetra_Import> vsumImporter_;
 
-  //! linear map for the reduced SC
-  Teuchos::RCP<Epetra_Map> linearMap_;
-
   //! partitioner for the next level
   Teuchos::RCP<const OverlappingPartitioner> nextLevelHID_;
 
@@ -309,15 +306,6 @@ protected:
 
   //! right-hand side and solution for the reduced SC (based on linear map)
   mutable Teuchos::RCP<Epetra_MultiVector> vsumRhs_, vsumSol_;
-
-  // View of SC2 with linear map
-  Teuchos::RCP<Epetra_CrsMatrix> linearMatrix_;
-
-  // View of SC2 with linear map and no empty partitions (restricted Comm)
-  Teuchos::RCP<Epetra_CrsMatrix> restrictedMatrix_;
-
-  //! Views and copies of vectors used in ApplyInverse(), mutable temporary data
-  mutable Teuchos::RCP<Epetra_MultiVector> linearRhs_, linearSol_, restrictedRhs_, restrictedSol_;
 
   //! solver for the reduced Schur complement. Note that Ifpack_Preconditioner
   //! is implemented by both Amesos (direct solver) and our HYMLS::Solver,
