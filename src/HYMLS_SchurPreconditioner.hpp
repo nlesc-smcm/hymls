@@ -246,9 +246,6 @@ protected:
   //! if myLevel_==maxLevel_ we use a direct solver
   int maxLevel_;
 
-  //! if the processor has no rows in the present SC, this is false.
-  bool amActive_;
-
   //! we currently implement two variants of the approximate
   //! Schur-Complement: one with a block diagonal approximation
   //! of the non-Vsums, and one with a sparse direct solver for

@@ -69,7 +69,7 @@ SchurPreconditioner::SchurPreconditioner(
     comm_(Teuchos::rcp(SC->Comm().Clone())),
     SchurMatrix_(Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(SC)),
     SchurComplement_(Teuchos::rcp_dynamic_cast<const HYMLS::SchurComplement>(SC)),
-    myLevel_(level), amActive_(true),
+    myLevel_(level),
     variant_("Block Diagonal"),
     denseSwitch_(99), applyDropping_(true),
     applyOT_(true),
@@ -426,20 +426,17 @@ int SchurPreconditioner::Compute()
 
     }
 
-  if (amActive_)
-    {
-    // compute solver for reduced Schur
-    HYMLS_DEBUG("compute coarse solver");
-    int ierr=reducedSchurSolver_->Compute();
+  // compute solver for reduced Schur
+  HYMLS_DEBUG("compute coarse solver");
+  int ierr=reducedSchurSolver_->Compute();
 
-    if (ierr!=0)
-      {
+  if (ierr!=0)
+    {
 #ifdef HYMLS_STORE_MATRICES
-      MatrixUtils::Dump(*reducedSchur_,"BadMatrix"+Teuchos::toString(myLevel_)+".txt");
+    MatrixUtils::Dump(*reducedSchur_,"BadMatrix"+Teuchos::toString(myLevel_)+".txt");
 #endif
-      Tools::Error("factorization returned value "+Teuchos::toString(ierr)+
-        " on level "+Teuchos::toString(myLevel_),__FILE__,__LINE__);
-      }
+    Tools::Error("factorization returned value "+Teuchos::toString(ierr)+
+      " on level "+Teuchos::toString(myLevel_),__FILE__,__LINE__);
     }
 
   computed_ = true;
