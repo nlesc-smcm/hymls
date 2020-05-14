@@ -186,7 +186,7 @@ int CoarseSolver::Compute()
   ////////////////////////////////////////////////////////////////////////////
   if (HaveBorder())
     {
-    if (borderV_ == Teuchos::null || borderW_ == Teuchos::null || borderC_ == Teuchos::null)
+    if (V_ == Teuchos::null || W_ == Teuchos::null || C_ == Teuchos::null)
       {
       Tools::Error("border not set correctly", __FILE__, __LINE__);
       }
@@ -195,22 +195,22 @@ int CoarseSolver::Compute()
     Tools::Error("not implemented", __FILE__, __LINE__);
 #endif
 
-    HYMLS_DEBVAR(*borderV_);
-    HYMLS_DEBVAR(*borderW_);
-    HYMLS_DEBVAR(*borderC_);
+    HYMLS_DEBVAR(*V_);
+    HYMLS_DEBVAR(*W_);
+    HYMLS_DEBVAR(*C_);
 
     // we need to create views of the vectors here because the
     // map is different for the solver (linear restricted map)
     Teuchos::RCP<const Epetra_MultiVector> Vprime =
       Teuchos::rcp(new Epetra_MultiVector(View, restrictedMatrix_->RowMap(),
-          borderV_->Values(), borderV_->Stride(), borderV_->NumVectors()));
+          V_->Values(), V_->Stride(), V_->NumVectors()));
     Teuchos::RCP<const Epetra_MultiVector> Wprime =
       Teuchos::rcp(new Epetra_MultiVector(View, restrictedMatrix_->RowMap(),
-          borderW_->Values(), borderW_->Stride(), borderW_->NumVectors()));
+          W_->Values(), W_->Stride(), W_->NumVectors()));
 
     // create AugmentedMatrix, refactor reducedSchurSolver_
     augmentedMatrix_ = Teuchos::rcp
-      (new HYMLS::AugmentedMatrix(restrictedMatrix_, Vprime, Wprime, borderC_));
+      (new HYMLS::AugmentedMatrix(restrictedMatrix_, Vprime, Wprime, C_));
     S2 = augmentedMatrix_;
     }
 
@@ -436,23 +436,23 @@ int CoarseSolver::setBorder(Teuchos::RCP<const Epetra_MultiVector> V,
     haveBorder_ = false;
     return 0;
     }
-  borderV_ = Teuchos::rcp(new Epetra_MultiVector(*V));
+  V_ = Teuchos::rcp(new Epetra_MultiVector(*V));
   if (W != Teuchos::null)
     {
-    borderW_ = Teuchos::rcp(new Epetra_MultiVector(*W));
+    W_ = Teuchos::rcp(new Epetra_MultiVector(*W));
     }
   else
     {
-    borderW_ = Teuchos::rcp(new Epetra_MultiVector(*V));
+    W_ = Teuchos::rcp(new Epetra_MultiVector(*V));
     }
   if (C != Teuchos::null)
     {
-    borderC_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(*C));
+    C_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(*C));
     }
   else
     {
     int n = V->NumVectors();
-    borderC_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(n, n));
+    C_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(n, n));
     }
 
   if (!IsInitialized())
@@ -466,17 +466,17 @@ int CoarseSolver::setBorder(Teuchos::RCP<const Epetra_MultiVector> V,
     // map is different for the solver (linear restricted map)
     Teuchos::RCP<const Epetra_MultiVector> Vprime =
       Teuchos::rcp(new Epetra_MultiVector(View, restrictedMatrix_->RowMap(),
-          borderV_->Values(), borderV_->Stride(), borderV_->NumVectors()));
+          V_->Values(), V_->Stride(), V_->NumVectors()));
     Teuchos::RCP<const Epetra_MultiVector> Wprime =
       Teuchos::rcp(new Epetra_MultiVector(View, restrictedMatrix_->RowMap(),
-          borderW_->Values(), borderW_->Stride(), borderW_->NumVectors()));
+          W_->Values(), W_->Stride(), W_->NumVectors()));
 
     // create AugmentedMatrix, refactor reducedSchurSolver_
     bool status = true;
     try
       {
       augmentedMatrix_ = Teuchos::rcp
-        (new HYMLS::AugmentedMatrix(restrictedMatrix_, Vprime, Wprime, borderC_));
+        (new HYMLS::AugmentedMatrix(restrictedMatrix_, Vprime, Wprime, C_));
       } TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, status);
     if (!status)
       {

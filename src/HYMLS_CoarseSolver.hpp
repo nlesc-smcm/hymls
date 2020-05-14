@@ -259,12 +259,6 @@ protected:
 
   //! \name data structures for bordering
 
-  //! border split up and transformed by Householder
-  Teuchos::RCP<Epetra_MultiVector> borderV_, borderV2_, borderW_, borderW2_;
-
-  //! lower diagonal block of bordered system
-  Teuchos::RCP<Epetra_SerialDenseMatrix> borderC_;
-
   //! augmented matrix for V-sums, [M22 V2; W2 C]
   Teuchos::RCP<Epetra_RowMatrix> augmentedMatrix_;
 
