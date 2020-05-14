@@ -50,7 +50,6 @@
 #include "HYMLS_Epetra_Time.h"
 #include "HYMLS_HierarchicalMap.hpp"
 #include "HYMLS_OrthogonalTransform.hpp"
-#include "HYMLS_AugmentedMatrix.hpp"
 
 #include <fstream>
 #include <algorithm>

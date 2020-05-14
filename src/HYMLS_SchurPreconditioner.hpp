@@ -389,9 +389,6 @@ protected:
   //! lower diagonal block of bordered system
   Teuchos::RCP<Epetra_SerialDenseMatrix> borderC_;
 
-  //! augmented matrix for V-sums, [M22 V2; W2 C]
-  Teuchos::RCP<Epetra_RowMatrix> augmentedMatrix_;
-
 private:
 
   //! this function does the initialization things that have to be done
