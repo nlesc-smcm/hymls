@@ -217,11 +217,14 @@ int MatrixBlock::ComputeSubdomainSolvers(Teuchos::RCP<const Epetra_CrsMatrix> ex
     {
     if (subdomainSolvers_[sd]->NumRows() > 0)
       {
-      // compute subdomain factorization
+      // Compute the subdomain factorization
 #ifdef HYMLS_TESTING
       bool status = true;
       try {
 #endif
+        // We have to call Initialize every time because we have to recreate
+        // the internal matrix in the SparseContainer. Otherwise we try
+        // to fill a matrix on which FillComplete was already called.
         Epetra_Map const &rowMap = extendedMatrix->RowMap();
         CHECK_ZERO(subdomainSolvers_[sd]->Initialize());
         if (Teuchos::rcp_dynamic_cast<Ifpack_DenseContainer>(
