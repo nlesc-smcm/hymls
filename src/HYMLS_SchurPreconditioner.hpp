@@ -374,7 +374,7 @@ protected:
   //! \name data structures for bordering
 
   //! border split up and transformed by Householder
-  Teuchos::RCP<Epetra_MultiVector> borderV_,borderV2_,borderW_,borderW2_;
+  Teuchos::RCP<Epetra_MultiVector> borderV_,borderW_;
   //! lower diagonal block of bordered system
   Teuchos::RCP<Epetra_SerialDenseMatrix> borderC_;
 
