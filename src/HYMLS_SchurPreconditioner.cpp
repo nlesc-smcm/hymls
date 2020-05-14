@@ -1228,15 +1228,7 @@ int SchurPreconditioner::ApplyInverse(const Epetra_MultiVector& X,
       }
 
     CHECK_ZERO(vsumRhs_->Import(Y,*vsumImporter_,Insert));
-    if (reducedSchurScaLeft_!=Teuchos::null)
-      {
-      CHECK_ZERO(vsumRhs_->Multiply(1.0,*reducedSchurScaLeft_,*vsumRhs_,0.0));
-      }
     CHECK_ZERO(reducedSchurSolver_->ApplyInverse(*vsumRhs_,*vsumSol_));
-    if (reducedSchurScaRight_!=Teuchos::null)
-      {
-      CHECK_ZERO(vsumSol_->Multiply(1.0,*reducedSchurScaRight_,*vsumSol_,0.0));
-      }
     CHECK_ZERO(Y.Export(*vsumSol_,*vsumImporter_,Insert));
 
     // transform back
@@ -1796,10 +1788,6 @@ int SchurPreconditioner::ApplyInverse(const Epetra_MultiVector& X,
         }
       }
 
-    if (reducedSchurScaLeft_!=Teuchos::null)
-      {
-      CHECK_ZERO(vsumRhs_->Multiply(1.0,*reducedSchurScaLeft_,*vsumRhs_,0.0));
-      }
     Teuchos::RCP<const HYMLS::BorderedOperator> borderedNextLevel =
       Teuchos::rcp_dynamic_cast<const HYMLS::BorderedOperator>(reducedSchurSolver_);
     if (Teuchos::is_null(borderedNextLevel))
@@ -1807,10 +1795,6 @@ int SchurPreconditioner::ApplyInverse(const Epetra_MultiVector& X,
       Tools::Error("cannot handle next level bordered system!",__FILE__,__LINE__);
       }
     CHECK_ZERO(borderedNextLevel->ApplyInverse(*vsumRhs_,Tcopy,*vsumSol_,S));
-    if (reducedSchurScaRight_!=Teuchos::null)
-      {
-      CHECK_ZERO(vsumSol_->Multiply(1.0,*reducedSchurScaRight_,*vsumSol_,0.0));
-      }
     // copy into X
     for (int j=0;j<Y.NumVectors();j++)
       for (int i=0;i<vsumSol_->MyLength();i++)

@@ -312,9 +312,6 @@ protected:
   //! so we don't have to make a choice at this point.
   Teuchos::RCP<Ifpack_Preconditioner> reducedSchurSolver_;
 
-  //! left and right scaling vectors for the reduced Schur-complement
-  Teuchos::RCP<Epetra_Vector> reducedSchurScaLeft_,reducedSchurScaRight_;
-
   //! use transposed operator?
   bool useTranspose_;
 
@@ -459,9 +456,9 @@ private:
   int UpdateVsumRhs(const Epetra_MultiVector& B, Epetra_MultiVector& X) const;
 
   //!
-  //! compute scaling for a sparse matrix.
+  //! Compute scaling for a sparse matrix. This is currently unused.
   //!
-  //! the scaling we use is as follows:
+  //! The scaling we use is as follows:
   //!
   //! a = sqrt(max(|diag(A)|));
   //! if A(i,i) != 0, sca_left = sca_right = 1/a
