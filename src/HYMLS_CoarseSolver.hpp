@@ -237,9 +237,6 @@ protected:
   //! so we don't have to make a choice at this point.
   Teuchos::RCP<Ifpack_Preconditioner> reducedSchurSolver_;
 
-  //! left and right scaling vectors for the reduced Schur-complement
-  Teuchos::RCP<Epetra_Vector> reducedSchurScaLeft_, reducedSchurScaRight_;
-
   //! true if addBorder() has been called with non-null args
   bool haveBorder_;
 
@@ -271,22 +268,6 @@ protected:
   //! augmented matrix for V-sums, [M22 V2; W2 C]
   Teuchos::RCP<Epetra_RowMatrix> augmentedMatrix_;
 
-private:
-
-  //!
-  //! compute scaling for a sparse matrix.
-  //!
-  //! the scaling we use is as follows:
-  //!
-  //! a = sqrt(max(|diag(A)|));
-  //! if A(i, i) != 0, sca_left = sca_right = 1/a
-  //! else            sca_left = sca_right = a
-  //!
-  //! If sca_left and/or sca_right are null, they are created.
-  //!
-  int ComputeScaling(const Epetra_CrsMatrix& A,
-    Teuchos::RCP<Epetra_Vector>& sca_left,
-    Teuchos::RCP<Epetra_Vector>& sca_right);
   };
 
   }

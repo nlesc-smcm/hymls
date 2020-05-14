@@ -117,8 +117,7 @@ int CoarseSolver::Compute()
   HYMLS_LPROF(label_, "Compute");
 
   // drop numerical zeros. We need to copy the matrix anyway because
-  // we may want to put in some artificial Dirichlet conditions and
-  // scale the matrix.
+  // we may want to put in some artificial Dirichlet conditions.
 #ifdef HYMLS_TESTING
   Tools::Out("drop on coarsest level");
 #endif
@@ -138,13 +137,6 @@ int CoarseSolver::Compute()
       CHECK_ZERO(MatrixUtils::PutDirichlet(*reducedSchur_, fix_gid_[i]));
       }
     }
-
-  // compute scaling for reduced Schur
-  CHECK_ZERO(ComputeScaling(*reducedSchur_, reducedSchurScaLeft_, reducedSchurScaRight_));
-
-  HYMLS_DEBUG("scale matrix");
-  CHECK_ZERO(reducedSchur_->LeftScale(*reducedSchurScaLeft_));
-  CHECK_ZERO(reducedSchur_->RightScale(*reducedSchurScaRight_));
 
   HYMLS_DEBUG("reindex matrix to linear indexing");
   linearMatrix_ = Teuchos::rcp(&((*reindexA_)(*reducedSchur_)), false);
@@ -269,15 +261,6 @@ int CoarseSolver::ApplyInverse(const Epetra_MultiVector &X,
   {
   HYMLS_LPROF(label_, "ApplyInverse");
 
-#ifdef HYMLS_TESTING
-  if (Teuchos::is_null(reducedSchurScaLeft_) ||
-    Teuchos::is_null(reducedSchurScaRight_))
-    {
-    Tools::Error("Scaling not available (should be created in Compute())",
-      __FILE__, __LINE__);
-    }
-#endif
-
   bool realloc_vectors = (linearRhs_ == Teuchos::null);
   if (!realloc_vectors) realloc_vectors = (linearRhs_->NumVectors() != X.NumVectors());
   if (realloc_vectors)
@@ -289,7 +272,7 @@ int CoarseSolver::ApplyInverse(const Epetra_MultiVector &X,
     {
     for (int i = 0; i < X.MyLength(); i++)
       {
-      (*linearRhs_)[j][i] = X[j][i] * (*reducedSchurScaLeft_)[i];
+      (*linearRhs_)[j][i] = X[j][i];
       }
     }
 
@@ -334,7 +317,7 @@ int CoarseSolver::ApplyInverse(const Epetra_MultiVector &X,
     {
     for (int i = 0; i < X.MyLength(); i++)
       {
-      Y[j][i] = (*linearSol_)[j][i] * (*reducedSchurScaRight_)[i];
+      Y[j][i] = (*linearSol_)[j][i];
       }
     }
 
@@ -567,7 +550,7 @@ int CoarseSolver::ApplyInverse(const Epetra_MultiVector &X,
       {
       for (int i = 0; i < X.MyLength(); i++)
         {
-        (*linearRhs_)[j][i] = X[j][i] * (*reducedSchurScaLeft_)[i];
+        (*linearRhs_)[j][i] = X[j][i];
         }
       for (int i = X.MyLength(); i < linearRhs_->MyLength(); i++)
         {
@@ -613,7 +596,7 @@ int CoarseSolver::ApplyInverse(const Epetra_MultiVector &X,
       {
       for (int i = 0; i < X.MyLength(); i++)
         {
-        Y[j][i] = (*linearSol_)[j][i] * (*reducedSchurScaRight_)[i];
+        Y[j][i] = (*linearSol_)[j][i];
         }
       for (int i = X.MyLength(); i < linearRhs_->MyLength(); i++)
         {
@@ -626,52 +609,6 @@ int CoarseSolver::ApplyInverse(const Epetra_MultiVector &X,
     HYMLS::MatrixUtils::Dump(*linearSol_, "CoarseLevelSol.txt");
 #endif
     }
-
-  return 0;
-  }
-
-
-// attempt to scale P-couplings to 1. If row not coupled to any P-node,
-// scale diagonal to 1 unless diagonal entry zero.
-int CoarseSolver::ComputeScaling(const Epetra_CrsMatrix &A,
-  Teuchos::RCP<Epetra_Vector> &sca_left,
-  Teuchos::RCP<Epetra_Vector> &sca_right)
-  {
-  HYMLS_LPROF2(label_, "ComputeScaling");
-
-  // TODO: not general!
-  if (Teuchos::is_null(sca_left))
-    {
-    sca_left = Teuchos::rcp(new Epetra_Vector(A.RowMap()));
-    }
-
-  if (Teuchos::is_null(sca_right))
-    {
-    sca_right = Teuchos::rcp(new Epetra_Vector(A.RowMap()));
-    }
-
-  sca_left->PutScalar(1.0);
-  sca_right->PutScalar(1.0);
-  return 0; // this causes problems with the 1-level method for Stokes at 128x128,
-  // the scaling should be looked at (TODO)
-  Epetra_Vector diagA(A.RowMap());
-
-  CHECK_ZERO(A.ExtractDiagonalCopy(diagA));
-  CHECK_ZERO(diagA.Abs(diagA));
-  double dmax;
-  CHECK_ZERO(diagA.MaxValue(&dmax));
-  // for saddle point matrices, this gets us
-  // similarly sized entries in the A and B part.
-  for (int i = 0; i < diagA.MyLength(); i++)
-    {
-    if (diagA[i] < dmax * HYMLS_SMALL_ENTRY)
-      {
-      (*sca_left)[i] = dmax;
-      (*sca_right)[i] = dmax;
-      }
-    }
-  //MatrixUtils::Dump(*sca_left, "left_scale.txt");
-  //MatrixUtils::Dump(*sca_right, "right_scale.txt");
 
   return 0;
   }
