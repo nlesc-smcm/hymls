@@ -323,8 +323,6 @@ int SchurPreconditioner::Compute()
     CHECK_ZERO(reducedSchurSolver_->SetParameters(PL()));
     HYMLS_DEBUG("Initialize direct solver");
     CHECK_ZERO(reducedSchurSolver_->Initialize());
-    HYMLS_DEBUG("Compute direct solver");
-    CHECK_ZERO(reducedSchurSolver_->Compute());
     }
   else // not on coarsest level
     {
