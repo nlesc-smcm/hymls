@@ -42,10 +42,6 @@
 #include "Ifpack_SparseContainer.h"
 #include "Ifpack_Amesos.h"
 
-#include "./EpetraExt_Reindex_CrsMatrix.h"
-#include "EpetraExt_Reindex_MultiVector.h"
-#include "./EpetraExt_RestrictedCrsMatrixWrapper.h"
-#include "./EpetraExt_RestrictedMultiVectorWrapper.h"
 #ifdef HYMLS_STORE_MATRICES
 #include "EpetraExt_RowMatrixOut.h"
 #endif
