@@ -731,12 +731,8 @@ int SchurPreconditioner::InitializeNextLevel()
     }
   else
     {
-    Teuchos::RCP<Teuchos::ParameterList> nextLevelParams =
-      Teuchos::rcp(new Teuchos::ParameterList(*getMyParamList()));
-
-    reducedSchurSolver_= Teuchos::rcp(new
-      SchurPreconditioner(reducedSchur_,nextLevelHID_,nextLevelParams,
-        myLevel_+1, nextTestVector));
+    reducedSchurSolver_= Teuchos::rcp(new CoarseSolver(reducedSchur_, fix_gid_, myLevel_ + 1));
+    CHECK_ZERO(reducedSchurSolver_->SetParameters(PL()));
     }
 
   HYMLS_DEBUG("Initialize solver for reduced Schur");
