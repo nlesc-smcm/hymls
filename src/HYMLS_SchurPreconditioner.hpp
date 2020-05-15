@@ -233,10 +233,6 @@ protected:
   //! communicator
   Teuchos::RCP<const Epetra_Comm> comm_;
 
-  //! sparse matrix representation of the SC operator we want to precondition.
-  //! May be null if a SchurComplement object is passed in.
-  Teuchos::RCP<const Epetra_CrsMatrix> SchurMatrix_;
-
   //! original SC object, may be null if a matrix is passed in.
   Teuchos::RCP<const SchurComplement> SchurComplement_;
 
@@ -384,10 +380,6 @@ private:
   //! Assemble the Schur complement of the Preconditioner
   //! object creating this SchurPreconditioner.
   int Assemble();
-
-  //! apply orthogonal transform to sparse matrix,
-  //! giving the matrix drop(T'*S*T) in matrix_.
-  int TransformAndDrop();
 
   //! Assemble the Schur complement of the Preconditioner
   //! object creating this SchurPreconditioner,

@@ -67,7 +67,6 @@ SchurPreconditioner::SchurPreconditioner(
   Teuchos::RCP<Epetra_Vector> testVector)
   : PLA("Preconditioner"),
     comm_(Teuchos::rcp(SC->Comm().Clone())),
-    SchurMatrix_(Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(SC)),
     SchurComplement_(Teuchos::rcp_dynamic_cast<const HYMLS::SchurComplement>(SC)),
     myLevel_(level),
     variant_("Block Diagonal"),
@@ -88,7 +87,7 @@ SchurPreconditioner::SchurPreconditioner(
   HYMLS_LPROF3(label_,"Constructor (1)");
   time_=Teuchos::rcp(new Epetra_Time(*comm_));
 
-  if (SchurMatrix_==Teuchos::null && SchurComplement_==Teuchos::null)
+  if (SchurComplement_==Teuchos::null)
     {
     HYMLS::Tools::Error("need either a CrsMatrix or a SchurComplement operator",
       __FILE__,__LINE__);
@@ -191,7 +190,7 @@ int SchurPreconditioner::Initialize()
 
   CHECK_ZERO(InitializeOT());
 
-  // Initialize VUsum maps that we use to compute the matrix for the
+  // Initialize Vsum maps that we use to compute the matrix for the
   // next level.
   Teuchos::RCP<const HierarchicalMap> localSepObject =
       hid_->Spawn(HierarchicalMap::LocalSeparators);
@@ -251,10 +250,6 @@ int SchurPreconditioner::InitializeCompute()
   if (!applyDropping_ && SchurComplement_ != Teuchos::null)
     {
     CHECK_ZERO(Assemble());
-    }
-  else if (SchurMatrix_!=Teuchos::null)
-    {
-    CHECK_ZERO(TransformAndDrop());
     }
   else if (SchurComplement_!=Teuchos::null)
     {
@@ -723,31 +718,6 @@ int SchurPreconditioner::Assemble()
   return 0;
   }
 
-int SchurPreconditioner::TransformAndDrop()
-  {
-  HYMLS_LPROF2(label_,"TransformAndDrop");
-
-  // currently we simply compute T'*S*T using a sparse matmul.
-  // I tried more fancy block-variants, but they were quite tedious
-  // to implement and also slower than this.
-  // We do not actually drop anything here, that happens automatically
-  // by the reducedSchur import and the block solvers.
-  if (matrix_==Teuchos::null || OT->SaveMemory())
-    {
-    matrix_=OT->Apply(*sparseMatrixOT_, *SchurMatrix_);
-    }
-  else
-    {
-    OT->Apply(*matrix_,*sparseMatrixOT_, *SchurMatrix_);
-    }
-
-  CHECK_ZERO(matrix_->FillComplete());
-  HYMLS_TEST(Label(),
-    noPcouplingsDropped(*matrix_,*hid_->Spawn(HierarchicalMap::LocalSeparators)),
-    __FILE__,__LINE__);
-  return 0;
-  }
-
 // alternative implementation without previously assembling the SC
 // (saves some memory)
 int SchurPreconditioner::AssembleTransformAndDrop()
@@ -1146,9 +1116,7 @@ int SchurPreconditioner::ApplyInverse(const Epetra_MultiVector& X,
 // explicitly constructed!
 const Epetra_RowMatrix& SchurPreconditioner::Matrix() const
   {
-  if (SchurMatrix_==Teuchos::null) Tools::Error("SchurPreconditioner has no matrix",
-    __FILE__,__LINE__);
-  return *SchurMatrix_;
+  return *matrix_;
   }
 
 double SchurPreconditioner::InitializeFlops() const
