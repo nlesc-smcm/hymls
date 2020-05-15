@@ -400,32 +400,6 @@ int SchurPreconditioner::Compute()
         CHECK_ZERO(blockSolver_[i]->Compute(*matrix_));
         }
       }
-
-    // extract the Vsum part of the preconditioner (reduced Schur)
-    CHECK_ZERO(reducedSchur_->Import(*matrix_, *vsumImporter_, Insert));
-
-    //TODO: compute actual Schur complement rather than just using the part K22
-    // ...
-
-    CHECK_ZERO(reducedSchur_->FillComplete(*vsumMap_,*vsumMap_));
-
-    //  DropByValue before going to the next level. Careful about
-    //  the pointer, though, which is shared with the next level
-    //  solver...
-#ifdef HYMLS_STORE_MATRICES
-    MatrixUtils::Dump(*reducedSchur_,"ReducedSchurBeforeDropping"+Teuchos::toString(myLevel_)+".txt");
-#endif
-
-#ifdef HYMLS_TESTING
-    Tools::Out("drop before going to next level");
-#endif
-    reducedSchur_ = MatrixUtils::DropByValue(reducedSchur_,
-      HYMLS_SMALL_ENTRY, MatrixUtils::RelDropDiag);
-
-#ifdef HYMLS_STORE_MATRICES
-    MatrixUtils::Dump(*reducedSchur_,"ReducedSchur"+Teuchos::toString(myLevel_)+".txt");
-#endif
-
     }
 
   // compute solver for reduced Schur
@@ -685,15 +659,26 @@ int SchurPreconditioner::InitializeNextLevel()
   //TODO: actual Schur Complement
   CHECK_ZERO(reducedSchur_->FillComplete(*vsumMap_,*vsumMap_));
 
-  reducedSchur_ = MatrixUtils::DropByValue(reducedSchur_, HYMLS_SMALL_ENTRY,
-    MatrixUtils::RelDropDiag);
+#ifdef HYMLS_STORE_MATRICES
+  MatrixUtils::Dump(*reducedSchur_,"ReducedSchurBeforeDropping"+Teuchos::toString(myLevel_)+".txt");
+#endif
+
+#ifdef HYMLS_TESTING
+  Tools::Out("drop before going to next level");
+#endif
+
+  reducedSchur_ = MatrixUtils::DropByValue(reducedSchur_,
+    HYMLS_SMALL_ENTRY, MatrixUtils::RelDropDiag);
 
   reducedSchur_->SetLabel(("Matrix (level "+Teuchos::toString(myLevel_+1)+")").c_str());
+
+#ifdef HYMLS_STORE_MATRICES
+  MatrixUtils::Dump(*reducedSchur_,"ReducedSchur"+Teuchos::toString(myLevel_)+".txt");
+#endif
 
 #ifdef HYMLS_TESTING
   this->Visualize("hid_data_deb.m",false);
 #endif
-
 
   HYMLS_DEBUG("Create solver for reduced Schur");
 
@@ -748,12 +733,6 @@ int SchurPreconditioner::InitializeNextLevel()
     {
     Teuchos::RCP<Teuchos::ParameterList> nextLevelParams =
       Teuchos::rcp(new Teuchos::ParameterList(*getMyParamList()));
-
-    // fix pressure on coarsest level:
-    for (int i = 0; i < fix_gid_.length(); i++)
-      {
-      CHECK_ZERO(MatrixUtils::PutDirichlet(*reducedSchur_, fix_gid_[i]));
-      }
 
     reducedSchurSolver_= Teuchos::rcp(new
       SchurPreconditioner(reducedSchur_,nextLevelHID_,nextLevelParams,
