@@ -205,13 +205,29 @@ int SchurPreconditioner::Initialize()
   // force next Compute to rebuild everything
   sparseMatrixOT_=Teuchos::null;
   matrix_=Teuchos::null;
-  vsumMap_=Teuchos::null;
   reducedSchurSolver_=Teuchos::null;
   blockSolver_.resize(0);
 
   if (myLevel_ != maxLevel_)
     {
     CHECK_ZERO(InitializeOT());
+
+    // Initialize VUsum maps that we use to compute the matrix for the
+    // next level.
+    Teuchos::RCP<const HierarchicalMap> localSepObject =
+      hid_->Spawn(HierarchicalMap::LocalSeparators);
+    vsumMap_ = CreateVSumMap(localSepObject);
+
+    Teuchos::RCP<const HierarchicalMap> sepObject =
+      hid_->Spawn(HierarchicalMap::Separators);
+    overlappingVsumMap_ = CreateVSumMap(sepObject);
+
+    HYMLS_DEBUG(label_);
+    HYMLS_DEBVAR(*vsumMap_);
+
+    vsumRhs_ = Teuchos::rcp(new Epetra_MultiVector(*vsumMap_, 1));
+    vsumSol_ = Teuchos::rcp(new Epetra_MultiVector(*vsumMap_, 1));
+    vsumImporter_ = Teuchos::rcp(new Epetra_Import(*vsumMap_, *map_));
     }
   else
     {
@@ -656,33 +672,11 @@ int SchurPreconditioner::InitializeNextLevel()
   {
   HYMLS_LPROF2(label_,"InitializeNextLevel");
 
-  if (vsumMap_==Teuchos::null)
-    {
-    Teuchos::RCP<const HierarchicalMap> localSepObject =
-      hid_->Spawn(HierarchicalMap::LocalSeparators);
-    vsumMap_ = CreateVSumMap(localSepObject);
+  // The VSums are still distributed and we must form a correct col map
+  vsumColMap_ = MatrixUtils::CreateColMap(*matrix_, *vsumMap_, *vsumMap_);
 
-    Teuchos::RCP<const HierarchicalMap> sepObject =
-      hid_->Spawn(HierarchicalMap::Separators);
-    overlappingVsumMap_ = CreateVSumMap(sepObject);
-
-    HYMLS_DEBUG(label_);
-    HYMLS_DEBVAR(*vsumMap_);
-
-    vsumRhs_ = Teuchos::rcp(new Epetra_MultiVector(*vsumMap_,1));
-    vsumSol_ = Teuchos::rcp(new Epetra_MultiVector(*vsumMap_,1));
-
-    // the vsums are still distributed and we must
-    // form a correct col map
-    vsumColMap_ = MatrixUtils::CreateColMap(*matrix_,*vsumMap_,*vsumMap_);
-
-    reducedSchur_ = Teuchos::rcp(new
-      Epetra_CrsMatrix(Copy,*vsumMap_,*vsumColMap_,matrix_->MaxNumEntries()));
-
-    vsumImporter_=Teuchos::rcp(new Epetra_Import(*vsumMap_,*map_));
-    }
-
-  if (reducedSchur_->Filled()) reducedSchur_->PutScalar(0.0);
+  reducedSchur_ = Teuchos::rcp(new
+    Epetra_CrsMatrix(Copy, *vsumMap_, *vsumColMap_, matrix_->MaxNumEntries()));
 
   // import sparsity pattern for S2
   // extract the Vsum part of the preconditioner (reduced Schur)
@@ -691,10 +685,6 @@ int SchurPreconditioner::InitializeNextLevel()
   //TODO: actual Schur Complement
   CHECK_ZERO(reducedSchur_->FillComplete(*vsumMap_,*vsumMap_));
 
-  // drop numerical zeros so that the domain decomposition works
-#ifdef HYMLS_TESTING
-  Tools::Out("drop because of next DD");
-#endif
   reducedSchur_ = MatrixUtils::DropByValue(reducedSchur_, HYMLS_SMALL_ENTRY,
     MatrixUtils::RelDropDiag);
 
