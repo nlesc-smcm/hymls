@@ -197,41 +197,26 @@ Teuchos::RCP<const Teuchos::ParameterList> SchurPreconditioner::getValidParamete
   return validParams_;
   }
 
-// force Compute() to re-initialize by deleting stuff
 int SchurPreconditioner::Initialize()
   {
-  HYMLS_LPROF2(label_,"Initialize");
+  HYMLS_LPROF2(label_, "Initialize");
   time_->ResetStartTime();
 
-  // force next Compute/InitializeCompute to rebuild everything
+  // force next Compute to rebuild everything
   sparseMatrixOT_=Teuchos::null;
   matrix_=Teuchos::null;
   vsumMap_=Teuchos::null;
   reducedSchurSolver_=Teuchos::null;
-  if (myLevel_!=maxLevel_)
+  blockSolver_.resize(0);
+
+  if (myLevel_ != maxLevel_)
     {
     CHECK_ZERO(InitializeOT());
-    if (variant_ == "Do Nothing" || !applyDropping_)
-      {
-      blockSolver_.resize(0);
-      }
-    else if (variant_ == "Block Diagonal" ||
-      variant_ == "Lower Triangular")
-      {
-      CHECK_ZERO(InitializeBlocks());
-      }
-    else if (variant_=="Domain Decomposition")
-      {
-      CHECK_ZERO(InitializeSingleBlock());
-      }
-    else
-      {
-      Tools::Error("Variant '"+variant_+"'not implemented",
-        __FILE__,__LINE__);
-      }
     }
   else
+    {
     applyOT_ = false;
+    }
 
   numInitialize_++;
   initialized_ = true;
@@ -260,6 +245,10 @@ int SchurPreconditioner::InitializeCompute()
     }
   else
     {
+    // Initialize the block solvers here. We have to do this here
+    // instead of in Initialize since the Compute method of the block
+    // solvers does not set the matrix to zero, and therefore it is
+    // possible that old values are left after inserting a new matrix.
     if (variant_ == "Do Nothing" || !applyDropping_)
       {
       blockSolver_.resize(0);
