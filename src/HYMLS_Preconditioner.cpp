@@ -12,6 +12,7 @@
 #include "HYMLS_SchurComplement.hpp"
 #include "HYMLS_SchurPreconditioner.hpp"
 #include "HYMLS_MatrixBlock.hpp"
+#include "HYMLS_CoarseSolver.hpp"
 
 #include "Epetra_Comm.h"
 #include "Epetra_SerialComm.h"
@@ -103,6 +104,7 @@ int Preconditioner::SetParameters(Teuchos::ParameterList& List)
   sdSolverType_ = PL().get("Subdomain Solver Type", "Sparse");
   numThreadsSD_ = PL().get("Subdomain Solver Num Threads", numThreadsSD_);
   bgridTransform_ = PL().get("B-Grid Transform", false);
+  maxLevel_ = PL().get("Number of Levels", 2);
 
   if (schurPrec_!=Teuchos::null)
     {
@@ -370,12 +372,15 @@ int Preconditioner::Initialize()
 
   Tools::out() << "=============================="<<std::endl;
 
-  HYMLS_DEBUG("Construct schur-preconditioner");
-  Teuchos::RCP<Epetra_Vector> testVector = CreateTestVector();
-  schurPrec_=Teuchos::rcp(new SchurPreconditioner(Schur_,hid_,
-      getMyNonconstParamList(), myLevel_, testVector));
+  if (myLevel_ < maxLevel_)
+    {
+    HYMLS_DEBUG("Construct schur-preconditioner");
+    Teuchos::RCP<Epetra_Vector> testVector = CreateTestVector();
+    schurPrec_ = Teuchos::rcp(new SchurPreconditioner(Schur_,hid_,
+        getMyNonconstParamList(), myLevel_, testVector));
 
-  CHECK_ZERO(schurPrec_->Initialize());
+    CHECK_ZERO(schurPrec_->Initialize());
+    }
 
   // create Belos' view of the Schur-complement problem
   schurRhs_=Teuchos::rcp(new Epetra_Vector(map2));
@@ -476,6 +481,23 @@ int Preconditioner::Compute()
 #endif
       }
 #endif
+    }
+
+  if (myLevel_ >= maxLevel_)
+    {
+    int nzest = 32;
+    if (hid_ != Teuchos::null && hid_->NumMySubdomains() > 0)
+      nzest = hid_->NumSeparatorElements(0);
+
+    Teuchos::RCP<Epetra_FECrsMatrix> matrix = Teuchos::rcp(new
+      Epetra_FECrsMatrix(Copy, Schur_->OperatorDomainMap(), nzest));
+
+    CHECK_ZERO(Schur_->Construct(matrix));
+
+    schurPrec_ = Teuchos::rcp(new CoarseSolver(
+        MatrixUtils::DropByValue(matrix, HYMLS_SMALL_ENTRY), myLevel_));
+    CHECK_ZERO(schurPrec_->SetParameters(PL()));
+    CHECK_ZERO(schurPrec_->Initialize());
     }
 
   CHECK_ZERO(schurPrec_->Compute());
@@ -674,9 +696,12 @@ void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
     <const Epetra_CrsMatrix>(matrix_);
   if (A!=Teuchos::null) MatrixUtils::Dump(*A,"matrix"+Teuchos::toString(myLevel_)+".txt");
 #endif
-  if ((schurPrec_!=Teuchos::null) && (no_recurse!=true))
+
+  Teuchos::RCP<const SchurPreconditioner> schurPrec =
+    Teuchos::rcp_dynamic_cast<const SchurPreconditioner>(schurPrec_);
+  if (schurPrec != Teuchos::null && !no_recurse)
     {
-    schurPrec_->Visualize(mfilename);
+    schurPrec->Visualize(mfilename);
     }
   }
 
@@ -764,6 +789,13 @@ int Preconditioner::setBorder(
       __FILE__,__LINE__);
     }
 
+  Teuchos::RCP<BorderedOperator> borderedPrec =
+    Teuchos::rcp_dynamic_cast<BorderedOperator>(schurPrec_);
+  if (Teuchos::is_null(borderedPrec))
+    {
+    HYMLS::Tools::Error("No bordered interface specified for the Schur complement solver", __FILE__, __LINE__);
+    }
+
   if (V == Teuchos::null)
     {
     borderSchurV_ = Teuchos::null;
@@ -771,7 +803,7 @@ int Preconditioner::setBorder(
     borderSchurC_ = Teuchos::null;
     borderQ1_ = Teuchos::null;
 
-    CHECK_ZERO(schurPrec_->setBorder(borderSchurV_, borderSchurW_, borderSchurC_));
+    CHECK_ZERO(borderedPrec->setBorder(borderSchurV_, borderSchurW_, borderSchurC_));
     return 0;
     }
 
@@ -867,7 +899,7 @@ int Preconditioner::setBorder(
   CHECK_ZERO(borderSchurC_->Scale(-1.0));
   *borderSchurC_ += *C_;
 
-  CHECK_ZERO(schurPrec_->setBorder(borderSchurV_,borderSchurW_,borderSchurC_));
+  CHECK_ZERO(borderedPrec->setBorder(borderSchurV_,borderSchurW_,borderSchurC_));
   return 0;
   }
 
@@ -961,7 +993,14 @@ int Preconditioner::ApplyInverse(const Epetra_MultiVector& B, const Epetra_Seria
     q += T;
     }
 
-  CHECK_ZERO(schurPrec_->ApplyInverse(*schurRhs_, q, *schurSol_, S));
+  Teuchos::RCP<BorderedOperator> borderedPrec =
+    Teuchos::rcp_dynamic_cast<BorderedOperator>(schurPrec_);
+  if (Teuchos::is_null(borderedPrec))
+    {
+    HYMLS::Tools::Error("No bordered interface specified for the Schur complement solver", __FILE__, __LINE__);
+    }
+
+  CHECK_ZERO(borderedPrec->ApplyInverse(*schurRhs_, q, *schurSol_, S));
 
   x2 = *schurSol_;
 

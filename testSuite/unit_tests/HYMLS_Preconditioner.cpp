@@ -13,7 +13,6 @@
 
 #include "HYMLS_Macros.hpp"
 #include "HYMLS_MatrixBlock.hpp"
-#include "HYMLS_SchurPreconditioner.hpp"
 #include "HYMLS_SchurComplement.hpp"
 #include "HYMLS_CartesianPartitioner.hpp"
 #include "HYMLS_SkewCartesianPartitioner.hpp"
@@ -54,11 +53,6 @@ public:
   HYMLS::SchurComplement const &SchurComplement()
     {
     return *Schur_;
-    }
-
-  HYMLS::SchurPreconditioner const &SchurPreconditioner()
-    {
-    return *schurPrec_;
     }
 
   Teuchos::RCP<const Epetra_MultiVector> V()

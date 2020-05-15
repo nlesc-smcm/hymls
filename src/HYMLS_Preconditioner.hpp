@@ -30,7 +30,6 @@ class ParameterList;
 namespace HYMLS {
 
 class SchurComplement;
-class SchurPreconditioner;
 class Epetra_Time;
 class MatrixBlock;
 class OverlappingPartitioner;
@@ -283,6 +282,9 @@ protected:
   //! level of this solver (1: finest)
   int myLevel_;
 
+  //! maximum number of levels
+  int maxLevel_;
+
   //! string to indicate wether we use a dense or sparse solver for the subdomains
   std::string sdSolverType_;
 
@@ -307,7 +309,7 @@ protected:
   Teuchos::RCP<Epetra_Vector> testVector_;
 
   //! preconditioning operator
-  Teuchos::RCP<SchurPreconditioner> schurPrec_;
+  Teuchos::RCP<Ifpack_Preconditioner> schurPrec_;
 
   //! Transformation matrix
   Teuchos::RCP<Epetra_CrsMatrix> T_;
