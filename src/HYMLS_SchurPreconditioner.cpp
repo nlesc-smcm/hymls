@@ -684,7 +684,7 @@ int SchurPreconditioner::InitializeNextLevel()
 
   Teuchos::RCP<Epetra_Vector> nextTestVector = Teuchos::null;
 
-  if (myLevel_+1!=maxLevel_)
+  if (myLevel_ + 1 < maxLevel_)
     {
     if (nextLevelHID_==Teuchos::null)
       {
