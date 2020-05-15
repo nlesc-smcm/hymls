@@ -51,7 +51,6 @@ public:
 
   CoarseSolver(
     Teuchos::RCP<const Epetra_CrsMatrix> matrix,
-    Teuchos::Array<hymls_gidx> fix_gid,
     int level);
 
   virtual ~CoarseSolver() {}

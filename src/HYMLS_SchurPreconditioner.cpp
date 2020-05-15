@@ -149,25 +149,6 @@ int SchurPreconditioner::SetParameters(Teuchos::ParameterList& List)
   denseSwitch_=PL().get("Dense Solvers on Level",denseSwitch_);
   applyDropping_ = PL().get("Apply Dropping", true);
   applyOT_ = PL().get("Apply Orthogonal Transformation", applyDropping_);
-  int pos=1;
-
-  fix_gid_.resize(0);
-
-  while (pos>0)
-    {
-    std::string label="Fix GID "+Teuchos::toString(pos);
-    if (PL().isParameter(label))
-      {
-      fix_gid_.append(PL().get(label,0));
-      pos++;
-      }
-    else
-      {
-      pos=0;
-      }
-    }
-
-  HYMLS_DEBVAR(fix_gid_);
 
   if (reducedSchurSolver_!=Teuchos::null)
     {
@@ -323,7 +304,7 @@ int SchurPreconditioner::Compute()
 
   if (myLevel_ == maxLevel_)
     {
-    reducedSchurSolver_ = Teuchos::rcp(new CoarseSolver(SchurMatrix_, fix_gid_, myLevel_));
+    reducedSchurSolver_ = Teuchos::rcp(new CoarseSolver(SchurMatrix_, myLevel_));
     CHECK_ZERO(reducedSchurSolver_->SetParameters(PL()));
     HYMLS_DEBUG("Initialize direct solver");
     CHECK_ZERO(reducedSchurSolver_->Initialize());
@@ -731,7 +712,7 @@ int SchurPreconditioner::InitializeNextLevel()
     }
   else
     {
-    reducedSchurSolver_= Teuchos::rcp(new CoarseSolver(reducedSchur_, fix_gid_, myLevel_ + 1));
+    reducedSchurSolver_= Teuchos::rcp(new CoarseSolver(reducedSchur_, myLevel_ + 1));
     CHECK_ZERO(reducedSchurSolver_->SetParameters(PL()));
     }
 

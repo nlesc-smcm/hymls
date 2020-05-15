@@ -361,11 +361,6 @@ protected:
   //! time during ApplyInverse()
   mutable double timeApplyInverse_;
 
-  //! we can replace a number of rows and cols of the reduced SC
-  //! by Dirichlet conditions. This is used to fix the pressure
-  //! level
-  Teuchos::Array<hymls_gidx> fix_gid_;
-
   mutable bool dumpVectors_;
 
   //! \name data structures for bordering

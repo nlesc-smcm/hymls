@@ -43,7 +43,6 @@ namespace HYMLS
 
 CoarseSolver::CoarseSolver(
   Teuchos::RCP<const Epetra_CrsMatrix> matrix,
-  Teuchos::Array<hymls_gidx> fix_gid,
   int level)
   :
   PLA("Coarse Solver"),
@@ -55,8 +54,7 @@ CoarseSolver::CoarseSolver(
   haveBorder_(false),
   label_("CoarseSolver"),
   isEmpty_(false),
-  initialized_(false), computed_(false),
-  fix_gid_(fix_gid)
+  initialized_(false), computed_(false)
   {
   }
 
@@ -78,6 +76,25 @@ int CoarseSolver::SetParameters(Teuchos::ParameterList& List)
     {
     setMyParamList(Teuchos::rcp(&List, false));
     }
+
+  fix_gid_.resize(0);
+
+  int pos = 1;
+  while (pos > 0)
+    {
+    std::string label = "Fix GID " + Teuchos::toString(pos);
+    if (getMyParamList()->isParameter(label))
+      {
+      fix_gid_.append(getMyParamList()->get<int>(label));
+      pos++;
+      }
+    else
+      {
+      pos = 0;
+      }
+    }
+
+  HYMLS_DEBVAR(fix_gid_);
 
   return 0;
   }
