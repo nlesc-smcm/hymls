@@ -46,17 +46,15 @@ class OrthogonalTransform;
 class OverlappingPartitioner;
 class SchurComplement;
 
-//! Approximation of the Schur-Complement
+//! Approximation of the Schur-complement
 
 /*! this class is initially created by a HYMLS::Preconditioner object.
   It will perform the reduction to a next-level Schur-complement
   by means of orthogonal transformations and dropping. To solve
-  the reduced Schur-complement, either another HYMLS::Solver is
-  created (in a multi-level context) or another HYMLS::SchurPreconditioner.
-  If the level parameter passed to the constructor is equal to the
-  "Number of Levels" parameter in the input list, this class doesn't
-  perform additional reductions but instead computes a scaling and a
-  direct solver for the input matrix.
+  the reduced Schur-complement, either another HYMLS::Preconditioner is
+  created (in a multi-level context) or a in case the level parameter
+  plus one is equal to the "Number of Levels" a HYMLS::CoarseSolver
+  is created.
 */
 class SchurPreconditioner : public Ifpack_Preconditioner,
                             public BorderedOperator,
@@ -65,15 +63,12 @@ class SchurPreconditioner : public Ifpack_Preconditioner,
 
 public:
 
-  //! The SC operator passed into this class can either be an
-  //! Epetra_CrsMatrix constructed by calling the
-  //! SchurComplement->Construct function, or the SchurComple-
-  //! ment object itself.. hid may be null on the coarsest
-  //! level. The testVector reflects scaling of the entries in
-  //! the B-part (for Stokes-C), typically it is something like
-  //! 1/dx or simply ones for scaled matrices, and is taken
-  //!from level to level by applying the orthogonal transforms
-  //! to it and extracting the Vsums.
+  //! The SC operator passed into this class describes the
+  //! Schur-complement. The testVector reflects scaling of the entries
+  //! in the B-part (for Stokes-C), typically it is something like
+  //! 1/dx or simply ones for scaled matrices, and is taken from level
+  //! to level by applying the orthogonal transforms to it and
+  //! extracting the Vsums.
   SchurPreconditioner(Teuchos::RCP<const Epetra_Operator> SC,
     Teuchos::RCP<const OverlappingPartitioner> hid,
     Teuchos::RCP<Teuchos::ParameterList> params,
@@ -120,11 +115,6 @@ public:
   //! after construction or Initialize() is more expensive than subsequent calls because
   //! it does some more setup.
   int Compute();
-
-  //! same as Compute() if build_schur==false. Otherwise the Schur-complement is
-  //! also assembled in the member Schur_, which is cheaper then assembling it there
-  //! and in this class.
-  int Compute(bool build_schur);
 
   //! Returns true if the  preconditioner has been successfully computed, false otherwise.
   bool IsComputed() const;
