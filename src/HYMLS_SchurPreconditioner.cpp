@@ -595,10 +595,11 @@ int SchurPreconditioner::InitializeNextLevel()
   HYMLS_LPROF2(label_,"InitializeNextLevel");
 
   // The VSums are still distributed and we must form a correct col map
-  vsumColMap_ = MatrixUtils::CreateColMap(*matrix_, *vsumMap_, *vsumMap_);
+  Teuchos::RCP<const Epetra_Map> vsumColMap = MatrixUtils::CreateColMap(
+    *matrix_, *vsumMap_, *vsumMap_);
 
   reducedSchur_ = Teuchos::rcp(new
-    Epetra_CrsMatrix(Copy, *vsumMap_, *vsumColMap_, matrix_->MaxNumEntries()));
+    Epetra_CrsMatrix(Copy, *vsumMap_, *vsumColMap, matrix_->MaxNumEntries()));
 
   // import sparsity pattern for S2
   // extract the Vsum part of the preconditioner (reduced Schur)

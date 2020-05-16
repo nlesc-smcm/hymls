@@ -275,7 +275,7 @@ protected:
   Teuchos::RCP<Epetra_CrsMatrix> matrix_;
 
   //! map for the reduced problem (Vsum-nodes)
-  Teuchos::RCP<const Epetra_Map> vsumMap_,vsumColMap_,overlappingVsumMap_;
+  Teuchos::RCP<const Epetra_Map> vsumMap_, overlappingVsumMap_;
 
   //! importer for Vsum nodes
   Teuchos::RCP<Epetra_Import> vsumImporter_;
