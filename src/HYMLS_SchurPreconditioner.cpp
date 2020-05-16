@@ -105,7 +105,7 @@ SchurPreconditioner::SchurPreconditioner(
 
   isEmpty_ = (map_->NumGlobalElements64()==0);
 
-  OT=Teuchos::rcp(new Householder(myLevel_));
+  OT_ = Teuchos::rcp(new Householder(myLevel_));
   dumpVectors_=false;
 #ifdef HYMLS_DEBUGGING
   dumpVectors_=true;
@@ -507,7 +507,7 @@ int SchurPreconditioner::InitializeOT()
           {
 //          HYMLS_DEBVAR(inds);
 //          HYMLS_DEBVAR(vec);
-          int ierr = OT->Construct(*sparseMatrixOT_, inds, vec);
+          int ierr = OT_->Construct(*sparseMatrixOT_, inds, vec);
           if (ierr)
             {
             Tools::Warning("Error code "+Teuchos::toString(ierr)+" returned from Epetra call!",
@@ -709,7 +709,7 @@ int SchurPreconditioner::Assemble()
   CHECK_ZERO(SchurComplement_->Construct(matrix));
 
   if (applyOT_)
-    matrix_ = OT->Apply(*sparseMatrixOT_, *matrix);
+    matrix_ = OT_->Apply(*sparseMatrixOT_, *matrix);
   else
     matrix_ = matrix;
 
@@ -949,7 +949,7 @@ int SchurPreconditioner::ConstructSCPart(int sd, Epetra_Vector const &localTestV
 
     // Apply the orthogonal transformation for each group
     // separately
-    RestrictedOT::Apply(Sk, pos, *OT, vView);
+    RestrictedOT::Apply(Sk, pos, *OT_, vView);
 
     VSumIndices[i++] = indices[pos];
 
@@ -1254,11 +1254,11 @@ int SchurPreconditioner::ApplyOT(bool trans, Epetra_MultiVector& v, double* flop
   Epetra_MultiVector tmp=v;
   if (trans)
     {
-    CHECK_ZERO(OT->ApplyInverse(v,*sparseMatrixOT_,tmp));
+    CHECK_ZERO(OT_->ApplyInverse(v,*sparseMatrixOT_,tmp));
     }
   else
     {
-    CHECK_ZERO(OT->Apply(v,*sparseMatrixOT_,tmp));
+    CHECK_ZERO(OT_->Apply(v,*sparseMatrixOT_,tmp));
     }
   if (flops!=NULL)
     {

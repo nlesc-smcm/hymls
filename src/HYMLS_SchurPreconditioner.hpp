@@ -261,7 +261,7 @@ protected:
   Teuchos::RCP<Epetra_Vector> testVector_,localTestVector_;
 
   //! orthogonal transformaion for separators
-  Teuchos::RCP<OrthogonalTransform> OT;
+  Teuchos::RCP<OrthogonalTransform> OT_;
 
   //! sparse matrix representation of OT
   Teuchos::RCP<Epetra_CrsMatrix> sparseMatrixOT_;
