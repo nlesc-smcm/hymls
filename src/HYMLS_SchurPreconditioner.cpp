@@ -350,19 +350,6 @@ int SchurPreconditioner::Compute()
       }
     }
 
-  // compute solver for reduced Schur
-  HYMLS_DEBUG("compute coarse solver");
-  int ierr=reducedSchurSolver_->Compute();
-
-  if (ierr!=0)
-    {
-#ifdef HYMLS_STORE_MATRICES
-    MatrixUtils::Dump(*reducedSchur_,"BadMatrix"+Teuchos::toString(myLevel_)+".txt");
-#endif
-    Tools::Error("factorization returned value "+Teuchos::toString(ierr)+
-      " on level "+Teuchos::toString(myLevel_),__FILE__,__LINE__);
-    }
-
   computed_ = true;
   timeCompute_ += time_->ElapsedTime();
   numCompute_++;
@@ -686,6 +673,20 @@ int SchurPreconditioner::ComputeNextLevel()
 
   HYMLS_DEBUG("Initialize solver for reduced Schur");
   CHECK_ZERO(reducedSchurSolver_->Initialize());
+
+  // compute solver for reduced Schur
+  HYMLS_DEBUG("compute coarse solver");
+  int ierr = reducedSchurSolver_->Compute();
+
+  if (ierr != 0)
+    {
+#ifdef HYMLS_STORE_MATRICES
+    MatrixUtils::Dump(*reducedSchur_, "BadMatrix" + Teuchos::toString(myLevel_) + ".txt");
+#endif
+    Tools::Error("factorization returned value " + Teuchos::toString(ierr) +
+      " on level " + Teuchos::toString(myLevel_), __FILE__, __LINE__);
+    }
+
   return 0;
   }
 
