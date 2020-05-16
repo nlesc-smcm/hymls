@@ -69,7 +69,7 @@ public:
   //! 1/dx or simply ones for scaled matrices, and is taken from level
   //! to level by applying the orthogonal transforms to it and
   //! extracting the Vsums.
-  SchurPreconditioner(Teuchos::RCP<const Epetra_Operator> SC,
+  SchurPreconditioner(Teuchos::RCP<const SchurComplement> SC,
     Teuchos::RCP<const OverlappingPartitioner> hid,
     Teuchos::RCP<Teuchos::ParameterList> params,
     int level,

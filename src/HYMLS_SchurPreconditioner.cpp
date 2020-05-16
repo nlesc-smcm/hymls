@@ -60,14 +60,14 @@ namespace HYMLS {
 
 // private constructor
 SchurPreconditioner::SchurPreconditioner(
-  Teuchos::RCP<const Epetra_Operator> SC,
+  Teuchos::RCP<const SchurComplement> SC,
   Teuchos::RCP<const OverlappingPartitioner> hid,
   Teuchos::RCP<Teuchos::ParameterList> params,
   int level,
   Teuchos::RCP<Epetra_Vector> testVector)
   : PLA("Preconditioner"),
     comm_(Teuchos::rcp(SC->Comm().Clone())),
-    SchurComplement_(Teuchos::rcp_dynamic_cast<const HYMLS::SchurComplement>(SC)),
+    SchurComplement_(SC),
     myLevel_(level),
     variant_("Block Diagonal"),
     denseSwitch_(99), applyDropping_(true),
