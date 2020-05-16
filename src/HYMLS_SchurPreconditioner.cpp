@@ -585,35 +585,37 @@ int SchurPreconditioner::ComputeNextLevel()
   Teuchos::RCP<const Epetra_Map> vsumColMap = MatrixUtils::CreateColMap(
     *matrix_, *vsumMap_, *vsumMap_);
 
-  reducedSchur_ = Teuchos::rcp(new
+  // Sparse matrix representation of the reduced Schur-complement
+  // (associated with Vsum nodes)
+  Teuchos::RCP<Epetra_CrsMatrix> reducedSchur = Teuchos::rcp(new
     Epetra_CrsMatrix(Copy, *vsumMap_, *vsumColMap, matrix_->MaxNumEntries()));
 
   // import sparsity pattern for S2
   // extract the Vsum part of the preconditioner (reduced Schur)
-  CHECK_ZERO(reducedSchur_->Import(*matrix_, *vsumImporter_, Insert));
+  CHECK_ZERO(reducedSchur->Import(*matrix_, *vsumImporter_, Insert));
 
   //TODO: actual Schur Complement
-  CHECK_ZERO(reducedSchur_->FillComplete(*vsumMap_,*vsumMap_));
+  CHECK_ZERO(reducedSchur->FillComplete(*vsumMap_, *vsumMap_));
 
 #ifdef HYMLS_STORE_MATRICES
-  MatrixUtils::Dump(*reducedSchur_,"ReducedSchurBeforeDropping"+Teuchos::toString(myLevel_)+".txt");
+  MatrixUtils::Dump(*reducedSchur,"ReducedSchurBeforeDropping" + Teuchos::toString(myLevel_) + ".txt");
 #endif
 
 #ifdef HYMLS_TESTING
   Tools::Out("drop before going to next level");
 #endif
 
-  reducedSchur_ = MatrixUtils::DropByValue(reducedSchur_,
-    HYMLS_SMALL_ENTRY, MatrixUtils::RelDropDiag);
+  reducedSchur = MatrixUtils::DropByValue(reducedSchur, HYMLS_SMALL_ENTRY,
+    MatrixUtils::RelDropDiag);
 
-  reducedSchur_->SetLabel(("Matrix (level "+Teuchos::toString(myLevel_+1)+")").c_str());
+  reducedSchur->SetLabel(("Matrix (level " + Teuchos::toString(myLevel_+1) + ")").c_str());
 
 #ifdef HYMLS_STORE_MATRICES
-  MatrixUtils::Dump(*reducedSchur_,"ReducedSchur"+Teuchos::toString(myLevel_)+".txt");
+  MatrixUtils::Dump(*reducedSchur, "ReducedSchur"+Teuchos::toString(myLevel_) + ".txt");
 #endif
 
 #ifdef HYMLS_TESTING
-  this->Visualize("hid_data_deb.m",false);
+  Visualize("hid_data_deb.m", false);
 #endif
 
   HYMLS_DEBUG("Create solver for reduced Schur");
@@ -651,7 +653,7 @@ int SchurPreconditioner::ComputeNextLevel()
       //      outside the if statement because we will always create a Preconditioner
       //      object for the reduced problem.
       reducedSchurSolver_= Teuchos::rcp(new
-        Preconditioner(reducedSchur_, nextLevelParams,
+        Preconditioner(reducedSchur, nextLevelParams,
           nextTestVector, myLevel_+1, nextLevelHID_));
       }
     else
@@ -662,12 +664,12 @@ int SchurPreconditioner::ComputeNextLevel()
       if (prec == Teuchos::null)
         Tools::Error("dynamic cast failed", __FILE__, __LINE__);
 
-      prec->SetMatrix(reducedSchur_);
+      prec->SetMatrix(reducedSchur);
       }
     }
   else
     {
-    reducedSchurSolver_= Teuchos::rcp(new CoarseSolver(reducedSchur_, myLevel_ + 1));
+    reducedSchurSolver_= Teuchos::rcp(new CoarseSolver(reducedSchur, myLevel_ + 1));
     CHECK_ZERO(reducedSchurSolver_->SetParameters(PL()));
     }
 
@@ -681,7 +683,7 @@ int SchurPreconditioner::ComputeNextLevel()
   if (ierr != 0)
     {
 #ifdef HYMLS_STORE_MATRICES
-    MatrixUtils::Dump(*reducedSchur_, "BadMatrix" + Teuchos::toString(myLevel_) + ".txt");
+    MatrixUtils::Dump(*reducedSchur, "BadMatrix" + Teuchos::toString(myLevel_) + ".txt");
 #endif
     Tools::Error("factorization returned value " + Teuchos::toString(ierr) +
       " on level " + Teuchos::toString(myLevel_), __FILE__, __LINE__);

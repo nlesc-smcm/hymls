@@ -283,10 +283,6 @@ protected:
   //! partitioner for the next level
   Teuchos::RCP<const OverlappingPartitioner> nextLevelHID_;
 
-  //! sparse matrix representation of the reduced Schur-complement
-  //! (associated with Vsum nodes)
-  Teuchos::RCP<Epetra_CrsMatrix> reducedSchur_;
-
   //! right-hand side and solution for the reduced SC (based on linear map)
   mutable Teuchos::RCP<Epetra_MultiVector> vsumRhs_, vsumSol_;
 
