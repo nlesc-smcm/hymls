@@ -259,17 +259,13 @@ int SchurPreconditioner::Compute()
       __FILE__, __LINE__);
     }
 
-  if (!applyDropping_ && SchurComplement_ != Teuchos::null)
+  if (!applyDropping_)
     {
     CHECK_ZERO(Assemble());
     }
-  else if (SchurComplement_ != Teuchos::null)
-    {
-    CHECK_ZERO(AssembleTransformAndDrop());
-    }
   else
     {
-    Tools::Error("SchurComplement not accessible", __FILE__, __LINE__);
+    CHECK_ZERO(AssembleTransformAndDrop());
     }
 
   CHECK_ZERO(ComputeNextLevel());
