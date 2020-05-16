@@ -234,6 +234,8 @@ int SchurPreconditioner::Compute()
     return 0;
     }
 
+  time_->ResetStartTime();
+
   // Initialize the block solvers here. We have to do this here
   // instead of in Initialize since the Compute method of the block
   // solvers does not set the matrix to zero, and therefore it is
@@ -271,8 +273,6 @@ int SchurPreconditioner::Compute()
     }
 
   CHECK_ZERO(ComputeNextLevel());
-
-  time_->ResetStartTime();
 
 #ifdef HYMLS_STORE_MATRICES
   CHECK_ZERO(DumpReordering());
