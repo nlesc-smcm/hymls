@@ -260,7 +260,7 @@ int SchurPreconditioner::InitializeCompute()
     Tools::Error("SchurComplement not accessible",__FILE__,__LINE__);
     }
 
-  CHECK_ZERO(InitializeNextLevel());
+  CHECK_ZERO(ComputeNextLevel());
 
   return 0;
   }
@@ -590,9 +590,9 @@ Teuchos::RCP<const Epetra_Map> SchurPreconditioner::CreateVSumMap(
   return ret;
   }
 
-int SchurPreconditioner::InitializeNextLevel()
+int SchurPreconditioner::ComputeNextLevel()
   {
-  HYMLS_LPROF2(label_,"InitializeNextLevel");
+  HYMLS_LPROF2(label_, "ComputeNextLevel");
 
   // The VSums are still distributed and we must form a correct col map
   Teuchos::RCP<const Epetra_Map> vsumColMap = MatrixUtils::CreateColMap(

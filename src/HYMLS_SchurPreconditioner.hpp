@@ -405,8 +405,8 @@ private:
   //! ("Domain Decomposition" variant)
   int InitializeSingleBlock();
 
-  //! Initialize reduced Schur solver
-  int InitializeNextLevel();
+  //! Compute the reduced Schur solver
+  int ComputeNextLevel();
 
   //! Create a VSum map for computing the next level hid
   Teuchos::RCP<const Epetra_Map> CreateVSumMap(
