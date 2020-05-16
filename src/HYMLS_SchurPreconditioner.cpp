@@ -207,6 +207,15 @@ int SchurPreconditioner::Initialize()
   vsumSol_ = Teuchos::rcp(new Epetra_MultiVector(*vsumMap_, 1));
   vsumImporter_ = Teuchos::rcp(new Epetra_Import(*vsumMap_, *map_));
 
+  if (myLevel_ + 1 < maxLevel_)
+    {
+    bool status = true;
+    try {
+      nextLevelHID_ = hid_->SpawnNextLevel(vsumMap_, overlappingVsumMap_);
+      } TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, status);
+    if (!status) Tools::Fatal("Failed to create next level ordering", __FILE__, __LINE__);
+    }
+
   numInitialize_++;
   initialized_ = true;
   timeInitialize_ += time_->ElapsedTime();
@@ -624,14 +633,6 @@ int SchurPreconditioner::ComputeNextLevel()
 
   if (myLevel_ + 1 < maxLevel_)
     {
-    if (nextLevelHID_==Teuchos::null)
-      {
-      bool stat=true;
-      try {
-        nextLevelHID_ = hid_->SpawnNextLevel(vsumMap_, overlappingVsumMap_);
-        } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr,stat);
-      if (!stat) Tools::Fatal("Failed to create next level ordering",__FILE__,__LINE__);
-      }
     if (reducedSchurSolver_==Teuchos::null)
       {
       nextTestVector = Teuchos::rcp(new Epetra_Vector(*vsumMap_));
