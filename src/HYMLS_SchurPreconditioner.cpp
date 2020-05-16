@@ -223,15 +223,16 @@ int SchurPreconditioner::Initialize()
   return 0;
   }
 
-
-int SchurPreconditioner::InitializeCompute()
+// Computes all it is necessary to apply the preconditioner.
+int SchurPreconditioner::Compute()
   {
+  HYMLS_LPROF(label_, "Compute");
+
   if (isEmpty_)
     {
+    computed_ = true;
     return 0;
     }
-
-  HYMLS_LPROF(label_,"InitializeCompute");
 
   // Initialize the block solvers here. We have to do this here
   // instead of in Initialize since the Compute method of the block
@@ -241,50 +242,35 @@ int SchurPreconditioner::InitializeCompute()
     {
     blockSolver_.resize(0);
     }
-  else if (variant_=="Block Diagonal"||
-    variant_=="Lower Triangular")
+  else if (variant_ == "Block Diagonal"||
+    variant_ == "Lower Triangular")
     {
     CHECK_ZERO(InitializeBlocks());
     }
-  else if (variant_=="Domain Decomposition")
+  else if (variant_ == "Domain Decomposition")
     {
     CHECK_ZERO(InitializeSingleBlock());
     }
   else
     {
-    Tools::Error("Variant '"+variant_+"'not implemented",
-      __FILE__,__LINE__);
+    Tools::Error("Variant '" + variant_ + "'not implemented",
+      __FILE__, __LINE__);
     }
 
   if (!applyDropping_ && SchurComplement_ != Teuchos::null)
     {
     CHECK_ZERO(Assemble());
     }
-  else if (SchurComplement_!=Teuchos::null)
+  else if (SchurComplement_ != Teuchos::null)
     {
     CHECK_ZERO(AssembleTransformAndDrop());
     }
   else
     {
-    Tools::Error("SchurComplement not accessible",__FILE__,__LINE__);
+    Tools::Error("SchurComplement not accessible", __FILE__, __LINE__);
     }
 
   CHECK_ZERO(ComputeNextLevel());
-
-  return 0;
-  }
-
-
-// Computes all it is necessary to apply the preconditioner.
-int SchurPreconditioner::Compute()
-  {
-  if (isEmpty_)
-    {
-    computed_=true;
-    return 0;
-    }
-  HYMLS_LPROF(label_,"Compute");
-  CHECK_ZERO(this->InitializeCompute());
 
   time_->ResetStartTime();
 

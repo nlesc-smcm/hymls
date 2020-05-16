@@ -354,12 +354,6 @@ protected:
 
 private:
 
-  //! this function does the initialization things that have to be done
-  //! before each Compute(), like rebuilding some solvers because the
-  //! matrix pointers have changed. We internally take care not to do
-  //! too much extra work by keeping some data structures if they exist
-  int InitializeCompute();
-
   //! Initialize orthogonal transform
   int InitializeOT();
 
