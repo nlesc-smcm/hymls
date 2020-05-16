@@ -274,66 +274,8 @@ int SchurPreconditioner::Compute()
 
   time_->ResetStartTime();
 
-#if defined(HYMLS_STORE_MATRICES)
-  // dump a reordering for the Schur-complement (for checking in MATLAB)
-  Teuchos::RCP<const HierarchicalMap>
-    sepObject = hid_->Spawn(HierarchicalMap::LocalSeparators);
-  std::string postfix = "_"+Teuchos::toString(myLevel_)+".txt";
-  std::ofstream ofs(("pS"+postfix).c_str());
-  std::ofstream ofs1(("pS1"+postfix).c_str());
-  std::ofstream ofs2(("pS2"+postfix).c_str());
-  std::ofstream begI(("begI"+postfix).c_str());
-  std::ofstream begS(("begS"+postfix).c_str());
-
-  bool linear_indices=true;
-
-  Teuchos::RCP<const Epetra_Map> newMap=map_;
-
-  if (linear_indices)
-    {
-    int myLength = map_->NumMyElements();
-    newMap = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1),myLength,0,*comm_));
-    }
-
-  int off = 0;
-  for (int sd = 0; sd < hid_->NumMySubdomains(); sd++)
-    {
-    begI << off << std::endl;
-    off = off + hid_->NumInteriorElements(sd);
-    }
-  begI << off << std::endl;
-
-  int offset=0;
-
-  for (int sd = 0; sd < sepObject->NumMySubdomains(); sd++)
-    {
-    for (SeparatorGroup const &group: sepObject->GetSeparatorGroups(sd))
-      {
-      begS << offset << std::endl;
-      offset = offset + group.length();
-      //begS << sepObject->LID(sep,grp,0)<<std::endl;
-
-      // V-sum nodes
-      ofs << newMap->GID64(map_->LID(group[0])) << std::endl;
-      ofs2 << newMap->GID64(map_->LID(group[0])) << std::endl;
-      // non-Vsum nodes
-      for (int j = 1; j < group.length(); j++)
-        {
-        ofs << newMap->GID64(map_->LID(group[j])) << std::endl;
-        ofs1 << newMap->GID64(map_->LID(group[j])) << std::endl;
-        }
-      }
-    }
-
-  begS << matrix_->NumMyRows()<<std::endl;
-
-  ofs.close();
-  ofs1.close();
-  ofs2.close();
-  begI.close();
-  begS.close();
-
-  MatrixUtils::Dump(*matrix_,"SchurPreconditioner"+Teuchos::toString(myLevel_)+".txt");
+#ifdef HYMLS_STORE_MATRICES
+  CHECK_ZERO(DumpReordering());
 #endif
 
   // compute LU decompositions of blocks...
@@ -1681,6 +1623,71 @@ void SchurPreconditioner::Visualize(std::string mfilename,bool recurse) const
       if (!Teuchos::is_null(hymls)) hymls->Visualize(mfilename);
       }
     }
+  }
+
+int SchurPreconditioner::DumpReordering() const
+  {
+  // dump a reordering for the Schur-complement (for checking in MATLAB)
+  Teuchos::RCP<const HierarchicalMap>
+    sepObject = hid_->Spawn(HierarchicalMap::LocalSeparators);
+  std::string postfix = "_"+Teuchos::toString(myLevel_)+".txt";
+  std::ofstream ofs(("pS"+postfix).c_str());
+  std::ofstream ofs1(("pS1"+postfix).c_str());
+  std::ofstream ofs2(("pS2"+postfix).c_str());
+  std::ofstream begI(("begI"+postfix).c_str());
+  std::ofstream begS(("begS"+postfix).c_str());
+
+  bool linear_indices=true;
+
+  Teuchos::RCP<const Epetra_Map> newMap=map_;
+
+  if (linear_indices)
+    {
+    int myLength = map_->NumMyElements();
+    newMap = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1),myLength,0,*comm_));
+    }
+
+  int off = 0;
+  for (int sd = 0; sd < hid_->NumMySubdomains(); sd++)
+    {
+    begI << off << std::endl;
+    off = off + hid_->NumInteriorElements(sd);
+    }
+  begI << off << std::endl;
+
+  int offset=0;
+
+  for (int sd = 0; sd < sepObject->NumMySubdomains(); sd++)
+    {
+    for (SeparatorGroup const &group: sepObject->GetSeparatorGroups(sd))
+      {
+      begS << offset << std::endl;
+      offset = offset + group.length();
+      //begS << sepObject->LID(sep,grp,0)<<std::endl;
+
+      // V-sum nodes
+      ofs << newMap->GID64(map_->LID(group[0])) << std::endl;
+      ofs2 << newMap->GID64(map_->LID(group[0])) << std::endl;
+      // non-Vsum nodes
+      for (int j = 1; j < group.length(); j++)
+        {
+        ofs << newMap->GID64(map_->LID(group[j])) << std::endl;
+        ofs1 << newMap->GID64(map_->LID(group[j])) << std::endl;
+        }
+      }
+    }
+
+  begS << matrix_->NumMyRows()<<std::endl;
+
+  ofs.close();
+  ofs1.close();
+  ofs2.close();
+  begI.close();
+  begS.close();
+
+  MatrixUtils::Dump(*matrix_,"SchurPreconditioner"+Teuchos::toString(myLevel_)+".txt");
+
+  return 0;
   }
 
   }// namespace

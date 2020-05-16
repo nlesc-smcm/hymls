@@ -434,6 +434,9 @@ private:
     Teuchos::RCP<Epetra_Vector>& sca_left,
     Teuchos::RCP<Epetra_Vector>& sca_right);
 
+  //! Dump a reordering for the Schur-complement (for checking in MATLAB)
+  int DumpReordering() const;
+
   };
 
   }
