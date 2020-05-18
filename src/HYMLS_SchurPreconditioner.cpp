@@ -1405,36 +1405,37 @@ int SchurPreconditioner::setBorder(Teuchos::RCP<const Epetra_MultiVector> V,
   Teuchos::RCP<const Epetra_MultiVector> W,
   Teuchos::RCP<const Epetra_SerialDenseMatrix> C)
   {
-  HYMLS_LPROF(label_,"setBorder");
-  int ierr=0;
-  if (V==Teuchos::null)
+  HYMLS_LPROF(label_, "setBorder");
+
+  if (V == Teuchos::null)
     {
     //unset
-    haveBorder_=false;
+    haveBorder_ = false;
     return 0;
     }
-  borderV_=Teuchos::rcp(new Epetra_MultiVector(*V));
-  if (W!=Teuchos::null)
+
+  borderV_ = Teuchos::rcp(new Epetra_MultiVector(*V));
+  if (W != Teuchos::null)
     {
-    borderW_=Teuchos::rcp(new Epetra_MultiVector(*W));
+    borderW_ = Teuchos::rcp(new Epetra_MultiVector(*W));
     }
   else
     {
-    borderW_=Teuchos::rcp(new Epetra_MultiVector(*V));
+    borderW_ = Teuchos::rcp(new Epetra_MultiVector(*V));
     }
-  if (C!=Teuchos::null)
+  if (C != Teuchos::null)
     {
-    borderC_=Teuchos::rcp(new Epetra_SerialDenseMatrix(*C));
+    borderC_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(*C));
     }
   else
     {
-    int n=V->NumVectors();
-    borderC_=Teuchos::rcp(new Epetra_SerialDenseMatrix(n,n));
+    int n = V->NumVectors();
+    borderC_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(n, n));
     }
 
   if (!IsInitialized())
     {
-    Tools::Error("SchurPreconditioner not yet initialized",__FILE__,__LINE__);
+    Tools::Error("SchurPreconditioner not yet initialized", __FILE__, __LINE__);
     }
 
   // transform V and W
@@ -1455,9 +1456,9 @@ int SchurPreconditioner::setBorder(Teuchos::RCP<const Epetra_MultiVector> V,
     HYMLS::Tools::Error("next level solver can't handle border!",__FILE__,__LINE__);
     }
   HYMLS_DEBUG("call setBorder in next level precond");
-  borderedNextLevel->setBorder(borderV2, borderW2, borderC_);
+  CHECK_ZERO(borderedNextLevel->setBorder(borderV2, borderW2, borderC_));
   haveBorder_ = true;
-  return ierr;
+  return 0;
   }
 
 // compute [Y T]' = [K V;W' C]*[X S]'
