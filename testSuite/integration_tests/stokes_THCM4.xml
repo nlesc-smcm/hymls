@@ -49,7 +49,7 @@
     <ParameterList name="Iterative Solver">
       <Parameter name="Maximum Iterations" type="int" value="200"/>
       <Parameter name="Maximum Restarts" type="int" value="1"/>
-      <Parameter name="Convergence Tolerance" type="double" value="1.0e-10"/>
+      <Parameter name="Convergence Tolerance" type="double" value="5.0e-11"/>
       <Parameter name="Flexible Gmres" type="bool" value="0"/>
       <Parameter name="Explicit Residual Test" type="bool" value="1"/>
       <Parameter name="Implicit Residual Scaling" type="string" value="Norm of RHS"/>
