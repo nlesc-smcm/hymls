@@ -198,7 +198,7 @@ protected:
   Teuchos::RCP<const Epetra_CrsMatrix> matrix_;
 
   //! linear map for the reduced SC
-  Teuchos::RCP<Epetra_Map> linearMap_;
+  Teuchos::RCP<const Epetra_Map> linearMap_;
 
   //! this is to reindex the reduced SC, which is
   //! important when using a direct solver (I think)

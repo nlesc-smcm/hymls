@@ -282,14 +282,12 @@ int CoarseSolver::ApplyInverse(const Epetra_MultiVector &X,
     linearRhs_ = Teuchos::rcp(new Epetra_MultiVector(*linearMap_, X.NumVectors()));
     linearSol_ = Teuchos::rcp(new Epetra_MultiVector(*linearMap_, X.NumVectors()));
     }
-  for (int j = 0; j < X.NumVectors(); j++)
-    {
-    for (int i = 0; i < X.MyLength(); i++)
-      {
-      (*linearRhs_)[j][i] = X[j][i];
-      }
-    }
 
+  // Put the RHS in a vector with a linear map, which is required
+  // for Ifpack_Amesos
+  *linearRhs_ = X;
+
+  // Add the boundary conditions
   for (int i = 0; i < fix_gid_.length(); i++)
     {
     int lid = X.Map().LID(fix_gid_[i]);
@@ -301,6 +299,7 @@ int CoarseSolver::ApplyInverse(const Epetra_MultiVector &X,
         }
       }
     }
+
   if (realloc_vectors)
     {
 #ifdef RESTRICT_ON_COARSE_LEVEL
@@ -322,14 +321,8 @@ int CoarseSolver::ApplyInverse(const Epetra_MultiVector &X,
     {
     CHECK_ZERO(reducedSchurSolver_->ApplyInverse(*restrictedRhs_, *restrictedSol_));
     }
-  // unscale the solution
-  for (int j = 0; j < X.NumVectors(); j++)
-    {
-    for (int i = 0; i < X.MyLength(); i++)
-      {
-      Y[j][i] = (*linearSol_)[j][i];
-      }
-    }
+  // Put the solution back into the vector with the original map
+  Y = *linearSol_;
 
   return 0;
   }
