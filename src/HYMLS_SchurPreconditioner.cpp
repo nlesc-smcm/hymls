@@ -6,6 +6,7 @@
 
 #include "HYMLS_Macros.hpp"
 #include "HYMLS_Tools.hpp"
+#include "HYMLS_DenseUtils.hpp"
 #include "HYMLS_MatrixUtils.hpp"
 #include "HYMLS_OverlappingPartitioner.hpp"
 #include "HYMLS_SchurComplement.hpp"
@@ -1541,18 +1542,10 @@ int SchurPreconditioner::ApplyInverse(const Epetra_MultiVector& X,
     }
 
   CHECK_ZERO(vsumRhs_->Import(B,*vsumImporter_,Insert));
-  Epetra_SerialDenseMatrix Tcopy(T);
+
   // compute W1'(M11\F1). note zeros in X2
-  for (int j=0;j<T.N();j++)
-    {
-    for (int i=0;i<T.M();i++)
-      {
-      double WdotX;
-      CHECK_ZERO((*borderW_)(i)->Dot(*(Y(j)),&WdotX));
-      // | T - W1'M11\f1
-      Tcopy[j][i]-= WdotX;
-      }
-    }
+  Epetra_SerialDenseMatrix Tcopy(T);
+  CHECK_ZERO(DenseUtils::MatMul(-1.0, *borderW_, Y, 1.0, Tcopy));
 
   Teuchos::RCP<const HYMLS::BorderedOperator> borderedNextLevel =
     Teuchos::rcp_dynamic_cast<const HYMLS::BorderedOperator>(reducedSchurSolver_);
