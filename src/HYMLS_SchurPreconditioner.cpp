@@ -126,7 +126,7 @@ void SchurPreconditioner::setParameterList(const Teuchos::RCP<Teuchos::Parameter
   {
   HYMLS_LPROF3(label_,"setParameterList");
   setMyParamList(list);
-  this->SetParameters(*list);
+  SetParameters(*list);
   // note - this class gets a few parameters from the big "Preconditioner"
   // list, which has been validated by the Preconditioner class already. So
   // we don't validate anything here.
@@ -1002,18 +1002,18 @@ int SchurPreconditioner::ApplyInverse(const Epetra_MultiVector& X,
 
   if (variant_=="Block Diagonal")
     {
-    CHECK_ZERO(this->ApplyBlockDiagonal(B,Y));
+    CHECK_ZERO(ApplyBlockDiagonal(B,Y));
     }
   else if (variant_=="Lower Triangular")
     {
-    CHECK_ZERO(this->ApplyBlockLowerTriangular(B,Y));
+    CHECK_ZERO(ApplyBlockLowerTriangular(B,Y));
     }
   else if (variant_=="Upper Triangular")
     {
-    CHECK_ZERO(this->ApplyBlockUpperTriangular(B,Y));
+    CHECK_ZERO(ApplyBlockUpperTriangular(B,Y));
     }
 
-  CHECK_ZERO(this->UpdateVsumRhs(B,Y));
+  CHECK_ZERO(UpdateVsumRhs(B,Y));
 
   // solve reduced Schur-complement problem
   if (X.NumVectors()!=vsumRhs_->NumVectors())
@@ -1284,7 +1284,7 @@ int SchurPreconditioner::ApplyBlockLowerTriangular
   HYMLS_LPROF2(label_,"Block Lower Triangular Solve");
   int numBlocks=blockSolver_.size(); // will be 0 on coarsest level
 
-  int ierr = this->BlockTriangularSolve(B,Y,0,numBlocks,+1);
+  int ierr = BlockTriangularSolve(B,Y,0,numBlocks,+1);
   return ierr;
   }
 
@@ -1296,7 +1296,7 @@ int SchurPreconditioner::ApplyBlockUpperTriangular
   HYMLS_LPROF2(label_,"Block Lower Triangular Solve");
   int numBlocks=blockSolver_.size(); // will be 0 on coarsest level
 
-  int ierr = this->BlockTriangularSolve(B,Y,numBlocks-1,-1,-1);
+  int ierr = BlockTriangularSolve(B,Y,numBlocks-1,-1,-1);
   return ierr;
   }
 
@@ -1500,7 +1500,7 @@ int SchurPreconditioner::ApplyInverse(const Epetra_MultiVector& X,
   if (!HaveBorder())
     {
     HYMLS_DEBUG("border not set!");
-    return this->ApplyInverse(X,Y);
+    return ApplyInverse(X,Y);
     }
 
 #ifdef HYMLS_TESTING
@@ -1520,7 +1520,7 @@ int SchurPreconditioner::ApplyInverse(const Epetra_MultiVector& X,
   // compute x1 = M11\f1
   if (variant_=="Block Diagonal")
     {
-    CHECK_ZERO(this->ApplyBlockDiagonal(B,Y));
+    CHECK_ZERO(ApplyBlockDiagonal(B,Y));
     }
   else
     {
