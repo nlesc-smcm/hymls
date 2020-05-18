@@ -479,6 +479,11 @@ int CoarseSolver::setBorder(Teuchos::RCP<const Epetra_MultiVector> V,
 
   if (amActive_)
     {
+#ifndef RESTRICT_ON_COARSE_LEVEL
+    // we use the variant with restricting the number of ranks in comm usually
+    Tools::Error("not implemented", __FILE__, __LINE__);
+#endif
+
     // we need to create views of the vectors here because the
     // map is different for the solver (linear restricted map)
     Teuchos::RCP<const Epetra_MultiVector> Vprime =
