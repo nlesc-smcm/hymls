@@ -309,12 +309,8 @@ int CoarseSolver::ApplyInverse(const Epetra_MultiVector &X,
 #ifdef RESTRICT_ON_COARSE_LEVEL
     if (Teuchos::rcp_dynamic_cast<const Epetra_MpiComm>(comm_) != Teuchos::null)
       {
-      // TODO - CHECK_ZERO at next Trilinos release
-      //        CHECK_ZERO(restrictB_->restrict_comm(linearRhs_));
-      //        CHECK_ZERO(restrictX_->restrict_comm(linearSol_));
-
-      restrictB_->restrict_comm(linearRhs_);
-      restrictX_->restrict_comm(linearSol_);
+      CHECK_ZERO(restrictB_->restrict_comm(linearRhs_));
+      CHECK_ZERO(restrictX_->restrict_comm(linearSol_));
       restrictedRhs_ = restrictB_->RestrictedMultiVector();
       restrictedSol_ = restrictX_->RestrictedMultiVector();
       }
