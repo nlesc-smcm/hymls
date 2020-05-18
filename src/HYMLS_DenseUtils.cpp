@@ -83,27 +83,44 @@ int DenseUtils::Eig(const Epetra_SerialDenseMatrix& A,
 int DenseUtils::MatMul(const Epetra_MultiVector& V, const Epetra_MultiVector& W,
                        Epetra_SerialDenseMatrix& C)
   {
-  HYMLS_PROF3(Label(),"MatMul");
-  if (!(W.Map().SameAs(V.Map())))
+  return MatMul(1.0, V, W, 0.0, C);
+  }
+
+int DenseUtils::MatMul(double a, const Epetra_MultiVector& V, const Epetra_MultiVector& W,
+                       double b, Epetra_SerialDenseMatrix& C)
+  {
+  HYMLS_PROF3(Label(), "MatMul");
+  if (!W.Map().SameAs(V.Map()))
     {
     HYMLS_DEBUG("DenseUtils::MatMul(V,W) failed because the maps are not the same");
     HYMLS_DEBVAR(V.Map());
     HYMLS_DEBVAR(W.Map());
     return -1;
     }
+
   int m = V.NumVectors();
   int n = W.NumVectors();
-  if ((C.N()!=n)||(C.M()!=m))
+  if (C.N() != n || C.M() != m)
     {
-    C.Reshape(m,n);
+    if (b != 0.0)
+      {
+      Tools::Warning("C was not the right size and b was nonzero", __FILE__, __LINE__);
+      }
+    CHECK_ZERO(C.Reshape(m,n));
     }
 
   // this object is replicated on all procs because of the LocalMap:
-  Epetra_SerialDenseMatrix tmp = C;
+  Epetra_SerialDenseMatrix tmp = C, tmp2 = C;
   Teuchos::RCP<Epetra_MultiVector> VW = CreateView(tmp);
 
-  CHECK_ZERO(VW->Multiply('T','N',1.0,V,W,0.0));
-  CHECK_ZERO(V.Comm().SumAll(tmp.A(),C.A(),m*n));
+  CHECK_ZERO(VW->Multiply('T', 'N', a, V, W, 0.0));
+  CHECK_ZERO(V.Comm().SumAll(tmp.A(), C.A(), m * n));
+
+  if (b != 0)
+    {
+    CHECK_ZERO(tmp2.Scale(b));
+    C += tmp2;
+    }
 
   return 0;
   }
