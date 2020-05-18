@@ -1541,7 +1541,7 @@ int SchurPreconditioner::ApplyInverse(const Epetra_MultiVector& X,
       Epetra_MultiVector(*vsumMap_,X.NumVectors()));
     }
 
-  CHECK_ZERO(vsumRhs_->Import(B,*vsumImporter_,Insert));
+  CHECK_ZERO(vsumRhs_->Import(B, *vsumImporter_, Insert));
 
   // compute W1'(M11\F1). note zeros in X2
   Epetra_SerialDenseMatrix Tcopy(T);
@@ -1554,17 +1554,9 @@ int SchurPreconditioner::ApplyInverse(const Epetra_MultiVector& X,
     Tools::Error("cannot handle next level bordered system!",__FILE__,__LINE__);
     }
   CHECK_ZERO(borderedNextLevel->ApplyInverse(*vsumRhs_,Tcopy,*vsumSol_,S));
-  // copy into X
-  for (int j=0;j<Y.NumVectors();j++)
-    for (int i=0;i<vsumSol_->MyLength();i++)
-      {
-      int lid = Y.Map().LID(vsumMap_->GID64(i));
-#ifdef HYMLS_TESTING
-      // something's fishy, should just be a copy operation.
-      if (lid<0) Tools::Error("inconsistent maps",__FILE__,__LINE__);
-#endif
-      Y[j][lid] = (*vsumSol_)[j][i];
-      }
+
+  // copy into Y
+  CHECK_ZERO(Y.Export(*vsumSol_, *vsumImporter_, Insert));
 
   // transform back
   CHECK_ZERO(ApplyOT(false, Y, &flopsApplyInverse_));
