@@ -24,6 +24,7 @@
 #include "Epetra_MultiVector.h"
 #include "Epetra_Vector.h"
 #include "Epetra_CrsMatrix.h"
+#include "Epetra_FECrsMatrix.h"
 
 #include "EpetraExt_MatrixMatrix.h"
 
@@ -31,10 +32,6 @@
 #include "HYMLS_Epetra_Time.h"
 #include "HYMLS_HierarchicalMap.hpp"
 #include "HYMLS_Macros.hpp"
-
-#ifdef HYMLS_TESTING
-#include "Epetra_FECrsMatrix.h"
-#endif
 
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_ParameterList.hpp"
