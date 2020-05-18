@@ -38,7 +38,8 @@ namespace Teuchos
 class ParameterList;
   }
 
-namespace HYMLS {
+namespace HYMLS
+  {
 
 class Epetra_Time;
 class HierarchicalMap;
@@ -84,20 +85,20 @@ public:
     H'SH H'x = H'y, this function computes HV and H'V for some
     multivector V.
   */
-  int ApplyOT(bool trans, Epetra_MultiVector& v, double* flops=NULL) const;
+  int ApplyOT(bool trans, Epetra_MultiVector &v, double *flops = NULL) const;
 
   //! write matlab data for visualization
-  void Visualize(std::string filename, bool recurse=true) const;
+  void Visualize(std::string filename, bool recurse = true) const;
 
   //!\name Ifpack_Preconditioner interface
 
   //@{
 
   //! Sets all parameters for the preconditioner.
-  int SetParameters(Teuchos::ParameterList& List);
+  int SetParameters(Teuchos::ParameterList &List);
 
   //! from the Teuchos::ParameterListAcceptor base class
-  void setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& list);
+  void setParameterList(const Teuchos::RCP<Teuchos::ParameterList> &list);
 
   //! get a list of valid parameters for this object
   Teuchos::RCP<const Teuchos::ParameterList> getValidParameters() const;
@@ -123,21 +124,21 @@ public:
   double Condest(const Ifpack_CondestType CT = Ifpack_Cheap,
     const int MaxIters = 1550,
     const double Tol = 1e-9,
-    Epetra_RowMatrix* Matrix = 0);
+    Epetra_RowMatrix *Matrix = 0);
 
   //! Returns the computed condition number estimate, or -1.0 if not computed.
   double Condest() const;
 
   //! Applies the operator (not implemented)
-  int Apply(const Epetra_MultiVector& X,
-    Epetra_MultiVector& Y) const;
+  int Apply(const Epetra_MultiVector &X,
+    Epetra_MultiVector &Y) const;
 
   //! Applies the preconditioner to vector X, returns the result in Y.
-  int ApplyInverse(const Epetra_MultiVector& X,
-    Epetra_MultiVector& Y) const;
+  int ApplyInverse(const Epetra_MultiVector &X,
+    Epetra_MultiVector &Y) const;
 
   //! Returns a pointer to the matrix to be preconditioned.
-  const Epetra_RowMatrix& Matrix() const;
+  const Epetra_RowMatrix &Matrix() const;
 
   //! Returns the number of calls to Initialize().
   int NumInitialize() const;
@@ -167,33 +168,51 @@ public:
   double ApplyInverseFlops() const;
 
   //! Prints basic information on iostream. This function is used by operator<<.
-  std::ostream& Print(std::ostream& os) const;
+  std::ostream &Print(std::ostream &os) const;
 
   int SetUseTranspose(bool UseTranspose)
     {
-    useTranspose_=false; // not implemented.
+    useTranspose_ = false; // not implemented.
     return -1;
     }
   //! not implemented.
-  bool HasNormInf() const {return true;}
+  bool HasNormInf() const
+    {
+    return true;
+    }
 
   //! infinity norm
   double NormInf() const;
 
   //! label
-  const char* Label() const {return label_.c_str();}
+  const char *Label() const
+    {
+    return label_.c_str();
+    }
 
   //! use transpose?
-  bool UseTranspose() const {return useTranspose_;}
+  bool UseTranspose() const
+    {
+    return useTranspose_;
+    }
 
   //! communicator
-  const Epetra_Comm & Comm() const {return *comm_;}
+  const Epetra_Comm &Comm() const
+    {
+    return *comm_;
+    }
 
   //! Returns the Epetra_Map object associated with the domain of this operator.
-  const Epetra_Map & OperatorDomainMap() const {return *map_;}
+  const Epetra_Map &OperatorDomainMap() const
+    {
+    return *map_;
+    }
 
   //! Returns the Epetra_Map object associated with the range of this operator.
-  const Epetra_Map & OperatorRangeMap() const {return *map_;}
+  const Epetra_Map &OperatorRangeMap() const
+    {
+    return *map_;
+    }
 
   //@}
 
@@ -203,18 +222,21 @@ public:
   //!
   int setBorder(Teuchos::RCP<const Epetra_MultiVector> V,
     Teuchos::RCP<const Epetra_MultiVector> W,
-    Teuchos::RCP<const Epetra_SerialDenseMatrix> C=Teuchos::null);
+    Teuchos::RCP<const Epetra_SerialDenseMatrix> C = Teuchos::null);
 
   //!
-  bool HaveBorder() const {return haveBorder_;}
+  bool HaveBorder() const
+    {
+    return haveBorder_;
+    }
 
   //!
-  int Apply(const Epetra_MultiVector & B, const Epetra_SerialDenseMatrix & C,
-    Epetra_MultiVector& X, Epetra_SerialDenseMatrix & Y) const;
+  int Apply(const Epetra_MultiVector &B, const Epetra_SerialDenseMatrix &C,
+    Epetra_MultiVector &X, Epetra_SerialDenseMatrix &Y) const;
 
   //!
-  int ApplyInverse(const Epetra_MultiVector & B, const Epetra_SerialDenseMatrix & C,
-    Epetra_MultiVector& X, Epetra_SerialDenseMatrix & Y) const;
+  int ApplyInverse(const Epetra_MultiVector &B, const Epetra_SerialDenseMatrix &C,
+    Epetra_MultiVector &X, Epetra_SerialDenseMatrix &Y) const;
 
   //@}
 
@@ -258,7 +280,7 @@ protected:
   Teuchos::RCP<const Epetra_Map> map_;
 
   //! test vector to determine entries in orth. trans.
-  Teuchos::RCP<Epetra_Vector> testVector_,localTestVector_;
+  Teuchos::RCP<Epetra_Vector> testVector_, localTestVector_;
 
   //! orthogonal transformaion for separators
   Teuchos::RCP<OrthogonalTransform> OT_;
@@ -348,7 +370,7 @@ protected:
   //! \name data structures for bordering
 
   //! border split up and transformed by Householder
-  Teuchos::RCP<Epetra_MultiVector> borderV_,borderW_;
+  Teuchos::RCP<Epetra_MultiVector> borderV_, borderW_;
   //! lower diagonal block of bordered system
   Teuchos::RCP<Epetra_SerialDenseMatrix> borderC_;
 
@@ -373,7 +395,7 @@ private:
 
   //! Helper function for AssembleTransformAndDrop
   int ConstructSCPart(int k, Epetra_Vector const &localTestVector,
-    Epetra_SerialDenseMatrix & Sk,
+    Epetra_SerialDenseMatrix &Sk,
 #ifdef HYMLS_LONG_LONG
     Epetra_LongLongSerialDenseVector &indices,
 #else
@@ -404,20 +426,20 @@ private:
 
   //! apply block diagonal of non-Vsums inverse to vector
   //! (this is called if variant_=="Block Diagonal")
-  int ApplyBlockDiagonal(const Epetra_MultiVector& B, Epetra_MultiVector& X) const;
+  int ApplyBlockDiagonal(const Epetra_MultiVector &B, Epetra_MultiVector &X) const;
 
   //! block triangular solve with non-Vsum blocks (does not touch Vsum-part of X)
-  int ApplyBlockLowerTriangular(const Epetra_MultiVector& B, Epetra_MultiVector& X) const;
+  int ApplyBlockLowerTriangular(const Epetra_MultiVector &B, Epetra_MultiVector &X) const;
 
   //! block triangular solve with non-Vsum blocks (does not touch Vsum-part of X)
-  int ApplyBlockUpperTriangular(const Epetra_MultiVector& B, Epetra_MultiVector& X) const;
+  int ApplyBlockUpperTriangular(const Epetra_MultiVector &B, Epetra_MultiVector &X) const;
 
   //! general block triangular solve with non-Vsum blocks (does not touch Vsum-part of X)
-  int BlockTriangularSolve(const Epetra_MultiVector& B, Epetra_MultiVector& X,
+  int BlockTriangularSolve(const Epetra_MultiVector &B, Epetra_MultiVector &X,
     int start, int end, int incr) const;
 
   //! update Vsum part of the vector before solving reduced SC problem
-  int UpdateVsumRhs(const Epetra_MultiVector& B, Epetra_MultiVector& X) const;
+  int UpdateVsumRhs(const Epetra_MultiVector &B, Epetra_MultiVector &X) const;
 
   //!
   //! Compute scaling for a sparse matrix. This is currently unused.
@@ -430,9 +452,9 @@ private:
   //!
   //! If sca_left and/or sca_right are null, they are created.
   //!
-  int ComputeScaling(const Epetra_CrsMatrix& A,
-    Teuchos::RCP<Epetra_Vector>& sca_left,
-    Teuchos::RCP<Epetra_Vector>& sca_right);
+  int ComputeScaling(const Epetra_CrsMatrix &A,
+    Teuchos::RCP<Epetra_Vector> &sca_left,
+    Teuchos::RCP<Epetra_Vector> &sca_right);
 
   //! Dump a reordering for the Schur-complement (for checking in MATLAB)
   int DumpReordering() const;
