@@ -989,7 +989,7 @@ int SchurPreconditioner::ApplyInverse(const Epetra_MultiVector& X,
   // (1) Transform right-hand side, B=OT'*X
   Epetra_MultiVector B(X);
 
-  ApplyOT(true,B,&flopsApplyInverse_);
+  CHECK_ZERO(ApplyOT(true, B, &flopsApplyInverse_));
 
 #ifdef HYMLS_TESTING
   if (dumpVectors_)
@@ -1026,7 +1026,7 @@ int SchurPreconditioner::ApplyInverse(const Epetra_MultiVector& X,
   CHECK_ZERO(Y.Export(*vsumSol_,*vsumImporter_,Insert));
 
   // transform back
-  ApplyOT(false,Y,&flopsApplyInverse_);
+  CHECK_ZERO(ApplyOT(false, Y, &flopsApplyInverse_));
 
 #ifdef HYMLS_TESTING
   if (dumpVectors_)
@@ -1438,8 +1438,8 @@ int SchurPreconditioner::setBorder(Teuchos::RCP<const Epetra_MultiVector> V,
     }
 
   // transform V and W
-  CHECK_ZERO(this->ApplyOT(false,*borderV_));
-  CHECK_ZERO(this->ApplyOT(true,*borderW_));
+  CHECK_ZERO(ApplyOT(false, *borderV_));
+  CHECK_ZERO(ApplyOT(true, *borderW_));
   // form V_2 and W_2 by import operations (V_1 and W_1 are views of V_ and W_)
   Teuchos::RCP<Epetra_MultiVector> borderV2 = Teuchos::rcp(
     new Epetra_MultiVector(*vsumMap_, borderV_->NumVectors()));
@@ -1513,7 +1513,7 @@ int SchurPreconditioner::ApplyInverse(const Epetra_MultiVector& X,
   // (1) Transform right-hand side, B=OT'*X
   Epetra_MultiVector B(X);
 
-  ApplyOT(true,B,&flopsApplyInverse_);
+  CHECK_ZERO(ApplyOT(true, B, &flopsApplyInverse_));
 
   // compute x1 = M11\f1
   if (variant_=="Block Diagonal")
@@ -1573,7 +1573,7 @@ int SchurPreconditioner::ApplyInverse(const Epetra_MultiVector& X,
       }
 
   // transform back
-  ApplyOT(false,Y,&flopsApplyInverse_);
+  CHECK_ZERO(ApplyOT(false, Y, &flopsApplyInverse_));
 
 #ifdef HYMLS_TESTING
   if (dumpVectors_)
