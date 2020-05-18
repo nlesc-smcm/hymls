@@ -26,7 +26,6 @@
 #include "Ifpack_Amesos.h"
 
 #include "EpetraExt_Reindex_CrsMatrix.h"
-#include "EpetraExt_Reindex_MultiVector.h"
 #include "./EpetraExt_RestrictedCrsMatrixWrapper.h"
 #include "./EpetraExt_RestrictedMultiVectorWrapper.h"
 #ifdef HYMLS_STORE_MATRICES
@@ -112,8 +111,6 @@ int CoarseSolver::Initialize()
   isEmpty_ = map.NumGlobalElements64() == 0;
 
   reindexA_ = Teuchos::rcp(new ::EpetraExt::CrsMatrix_Reindex(*linearMap_));
-  reindexX_ = Teuchos::rcp(new ::EpetraExt::MultiVector_Reindex(*linearMap_));
-  reindexB_ = Teuchos::rcp(new ::EpetraExt::MultiVector_Reindex(*linearMap_));
 
   restrictA_ = Teuchos::rcp(new ::HYMLS::EpetraExt::RestrictedCrsMatrixWrapper());
   restrictX_ = Teuchos::rcp(new ::HYMLS::EpetraExt::RestrictedMultiVectorWrapper());

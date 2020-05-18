@@ -25,7 +25,6 @@ class Epetra_Vector;
 
 namespace EpetraExt
   {
-class MultiVector_Reindex;
 class CrsMatrix_Reindex;
   }
 
@@ -204,9 +203,6 @@ protected:
   //! this is to reindex the reduced SC, which is
   //! important when using a direct solver (I think)
   Teuchos::RCP< ::EpetraExt::CrsMatrix_Reindex> reindexA_;
-
-  //! reindex corresponding vectors
-  Teuchos::RCP< ::EpetraExt::MultiVector_Reindex> reindexX_, reindexB_;
 
   //! this is to restrict the reduced Schur problem on the
   //! coarsest level to only the active procs so that
