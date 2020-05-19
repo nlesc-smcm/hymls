@@ -497,6 +497,8 @@ int Preconditioner::Compute()
     CHECK_ZERO(schurPrec_->Initialize());
     }
 
+  CHECK_ZERO(ComputeBorder());
+
   CHECK_ZERO(schurPrec_->Compute());
 
   computed_ = true;
@@ -514,6 +516,9 @@ int Preconditioner::Compute()
 
 int Preconditioner::ComputeBorder()
   {
+  if (!HaveBorder())
+    return 0;
+
   int m = V_->NumVectors();
 
   Epetra_Import const &import1 = A12_->Importer();
