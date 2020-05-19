@@ -405,6 +405,9 @@ private:
   //! the V-sums on each level.
   Teuchos::RCP<Epetra_Vector> CreateTestVector();
 
+  //! Actually compute the next level border during the Compute phase.
+  int ComputeBorder();
+
   };
 
 

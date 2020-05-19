@@ -512,6 +512,62 @@ int Preconditioner::Compute()
   return 0;
   }
 
+int Preconditioner::ComputeBorder()
+  {
+  int m = V_->NumVectors();
+
+  Epetra_Import const &import1 = A12_->Importer();
+  Epetra_Import const &import2 = A21_->Importer();
+
+  Epetra_Map const &map1 = A12_->RowMap();
+  Epetra_Map const &map2 = A21_->RowMap();
+
+  borderV1_ = Teuchos::rcp(new Epetra_MultiVector(map1, m));
+  borderV2_ = Teuchos::rcp(new Epetra_MultiVector(map2, m));
+
+  CHECK_ZERO(borderV1_->Import(*V_, import1, Insert));
+  CHECK_ZERO(borderV2_->Import(*V_, import2, Insert));
+
+  if (V_.get() == W_.get())
+    {
+    borderW1_ = borderV1_;
+    borderW2_ = borderV2_;
+    }
+  else
+    {
+    borderW1_ = Teuchos::rcp(new Epetra_MultiVector(map1, m));
+    borderW2_ = Teuchos::rcp(new Epetra_MultiVector(map2, m));
+    CHECK_ZERO(borderW1_->Import(*W_, import1, Insert));
+    CHECK_ZERO(borderW2_->Import(*W_, import2, Insert));
+    }
+
+  // build the border for the Schur-complement
+  borderQ1_= Teuchos::rcp(new Epetra_MultiVector(map1, m));
+
+  CHECK_ZERO(A11_->ApplyInverse(*borderV1_, *borderQ1_));
+  CHECK_ZERO(A21_->Apply(*borderQ1_, *borderSchurV_));
+  CHECK_ZERO(borderSchurV_->Update(1.0, *borderV2_, -1.0));
+
+  // borderSchurW is given by W2 - (A11\A12)'W1
+  // We use the formulation W2 - A12'(A11'\W1)
+  Epetra_MultiVector w1tmp(map1, m);
+  CHECK_ZERO(A11_->SetUseTranspose(true));
+  CHECK_ZERO(A11_->ApplyInverse(*borderW1_, w1tmp));
+  CHECK_ZERO(A11_->SetUseTranspose(false));
+
+  CHECK_ZERO(A12_->SetUseTranspose(true));
+  CHECK_ZERO(A12_->Apply(w1tmp, *borderSchurW_));
+  CHECK_ZERO(A12_->SetUseTranspose(false));
+
+  CHECK_ZERO(borderSchurW_->Update(1.0, *borderW2_, -1.0));
+
+  CHECK_ZERO(DenseUtils::MatMul(*borderW1_, *borderQ1_, *borderSchurC_));
+  CHECK_ZERO(borderSchurC_->Scale(-1.0));
+  *borderSchurC_ += *C_;
+
+  return 0;
+  }
+
 // Returns true if the  preconditioner has been successfully computed, false otherwise.
 bool Preconditioner::IsComputed() const {return computed_;}
 
@@ -844,58 +900,14 @@ int Preconditioner::setBorder(
       __FILE__, __LINE__);
     }
 
-  Epetra_Import const &import1 = A12_->Importer();
-  Epetra_Import const &import2 = A21_->Importer();
-
-  Epetra_Map const &map1 = A12_->RowMap();
   Epetra_Map const &map2 = A21_->RowMap();
 
-  borderV1_ = Teuchos::rcp(new Epetra_MultiVector(map1, m));
-  borderV2_ = Teuchos::rcp(new Epetra_MultiVector(map2, m));
+  // Set the border for the Schur-complement
+  borderSchurV_ = Teuchos::rcp(new Epetra_MultiVector(map2, m));
+  borderSchurW_ = Teuchos::rcp(new Epetra_MultiVector(map2, m));
+  borderSchurC_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(m, m));
 
-  CHECK_ZERO(borderV1_->Import(*V_, import1, Insert));
-  CHECK_ZERO(borderV2_->Import(*V_, import2, Insert));
-
-  if (V_.get() == W_.get())
-    {
-    borderW1_ = borderV1_;
-    borderW2_ = borderV2_;
-    }
-  else
-    {
-    borderW1_ = Teuchos::rcp(new Epetra_MultiVector(map1, m));
-    borderW2_ = Teuchos::rcp(new Epetra_MultiVector(map2, m));
-    CHECK_ZERO(borderW1_->Import(*W_, import1, Insert));
-    CHECK_ZERO(borderW2_->Import(*W_, import2, Insert));
-    }
-
-  // build the border for the Schur-complement
-  borderSchurV_ = Teuchos::rcp(new Epetra_MultiVector(map2,m));
-  borderQ1_= Teuchos::rcp(new Epetra_MultiVector(map1,m));
-
-  CHECK_ZERO(A11_->ApplyInverse(*borderV1_,*borderQ1_));
-  CHECK_ZERO(A21_->Apply(*borderQ1_, *borderSchurV_));
-  CHECK_ZERO(borderSchurV_->Update(1.0,*borderV2_,-1.0));
-
-  // borderSchurW is given by W2 - (A11\A12)'W1
-  borderSchurW_ = Teuchos::rcp(new Epetra_MultiVector(map2,m));
-  // We use the formulation W2 - A12'(A11'\W1)
-  Epetra_MultiVector w1tmp(map1,m);
-  CHECK_ZERO(A11_->SetUseTranspose(true));
-  CHECK_ZERO(A11_->ApplyInverse(*borderW1_, w1tmp));
-  CHECK_ZERO(A11_->SetUseTranspose(false));
-
-  CHECK_ZERO(A12_->SetUseTranspose(true));
-  CHECK_ZERO(A12_->Apply(w1tmp,*borderSchurW_));
-  CHECK_ZERO(A12_->SetUseTranspose(false));
-
-  CHECK_ZERO(borderSchurW_->Update(1.0,*borderW2_,-1.0));
-
-  borderSchurC_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(m,m));
-  CHECK_ZERO(DenseUtils::MatMul(*borderW1_,*borderQ1_,*borderSchurC_));
-  CHECK_ZERO(borderSchurC_->Scale(-1.0));
-  *borderSchurC_ += *C_;
-
+  CHECK_ZERO(ComputeBorder());
   CHECK_ZERO(borderedPrec->setBorder(borderSchurV_,borderSchurW_,borderSchurC_));
   Teuchos::RCP<CoarseSolver> coarseSolver =
     Teuchos::rcp_dynamic_cast<CoarseSolver>(schurPrec_);
