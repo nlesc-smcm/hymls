@@ -818,35 +818,29 @@ int Preconditioner::setBorder(
 
   int m = V->NumVectors();
 
-  V_ = Teuchos::rcp(new Epetra_MultiVector(*V));
+  V_ = V;
+  W_ = W;
+  C_ = C;
 
-  if (W == Teuchos::null || W.get() == V.get())
+  if (W == Teuchos::null)
     {
     W_ = V_;
-    }
-  else
-    {
-    W_ = Teuchos::rcp(new Epetra_MultiVector(*W));
     }
 
   if (W_->NumVectors() != m)
     {
-    Tools::Error("bordering: V and W must have same number of columns",
+    Tools::Error("Bordering: V and W must have same number of columns",
       __FILE__, __LINE__);
     }
 
   if (C == Teuchos::null)
     {
-    C_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(m,m));
-    }
-  else
-    {
-    C_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(*C));
+    C_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(m, m));
     }
 
-  if ((C_->N() != C_->M()) || (C_->N() != m))
+  if (C_->N() != C_->M() || C_->N() != m)
     {
-    Tools::Error("bordering: C block must be square and compatible with V and W",
+    Tools::Error("Bordering: C block must be square and compatible with V and W",
       __FILE__, __LINE__);
     }
 
