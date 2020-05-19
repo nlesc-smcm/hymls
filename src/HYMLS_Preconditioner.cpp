@@ -801,6 +801,12 @@ int Preconditioner::setBorder(
     borderQ1_ = Teuchos::null;
 
     CHECK_ZERO(borderedPrec->setBorder(borderSchurV_, borderSchurW_, borderSchurC_));
+    Teuchos::RCP<CoarseSolver> coarseSolver =
+      Teuchos::rcp_dynamic_cast<CoarseSolver>(schurPrec_);
+    if (coarseSolver != Teuchos::null)
+      {
+      CHECK_ZERO(coarseSolver->Compute());
+      }
     return 0;
     }
 
@@ -897,6 +903,13 @@ int Preconditioner::setBorder(
   *borderSchurC_ += *C_;
 
   CHECK_ZERO(borderedPrec->setBorder(borderSchurV_,borderSchurW_,borderSchurC_));
+  Teuchos::RCP<CoarseSolver> coarseSolver =
+    Teuchos::rcp_dynamic_cast<CoarseSolver>(schurPrec_);
+  if (coarseSolver != Teuchos::null)
+    {
+    CHECK_ZERO(coarseSolver->Compute());
+    }
+
   return 0;
   }
 

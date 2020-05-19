@@ -198,7 +198,7 @@ int CoarseSolver::Compute()
   ////////////////////////////////////////////////////////////////////////////
   // this next section is just for the bordered case                        //
   ////////////////////////////////////////////////////////////////////////////
-  if (HaveBorder())
+  if (HaveBorder() && amActive_)
     {
     if (V_ == Teuchos::null || W_ == Teuchos::null || C_ == Teuchos::null)
       {
@@ -444,54 +444,7 @@ int CoarseSolver::setBorder(Teuchos::RCP<const Epetra_MultiVector> V,
   W_ = W;
   C_ = C;
 
-  if (!IsInitialized())
-    {
-    Tools::Error("CoarseSolver not yet initialized", __FILE__, __LINE__);
-    }
-
-  if (amActive_)
-    {
-#ifndef RESTRICT_ON_COARSE_LEVEL
-    // we use the variant with restricting the number of ranks in comm usually
-    Tools::Error("not implemented", __FILE__, __LINE__);
-#endif
-
-    // we need to create views of the vectors here because the
-    // map is different for the solver (linear restricted map)
-    Teuchos::RCP<const Epetra_MultiVector> Vprime =
-      Teuchos::rcp(new Epetra_MultiVector(View, restrictedMatrix_->RowMap(),
-          V_->Values(), V_->Stride(), V_->NumVectors()));
-    Teuchos::RCP<const Epetra_MultiVector> Wprime =
-      Teuchos::rcp(new Epetra_MultiVector(View, restrictedMatrix_->RowMap(),
-          W_->Values(), W_->Stride(), W_->NumVectors()));
-
-    // create AugmentedMatrix, refactor reducedSchurSolver_
-    bool status = true;
-    try
-      {
-      augmentedMatrix_ = Teuchos::rcp
-        (new HYMLS::AugmentedMatrix(restrictedMatrix_, Vprime, Wprime, C_));
-      } TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, status);
-    if (!status)
-      {
-      Tools::Fatal("caught an exception when constructing final bordered system", __FILE__, __LINE__);
-      }
-    Teuchos::ParameterList &amesosList = PL().sublist("Coarse Solver");
-#ifdef HYMLS_STORE_MATRICES
-    status = true;
-    try
-      {
-      ::EpetraExt::RowMatrixToMatrixMarketFile("FinalBorderedSchur.mtx", *augmentedMatrix_);
-      } TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, status);
-    if (status == false) Tools::Warning("caught exception when trying to dump final bordered SC", __FILE__, __LINE__);
-#endif
-    reducedSchurSolver_ = Teuchos::rcp(new Ifpack_Amesos(augmentedMatrix_.get()));
-    CHECK_ZERO(reducedSchurSolver_->SetParameters(amesosList));
-    HYMLS_DEBUG("re-initialize direct solver for augmented system");
-    CHECK_ZERO(reducedSchurSolver_->Initialize());
-    HYMLS_DEBUG("re-compute direct solver for augmented system");
-    CHECK_ZERO(reducedSchurSolver_->Compute());
-    }
+  computed_ = false;
   haveBorder_ = true;
   return 0;
   }

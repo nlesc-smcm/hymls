@@ -1484,6 +1484,10 @@ int SchurPreconditioner::setBorder(Teuchos::RCP<const Epetra_MultiVector> V,
     }
   HYMLS_DEBUG("call setBorder in next level precond");
   CHECK_ZERO(borderedNextLevel->setBorder(borderV2, borderW2, borderC_));
+  if (myLevel_ + 1 == maxLevel_)
+    {
+    CHECK_ZERO(reducedSchurSolver_->Compute());
+    }
   haveBorder_ = true;
   return 0;
   }
