@@ -271,6 +271,8 @@ int SchurPreconditioner::Compute()
     CHECK_ZERO(AssembleTransformAndDrop());
     }
 
+  CHECK_ZERO(ComputeBorder());
+
   CHECK_ZERO(ComputeNextLevel());
 
 #ifdef HYMLS_STORE_MATRICES
@@ -622,6 +624,9 @@ int SchurPreconditioner::ComputeNextLevel()
 
 int SchurPreconditioner::ComputeBorder()
   {
+  if (!HaveBorder())
+    return 0;
+
   borderV_ = Teuchos::rcp(new Epetra_MultiVector(*V_));
   borderW_ = Teuchos::rcp(new Epetra_MultiVector(*W_));
 
@@ -1469,6 +1474,7 @@ int SchurPreconditioner::setBorder(Teuchos::RCP<const Epetra_MultiVector> V,
   vsumBorderV_ = Teuchos::rcp(new Epetra_MultiVector(*vsumMap_, V_->NumVectors()));
   vsumBorderW_ = Teuchos::rcp(new Epetra_MultiVector(*vsumMap_, W_->NumVectors()));
 
+  haveBorder_ = true;
   CHECK_ZERO(ComputeBorder());
 
   // set border in next level problem
@@ -1484,7 +1490,6 @@ int SchurPreconditioner::setBorder(Teuchos::RCP<const Epetra_MultiVector> V,
     {
     CHECK_ZERO(reducedSchurSolver_->Compute());
     }
-  haveBorder_ = true;
   return 0;
   }
 
