@@ -439,24 +439,10 @@ int CoarseSolver::setBorder(Teuchos::RCP<const Epetra_MultiVector> V,
     haveBorder_ = false;
     return 0;
     }
-  V_ = Teuchos::rcp(new Epetra_MultiVector(*V));
-  if (W != Teuchos::null)
-    {
-    W_ = Teuchos::rcp(new Epetra_MultiVector(*W));
-    }
-  else
-    {
-    W_ = Teuchos::rcp(new Epetra_MultiVector(*V));
-    }
-  if (C != Teuchos::null)
-    {
-    C_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(*C));
-    }
-  else
-    {
-    int n = V->NumVectors();
-    C_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(n, n));
-    }
+
+  V_ = V;
+  W_ = W;
+  C_ = C;
 
   if (!IsInitialized())
     {
