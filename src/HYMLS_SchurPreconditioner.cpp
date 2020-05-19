@@ -620,6 +620,22 @@ int SchurPreconditioner::ComputeNextLevel()
   return 0;
   }
 
+int SchurPreconditioner::ComputeBorder()
+  {
+  borderV_ = Teuchos::rcp(new Epetra_MultiVector(*V_));
+  borderW_ = Teuchos::rcp(new Epetra_MultiVector(*W_));
+
+  // transform V and W
+  CHECK_ZERO(ApplyOT(false, *borderV_));
+  CHECK_ZERO(ApplyOT(true, *borderW_));
+
+  // form V_2 and W_2 by import operations (V_1 and W_1 are views of V_ and W_)
+  CHECK_ZERO(vsumBorderV_->Import(*borderV_, *vsumImporter_, Insert));
+  CHECK_ZERO(vsumBorderW_->Import(*borderW_, *vsumImporter_, Insert));
+
+  return 0;
+  }
+
 int SchurPreconditioner::Assemble()
   {
   HYMLS_LPROF2(label_, "Assemble");
@@ -1441,40 +1457,20 @@ int SchurPreconditioner::setBorder(Teuchos::RCP<const Epetra_MultiVector> V,
     return 0;
     }
 
-  borderV_ = Teuchos::rcp(new Epetra_MultiVector(*V));
-  if (W != Teuchos::null)
-    {
-    borderW_ = Teuchos::rcp(new Epetra_MultiVector(*W));
-    }
-  else
-    {
-    borderW_ = Teuchos::rcp(new Epetra_MultiVector(*V));
-    }
-  if (C != Teuchos::null)
-    {
-    borderC_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(*C));
-    }
-  else
-    {
-    int n = V->NumVectors();
-    borderC_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(n, n));
-    }
+  V_ = V;
+  W_ = W;
+  C_ = C;
 
   if (!IsInitialized())
     {
     Tools::Error("SchurPreconditioner not yet initialized", __FILE__, __LINE__);
     }
 
-  // transform V and W
-  CHECK_ZERO(ApplyOT(false, *borderV_));
-  CHECK_ZERO(ApplyOT(true, *borderW_));
-  // form V_2 and W_2 by import operations (V_1 and W_1 are views of V_ and W_)
-  Teuchos::RCP<Epetra_MultiVector> borderV2 = Teuchos::rcp(
-    new Epetra_MultiVector(*vsumMap_, borderV_->NumVectors()));
-  Teuchos::RCP<Epetra_MultiVector> borderW2 = Teuchos::rcp(
-    new Epetra_MultiVector(*vsumMap_, borderW_->NumVectors()));
-  CHECK_ZERO(borderV2->Import(*borderV_, *vsumImporter_, Insert));
-  CHECK_ZERO(borderW2->Import(*borderW_, *vsumImporter_, Insert));
+  vsumBorderV_ = Teuchos::rcp(new Epetra_MultiVector(*vsumMap_, V_->NumVectors()));
+  vsumBorderW_ = Teuchos::rcp(new Epetra_MultiVector(*vsumMap_, W_->NumVectors()));
+
+  CHECK_ZERO(ComputeBorder());
+
   // set border in next level problem
   Teuchos::RCP<HYMLS::BorderedOperator> borderedNextLevel =
     Teuchos::rcp_dynamic_cast<HYMLS::BorderedOperator>(reducedSchurSolver_);
@@ -1483,7 +1479,7 @@ int SchurPreconditioner::setBorder(Teuchos::RCP<const Epetra_MultiVector> V,
     HYMLS::Tools::Error("next level solver can't handle border!", __FILE__, __LINE__);
     }
   HYMLS_DEBUG("call setBorder in next level precond");
-  CHECK_ZERO(borderedNextLevel->setBorder(borderV2, borderW2, borderC_));
+  CHECK_ZERO(borderedNextLevel->setBorder(vsumBorderV_, vsumBorderW_, C_));
   if (myLevel_ + 1 == maxLevel_)
     {
     CHECK_ZERO(reducedSchurSolver_->Compute());

@@ -370,7 +370,7 @@ protected:
   //! \name data structures for bordering
 
   //! border split up and transformed by Householder
-  Teuchos::RCP<Epetra_MultiVector> borderV_, borderW_;
+  Teuchos::RCP<Epetra_MultiVector> borderV_, borderW_, vsumBorderV_, vsumBorderW_;
   //! lower diagonal block of bordered system
   Teuchos::RCP<Epetra_SerialDenseMatrix> borderC_;
 
@@ -419,6 +419,9 @@ private:
 
   //! Compute the reduced Schur solver
   int ComputeNextLevel();
+
+  //! Compute the border after transformation for the next level.
+  int ComputeBorder();
 
   //! Create a VSum map for computing the next level hid
   Teuchos::RCP<const Epetra_Map> CreateVSumMap(
