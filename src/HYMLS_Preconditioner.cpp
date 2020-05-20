@@ -850,19 +850,22 @@ int Preconditioner::setBorder(
   W_ = Teuchos::null;
   C_ = Teuchos::null;
 
-  Teuchos::RCP<BorderedOperator> borderedPrec =
-    Teuchos::rcp_dynamic_cast<BorderedOperator>(schurPrec_);
-  if (Teuchos::is_null(borderedPrec))
-    {
-    HYMLS::Tools::Error("No bordered interface specified for the Schur complement solver", __FILE__, __LINE__);
-    }
-
   if (V == Teuchos::null)
     {
     borderSchurV_ = Teuchos::null;
     borderSchurW_ = Teuchos::null;
     borderSchurC_ = Teuchos::null;
     borderQ1_ = Teuchos::null;
+
+    if (schurPrec_ == Teuchos::null)
+      return 0;
+
+    Teuchos::RCP<BorderedOperator> borderedPrec =
+      Teuchos::rcp_dynamic_cast<BorderedOperator>(schurPrec_);
+    if (Teuchos::is_null(borderedPrec))
+      {
+      HYMLS::Tools::Error("No bordered interface specified for the Schur complement solver", __FILE__, __LINE__);
+      }
 
     CHECK_ZERO(borderedPrec->setBorder(borderSchurV_, borderSchurW_, borderSchurC_));
 

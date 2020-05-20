@@ -645,6 +645,9 @@ int SchurPreconditioner::ComputeBorder()
   CHECK_ZERO(vsumBorderV_->Import(*borderV_, *vsumImporter_, Insert));
   CHECK_ZERO(vsumBorderW_->Import(*borderW_, *vsumImporter_, Insert));
 
+  if (reducedSchurSolver_ == Teuchos::null)
+    return 0;
+
   // set border in next level problem
   Teuchos::RCP<HYMLS::BorderedOperator> borderedNextLevel =
     Teuchos::rcp_dynamic_cast<HYMLS::BorderedOperator>(reducedSchurSolver_);

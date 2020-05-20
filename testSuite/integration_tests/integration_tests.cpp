@@ -512,15 +512,18 @@ int testSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
 
   for (int f=0;f<numComputes;f++)
     {
-    CHECK_ZERO(precond->Compute());
-    if (nullSpace!=Teuchos::null)
+    if (nullSpace != Teuchos::null)
       {
-        solver->setBorder(nullSpace);
+      CHECK_ZERO(solver->setBorder(nullSpace));
       }
+
+    CHECK_ZERO(precond->Compute());
+
     if (doDeflation)
       {
       CHECK_ZERO(solver->SetupDeflation());
       }
+
 
     ierr |= testDivFree(map, K, precond, dim, eqn);
 

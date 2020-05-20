@@ -360,6 +360,11 @@ for (int f=0;f<numComputes;f++)
     }
   HYMLS::Tools::Out("Compute Preconditioner ("+Teuchos::toString(f+1)+")");
 
+  if (nullSpace!=Teuchos::null)
+    {
+    CHECK_ZERO(solver->setBorder(nullSpace));
+    }
+
   if (precond!=Teuchos::null) 
     {
     HYMLS::Tools::StartMemory("main: Compute Preconditioner");
@@ -367,11 +372,6 @@ for (int f=0;f<numComputes;f++)
     CHECK_ZERO(precond->Compute());
     HYMLS::Tools::StopTiming("main: Compute Preconditioner",true);
     HYMLS::Tools::StopMemory("main: Compute Preconditioner",true);
-    }
-
-  if (nullSpace!=Teuchos::null)
-    {
-    CHECK_ZERO(solver->setBorder(nullSpace));
     }
 
   if (do_deflation)
