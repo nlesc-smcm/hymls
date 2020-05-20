@@ -384,7 +384,8 @@ int Preconditioner::Initialize()
   schurSol_=Teuchos::rcp(new Epetra_Vector(map2));
   schurSol_->PutScalar(0.0);
 
-  initialized_=true;
+  initialized_ = true;
+  computed_ = false;
   numInitialize_++;
   timeInitialize_+=time_->ElapsedTime();
 
@@ -546,8 +547,11 @@ int Preconditioner::ComputeBorder()
     CHECK_ZERO(borderW2_->Import(*W_, import2, Insert));
     }
 
-  // build the border for the Schur-complement
+  // Compute the border for the Schur-complement
   borderQ1_= Teuchos::rcp(new Epetra_MultiVector(map1, m));
+  borderSchurV_ = Teuchos::rcp(new Epetra_MultiVector(map2, m));
+  borderSchurW_ = Teuchos::rcp(new Epetra_MultiVector(map2, m));
+  borderSchurC_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(m, m));
 
   CHECK_ZERO(A11_->ApplyInverse(*borderV1_, *borderQ1_));
   CHECK_ZERO(A21_->Apply(*borderQ1_, *borderSchurV_));
@@ -569,6 +573,15 @@ int Preconditioner::ComputeBorder()
   CHECK_ZERO(DenseUtils::MatMul(*borderW1_, *borderQ1_, *borderSchurC_));
   CHECK_ZERO(borderSchurC_->Scale(-1.0));
   *borderSchurC_ += *C_;
+
+  Teuchos::RCP<BorderedOperator> borderedPrec =
+    Teuchos::rcp_dynamic_cast<BorderedOperator>(schurPrec_);
+  if (Teuchos::is_null(borderedPrec))
+    {
+    HYMLS::Tools::Error("No bordered interface specified for the Schur complement solver", __FILE__, __LINE__);
+    }
+
+  CHECK_ZERO(borderedPrec->setBorder(borderSchurV_, borderSchurW_, borderSchurC_));
 
   return 0;
   }
@@ -837,16 +850,6 @@ int Preconditioner::setBorder(
   W_ = Teuchos::null;
   C_ = Teuchos::null;
 
-  if (!IsComputed())
-    {
-    // this could be done differently, for instance
-    // by adding some of these computations to Compute(),
-    // but I think it is OK to compute the prec first and
-    // set the bordering afterwards.
-    Tools::Error("setBorder: requires preconditioner to be computed",
-      __FILE__,__LINE__);
-    }
-
   Teuchos::RCP<BorderedOperator> borderedPrec =
     Teuchos::rcp_dynamic_cast<BorderedOperator>(schurPrec_);
   if (Teuchos::is_null(borderedPrec))
@@ -862,12 +865,14 @@ int Preconditioner::setBorder(
     borderQ1_ = Teuchos::null;
 
     CHECK_ZERO(borderedPrec->setBorder(borderSchurV_, borderSchurW_, borderSchurC_));
-    Teuchos::RCP<CoarseSolver> coarseSolver =
-      Teuchos::rcp_dynamic_cast<CoarseSolver>(schurPrec_);
-    if (coarseSolver != Teuchos::null)
+
+    if (IsComputed())
       {
-      CHECK_ZERO(coarseSolver->Compute());
+      Tools::Warning("Called setBorder after computing the preconditioner. Calling compute again.",
+        __FILE__, __LINE__);
+      CHECK_ZERO(Compute());
       }
+
     return 0;
     }
 
@@ -905,20 +910,11 @@ int Preconditioner::setBorder(
       __FILE__, __LINE__);
     }
 
-  Epetra_Map const &map2 = A21_->RowMap();
-
-  // Set the border for the Schur-complement
-  borderSchurV_ = Teuchos::rcp(new Epetra_MultiVector(map2, m));
-  borderSchurW_ = Teuchos::rcp(new Epetra_MultiVector(map2, m));
-  borderSchurC_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(m, m));
-
-  CHECK_ZERO(ComputeBorder());
-  CHECK_ZERO(borderedPrec->setBorder(borderSchurV_,borderSchurW_,borderSchurC_));
-  Teuchos::RCP<CoarseSolver> coarseSolver =
-    Teuchos::rcp_dynamic_cast<CoarseSolver>(schurPrec_);
-  if (coarseSolver != Teuchos::null)
+  if (IsComputed())
     {
-    CHECK_ZERO(coarseSolver->Compute());
+    Tools::Warning("Called setBorder after computing the preconditioner. Calling compute again.",
+      __FILE__, __LINE__);
+    CHECK_ZERO(Compute());
     }
 
   return 0;

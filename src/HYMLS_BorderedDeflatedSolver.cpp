@@ -77,6 +77,8 @@ int BorderedDeflatedSolver::SetupDeflation()
   if (numEigs_ <= 0)
     return -1;
 
+  CHECK_ZERO(BorderedSolver::setBorder(Teuchos::null, Teuchos::null));
+
   precEigs_ = EigsPrec(numEigs_);
   numEigs_ = precEigs_->numVecs;
 

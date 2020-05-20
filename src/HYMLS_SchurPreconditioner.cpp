@@ -220,7 +220,11 @@ int SchurPreconditioner::Initialize()
     }
 
   numInitialize_++;
+
   initialized_ = true;
+  computed_ = false;
+  haveBorder_ = false;
+
   timeInitialize_ += time_->ElapsedTime();
 
   return 0;
@@ -270,8 +274,6 @@ int SchurPreconditioner::Compute()
     {
     CHECK_ZERO(AssembleTransformAndDrop());
     }
-
-  CHECK_ZERO(ComputeBorder());
 
   CHECK_ZERO(ComputeNextLevel());
 
@@ -606,6 +608,8 @@ int SchurPreconditioner::ComputeNextLevel()
   HYMLS_DEBUG("Initialize solver for reduced Schur");
   CHECK_ZERO(reducedSchurSolver_->Initialize());
 
+  CHECK_ZERO(ComputeBorder());
+
   // compute solver for reduced Schur
   HYMLS_DEBUG("compute coarse solver");
   int ierr = reducedSchurSolver_->Compute();
@@ -634,9 +638,22 @@ int SchurPreconditioner::ComputeBorder()
   CHECK_ZERO(ApplyOT(false, *borderV_));
   CHECK_ZERO(ApplyOT(true, *borderW_));
 
+  vsumBorderV_ = Teuchos::rcp(new Epetra_MultiVector(*vsumMap_, V_->NumVectors()));
+  vsumBorderW_ = Teuchos::rcp(new Epetra_MultiVector(*vsumMap_, W_->NumVectors()));
+
   // form V_2 and W_2 by import operations (V_1 and W_1 are views of V_ and W_)
   CHECK_ZERO(vsumBorderV_->Import(*borderV_, *vsumImporter_, Insert));
   CHECK_ZERO(vsumBorderW_->Import(*borderW_, *vsumImporter_, Insert));
+
+  // set border in next level problem
+  Teuchos::RCP<HYMLS::BorderedOperator> borderedNextLevel =
+    Teuchos::rcp_dynamic_cast<HYMLS::BorderedOperator>(reducedSchurSolver_);
+  if (Teuchos::is_null(borderedNextLevel))
+    {
+    HYMLS::Tools::Error("Next level solver can't handle a border!", __FILE__, __LINE__);
+    }
+  HYMLS_DEBUG("call setBorder in next level precond");
+  CHECK_ZERO(borderedNextLevel->setBorder(vsumBorderV_, vsumBorderW_, C_));
 
   return 0;
   }
@@ -1457,8 +1474,17 @@ int SchurPreconditioner::setBorder(Teuchos::RCP<const Epetra_MultiVector> V,
 
   if (V == Teuchos::null)
     {
-    //unset
+    // Unset the border
     haveBorder_ = false;
+
+    Teuchos::RCP<HYMLS::BorderedOperator> borderedNextLevel =
+      Teuchos::rcp_dynamic_cast<HYMLS::BorderedOperator>(reducedSchurSolver_);
+    if (Teuchos::is_null(borderedNextLevel))
+      {
+      HYMLS::Tools::Error("Next level solver can't handle a border!", __FILE__, __LINE__);
+      }
+    CHECK_ZERO(borderedNextLevel->setBorder(V, W, C));
+
     return 0;
     }
 
@@ -1466,30 +1492,9 @@ int SchurPreconditioner::setBorder(Teuchos::RCP<const Epetra_MultiVector> V,
   W_ = W;
   C_ = C;
 
-  if (!IsInitialized())
-    {
-    Tools::Error("SchurPreconditioner not yet initialized", __FILE__, __LINE__);
-    }
-
-  vsumBorderV_ = Teuchos::rcp(new Epetra_MultiVector(*vsumMap_, V_->NumVectors()));
-  vsumBorderW_ = Teuchos::rcp(new Epetra_MultiVector(*vsumMap_, W_->NumVectors()));
-
   haveBorder_ = true;
-  CHECK_ZERO(ComputeBorder());
+  computed_ = false;
 
-  // set border in next level problem
-  Teuchos::RCP<HYMLS::BorderedOperator> borderedNextLevel =
-    Teuchos::rcp_dynamic_cast<HYMLS::BorderedOperator>(reducedSchurSolver_);
-  if (Teuchos::is_null(borderedNextLevel))
-    {
-    HYMLS::Tools::Error("next level solver can't handle border!", __FILE__, __LINE__);
-    }
-  HYMLS_DEBUG("call setBorder in next level precond");
-  CHECK_ZERO(borderedNextLevel->setBorder(vsumBorderV_, vsumBorderW_, C_));
-  if (myLevel_ + 1 == maxLevel_)
-    {
-    CHECK_ZERO(reducedSchurSolver_->Compute());
-    }
   return 0;
   }
 

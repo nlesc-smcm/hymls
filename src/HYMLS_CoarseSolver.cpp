@@ -117,6 +117,8 @@ int CoarseSolver::Initialize()
   restrictB_ = Teuchos::rcp(new ::HYMLS::EpetraExt::RestrictedMultiVectorWrapper());
 
   initialized_ = true;
+  computed_ = false;
+  haveBorder_ = false;
 
   return 0;
   }
