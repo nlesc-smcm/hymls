@@ -105,7 +105,7 @@ public:
   Teuchos::RCP<HYMLS::Solver> getHymls() const {return hymls_;}
   
   //! set border on the HYMLS solver
-  int setBorder(Teuchos::RCP<const Epetra_MultiVector> const &V);
+  int SetBorder(Teuchos::RCP<const Epetra_MultiVector> const &V);
 
 protected:
   

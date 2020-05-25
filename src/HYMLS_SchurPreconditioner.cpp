@@ -655,8 +655,8 @@ int SchurPreconditioner::ComputeBorder()
     {
     HYMLS::Tools::Error("Next level solver can't handle a border!", __FILE__, __LINE__);
     }
-  HYMLS_DEBUG("call setBorder in next level precond");
-  CHECK_ZERO(borderedNextLevel->setBorder(vsumBorderV_, vsumBorderW_, C_));
+  HYMLS_DEBUG("call SetBorder in next level precond");
+  CHECK_ZERO(borderedNextLevel->SetBorder(vsumBorderV_, vsumBorderW_, C_));
 
   return 0;
   }
@@ -1469,11 +1469,11 @@ int SchurPreconditioner::UpdateVsumRhs(const Epetra_MultiVector &B, Epetra_Multi
 // the border for M22 and pass it to the next level. M12 and M21
 // are currently assumed to be zero (block diagonal preconditioner)
 //
-int SchurPreconditioner::setBorder(Teuchos::RCP<const Epetra_MultiVector> V,
+int SchurPreconditioner::SetBorder(Teuchos::RCP<const Epetra_MultiVector> V,
   Teuchos::RCP<const Epetra_MultiVector> W,
   Teuchos::RCP<const Epetra_SerialDenseMatrix> C)
   {
-  HYMLS_LPROF(label_, "setBorder");
+  HYMLS_LPROF(label_, "SetBorder");
 
   if (V == Teuchos::null)
     {
@@ -1486,7 +1486,7 @@ int SchurPreconditioner::setBorder(Teuchos::RCP<const Epetra_MultiVector> V,
       {
       HYMLS::Tools::Error("Next level solver can't handle a border!", __FILE__, __LINE__);
       }
-    CHECK_ZERO(borderedNextLevel->setBorder(V, W, C));
+    CHECK_ZERO(borderedNextLevel->SetBorder(V, W, C));
 
     return 0;
     }

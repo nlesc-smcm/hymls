@@ -87,7 +87,7 @@ public:
   //!
   //! is being solved. This means that the solution will be perpendicular to V0
   //! If the function is called repeatedly, the 'old' vectors are replaced.
-  virtual int setBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
+  virtual int SetBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
     Teuchos::RCP<const Epetra_MultiVector> const &W=Teuchos::null,
     Teuchos::RCP<const Epetra_SerialDenseMatrix> const &C=Teuchos::null);
 

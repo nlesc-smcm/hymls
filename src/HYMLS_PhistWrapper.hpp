@@ -93,7 +93,7 @@ void PhistPreconTraits<HYMLS::Preconditioner>::update(void const* P, void* aux, 
   // Epetra_SerialDenseMatrix has no PutScalar, so we scale it to 0:
   C->Scale(0.0);
 
-  PHIST_CHK_IERR(*iflag=Prec->setBorder(V,BV,C),*iflag);
+  PHIST_CHK_IERR(*iflag=Prec->SetBorder(V,BV,C),*iflag);
   *iflag=0;
 }
 

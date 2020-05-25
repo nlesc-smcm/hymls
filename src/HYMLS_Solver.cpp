@@ -183,11 +183,11 @@ int Solver::getNumIter() const
   return solver_->getNumIter();
   }
 
-int Solver::setBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
+int Solver::SetBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
   Teuchos::RCP<const Epetra_MultiVector> const &W,
   Teuchos::RCP<const Epetra_SerialDenseMatrix> const &C)
   {
-  return solver_->setBorder(V, W, C);
+  return solver_->SetBorder(V, W, C);
   }
 
 int Solver::setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V,

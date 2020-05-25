@@ -225,7 +225,7 @@ public:
   //! The lower right 2x2 block is the new 'bordered Schur Complement' and is handled by class
   //! SchurPreconditioner.
   //!
-  int setBorder(Teuchos::RCP<const Epetra_MultiVector> V,
+  int SetBorder(Teuchos::RCP<const Epetra_MultiVector> V,
     Teuchos::RCP<const Epetra_MultiVector> W=Teuchos::null,
     Teuchos::RCP<const Epetra_SerialDenseMatrix> C=Teuchos::null);
 

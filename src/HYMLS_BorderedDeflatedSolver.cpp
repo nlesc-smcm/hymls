@@ -77,7 +77,7 @@ int BorderedDeflatedSolver::SetupDeflation()
   if (numEigs_ <= 0)
     return -1;
 
-  CHECK_ZERO(BorderedSolver::setBorder(Teuchos::null, Teuchos::null));
+  CHECK_ZERO(BorderedSolver::SetBorder(Teuchos::null, Teuchos::null));
 
   precEigs_ = EigsPrec(numEigs_);
   numEigs_ = precEigs_->numVecs;
@@ -116,7 +116,7 @@ int BorderedDeflatedSolver::SetupDeflation()
   Epetra_MultiVector AV(*deflationVectors_);
   // TODO: Filter A for zero vectors (vectors that the prec captures)
   CHECK_ZERO(BaseSolver::ApplyMatrix(*deflationVectors_, AV));
-  CHECK_ZERO(BorderedSolver::setBorder(deflationVectors_, massDeflationVectors_));
+  CHECK_ZERO(BorderedSolver::SetBorder(deflationVectors_, massDeflationVectors_));
 
   deflationRhs_ = Teuchos::rcp(new Epetra_MultiVector(*deflationVectors_));
   Epetra_MultiVector tmp(*deflationVectors_);

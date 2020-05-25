@@ -102,7 +102,7 @@ Teuchos::RCP<const Teuchos::ParameterList> BorderedSolver::getValidParameters() 
   return validParams_;
   }
 
-int BorderedSolver::setBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
+int BorderedSolver::SetBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
   Teuchos::RCP<const Epetra_MultiVector> const &W,
   Teuchos::RCP<const Epetra_SerialDenseMatrix> const &C)
   {
@@ -120,7 +120,7 @@ int BorderedSolver::setBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
     = Teuchos::rcp_dynamic_cast<BorderedOperator>(precond_);
   if (bprec != Teuchos::null)
     {
-    CHECK_ZERO(bprec->setBorder(V_, W_, C_));
+    CHECK_ZERO(bprec->SetBorder(V_, W_, C_));
     }
 
   return 0;

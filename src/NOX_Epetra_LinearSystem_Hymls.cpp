@@ -187,7 +187,7 @@ reset(Teuchos::ParameterList& p)
 }
 
 int NOX::Epetra::LinearSystemHymls::
-setBorder(Teuchos::RCP<const Epetra_MultiVector> const &V)
+SetBorder(Teuchos::RCP<const Epetra_MultiVector> const &V)
   {
   V_ = V;
   return 0;
@@ -202,7 +202,7 @@ createPreconditioner(const NOX::Epetra::Vector& x, Teuchos::ParameterList& p,
   if (massMatrix_!=Teuchos::null)
     hymls_->SetMassMatrix(massMatrix_);
   if (V_ != Teuchos::null)
-    hymls_->setBorder(V_);
+    hymls_->SetBorder(V_);
   hymls_->SetupDeflation();
   return true;
   }
@@ -215,7 +215,7 @@ recomputePreconditioner(const NOX::Epetra::Vector& x, Teuchos::ParameterList& p)
   if (massMatrix_!=Teuchos::null)
     hymls_->SetMassMatrix(massMatrix_);
   if (V_ != Teuchos::null)
-    hymls_->setBorder(V_);
+    hymls_->SetBorder(V_);
   hymls_->SetupDeflation();
   return true;
   }

@@ -99,7 +99,7 @@ int BorderedOperator::ApplyInverse(const BorderedVector& X, BorderedVector& Y) c
   return ierr;
   }
 
-int BorderedOperator::setBorder(Teuchos::RCP<const Epetra_MultiVector> V,
+int BorderedOperator::SetBorder(Teuchos::RCP<const Epetra_MultiVector> V,
   Teuchos::RCP<const Epetra_MultiVector> W,
   Teuchos::RCP<const Epetra_SerialDenseMatrix> C)
   {

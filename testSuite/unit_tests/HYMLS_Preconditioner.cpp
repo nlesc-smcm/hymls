@@ -133,7 +133,7 @@ TEUCHOS_UNIT_TEST(Preconditioner, SerialComm)
   prec->Compute();
   }
 
-TEUCHOS_UNIT_TEST(Preconditioner, setBorder)
+TEUCHOS_UNIT_TEST(Preconditioner, SetBorder)
   {
   Teuchos::RCP<Epetra_MpiComm> comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
   DISABLE_OUTPUT;
@@ -147,7 +147,7 @@ TEUCHOS_UNIT_TEST(Preconditioner, setBorder)
   Teuchos::RCP<Epetra_MultiVector> V = Teuchos::rcp(new Epetra_MultiVector(map, 1));
   V->Random();
 
-  prec->setBorder(V);
+  prec->SetBorder(V);
 
   // Import the vector since the matrix might have a different map
   Teuchos::RCP<const Epetra_MultiVector> precV = prec->V();
@@ -159,7 +159,7 @@ TEUCHOS_UNIT_TEST(Preconditioner, setBorder)
   TEST_FLOATING_EQUALITY(HYMLS::UnitTests::NormInfAminusB(importedV, *V), 0.0, 1e-12);
   }
 
-TEUCHOS_UNIT_TEST(Preconditioner, setBorderNull)
+TEUCHOS_UNIT_TEST(Preconditioner, SetBorderNull)
   {
   Teuchos::RCP<Epetra_MpiComm> comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
   DISABLE_OUTPUT;
@@ -170,7 +170,7 @@ TEUCHOS_UNIT_TEST(Preconditioner, setBorderNull)
   prec->Compute();
 
   // Set the border to null
-  prec->setBorder(Teuchos::null);
+  prec->SetBorder(Teuchos::null);
   TEST_EQUALITY(prec->V(), Teuchos::null);
 
   // Set the border to something else
@@ -178,11 +178,11 @@ TEUCHOS_UNIT_TEST(Preconditioner, setBorderNull)
   Teuchos::RCP<Epetra_MultiVector> V = Teuchos::rcp(new Epetra_MultiVector(map, 1));
   V->Random();
 
-  prec->setBorder(V);
+  prec->SetBorder(V);
   TEST_INEQUALITY(prec->V(), Teuchos::null);
 
   // Check if we can set the border to null again
-  prec->setBorder(Teuchos::null);
+  prec->SetBorder(Teuchos::null);
   TEST_EQUALITY(prec->V(), Teuchos::null);
   }
 

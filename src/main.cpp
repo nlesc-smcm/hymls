@@ -362,7 +362,7 @@ for (int f=0;f<numComputes;f++)
 
   if (nullSpace!=Teuchos::null)
     {
-    CHECK_ZERO(solver->setBorder(nullSpace));
+    CHECK_ZERO(solver->SetBorder(nullSpace));
     }
 
   if (precond!=Teuchos::null) 

@@ -581,7 +581,7 @@ int Preconditioner::ComputeBorder()
     HYMLS::Tools::Error("No bordered interface specified for the Schur complement solver", __FILE__, __LINE__);
     }
 
-  CHECK_ZERO(borderedPrec->setBorder(borderSchurV_, borderSchurW_, borderSchurC_));
+  CHECK_ZERO(borderedPrec->SetBorder(borderSchurV_, borderSchurW_, borderSchurC_));
 
   return 0;
   }
@@ -839,12 +839,12 @@ Teuchos::RCP<Epetra_Vector> Preconditioner::CreateTestVector()
 // The lower right 2x2 block is the new 'bordered Schur Complement' and is handled by class
 // SchurPreconditioner.
 //
-int Preconditioner::setBorder(
+int Preconditioner::SetBorder(
   Teuchos::RCP<const Epetra_MultiVector> V,
   Teuchos::RCP<const Epetra_MultiVector> W,
   Teuchos::RCP<const Epetra_SerialDenseMatrix> C)
   {
-  HYMLS_LPROF2(label_,"setBorder");
+  HYMLS_LPROF2(label_,"SetBorder");
 
   V_ = Teuchos::null;
   W_ = Teuchos::null;
@@ -867,11 +867,11 @@ int Preconditioner::setBorder(
       HYMLS::Tools::Error("No bordered interface specified for the Schur complement solver", __FILE__, __LINE__);
       }
 
-    CHECK_ZERO(borderedPrec->setBorder(borderSchurV_, borderSchurW_, borderSchurC_));
+    CHECK_ZERO(borderedPrec->SetBorder(borderSchurV_, borderSchurW_, borderSchurC_));
 
     if (IsComputed())
       {
-      Tools::Warning("Called setBorder after computing the preconditioner. Calling compute again.",
+      Tools::Warning("Called SetBorder after computing the preconditioner. Calling compute again.",
         __FILE__, __LINE__);
       CHECK_ZERO(Compute());
       }
@@ -915,7 +915,7 @@ int Preconditioner::setBorder(
 
   if (IsComputed())
     {
-    Tools::Warning("Called setBorder after computing the preconditioner. Calling compute again.",
+    Tools::Warning("Called SetBorder after computing the preconditioner. Calling compute again.",
       __FILE__, __LINE__);
     CHECK_ZERO(Compute());
     }

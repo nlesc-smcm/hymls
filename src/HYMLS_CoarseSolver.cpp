@@ -429,11 +429,11 @@ const Epetra_Map & CoarseSolver::OperatorRangeMap() const
   return matrix_->OperatorRangeMap();
   }
 
-int CoarseSolver::setBorder(Teuchos::RCP<const Epetra_MultiVector> V,
+int CoarseSolver::SetBorder(Teuchos::RCP<const Epetra_MultiVector> V,
   Teuchos::RCP<const Epetra_MultiVector> W,
   Teuchos::RCP<const Epetra_SerialDenseMatrix> C)
   {
-  HYMLS_LPROF(label_, "setBorder");
+  HYMLS_LPROF(label_, "SetBorder");
 
   if (V == Teuchos::null)
     {
