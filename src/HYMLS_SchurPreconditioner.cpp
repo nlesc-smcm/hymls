@@ -583,7 +583,9 @@ int SchurPreconditioner::ComputeNextLevel()
       //TODO: move the direct solver thing to the Preconditioner class and rename
       //      the SchurPreconditioner SchurApproximation. Then this call can be put
       //      outside the if statement because we will always create a Preconditioner
-      //      object for the reduced problem.
+      //      object for the reduced problem (this is partially done, but we still
+      //      also call the direct solver here since this is probably faster, but
+      //      this has to be checked).
       reducedSchurSolver_ = Teuchos::rcp(new
         Preconditioner(reducedSchur, nextLevelParams,
           nextTestVector, myLevel_ + 1, nextLevelHID_));
