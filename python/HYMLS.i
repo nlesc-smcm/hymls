@@ -4,10 +4,14 @@
 
 #include "HYMLS_Preconditioner.hpp"
 #include "HYMLS_Solver.hpp"
+#include "HYMLS_CartesianPartitioner.hpp"
+#include "HYMLS_SkewCartesianPartitioner.hpp"
 %}
 
 %include "HYMLS_Preconditioner.hpp"
 %include "HYMLS_Solver.hpp"
+%include "HYMLS_CartesianPartitioner.hpp"
+%include "HYMLS_SkewCartesianPartitioner.hpp"
 
 %extend HYMLS::Preconditioner
 {
@@ -27,5 +31,31 @@
     int ApplyInverse(Teuchos::RCP<Epetra_MultiVector> x, Teuchos::RCP<Epetra_MultiVector> y)
     {
         return self->ApplyInverse(*x, *y);
+    }
+}
+
+%extend HYMLS::CartesianPartitioner
+{
+    CartesianPartitioner(Teuchos::RCP<Teuchos::ParameterList> p, Teuchos::RCP<Epetra_Comm> c)
+    {
+        return new HYMLS::CartesianPartitioner(Teuchos::null, p, *c);
+    }
+
+    Teuchos::RCP<Epetra_Map> Map()
+    {
+        return Teuchos::rcp(new Epetra_Map(*self->GetMap()));
+    }
+}
+
+%extend HYMLS::SkewCartesianPartitioner
+{
+    SkewCartesianPartitioner(Teuchos::RCP<Teuchos::ParameterList> p, Teuchos::RCP<Epetra_Comm> c)
+    {
+        return new HYMLS::SkewCartesianPartitioner(Teuchos::null, p, *c);
+    }
+
+    Teuchos::RCP<Epetra_Map> Map()
+    {
+        return Teuchos::rcp(new Epetra_Map(*self->GetMap()));
     }
 }
