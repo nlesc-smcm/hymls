@@ -57,6 +57,7 @@ enable_testing()
 
 add_subdirectory(src)
 add_subdirectory(testSuite)
+add_subdirectory(python)
 
 ####################
 # uninstall target #
