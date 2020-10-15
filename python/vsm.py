@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import numpy
 import tempfile
@@ -39,6 +40,52 @@ def main():
     if len(sys.argv) > 3:
         dof = int(sys.argv[3])
 
+    index_map = None
+
+    if len(sys.argv) > 4:
+        # Parse hid_deb_data
+        level = 1
+        if len(sys.argv) > 5:
+            level = int(sys.argv[5])
+        with open(sys.argv[4], 'r') as f:
+            data = f.read()
+            matches = re.findall('p\{%d\}\{1\}\.groups\{(\d+)\} = (.*?\});' % level, data, flags=re.DOTALL)
+            print(matches)
+            groups = []
+            for i in matches:
+                s = i[1].replace('...','').replace('{','[').replace('}',']')
+                print(eval(s))
+                groups.append(eval(s))
+
+            index = 1
+            index_map = [0] * (n+1)
+            for i in groups:
+                for k in i[0]:
+                    k += 1
+                    # if k not in index_map:
+                    #     index_map.append(k)
+                    if index_map[k] == 0:
+                        index_map[k] = index
+                        index += 1
+            for i in groups:
+                for j in range(1,len(i)):
+                    for k in i[j]:
+                        k += 1
+                        if index_map[k] == 0:
+                            index_map[k] = index
+                            index += 1
+        print(index_map)
+    elif dof > 0:
+        # 1 -> 1
+        # 4 -> 2
+        # 7 -> 3
+        index = 1
+        index_map = [0] * (n+1)
+        for i in range(1, dof+1):
+            for j in range(i, n+1, dof):
+                index_map[j] = index
+                index += 1
+
     with open(sys.argv[1], 'r') as f:
         first = True
         idx = 0
@@ -71,14 +118,7 @@ def main():
             rows[row].append((col, val))
 
     # Reindex to group variables together
-    if dof > 0:
-        index = 1
-        index_map = [0] * (n+1)
-        for i in range(1, dof+1):
-            for j in range(i, n+1, dof):
-                index_map[j] = index
-                index += 1
-
+    if index_map:
         reindexed_rows = list()
         while len(reindexed_rows) <= n:
             reindexed_rows.append(list())
