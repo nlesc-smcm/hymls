@@ -2,16 +2,26 @@
 %{
 #include "Epetra_CrsMatrix.h"
 
+#include "HYMLS_Tools.hpp"
 #include "HYMLS_Preconditioner.hpp"
 #include "HYMLS_Solver.hpp"
 #include "HYMLS_CartesianPartitioner.hpp"
 #include "HYMLS_SkewCartesianPartitioner.hpp"
 %}
 
+%include "HYMLS_Tools.hpp"
 %include "HYMLS_Preconditioner.hpp"
 %include "HYMLS_Solver.hpp"
 %include "HYMLS_CartesianPartitioner.hpp"
 %include "HYMLS_SkewCartesianPartitioner.hpp"
+
+%extend HYMLS::Tools
+{
+    static void InitializeIO(Teuchos::RCP<Epetra_Comm> c)
+    {
+        HYMLS::Tools::InitializeIO(c);
+    }
+}
 
 %extend HYMLS::Preconditioner
 {

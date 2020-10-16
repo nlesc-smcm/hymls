@@ -1,3 +1,4 @@
+from .HYMLS import Tools
 from .HYMLS import Preconditioner
 from .HYMLS import Solver
 from .HYMLS import CartesianPartitioner
