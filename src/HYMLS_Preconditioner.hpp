@@ -80,7 +80,7 @@ public:
   Preconditioner(Teuchos::RCP<const Epetra_RowMatrix> K,
     Teuchos::RCP<Teuchos::ParameterList> params,
     Teuchos::RCP<Epetra_Vector> testVector=Teuchos::null,
-    int myLevel=1,
+    int myLevel=0,
     Teuchos::RCP<const OverlappingPartitioner> hid=Teuchos::null);
 
   //! destructor

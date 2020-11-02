@@ -74,7 +74,7 @@ Teuchos::RCP<TestablePreconditioner> createPreconditioner(
 
   Teuchos::ParameterList &precList = params->sublist("Preconditioner");
   precList.set("Separator Length", 4);
-  precList.set("Number of Levels", 1);
+  precList.set("Number of Levels", 0);
 
   HYMLS::CartesianPartitioner part(Teuchos::null, params, *comm);
   part.Partition(true);
@@ -202,7 +202,7 @@ Teuchos::RCP<TestablePreconditioner> create2DStokesPreconditioner(
   solverList.set("Separator Length", 4);
   solverList.set("Coarsening Factor", 2);
   solverList.set("Partitioner", "Skew Cartesian");
-  solverList.set("Number of Levels", 3);
+  solverList.set("Number of Levels", 2);
 
   for (int i = 0; i < 2; i++)
     {

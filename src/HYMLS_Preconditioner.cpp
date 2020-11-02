@@ -101,7 +101,7 @@ int Preconditioner::SetParameters(Teuchos::ParameterList& List)
   sdSolverType_ = PL().get("Subdomain Solver Type", "Sparse");
   numThreadsSD_ = PL().get("Subdomain Solver Num Threads", numThreadsSD_);
   bgridTransform_ = PL().get("B-Grid Transform", false);
-  maxLevel_ = PL().get("Number of Levels", 2);
+  maxLevel_ = PL().get("Number of Levels", 1);
 
   if (schurPrec_!=Teuchos::null)
     {
@@ -136,7 +136,7 @@ Preconditioner::getValidParameters() const
   if (validParams_!=Teuchos::null) return validParams_;
   HYMLS_LPROF3(label_,"getValidParameters");
 
-  validParams_=Teuchos::rcp(new Teuchos::ParameterList());
+  validParams_ = Teuchos::rcp(new Teuchos::ParameterList());
 
   Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
     partValidator = Teuchos::rcp(
@@ -147,14 +147,14 @@ Preconditioner::getValidParameters() const
     "Type of partitioner to be used to define the subdomains",
     partValidator);
 
-  VPL().set("Fix Pressure Level",true,
+  VPL().set("Fix Pressure Level", true,
     "Put a Dirichlet condition on a single P-node on the coarsest grid");
 
   VPL().set("Eliminate Retained Nodes Together", true,
-      "Eliminate split separator groups formed by retaining more nodes per separator together");
+    "Eliminate split separator groups formed by retaining more nodes per separator together");
 
   VPL().set("Eliminate Velocities Together", false,
-      "Eliminate non-Vsum velocities (u,v,w) that are on the same separaotor together");
+    "Eliminate non-Vsum velocities (u,v,w) that are on the same separaotor together");
 
   for (int i = 1; i < 5; i++)
     {
@@ -199,16 +199,16 @@ Preconditioner::getValidParameters() const
       varValidator);
     }
 
-  VPL().set("Subdivide Separators",false,
+  VPL().set("Subdivide Separators", false,
     "this was implemented for the rotated B-grid and is not intended for any other "
     "problems right now");
-  VPL().set("Subdivide based on variable",-1,
+  VPL().set("Subdivide based on variable", -1,
     "decide to which variables on a separator to apply the OT based on couplings to \n"
     " this variable (typically the pressure). Not intended for general use");
 
-  VPL().set("Number of Levels",2,
-    "number of levels - on level k a direct solver is used. k=1 is a direct method\n"
-    " for the complete problem, k=2 is the standard two-level scheme, k>2 means \n"
+  VPL().set("Number of Levels", 1,
+    "number of levels - on level k a direct solver is used. k = 0 is a direct method\n"
+    " for the complete problem, k = 1 is the standard 'two-level' scheme, k > 1 means \n"
     "recursive application of the approximation technique");
 
   Teuchos::RCP<Teuchos::StringToIntegralParameterEntryValidator<int> >
@@ -219,22 +219,22 @@ Preconditioner::getValidParameters() const
   VPL().set("Subdomain Solver Type", "Sparse",
     "Sparse or dense subdomain solver?", solverTypeValidator);
 
-  VPL().set("Dense Solvers on Level",99,
+  VPL().set("Dense Solvers on Level", 99,
     "Switch to dense subdomain solver on levels larger than this value");
 
-  VPL().set("Subdomain Solver Num Threads",-1,
+  VPL().set("Subdomain Solver Num Threads", -1,
     "Set number of OMP/MKL threads before calling subdomain solver, -1: don't "
     "(default)");
 
   // this typically doesn't need parameters, it's just lapack on small dense
   // matrices.
-  VPL().sublist("Dense Solver",false,
+  VPL().sublist("Dense Solver", false,
     "settings for serial dense solves inside the preconditioner").disableRecursiveValidation();
 
-  VPL().sublist("Sparse Solver",false,
+  VPL().sublist("Sparse Solver", false,
     "settings for serial sparse solvers (passed to Ifpack)").disableRecursiveValidation();
 
-  VPL().sublist("Coarse Solver",false,
+  VPL().sublist("Coarse Solver", false,
     "settings for serial or parallel solver used on the last level "
     " (passed to Ifpack_Amesos)").disableRecursiveValidation();
 
@@ -272,7 +272,6 @@ Preconditioner::getValidParameters() const
 
   return validParams_;
   }
-
 
 // Computes all it is necessary to initialize the preconditioner.
 int Preconditioner::Initialize()
@@ -751,7 +750,7 @@ std::ostream& Preconditioner::Print(std::ostream& os) const
 void Preconditioner::Visualize(std::string mfilename, bool no_recurse) const
   {
   HYMLS_LPROF2(label_,"Visualize");
-  if ( (comm_->MyPID()==0) && (myLevel_==1))
+  if ( (comm_->MyPID()==0) && (myLevel_==0))
     {
     std::ofstream ofs(mfilename.c_str(),std::ios::out);
     ofs << std::endl;
@@ -1078,7 +1077,7 @@ int Preconditioner::TransformMatrix()
   if (!bgridTransform_)
     return 0;
 
-  if (myLevel_ == 1)
+  if (myLevel_ == 0)
     {
     Tools::StartTiming("TransformMatix: Construct T");
     Epetra_Map const &map = matrix_->RowMatrixRowMap();
