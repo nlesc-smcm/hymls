@@ -235,8 +235,8 @@ int SparseDirectSolver::SetParameters(Teuchos::ParameterList& params)
     }
 #endif
 
-  ownOrdering_=params.get("Custom Ordering",false);
-  ownScaling_=params.get("Custom Scaling",false);
+  ownOrdering_ = params.get("Custom Ordering", true);
+  ownScaling_ = params.get("Custom Scaling", true);
 
   if (ownOrdering_)
     {
