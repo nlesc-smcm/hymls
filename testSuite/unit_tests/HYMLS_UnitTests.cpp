@@ -119,5 +119,16 @@ double NormInfAminusB(const Epetra_SerialDenseMatrix& A, const Epetra_SerialDens
     return NormInfAminusB(*DenseUtils::CreateView(A), *DenseUtils::CreateView(B));
 }
 
+Teuchos::RCP<Epetra_SerialDenseMatrix> RandomSerialDenseMatrix(int m, int n, const Epetra_Comm& comm)
+{
+    Teuchos::RCP<Epetra_SerialDenseMatrix> A = Teuchos::rcp(new Epetra_SerialDenseMatrix(m, n));
+    A->Random();
+
+    Teuchos::RCP<Epetra_SerialDenseMatrix> A_max = Teuchos::rcp(new Epetra_SerialDenseMatrix(m, n));
+
+    comm.MaxAll(A->A(), A_max->A(), m * n);
+
+    return A_max;
+}
 
 }} // namespaces HYMLS::UnitTests

@@ -58,5 +58,7 @@ double NormInfAminusB(const Epetra_MultiVector& A, const Epetra_MultiVector& B);
 //! compute the inf-norm of the difference of two SerialDenseMatrices
 double NormInfAminusB(const Epetra_SerialDenseMatrix& A, const Epetra_SerialDenseMatrix& B);
 
+Teuchos::RCP<Epetra_SerialDenseMatrix> RandomSerialDenseMatrix(int m, int n, const Epetra_Comm& comm);
+
 }} // namespaces HYMLS::UnitTests
 #endif

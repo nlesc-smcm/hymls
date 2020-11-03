@@ -286,8 +286,7 @@ TEUCHOS_UNIT_TEST(Preconditioner, BorderedApplyInverse)
   V->Random();
   Teuchos::RCP<Epetra_MultiVector> W = Teuchos::rcp(new Epetra_MultiVector(map, 2));
   W->Random();
-  Teuchos::RCP<Epetra_SerialDenseMatrix> C = Teuchos::rcp(new Epetra_SerialDenseMatrix(2, 2));
-  C->Random();
+  Teuchos::RCP<Epetra_SerialDenseMatrix> C = HYMLS::UnitTests::RandomSerialDenseMatrix(2, 2, *comm);
 
   prec->SetBorder(V, W, C);
 
@@ -297,11 +296,9 @@ TEUCHOS_UNIT_TEST(Preconditioner, BorderedApplyInverse)
   Teuchos::RCP<Epetra_MultiVector> X_EX = Teuchos::rcp(new Epetra_MultiVector(map, 2));
   X_EX->Random();
 
-  Teuchos::RCP<Epetra_SerialDenseMatrix> X2 = Teuchos::rcp(new Epetra_SerialDenseMatrix(2, 2));
-  X2->Random();
+  Teuchos::RCP<Epetra_SerialDenseMatrix> X2 = HYMLS::UnitTests::RandomSerialDenseMatrix(2, 2, *comm);
 
-  Teuchos::RCP<Epetra_SerialDenseMatrix> X_EX2 = Teuchos::rcp(new Epetra_SerialDenseMatrix(2, 2));
-  X_EX2->Random();
+  Teuchos::RCP<Epetra_SerialDenseMatrix> X_EX2 = HYMLS::UnitTests::RandomSerialDenseMatrix(2, 2, *comm);
 
   Teuchos::RCP<Epetra_MultiVector> B = Teuchos::rcp(new Epetra_MultiVector(map, 2));
   prec->Matrix().Multiply('N', *X_EX, *B);
