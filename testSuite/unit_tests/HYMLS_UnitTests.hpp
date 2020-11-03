@@ -23,6 +23,7 @@ class Epetra_Map;
 
 class Epetra_IntVector;
 class Epetra_MultiVector;
+class Epetra_SerialDenseMatrix;
 
 namespace HYMLS {
 namespace UnitTests {
@@ -51,8 +52,11 @@ Teuchos::RCP<Epetra_Map> create_random_map(const Epetra_Comm& comm, long long n,
 //! compute the inf-norm of the difference of two IntVectors
 int NormInfAminusB(const Epetra_IntVector& A, const Epetra_IntVector& B);
 
-//! compute the inf-norm of the difference of two IntVectors
+//! compute the inf-norm of the difference of two MultiVectors
 double NormInfAminusB(const Epetra_MultiVector& A, const Epetra_MultiVector& B);
+
+//! compute the inf-norm of the difference of two SerialDenseMatrices
+double NormInfAminusB(const Epetra_SerialDenseMatrix& A, const Epetra_SerialDenseMatrix& B);
 
 }} // namespaces HYMLS::UnitTests
 #endif

@@ -10,8 +10,10 @@
 #include <Epetra_CrsMatrix.h>
 #include <Epetra_Util.h>
 #include <Epetra_Import.h>
+#include <Epetra_SerialDenseMatrix.h>
 
 #include "HYMLS_Macros.hpp"
+#include "HYMLS_DenseUtils.hpp"
 #include "HYMLS_MatrixBlock.hpp"
 #include "HYMLS_SchurComplement.hpp"
 #include "HYMLS_CartesianPartitioner.hpp"
@@ -156,7 +158,7 @@ TEUCHOS_UNIT_TEST(Preconditioner, SetBorder)
   importedV.Import(*precV, importer, Insert);
 
   // Check if they are the same
-  TEST_FLOATING_EQUALITY(HYMLS::UnitTests::NormInfAminusB(importedV, *V), 0.0, 1e-12);
+  TEST_COMPARE(HYMLS::UnitTests::NormInfAminusB(importedV, *V), <, 1e-12);
   }
 
 TEUCHOS_UNIT_TEST(Preconditioner, SetBorderNull)
@@ -240,4 +242,78 @@ TEUCHOS_UNIT_TEST(Preconditioner, 2DStokes)
   Teuchos::RCP<TestablePreconditioner> prec = create2DStokesPreconditioner(params, comm);
   prec->Initialize();
   prec->Compute();
+  }
+
+TEUCHOS_UNIT_TEST(Preconditioner, ApplyInverse)
+  {
+  Teuchos::RCP<Epetra_MpiComm> comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
+  DISABLE_OUTPUT;
+
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(new Teuchos::ParameterList());
+  Teuchos::RCP<TestablePreconditioner> prec = createPreconditioner(params, comm);
+  prec->Initialize();
+  prec->Compute();
+
+  Epetra_Map const &map = prec->OperatorRangeMap();
+
+  Teuchos::RCP<Epetra_MultiVector> X = Teuchos::rcp(new Epetra_MultiVector(map, 2));
+  X->Random();
+
+  Teuchos::RCP<Epetra_MultiVector> X_EX = Teuchos::rcp(new Epetra_MultiVector(map, 2));
+  X_EX->Random();
+
+  Teuchos::RCP<Epetra_MultiVector> B = Teuchos::rcp(new Epetra_MultiVector(map, 2));
+  prec->Matrix().Multiply('N', *X_EX, *B);
+
+  prec->ApplyInverse(*B, *X);
+
+  // Check if they are the same
+  TEST_COMPARE(HYMLS::UnitTests::NormInfAminusB(*X, *X_EX), <, 1e-12);
+  }
+
+TEUCHOS_UNIT_TEST(Preconditioner, BorderedApplyInverse)
+  {
+  Teuchos::RCP<Epetra_MpiComm> comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
+  DISABLE_OUTPUT;
+
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(new Teuchos::ParameterList());
+  Teuchos::RCP<TestablePreconditioner> prec = createPreconditioner(params, comm);
+  prec->Initialize();
+  prec->Compute();
+
+  Epetra_Map const &map = prec->OperatorRangeMap();
+  Teuchos::RCP<Epetra_MultiVector> V = Teuchos::rcp(new Epetra_MultiVector(map, 2));
+  V->Random();
+  Teuchos::RCP<Epetra_MultiVector> W = Teuchos::rcp(new Epetra_MultiVector(map, 2));
+  W->Random();
+  Teuchos::RCP<Epetra_SerialDenseMatrix> C = Teuchos::rcp(new Epetra_SerialDenseMatrix(2, 2));
+  C->Random();
+
+  prec->SetBorder(V, W, C);
+
+  Teuchos::RCP<Epetra_MultiVector> X = Teuchos::rcp(new Epetra_MultiVector(map, 2));
+  X->Random();
+
+  Teuchos::RCP<Epetra_MultiVector> X_EX = Teuchos::rcp(new Epetra_MultiVector(map, 2));
+  X_EX->Random();
+
+  Teuchos::RCP<Epetra_SerialDenseMatrix> X2 = Teuchos::rcp(new Epetra_SerialDenseMatrix(2, 2));
+  X2->Random();
+
+  Teuchos::RCP<Epetra_SerialDenseMatrix> X_EX2 = Teuchos::rcp(new Epetra_SerialDenseMatrix(2, 2));
+  X_EX2->Random();
+
+  Teuchos::RCP<Epetra_MultiVector> B = Teuchos::rcp(new Epetra_MultiVector(map, 2));
+  prec->Matrix().Multiply('N', *X_EX, *B);
+  B->Multiply('N', 'N', 1.0, *V, *HYMLS::DenseUtils::CreateView(*X_EX2), 1.0);
+
+  Teuchos::RCP<Epetra_SerialDenseMatrix> B2 = Teuchos::rcp(new Epetra_SerialDenseMatrix(2, 2));
+  HYMLS::DenseUtils::CreateView(*B2)->Multiply('T', 'N', 1.0, *W, *X_EX, 0.0);
+  B2->Multiply('N', 'N', 1.0, *C, *X_EX2, 1.0);
+
+  prec->ApplyInverse(*B, *B2, *X, *X2);
+
+  // Check if they are the same
+  TEST_COMPARE(HYMLS::UnitTests::NormInfAminusB(*X, *X_EX), <, 1e-12);
+  TEST_COMPARE(HYMLS::UnitTests::NormInfAminusB(*X2, *X_EX2), <, 1e-12);
   }

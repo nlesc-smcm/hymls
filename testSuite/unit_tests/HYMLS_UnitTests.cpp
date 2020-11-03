@@ -4,7 +4,9 @@
 #include "Epetra_Comm.h"
 #include "Epetra_IntVector.h"
 #include "Epetra_MultiVector.h"
+#include "Epetra_SerialDenseMatrix.h"
 
+#include "HYMLS_DenseUtils.hpp"
 #include "HYMLS_Tools.hpp"
 
 namespace HYMLS {
@@ -109,6 +111,12 @@ double NormInfAminusB(const Epetra_MultiVector& A, const Epetra_MultiVector& B)
   double global_value;
   A.Map().Comm().MaxAll(&value, &global_value, 1);
   return global_value;
+}
+
+// helper function for comparing Epetra_MultiVectors
+double NormInfAminusB(const Epetra_SerialDenseMatrix& A, const Epetra_SerialDenseMatrix& B)
+{
+    return NormInfAminusB(*DenseUtils::CreateView(A), *DenseUtils::CreateView(B));
 }
 
 
