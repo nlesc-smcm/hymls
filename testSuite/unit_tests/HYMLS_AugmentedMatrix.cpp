@@ -43,9 +43,10 @@ Teuchos::RCP<Epetra_MultiVector> merge_vector(Teuchos::RCP<Epetra_MultiVector> X
   Epetra_Import importer_X(map2, map);
   (*imported_X).Import(*X, importer_X, Insert);
 
-  for (int j = 0; j < map2.NumMyElements(); j++)
-    if (map2.GID64(j) >= map.NumGlobalElements())
-      (*imported_X)[0][j] = (*X2)(j - map.NumGlobalElements(), 0);
+  for (int k = 0; k < X->NumVectors(); k++)
+    for (int j = 0; j < map2.NumMyElements(); j++)
+      if (map2.GID64(j) >= map.NumGlobalElements())
+        (*imported_X)[k][j] = (*X2)(j - map.NumGlobalElements(), k);
 
   return imported_X;
   }
@@ -67,16 +68,16 @@ TEUCHOS_UNIT_TEST(AugmentedMatrix, ExtractMyRowCopy_Original)
   Teuchos::RCP<HYMLS::AugmentedMatrix> A2 = Teuchos::rcp(new HYMLS::AugmentedMatrix(A, V, W, C));
   Epetra_Map const &map2 = A2->OperatorRangeMap();
 
-  Teuchos::RCP<Epetra_MultiVector> X = Teuchos::rcp(new Epetra_MultiVector(map, 1));
+  Teuchos::RCP<Epetra_MultiVector> X = Teuchos::rcp(new Epetra_MultiVector(map, 2));
   X->Random();
 
-  Teuchos::RCP<Epetra_SerialDenseMatrix> X2 = Teuchos::rcp(new Epetra_SerialDenseMatrix(2, 1));
+  Teuchos::RCP<Epetra_SerialDenseMatrix> X2 = Teuchos::rcp(new Epetra_SerialDenseMatrix(2, 2));
 
-  Teuchos::RCP<Epetra_MultiVector> B = Teuchos::rcp(new Epetra_MultiVector(map, 1));
+  Teuchos::RCP<Epetra_MultiVector> B = Teuchos::rcp(new Epetra_MultiVector(map, 2));
   A->Multiply('N', *X, *B);
   B->Multiply('N', 'N', 1.0, *V, *HYMLS::DenseUtils::CreateView(*X2), 1.0);
 
-  Teuchos::RCP<Epetra_SerialDenseMatrix> B2 = Teuchos::rcp(new Epetra_SerialDenseMatrix(2, 1));
+  Teuchos::RCP<Epetra_SerialDenseMatrix> B2 = Teuchos::rcp(new Epetra_SerialDenseMatrix(2, 2));
   HYMLS::DenseUtils::CreateView(*B2)->Multiply('T', 'N', 1.0, *W, *X, 0.0);
   B2->Multiply('N', 'N', 1.0, *C, *X2, 1.0);
 
@@ -95,13 +96,16 @@ TEUCHOS_UNIT_TEST(AugmentedMatrix, ExtractMyRowCopy_Original)
     TEST_EQUALITY(ierr, 0);
     TEST_INEQUALITY(num_entries, 0);
 
-    double b_value = 0;
-    for (int j = 0; j < num_entries; j++)
-      b_value += values[j] * (*imported_X)[0][indices[j]];
+    for (int k = 0; k < B->NumVectors(); k++)
+      {
+      double b_value = 0;
+      for (int j = 0; j < num_entries; j++)
+        b_value += values[j] * (*imported_X)[k][indices[j]];
 
-    // Check if they are the same and nonzero
-    TEST_COMPARE(std::abs((*imported_B)[0][i]), >, 1e-12);
-    TEST_FLOATING_EQUALITY(b_value, (*imported_B)[0][i], 1e-12);
+      // Check if they are the same and nonzero
+      TEST_COMPARE(std::abs((*imported_B)[k][i]), >, 1e-12);
+      TEST_FLOATING_EQUALITY(b_value, (*imported_B)[k][i], 1e-12);
+      }
     }
   }
 
@@ -122,16 +126,16 @@ TEUCHOS_UNIT_TEST(AugmentedMatrix, ExtractMyRowCopy_V)
   Teuchos::RCP<HYMLS::AugmentedMatrix> A2 = Teuchos::rcp(new HYMLS::AugmentedMatrix(A, V, W, C));
   Epetra_Map const &map2 = A2->OperatorRangeMap();
 
-  Teuchos::RCP<Epetra_MultiVector> X = Teuchos::rcp(new Epetra_MultiVector(map, 1));
+  Teuchos::RCP<Epetra_MultiVector> X = Teuchos::rcp(new Epetra_MultiVector(map, 2));
   X->Random();
 
-  Teuchos::RCP<Epetra_SerialDenseMatrix> X2 = HYMLS::UnitTests::RandomSerialDenseMatrix(2, 1, *comm);
+  Teuchos::RCP<Epetra_SerialDenseMatrix> X2 = HYMLS::UnitTests::RandomSerialDenseMatrix(2, 2, *comm);
 
-  Teuchos::RCP<Epetra_MultiVector> B = Teuchos::rcp(new Epetra_MultiVector(map, 1));
+  Teuchos::RCP<Epetra_MultiVector> B = Teuchos::rcp(new Epetra_MultiVector(map, 2));
   A->Multiply('N', *X, *B);
   B->Multiply('N', 'N', 1.0, *V, *HYMLS::DenseUtils::CreateView(*X2), 1.0);
 
-  Teuchos::RCP<Epetra_SerialDenseMatrix> B2 = Teuchos::rcp(new Epetra_SerialDenseMatrix(2, 1));
+  Teuchos::RCP<Epetra_SerialDenseMatrix> B2 = Teuchos::rcp(new Epetra_SerialDenseMatrix(2, 2));
   HYMLS::DenseUtils::CreateView(*B2)->Multiply('T', 'N', 1.0, *W, *X, 0.0);
   B2->Multiply('N', 'N', 1.0, *C, *X2, 1.0);
 
@@ -150,13 +154,16 @@ TEUCHOS_UNIT_TEST(AugmentedMatrix, ExtractMyRowCopy_V)
     TEST_EQUALITY(ierr, 0);
     TEST_INEQUALITY(num_entries, 0);
 
-    double b_value = 0;
-    for (int j = 0; j < num_entries; j++)
-      b_value += values[j] * (*imported_X)[0][indices[j]];
+    for (int k = 0; k < B->NumVectors(); k++)
+      {
+      double b_value = 0;
+      for (int j = 0; j < num_entries; j++)
+        b_value += values[j] * (*imported_X)[k][indices[j]];
 
-    // Check if they are the same and nonzero
-    TEST_COMPARE(std::abs((*imported_B)[0][i]), >, 1e-12);
-    TEST_FLOATING_EQUALITY(b_value, (*imported_B)[0][i], 1e-12);
+      // Check if they are the same and nonzero
+      TEST_COMPARE(std::abs((*imported_B)[k][i]), >, 1e-12);
+      TEST_FLOATING_EQUALITY(b_value, (*imported_B)[k][i], 1e-12);
+      }
     }
   }
 
@@ -177,16 +184,16 @@ TEUCHOS_UNIT_TEST(AugmentedMatrix, ExtractMyRowCopy_W)
   Teuchos::RCP<HYMLS::AugmentedMatrix> A2 = Teuchos::rcp(new HYMLS::AugmentedMatrix(A, V, W, C));
   Epetra_Map const &map2 = A2->OperatorRangeMap();
 
-  Teuchos::RCP<Epetra_MultiVector> X = Teuchos::rcp(new Epetra_MultiVector(map, 1));
+  Teuchos::RCP<Epetra_MultiVector> X = Teuchos::rcp(new Epetra_MultiVector(map, 2));
   X->Random();
 
-  Teuchos::RCP<Epetra_SerialDenseMatrix> X2 = HYMLS::UnitTests::RandomSerialDenseMatrix(2, 1, *comm);
+  Teuchos::RCP<Epetra_SerialDenseMatrix> X2 = HYMLS::UnitTests::RandomSerialDenseMatrix(2, 2, *comm);
 
-  Teuchos::RCP<Epetra_MultiVector> B = Teuchos::rcp(new Epetra_MultiVector(map, 1));
+  Teuchos::RCP<Epetra_MultiVector> B = Teuchos::rcp(new Epetra_MultiVector(map, 2));
   A->Multiply('N', *X, *B);
   B->Multiply('N', 'N', 1.0, *V, *HYMLS::DenseUtils::CreateView(*X2), 1.0);
 
-  Teuchos::RCP<Epetra_SerialDenseMatrix> B2 = Teuchos::rcp(new Epetra_SerialDenseMatrix(2, 1));
+  Teuchos::RCP<Epetra_SerialDenseMatrix> B2 = Teuchos::rcp(new Epetra_SerialDenseMatrix(2, 2));
   HYMLS::DenseUtils::CreateView(*B2)->Multiply('T', 'N', 1.0, *W, *X, 0.0);
   B2->Multiply('N', 'N', 1.0, *C, *X2, 1.0);
 
@@ -205,13 +212,16 @@ TEUCHOS_UNIT_TEST(AugmentedMatrix, ExtractMyRowCopy_W)
     TEST_EQUALITY(ierr, 0);
     TEST_INEQUALITY(num_entries, 0);
 
-    double b_value = 0;
-    for (int j = 0; j < num_entries; j++)
-      b_value += values[j] * (*imported_X)[0][indices[j]];
+    for (int k = 0; k < B->NumVectors(); k++)
+      {
+      double b_value = 0;
+      for (int j = 0; j < num_entries; j++)
+        b_value += values[j] * (*imported_X)[k][indices[j]];
 
-    // Check if they are the same and nonzero
-    TEST_COMPARE(std::abs((*imported_B)[0][i]), >, 1e-12);
-    TEST_FLOATING_EQUALITY(b_value, (*imported_B)[0][i], 1e-12);
+      // Check if they are the same and nonzero
+      TEST_COMPARE(std::abs((*imported_B)[k][i]), >, 1e-12);
+      TEST_FLOATING_EQUALITY(b_value, (*imported_B)[k][i], 1e-12);
+      }
     }
   }
 
@@ -232,16 +242,16 @@ TEUCHOS_UNIT_TEST(AugmentedMatrix, ExtractMyRowCopy_C)
   Teuchos::RCP<HYMLS::AugmentedMatrix> A2 = Teuchos::rcp(new HYMLS::AugmentedMatrix(A, V, W, C));
   Epetra_Map const &map2 = A2->OperatorRangeMap();
 
-  Teuchos::RCP<Epetra_MultiVector> X = Teuchos::rcp(new Epetra_MultiVector(map, 1));
+  Teuchos::RCP<Epetra_MultiVector> X = Teuchos::rcp(new Epetra_MultiVector(map, 2));
   X->Random();
 
-  Teuchos::RCP<Epetra_SerialDenseMatrix> X2 = HYMLS::UnitTests::RandomSerialDenseMatrix(2, 1, *comm);
+  Teuchos::RCP<Epetra_SerialDenseMatrix> X2 = HYMLS::UnitTests::RandomSerialDenseMatrix(2, 2, *comm);
 
-  Teuchos::RCP<Epetra_MultiVector> B = Teuchos::rcp(new Epetra_MultiVector(map, 1));
+  Teuchos::RCP<Epetra_MultiVector> B = Teuchos::rcp(new Epetra_MultiVector(map, 2));
   A->Multiply('N', *X, *B);
   B->Multiply('N', 'N', 1.0, *V, *HYMLS::DenseUtils::CreateView(*X2), 1.0);
 
-  Teuchos::RCP<Epetra_SerialDenseMatrix> B2 = Teuchos::rcp(new Epetra_SerialDenseMatrix(2, 1));
+  Teuchos::RCP<Epetra_SerialDenseMatrix> B2 = Teuchos::rcp(new Epetra_SerialDenseMatrix(2, 2));
   HYMLS::DenseUtils::CreateView(*B2)->Multiply('T', 'N', 1.0, *W, *X, 0.0);
   B2->Multiply('N', 'N', 1.0, *C, *X2, 1.0);
 
@@ -260,13 +270,16 @@ TEUCHOS_UNIT_TEST(AugmentedMatrix, ExtractMyRowCopy_C)
     TEST_EQUALITY(ierr, 0);
     TEST_INEQUALITY(num_entries, 0);
 
-    double b_value = 0;
-    for (int j = 0; j < num_entries; j++)
-      b_value += values[j] * (*imported_X)[0][indices[j]];
+    for (int k = 0; k < B->NumVectors(); k++)
+      {
+      double b_value = 0;
+      for (int j = 0; j < num_entries; j++)
+        b_value += values[j] * (*imported_X)[k][indices[j]];
 
-    // Check if they are the same and nonzero
-    TEST_COMPARE(std::abs((*imported_B)[0][i]), >, 1e-12);
-    TEST_FLOATING_EQUALITY(b_value, (*imported_B)[0][i], 1e-12);
+      // Check if they are the same and nonzero
+      TEST_COMPARE(std::abs((*imported_B)[k][i]), >, 1e-12);
+      TEST_FLOATING_EQUALITY(b_value, (*imported_B)[k][i], 1e-12);
+      }
     }
   }
 
@@ -287,16 +300,16 @@ TEUCHOS_UNIT_TEST(AugmentedMatrix, ExtractMyRowCopy)
   Teuchos::RCP<HYMLS::AugmentedMatrix> A2 = Teuchos::rcp(new HYMLS::AugmentedMatrix(A, V, W, C));
   Epetra_Map const &map2 = A2->OperatorRangeMap();
 
-  Teuchos::RCP<Epetra_MultiVector> X = Teuchos::rcp(new Epetra_MultiVector(map, 1));
+  Teuchos::RCP<Epetra_MultiVector> X = Teuchos::rcp(new Epetra_MultiVector(map, 2));
   X->Random();
 
-  Teuchos::RCP<Epetra_SerialDenseMatrix> X2 = HYMLS::UnitTests::RandomSerialDenseMatrix(2, 1, *comm);
+  Teuchos::RCP<Epetra_SerialDenseMatrix> X2 = HYMLS::UnitTests::RandomSerialDenseMatrix(2, 2, *comm);
 
-  Teuchos::RCP<Epetra_MultiVector> B = Teuchos::rcp(new Epetra_MultiVector(map, 1));
+  Teuchos::RCP<Epetra_MultiVector> B = Teuchos::rcp(new Epetra_MultiVector(map, 2));
   A->Multiply('N', *X, *B);
   B->Multiply('N', 'N', 1.0, *V, *HYMLS::DenseUtils::CreateView(*X2), 1.0);
 
-  Teuchos::RCP<Epetra_SerialDenseMatrix> B2 = Teuchos::rcp(new Epetra_SerialDenseMatrix(2, 1));
+  Teuchos::RCP<Epetra_SerialDenseMatrix> B2 = Teuchos::rcp(new Epetra_SerialDenseMatrix(2, 2));
   HYMLS::DenseUtils::CreateView(*B2)->Multiply('T', 'N', 1.0, *W, *X, 0.0);
   B2->Multiply('N', 'N', 1.0, *C, *X2, 1.0);
 
@@ -315,12 +328,15 @@ TEUCHOS_UNIT_TEST(AugmentedMatrix, ExtractMyRowCopy)
     TEST_EQUALITY(ierr, 0);
     TEST_INEQUALITY(num_entries, 0);
 
-    double b_value = 0;
-    for (int j = 0; j < num_entries; j++)
-      b_value += values[j] * (*imported_X)[0][indices[j]];
+    for (int k = 0; k < B->NumVectors(); k++)
+      {
+      double b_value = 0;
+      for (int j = 0; j < num_entries; j++)
+        b_value += values[j] * (*imported_X)[k][indices[j]];
 
-    // Check if they are the same and nonzero
-    TEST_COMPARE(std::abs((*imported_B)[0][i]), >, 1e-12);
-    TEST_FLOATING_EQUALITY(b_value, (*imported_B)[0][i], 1e-12);
+      // Check if they are the same and nonzero
+      TEST_COMPARE(std::abs((*imported_B)[k][i]), >, 1e-12);
+      TEST_FLOATING_EQUALITY(b_value, (*imported_B)[k][i], 1e-12);
+      }
     }
   }
