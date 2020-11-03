@@ -208,7 +208,7 @@ int AugmentedMatrix::ExtractMyRowCopy(int MyRow, int Length, int &NumEntries,
 
     for (int i = 0; i < NumBorderVectors(); i++)
       {
-      Values[Wloc_->MyLength() + i] = (*C_)[k][i];
+      Values[Wloc_->MyLength() + i] = (*C_)(k, i);
       Indices[Wloc_->MyLength() + i] = colMap_->LID(Wloc_->Map().MaxAllGID64() + i + 1);
       }
     }
