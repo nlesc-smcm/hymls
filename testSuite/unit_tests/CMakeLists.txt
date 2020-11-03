@@ -10,6 +10,7 @@ set(SOURCES
   HYMLS_OverlappingPartitioner
   HYMLS_Preconditioner
   HYMLS_ProjectedOperator
+  HYMLS_CoarseSolver
   HYMLS_Solver
   HYMLS_SparseDirectSolver
   HYMLS_Tester
