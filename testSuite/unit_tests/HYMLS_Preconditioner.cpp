@@ -268,7 +268,7 @@ TEUCHOS_UNIT_TEST(Preconditioner, ApplyInverse)
   prec->ApplyInverse(*B, *X);
 
   // Check if they are the same
-  TEST_COMPARE(HYMLS::UnitTests::NormInfAminusB(*X, *X_EX), <, 1e-12);
+  TEST_COMPARE(HYMLS::UnitTests::NormInfAminusB(*X, *X_EX), <, 1e-10);
   }
 
 TEUCHOS_UNIT_TEST(Preconditioner, BorderedApplyInverse)
@@ -311,6 +311,6 @@ TEUCHOS_UNIT_TEST(Preconditioner, BorderedApplyInverse)
   prec->ApplyInverse(*B, *B2, *X, *X2);
 
   // Check if they are the same
-  TEST_COMPARE(HYMLS::UnitTests::NormInfAminusB(*X, *X_EX), <, 1e-12);
-  TEST_COMPARE(HYMLS::UnitTests::NormInfAminusB(*X2, *X_EX2), <, 1e-12);
+  TEST_COMPARE(HYMLS::UnitTests::NormInfAminusB(*X, *X_EX), <, 1e-10);
+  TEST_COMPARE(HYMLS::UnitTests::NormInfAminusB(*X2, *X_EX2), <, 1e-10);
   }

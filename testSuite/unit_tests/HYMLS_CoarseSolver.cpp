@@ -49,8 +49,11 @@ TEUCHOS_UNIT_TEST(CoarseSolver, ApplyInverse)
 
   Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(new Teuchos::ParameterList());
   Teuchos::RCP<HYMLS::CoarseSolver> solver = createCoarseSolver(params, comm);
-  solver->Initialize();
-  solver->Compute();
+  int ierr = solver->Initialize();
+  TEST_EQUALITY(ierr, 0);
+
+  ierr = solver->Compute();
+  TEST_EQUALITY(ierr, 0);
 
   Epetra_Map const &map = solver->OperatorRangeMap();
 
@@ -61,12 +64,14 @@ TEUCHOS_UNIT_TEST(CoarseSolver, ApplyInverse)
   X_EX->Random();
 
   Teuchos::RCP<Epetra_MultiVector> B = Teuchos::rcp(new Epetra_MultiVector(map, 2));
-  solver->Matrix().Multiply('N', *X_EX, *B);
+  ierr = solver->Matrix().Multiply('N', *X_EX, *B);
+  TEST_EQUALITY(ierr, 0);
 
-  solver->ApplyInverse(*B, *X);
+  ierr = solver->ApplyInverse(*B, *X);
+  TEST_EQUALITY(ierr, 0);
 
   // Check if they are the same
-  TEST_COMPARE(HYMLS::UnitTests::NormInfAminusB(*X, *X_EX), <, 1e-12);
+  TEST_COMPARE(HYMLS::UnitTests::NormInfAminusB(*X, *X_EX), <, 1e-10);
   }
 
 TEUCHOS_UNIT_TEST(CoarseSolver, BorderedApplyInverse)
@@ -76,7 +81,7 @@ TEUCHOS_UNIT_TEST(CoarseSolver, BorderedApplyInverse)
 
   Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(new Teuchos::ParameterList());
   Teuchos::RCP<HYMLS::CoarseSolver> solver = createCoarseSolver(params, comm);
-  solver->Initialize();
+  int ierr = solver->Initialize();
 
   Epetra_Map const &map = solver->OperatorRangeMap();
   Teuchos::RCP<Epetra_MultiVector> V = Teuchos::rcp(new Epetra_MultiVector(map, 2));
@@ -85,7 +90,11 @@ TEUCHOS_UNIT_TEST(CoarseSolver, BorderedApplyInverse)
   W->Random();
   Teuchos::RCP<Epetra_SerialDenseMatrix> C = HYMLS::UnitTests::RandomSerialDenseMatrix(2, 2, *comm);
 
-  solver->SetBorder(V, W, C);
+  ierr = solver->SetBorder(V, W, C);
+  TEST_EQUALITY(ierr, 0);
+
+  ierr = solver->Compute();
+  TEST_EQUALITY(ierr, 0);
 
   Teuchos::RCP<Epetra_MultiVector> X = Teuchos::rcp(new Epetra_MultiVector(map, 2));
   X->Random();
@@ -99,15 +108,18 @@ TEUCHOS_UNIT_TEST(CoarseSolver, BorderedApplyInverse)
 
   Teuchos::RCP<Epetra_MultiVector> B = Teuchos::rcp(new Epetra_MultiVector(map, 2));
   solver->Matrix().Multiply('N', *X_EX, *B);
-  B->Multiply('N', 'N', 1.0, *V, *HYMLS::DenseUtils::CreateView(*X_EX2), 1.0);
+  ierr = B->Multiply('N', 'N', 1.0, *V, *HYMLS::DenseUtils::CreateView(*X_EX2), 1.0);
+  TEST_EQUALITY(ierr, 0);
 
   Teuchos::RCP<Epetra_SerialDenseMatrix> B2 = Teuchos::rcp(new Epetra_SerialDenseMatrix(2, 2));
   HYMLS::DenseUtils::CreateView(*B2)->Multiply('T', 'N', 1.0, *W, *X_EX, 0.0);
-  B2->Multiply('N', 'N', 1.0, *C, *X_EX2, 1.0);
+  ierr = B2->Multiply('N', 'N', 1.0, *C, *X_EX2, 1.0);
+  TEST_EQUALITY(ierr, 0);
 
-  solver->ApplyInverse(*B, *B2, *X, *X2);
+  ierr = solver->ApplyInverse(*B, *B2, *X, *X2);
+  TEST_EQUALITY(ierr, 0);
 
   // Check if they are the same
-  TEST_COMPARE(HYMLS::UnitTests::NormInfAminusB(*X, *X_EX), <, 1e-12);
-  TEST_COMPARE(HYMLS::UnitTests::NormInfAminusB(*X2, *X_EX2), <, 1e-12);
+  TEST_COMPARE(HYMLS::UnitTests::NormInfAminusB(*X, *X_EX), <, 1e-10);
+  TEST_COMPARE(HYMLS::UnitTests::NormInfAminusB(*X2, *X_EX2), <, 1e-10);
   }
