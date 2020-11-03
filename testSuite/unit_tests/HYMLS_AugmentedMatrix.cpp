@@ -39,9 +39,23 @@ Teuchos::RCP<Epetra_CrsMatrix> createMatrix(
 Teuchos::RCP<Epetra_MultiVector> merge_vector(Teuchos::RCP<Epetra_MultiVector> X, Teuchos::RCP<Epetra_SerialDenseMatrix> X2,
   Epetra_Map const &map, Epetra_Map const &map2)
   {
-  Teuchos::RCP<Epetra_MultiVector> imported_X = Teuchos::rcp(new Epetra_MultiVector(map2, X->NumVectors()));
-  Epetra_Import importer_X(map2, map);
-  (*imported_X).Import(*X, importer_X, Insert);
+  int *global_elements = new int[map.NumMyElements() + X2->M()];
+
+  int pos = 0;
+  for (int i = 0; i < map.NumMyElements(); i++)
+    global_elements[pos++] = map.GID(i);
+  for (int i = 0; i < X2->M(); i++)
+    global_elements[pos++] = map.NumGlobalElements() + i;
+
+  Teuchos::RCP<Epetra_Map> extended_map = Teuchos::rcp(new Epetra_Map(-1, pos, global_elements, 0, map.Comm()));
+
+  Teuchos::RCP<Epetra_MultiVector> extended_X = Teuchos::rcp(
+    new Epetra_MultiVector(Copy, *extended_map, X->Values(), X->Stride(), X->NumVectors()));
+
+  Teuchos::RCP<Epetra_MultiVector> imported_X = Teuchos::rcp(
+    new Epetra_MultiVector(map2, X->NumVectors()));
+  Epetra_Import importer_X(map2, *extended_map);
+  CHECK_ZERO((*imported_X).Import(*X, importer_X, Insert));
 
   for (int k = 0; k < X->NumVectors(); k++)
     for (int j = 0; j < map2.NumMyElements(); j++)

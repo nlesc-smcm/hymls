@@ -301,7 +301,7 @@ public:
   //! Returns the number of matrix columns owned by the calling processor.
   int NumMyCols() const
     {
-    return A_->NumMyCols() + NumBorderVectors();
+    return colMap_->NumMyElements();
     }
 
   //! Returns the number of local nonzero diagonal entries, based on global row/column index comparisons.
