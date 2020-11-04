@@ -37,32 +37,50 @@ Teuchos::RCP<Epetra_CrsMatrix> createMatrix(
   }
 
 Teuchos::RCP<Epetra_MultiVector> merge_vector(Teuchos::RCP<Epetra_MultiVector> X, Teuchos::RCP<Epetra_SerialDenseMatrix> X2,
-  Epetra_Map const &map, Epetra_Map const &map2)
+  Epetra_Map const &map2)
   {
-  int *global_elements = new int[map.NumMyElements() + X2->M()];
+  Epetra_BlockMap const &map = X->Map();
 
   int pos = 0;
+  int *global_elements = new int[map.NumMyElements() + X2->M()];
   for (int i = 0; i < map.NumMyElements(); i++)
     global_elements[pos++] = map.GID(i);
   for (int i = 0; i < X2->M(); i++)
     global_elements[pos++] = map.NumGlobalElements() + i;
 
   Teuchos::RCP<Epetra_Map> extended_map = Teuchos::rcp(new Epetra_Map(-1, pos, global_elements, 0, map.Comm()));
+  delete[] global_elements;
 
-  Teuchos::RCP<Epetra_MultiVector> extended_X = Teuchos::rcp(
-    new Epetra_MultiVector(Copy, *extended_map, X->Values(), X->Stride(), X->NumVectors()));
+  Teuchos::RCP<Epetra_MultiVector> extended_X = Teuchos::rcp(new Epetra_MultiVector(*extended_map, X->NumVectors()));
 
-  Teuchos::RCP<Epetra_MultiVector> imported_X = Teuchos::rcp(
-    new Epetra_MultiVector(map2, X->NumVectors()));
+  for (int j = 0; j < X->NumVectors(); j++)
+    {
+    for (int i = 0; i < X->MyLength(); i++)
+      (*extended_X)[j][i] = (*X)[j][i];
+    for (int i = 0; i < X2->M(); i++)
+      (*extended_X)[j][i + X->MyLength()] = (*X2)(i, j);
+    }
+
+  Teuchos::RCP<Epetra_MultiVector> imported_X = Teuchos::rcp(new Epetra_MultiVector(map2, X->NumVectors()));
   Epetra_Import importer_X(map2, *extended_map);
-  CHECK_ZERO((*imported_X).Import(*X, importer_X, Insert));
-
-  for (int k = 0; k < X->NumVectors(); k++)
-    for (int j = 0; j < map2.NumMyElements(); j++)
-      if (map2.GID64(j) >= map.NumGlobalElements())
-        (*imported_X)[k][j] = (*X2)(j - map.NumGlobalElements(), k);
+  CHECK_ZERO((*imported_X).Import(*extended_X, importer_X, Insert));
 
   return imported_X;
+  }
+
+void multiply(Teuchos::RCP<Epetra_CrsMatrix> A, Teuchos::RCP<Epetra_MultiVector> V,
+  Teuchos::RCP<Epetra_MultiVector> W, Teuchos::RCP<Epetra_SerialDenseMatrix> C,
+  Teuchos::RCP<Epetra_MultiVector> X, Teuchos::RCP<Epetra_SerialDenseMatrix> X2,
+  Teuchos::RCP<Epetra_MultiVector> B, Teuchos::RCP<Epetra_SerialDenseMatrix> B2)
+  {
+  A->Multiply('N', *X, *B);
+  B->Multiply('N', 'N', 1.0, *V, *HYMLS::DenseUtils::CreateView(*X2), 1.0);
+
+  Epetra_SerialDenseMatrix tmp(B2->M(), B2->N());
+  HYMLS::DenseUtils::CreateView(tmp)->Multiply('T', 'N', 1.0, *W, *X, 0.0);
+  X->Comm().SumAll(tmp.A(), B2->A(), tmp.M() * tmp.N());
+
+  B2->Multiply('N', 'N', 1.0, *C, *X2, 1.0);
   }
 
 TEUCHOS_UNIT_TEST(AugmentedMatrix, ExtractMyRowCopy_Original)
@@ -86,18 +104,13 @@ TEUCHOS_UNIT_TEST(AugmentedMatrix, ExtractMyRowCopy_Original)
   X->Random();
 
   Teuchos::RCP<Epetra_SerialDenseMatrix> X2 = Teuchos::rcp(new Epetra_SerialDenseMatrix(2, 2));
-
   Teuchos::RCP<Epetra_MultiVector> B = Teuchos::rcp(new Epetra_MultiVector(map, 2));
-  A->Multiply('N', *X, *B);
-  B->Multiply('N', 'N', 1.0, *V, *HYMLS::DenseUtils::CreateView(*X2), 1.0);
-
   Teuchos::RCP<Epetra_SerialDenseMatrix> B2 = Teuchos::rcp(new Epetra_SerialDenseMatrix(2, 2));
-  HYMLS::DenseUtils::CreateView(*B2)->Multiply('T', 'N', 1.0, *W, *X, 0.0);
-  B2->Multiply('N', 'N', 1.0, *C, *X2, 1.0);
+  multiply(A, V, W, C, X, X2, B, B2);
 
   Epetra_Map const &col_map = A2->RowMatrixColMap();
-  Teuchos::RCP<Epetra_MultiVector> imported_X = merge_vector(X, X2, map, col_map);
-  Teuchos::RCP<Epetra_MultiVector> imported_B = merge_vector(B, B2, map, map2);
+  Teuchos::RCP<Epetra_MultiVector> imported_X = merge_vector(X, X2, col_map);
+  Teuchos::RCP<Epetra_MultiVector> imported_B = merge_vector(B, B2, map2);
 
   for (int i = 0; i < map.NumMyElements(); i++)
     {
@@ -146,16 +159,12 @@ TEUCHOS_UNIT_TEST(AugmentedMatrix, ExtractMyRowCopy_V)
   Teuchos::RCP<Epetra_SerialDenseMatrix> X2 = HYMLS::UnitTests::RandomSerialDenseMatrix(2, 2, *comm);
 
   Teuchos::RCP<Epetra_MultiVector> B = Teuchos::rcp(new Epetra_MultiVector(map, 2));
-  A->Multiply('N', *X, *B);
-  B->Multiply('N', 'N', 1.0, *V, *HYMLS::DenseUtils::CreateView(*X2), 1.0);
-
   Teuchos::RCP<Epetra_SerialDenseMatrix> B2 = Teuchos::rcp(new Epetra_SerialDenseMatrix(2, 2));
-  HYMLS::DenseUtils::CreateView(*B2)->Multiply('T', 'N', 1.0, *W, *X, 0.0);
-  B2->Multiply('N', 'N', 1.0, *C, *X2, 1.0);
+  multiply(A, V, W, C, X, X2, B, B2);
 
   Epetra_Map const &col_map = A2->RowMatrixColMap();
-  Teuchos::RCP<Epetra_MultiVector> imported_X = merge_vector(X, X2, map, col_map);
-  Teuchos::RCP<Epetra_MultiVector> imported_B = merge_vector(B, B2, map, map2);
+  Teuchos::RCP<Epetra_MultiVector> imported_X = merge_vector(X, X2, col_map);
+  Teuchos::RCP<Epetra_MultiVector> imported_B = merge_vector(B, B2, map2);
 
   for (int i = 0; i < map.NumMyElements(); i++)
     {
@@ -204,16 +213,12 @@ TEUCHOS_UNIT_TEST(AugmentedMatrix, ExtractMyRowCopy_W)
   Teuchos::RCP<Epetra_SerialDenseMatrix> X2 = HYMLS::UnitTests::RandomSerialDenseMatrix(2, 2, *comm);
 
   Teuchos::RCP<Epetra_MultiVector> B = Teuchos::rcp(new Epetra_MultiVector(map, 2));
-  A->Multiply('N', *X, *B);
-  B->Multiply('N', 'N', 1.0, *V, *HYMLS::DenseUtils::CreateView(*X2), 1.0);
-
   Teuchos::RCP<Epetra_SerialDenseMatrix> B2 = Teuchos::rcp(new Epetra_SerialDenseMatrix(2, 2));
-  HYMLS::DenseUtils::CreateView(*B2)->Multiply('T', 'N', 1.0, *W, *X, 0.0);
-  B2->Multiply('N', 'N', 1.0, *C, *X2, 1.0);
+  multiply(A, V, W, C, X, X2, B, B2);
 
   Epetra_Map const &col_map = A2->RowMatrixColMap();
-  Teuchos::RCP<Epetra_MultiVector> imported_X = merge_vector(X, X2, map, col_map);
-  Teuchos::RCP<Epetra_MultiVector> imported_B = merge_vector(B, B2, map, map2);
+  Teuchos::RCP<Epetra_MultiVector> imported_X = merge_vector(X, X2, col_map);
+  Teuchos::RCP<Epetra_MultiVector> imported_B = merge_vector(B, B2, map2);
 
   for (int i = 0; i < map2.NumMyElements(); i++)
     {
@@ -262,16 +267,12 @@ TEUCHOS_UNIT_TEST(AugmentedMatrix, ExtractMyRowCopy_C)
   Teuchos::RCP<Epetra_SerialDenseMatrix> X2 = HYMLS::UnitTests::RandomSerialDenseMatrix(2, 2, *comm);
 
   Teuchos::RCP<Epetra_MultiVector> B = Teuchos::rcp(new Epetra_MultiVector(map, 2));
-  A->Multiply('N', *X, *B);
-  B->Multiply('N', 'N', 1.0, *V, *HYMLS::DenseUtils::CreateView(*X2), 1.0);
-
   Teuchos::RCP<Epetra_SerialDenseMatrix> B2 = Teuchos::rcp(new Epetra_SerialDenseMatrix(2, 2));
-  HYMLS::DenseUtils::CreateView(*B2)->Multiply('T', 'N', 1.0, *W, *X, 0.0);
-  B2->Multiply('N', 'N', 1.0, *C, *X2, 1.0);
+  multiply(A, V, W, C, X, X2, B, B2);
 
   Epetra_Map const &col_map = A2->RowMatrixColMap();
-  Teuchos::RCP<Epetra_MultiVector> imported_X = merge_vector(X, X2, map, col_map);
-  Teuchos::RCP<Epetra_MultiVector> imported_B = merge_vector(B, B2, map, map2);
+  Teuchos::RCP<Epetra_MultiVector> imported_X = merge_vector(X, X2, col_map);
+  Teuchos::RCP<Epetra_MultiVector> imported_B = merge_vector(B, B2, map2);
 
   for (int i = 0; i < map2.NumMyElements(); i++)
     {
@@ -320,16 +321,12 @@ TEUCHOS_UNIT_TEST(AugmentedMatrix, ExtractMyRowCopy)
   Teuchos::RCP<Epetra_SerialDenseMatrix> X2 = HYMLS::UnitTests::RandomSerialDenseMatrix(2, 2, *comm);
 
   Teuchos::RCP<Epetra_MultiVector> B = Teuchos::rcp(new Epetra_MultiVector(map, 2));
-  A->Multiply('N', *X, *B);
-  B->Multiply('N', 'N', 1.0, *V, *HYMLS::DenseUtils::CreateView(*X2), 1.0);
-
   Teuchos::RCP<Epetra_SerialDenseMatrix> B2 = Teuchos::rcp(new Epetra_SerialDenseMatrix(2, 2));
-  HYMLS::DenseUtils::CreateView(*B2)->Multiply('T', 'N', 1.0, *W, *X, 0.0);
-  B2->Multiply('N', 'N', 1.0, *C, *X2, 1.0);
+  multiply(A, V, W, C, X, X2, B, B2);
 
   Epetra_Map const &col_map = A2->RowMatrixColMap();
-  Teuchos::RCP<Epetra_MultiVector> imported_X = merge_vector(X, X2, map, col_map);
-  Teuchos::RCP<Epetra_MultiVector> imported_B = merge_vector(B, B2, map, map2);
+  Teuchos::RCP<Epetra_MultiVector> imported_X = merge_vector(X, X2, col_map);
+  Teuchos::RCP<Epetra_MultiVector> imported_B = merge_vector(B, B2, map2);
 
   for (int i = 0; i < map2.NumMyElements(); i++)
     {
