@@ -465,8 +465,6 @@ int CoarseSolver::ApplyInverse(const Epetra_MultiVector &X,
   {
   HYMLS_LPROF2(label_, "ApplyInverse (bordered)");
 
-  if (isEmpty_) return 0;
-
   if (!IsComputed())
     {
     return -1;
@@ -479,7 +477,7 @@ int CoarseSolver::ApplyInverse(const Epetra_MultiVector &X,
     }
 
   CHECK_ZERO(Y.PutScalar(0.0));
-  if (amActive_)
+  if (amActive_ && !isEmpty_)
     {
     // on the coarsest level we have put the border explicitly into an
     // AugmentedMatrix so we need to form the complete RHS
@@ -553,11 +551,18 @@ int CoarseSolver::ApplyInverse(const Epetra_MultiVector &X,
         S[j][k] = (*linearSol_)[j][i];
         }
       }
+
 #ifdef HYMLS_DEBUGGING
     HYMLS::MatrixUtils::Dump(*linearRhs_, "CoarseLevelRhs.txt");
     HYMLS::MatrixUtils::Dump(*linearSol_, "CoarseLevelSol.txt");
 #endif
     }
+
+  // Broadcast S to all processors. AugmentedMatrix puts it on the last one.
+  if (S.LDA() != S.M())
+      Tools::Error("Unsupported communication: " + Teuchos::toString(S.M()) + " "
+                   + Teuchos::toString(S.LDA()), __FILE__, __LINE__);
+  CHECK_ZERO(comm_->Broadcast(S.A(), S.M() * S.N(), comm_->NumProc() - 1));
 
   return 0;
   }
