@@ -231,17 +231,16 @@ int DenseUtils::Orthogonalize(Epetra_SerialDenseMatrix& A)
 //! create a multivector view of a dense matrix
 Teuchos::RCP<Epetra_MultiVector> DenseUtils::CreateView(Epetra_SerialDenseMatrix& A)
   {
-  HYMLS_PROF3(Label(),"CreateView");
+  HYMLS_PROF3(Label(), "CreateView");
   Epetra_SerialComm comm;
   Epetra_LocalMap tinyMap(A.M(), 0, comm);
   return Teuchos::rcp(new Epetra_MultiVector(View, tinyMap, A.A(), A.LDA(), A.N()));
   }
 
 //! create a multivector view of a dense matrix
-Teuchos::RCP<const Epetra_MultiVector> DenseUtils::CreateView
-        (const Epetra_SerialDenseMatrix& A)
+Teuchos::RCP<const Epetra_MultiVector> DenseUtils::CreateView(const Epetra_SerialDenseMatrix& A)
   {
-  HYMLS_PROF3(Label(),"CreateView");
+  HYMLS_PROF3(Label(), "CreateView");
   Epetra_SerialComm comm;
   Epetra_LocalMap tinyMap(A.M(), 0, comm);
   return Teuchos::rcp(new Epetra_MultiVector(View, tinyMap, A.A(), A.LDA(), A.N()));
@@ -250,7 +249,7 @@ Teuchos::RCP<const Epetra_MultiVector> DenseUtils::CreateView
 //! create a dense matrix view of a multivector
 Teuchos::RCP<Epetra_SerialDenseMatrix> DenseUtils::CreateView(Epetra_MultiVector& A)
   {
-  HYMLS_PROF3(Label(),"CreateView");
+  HYMLS_PROF3(Label(), "CreateView");
   if (A.DistributedGlobal() || !A.ConstantStride())
     {
     Tools::Error("Cannot convert this MV to a serial dense matrix!",
@@ -262,10 +261,9 @@ Teuchos::RCP<Epetra_SerialDenseMatrix> DenseUtils::CreateView(Epetra_MultiVector
   }
 
 //! create a dense matrix view of a multivector
-Teuchos::RCP<const Epetra_SerialDenseMatrix> DenseUtils::CreateView
-        (const Epetra_MultiVector& A)
+Teuchos::RCP<const Epetra_SerialDenseMatrix> DenseUtils::CreateView(const Epetra_MultiVector& A)
   {
-  HYMLS_PROF3(Label(),"CreateView");
+  HYMLS_PROF3(Label(), "CreateView");
   if (A.DistributedGlobal() || !A.ConstantStride())
     {
     Tools::Error("Cannot convert this MV to a serial dense matrix!",
@@ -275,7 +273,6 @@ Teuchos::RCP<const Epetra_SerialDenseMatrix> DenseUtils::CreateView
   return Teuchos::rcp(new Epetra_SerialDenseMatrix(View, A.Values(),
       A.Stride(), A.MyLength(), A.NumVectors()));
   }
-
 
 }
 

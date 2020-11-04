@@ -3,6 +3,7 @@
 
 #include "Teuchos_RCP.hpp"
 
+class Epetra_Comm;
 class Epetra_MultiVector;
 class Epetra_SerialDenseMatrix;
 class Epetra_SerialDenseVector;

@@ -76,10 +76,7 @@ void multiply(Teuchos::RCP<Epetra_CrsMatrix> A, Teuchos::RCP<Epetra_MultiVector>
   A->Multiply('N', *X, *B);
   B->Multiply('N', 'N', 1.0, *V, *HYMLS::DenseUtils::CreateView(*X2), 1.0);
 
-  Epetra_SerialDenseMatrix tmp(B2->M(), B2->N());
-  HYMLS::DenseUtils::CreateView(tmp)->Multiply('T', 'N', 1.0, *W, *X, 0.0);
-  X->Comm().SumAll(tmp.A(), B2->A(), tmp.M() * tmp.N());
-
+  HYMLS::DenseUtils::MatMul(*W, *X, *B2);
   B2->Multiply('N', 'N', 1.0, *C, *X2, 1.0);
   }
 

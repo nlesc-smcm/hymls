@@ -112,7 +112,7 @@ TEUCHOS_UNIT_TEST(CoarseSolver, BorderedApplyInverse)
   TEST_EQUALITY(ierr, 0);
 
   Teuchos::RCP<Epetra_SerialDenseMatrix> B2 = Teuchos::rcp(new Epetra_SerialDenseMatrix(2, 2));
-  HYMLS::DenseUtils::CreateView(*B2)->Multiply('T', 'N', 1.0, *W, *X_EX, 0.0);
+  HYMLS::DenseUtils::MatMul(*W, *X_EX, *B2);
   ierr = B2->Multiply('N', 'N', 1.0, *C, *X_EX2, 1.0);
   TEST_EQUALITY(ierr, 0);
 
