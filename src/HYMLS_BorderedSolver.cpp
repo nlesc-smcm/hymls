@@ -200,11 +200,11 @@ int BorderedSolver::ApplyInverse(const Epetra_MultiVector& X, const Epetra_Seria
     }
 
   // Make the initial guess orthogonal to the V_ space. Not sure if we need this.
-  if (V_ != Teuchos::null)
-    {
-    CHECK_ZERO(DenseUtils::ApplyOrth(*V_, *sol->Vector(), Y, W_));
-    *sol->Vector() = Y;
-    }
+  // if (V_ != Teuchos::null)
+  //   {
+  //   CHECK_ZERO(DenseUtils::ApplyOrth(*V_, *sol->Vector(), Y, W_));
+  //   *sol->Vector() = Y;
+  //   }
 
   CHECK_TRUE(belosProblemPtr_->setProblem(sol, rhs));
 

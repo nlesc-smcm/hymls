@@ -13,6 +13,7 @@ set(SOURCES
   HYMLS_ProjectedOperator
   HYMLS_CoarseSolver
   HYMLS_Solver
+  HYMLS_BorderedSolver
   HYMLS_SparseDirectSolver
   HYMLS_Tester
   HYMLS_Tools

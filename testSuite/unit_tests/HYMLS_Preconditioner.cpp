@@ -268,7 +268,8 @@ TEUCHOS_UNIT_TEST(Preconditioner, ApplyInverse)
   Teuchos::RCP<Epetra_MultiVector> B = Teuchos::rcp(new Epetra_MultiVector(map, 2));
   prec->Matrix().Multiply('N', *X_EX, *B);
 
-  prec->ApplyInverse(*B, *X);
+  ierr = prec->ApplyInverse(*B, *X);
+  TEST_EQUALITY(ierr, 0);
 
   // Check if they are the same
   TEST_COMPARE(HYMLS::UnitTests::NormInfAminusB(*X, *X_EX), <, 1e-10);
