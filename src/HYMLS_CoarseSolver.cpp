@@ -145,13 +145,10 @@ int CoarseSolver::Compute()
 
   reducedSchur_->SetLabel(("Coarsest Matrix (level " + Teuchos::toString(myLevel_ + 1) + ")").c_str());
 
-  if (!HaveBorder())
+  for (int i = 0; i < fix_gid_.length(); i++)
     {
-    for (int i = 0; i < fix_gid_.length(); i++)
-      {
-      HYMLS_DEBUG("set Dirichlet node " << fix_gid_[i]);
-      CHECK_ZERO(MatrixUtils::PutDirichlet(*reducedSchur_, fix_gid_[i]));
-      }
+    HYMLS_DEBUG("set Dirichlet node " << fix_gid_[i]);
+    CHECK_ZERO(MatrixUtils::PutDirichlet(*reducedSchur_, fix_gid_[i]));
     }
 
   HYMLS_DEBUG("reindex matrix to linear indexing");
