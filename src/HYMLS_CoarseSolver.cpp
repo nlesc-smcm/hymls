@@ -477,6 +477,7 @@ int CoarseSolver::ApplyInverse(const Epetra_MultiVector &X,
     }
 
   CHECK_ZERO(Y.PutScalar(0.0));
+  CHECK_ZERO(S.Scale(0.0));
   if (amActive_ && !isEmpty_)
     {
     // on the coarsest level we have put the border explicitly into an
@@ -558,11 +559,13 @@ int CoarseSolver::ApplyInverse(const Epetra_MultiVector &X,
 #endif
     }
 
-  // Broadcast S to all processors. AugmentedMatrix puts it on the last one.
+  // Communicate S to all processors (this was computed on a single processor).
   if (S.LDA() != S.M())
       Tools::Error("Unsupported communication: " + Teuchos::toString(S.M()) + " "
                    + Teuchos::toString(S.LDA()), __FILE__, __LINE__);
-  CHECK_ZERO(comm_->Broadcast(S.A(), S.M() * S.N(), comm_->NumProc() - 1));
+
+  Epetra_SerialDenseMatrix S_local = S;
+  CHECK_ZERO(comm_->SumAll(S_local.A(), S.A(), S.M() * S.N()));
 
   return 0;
   }
