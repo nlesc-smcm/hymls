@@ -4,6 +4,7 @@
 #include "HYMLS_DenseUtils.hpp"
 
 #include "Epetra_Comm.h"
+#include "Epetra_SerialComm.h"
 #include "Epetra_SerialDenseMatrix.h"
 
 #include <math.h>
@@ -25,18 +26,27 @@ BorderedVector::BorderedVector(const BorderedVector &source)
   second_  = Teuchos::rcp(new Epetra_MultiVector(*source.Second()));
   }
 
-BorderedVector::BorderedVector(const Epetra_MultiVector &mv1, const Epetra_MultiVector &mv2)
+BorderedVector::BorderedVector(Epetra_DataAccess CV, const Epetra_MultiVector &mv1,
+  const Epetra_MultiVector &mv2)
   {
   if (mv1.NumVectors() != mv2.NumVectors())
     {
     Tools::Error("Incompatible vectors", __FILE__, __LINE__);
     }
 
-  first_  = Teuchos::rcp(new Epetra_MultiVector(mv1));
-  second_ = Teuchos::rcp(new Epetra_MultiVector(mv2));
+  if (CV == Copy)
+    {
+    first_  = Teuchos::rcp(new Epetra_MultiVector(mv1));
+    second_ = Teuchos::rcp(new Epetra_MultiVector(mv2));
+    }
+  else
+    {
+    first_  = Teuchos::rcp(new Epetra_MultiVector(View, mv1.Map(), mv1.Pointers(), mv1.NumVectors()));
+    second_ = Teuchos::rcp(new Epetra_MultiVector(View, mv2.Map(), mv2.Pointers(), mv2.NumVectors()));
+    }
   }
 
-BorderedVector::BorderedVector(const Epetra_MultiVector &mv1,
+BorderedVector::BorderedVector(Epetra_DataAccess CV, const Epetra_MultiVector &mv1,
   const Epetra_SerialDenseMatrix &mv2)
   {
   if (mv1.NumVectors() != mv2.N())
@@ -44,9 +54,18 @@ BorderedVector::BorderedVector(const Epetra_MultiVector &mv1,
     Tools::Error("Incompatible vectors", __FILE__, __LINE__);
     }
 
-  first_  = Teuchos::rcp(new Epetra_MultiVector(mv1));
-  second_matrix_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(mv2));
-  second_ = DenseUtils::CreateView(*second_matrix_);
+  Epetra_SerialComm comm;
+  Epetra_LocalMap map(mv2.M(), 0, comm);
+  if (CV == Copy)
+    {
+    first_  = Teuchos::rcp(new Epetra_MultiVector(mv1));
+    second_ = Teuchos::rcp(new Epetra_MultiVector(Copy, map, mv2.A(), mv2.LDA(), mv2.N()));
+    }
+  else
+    {
+    first_  = Teuchos::rcp(new Epetra_MultiVector(View, mv1.Map(), mv1.Pointers(), mv1.NumVectors()));
+    second_ = Teuchos::rcp(new Epetra_MultiVector(View, map, mv2.A(), mv2.LDA(), mv2.N()));
+    }
   }
 
 // const

@@ -26,9 +26,6 @@ class BorderedVector
   Teuchos::RCP<Epetra_MultiVector> first_;
   Teuchos::RCP<Epetra_MultiVector> second_;
 
-  //! Keep an extra pointer to make sure the original RCP doesn't get lost
-  Teuchos::RCP<Epetra_SerialDenseMatrix> second_matrix_;
-
 public:
   // default constructor
   BorderedVector() = delete;
@@ -39,9 +36,11 @@ public:
   // Copy constructor
   BorderedVector(const BorderedVector &source);
 
-  BorderedVector(const Epetra_MultiVector &first, const Epetra_MultiVector &second);
+  BorderedVector(Epetra_DataAccess CV, const Epetra_MultiVector &first,
+    const Epetra_MultiVector &second);
 
-  BorderedVector(const Epetra_MultiVector &first, const Epetra_SerialDenseMatrix &second);
+  BorderedVector(Epetra_DataAccess CV, const Epetra_MultiVector &first,
+    const Epetra_SerialDenseMatrix &second);
 
   // const
   BorderedVector(Epetra_DataAccess CV, const BorderedVector &source,
