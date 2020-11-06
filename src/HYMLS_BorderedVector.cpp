@@ -70,16 +70,8 @@ BorderedVector::BorderedVector(const Epetra_MultiVector &mv1,
     }
 
   first_  = Teuchos::rcp(new Epetra_MultiVector(mv1));
-
-  // This seems like a hack but is how it is done in the preconditioner
-  int num = 0;
-  if (first_->Comm().MyPID() == first_->Comm().NumProc()-1)
-    {
-    num = mv2.M();
-    }
-
-  Epetra_Map map((hymls_gidx)mv2.M(), num, (hymls_gidx)0, first_->Comm());
-  second_ = Teuchos::rcp(new Epetra_MultiVector(Copy, map, mv2.A(), mv2.LDA(), mv2.N()));
+  second_matrix_ = Teuchos::rcp(new Epetra_SerialDenseMatrix(mv2));
+  second_ = DenseUtils::CreateView(*second_matrix_);
   }
 
 // const
@@ -163,17 +155,7 @@ Teuchos::RCP<Epetra_SerialDenseMatrix> BorderedVector::Border()
   if (!second_->ConstantStride())
     Tools::Error("No constant stride!", __FILE__, __LINE__);
 
-  if (first_->Comm().MyPID() == first_->Comm().NumProc()-1)
-    {
-    return Teuchos::rcp(new
-      Epetra_SerialDenseMatrix(View, second_->Values(),
-        second_->Stride(), second_->MyLength(), second_->NumVectors()));
-    }
-  else
-    {
-    return Teuchos::rcp(new
-      Epetra_SerialDenseMatrix(second_->GlobalLength64(), second_->NumVectors()));
-    }
+  return DenseUtils::CreateView(*second_);
   }
 
 Teuchos::RCP<Epetra_MultiVector> BorderedVector::First() const
@@ -196,17 +178,7 @@ Teuchos::RCP<Epetra_SerialDenseMatrix> BorderedVector::Border() const
   if (!second_->ConstantStride())
     Tools::Error("No constant stride!", __FILE__, __LINE__);
 
-  if (first_->Comm().MyPID() == first_->Comm().NumProc()-1)
-    {
-    return Teuchos::rcp(new
-      Epetra_SerialDenseMatrix(View, second_->Values(),
-        second_->Stride(), second_->MyLength(), second_->NumVectors()));
-    }
-  else
-    {
-    return Teuchos::rcp(new
-      Epetra_SerialDenseMatrix(second_->GlobalLength64(), second_->NumVectors()));
-    }
+  return DenseUtils::CreateView(*second_);
   }
 
 int BorderedVector::SetBorder(const Epetra_SerialDenseMatrix &mv2)
@@ -380,7 +352,14 @@ int BorderedVector::Random()
   {
   int info = 0;
   info += first_->Random();
+
+  if (!second_->ConstantStride())
+    Tools::Error("No constant stride!", __FILE__, __LINE__);
+
+  // Broadcast random numbers from processor 0 so they are the same on every processor.
   info += second_->Random();
+  info += first_->Comm().Broadcast(second_->Values(), second_->Stride() * second_->NumVectors(), 0);
+
   return info;
   }
 

@@ -220,14 +220,6 @@ int BorderedSolver::ApplyInverse(const Epetra_MultiVector& X, const Epetra_Seria
   Y = *sol->Vector();
   T = *sol->Border();
 
-  // FIXME: Communication to put T on all processors (see bordered operator)
-  if (T.LDA() != T.M())
-    Tools::Error("Unsupported communication: " + Teuchos::toString(T.M()) + " "
-      + Teuchos::toString(T.LDA()), __FILE__, __LINE__);
-  Epetra_SerialDenseMatrix T2(T.M(), T.N());
-  Y.Comm().SumAll(T.A(), T2.A(), T.M() * T.N());
-  T = T2;
-
   if (ret != ::Belos::Converged)
     {
     HYMLS::Tools::Warning("Belos returned "+::Belos::convertReturnTypeToString(ret)+
