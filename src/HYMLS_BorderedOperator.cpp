@@ -60,12 +60,7 @@ int BorderedOperator::Apply(const BorderedVector& X, BorderedVector& Y) const
 int BorderedOperator::ApplyInverse(const BorderedVector& X, BorderedVector& Y) const
   {
   HYMLS_PROF3("BorderedOperator", "ApplyInverse");
-  Epetra_SerialDenseMatrix T(Y.Border()->M(), Y.Border()->N());
-
-  int ierr = ApplyInverse(*X.Vector(), *X.Border(), *Y.Vector(), T);
-  CHECK_ZERO(Y.SetBorder(T));
-
-  return ierr;
+  return ApplyInverse(*X.Vector(), *X.Border(), *Y.Vector(), *Y.Border());
   }
 
 int BorderedOperator::SetBorder(Teuchos::RCP<const Epetra_MultiVector> V,
