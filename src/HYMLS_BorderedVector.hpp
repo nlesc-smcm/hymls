@@ -39,12 +39,6 @@ public:
   // Copy constructor
   BorderedVector(const BorderedVector &source);
 
-  BorderedVector(const Teuchos::RCP<Epetra_MultiVector> &first,
-    const Teuchos::RCP<Epetra_MultiVector> &second);
-
-  BorderedVector(const Teuchos::RCP<Epetra_MultiVector> &first,
-    const Teuchos::RCP<Epetra_SerialDenseMatrix> &second);
-
   BorderedVector(const Epetra_MultiVector &first, const Epetra_MultiVector &second);
 
   BorderedVector(const Epetra_MultiVector &first, const Epetra_SerialDenseMatrix &second);

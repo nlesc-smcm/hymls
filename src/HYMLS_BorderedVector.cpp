@@ -25,31 +25,6 @@ BorderedVector::BorderedVector(const BorderedVector &source)
   second_  = Teuchos::rcp(new Epetra_MultiVector(*source.Second()));
   }
 
-BorderedVector::BorderedVector(const Teuchos::RCP<Epetra_MultiVector> &mv1,
-  const Teuchos::RCP<Epetra_MultiVector> &mv2)
-  :
-  first_(mv1),
-  second_(mv2)
-  {
-  if (mv1->NumVectors() != mv2->NumVectors())
-    {
-    Tools::Error("Incompatible vectors", __FILE__, __LINE__);
-    }
-  }
-
-BorderedVector::BorderedVector(const Teuchos::RCP<Epetra_MultiVector> &mv1,
-  const Teuchos::RCP<Epetra_SerialDenseMatrix> &mv2)
-  :
-  first_(mv1),
-  second_(DenseUtils::CreateView(*mv2)),
-  second_matrix_(mv2)
-  {
-  if (mv1->NumVectors() != mv2->N())
-    {
-    Tools::Error("Incompatible vectors", __FILE__, __LINE__);
-    }
-  }
-
 BorderedVector::BorderedVector(const Epetra_MultiVector &mv1, const Epetra_MultiVector &mv2)
   {
   if (mv1.NumVectors() != mv2.NumVectors())
