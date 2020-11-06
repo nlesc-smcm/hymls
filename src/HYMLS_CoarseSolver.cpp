@@ -473,8 +473,8 @@ int CoarseSolver::ApplyInverse(const Epetra_MultiVector &X,
     return ApplyInverse(X, Y);
     }
 
+  Epetra_SerialDenseMatrix S_local(S.M(), S.N());
   CHECK_ZERO(Y.PutScalar(0.0));
-  CHECK_ZERO(S.Scale(0.0));
   if (amActive_ && !isEmpty_)
     {
     // on the coarsest level we have put the border explicitly into an
@@ -546,7 +546,7 @@ int CoarseSolver::ApplyInverse(const Epetra_MultiVector &X,
       for (int i = X.MyLength(); i < linearRhs_->MyLength(); i++)
         {
         int k = i - X.MyLength();
-        S[j][k] = (*linearSol_)[j][i];
+        S_local[j][k] = (*linearSol_)[j][i];
         }
       }
 
@@ -561,7 +561,7 @@ int CoarseSolver::ApplyInverse(const Epetra_MultiVector &X,
       Tools::Error("Unsupported communication: " + Teuchos::toString(S.M()) + " "
                    + Teuchos::toString(S.LDA()), __FILE__, __LINE__);
 
-  Epetra_SerialDenseMatrix S_local = S;
+  CHECK_ZERO(S.Scale(0.0));
   CHECK_ZERO(comm_->SumAll(S_local.A(), S.A(), S.M() * S.N()));
 
   return 0;
