@@ -868,12 +868,8 @@ int Preconditioner::SetBorder(
 
     CHECK_ZERO(borderedPrec->SetBorder(borderSchurV_, borderSchurW_, borderSchurC_));
 
-    if (IsComputed())
-      {
-      Tools::Warning("Called SetBorder after computing the preconditioner. Calling compute again.",
-        __FILE__, __LINE__);
-      CHECK_ZERO(Compute());
-      }
+    // Compute has to be called after setting the border, so make sure this happens.
+    computed_ = false;
 
     return 0;
     }
@@ -912,12 +908,8 @@ int Preconditioner::SetBorder(
       __FILE__, __LINE__);
     }
 
-  if (IsComputed())
-    {
-    Tools::Warning("Called SetBorder after computing the preconditioner. Calling compute again.",
-      __FILE__, __LINE__);
-    CHECK_ZERO(Compute());
-    }
+    // Compute has to be called after setting the border, so make sure this happens.
+    computed_ = false;
 
   return 0;
   }
@@ -937,6 +929,11 @@ int Preconditioner::ApplyInverse(const Epetra_MultiVector& B, const Epetra_Seria
   {
   numApplyInverse_++;
   time_->ResetStartTime();
+
+  if (!IsComputed())
+    {
+    HYMLS::Tools::Error("The preconditioner has not yet been computed.", __FILE__, __LINE__);
+    }
 
 #ifdef HYMLS_DEBUGGING
   if (dumpVectors_)
