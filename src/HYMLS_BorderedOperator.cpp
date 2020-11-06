@@ -54,12 +54,7 @@ BorderedOperator::BorderedOperator(Teuchos::RCP<const Epetra_Operator> A,
 int BorderedOperator::Apply(const BorderedVector& X, BorderedVector& Y) const
   {
   HYMLS_PROF3("BorderedOperator", "Apply");
-  Epetra_SerialDenseMatrix T(Y.Border()->M(), Y.Border()->N());
-
-  int ierr = Apply(*X.Vector(), *X.Border(), *Y.Vector(), T);
-  CHECK_ZERO(Y.SetBorder(T));
-
-  return ierr;
+  return Apply(*X.Vector(), *X.Border(), *Y.Vector(), *Y.Border());
   }
 
 int BorderedOperator::ApplyInverse(const BorderedVector& X, BorderedVector& Y) const
@@ -105,7 +100,12 @@ int BorderedOperator::Apply(
   Epetra_SerialDenseMatrix tmp;
   DenseUtils::MatMul(*W_, X, tmp);
 
-  CHECK_ZERO(T.Shape(S.M(), Y.NumVectors()));
+  if (T.M() != S.M() && T.N() != Y.NumVectors())
+    {
+    Tools::Error("T has the wrong shape", __FILE__, __LINE__);
+    }
+
+  CHECK_ZERO(T.Scale(0.0));
   if (!C_.is_null())
     {
     // Apply for a SerialDenseMatrix is non-const. No clue why

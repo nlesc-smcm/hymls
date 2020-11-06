@@ -596,7 +596,8 @@ int Preconditioner::ApplyInverse(const Epetra_MultiVector& B,
   Epetra_SerialDenseMatrix S, T;
   if (HaveBorder())
     {
-    CHECK_ZERO(T.Reshape(V_->NumVectors(), B.NumVectors()));
+    CHECK_ZERO(T.Shape(V_->NumVectors(), B.NumVectors()));
+    CHECK_ZERO(S.Shape(V_->NumVectors(), X.NumVectors()));
     }
   return ApplyInverse(B, T, X, S);
   }
@@ -1005,7 +1006,6 @@ int Preconditioner::ApplyInverse(const Epetra_MultiVector& B, const Epetra_Seria
     {
     CHECK_ZERO(DenseUtils::MatMul(*borderW1_, x1, q));
     CHECK_ZERO(q.Scale(-1));
-    S.Reshape(q.M(), q.N());
     q += T;
     }
 
