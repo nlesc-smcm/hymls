@@ -1,6 +1,7 @@
 #include "HYMLS_BorderedVector.hpp"
 
 #include "HYMLS_Tools.hpp"
+#include "HYMLS_DenseUtils.hpp"
 
 #include "Epetra_Comm.h"
 #include "Epetra_SerialDenseMatrix.h"
@@ -39,22 +40,14 @@ BorderedVector::BorderedVector(const Teuchos::RCP<Epetra_MultiVector> &mv1,
 BorderedVector::BorderedVector(const Teuchos::RCP<Epetra_MultiVector> &mv1,
   const Teuchos::RCP<Epetra_SerialDenseMatrix> &mv2)
   :
-  first_(mv1)
+  first_(mv1),
+  second_(DenseUtils::CreateView(*mv2)),
+  second_matrix_(mv2)
   {
   if (mv1->NumVectors() != mv2->N())
     {
     Tools::Error("Incompatible vectors", __FILE__, __LINE__);
     }
-
-  // This seems like a hack but is how it is done in the preconditioner
-  int num = 0;
-  if (first_->Comm().MyPID() == first_->Comm().NumProc()-1)
-    {
-    num = mv2->M();
-    }
-
-  Epetra_Map map((hymls_gidx)mv2->M(), num, (hymls_gidx)0, first_->Comm());
-  second_ = Teuchos::rcp(new Epetra_MultiVector(View, map, mv2->A(), mv2->LDA(), mv2->N()));
   }
 
 BorderedVector::BorderedVector(const Epetra_MultiVector &mv1, const Epetra_MultiVector &mv2)
