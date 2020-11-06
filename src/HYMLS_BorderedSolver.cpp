@@ -186,8 +186,8 @@ int BorderedSolver::ApplyInverse(const Epetra_MultiVector& X, const Epetra_Seria
   Teuchos::RCP<BorderedOperator> op = Teuchos::rcp(new BorderedOperator(operator_, V_, W_, C_));
   belosProblemPtr_->setOperator(op);
 
-  Teuchos::RCP<BorderedVector> sol = Teuchos::rcp(new BorderedVector(Copy, Y, T));
-  Teuchos::RCP<BorderedVector> rhs = Teuchos::rcp(new BorderedVector(Copy, X, S));
+  Teuchos::RCP<BorderedVector> sol = Teuchos::rcp(new BorderedVector(View, Y, T));
+  Teuchos::RCP<BorderedVector> rhs = Teuchos::rcp(new BorderedVector(View, X, S));
 
   if (startVec_ == "Random")
     {
@@ -216,9 +216,6 @@ int BorderedSolver::ApplyInverse(const Epetra_MultiVector& X, const Epetra_Seria
   if (!status) Tools::Warning("caught an exception", __FILE__, __LINE__);
 
   numIter_ = belosSolverPtr_->getNumIters();
-
-  Y = *sol->Vector();
-  T = *sol->Border();
 
   if (ret != ::Belos::Converged)
     {
