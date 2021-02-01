@@ -8,12 +8,12 @@ if (SWIG_FOUND)
     cmake_policy(SET CMP0086 NEW)
   endif ()
 
-  find_package(Python)
-  include_directories(${PYTHON_INCLUDE_DIR})
+  find_package(Python COMPONENTS Interpreter Development)
+  include_directories(${Python_INCLUDE_DIRS})
 
-  IF(NOT ${Python_VERSION} VERSION_LESS 3.0)
-    LIST(APPEND CMAKE_SWIG_FLAGS -py3)
-  ENDIF()
+  if (NOT ${Python_VERSION} VERSION_LESS 3.0)
+    list(APPEND CMAKE_SWIG_FLAGS -py3)
+  endif ()
 
   include(${SWIG_USE_FILE})
   set_property(SOURCE HYMLS.i PROPERTY CPLUSPLUS ON)
