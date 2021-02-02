@@ -341,7 +341,7 @@ public:
     HYMLS::BorderedVector& mv)
     {
     // Create Epetra_Multivector from SerialDenseMatrix
-    Epetra_LocalMap LocalMap((hymls_gidx)B.numRows(), 0, mv.Second()->Map().Comm());
+    Epetra_LocalMap LocalMap(B.numRows(), 0, mv.Second()->Map().Comm());
     Epetra_MultiVector B_Pvec(View, LocalMap, B.values(), B.stride(), B.numCols());
 
     const int info = mv.Multiply ('N', 'N', alpha, A, B_Pvec, beta);
@@ -416,7 +416,7 @@ public:
     const HYMLS::BorderedVector &mv, Teuchos::SerialDenseMatrix<int,double> &B)
     {
     // Create Epetra_MultiVector from SerialDenseMatrix
-    Epetra_LocalMap LocalMap((hymls_gidx)B.numRows(), 0, mv.First()->Map().Comm());
+    Epetra_LocalMap LocalMap(B.numRows(), 0, mv.First()->Map().Comm());
     Epetra_MultiVector B_Pvec(View, LocalMap, B.values(), B.stride(), B.numCols());
     int info = B_Pvec.Multiply('T', 'N', alpha, *A.First(), *mv.First(), 0.0);
     info    += B_Pvec.Multiply('T', 'N', alpha, *A.Second(), *mv.Second(), 1.0);
