@@ -18,7 +18,7 @@ Teuchos::RCP<HYMLS::CoarseSolver> createCoarseSolver(
   Teuchos::RCP<Teuchos::ParameterList> &params,
   Teuchos::RCP<Epetra_Comm> const &comm)
   {
-  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(100, 0, *comm));
+  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map((hymls_gidx)100, 0, *comm));
   Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(new Epetra_CrsMatrix(Copy, *map, 2));
 
   Epetra_Util util;

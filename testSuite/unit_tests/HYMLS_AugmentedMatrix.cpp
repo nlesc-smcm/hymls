@@ -18,7 +18,7 @@
 Teuchos::RCP<Epetra_CrsMatrix> createMatrix(
   Teuchos::RCP<Epetra_Comm> const &comm)
   {
-  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map(20, 0, *comm));
+  Teuchos::RCP<Epetra_Map> map = Teuchos::rcp(new Epetra_Map((hymls_gidx)20, 0, *comm));
   Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(new Epetra_CrsMatrix(Copy, *map, 2));
 
   Epetra_Util util;
@@ -42,11 +42,11 @@ Teuchos::RCP<Epetra_MultiVector> merge_vector(Teuchos::RCP<Epetra_MultiVector> X
   Epetra_BlockMap const &map = X->Map();
 
   int pos = 0;
-  int *global_elements = new int[map.NumMyElements() + X2->M()];
+  hymls_gidx *global_elements = new hymls_gidx[map.NumMyElements() + X2->M()];
   for (int i = 0; i < map.NumMyElements(); i++)
-    global_elements[pos++] = map.GID(i);
+    global_elements[pos++] = map.GID64(i);
   for (int i = 0; i < X2->M(); i++)
-    global_elements[pos++] = map.NumGlobalElements() + i;
+    global_elements[pos++] = map.NumGlobalElements64() + i;
 
   Teuchos::RCP<Epetra_Map> extended_map = Teuchos::rcp(new Epetra_Map(-1, pos, global_elements, 0, map.Comm()));
   delete[] global_elements;
