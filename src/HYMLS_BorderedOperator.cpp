@@ -100,7 +100,10 @@ int BorderedOperator::Apply(
     Tools::Error("T has the wrong shape", __FILE__, __LINE__);
     }
 
+  // Set T to zero. First randomize it to make sure values are not uninitialized
+  CHECK_ZERO(T.Random())
   CHECK_ZERO(T.Scale(0.0));
+
   if (!C_.is_null())
     {
     // Apply for a SerialDenseMatrix is non-const. No clue why
