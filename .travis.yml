@@ -24,12 +24,31 @@ addons:
       - libsuperlu-dev
       - libptscotch-dev
 
-cache: ccache
+matrix:
+  include:
+    - os: linux
+      env:
+         - HYMLS_CMAKE_OPTIONS=""
+    - os: linux
+      env:
+         - HYMLS_CMAKE_OPTIONS="-DCMAKE_BUILD_TYPE=Debug"
+    - os: linux
+      env:
+         - HYMLS_CMAKE_OPTIONS="-DCMAKE_BUILD_TYPE=Debug -DHYMLS_DEBUGGING=ON"
+    - os: linux
+      env:
+         - HYMLS_CMAKE_OPTIONS="-DCMAKE_BUILD_TYPE=Debug -DHYMLS_LONG_LONG=ON"
+    - os: linux
+      env:
+         - HYMLS_CMAKE_OPTIONS="-DCMAKE_BUILD_TYPE=Debug -DHYMLS_TEST_NPROCS=1"
+
+cache:
+  ccache: true
 
 install:
   - mkdir build
   - cd build
-  - cmake ..
+  - cmake ${HYMLS_CMAKE_OPTIONS} ..
   - make
 
 script:

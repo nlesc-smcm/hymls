@@ -22,6 +22,12 @@
 
 namespace HYMLS {
 
+BasePartitioner::BasePartitioner(Epetra_Comm const &comm, int level)
+  :
+  comm_(comm.Clone()),
+  myLevel_(level)
+  {}
+
 void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
   {
   HYMLS_PROF3("BasePartitioner", "setParameterList");
@@ -55,39 +61,84 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
 
   perio_ = probList.get("Periodicity", perio_);
 
+  sx_ = -1;
+  sy_ = -1;
+  sz_ = nz_ > 1 ? -1 : 1;
+
   if (precList.isParameter("Separator Length (x)"))
-    {
-    sx_ = precList.get("Separator Length (x)", -1);
-    sy_ = precList.get("Separator Length (y)", sx_);
-    sz_ = precList.get("Separator Length (z)", nz_ > 1 ? sx_ : 1);
-    }
-  else
-    {
+    sx_ = precList.get("Separator Length (x)", sx_);
+  if (precList.isParameter("Separator Length (y)"))
+    sy_ = precList.get("Separator Length (y)", sy_);
+  if (precList.isParameter("Separator Length (z)"))
+    sz_ = precList.get("Separator Length (z)", sz_);
+
+  if (sx_ == -1)
     sx_ = precList.get("Separator Length", 4);
-    sy_ = sx_;
-    sz_ = nz_ > 1 ? sx_ : 1;
-    }
+  if (sy_ == -1)
+    sy_ = precList.get("Separator Length", sx_);
+  if (sz_ == -1)
+    sz_ = precList.get("Separator Length", sx_);
 
   if (sx_ <= 1)
     Tools::Error("Separator Length not set correctly",
       __FILE__, __LINE__);
 
+  cx_ = -1;
+  cy_ = -1;
+  cz_ = nz_ > 1 ? -1 : 1;
+
   if (precList.isParameter("Coarsening Factor (x)"))
-    {
-    cx_ = precList.get("Coarsening Factor (x)", -1);
-    cy_ = precList.get("Coarsening Factor (y)", cx_);
-    cz_ = precList.get("Coarsening Factor (z)", nz_ > sz_ ? cx_ : 1);
-    }
-  else
-    {
+    cx_ = precList.get("Coarsening Factor (x)", cx_);
+  if (precList.isParameter("Coarsening Factor (y)"))
+    cy_ = precList.get("Coarsening Factor (y)", cy_);
+  if (precList.isParameter("Coarsening Factor (z)"))
+    cz_ = precList.get("Coarsening Factor (z)", cz_);
+
+  if (cx_ == -1)
     cx_ = precList.get("Coarsening Factor", sx_);
-    cy_ = cx_;
-    cz_ = nz_ > sz_ ? cx_ : 1;
-    }
+  if (cy_ == -1)
+    cy_ = precList.get("Coarsening Factor", cx_);
+  if (cz_ == -1)
+    cz_ = precList.get("Coarsening Factor", cx_);
 
   if (cx_ <= 1)
     Tools::Error("Coarsening Factor not set correctly",
       __FILE__, __LINE__);
+
+  rx_ = -1;
+  ry_ = -1;
+  rz_ = -1;
+
+  std::string retainAtLevel = "Retain Nodes at Level " + Teuchos::toString(myLevel_);
+  if (precList.isParameter("Retain Nodes (x)"))
+    rx_ = precList.get("Retain Nodes (x)", rx_);
+  if (precList.isParameter(retainAtLevel + " (x)"))
+    rx_ = precList.get(retainAtLevel + " (x)", rx_);
+  if (precList.isParameter("Retain Nodes (y)"))
+    ry_ = precList.get("Retain Nodes (y)", ry_);
+  if (precList.isParameter(retainAtLevel + " (y)"))
+    ry_ = precList.get(retainAtLevel + " (y)", ry_);
+  if (precList.isParameter("Retain Nodes (z)"))
+    rz_ = precList.get("Retain Nodes (z)", rz_);
+  if (precList.isParameter(retainAtLevel + " (z)"))
+    rz_ = precList.get(retainAtLevel + " (z)", rz_);
+
+  if (rx_ == -1 && precList.isParameter(retainAtLevel))
+      rx_ = precList.get(retainAtLevel, rx_);
+  if (rx_ == -1)
+    rx_ = precList.get("Retain Nodes", rx_);
+  if (ry_ == -1 && precList.isParameter(retainAtLevel))
+      ry_ = precList.get(retainAtLevel, ry_);
+  if (ry_ == -1)
+    ry_ = precList.get("Retain Nodes", ry_);
+  if (rz_ == -1 && precList.isParameter(retainAtLevel))
+      rz_ = precList.get(retainAtLevel, rz_);
+  if (rz_ == -1)
+    rz_ = precList.get("Retain Nodes", rz_);
+
+  link_retained_nodes_ = precList.get("Eliminate Retained Nodes Together", true);
+
+  link_velocities_ = precList.get("Eliminate Velocities Together", false);
 
   if (probList.isParameter("Equations"))
     {
@@ -109,7 +160,7 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
         probList.sublist("Variable 1").get("Variable Type", "Laplace");
         }
       }
-    else if (eqn == "Stokes-B" || eqn == "Stokes-C" || eqn == "Bous-C" || eqn == "Stokes-T")
+    else if (eqn.rfind("Stokes") == 0 || eqn == "Bous-C")
       {
       if (eqn == "Bous-C")
         {
@@ -140,37 +191,37 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
         probList.get("Test F-Matrix Properties", false);
 #endif
 
-      if (eqn == "Stokes-B" || eqn == "Stokes-T")
+      if (eqn == "Stokes-B" || eqn == "Stokes-L" || eqn == "Stokes-T")
         {
         /*
-           we assume the following 'augmented B-grid',
-           where the @ are dummy p-nodes, * are p-nodes
-           and > are v-nodes. To transform this into an
-           F-matrix, one has to apply a Givvens rotation
-           to the velocity field (giving an F-grid).
-           This currently has to be done manually outside
-           the solver/preconditioner.
+          we assume the following 'augmented B-grid',
+          where the @ are dummy p-nodes, * are p-nodes
+          and > are v-nodes. To transform this into an
+          F-matrix, one has to apply a Givvens rotation
+          to the velocity field (giving an F-grid).
+          This currently has to be done manually outside
+          the solver/preconditioner.
 
-           >---->---->---->>---->---->---->
-           @ | *  |  * |  * ||  * |  * | *  |
-           >---->---->---->>---->---->---->
-           @ | *  |  * |  * ||  * |  * | *  |
-           >---->---->---->>---->---->---->
-           @ |  * |  * | *  || *  |  * | *  |
-           >====>====>====>>====>====>====>
-           @ | *  |  * |  * ||  * |  * | *  |
-           >---->---->---->>---->---->---->
-           @ |  * |  * |  * || *  | *  |  * |
-           >---->---->---->>---->---->---->
-           @ |  * |  * | *  ||  * | *  |  * |
-           >---->---->---->>---->---->---->
-           @    @    @    @    @    @     @
+          >---->---->---->>---->---->---->
+          @ | *  |  * |  * ||  * |  * | *  |
+          >---->---->---->>---->---->---->
+          @ | *  |  * |  * ||  * |  * | *  |
+          >---->---->---->>---->---->---->
+          @ |  * |  * | *  || *  |  * | *  |
+          >====>====>====>>====>====>====>
+          @ | *  |  * |  * ||  * |  * | *  |
+          >---->---->---->>---->---->---->
+          @ |  * |  * |  * || *  | *  |  * |
+          >---->---->---->>---->---->---->
+          @ |  * |  * | *  ||  * | *  |  * |
+          >---->---->---->>---->---->---->
+          @    @    @    @    @    @     @
         */
         // case of one subdomain per partition not implemented for B-grid
         if (is_complex)
           Tools::Error("complex Stokes-B not implemented", __FILE__, __LINE__);
 
-        retain_ = probList.get("Retained Pressure Nodes", 2);
+        retainPressures_ = probList.get("Retained Pressure Nodes", 2);
 
         if (precList.get("Fix Pressure Level", true))
           {
@@ -190,7 +241,7 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
           precList.get("Fix GID 1", factor * pvar);
           if (is_complex) precList.get("Fix GID 2", factor * pvar + 1);
           }
-        retain_ = probList.get("Retained Pressure Nodes", 1);
+        retainPressures_ = probList.get("Retained Pressure Nodes", 1);
         }
       }
     else
@@ -209,7 +260,7 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
     }
 
   dof_ = probList.get("Degrees of Freedom", 1);
-  retain_ = probList.get("Retained Pressure Nodes", 1);
+  retainPressures_ = probList.get("Retained Pressure Nodes", 1);
 
   variableType_.resize(dof_);
 
@@ -221,32 +272,37 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
     std::string variableType = varList.get("Variable Type", "Laplace");
 
     if (variableType == "Laplace")
-      variableType_[i] = 1;
-    else if (variableType == "Velocity U")
-      variableType_[i] = 0;
-    else if (variableType == "Velocity V")
-      variableType_[i] = 1;
-    else if (variableType == "Velocity W")
-      variableType_[i] = 2;
-    else if (variableType == "Velocity")
+      variableType_[i] = VariableType::Velocity_V;
+    else if (variableType == "Velocity U" || (variableType == "Velocity" && vcount == 0))
       {
-      variableType_[i] = vcount;
+      variableType_[i] = VariableType::Velocity_U;
+      vcount++;
+      }
+    else if (variableType == "Velocity V" || (variableType == "Velocity" && vcount == 1))
+      {
+      variableType_[i] = VariableType::Velocity_V;
+      vcount++;
+      }
+    else if (variableType == "Velocity W" || (variableType == "Velocity" && vcount == 2))
+      {
+      variableType_[i] = VariableType::Velocity_W;
       vcount++;
       }
     else if (variableType == "Pressure")
       {
       pvar = i;
-      variableType_[i] = 3;
+      variableType_[i] = VariableType::Pressure;
       pcount++;
       }
+    else if (variableType == "Interior")
+      variableType_[i] = VariableType::Interior;
+    else
+      Tools::Error("Variable type " + variableType + " does not exist",
+                   __FILE__, __LINE__);
     }
 
   if (pcount > 1)
     Tools::Error("Can only have one 'Pressure' variable",
-      __FILE__, __LINE__);
-
-  if (vcount > 3)
-    Tools::Error("Can only have three 'Velocity' variables",
       __FILE__, __LINE__);
 
   probList.get("Pressure Variable", pvar);

@@ -8,6 +8,7 @@ set(HYMLS_SOURCE HYMLS_Solver
     HYMLS_Preconditioner
     HYMLS_SchurComplement
     HYMLS_SchurPreconditioner
+    HYMLS_SeparatorGroup
     HYMLS_OverlappingPartitioner
     HYMLS_HierarchicalMap
     HYMLS_BasePartitioner
@@ -20,6 +21,7 @@ set(HYMLS_SOURCE HYMLS_Solver
     HYMLS_Epetra_Time
     HYMLS_EpetraExt_ProductOperator
     HYMLS_SparseDirectSolver
+    HYMLS_CoarseSolver
     HYMLS_Householder
     HYMLS_AugmentedMatrix
     HYMLS_Tools

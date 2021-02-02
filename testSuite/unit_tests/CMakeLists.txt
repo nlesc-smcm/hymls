@@ -3,6 +3,7 @@ set(SOURCES
   GaleriExt_Darcy3D
   GaleriExt_Stokes2D
   GaleriExt_Stokes3D
+  HYMLS_AugmentedMatrix
   HYMLS_CartesianPartitioner
   HYMLS_SkewCartesianPartitioner
   HYMLS_DenseUtils
@@ -10,7 +11,9 @@ set(SOURCES
   HYMLS_OverlappingPartitioner
   HYMLS_Preconditioner
   HYMLS_ProjectedOperator
+  HYMLS_CoarseSolver
   HYMLS_Solver
+  HYMLS_BorderedSolver
   HYMLS_SparseDirectSolver
   HYMLS_Tester
   HYMLS_Tools

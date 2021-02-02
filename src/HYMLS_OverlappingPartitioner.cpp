@@ -6,6 +6,8 @@
 #include "HYMLS_BasePartitioner.hpp"
 #include "HYMLS_Macros.hpp"
 
+#include "HYMLS_InteriorGroup.hpp"
+#include "HYMLS_SeparatorGroup.hpp"
 #include "HYMLS_CartesianPartitioner.hpp"
 #include "HYMLS_SkewCartesianPartitioner.hpp"
 
@@ -89,11 +91,6 @@ void OverlappingPartitioner::setParameterList(
 
   partitioningMethod_ = PL("Preconditioner").get(
       "Partitioner", "Cartesian");
-  retainNodes_ = PL("Preconditioner").get(
-      "Retain Nodes", retainNodes_);
-  retainNodes_ = PL("Preconditioner").get(
-      "Retain Nodes at Level " + Teuchos::toString(myLevel_),
-                          retainNodes_);
   }
 
 Teuchos::RCP<const BasePartitioner> OverlappingPartitioner::Partition()
@@ -103,12 +100,12 @@ Teuchos::RCP<const BasePartitioner> OverlappingPartitioner::Partition()
   if (partitioningMethod_ == "Cartesian")
     {
     partitioner = Teuchos::rcp(new
-      CartesianPartitioner(GetMap(), getMyNonconstParamList(), Comm()));
+      CartesianPartitioner(GetMap(), getMyNonconstParamList(), Comm(), myLevel_));
     }
   else if (partitioningMethod_ == "Skew Cartesian")
     {
     partitioner = Teuchos::rcp(new
-      SkewCartesianPartitioner(GetMap(), getMyNonconstParamList(), Comm()));
+      SkewCartesianPartitioner(GetMap(), getMyNonconstParamList(), Comm(), myLevel_));
     }
   else
     {
@@ -125,25 +122,22 @@ int OverlappingPartitioner::DetectSeparators(Teuchos::RCP<const BasePartitioner>
   {
   HYMLS_PROF2(Label(),"DetectSeparators");
 
-  // nodes to be eliminated exactly in the next step
-  Teuchos::Array<hymls_gidx> interior_nodes;
-  // separator nodes
-  Teuchos::Array<Teuchos::Array<hymls_gidx> > separator_nodes;
-
   for (int sd = 0; sd < partitioner->NumLocalParts(); sd++)
     {
-    interior_nodes.resize(0);
-    separator_nodes.resize(0);
+    // nodes to be eliminated exactly in the next step
+    InteriorGroup interior_group;
+    // separator nodes
+    Teuchos::Array<SeparatorGroup> separator_groups;
 
-    CHECK_ZERO(partitioner->GetGroups(sd, interior_nodes, separator_nodes));
+    CHECK_ZERO(partitioner->GetGroups(sd, interior_group, separator_groups));
 
-    std::sort(interior_nodes.begin(), interior_nodes.end());
-    AddGroup(sd, interior_nodes);
+    interior_group.sort();
+    AddInteriorGroup(sd, interior_group);
 
-    for (int i = 0; i < separator_nodes.size(); i++)
+    for (auto &group: separator_groups)
       {
-      std::sort(separator_nodes[i].begin(), separator_nodes[i].end());
-      AddGroup(sd, separator_nodes[i]);
+      group.sort();
+      AddSeparatorGroup(sd, group);
       }
     }
 

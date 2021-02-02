@@ -112,7 +112,7 @@ Stokes2D(const Epetra_Map* Map,
   for (int i=0; i<Map->NumMyElements(); i++)
   {
     int_type row = Map->GID64(i);
-    const int max_len=8;
+    const int max_len = 50;
     int_type cols[max_len], cols_laplace[max_len];
     double vals[max_len],vals_laplace[max_len];
     int lenDarcy=0;

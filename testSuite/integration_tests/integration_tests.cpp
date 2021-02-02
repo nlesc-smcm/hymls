@@ -507,53 +507,68 @@ int testSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
 
   // approximate solution
   Teuchos::RCP<Epetra_MultiVector> x = Teuchos::rcp(new Epetra_MultiVector(map, numRhs));
+  Teuchos::RCP<Epetra_MultiVector> b_orig = b;
 
   bool doDeflation = params->sublist("Solver").get("Use Deflation", false);
 
-  for (int f=0;f<numComputes;f++)
+  for (int f = 0; f < numComputes; f++)
     {
-    CHECK_ZERO(precond->Compute());
-    if (nullSpace!=Teuchos::null)
+    // Scale the problem in case we test multiple computes.
+    double scaling = 1. / (10. * f + 1.);
+    CHECK_ZERO(K->Scale(scaling));
+
+    if (nullSpace != Teuchos::null)
       {
-        solver->setBorder(nullSpace);
+      CHECK_ZERO(solver->SetBorder(nullSpace));
       }
+
+    CHECK_ZERO(precond->Compute());
+
     if (doDeflation)
       {
       CHECK_ZERO(solver->SetupDeflation());
       }
 
+
     ierr |= testDivFree(map, K, precond, dim, eqn);
 
-    int xseed=-1;
+    int xseed = -1;
 
-    for (int s=0;s<numSolves;s++)
+    for (int s = 0; s < numSolves; s++)
       {
       if (!read_problem)
         {
         xseed = x_ex->Seed();
         CHECK_ZERO(HYMLS::MatrixUtils::Random(*x_ex));
-         if (nullSpace!=Teuchos::null)
-          {
-          int dim0=nullSpace->NumVectors();
-          Epetra_SerialComm serialComm;
-          Epetra_LocalMap localMap(dim0,0,*comm);
-          Teuchos::RCP<Epetra_MultiVector> M = Teuchos::rcp(new Epetra_MultiVector(localMap,1),true);
 
-          CHECK_ZERO(M->Multiply('T','N',1.0,*nullSpace,*x_ex,0.0));
-          CHECK_ZERO(x_ex->Multiply('N','N',-1.0,*nullSpace,*M,1.0));
+         if (nullSpace != Teuchos::null)
+          {
+          int dim0 = nullSpace->NumVectors();
+          Epetra_SerialComm serialComm;
+          Epetra_LocalMap localMap(dim0, 0, *comm);
+          Teuchos::RCP<Epetra_MultiVector> M = Teuchos::rcp(new Epetra_MultiVector(localMap, 1));
+
+          CHECK_ZERO(M->Multiply('T', 'N', 1.0, *nullSpace, *x_ex, 0.0));
+          CHECK_ZERO(x_ex->Multiply('N', 'N', -1.0, *nullSpace, *M, 1.0));
           }
 
-        CHECK_ZERO(K->Multiply(false,*x_ex,*b));
+        CHECK_ZERO(K->Multiply(false, *x_ex, *b));
+        }
+      else
+        {
+        // Scale the RHS with the scaling of the matrix.
+        b = Teuchos::rcp(new Epetra_MultiVector(*b_orig));
+        CHECK_ZERO(b->Scale(scaling));
         }
 
       HYMLS::Tools::Out("Solve ("+Teuchos::toString(s+1)+")");
-      CHECK_ZERO(solver->ApplyInverse(*b,*x));
+      CHECK_ZERO(solver->ApplyInverse(*b, *x));
 
       // compute the error vector
       Teuchos::RCP<Epetra_MultiVector> err = Teuchos::rcp(new
           Epetra_MultiVector(map, numRhs));
 
-      CHECK_ZERO(err->Update(1.0,*x,-1.0,*x_ex,0.0));
+      CHECK_ZERO(err->Update(1.0, *x, -1.0, *x_ex, 0.0));
 
       Teuchos::RCP<Epetra_MultiVector> projection = Teuchos::null;
       probl_params_cpy.get("Degrees of Freedom", dim + 1);
@@ -563,7 +578,7 @@ int testSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
         projection = HYMLS::MainUtils::create_nullspace(map, "Constant P", probl_params_cpy);
 
       // Subtract checkerboard when solving Stokes-B
-      if (eqn == "Stokes-B" || eqn == "Stokes-T")
+      if (eqn == "Stokes-B" || eqn == "Stokes-L" || eqn == "Stokes-T")
         projection = HYMLS::MainUtils::create_nullspace(map, "Checkerboard", probl_params_cpy);
 
       // Apply a projection to perform the subtraction
@@ -575,7 +590,7 @@ int testSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
         Teuchos::RCP<Epetra_MultiVector> pv = HYMLS::DenseUtils::CreateView(p);
         CHECK_ZERO(HYMLS::DenseUtils::MatMul(*projection, *err, p));
         CHECK_ZERO(x->Multiply('N', 'N', -1.0, *projection, *pv, 1.0));
-        CHECK_ZERO(err->Update(1.0,*x,-1.0,*x_ex,0.0));
+        CHECK_ZERO(err->Update(1.0, *x, -1.0, *x_ex, 0.0));
         }
 
       // HYMLS::Tools::Out("Compute residual.");
@@ -584,10 +599,10 @@ int testSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
       Teuchos::RCP<Epetra_MultiVector> res = Teuchos::rcp(new
           Epetra_MultiVector(map, numRhs));
 
-      CHECK_ZERO(K->Multiply(false,*x,*res));
-      CHECK_ZERO(res->Update(1.0,*b,-1));
+      CHECK_ZERO(K->Multiply(false, *x, *res));
+      CHECK_ZERO(res->Update(1.0, *b, -1));
 
-      double *errNorm,*resNorm,*rhsNorm;
+      double *errNorm, *resNorm, *rhsNorm;
       errNorm = new double[numRhs];
       resNorm = new double[numRhs];
       rhsNorm = new double[numRhs];
@@ -599,13 +614,15 @@ int testSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
       double maxRes = 0.0;
       double maxErr = 0.0;
 
-      HYMLS::Tools::out()<< "||Ax-b||_2/||b||_2 \t (||x||_2-||x_ex||_2)/||b||_2\n";
-      for (int k=0;k<numRhs;k++)
+      HYMLS::Tools::out() <<  "||Ax-b||_2/||b||_2 \t (||x||_2-||x_ex||_2)/||b||_2\n";
+      for (int k = 0; k < numRhs; k++)
         {
-        HYMLS::Tools::out()<<std::setw(8)<<std::setprecision(8)<<std::scientific;
-        HYMLS::Tools::out()<<Teuchos::toString(resNorm[k]/rhsNorm[k])<<" \t "<<Teuchos::toString(errNorm[k]/rhsNorm[k])<<" \n";
-        maxRes = std::max(maxRes,resNorm[k]/rhsNorm[k]);
-        maxErr = std::max(maxErr,errNorm[k]/rhsNorm[k]);
+        resNorm[k] /= rhsNorm[k];
+        errNorm[k] /= rhsNorm[k] / scaling;
+        HYMLS::Tools::out() << std::setw(8) << std::setprecision(8) << std::scientific;
+        HYMLS::Tools::out() << Teuchos::toString(resNorm[k]) << " \t " << Teuchos::toString(errNorm[k]) << " \n";
+        maxRes = std::max(maxRes, resNorm[k]);
+        maxErr = std::max(maxErr, errNorm[k]);
         }
 
       delete[] rhsNorm;
@@ -619,13 +636,13 @@ int testSolver(std::string &message, Teuchos::RCP<const Epetra_Comm> comm,
 #ifdef HYMLS_DEBUGGING
       if (ierr != PASSED)
         {
-        HYMLS::MatrixUtils::Dump(*K,"BadMatrix.txt");
-        HYMLS::MatrixUtils::Dump(*x,"BadSolution.txt");
-        HYMLS::MatrixUtils::Dump(*x_ex,"BadExactSolution.txt");
-        HYMLS::MatrixUtils::Dump(*b,"BadRhs.txt");
-        HYMLS::MatrixUtils::Dump(*res,"BadRes.txt");
-        HYMLS::MatrixUtils::Dump(*err,"BadErr.txt");
-        HYMLS::MatrixUtils::Dump(*nullSpace,"BadNullSpace.txt");
+        HYMLS::MatrixUtils::Dump(*K, "BadMatrix.txt");
+        HYMLS::MatrixUtils::Dump(*x, "BadSolution.txt");
+        HYMLS::MatrixUtils::Dump(*x_ex, "BadExactSolution.txt");
+        HYMLS::MatrixUtils::Dump(*b, "BadRhs.txt");
+        HYMLS::MatrixUtils::Dump(*res, "BadRes.txt");
+        HYMLS::MatrixUtils::Dump(*err, "BadErr.txt");
+        HYMLS::MatrixUtils::Dump(*nullSpace, "BadNullSpace.txt");
         }
 #endif
       if (num_iter > target_num_iter) ierr |= MAX_ITER_EXCEEDED;

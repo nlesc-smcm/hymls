@@ -16,16 +16,29 @@ class ParameterList;
 
 namespace HYMLS {
 
+class InteriorGroup;
+class SeparatorGroup;
+
 /*! Base class for partitioning in HYMLS - on this
   partitioning we build our HID.
 */
 
 class BasePartitioner
   {
+protected:
+  enum class VariableType
+    {
+    Velocity_U,
+    Velocity_V,
+    Velocity_W,
+    Pressure,
+    Interior
+    };
+
 public:
 
   //! constructor
-  BasePartitioner(){}
+  BasePartitioner(Epetra_Comm const &comm, int level);
 
   //! destructor
   virtual ~BasePartitioner(){}
@@ -45,8 +58,8 @@ public:
   virtual int Partition(bool repart) = 0;
 
   //! Get interior and separator groups of the subdomain sd
-  virtual int GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior_nodes,
-    Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes) const = 0;
+  virtual int GetGroups(int sd, InteriorGroup &interior_group,
+    Teuchos::Array<SeparatorGroup> &separator_groups) const = 0;
 
   //! get number of local partitions
   virtual int NumLocalParts() const = 0;
@@ -56,16 +69,6 @@ public:
 
   //! is this class fully set up?
   virtual bool Partitioned() const = 0;
-
-  //! return the number of variables per grid point
-  //! (default implementation returns 1)
-  virtual int DofPerNode() const {return dof_;}
-
-  //! for problems with multiple dof per node: get an
-  //! integer indicating which variable type a gid has
-  //! (this is used in HID to group separators by type)
-  //! default implementation returns 0
-  virtual int VariableType(hymls_gidx gid) const {return variableType_[gid % dof_];}
 
   //! get non-overlapping global subdomain id
   virtual int operator()(hymls_gidx gid) const = 0;
@@ -116,6 +119,9 @@ protected:
   //! communicator
   Teuchos::RCP<const Epetra_Comm> comm_;
 
+  //! level
+  int myLevel_;
+
   //! global grid size
   int nx_, ny_, nz_;
 
@@ -124,6 +130,9 @@ protected:
 
   //! coarsening factor
   int cx_,cy_,cz_;
+
+  //! amount of nodes retained per separator
+  int rx_,ry_,rz_;
 
   //! dimension of the problem
   int dim_;
@@ -135,13 +144,19 @@ protected:
   int nprocs_;
 
   //! number of pressure nodes to retain
-  int retain_;
+  int retainPressures_;
+
+  //! Eliminate retained nodes together
+  bool link_retained_nodes_;
+
+  //! Eliminate velocities together
+  bool link_velocities_;
 
   //! type of periodicity in the problem
   GaleriExt::PERIO_Flag perio_;
 
   //! type of the variables per node
-  Teuchos::Array<int> variableType_;
+  Teuchos::Array<VariableType> variableType_;
 
   //! map of what processor a subdomain belongs to
   Teuchos::RCP<Teuchos::Array<int> > pidMap_;

@@ -116,7 +116,7 @@ Stokes3D(const Epetra_Map* Map,
   for (int i=0; i<Map->NumMyElements(); i++)
   {
     int_type row = Map->GID64(i);
-    const int max_len=24;
+    const int max_len = 50;
     int_type cols[max_len], cols_laplace[max_len];
     double vals[max_len],vals_laplace[max_len];
     int lenDarcy=0;
@@ -129,6 +129,10 @@ Stokes3D(const Epetra_Map* Map,
     {
       int_type row0 = row / dof;
       Laplace[ivar]->ExtractGlobalRowCopy(row0,max_len,lenLaplace,vals_laplace,cols_laplace);
+
+      for (int j = 0; j < lenLaplace; j++)
+        cols_laplace[j] = cols_laplace[j] * dof + ivar;
+
       // compensation for missing nodes at the boundary (gives Dirichlet boundary conditions)
       double add_to_diag = 0.0;
       int left,right,lower,upper,below,above;
@@ -153,10 +157,35 @@ Stokes3D(const Epetra_Map* Map,
         staggering = CENTERED_X | CENTERED_Z;
       else if (grid_type == 'C' && ivar == 2)
         staggering = CENTERED_X | CENTERED_Y;
-      else if (grid_type == 'T' && ivar == 2)
+      else if (grid_type == 'L' && ivar == 2)
         staggering = CENTERED_X | CENTERED_Y;
-      else if (grid_type == 'T')
+      else if (grid_type == 'T' && ivar == 2)
+      {
+        staggering = CENTERED_X | CENTERED_Y;
+        lenLaplace = 1;
+        vals_laplace[0] = 0.0;
+        cols_laplace[0] = row;
+      }
+      else if (grid_type == 'T' || grid_type == 'L')
         staggering = CENTERED_Z;
+
+      // Coriolis
+      if (grid_type == 'T')
+      {
+        double omega = 100.0;
+        if (ivar == 0)
+        {
+          vals_laplace[lenLaplace] = omega;
+          cols_laplace[lenLaplace] = row + 1;
+          lenLaplace++;
+        }
+        else if (ivar == 1)
+        {
+          vals_laplace[lenLaplace] = -omega;
+          cols_laplace[lenLaplace] = row - 1;
+          lenLaplace++;
+        }
+      }
 
       if (!(staggering & CENTERED_X)) // u-variable
       {
@@ -164,7 +193,7 @@ Stokes3D(const Epetra_Map* Map,
         {
           lenLaplace=1;
           vals_laplace[0]=-1.0/a;
-          cols_laplace[0]=row0;
+          cols_laplace[0]=row;
         }
         else
         {
@@ -176,7 +205,7 @@ Stokes3D(const Epetra_Map* Map,
           // remove coupling to velocity on boundary
           for (int j=0; j<lenLaplace; j++)
           {
-            if (cols_laplace[j]==right) vals_laplace[j]=0.0;
+            if (cols_laplace[j] / dof == right) vals_laplace[j]=0.0;
           }
         }
       }
@@ -186,7 +215,7 @@ Stokes3D(const Epetra_Map* Map,
         {
           lenLaplace=1;
           vals_laplace[0]=-1.0/a;
-          cols_laplace[0]=row0;
+          cols_laplace[0]=row;
         }
         else
         {
@@ -198,7 +227,7 @@ Stokes3D(const Epetra_Map* Map,
           // remove coupling to velocity on boundary
           for (int j=0; j<lenLaplace; j++)
           {
-            if (cols_laplace[j]==upper) vals_laplace[j]=0.0;
+            if (cols_laplace[j] / dof == upper) vals_laplace[j]=0.0;
           }
         }
       }
@@ -208,7 +237,7 @@ Stokes3D(const Epetra_Map* Map,
         {
           lenLaplace=1;
           vals_laplace[0]=-1.0/a;
-          cols_laplace[0]=row0;
+          cols_laplace[0]=row;
         }
         else
         {
@@ -220,28 +249,31 @@ Stokes3D(const Epetra_Map* Map,
           // remove coupling to velocity on boundary
           for (int j=0; j<lenLaplace; j++)
           {
-            if (cols_laplace[j]==above) vals_laplace[j]=0.0;
+            if (cols_laplace[j] / dof == above) vals_laplace[j]=0.0;
           }
         }
       }
 
+      // zero block in THCM
+      if (grid_type == 'T' && ivar == 2)
+        add_to_diag = 0.0;
+
       for (int j=0; j<lenLaplace; j++)
       {
-        // column index in final Stokes matrix
-        int_type c=cols_laplace[j]*dof + ivar;
-        if (c==row)
+        if (cols_laplace[j] == row)
         {
           // find entry in existing values and replace it
           for (int k=0; k<lenDarcy; k++)
           {
-            if (cols[k]==c) vals[k]=-(vals_laplace[j]*a + add_to_diag);
+            if (cols[k] == cols_laplace[j])
+              vals[k] = -(vals_laplace[j]*a + add_to_diag);
           }
         }
         else
         {
           // add entry at the end of the row
-          cols[lenTotal]=c;
-          vals[lenTotal]=-vals_laplace[j]*a;
+          cols[lenTotal] = cols_laplace[j];
+          vals[lenTotal] = -vals_laplace[j]*a;
           lenTotal++;
         }
       }

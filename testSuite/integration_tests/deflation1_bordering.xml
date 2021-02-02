@@ -51,7 +51,7 @@
     <Parameter name="Deflation Threshold" type="double" value="0.0"/>
 
     <!-- vector to start the Krylov sequence: "Zero", "Random", "Previous" -->
-    <Parameter name="Initial Vector" type="string" value="Random"/>
+    <Parameter name="Initial Vector" type="string" value="Zero"/>
 
     <!-- parameters for the iterative solver (Belos) -->
     <ParameterList name="Iterative Solver">
@@ -68,7 +68,7 @@
     <!-- number of levels to be created (1: direct solver for Schur complement, -->
     <!-- 2: solve Schur iteratively and reduced Schur directly,                 -->
     <!-- >2: not implemented.                                                   -->
-    <Parameter name="Number of Levels" type="int" value="3"/>
+    <Parameter name="Number of Levels" type="int" value="2"/>
 
   </ParameterList><!--}-->
 

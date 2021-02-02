@@ -14,6 +14,8 @@
 #include "Epetra_SerialDenseMatrix.h"
 #include "Epetra_SerialDenseSolver.h"
 
+#include "Ifpack_Preconditioner.h"
+
 #include "BelosSolverManager.hpp"
 
 #include "AnasaziTypes.hpp"
@@ -77,6 +79,17 @@ int BorderedDeflatedSolver::SetupDeflation()
   if (numEigs_ <= 0)
     return -1;
 
+  // TODO: Add functionality to disable the border, rather than having to recompute everything.
+  Teuchos::RCP<Ifpack_Preconditioner> ifpack_precond =
+    Teuchos::rcp_dynamic_cast<Ifpack_Preconditioner>(precond_);
+  if (ifpack_precond == Teuchos::null)
+    {
+    Tools::Error("Only Ifpack_Preconditioners are supported since Compute() has to be called.", __FILE__, __LINE__);
+    }
+
+  CHECK_ZERO(BorderedSolver::SetBorder(Teuchos::null, Teuchos::null));
+  CHECK_ZERO(ifpack_precond->Compute());
+
   precEigs_ = EigsPrec(numEigs_);
   numEigs_ = precEigs_->numVecs;
 
@@ -114,7 +127,8 @@ int BorderedDeflatedSolver::SetupDeflation()
   Epetra_MultiVector AV(*deflationVectors_);
   // TODO: Filter A for zero vectors (vectors that the prec captures)
   CHECK_ZERO(BaseSolver::ApplyMatrix(*deflationVectors_, AV));
-  CHECK_ZERO(BorderedSolver::setBorder(deflationVectors_, massDeflationVectors_));
+  CHECK_ZERO(BorderedSolver::SetBorder(deflationVectors_, massDeflationVectors_));
+  CHECK_ZERO(ifpack_precond->Compute());
 
   deflationRhs_ = Teuchos::rcp(new Epetra_MultiVector(*deflationVectors_));
   Epetra_MultiVector tmp(*deflationVectors_);

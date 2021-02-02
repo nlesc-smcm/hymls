@@ -61,11 +61,11 @@
     <!-- number of levels to be created (1: direct solver for Schur complement, -->
     <!-- 2: solve Schur iteratively and reduced Schur directly,                 -->
     <!-- >2: not implemented.                                                   -->
-    <Parameter name="Number of Levels" type="int" value="4"/>
+    <Parameter name="Number of Levels" type="int" value="3"/>
 
-    <Parameter name="Retain Nodes at Level 2" type="int" value="2"/>
-    <Parameter name="Retain Nodes at Level 3" type="int" value="4"/>
-    <Parameter name="Retain Nodes at Level 4" type="int" value="8"/>
+    <Parameter name="Retain Nodes at Level 1" type="int" value="2"/>
+    <Parameter name="Retain Nodes at Level 2" type="int" value="4"/>
+    <Parameter name="Retain Nodes at Level 3" type="int" value="8"/>
         
     <!-- parameters for the direct solvers (Ifpack_Amesos) -->
 

@@ -4,6 +4,8 @@
 
 #include "HYMLS_Tools.hpp"
 #include "HYMLS_Macros.hpp"
+#include "HYMLS_InteriorGroup.hpp"
+#include "HYMLS_SeparatorGroup.hpp"
 
 #include "Epetra_Comm.h"
 #include "Epetra_Map.h"
@@ -24,15 +26,14 @@ namespace HYMLS {
 CartesianPartitioner::CartesianPartitioner(
   Teuchos::RCP<const Epetra_Map> map,
   Teuchos::RCP<Teuchos::ParameterList> const &params,
-  Epetra_Comm const &comm)
-  : BasePartitioner(), label_("CartesianPartitioner"),
+  Epetra_Comm const &comm, int level)
+  : BasePartitioner(comm, level), label_("CartesianPartitioner"),
     baseMap_(map), cartesianMap_(Teuchos::null),
     numLocalSubdomains_(-1),
     bgridTransform_(false)
   {
   HYMLS_PROF3(label_, "Constructor");
 
-  comm_ = Teuchos::rcp(comm.Clone());
   SetParameters(*params);
   }
 
@@ -221,38 +222,53 @@ int CartesianPartitioner::Partition(bool repart)
   }
 
 static int GetSubdomainStartAndEnd(
-  int pos, int type, int dim, int max, bool perio, int &start, int &end)
+  int pos, int idx, int idx_max, int dim, int max, bool perio, int &type, int &start, int &end)
   {
-  start = type;
-  if (type == 1)
+  int len = std::max((max + idx_max - 1) / idx_max, 1);
+
+  if (idx == idx_max)
+    type = 2;
+  else if (idx >= 0)
+    type = 1;
+  else
+    type = 0;
+
+  start = idx;
+  if (idx == idx_max)
     start = max;
+  else if (idx > 0)
+    start = std::min(len * idx, max);
 
   end = start + 1;
-  if (type == 0)
-    end = max;
+  if (type == 1)
+    end = std::min(len * (idx + 1), max);
 
   if (!perio)
     {
-    if (pos == 0 && type == -1)
+    if (pos == 0 && idx == -1)
       return 1;
     if (pos + max + 1 == dim)
       {
-      if (type == 1)
+      if (idx == idx_max)
         return 1;
-      if (type == 0)
+      if (idx == idx_max - 1)
         end += 1;
       }
     }
+
+  if (start == end)
+    return 1;
+
   return 0;
   }
 
-int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior_nodes,
-  Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes) const
+int CartesianPartitioner::GetGroups(int sd, InteriorGroup &interior_group,
+  Teuchos::Array<SeparatorGroup> &separator_groups) const
   {
   HYMLS_PROF3(label_,"GetGroups");
 
-  interior_nodes.clear();
-  separator_nodes.clear();
+  interior_group.nodes().clear();
+  separator_groups.clear();
 
   // pressure nodes that need to be retained
   Teuchos::Array<hymls_gidx> retained_nodes;
@@ -270,56 +286,80 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
   if (xmax == 0 || ymax == 0 || (zmax == 0 && nz_ > 1))
     Tools::Error("Can't have a subdomain of size 1", __FILE__, __LINE__);
 
-  int pvar = -1;
-  for (int i = 0; i < dof_; i++)
-    if (variableType_[i] == 3)
-      pvar = i;
+  // FIXME: Retaining multiple nodes per separator may retain too many
+  // per face when not setting directions separately.
 
-  for (int ktype = (nz_ > 1 ? -1 : 0); ktype < (nz_ > 1 ? 2 : 1); ktype++)
+  int iidx_max = rx_ > 1 ? rx_ : 1;
+  int jidx_max = ry_ > 1 ? ry_ : 1;
+  int kidx_max = rz_ > 1 ? rz_ : 1;
+
+  for (int kidx = -1; kidx <= kidx_max; kidx++)
     {
-    int kstart, kend;
+    bool kinterior = kidx >= 0 && kidx < kidx_max;
+
+    int ktype, kstart, kend;
     if (GetSubdomainStartAndEnd(
-        zpos, ktype, nz_, zmax, perio_ & GaleriExt::Z_PERIO, kstart, kend))
+        zpos, kidx, kidx_max, nz_, zmax, perio_ & GaleriExt::Z_PERIO, ktype, kstart, kend))
       continue;
 
-    for (int jtype = -1; jtype < 2; jtype++)
+    for (int jidx = -1; jidx <= jidx_max; jidx++)
       {
-      int jstart, jend;
+      bool jinterior = jidx >= 0 && jidx < jidx_max;
+
+      int jtype, jstart, jend;
       if (GetSubdomainStartAndEnd(
-          ypos, jtype, ny_, ymax, perio_ & GaleriExt::Y_PERIO, jstart, jend))
+          ypos, jidx, jidx_max, ny_, ymax, perio_ & GaleriExt::Y_PERIO, jtype, jstart, jend))
         continue;
 
-      for (int itype = -1; itype < 2; itype++)
+      for (int iidx = -1; iidx <= iidx_max; iidx++)
         {
-        int istart, iend;
+        bool iinterior = iidx >= 0 && iidx < iidx_max;
+
+        int itype, istart, iend;
         if (GetSubdomainStartAndEnd(
-            xpos, itype, nx_, xmax, perio_ & GaleriExt::X_PERIO, istart, iend))
+            xpos, iidx, iidx_max, nx_, xmax, perio_ & GaleriExt::X_PERIO, itype, istart, iend))
           continue;
 
         for (int d = 0; d < dof_; d++)
           {
           nodes2 = NULL;
-          if (d == pvar && (itype == -1 || jtype == -1 || ktype == -1))
+          if ((variableType_[d] == VariableType::Pressure ||
+              variableType_[d] == VariableType::Interior) &&
+            (iidx == -1 || jidx == -1 || kidx == -1))
             continue;
-          else if ((itype == 0 && jtype == 0 && ktype == 0) ||
-              (d == pvar && (
+          else if ((iinterior && jinterior && kinterior) ||
+            variableType_[d] == VariableType::Interior ||
+              (variableType_[d] == VariableType::Pressure && (
                 // Pressure nodes that are not in tubes
-                (itype == 0 && jtype == 0) ||
-                (itype == 0 && ktype == 0) ||
-                (jtype == 0 && ktype == 0) ||
+                (iinterior && jinterior) ||
+                (iinterior && kinterior) ||
+                (jinterior && kinterior) ||
                 // B-grid
-                retain_ > 1)
+                retainPressures_ > 1)
               ))
-            nodes = &interior_nodes;
+            nodes = &interior_group.nodes();
           else
             {
-            separator_nodes.append(Teuchos::Array<hymls_gidx>());
+            SeparatorGroup separator;
+            int type = -1000;
+            if (link_retained_nodes_)
+              type = 2 * dof_ * (itype + 3 * (jtype + 3 * ktype));
+            if (!(link_velocities_ && (
+                  variableType_[d] == VariableType::Velocity_U ||
+                  variableType_[d] == VariableType::Velocity_V ||
+                  variableType_[d] == VariableType::Velocity_W)))
+              type += 2 * d;
+            separator.set_type(type);
+            separator_groups.append(separator);
+            nodes = &separator.nodes();
+
             if (bgridTransform_)
-              separator_nodes.append(Teuchos::Array<hymls_gidx>());
-            auto it = separator_nodes.end();
-            if (bgridTransform_)
-              nodes2 = &(*(--it));
-            nodes = &(*(--it));
+              {
+              SeparatorGroup separator2;
+              separator2.set_type(type + 1);
+              separator_groups.append(separator2);
+              nodes2 = &separator2.nodes();
+              }
             }
 
           for (int k = kstart; k < kend; k++)
@@ -332,8 +372,9 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
                   (hymls_gidx)((i + xpos + nx_) % nx_) * dof_ +
                   (hymls_gidx)((j + ypos + ny_) % ny_) * nx_ * dof_ +
                   (hymls_gidx)((k + zpos + nz_) % nz_) * nx_ * ny_ * dof_;
-                if (d == pvar && i >= 0 && j >= 0 && k >= 0 &&
-                    retained_nodes.length() < retain_)
+                if (variableType_[d] == VariableType::Pressure &&
+                  i >= 0 && j >= 0 && k >= 0 &&
+                  retained_nodes.length() < retainPressures_)
                   {
                   // Retained pressure nodes
                   retained_nodes.append(gid);
@@ -352,14 +393,15 @@ int CartesianPartitioner::GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior
     }
 
   // Remove empty groups
-  separator_nodes.erase(std::remove_if(separator_nodes.begin(), separator_nodes.end(),
-      [](Teuchos::Array<hymls_gidx> &i){return i.empty();}), separator_nodes.end());
+  separator_groups.erase(std::remove_if(separator_groups.begin(), separator_groups.end(),
+      [](SeparatorGroup &i){return i.nodes().empty();}), separator_groups.end());
 
   // Add retained nodes as separator groups
   for (auto it = retained_nodes.begin(); it != retained_nodes.end(); ++it)
     {
-    separator_nodes.append(Teuchos::Array<hymls_gidx>());
-    separator_nodes.back().append(*it);
+    SeparatorGroup group;
+    group.append(*it);
+    separator_groups.append(group);
     }
 
   return 0;

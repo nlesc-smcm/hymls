@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.5.0)
 project(HYMLS C CXX)
 
+# Some options
 option(HYMLS_USE_OPENMP OFF "allow using multi-threading inside HYMLS")
 
 option(HYMLS_USE_PHIST OFF "try to find PHIST and enable it as eigensolver with HYMLS")
@@ -17,9 +18,7 @@ option(HYMLS_FUNCTION_TRACING "turns on very verbose output on every function en
 option(HYMLS_MEMORY_PROFILING "report memory usage after calling a function, is really slow" OFF)
 option(HYMLS_LONG_LONG "use long long global indices" OFF)
 
-# HYMLS version
-execute_process(COMMAND git rev-parse --short --sq HEAD WORKING_DIRECTORY ${PROJECT_SOURCE_DIR} OUTPUT_VARIABLE rev)
-STRING(REPLACE "'" "\"" HYMLS_REVISION ${rev})
+set(HYMLS_TEST_NPROCS 8 CACHE STRING "amount of processors to use for the integration tests")
 
 set(HYMLS_TIMING_LEVEL 2 CACHE STRING "which function should be timed/traced (0: none, 1: major functions ... 99: all")
 
@@ -41,6 +40,10 @@ else()
   option(HYMLS_TESTING "turns on on the fly tests" OFF)
 endif()
 
+# HYMLS version
+execute_process(COMMAND git rev-parse --short --sq HEAD WORKING_DIRECTORY ${PROJECT_SOURCE_DIR} OUTPUT_VARIABLE rev)
+STRING(REPLACE "'" "\"" HYMLS_REVISION ${rev})
+
 include("${PROJECT_SOURCE_DIR}/cmake/common.cmake")
 
 # here are the HYMLS headers:
@@ -54,6 +57,7 @@ enable_testing()
 
 add_subdirectory(src)
 add_subdirectory(testSuite)
+add_subdirectory(python)
 
 ####################
 # uninstall target #

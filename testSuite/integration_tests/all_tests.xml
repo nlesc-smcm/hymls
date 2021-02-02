@@ -34,7 +34,12 @@
   <Parameter name="Test 8" type="string" value="stokes6.xml"/>
   <!-- Stokes on a B-grid -->
   <Parameter name="Test 9a" type="string" value="stokes_B.xml"/>
-  <Parameter name="Test 9b" type="string" value="stokes_THCM.xml"/>
-  <Parameter name="Test 9c" type="string" value="stokes_THCM2.xml"/>
-  <Parameter name="Test 9d" type="string" value="stokes_THCM3.xml"/>
+  <Parameter name="Test 9b" type="string" value="stokes_L.xml"/>
+  <Parameter name="Test 9c" type="string" value="stokes_L2.xml"/>
+  <Parameter name="Test 9d" type="string" value="stokes_L3.xml"/>
+  <Parameter name="Test 9e" type="string" value="stokes_L4.xml"/>
+  <!-- Stokes on a Lorenz grid with 0 w-block -->
+  <Parameter name="Test 10a" type="string" value="stokes_THCM.xml"/>
+  <Parameter name="Test 10c" type="string" value="stokes_THCM3.xml"/>
+  <Parameter name="Test 10d" type="string" value="stokes_THCM4.xml"/>
 </ParameterList>

@@ -36,15 +36,11 @@ public:
   // Copy constructor
   BorderedVector(const BorderedVector &source);
 
-  BorderedVector(const Teuchos::RCP<Epetra_MultiVector> &first,
-    const Teuchos::RCP<Epetra_MultiVector> &second);
+  BorderedVector(Epetra_DataAccess CV, const Epetra_MultiVector &first,
+    const Epetra_MultiVector &second);
 
-  BorderedVector(const Teuchos::RCP<Epetra_MultiVector> &first,
-    const Teuchos::RCP<Epetra_SerialDenseMatrix> &second);
-
-  BorderedVector(const Epetra_MultiVector &first, const Epetra_MultiVector &second);
-
-  BorderedVector(const Epetra_MultiVector &first, const Epetra_SerialDenseMatrix &second);
+  BorderedVector(Epetra_DataAccess CV, const Epetra_MultiVector &first,
+    const Epetra_SerialDenseMatrix &second);
 
   // const
   BorderedVector(Epetra_DataAccess CV, const BorderedVector &source,
@@ -328,7 +324,8 @@ public:
     }
   static int  GetVecLength     (const HYMLS::BorderedVector& mv) { return mv.GlobalLength(); }
   static int  GetNumberVecs    (const HYMLS::BorderedVector& mv) { return mv.NumVecs(); }
-  static bool HasConstantStride(const HYMLS::BorderedVector& mv) { return mv.ConstantStride(); }   static ptrdiff_t GetGlobalLength (const HYMLS::BorderedVector& mv)
+  static bool HasConstantStride(const HYMLS::BorderedVector& mv) { return mv.ConstantStride(); }
+  static ptrdiff_t GetGlobalLength (const HYMLS::BorderedVector& mv)
     {
     if ( mv.First()->Map().GlobalIndicesLongLong() )
       return static_cast<ptrdiff_t>( mv.GlobalLength64() );
@@ -344,7 +341,7 @@ public:
     HYMLS::BorderedVector& mv)
     {
     // Create Epetra_Multivector from SerialDenseMatrix
-    Epetra_LocalMap LocalMap((hymls_gidx)B.numRows(), 0, mv.Second()->Map().Comm());
+    Epetra_LocalMap LocalMap(B.numRows(), 0, mv.Second()->Map().Comm());
     Epetra_MultiVector B_Pvec(View, LocalMap, B.values(), B.stride(), B.numCols());
 
     const int info = mv.Multiply ('N', 'N', alpha, A, B_Pvec, beta);
@@ -419,7 +416,7 @@ public:
     const HYMLS::BorderedVector &mv, Teuchos::SerialDenseMatrix<int,double> &B)
     {
     // Create Epetra_MultiVector from SerialDenseMatrix
-    Epetra_LocalMap LocalMap((hymls_gidx)B.numRows(), 0, mv.Second()->Map().Comm());
+    Epetra_LocalMap LocalMap(B.numRows(), 0, mv.First()->Map().Comm());
     Epetra_MultiVector B_Pvec(View, LocalMap, B.values(), B.stride(), B.numCols());
     int info = B_Pvec.Multiply('T', 'N', alpha, *A.First(), *mv.First(), 0.0);
     info    += B_Pvec.Multiply('T', 'N', alpha, *A.Second(), *mv.Second(), 1.0);

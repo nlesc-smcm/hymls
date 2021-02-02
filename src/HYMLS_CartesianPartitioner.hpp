@@ -16,6 +16,9 @@ template <typename T> class Array;
 
 namespace HYMLS {
 
+class InteriorGroup;
+class SeparatorGroup;
+
 class CartesianPartitioner : public BasePartitioner
   {
 public:
@@ -23,7 +26,7 @@ public:
   //! constructor
   CartesianPartitioner(Teuchos::RCP<const Epetra_Map> map,
     Teuchos::RCP<Teuchos::ParameterList> const &params,
-    Epetra_Comm const &comm);
+    Epetra_Comm const &comm, int level=-1);
 
   //! destructor
   virtual ~CartesianPartitioner();
@@ -59,8 +62,8 @@ protected:
 
 public:
   //! Get interior and separator groups of the subdomain sd
-  int GetGroups(int sd, Teuchos::Array<hymls_gidx> &interior_nodes,
-    Teuchos::Array<Teuchos::Array<hymls_gidx> > &separator_nodes) const;
+  int GetGroups(int sd, InteriorGroup &interior_group,
+    Teuchos::Array<SeparatorGroup> &separator_group) const;
 
   //! is this class fully set up?
   inline bool Partitioned() const

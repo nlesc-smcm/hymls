@@ -96,7 +96,7 @@ void Tools::InitializeIO(Teuchos::RCP<const Epetra_Comm> comm,
 #ifdef HYMLS_DEBUGGING
   if (debug==Teuchos::null)
     {
-    std::string filename="debug"+Teuchos::toString(comm->MyPID())+".txt";
+    std::string filename="debug"+Teuchos::toString(comm_->MyPID())+".txt";
     Teuchos::RCP<std::ofstream> ofs = Teuchos::rcp(new std::ofstream(filename.c_str()));
     debug_stream = Teuchos::rcp(new Teuchos::FancyOStream(ofs));
     }

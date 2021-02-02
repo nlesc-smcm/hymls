@@ -1,8 +1,10 @@
 #include "HYMLS_BorderedVector.hpp"
 
 #include "HYMLS_Tools.hpp"
+#include "HYMLS_DenseUtils.hpp"
 
 #include "Epetra_Comm.h"
+#include "Epetra_SerialComm.h"
 #include "Epetra_SerialDenseMatrix.h"
 
 #include <math.h>
@@ -24,51 +26,27 @@ BorderedVector::BorderedVector(const BorderedVector &source)
   second_  = Teuchos::rcp(new Epetra_MultiVector(*source.Second()));
   }
 
-BorderedVector::BorderedVector(const Teuchos::RCP<Epetra_MultiVector> &mv1,
-  const Teuchos::RCP<Epetra_MultiVector> &mv2)
-  :
-  first_(mv1),
-  second_(mv2)
-  {
-  if (mv1->NumVectors() != mv2->NumVectors())
-    {
-    Tools::Error("Incompatible vectors", __FILE__, __LINE__);
-    }
-  }
-
-BorderedVector::BorderedVector(const Teuchos::RCP<Epetra_MultiVector> &mv1,
-  const Teuchos::RCP<Epetra_SerialDenseMatrix> &mv2)
-  :
-  first_(mv1)
-  {
-  if (mv1->NumVectors() != mv2->N())
-    {
-    Tools::Error("Incompatible vectors", __FILE__, __LINE__);
-    }
-
-  // This seems like a hack but is how it is done in the preconditioner
-  int num = 0;
-  if (first_->Comm().MyPID() == first_->Comm().NumProc()-1)
-    {
-    num = mv2->M();
-    }
-
-  Epetra_Map map((hymls_gidx)mv2->M(), num, (hymls_gidx)0, first_->Comm());
-  second_ = Teuchos::rcp(new Epetra_MultiVector(View, map, mv2->A(), mv2->LDA(), mv2->N()));
-  }
-
-BorderedVector::BorderedVector(const Epetra_MultiVector &mv1, const Epetra_MultiVector &mv2)
+BorderedVector::BorderedVector(Epetra_DataAccess CV, const Epetra_MultiVector &mv1,
+  const Epetra_MultiVector &mv2)
   {
   if (mv1.NumVectors() != mv2.NumVectors())
     {
     Tools::Error("Incompatible vectors", __FILE__, __LINE__);
     }
 
-  first_  = Teuchos::rcp(new Epetra_MultiVector(mv1));
-  second_ = Teuchos::rcp(new Epetra_MultiVector(mv2));
+  if (CV == Copy)
+    {
+    first_  = Teuchos::rcp(new Epetra_MultiVector(mv1));
+    second_ = Teuchos::rcp(new Epetra_MultiVector(mv2));
+    }
+  else
+    {
+    first_  = Teuchos::rcp(new Epetra_MultiVector(View, mv1.Map(), mv1.Pointers(), mv1.NumVectors()));
+    second_ = Teuchos::rcp(new Epetra_MultiVector(View, mv2.Map(), mv2.Pointers(), mv2.NumVectors()));
+    }
   }
 
-BorderedVector::BorderedVector(const Epetra_MultiVector &mv1,
+BorderedVector::BorderedVector(Epetra_DataAccess CV, const Epetra_MultiVector &mv1,
   const Epetra_SerialDenseMatrix &mv2)
   {
   if (mv1.NumVectors() != mv2.N())
@@ -76,17 +54,18 @@ BorderedVector::BorderedVector(const Epetra_MultiVector &mv1,
     Tools::Error("Incompatible vectors", __FILE__, __LINE__);
     }
 
-  first_  = Teuchos::rcp(new Epetra_MultiVector(mv1));
-
-  // This seems like a hack but is how it is done in the preconditioner
-  int num = 0;
-  if (first_->Comm().MyPID() == first_->Comm().NumProc()-1)
+  Epetra_SerialComm comm;
+  Epetra_LocalMap map(mv2.M(), 0, comm);
+  if (CV == Copy)
     {
-    num = mv2.M();
+    first_  = Teuchos::rcp(new Epetra_MultiVector(mv1));
+    second_ = Teuchos::rcp(new Epetra_MultiVector(Copy, map, mv2.A(), mv2.LDA(), mv2.N()));
     }
-
-  Epetra_Map map((hymls_gidx)mv2.M(), num, (hymls_gidx)0, first_->Comm());
-  second_ = Teuchos::rcp(new Epetra_MultiVector(Copy, map, mv2.A(), mv2.LDA(), mv2.N()));
+  else
+    {
+    first_  = Teuchos::rcp(new Epetra_MultiVector(View, mv1.Map(), mv1.Pointers(), mv1.NumVectors()));
+    second_ = Teuchos::rcp(new Epetra_MultiVector(View, map, mv2.A(), mv2.LDA(), mv2.N()));
+    }
   }
 
 // const
@@ -170,17 +149,7 @@ Teuchos::RCP<Epetra_SerialDenseMatrix> BorderedVector::Border()
   if (!second_->ConstantStride())
     Tools::Error("No constant stride!", __FILE__, __LINE__);
 
-  if (first_->Comm().MyPID() == first_->Comm().NumProc()-1)
-    {
-    return Teuchos::rcp(new
-      Epetra_SerialDenseMatrix(View, second_->Values(),
-        second_->Stride(), second_->MyLength(), second_->NumVectors()));
-    }
-  else
-    {
-    return Teuchos::rcp(new
-      Epetra_SerialDenseMatrix(second_->GlobalLength64(), second_->NumVectors()));
-    }
+  return DenseUtils::CreateView(*second_);
   }
 
 Teuchos::RCP<Epetra_MultiVector> BorderedVector::First() const
@@ -203,17 +172,7 @@ Teuchos::RCP<Epetra_SerialDenseMatrix> BorderedVector::Border() const
   if (!second_->ConstantStride())
     Tools::Error("No constant stride!", __FILE__, __LINE__);
 
-  if (first_->Comm().MyPID() == first_->Comm().NumProc()-1)
-    {
-    return Teuchos::rcp(new
-      Epetra_SerialDenseMatrix(View, second_->Values(),
-        second_->Stride(), second_->MyLength(), second_->NumVectors()));
-    }
-  else
-    {
-    return Teuchos::rcp(new
-      Epetra_SerialDenseMatrix(second_->GlobalLength64(), second_->NumVectors()));
-    }
+  return DenseUtils::CreateView(*second_);
   }
 
 int BorderedVector::SetBorder(const Epetra_SerialDenseMatrix &mv2)
@@ -387,7 +346,14 @@ int BorderedVector::Random()
   {
   int info = 0;
   info += first_->Random();
+
+  if (!second_->ConstantStride())
+    Tools::Error("No constant stride!", __FILE__, __LINE__);
+
+  // Broadcast random numbers from processor 0 so they are the same on every processor.
   info += second_->Random();
+  info += first_->Comm().Broadcast(second_->Values(), second_->Stride() * second_->NumVectors(), 0);
+
   return info;
   }
 

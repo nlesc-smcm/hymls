@@ -4,6 +4,8 @@
 
 #include "HYMLS_Tools.hpp"
 #include "HYMLS_Macros.hpp"
+#include "HYMLS_InteriorGroup.hpp"
+#include "HYMLS_SeparatorGroup.hpp"
 
 #include "Epetra_Comm.h"
 #include "Epetra_SerialComm.h"
@@ -27,7 +29,6 @@ HierarchicalMap::HierarchicalMap(
   :
   label_(label),
   myLevel_(level),
-  retainNodes_(1),
   baseMap_(baseMap),
   baseOverlappingMap_(baseOverlappingMap),
   overlappingMap_(Teuchos::null)
@@ -40,32 +41,30 @@ HierarchicalMap::HierarchicalMap(
 HierarchicalMap::HierarchicalMap(
   Teuchos::RCP<const Epetra_Map> baseMap,
   Teuchos::RCP<const Epetra_Map> overlappingMap,
-  Teuchos::RCP<Teuchos::Array< Teuchos::Array<hymls_gidx> > > groupPointer,
-  Teuchos::RCP<Teuchos::Array< Teuchos::Array<hymls_gidx> > > gidList,
+  Teuchos::RCP<Teuchos::Array<InteriorGroup> > interior_groups,
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<SeparatorGroup> > > separator_groups,
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<Teuchos::Array<SeparatorGroup> > > > linked_separator_groups,
   std::string label, int level)
   :
   label_(label),
   myLevel_(level),
-  retainNodes_(1),
   baseMap_(baseMap),
   baseOverlappingMap_(overlappingMap),
   overlappingMap_(overlappingMap),
-  groupPointer_(groupPointer),
-  gidList_(gidList)
+  interior_groups_(interior_groups),
+  separator_groups_(separator_groups),
+  linked_separator_groups_(linked_separator_groups)
   {
   HYMLS_LPROF2(label_,"HierarchicalMap Constructor");
-  spawnedObjects_.resize(4); // can currently spawn Interior, Separator and 
-  // LocalSeparator objects and 
-  // return a self-reference (All)    
-  spawnedMaps_.resize(4);
-  for (int i=0;i<spawnedObjects_.size();i++) spawnedObjects_[i]=Teuchos::null;
-  for (int i=0;i<spawnedMaps_.size();i++)  
+  spawnedObjects_.resize(3); // can currently spawn Interior, Separator and LocalSeparator objects
+  spawnedMaps_.resize(3);
+  for (int i = 0; i < spawnedObjects_.size(); i++)
+    spawnedObjects_[i] = Teuchos::null;
+  for (int i = 0; i < spawnedMaps_.size(); i++)
     {
     spawnedMaps_[i].resize(NumMySubdomains());
-    for (int sd=0;sd<NumMySubdomains();sd++)
-      {
-      spawnedMaps_[i][sd]=Teuchos::null;
-      }
+    for (int sd = 0; sd < NumMySubdomains(); sd++)
+      spawnedMaps_[i][sd] = Teuchos::null;
     }
   }
 
@@ -74,23 +73,71 @@ HierarchicalMap::~HierarchicalMap()
   HYMLS_LPROF3(label_,"Destructor");
   }
 
+int HierarchicalMap::NumMySubdomains() const
+  {
+  if (interior_groups_ != Teuchos::null)
+    return interior_groups_->length();
+  return separator_groups_->length();
+  }
+
+int HierarchicalMap::NumInteriorElements(int sd) const
+  {
+  return GetInteriorGroup(sd).length();
+  }
+
+int HierarchicalMap::NumSeparatorElements(int sd) const
+  {
+  int num = 0;
+  for (SeparatorGroup const &group: GetSeparatorGroups(sd))
+    num += group.length();
+  return num;
+  }
+
+int HierarchicalMap::NumSeparatorGroups(int sd) const
+  {
+  return GetSeparatorGroups(sd).length();
+  }
+
+int HierarchicalMap::NumLinkedSeparatorGroups(int sd) const
+  {
+  return GetLinkedSeparatorGroups(sd).length();
+  }
+
 int HierarchicalMap::Reset(int numMySubdomains)
   {
-  HYMLS_LPROF2(label_,"Reset");
-  groupPointer_=Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >(numMySubdomains));
-  gidList_=Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >(numMySubdomains));
-  for (int i=0;i<numMySubdomains;i++)
-    {
-    (*gidList_)[i].resize(0);
-    (*groupPointer_)[i].resize(1);
-    (*groupPointer_)[i][0]=0;
-    }
-  spawnedObjects_.resize(4); // can currently spawn Interior, Separator and 
-  // LocalSeparator objects and 
-  // return a self-reference (All)    
-  spawnedMaps_.resize(4);
-  for (int i=0;i<spawnedObjects_.size();i++) spawnedObjects_[i]=Teuchos::null;
-  overlappingMap_=Teuchos::null;
+  HYMLS_LPROF2(label_, "Reset");
+  interior_groups_ = Teuchos::rcp(new Teuchos::Array<InteriorGroup>(numMySubdomains));
+  separator_groups_ = Teuchos::rcp(new Teuchos::Array<Teuchos::Array<SeparatorGroup> >(numMySubdomains));
+
+  spawnedObjects_.resize(3); // can currently spawn Interior, Separator and LocalSeparator objects
+  spawnedMaps_.resize(3);
+  for (int i = 0; i < spawnedObjects_.size(); i++)
+    spawnedObjects_[i] = Teuchos::null;
+  overlappingMap_ = Teuchos::null;
+  return 0;
+  }
+
+int HierarchicalMap::LinkSeparators(
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<SeparatorGroup> > > separator_groups,
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<Teuchos::Array<SeparatorGroup> > > > linked_separator_groups) const
+  {
+  for (int sd = 0; sd < NumMySubdomains(); sd++)
+    for (SeparatorGroup const &group: (*separator_groups)[sd])
+      {
+      bool found = false;
+      if (group.type() >= 0)
+        {
+        for (auto &linked_groups: (*linked_separator_groups)[sd])
+          if (group.type() == linked_groups[0].type())
+            {
+            linked_groups.append(group);
+            found = true;
+            break;
+            }
+        }
+      if (!found)
+        (*linked_separator_groups)[sd].append(Teuchos::Array<SeparatorGroup>(1, group));
+      }
   return 0;
   }
 
@@ -109,11 +156,6 @@ int HierarchicalMap::FillComplete()
       }
     }
 
-  Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > newGroupPointer =
-    Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >());
-  Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > newGidList =
-    Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >());
-
   Teuchos::RCP<const Epetra_Map> map = baseMap_;
   if (baseOverlappingMap_ != Teuchos::null)
     map = baseOverlappingMap_;
@@ -124,33 +166,29 @@ int HierarchicalMap::FillComplete()
   Teuchos::Array<hymls_gidx> separatorGIDs;
   for (int sd = 0; sd < NumMySubdomains(); sd++)
     {
-    newGidList->append(Teuchos::Array<hymls_gidx>());
-    newGroupPointer->append(Teuchos::Array<hymls_gidx>(1));
-    for (int grp = 0; grp < NumGroups(sd); grp++)
+    // Interior nodes don't need communication. Just add those
+    // that are present in the baseMap_
+    InteriorGroup new_group;
+    for (hymls_gidx gid: GetInteriorGroup(sd).nodes())
+      if (map->MyGID(gid))
+        new_group.append(gid);
+    (*interior_groups_)[sd].nodes() = new_group.nodes();
+
+    // Now add the separator groups. We can avoid communication
+    // if the baseOverlappingMap_ is present.
+    for (SeparatorGroup &group: (*separator_groups_)[sd])
       {
-      if (grp == 0 || baseOverlappingMap_ != Teuchos::null)
+      if (baseOverlappingMap_ != Teuchos::null)
         {
-        // Interior nodes don't need communication. Just add those
-        // that are present in the baseMap_
-        for (int j = 0; j < NumElements(sd,grp); j++)
-          {
-          hymls_gidx gid = GID(sd, grp, j);
+        SeparatorGroup new_group;
+        for (hymls_gidx gid: group.nodes())
           if (map->MyGID(gid))
-            (*newGidList)[sd].append(gid);
-          }
-        hymls_gidx offset = *((*newGroupPointer)[sd].end()-1);
-        int len = (*newGidList)[sd].size() - offset;
-        if (len > 0 || grp == 0)
-          (*newGroupPointer)[sd].append(len + offset);
+            new_group.append(gid);
+        group.nodes() = new_group.nodes();
         }
       else
-        {
-        hymls_gidx offset = *((*groupPointer_)[sd].begin() + grp);
-        int len = *((*groupPointer_)[sd].begin() + grp + 1) - offset;
-
-        std::copy((*gidList_)[sd].begin() + offset, (*gidList_)[sd].begin() + offset + len,
+        std::copy(group.nodes().begin(), group.nodes().end(),
           std::back_inserter(separatorGIDs));
-        }
       }
     }
 
@@ -190,246 +228,206 @@ int HierarchicalMap::FillComplete()
 
     for (int sd = 0; sd < NumMySubdomains(); sd++)
       {
-      for (int grp = 1; grp < NumGroups(sd); grp++)
+      for (SeparatorGroup &group: (*separator_groups_)[sd])
         {
-        Teuchos::Array<hymls_gidx> gidList;
-        for (int j = 0; j < NumElements(sd, grp); j++)
+        SeparatorGroup new_group;
+        for (hymls_gidx gid: group.nodes())
           {
-          hymls_gidx gid = GID(sd, grp, j);
           // If it is present in the overlappingVec the element actually belongs
           // to the baseMap_ on some processor
           if (overlappingVec[tmpOverlappingMap->LID(gid)])
-            {
-            gidList.append(gid);
-            }
+            new_group.append(gid);
           }
-        hymls_gidx offset = *((*newGroupPointer)[sd].end()-1);
-        int len = gidList.size();
-        if (len > 0)
-          {
-          (*newGroupPointer)[sd].append(offset + len);
-          std::copy(gidList.begin(), gidList.end(), std::back_inserter((*newGidList)[sd]));
-          }
+        group.nodes() = new_group.nodes();
         }
       }
     }
 
-  // Make a new overlapping map with elements that are present on some processor
-  Teuchos::Array<hymls_gidx> allGIDs;
+  unique_separator_groups_ = Teuchos::rcp(new Teuchos::Array<Teuchos::Array<SeparatorGroup> >(NumMySubdomains()));
+
+  Teuchos::Array<hymls_gidx> all_gids;
+  Teuchos::Array<hymls_gidx> unique_group_ids;
   for (int sd = 0; sd < NumMySubdomains(); sd++)
     {
-    std::copy((*newGidList)[sd].begin(), (*newGidList)[sd].end(),
-      std::back_inserter(allGIDs));
-    }
-  std::sort(allGIDs.begin(), allGIDs.end());
-  auto last = std::unique(allGIDs.begin(), allGIDs.end());
-  overlappingMap_ = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), std::distance(allGIDs.begin(), last),
-      allGIDs.getRawPtr(), (hymls_gidx)baseMap_->IndexBase64(), Comm()));
+    // Remove empty separator groups
+    (*separator_groups_)[sd].erase(std::remove_if(
+        (*separator_groups_)[sd].begin(), (*separator_groups_)[sd].end(),
+      [](SeparatorGroup const &i){return i.nodes().empty();}),
+      (*separator_groups_)[sd].end());
 
-  gidList_ = newGidList;
-  groupPointer_ = newGroupPointer;
+    InteriorGroup const &group = GetInteriorGroup(sd);
+    std::copy(group.nodes().begin(), group.nodes().end(), std::back_inserter(all_gids));
 
-  if (retainNodes_ != 1)
-    {
-    // split separator groups if we want to retain multiple nodes per separator
-    Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > splitGroupPointer =
-      Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >());
-
-    for (int sd = 0; sd < NumMySubdomains(); sd++)
+    for (SeparatorGroup const &group: GetSeparatorGroups(sd))
       {
-      splitGroupPointer->append(Teuchos::Array<hymls_gidx>(1));
-      for (int grp = 1; grp < NumGroups(sd); grp++)
+      // Only copy unique groups and cache those
+      if (std::find_if(unique_group_ids.begin(), unique_group_ids.end(), [group](
+            hymls_gidx gid) {return gid == group[0];}) == unique_group_ids.end())
         {
-        int len = NumElements(sd, grp);
-        int newLen = std::max((len + retainNodes_ - 1) / retainNodes_, 1);
-        for (int j = 0; j < len; j += newLen)
-          (*splitGroupPointer)[sd].append((*newGroupPointer)[sd][grp] + j);
+        (*unique_separator_groups_)[sd].append(group);
+        unique_group_ids.append(group[0]);
+        std::copy(group.nodes().begin(), group.nodes().end(), std::back_inserter(all_gids));
         }
-      (*splitGroupPointer)[sd].append((*newGroupPointer)[sd].back());
       }
-    groupPointer_ = splitGroupPointer;
     }
+
+  overlappingMap_ = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), all_gids.length(),
+      all_gids.getRawPtr(), (hymls_gidx)baseMap_->IndexBase64(), Comm()));
+
+  // Link together separator groups that have the same type, e.g. when they
+  // are on the same separator.
+  linked_separator_groups_ = Teuchos::rcp(
+    new Teuchos::Array<Teuchos::Array<Teuchos::Array<SeparatorGroup> > >(NumMySubdomains()));
+
+  LinkSeparators(separator_groups_, linked_separator_groups_);
 
   return 0;
   }
 
-int HierarchicalMap::AddGroup(int sd, Teuchos::Array<hymls_gidx>& gidList)
+int HierarchicalMap::AddInteriorGroup(int sd, InteriorGroup const &group)
   {
-  HYMLS_LPROF3(label_,"AddGroup");
+  HYMLS_LPROF3(label_,"AddInteriorGroup");
 
-  if (sd>=groupPointer_->size())
+  if (sd >= interior_groups_->size())
     {
-    Tools::Warning("invalid subdomain index",__FILE__,__LINE__);
+    Tools::Warning("invalid subdomain index", __FILE__, __LINE__);
     return -1; // You should Reset with the right amount of sd
-    } 
+    }
 
   HYMLS_DEBVAR(sd);
-  HYMLS_DEBVAR(gidList);
-  hymls_gidx offset=*((*groupPointer_)[sd].end()-1);
-  int len = gidList.size();
-  (*groupPointer_)[sd].append(offset+len);
-  if (len>0)
-    {
-    std::copy(gidList.begin(),gidList.end(),std::back_inserter((*gidList_)[sd]));
-    }
-  return (*groupPointer_)[sd].length()-1;
+  HYMLS_DEBVAR(group.nodes());
+
+  (*interior_groups_)[sd] = group;
+
+  return 0;
   }
 
-Teuchos::Array<hymls_gidx> HierarchicalMap::GetGroup(int sd, int grp) const
+int HierarchicalMap::AddSeparatorGroup(int sd, SeparatorGroup const &group)
   {
-  HYMLS_LPROF3(label_,"GetGroup");
+  HYMLS_LPROF3(label_,"AddSeparatorGroup");
 
-  if (sd >= groupPointer_->size())
-    Tools::Error("Invalid subdomain index", __FILE__, __LINE__);
-
-  if (grp >= (*groupPointer_)[sd].size())
-    Tools::Error("Invalid group index", __FILE__, __LINE__);
-
-  hymls_gidx offset = *((*groupPointer_)[sd].begin() + grp);
-  int len = *((*groupPointer_)[sd].begin() + grp + 1) - offset;
-
-  if (offset + len > (*gidList_)[sd].size())
-    Tools::Error("Invalid group index", __FILE__, __LINE__);
-
-  Teuchos::Array<hymls_gidx> gidList;
-  std::copy((*gidList_)[sd].begin() + offset, (*gidList_)[sd].begin() + offset + len,std::back_inserter(gidList));
-
-  return gidList;
-  }
-
-  //! print domain decomposition to file
-  std::ostream& HierarchicalMap::Print(std::ostream& os) const
+  if (sd >= separator_groups_->size())
     {
-    if (!Filled())
-      {
-      os << "(object not filled)" << std::endl;
-      return os;
-      }
-    HYMLS_LPROF3(label_,"Print");
-    int rank=Comm().MyPID();
-    
-    if (rank==0)
-      {
-      os << "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" << std::endl;
-      os << "% Domain decomposition and separators, level " << myLevel_ << "       %" << std::endl;
-      os << "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" << std::endl;
-      os << std::endl;
-      }
+    Tools::Warning("invalid subdomain index", __FILE__, __LINE__);
+    return -1; // You should Reset with the right amount of sd
+    }
 
-    for (int proc=0;proc<Comm().NumProc();proc++)
-      {
-      if (proc==rank)
-        {
-        os << "%Partition " << rank << std::endl;
-        os << "%=============" << std::endl;
-        //os << "% Number of rows in groupPointer: " << (*groupPointer_).size() << std::endl;
-        for (int sd=0;sd<NumMySubdomains();sd++)
-          {
-          os << "p{" << myLevel_ << "}{" << rank+1 << "}.grpPtr{" << sd+1 << "}=[";
-          for (int i=0;i<(*groupPointer_)[sd].size()-1;i++)
-            {
-            os << (*groupPointer_)[sd][i] << ",";
-            }
-          os << *((*groupPointer_)[sd].end()-1) << "];" << std::endl;
-          os << "   p{" << myLevel_ << "}{" << rank+1 << "}.sd{" << sd+1 << "} = [";
-          for (int grp=0;grp<(*groupPointer_)[sd].size()-1;grp++)
-            {
-            for (int i=(*groupPointer_)[sd][grp]; i<(*groupPointer_)[sd][grp+1];i++)
-              {
-              os << " " << (*gidList_)[sd][i];
-              }
-            os << " ..." << std::endl;
-            }
-          os << "];" << std::endl << std::endl;
-          }
-        }//rank
-      Comm().Barrier();
-      }//proc
+  HYMLS_DEBVAR(sd);
+  HYMLS_DEBVAR(group.nodes());
 
-    if (rank==0)
-      {
-      os << "%$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$%\n" << std::endl;
-      }
+  (*separator_groups_)[sd].append(group);
 
-    Comm().Barrier();
-
-    for (int proc = 0; proc < Comm().NumProc(); proc++)
-      {
-      if (proc == rank)
-        {
-        os << "%Partition " << rank << std::endl;
-        os << "%=============" << std::endl;
-        for (int sd = 0; sd < NumMySubdomains(); sd++)
-          {
-          os << "p{" << myLevel_ << "}{" << rank + 1 << "}.groups{" << sd + 1 << "} = {";
-          for (int grp = 0; grp < NumGroups(sd); grp++)
-            {
-            Teuchos::Array<hymls_gidx> gidList = GetGroup(sd, grp);
-            if (grp > 0)
-              {
-              os << ",..." << std::endl;
-              }
-            os << "[";
-            for (int i = 0; i < NumElements(sd, grp); i++)
-              {
-              os << gidList[i] << ",";
-              }
-            os << "]";
-            }
-          os << "};\n" << std::endl;
-          }
-        }//rank
-      Comm().Barrier();
-      }//proc
-
-    if (rank==0)
-      {
-      os << "%$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$%" << std::endl;
-      }
-  return os;
+  return (*separator_groups_)[sd].length() - 1;
   }
 
-Teuchos::RCP<const HierarchicalMap> 
-HierarchicalMap::Spawn(SpawnStrategy strat) const
+InteriorGroup const &HierarchicalMap::GetInteriorGroup(int sd) const
+  {
+  return (*interior_groups_)[sd];
+  }
+
+Teuchos::Array<SeparatorGroup> const &HierarchicalMap::GetSeparatorGroups(int sd) const
+  {
+  return (*separator_groups_)[sd];
+  }
+
+Teuchos::Array<Teuchos::Array<SeparatorGroup> > const &HierarchicalMap::GetLinkedSeparatorGroups(int sd) const
+  {
+  return (*linked_separator_groups_)[sd];
+  }
+
+//! print domain decomposition to file
+std::ostream& HierarchicalMap::Print(std::ostream& os) const
   {
   if (!Filled())
     {
-    Tools::Error("object not filled",__FILE__,__LINE__);
+    os << "(object not filled)" << std::endl;
+    return os;
     }
-  int idx=(int)strat;
-  
-  if (spawnedObjects_.size()<idx+1)
+  HYMLS_LPROF3(label_,"Print");
+  int rank=Comm().MyPID();
+
+  if (rank==0)
     {
-    Tools::Error("Bad strategy!",__FILE__,__LINE__);
+    os << "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" << std::endl;
+    os << "% Domain decomposition and separators, level " << myLevel_ << "       %" << std::endl;
+    os << "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" << std::endl;
+    os << std::endl;
     }
 
-  Teuchos::RCP<const HierarchicalMap>
-        object = spawnedObjects_[idx];
-    
-  if (object==Teuchos::null)
+  Comm().Barrier();
+
+  for (int proc = 0; proc < Comm().NumProc(); proc++)
+    {
+    if (proc == rank)
+      {
+      os << "%Partition " << rank << std::endl;
+      os << "%=============" << std::endl;
+      for (int sd = 0; sd < NumMySubdomains(); sd++)
+        {
+        os << "p{" << myLevel_ << "}{" << rank + 1 << "}.groups{" << sd + 1 << "} = {";
+
+        os << "[";
+        InteriorGroup const &group = GetInteriorGroup(sd);
+        for (hymls_gidx gid: group.nodes())
+          os << gid << ",";
+        os << "]";
+
+        for (SeparatorGroup const &group: GetSeparatorGroups(sd))
+          {
+          os << ",..." << std::endl;
+          os << "[";
+          for (hymls_gidx gid: group.nodes())
+            os << gid << ",";
+          os << "]";
+          }
+        os << "};\n" << std::endl;
+        }
+      }//rank
+    Comm().Barrier();
+    }//proc
+
+  if (rank==0)
+    {
+    os << "%$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$%" << std::endl;
+    }
+  return os;
+  }
+
+Teuchos::RCP<const HierarchicalMap>
+HierarchicalMap::Spawn(SpawnStrategy strat) const
+  {
+  if (!Filled())
+    Tools::Error("object not filled",__FILE__,__LINE__);
+
+  int idx = (int)strat;
+
+  if (spawnedObjects_.size() < idx + 1)
+    {
+    Tools::Error("Bad strategy!", __FILE__, __LINE__);
+    }
+
+  Teuchos::RCP<const HierarchicalMap> object = spawnedObjects_[idx];
+
+  if (object == Teuchos::null)
     {
     HYMLS_LPROF3(label_,"Spawn");
-    if (strat==Interior)
+    if (strat == Interior)
       {
-      object=SpawnInterior();
+      object = SpawnInterior();
       }
-    else if (strat==Separators)
+    else if (strat == Separators)
       {
-      object=SpawnSeparators();
+      object = SpawnSeparators();
       }
-    else if (strat==LocalSeparators)
+    else if (strat == LocalSeparators)
       {
-      object=SpawnLocalSeparators();
-      }
-    else if (strat==All)
-      {
-      object=Teuchos::rcp(this,false);
+      object = SpawnLocalSeparators();
       }
     else
       {
       Tools::Error("Bad strategy!",__FILE__,__LINE__);
       }
-    spawnedObjects_[idx]=object;
+    spawnedObjects_[idx] = object;
     }
   return object;
   }
@@ -438,46 +436,31 @@ HierarchicalMap::Spawn(SpawnStrategy strat) const
 Teuchos::RCP<const HierarchicalMap>
 HierarchicalMap::SpawnInterior() const
   {
-  HYMLS_LPROF3(label_,"SpawnInterior");
+  HYMLS_LPROF3(label_, "SpawnInterior");
 
-  Teuchos::RCP<const HierarchicalMap> newObject=Teuchos::null;
-  Teuchos::RCP<Epetra_Map> newMap=Teuchos::null;
-  Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > newGroupPointer =
-    Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >());
-  Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > newGidList =
-    Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >());
-  
-  hymls_gidx base = baseMap_->IndexBase64();  
-  
-  int num = NumMyInteriorElements();
-  hymls_gidx *myElements = new hymls_gidx[num];
+  Teuchos::RCP<const HierarchicalMap> newObject = Teuchos::null;
+  Teuchos::RCP<Epetra_Map> newMap = Teuchos::null;
+
+  hymls_gidx base = baseMap_->IndexBase64();
+
+  int num_interior_elements = 0;
+  for (int sd = 0; sd < NumMySubdomains(); sd++)
+    num_interior_elements += GetInteriorGroup(sd).length();
+
+  hymls_gidx *myElements = new hymls_gidx[num_interior_elements];
   int pos = 0;
   for (int sd = 0; sd < NumMySubdomains(); sd++)
     {
-    int len = (*groupPointer_)[sd][1];
-    std::copy((*gidList_)[sd].begin(), (*gidList_)[sd].begin()+len, myElements+pos);
-    pos += len;
+    InteriorGroup const &group = GetInteriorGroup(sd);
+    std::copy(group.nodes().begin(), group.nodes().end(), myElements + pos);
+    pos += group.length();
     }
 
   newMap = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), pos, myElements, base, Comm()));
   delete [] myElements;
 
-  newGroupPointer->resize(NumMySubdomains());
-  if (NumMySubdomains()>0)
-    {
-    (*newGroupPointer)[0].resize(2);
-    (*newGroupPointer)[0][0]=0;
-    (*newGroupPointer)[0][1]=NumInteriorElements(0);
-    }
-  for (int sd=1;sd<NumMySubdomains();sd++)
-    {
-    (*newGroupPointer)[sd].resize(2);
-    (*newGroupPointer)[sd][0]=(*newGroupPointer)[sd-1][1];
-    (*newGroupPointer)[sd][1]=(*newGroupPointer)[sd][0]+NumInteriorElements(sd);
-    }
-
   newObject = Teuchos::rcp(new HierarchicalMap(newMap, newMap,
-      newGroupPointer, gidList_, "Interior Nodes",myLevel_) );
+      interior_groups_, Teuchos::null, Teuchos::null, "Interior Nodes", myLevel_));
 
   return newObject;
   }
@@ -487,50 +470,27 @@ HierarchicalMap::SpawnInterior() const
 Teuchos::RCP<const HierarchicalMap>
 HierarchicalMap::SpawnSeparators() const
   {
-  HYMLS_LPROF3(label_,"SpawnSeparators");
+  HYMLS_LPROF3(label_, "SpawnSeparators");
 
-  if (!Filled()) Tools::Error("object not filled", __FILE__, __LINE__);
+  if (!Filled())
+    Tools::Error("object not filled", __FILE__, __LINE__);
 
   Teuchos::RCP<const HierarchicalMap> newObject = Teuchos::null;
   Teuchos::RCP<Epetra_Map> newMap = Teuchos::null;
   Teuchos::RCP<Epetra_Map> newOverlappingMap = Teuchos::null;
-  Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > newGroupPointer =
-    Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >());
-  Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > newGidList =
-    Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >());
 
-  Teuchos::Array<hymls_gidx> done;
   Teuchos::Array<hymls_gidx> localGIDs;
   Teuchos::Array<hymls_gidx> overlappingGIDs;
 
   for (int sd = 0; sd < NumMySubdomains(); sd++)
     {
-    newGidList->append(Teuchos::Array<hymls_gidx>());
-    newGroupPointer->append(Teuchos::Array<hymls_gidx>(2));
-    for (int grp = 1; grp < NumGroups(sd); grp++)
+    for (SeparatorGroup const &group: (*unique_separator_groups_)[sd])
       {
-      if (NumElements(sd, grp) > 0 &&
-        std::find(done.begin(), done.end(), GID(sd, grp, 0)) == done.end())
+      for (hymls_gidx gid: group.nodes())
         {
-        Teuchos::Array<hymls_gidx> gidList;
-        for (int j = 0; j < NumElements(sd, grp); j++)
-          {
-          hymls_gidx gid = GID(sd, grp, j);
-          gidList.append(gid);
-          overlappingGIDs.append(gid);
-          if (baseMap_->MyGID(gid))
-            {
-            localGIDs.append(gid);
-            }
-          }
-        hymls_gidx offset = *((*newGroupPointer)[sd].end()-1);
-        int len = gidList.size();
-        if (len > 0)
-          {
-          (*newGroupPointer)[sd].append(offset + len);
-          std::copy(gidList.begin(), gidList.end(), std::back_inserter((*newGidList)[sd]));
-          }
-        done.append(GID(sd, grp, 0));
+        overlappingGIDs.append(gid);
+        if (baseMap_->MyGID(gid))
+          localGIDs.append(gid);
         }
       }
     }
@@ -542,113 +502,108 @@ HierarchicalMap::SpawnSeparators() const
       localGIDs.getRawPtr(), (hymls_gidx)baseMap_->IndexBase64(), Comm()));
 
   newObject = Teuchos::rcp(new HierarchicalMap(newMap, newOverlappingMap,
-      newGroupPointer, newGidList, "Separator Nodes", myLevel_));
+      Teuchos::null, separator_groups_, linked_separator_groups_, "Separator Nodes", myLevel_));
 
   return newObject;
-
   }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 Teuchos::RCP<const HierarchicalMap>
 HierarchicalMap::SpawnLocalSeparators() const
-  { 
-  HYMLS_LPROF3(label_,"SpawnLocalSeparators");
+  {
+  HYMLS_LPROF3(label_, "SpawnLocalSeparators");
 
-  Teuchos::RCP<const HierarchicalMap> newObject=Teuchos::null;
-  Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > newGidList =
-    Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >());
-  Teuchos::RCP<Teuchos::Array<Teuchos::Array<hymls_gidx> > > newGroupPointer =
-    Teuchos::rcp(new Teuchos::Array<Teuchos::Array<hymls_gidx> >());
-  
+  Teuchos::RCP<const HierarchicalMap> newObject = Teuchos::null;
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<SeparatorGroup> > > new_separator_groups =
+    Teuchos::rcp(new Teuchos::Array<Teuchos::Array<SeparatorGroup> >(NumMySubdomains()));
+  Teuchos::RCP<Teuchos::Array<Teuchos::Array<Teuchos::Array<SeparatorGroup> > > > new_linked_separator_groups =
+    Teuchos::rcp(new Teuchos::Array<Teuchos::Array<Teuchos::Array<SeparatorGroup> > >(NumMySubdomains()));
+
   // Start out from the standard Separator object. All local separators are located
   // in its baseMap_
   Teuchos::RCP<const HierarchicalMap> sepObject = Spawn(Separators);
 
   for (int sd = 0; sd < sepObject->NumMySubdomains(); sd++)
     {
-    newGidList->append(Teuchos::Array<hymls_gidx>());
-    newGroupPointer->append(Teuchos::Array<hymls_gidx>(2));
-    for (int grp = 1; grp < sepObject->NumGroups(sd); grp++)
+    for (SeparatorGroup const &group: (*unique_separator_groups_)[sd])
       {
-      if (sepObject->NumElements(sd, grp) > 0 &&
-        sepObject->GetMap()->MyGID(sepObject->GID(sd, grp, 0)))
-        {
-        Teuchos::Array<hymls_gidx> gidList = sepObject->GetGroup(sd, grp);
-        hymls_gidx offset = *((*newGroupPointer)[sd].end()-1);
-        int len = gidList.size();
-        if (len > 0)
-          {
-          (*newGroupPointer)[sd].append(offset + len);
-          std::copy(gidList.begin(), gidList.end(), std::back_inserter((*newGidList)[sd]));
-          }
-        }
+      if (sepObject->GetMap()->MyGID(group[0]))
+        (*new_separator_groups)[sd].append(group);
       }
     }
 
+  LinkSeparators(new_separator_groups, new_linked_separator_groups);
+
   newObject = Teuchos::rcp(new HierarchicalMap(sepObject->GetMap(), sepObject->GetMap(),
-      newGroupPointer, newGidList, "Local Separator Nodes", myLevel_));
+      Teuchos::null, new_separator_groups, new_linked_separator_groups, "Local Separator Nodes", myLevel_));
 
   return newObject;
   }
 
-  Teuchos::RCP<const Epetra_Map> HierarchicalMap::SpawnMap
-        (int sd, SpawnStrategy strat) const
+Teuchos::RCP<const Epetra_Map> HierarchicalMap::SpawnMap(int sd, SpawnStrategy strat) const
+  {
+  HYMLS_LPROF3(label_,"SpawnMap");
+
+  if (!Filled())
+    Tools::Error("object not filled",__FILE__,__LINE__);
+
+  if (sd < 0 || sd > NumMySubdomains())
     {
-    HYMLS_LPROF3(label_,"SpawnMap");
-    if ((sd<0)||(sd>NumMySubdomains()))
-      {
-      Tools::Error("subdomain index out of range",__FILE__,__LINE__);
-      }
-    int idx=(int)strat;
-    if (idx>=spawnedMaps_.size())
-      {
-      Tools::Error("strategy index out of range",__FILE__,__LINE__);
-      }
-      
-    if (spawnedMaps_[idx].size()<NumMySubdomains())
-      {
-      spawnedMaps_[idx].resize(NumMySubdomains());
-      for (int i=0;i<NumMySubdomains();i++) spawnedMaps_[idx][sd]=Teuchos::null;
-      }
-      
-    Teuchos::RCP<const Epetra_Map> map = spawnedMaps_[idx][sd];
-    
-    if (map==Teuchos::null)
-      {
-      HYMLS_DEBUG("Spawn map for subdomain " << sd);
-      // int* MyElements = overlappingMap_->MyGlobalElements();      
-      hymls_gidx offset = -1;
-      int length = -1;
-      if (strat==Interior)
-        {
-        HYMLS_DEBUG("interior map");
-        offset = (*groupPointer_)[sd][0];
-        length = NumInteriorElements(sd);
-        }
-      else if (strat==Separators)
-        {
-        HYMLS_DEBUG("separator map");
-        offset = (*groupPointer_)[sd][1];
-        length = NumSeparatorElements(sd);
-        }
-      else if (strat==All)
-        {
-        HYMLS_DEBUG("complete map");
-        offset = (*groupPointer_)[sd][0];
-        length = NumElements(sd);
-        }
-      HYMLS_DEBVAR(offset);
-      HYMLS_DEBVAR(length);
-      Epetra_SerialComm comm;
-      map = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), length, &((*gidList_)[sd][0+offset]),
-          (hymls_gidx)baseMap_->IndexBase64(), comm));
-                
-      spawnedMaps_[idx][sd]=map;
-      }
-    
-    return map;
+    Tools::Error("subdomain index out of range",__FILE__,__LINE__);
     }
+
+  int idx = (int)strat;
+  if (idx >= spawnedMaps_.size())
+    {
+    Tools::Error("strategy index out of range",__FILE__,__LINE__);
+    }
+
+  Teuchos::RCP<const Epetra_Map> map = spawnedMaps_[idx][sd];
+
+  if (map == Teuchos::null)
+    {
+    HYMLS_DEBUG("Spawn map for subdomain " << sd);
+
+    Epetra_SerialComm comm;
+    if (strat == Interior)
+      {
+      HYMLS_DEBUG("interior map");
+
+      InteriorGroup const &group = GetInteriorGroup(sd);
+      map = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), group.length(), &group[0],
+          (hymls_gidx)baseMap_->IndexBase64(), comm));
+      }
+    else if (strat == Separators)
+      {
+      HYMLS_DEBUG("separator map");
+
+      Teuchos::RCP<const HierarchicalMap> object = Spawn(Separators);
+
+      int length = object->NumSeparatorElements(sd);
+      hymls_gidx *gids = new hymls_gidx[length];
+
+      int pos = 0;
+      for (SeparatorGroup const &group: object->GetSeparatorGroups(sd))
+        {
+        std::copy(group.nodes().begin(), group.nodes().end(), gids + pos);
+        pos += group.length();
+        }
+
+      map = Teuchos::rcp(new Epetra_Map((hymls_gidx)(-1), length, gids,
+          (hymls_gidx)baseMap_->IndexBase64(), comm));
+
+      delete[] gids;
+      }
+    else
+      {
+      Tools::Error("Bad strategy!", __FILE__, __LINE__);
+      }
+    spawnedMaps_[idx][sd] = map;
+    }
+
+  return map;
+  }
 
 // this doesn't formally belong to this class but has to be implemented somewhere
 std::ostream & operator << (std::ostream& os, const HierarchicalMap& h)
@@ -656,74 +611,4 @@ std::ostream & operator << (std::ostream& os, const HierarchicalMap& h)
   return h.Print(os);
   }
 
-//! given a subdomain, returns a list of GIDs that belong to the subdomain
-int HierarchicalMap::getSeparatorGIDs(int sd, hymls_gidx *gids) const
-  {
-  HYMLS_LPROF3(label_, "getSubdomainGIDs");
-  if (sd < 0 || sd > NumMySubdomains())
-    {
-    Tools::Warning("Subdomain index out of range!", __FILE__, __LINE__);
-    return -1;
-    }
-
-  // create vector with global indices
-  int pos = 0;
-
-  // loop over all groups except the first (first is interior elements),
-  // that is separator groups and retained elements
-  int numGroups = NumGroups(sd);
-  for (int grp = 1; grp < numGroups; grp++)
-    {
-    // loop over all elements of each separator group
-    int numElements = NumElements(sd, grp);
-    for (int j = 0; j < numElements; j++)
-      {
-      gids[pos++] = GID(sd, grp, j);
-      }
-    }
-  return 0;
   }
-#ifdef HYMLS_LONG_LONG
-//! given a subdomain, returns a list of GIDs that belong to the subdomain
-int HierarchicalMap::getSeparatorGIDs(int sd, Epetra_LongLongSerialDenseVector &gids) const
-  {
-  HYMLS_LPROF3(label_, "getSubdomainGIDs");
-  if (sd < 0 || sd > NumMySubdomains())
-    {
-    Tools::Warning("Subdomain index out of range!", __FILE__, __LINE__);
-    return -1;
-    }
-
-  int nrows = NumSeparatorElements(sd);
-
-  // resize input arrays if necessary
-  if (gids.Length() != nrows)
-    {
-    CHECK_ZERO(gids.Size(nrows));
-    }
-
-  return getSeparatorGIDs(sd, gids.Values());
-  }
-#else
-//! given a subdomain, returns a list of GIDs that belong to the subdomain
-int HierarchicalMap::getSeparatorGIDs(int sd, Epetra_IntSerialDenseVector &gids) const
-  {
-  HYMLS_LPROF3(label_, "getSubdomainGIDs");
-  if (sd < 0 || sd > NumMySubdomains())
-    {
-    Tools::Warning("Subdomain index out of range!", __FILE__, __LINE__);
-    return -1;
-    }
-
-  int nrows = NumSeparatorElements(sd);
-
-  // resize input arrays if necessary
-  if (gids.Length() != nrows)
-    {
-    CHECK_ZERO(gids.Size(nrows));
-    }
-
-  return getSeparatorGIDs(sd, gids.Values());
-  }
-#endif
-}

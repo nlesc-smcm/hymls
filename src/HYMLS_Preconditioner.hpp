@@ -22,7 +22,7 @@ class Epetra_RowMatrix;
 class Epetra_CrsMatrix;
 class Epetra_Vector;
 
-namespace Teuchos 
+namespace Teuchos
   {
 class ParameterList;
   }
@@ -30,28 +30,27 @@ class ParameterList;
 namespace HYMLS {
 
 class SchurComplement;
-class SchurPreconditioner;
 class Epetra_Time;
 class MatrixBlock;
 class OverlappingPartitioner;
 
-/*! This class 
+/*! This class
   - sets parameters for the problem
   - creates an overlapping partitioning (HYMLS::OverlappingPartitioner)
   - computes a factorization of the subdomain matrices
   - creates a HYMLS::SchurComplement
   - creates a HYMLS::SchurPreconditioner for the SC
-  
+
   The solver has the following features:
-  
+
   - recursive application: the SchurPreconditioner object will check
-  the parameter "Number of Levels" and see if it should function as 
-  a direct or approximate solver. For instance, if you set "Number  
+  the parameter "Number of Levels" and see if it should function as
+  a direct or approximate solver. For instance, if you set "Number
   of Levels" to 1, the solver does the domain decomposition and then
-  solves the separator problem directly. Setting it to 2 gives the  
+  solves the separator problem directly. Setting it to 2 gives the
   standard two-level method where the preconditioner does orthogonal
-  transformation and dropping and creates a direct solver for the   
-  Vsum problem. For more levels, it will create another instance of 
+  transformation and dropping and creates a direct solver for the
+  Vsum problem. For more levels, it will create another instance of
   this "Preconditioner" class.
 */
 class Preconditioner : public Ifpack_Preconditioner,
@@ -65,34 +64,34 @@ public:
   friend class SchurComplement;
 
 
-  //!                                                     
-  //! Constructor                                         
-  //!                                                     
-  //! the caller should typically just use                
-  //!                                                     
-  //! Preconditioner(K,params);                           
-  //!                                                     
-  //! The constructor with pre-constructed partitioner is 
-  //! used for recursive application of the method        
+  //!
+  //! Constructor
+  //!
+  //! the caller should typically just use
+  //!
+  //! Preconditioner(K,params);
+  //!
+  //! The constructor with pre-constructed partitioner is
+  //! used for recursive application of the method
   //! (SchurPreconditioner will construct a Preconditioner
   //  object based on an OverlappingPartitioner created by
-  //! SpawnNextLevel())                                   
-  //!                                                     
-  Preconditioner(Teuchos::RCP<const Epetra_RowMatrix> K, 
+  //! SpawnNextLevel())
+  //!
+  Preconditioner(Teuchos::RCP<const Epetra_RowMatrix> K,
     Teuchos::RCP<Teuchos::ParameterList> params,
     Teuchos::RCP<Epetra_Vector> testVector=Teuchos::null,
-    int myLevel=1,
+    int myLevel=0,
     Teuchos::RCP<const OverlappingPartitioner> hid=Teuchos::null);
 
   //! destructor
   virtual ~Preconditioner();
 
-  //! write solver data (like domain decomposition, separators ...) 
-  //! to an m-file so that it can be imported to MATLAB.            
+  //! write solver data (like domain decomposition, separators ...)
+  //! to an m-file so that it can be imported to MATLAB.
   void Visualize(std::string mfilename, bool no_recurse=false) const;
 
   //!\name Ifpack_Preconditioner interface
-  
+
   //@{
 
   //! Sets all parameters for the preconditioner.
@@ -112,20 +111,20 @@ public:
 
   //! Computes the condition number estimate, returns its value.
   double Condest(const Ifpack_CondestType CT = Ifpack_Cheap,
-                         const int MaxIters = 1550,
-                         const double Tol = 1e-9,
-                         Epetra_RowMatrix* Matrix = 0);
+    const int MaxIters = 1550,
+    const double Tol = 1e-9,
+    Epetra_RowMatrix* Matrix = 0);
 
   //! Returns the computed condition number estimate, or -1.0 if not computed.
   double Condest() const;
 
   //! Applies the operator (not implemented)
   int Apply(const Epetra_MultiVector& X,
-                           Epetra_MultiVector& Y) const {return -1;}
+    Epetra_MultiVector& Y) const {return -1;}
 
   //! Applies the preconditioner to vector X, returns the result in Y.
   int ApplyInverse(const Epetra_MultiVector& X,
-                           Epetra_MultiVector& Y) const;
+    Epetra_MultiVector& Y) const;
 
   //! Returns a pointer to the matrix to be preconditioned.
   const Epetra_RowMatrix& Matrix() const;
@@ -173,40 +172,40 @@ public:
 
   //! label
   const char* Label() const {return label_.c_str();}
-  
+
   //! use transpose?
   bool UseTranspose() const {return useTranspose_;}
-  
+
   //! communicator
   const Epetra_Comm & Comm() const {return *comm_;}
-  
+
   //! Returns the Epetra_Map object associated with the domain of this operator.
   const Epetra_Map & OperatorDomainMap() const {return *rangeMap_;}
 
   //! Returns the Epetra_Map object associated with the range of this operator.
   const Epetra_Map & OperatorRangeMap() const {return *rangeMap_;}
-  
+
   //@}
-  
+
   //!\name Teuchos::ParameterListAcceptor
   //@{
   //!
   void setParameterList(const Teuchos::RCP<Teuchos::ParameterList>& list);
-  
+
   //! get a list of valid parameters for this object
   Teuchos::RCP<const Teuchos::ParameterList> getValidParameters() const;
-  
 
-  
+
+
 
   //@}
 
   //!\name HYMLS::BorderedOperator interface
   //@{
-  
-  //! set a border on the preconditioner. So instead of solving 
+
+  //! set a border on the preconditioner. So instead of solving
   //! Px=y we then solve Px+Vs=y, W'x+Cs=0. If W is omitted, W=V
-  //! is used. If C is omitted, C=0 is used.                    
+  //! is used. If C is omitted, C=0 is used.
   //! To remove an existing border, pass in V=W=C=Teuchos::null.
   //!
   //! Implementation details
@@ -226,26 +225,26 @@ public:
   //! The lower right 2x2 block is the new 'bordered Schur Complement' and is handled by class
   //! SchurPreconditioner.
   //!
-  int setBorder(Teuchos::RCP<const Epetra_MultiVector> V,
-                Teuchos::RCP<const Epetra_MultiVector> W=Teuchos::null,
-                Teuchos::RCP<const Epetra_SerialDenseMatrix> C=Teuchos::null);
+  int SetBorder(Teuchos::RCP<const Epetra_MultiVector> V,
+    Teuchos::RCP<const Epetra_MultiVector> W=Teuchos::null,
+    Teuchos::RCP<const Epetra_SerialDenseMatrix> C=Teuchos::null);
 
   //! returns true if a border has been added
   bool HaveBorder() const {return V_ != Teuchos::null;}
 
   //! if a border has been added, apply [Y T]' = [P V; W' C] [X S]'
   int Apply(const Epetra_MultiVector& X, const Epetra_SerialDenseMatrix& S,
-                  Epetra_MultiVector& Y,       Epetra_SerialDenseMatrix& T) const;
+    Epetra_MultiVector& Y,       Epetra_SerialDenseMatrix& T) const;
 
   //! if a border has been added, apply [X S]' = [K V; W' C]\[Y T]'
   int ApplyInverse(const Epetra_MultiVector& Y, const Epetra_SerialDenseMatrix& T,
-                         Epetra_MultiVector& X,       Epetra_SerialDenseMatrix& S) const;
+    Epetra_MultiVector& X,       Epetra_SerialDenseMatrix& S) const;
   //x@}
 
-  //! reset matrix pointer. This should only be used if you are positive that the 
-  //! ordering can be reused for this matrix, otherwise the Preconditioner has to 
-  //! be destroyed and rebuilt (the ordering can be reused if the pattern of the  
-  //! matrix is essentially unchanged since the last Initialize() call). After    
+  //! reset matrix pointer. This should only be used if you are positive that the
+  //! ordering can be reused for this matrix, otherwise the Preconditioner has to
+  //! be destroyed and rebuilt (the ordering can be reused if the pattern of the
+  //! matrix is essentially unchanged since the last Initialize() call). After
   //! setting the matrix by this function you have to call Initialize() again, but
   //! it will skip rebuilding the ordering.
   void SetMatrix(Teuchos::RCP<const Epetra_CrsMatrix> matrix)
@@ -264,16 +263,16 @@ protected:
 
   //! fake communicator
   Teuchos::RCP<const Epetra_Comm> serialComm_;
-  
+
   //! matrix based on range map
   Teuchos::RCP<const Epetra_RowMatrix> matrix_;
-  
+
   //! range/domain map of matrix_
   Teuchos::RCP<const Epetra_Map> rangeMap_;
 
   //! row map of this operator (first all interior and then all separator variables, no overlap)
   Teuchos::RCP<const Epetra_Map> rowMap_;
-  
+
   //! importer from range to row map
   Teuchos::RCP<Epetra_Import> importer_;
 
@@ -282,13 +281,16 @@ protected:
 
   //! level of this solver (1: finest)
   int myLevel_;
-  
+
+  //! maximum number of levels
+  int maxLevel_;
+
   //! string to indicate wether we use a dense or sparse solver for the subdomains
   std::string sdSolverType_;
 
   //! operator representation of our Schur-complement
   mutable Teuchos::RCP<SchurComplement> Schur_;
-  
+
 
   //! A11, A12, A21 and A22-part of matrix
   //! 1: associated with interior variables
@@ -301,20 +303,20 @@ protected:
 
   //! solution vector for Schur complement
   mutable Teuchos::RCP<Epetra_MultiVector> schurSol_;
-  
+
   //! a test vector for constructing good orthogonal transformations
   //! (all ones on the first level, passed to the approximate SC)
   Teuchos::RCP<Epetra_Vector> testVector_;
-  
+
   //! preconditioning operator
-  Teuchos::RCP<SchurPreconditioner> schurPrec_;
+  Teuchos::RCP<Ifpack_Preconditioner> schurPrec_;
 
   //! Transformation matrix
   Teuchos::RCP<Epetra_CrsMatrix> T_;
 
   //! \name data structures for solving a 'bordered' system
   //@{
- 
+
   //! bordering: if addBorder has been called, we solve [K V; W' C] [x; s] = [b; O].
   Teuchos::RCP<Epetra_MultiVector> borderV1_, borderV2_, borderW1_, borderW2_;
 
@@ -323,30 +325,30 @@ protected:
 
   //! border for the Schur complement (after eliminating A11)
   Teuchos::RCP<Epetra_MultiVector> borderSchurV_, borderSchurW_;
-  
+
   //! lower right block of bordered Schur system
   Teuchos::RCP<Epetra_SerialDenseMatrix> borderSchurC_;
-  
+
   //@}
-  
+
   //! use transposed operator?
   bool useTranspose_;
-  
+
   //! infinity norm
   double normInf_;
-  
+
   //! label
   std::string label_;
-  
+
   //! timer
   mutable Teuchos::RCP<Epetra_Time> time_;
-  
+
   //! has Initialize() been called?
   bool initialized_;
 
   //! has Compute() been called?
   bool computed_;
- 
+
   //! how often has Initialize() been called?
   int numInitialize_;
 
@@ -355,7 +357,7 @@ protected:
 
   //! how often has ApplyInverse() been called?
   mutable int numApplyInverse_;
-  
+
   //! flops during Initialize()
   double flopsInitialize_;
 
@@ -373,7 +375,7 @@ protected:
 
   //! time during ApplyInverse()
   mutable double timeApplyInverse_;
-  
+
   //!@}
 
   mutable bool dumpVectors_;
@@ -392,7 +394,7 @@ protected:
 
   //! map for all variables (same as OperatorRangeMap() and OperatorDomainMap())
   const Epetra_Map& RowMap() const {return *rowMap_;}
-  
+
   //! get the decomposition object
   const HYMLS::OverlappingPartitioner& Partitioner() const {return *hid_;}
 
@@ -403,9 +405,12 @@ private:
   //! the V-sums on each level.
   Teuchos::RCP<Epetra_Vector> CreateTestVector();
 
+  //! Actually compute the next level border during the Compute phase.
+  int ComputeBorder();
+
   };
 
 
-}
+  }
 
 #endif

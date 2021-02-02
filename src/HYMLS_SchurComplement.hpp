@@ -143,28 +143,22 @@ protected:
   //!
   int Construct11(int k, Epetra_SerialDenseMatrix & Sk,
 #ifdef HYMLS_LONG_LONG
-    const Epetra_LongLongSerialDenseVector &inds,
+    Epetra_LongLongSerialDenseVector &inds,
 #else
-    const Epetra_IntSerialDenseVector &inds,
+    Epetra_IntSerialDenseVector &inds,
 #endif
     double *flops = NULL) const;
 
   int Construct22(int k, Epetra_SerialDenseMatrix & Sk,
 #ifdef HYMLS_LONG_LONG
-    const Epetra_LongLongSerialDenseVector &inds,
+    Epetra_LongLongSerialDenseVector &inds,
 #else
-    const Epetra_IntSerialDenseVector &inds,
+    Epetra_IntSerialDenseVector &inds,
 #endif
     double *flops = NULL) const;
 
-  //! to allow the preconditioner access to parts of the unassembled Schur complement:
-  const Epetra_CrsMatrix &A22() const;
-
   //! get the OverlappingPartitioner object
   const OverlappingPartitioner &Partitioner() const;
-
-private:
-
   }; 
 
   }

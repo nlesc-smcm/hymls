@@ -1007,11 +1007,10 @@ int MatrixUtils::Random(Epetra_MultiVector& v, int seed)
   }
 
 // drop small matrix entries (relative to diagonal element)
-Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
-(Teuchos::RCP<const Epetra_CrsMatrix> A, double droptol, DropType type)
+template <typename int_type>
+Teuchos::RCP<Epetra_CrsMatrix> DropByValueT(
+    Teuchos::RCP<const Epetra_CrsMatrix> A, double droptol, MatrixUtils::DropType type)
   {
-  HYMLS_PROF2(Label(), "DropByValue");
-
   // shortcut
   if (droptol == 0.0) return Teuchos::rcp_const_cast<Epetra_CrsMatrix> (A);
 
@@ -1029,14 +1028,26 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
   Teuchos::RCP<Epetra_Vector> diagA;
 
   // should the drop tol be scaled with anything?
-  bool rel = (type == Relative || type == RelDropDiag || type == RelZeroDiag ||  type == RelFullDiag);
+  bool rel = (type == MatrixUtils::Relative ||
+    type == MatrixUtils::RelDropDiag ||
+    type == MatrixUtils::RelZeroDiag ||
+    type == MatrixUtils::RelFullDiag);
+
   // if so, should an absolute dropping strategy be used on the diagonal?
-  bool absDiag = (type == RelDropDiag || type == RelZeroDiag || type == RelFullDiag ||
-    type == AbsZeroDiag || type == AbsFullDiag || type == Absolute);
+  bool absDiag = (type == MatrixUtils::RelDropDiag ||
+    type == MatrixUtils::RelZeroDiag ||
+    type == MatrixUtils::RelFullDiag ||
+    type == MatrixUtils::AbsZeroDiag ||
+    type == MatrixUtils::AbsFullDiag ||
+    type == MatrixUtils::Absolute);
+
   // should physical zeros be put on the diagonal where dropping occurs?
-  bool zeroDiag = (type == RelZeroDiag || type == AbsZeroDiag);
+  bool zeroDiag = (type == MatrixUtils::RelZeroDiag ||
+    type == MatrixUtils::AbsZeroDiag);
+
   // should physical zeros be put on the diagonal where dropping occurs?
-  bool fullDiag = (type == RelFullDiag || type == AbsFullDiag);
+  bool fullDiag = (type == MatrixUtils::RelFullDiag ||
+    type == MatrixUtils::AbsFullDiag);
 
   diagA = Teuchos::rcp(new Epetra_Vector(A->RowMap()));
   CHECK_ZERO(A->ExtractDiagonalCopy(*diagA));
@@ -1067,7 +1078,7 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
   double *values;
 
   int new_len;
-  hymls_gidx *new_indices = new hymls_gidx[A->MaxNumEntries()+1];
+  int_type *new_indices = new int_type[A->MaxNumEntries()+1];
   double *new_values = new double[A->MaxNumEntries()+1];
 
   double scal = 1.0;
@@ -1172,8 +1183,7 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
       Tools::Warning("matrix contains tiny entries after dropping", __FILE__, __LINE__);
       }
 #endif
-    CHECK_ZERO(mat->InsertGlobalValues((hymls_gidx)A->GRID64(i),
-        new_len, new_values, new_indices));
+    CHECK_ZERO(mat->InsertGlobalValues((int_type)A->GRID64(i), new_len, new_values, new_indices));
     }
 
   delete[] new_indices;
@@ -1183,9 +1193,9 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
   CHECK_ZERO(mat->FillComplete());
 
 #ifdef HYMLS_TESTING
-  hymls_gidx old_nnz = A->NumGlobalNonzeros64();
-  hymls_gidx new_nnz = mat->NumGlobalNonzeros64();
-  hymls_gidx nnz_dropped = old_nnz - new_nnz;
+  int_type old_nnz = A->NumGlobalNonzeros64();
+  int_type new_nnz = mat->NumGlobalNonzeros64();
+  int_type nnz_dropped = old_nnz - new_nnz;
   double percent_dropped = 100.0*(((double)nnz_dropped) / ((double)old_nnz));
 
 #define STR(var) (var? #var : "")
@@ -1201,6 +1211,20 @@ Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue
   return mat;
   }
 
+Teuchos::RCP<Epetra_CrsMatrix> MatrixUtils::DropByValue(
+    Teuchos::RCP<const Epetra_CrsMatrix> A, double droptol, DropType type)
+  {
+  HYMLS_PROF2(Label(), "DropByValue");
+
+  if (A->Map().GlobalIndicesInt())
+    {
+    return DropByValueT<int>(A, droptol, type);
+    }
+  else
+    {
+    return DropByValueT<long long>(A, droptol, type);
+    }
+  }
 
 int MatrixUtils::PutDirichlet(Epetra_CrsMatrix& A, hymls_gidx gid)
   {

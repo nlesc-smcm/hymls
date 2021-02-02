@@ -102,7 +102,7 @@ Teuchos::RCP<const Teuchos::ParameterList> BorderedSolver::getValidParameters() 
   return validParams_;
   }
 
-int BorderedSolver::setBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
+int BorderedSolver::SetBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
   Teuchos::RCP<const Epetra_MultiVector> const &W,
   Teuchos::RCP<const Epetra_SerialDenseMatrix> const &C)
   {
@@ -120,7 +120,7 @@ int BorderedSolver::setBorder(Teuchos::RCP<const Epetra_MultiVector> const &V,
     = Teuchos::rcp_dynamic_cast<BorderedOperator>(precond_);
   if (bprec != Teuchos::null)
     {
-    CHECK_ZERO(bprec->setBorder(V_, W_, C_));
+    CHECK_ZERO(bprec->SetBorder(V_, W_, C_));
     }
 
   return 0;
@@ -186,8 +186,8 @@ int BorderedSolver::ApplyInverse(const Epetra_MultiVector& X, const Epetra_Seria
   Teuchos::RCP<BorderedOperator> op = Teuchos::rcp(new BorderedOperator(operator_, V_, W_, C_));
   belosProblemPtr_->setOperator(op);
 
-  Teuchos::RCP<BorderedVector> sol = Teuchos::rcp(new BorderedVector(Y, T));
-  Teuchos::RCP<BorderedVector> rhs = Teuchos::rcp(new BorderedVector(X, S));
+  Teuchos::RCP<BorderedVector> sol = Teuchos::rcp(new BorderedVector(View, Y, T));
+  Teuchos::RCP<BorderedVector> rhs = Teuchos::rcp(new BorderedVector(View, X, S));
 
   if (startVec_ == "Random")
     {
@@ -200,11 +200,11 @@ int BorderedSolver::ApplyInverse(const Epetra_MultiVector& X, const Epetra_Seria
     }
 
   // Make the initial guess orthogonal to the V_ space. Not sure if we need this.
-  if (V_ != Teuchos::null)
-    {
-    CHECK_ZERO(DenseUtils::ApplyOrth(*V_, *sol->Vector(), Y, W_));
-    *sol->Vector() = Y;
-    }
+  // if (V_ != Teuchos::null)
+  //   {
+  //   CHECK_ZERO(DenseUtils::ApplyOrth(*V_, *sol->Vector(), Y, W_));
+  //   *sol->Vector() = Y;
+  //   }
 
   CHECK_TRUE(belosProblemPtr_->setProblem(sol, rhs));
 
@@ -216,17 +216,6 @@ int BorderedSolver::ApplyInverse(const Epetra_MultiVector& X, const Epetra_Seria
   if (!status) Tools::Warning("caught an exception", __FILE__, __LINE__);
 
   numIter_ = belosSolverPtr_->getNumIters();
-
-  Y = *sol->Vector();
-  T = *sol->Border();
-
-  // FIXME: Communication to put T on all processors (see bordered operator)
-  if (T.LDA() != T.M())
-    Tools::Error("Unsupported communication: " + Teuchos::toString(T.M()) + " "
-      + Teuchos::toString(T.LDA()), __FILE__, __LINE__);
-  Epetra_SerialDenseMatrix T2(T.M(), T.N());
-  Y.Comm().SumAll(T.A(), T2.A(), T.M() * T.N());
-  T = T2;
 
   if (ret != ::Belos::Converged)
     {

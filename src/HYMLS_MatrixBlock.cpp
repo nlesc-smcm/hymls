@@ -14,6 +14,7 @@
 #include "HYMLS_OverlappingPartitioner.hpp"
 #include "HYMLS_HierarchicalMap.hpp"
 #include "HYMLS_SparseDirectSolver.hpp"
+#include "HYMLS_InteriorGroup.hpp"
 
 #include "Ifpack_DenseContainer.h"
 #include "Ifpack_Amesos.h"
@@ -145,7 +146,8 @@ int MatrixBlock::InitializeSubdomainSolvers(std::string const &solverType,
 
   for (int sd = 0; sd < hid_->NumMySubdomains(); sd++)
     {
-    const int nrows = hid_->NumInteriorElements(sd);
+    InteriorGroup const &group = hid_->GetInteriorGroup(sd);
+    const int nrows = group.length();
 
     if (solverType == "Dense")
       {
@@ -156,6 +158,11 @@ int MatrixBlock::InitializeSubdomainSolvers(std::string const &solverType,
       {
       subdomainSolvers_[sd] =
         Teuchos::rcp(new Ifpack_SparseContainer<SparseDirectSolver>(nrows));
+      }
+    else if (solverType == "Amesos")
+      {
+      subdomainSolvers_[sd] =
+        Teuchos::rcp(new Ifpack_SparseContainer<Ifpack_Amesos>(nrows));
       }
     else
       {
@@ -189,10 +196,11 @@ int MatrixBlock::InitializeSubdomainSolvers(std::string const &solverType,
 #endif
     Epetra_Map const &rowMap = hid_->OverlappingMap();
     // set "global" ID of each partitioner row
-    for (int j = 0 ; j < nrows ; j++)
+    int j = 0;
+    for (hymls_gidx gid: group.nodes())
       {
-      const int LRID = rowMap.LID(hid_->GID(sd, 0, j));
-      subdomainSolvers_[sd]->ID(j) = LRID;
+      const int LRID = rowMap.LID(gid);
+      subdomainSolvers_[sd]->ID(j++) = LRID;
       }
     }
 
@@ -209,26 +217,32 @@ int MatrixBlock::ComputeSubdomainSolvers(Teuchos::RCP<const Epetra_CrsMatrix> ex
     {
     if (subdomainSolvers_[sd]->NumRows() > 0)
       {
-      // compute subdomain factorization
+      // Compute the subdomain factorization
 #ifdef HYMLS_TESTING
       bool status = true;
       try {
 #endif
+        // We have to call Initialize every time because we have to recreate
+        // the internal matrix in the SparseContainer. Otherwise we try
+        // to fill a matrix on which FillComplete was already called.
         Epetra_Map const &rowMap = extendedMatrix->RowMap();
         CHECK_ZERO(subdomainSolvers_[sd]->Initialize());
         if (Teuchos::rcp_dynamic_cast<Ifpack_DenseContainer>(
             subdomainSolvers_[sd]) != Teuchos::null)
           {
+          InteriorGroup const &group = hid_->GetInteriorGroup(sd);
+
           // Initialize destroys the indices for the Ifpack_DenseContainer :(
-          for (int j = 0; j < subdomainSolvers_[sd]->NumRows(); j++)
+          int j = 0;
+          for (hymls_gidx gid: group.nodes())
             {
-            const int LRID = rowMap.LID(hid_->GID(sd, 0, j));
-            subdomainSolvers_[sd]->ID(j) = LRID;
+            const int LRID = rowMap.LID(gid);
+            subdomainSolvers_[sd]->ID(j++) = LRID;
             }
           }
-        
+
         CHECK_ZERO(subdomainSolvers_[sd]->Compute(*extendedMatrix));
-        
+
 #ifdef HYMLS_TESTING
         } TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, status);
       if (!status)

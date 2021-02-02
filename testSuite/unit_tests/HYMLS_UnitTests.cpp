@@ -4,7 +4,9 @@
 #include "Epetra_Comm.h"
 #include "Epetra_IntVector.h"
 #include "Epetra_MultiVector.h"
+#include "Epetra_SerialDenseMatrix.h"
 
+#include "HYMLS_DenseUtils.hpp"
 #include "HYMLS_Tools.hpp"
 
 namespace HYMLS {
@@ -111,5 +113,22 @@ double NormInfAminusB(const Epetra_MultiVector& A, const Epetra_MultiVector& B)
   return global_value;
 }
 
+// helper function for comparing Epetra_MultiVectors
+double NormInfAminusB(const Epetra_SerialDenseMatrix& A, const Epetra_SerialDenseMatrix& B)
+{
+    return NormInfAminusB(*DenseUtils::CreateView(A), *DenseUtils::CreateView(B));
+}
+
+Teuchos::RCP<Epetra_SerialDenseMatrix> RandomSerialDenseMatrix(int m, int n, const Epetra_Comm& comm)
+{
+    Teuchos::RCP<Epetra_SerialDenseMatrix> A = Teuchos::rcp(new Epetra_SerialDenseMatrix(m, n));
+    A->Random();
+
+    Teuchos::RCP<Epetra_SerialDenseMatrix> A_max = Teuchos::rcp(new Epetra_SerialDenseMatrix(m, n));
+
+    comm.MaxAll(A->A(), A_max->A(), m * n);
+
+    return A_max;
+}
 
 }} // namespaces HYMLS::UnitTests

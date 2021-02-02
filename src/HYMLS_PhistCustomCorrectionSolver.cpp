@@ -85,7 +85,7 @@ void jadaCorrectionSolver_run1(void* vme,
     }
   if (me->doBordering_)
     {
-      solver->setBorder(Q,BQ);
+      solver->SetBorder(Q,BQ);
       solver->SetupDeflation();
     }
     else
@@ -104,7 +104,7 @@ void jadaCorrectionSolver_run1(void* vme,
   
   // unset border (if any). TODO: we should also remove projection vectors from the solver because
   // it may be used elsewhere, but setProjectionVectors can't be called with Teuchos::null right now.
-  if (me->doBordering_) solver->setBorder(Teuchos::null,Teuchos::null);
+  if (me->doBordering_) solver->SetBorder(Teuchos::null,Teuchos::null);
 }
 
 void jadaCorrectionSolver_run(void* vme,

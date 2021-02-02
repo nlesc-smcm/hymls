@@ -3,8 +3,6 @@
 
 #include "HYMLS_config.h"
 
-#ifndef USE_AMESOS
-
 #include "Ifpack_Condest.h"
 #include "Epetra_MultiVector.h"
 #include "Epetra_Vector.h"
@@ -237,8 +235,8 @@ int SparseDirectSolver::SetParameters(Teuchos::ParameterList& params)
     }
 #endif
 
-  ownOrdering_=params.get("Custom Ordering",false);
-  ownScaling_=params.get("Custom Scaling",false);
+  ownOrdering_ = params.get("Custom Ordering", true);
+  ownScaling_ = params.get("Custom Scaling", true);
 
   if (ownOrdering_)
     {
@@ -1292,6 +1290,3 @@ int SparseDirectSolver::NumGlobalNonzerosU() const
   }
 
   }//namespace HYMLS
-
-
-#endif // use Amesos instead of our own interface

@@ -33,7 +33,7 @@ public:
 
   int ApplyInverse(const BorderedVector& X, BorderedVector& Y) const;
 
-  virtual int setBorder(Teuchos::RCP<const Epetra_MultiVector> V,
+  virtual int SetBorder(Teuchos::RCP<const Epetra_MultiVector> V,
     Teuchos::RCP<const Epetra_MultiVector> W=Teuchos::null,
     Teuchos::RCP<const Epetra_SerialDenseMatrix> C=Teuchos::null);
 
