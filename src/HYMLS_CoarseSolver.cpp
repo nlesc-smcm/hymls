@@ -208,10 +208,6 @@ int CoarseSolver::Compute()
     Tools::Error("not implemented", __FILE__, __LINE__);
 #endif
 
-    HYMLS_DEBVAR(*V_);
-    HYMLS_DEBVAR(*W_);
-    HYMLS_DEBVAR(*C_);
-
     // we need to create views of the vectors here because the
     // map is different for the solver (linear restricted map)
     Teuchos::RCP<const Epetra_MultiVector> Vprime =
