@@ -88,16 +88,17 @@ int main(int argc, char* argv[])
 
   std::srand(std::time(NULL));
 
+  std::ostringstream final_output;
+
   int counter = 0;
   int failed = 0;
-  int skipped= 0;
-  bool status=true;
+  int skipped = 0;
+  bool status = true;
   try {
 //  Teuchos::RCP<Epetra_MpiComm> comm=Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
 
   HYMLS::HyperCube Topology;
-  Teuchos::RCP<const Epetra_MpiComm> comm = Teuchos::rcp
-        (&Topology.Comm(), false);
+  Teuchos::RCP<const Epetra_MpiComm> comm = Teuchos::rcp(&Topology.Comm(), false);
 
   // construct file streams, otherwise the output won't work correctly
   HYMLS::Tools::InitializeIO(comm);
@@ -123,7 +124,8 @@ int main(int argc, char* argv[])
       {
       if (Teuchos::StrUtils::subString(test_name,0,2)=="3D")
         {
-        HYMLS::Tools::out() << "SKIPPED TEST "+Teuchos::toString(counter)+": "+test_file+"\n";
+        HYMLS::Tools::out() << "SKIPPED TEST " << counter << ": " << test_file << "\n";
+        final_output << "Test " << counter << " ('" << test_file  << "') SKIPPED.\n";
         skipped++;
         continue;
         }
@@ -175,12 +177,16 @@ int main(int argc, char* argv[])
         HYMLS::Tools::out() << *params << std::endl;
 #endif
         HYMLS::Tools::Out("------------------------------------------------------------");
+        final_output << "Test " << counter << " ('" << test_file  << "') FAILED.\n";
         failed++;
         break; // stop grid refinement
         }
-        else if (ierr==SKIPPED)
+      else if (ierr == SKIPPED)
         {
-        HYMLS::Tools::out() << "Test "+Teuchos::toString(counter)+" ('"+test_file+"') SKIPPED.\n";
+        HYMLS::Tools::out() << "Test " << counter << " ('" << test_file  << "') SKIPPED.\n";
+        final_output << "Test " << counter << " ('" << test_file  << "') SKIPPED.\n";
+        skipped++;
+        break; // stop grid refinement
         }
 
       nx*=2;
@@ -208,22 +214,24 @@ int main(int argc, char* argv[])
       HYMLS::Tools::out() << "PASSED TEST "+Teuchos::toString(counter)+": "+test_file+"\n";
       }
     }// test files
-  if (skipped>0)
+
+  HYMLS::Tools::out() << final_output.str();
+  if (skipped > 0)
     {
-    HYMLS::Tools::out() << skipped<<" TESTS SKIPPED"<<std::endl;
+    HYMLS::Tools::out() << skipped << " TESTS SKIPPED" << std::endl;
     }
   if (failed==0)
     {
-    HYMLS::Tools::out() << "ALL TESTS PASSED"<<std::endl;
+    HYMLS::Tools::out() << "ALL TESTS PASSED" << std::endl;
     }
   else
     {
-    HYMLS::Tools::out() << "WARNING: "<<failed<<" TESTS OUT OF "<<counter<<" FAILED"<<std::endl;
+    HYMLS::Tools::out() << "WARNING: " << failed << " TESTS OUT OF " << counter << " FAILED" << std::endl;
     }
-  } TEUCHOS_STANDARD_CATCH_STATEMENTS(true,std::cerr, status);
-  if (!status) HYMLS::Tools::Warning("Caught an exception",__FILE__,__LINE__);
+  } TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, status);
+  if (!status) HYMLS::Tools::Warning("Caught an exception", __FILE__, __LINE__);
 
-  HYMLS::Tools::StopTiming("Integration Tests",true);
+  HYMLS::Tools::StopTiming("Integration Tests", true);
 
   MPI_Finalize();
   return 0;
