@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-20.04]
+        cmake-options:
+          - ''
+          - '-DCMAKE_BUILD_TYPE=Debug'
+          - '-DCMAKE_BUILD_TYPE=Debug -DHYMLS_DEBUGGING=ON'
+          - '-DCMAKE_BUILD_TYPE=Debug -DHYMLS_LONG_LONG=ON'
+          - '-DCMAKE_BUILD_TYPE=Debug -DHYMLS_TEST_NPROCS=1'
+        env: [{CC: gcc, CXX: g++, FC: gfortran}]
+
+        include:
+          - os: ubuntu-20.04
+            cmake-options: '-DCMAKE_BUILD_TYPE=Debug'
+            env:
+              CC: clang
+              CXX: clang++
+              FC: gfortran
+          - os: macos-latest
+            cmake-options: '-DCMAKE_BUILD_TYPE=Debug'
+            env:
+              CMAKE_PREFIX_PATH: /usr/local/opt/trilinos/
+              CC: gcc
+              CXX: g++
+              FC: gfortran-10
+          - os: macos-latest
+            cmake-options: '-DCMAKE_BUILD_TYPE=Debug'
+            env:
+              CMAKE_PREFIX_PATH: /usr/local/opt/trilinos/
+              CC: clang
+              CXX: clang++
+              FC: gfortran-10
+
+    runs-on: ${{ matrix.os }}
+    env: ${{ matrix.env }}
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install dependencies (Linux)
+        run: |
+          sudo apt-get install gfortran libopenblas-dev libhdf5-openmpi-dev libptscotch-dev trilinos-all-dev
+        if: matrix.os == 'ubuntu-20.04'
+
+      - name: Install dependencies (MacOS)
+        run: |
+          brew tap nlesc/nlesc
+          brew install nlesc/nlesc/trilinos
+        if: matrix.os == 'macos-latest'
+
+      - name: Build HYMLS
+        run: |
+          mkdir build
+          cd build
+          cmake -DCMAKE_INSTALL_PREFIX=$HOME/local ${{ matrix.cmake-options }} ..
+          make -j
+
+      - name: Test HYMLS
+        run: |
+          cd build
+          make check
