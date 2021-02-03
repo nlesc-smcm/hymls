@@ -31,7 +31,6 @@ set(HYMLS_SOURCE HYMLS_Solver
     HYMLS_MatrixBlock
     HYMLS_ShiftedOperator
     HYMLS_MainUtils
-    NOX_Epetra_LinearSystem_Hymls
     GaleriExt_CrsMatrices
     GaleriExt_Periodic
     EpetraExt_RestrictedCrsMatrixWrapper
@@ -53,6 +52,10 @@ set(HEADERS ${HEADERS}
   HYMLS_OrthogonalTransform.hpp
   HYMLS_RestrictedOT.hpp
   )
+
+if ("NOX" IN_LIST Trilinos_PACKAGE_LIST)
+  list(APPEND HYMLS_SOURCE NOX_Epetra_LinearSystem_Hymls)
+endif()
 
 if (${phist_FOUND})
   message(STATUS "phist found in ${PHIST_INCLUDE_DIRS}")
