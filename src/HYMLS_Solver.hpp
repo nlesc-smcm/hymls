@@ -105,7 +105,7 @@ public:
   //@}
 
   //! setup the solver to solve (shiftA*A+shiftB*B)x=b
-  void setShift(double shiftA, double shiftB);
+  void SetShift(double shiftA, double shiftB);
 
   void SetTolerance(double tol);
 

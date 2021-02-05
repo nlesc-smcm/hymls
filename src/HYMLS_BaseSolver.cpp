@@ -213,11 +213,11 @@ const Epetra_Map & BaseSolver::OperatorRangeMap() const
   return matrix_->OperatorRangeMap();
   }
 
-void BaseSolver::setShift(double shiftA, double shiftB)
+void BaseSolver::SetShift(double shiftA, double shiftB)
   {
-  shiftA_=shiftA;
-  shiftB_=shiftB;
-  operator_=Teuchos::rcp(new ShiftedOperator(matrix_,massMatrix_,shiftA_,shiftB_));
+  shiftA_ = shiftA;
+  shiftB_ = shiftB;
+  operator_ = Teuchos::rcp(new ShiftedOperator(matrix_, massMatrix_, shiftA_, shiftB_));
   belosProblemPtr_->setOperator(operator_);
   }
 

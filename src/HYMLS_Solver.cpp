@@ -168,9 +168,9 @@ const Epetra_Map & Solver::OperatorRangeMap() const
   return solver_->OperatorRangeMap();
   }
 
-void Solver::setShift(double shiftA, double shiftB)
+void Solver::SetShift(double shiftA, double shiftB)
   {
-  solver_->setShift(shiftA, shiftB);
+  solver_->SetShift(shiftA, shiftB);
   }
 
 void Solver::SetTolerance(double tol)
