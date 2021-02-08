@@ -99,6 +99,11 @@
         return self->SetBorder(V, W, C);
     }
 
+    int UnsetBorder()
+    {
+        return self->SetBorder(Teuchos::null);
+    }
+
     void SetShift(double a, double b)
     {
         self->SetShift(a, b);
