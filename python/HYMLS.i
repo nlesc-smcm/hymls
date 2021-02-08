@@ -1,4 +1,4 @@
-%module HYMLS
+%module(directors = "1") HYMLS
 %{
 #include "Epetra_CrsMatrix.h"
 
@@ -8,7 +8,32 @@
 #include "HYMLS_Solver.hpp"
 #include "HYMLS_CartesianPartitioner.hpp"
 #include "HYMLS_SkewCartesianPartitioner.hpp"
+#include "HYMLS_Exception.hpp"
 %}
+
+%feature("director:except")
+{
+    if ($error != NULL) {
+        throw Swig::DirectorMethodException();
+    }
+}
+%exception
+{
+    try
+    {
+        $action
+        if (PyErr_Occurred()) SWIG_fail;
+    }
+    catch(HYMLS::Exception & e)
+    {
+        PyErr_SetString(PyExc_Exception, e.what());
+        SWIG_fail;
+    }
+    catch (Swig::DirectorException & e)
+    {
+        SWIG_fail;
+    }
+}
 
 %include "HYMLS_Tools.hpp"
 %include "HYMLS_Preconditioner.hpp"
@@ -126,3 +151,5 @@
         return Teuchos::rcp(new Epetra_Map(*self->GetMap()));
     }
 }
+
+%exception;
