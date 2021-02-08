@@ -74,6 +74,10 @@
         return self->SetBorder(V, W, C);
     }
 
+    void SetMatrix(Teuchos::RCP<Epetra_RowMatrix> m)
+    {
+        self->SetMatrix(m);
+    }
 
     void SetMassMatrix(Teuchos::RCP<Epetra_RowMatrix> m)
     {
