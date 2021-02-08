@@ -152,8 +152,10 @@ void BaseSolver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)
 
 void BaseSolver::SetMassMatrix(Teuchos::RCP<const Epetra_RowMatrix> mass)
   {
-  if (mass==Teuchos::null) return;
-  HYMLS_PROF3(label_,"SetMassMatrix");
+  HYMLS_PROF3(label_, "SetMassMatrix");
+  if (mass == Teuchos::null)
+    return;
+
   if (mass->RowMatrixRowMap().SameAs(matrix_->RowMatrixRowMap()))
     {
     massMatrix_ = mass;
@@ -161,16 +163,18 @@ void BaseSolver::SetMassMatrix(Teuchos::RCP<const Epetra_RowMatrix> mass)
   else
     {
     Tools::Error("Mass matrix must have same row map as solver",
-      __FILE__,__LINE__);
+      __FILE__, __LINE__);
     }
-  if (shiftB_!=0.0 || shiftA_!=1.0)
+
+  if (shiftB_ != 0.0 || shiftA_ != 1.0)
     {
-    Tools::Warning("SetMassMatrix called while solving shifted system."
-      "Discarding shifts.",__FILE__,__LINE__);
-    shiftB_=0.0;
-    shiftA_=1.0;
+    Tools::Warning("SetMassMatrix called while solving shifted system. "
+      "Discarding shifts.", __FILE__, __LINE__);
+    shiftB_ = 0.0;
+    shiftA_ = 1.0;
     }
-  operator_=matrix_;
+
+  operator_ = matrix_;
   }
 
 int BaseSolver::Apply(const Epetra_MultiVector& X,

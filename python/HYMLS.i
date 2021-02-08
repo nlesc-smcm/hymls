@@ -74,6 +74,12 @@
         return self->SetBorder(V, W, C);
     }
 
+
+    void SetMassMatrix(Teuchos::RCP<Epetra_RowMatrix> m)
+    {
+        self->SetMassMatrix(m);
+    }
+
     int ApplyInverse(Teuchos::RCP<Epetra_MultiVector> x, Teuchos::RCP<Epetra_MultiVector> y)
     {
         return self->ApplyInverse(*x, *y);
