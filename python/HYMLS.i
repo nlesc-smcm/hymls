@@ -74,6 +74,11 @@
         return self->SetBorder(V, W, C);
     }
 
+    void SetShift(double a, double b)
+    {
+        self->SetShift(a, b);
+    }
+
     void SetMatrix(Teuchos::RCP<Epetra_RowMatrix> m)
     {
         self->SetMatrix(m);
