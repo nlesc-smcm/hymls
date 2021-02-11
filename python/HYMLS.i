@@ -76,7 +76,7 @@
 
 %extend HYMLS::Solver
 {
-    Solver(Teuchos::RCP<Epetra_RowMatrix> m, HYMLS::Preconditioner &o, Teuchos::RCP<Teuchos::ParameterList> p)
+    Solver(Teuchos::RCP<Epetra_Operator> m, HYMLS::Preconditioner &o, Teuchos::RCP<Teuchos::ParameterList> p)
     {
         return new HYMLS::Solver(m, Teuchos::rcp(&o, false), p);
     }
@@ -89,7 +89,7 @@
 
 %extend HYMLS::BorderedSolver
 {
-    BorderedSolver(Teuchos::RCP<Epetra_RowMatrix> m, HYMLS::Preconditioner &o, Teuchos::RCP<Teuchos::ParameterList> p)
+    BorderedSolver(Teuchos::RCP<Epetra_Operator> m, HYMLS::Preconditioner &o, Teuchos::RCP<Teuchos::ParameterList> p)
     {
         return new HYMLS::BorderedSolver(m, Teuchos::rcp(&o, false), p);
     }

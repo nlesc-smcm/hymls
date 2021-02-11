@@ -11,7 +11,7 @@
 namespace HYMLS {
 
 // constructor
-Solver::Solver(Teuchos::RCP<const Epetra_RowMatrix> K,
+Solver::Solver(Teuchos::RCP<const Epetra_Operator> K,
   Teuchos::RCP<Epetra_Operator> P,
   Teuchos::RCP<Teuchos::ParameterList> params,
   int numRhs)

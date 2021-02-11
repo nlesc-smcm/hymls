@@ -47,7 +47,7 @@ public:
   //!                                                     
   //! arguments: matrix, preconditioner and belos params. 
   //!                                                     
-  BaseSolver(Teuchos::RCP<const Epetra_RowMatrix> K, 
+  BaseSolver(Teuchos::RCP<const Epetra_Operator> K,
     Teuchos::RCP<Epetra_Operator> P,
     Teuchos::RCP<Teuchos::ParameterList> params,
     int numRhs=1, bool validate=true);
@@ -81,6 +81,10 @@ public:
 
   //! Applies the matrix
   int ApplyMatrix(const Epetra_MultiVector& X,
+    Epetra_MultiVector& Y) const;
+
+  //! Applies the transpose of the matrix
+  int ApplyMatrixTranspose(const Epetra_MultiVector& X,
     Epetra_MultiVector& Y) const;
 
   //! Applies the preconditioner
@@ -161,7 +165,7 @@ protected:
   Teuchos::RCP<const Epetra_Comm> comm_;
 
   //! matrix
-  Teuchos::RCP<const Epetra_RowMatrix> matrix_;
+  Teuchos::RCP<const Epetra_Operator> matrix_;
 
   //! operator for which we solve OP*x=b, typically same as matrix_ or
   //! beta*A+alpha*B (if SetShift was called)

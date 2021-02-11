@@ -27,7 +27,7 @@ namespace Teuchos { class ParameterList; }
 namespace HYMLS {
 
 // constructor
-BorderedDeflatedSolver::BorderedDeflatedSolver(Teuchos::RCP<const Epetra_RowMatrix> K,
+BorderedDeflatedSolver::BorderedDeflatedSolver(Teuchos::RCP<const Epetra_Operator> K,
   Teuchos::RCP<Epetra_Operator> P,
   Teuchos::RCP<Teuchos::ParameterList> params,
   int numRhs, bool validate)
@@ -138,7 +138,7 @@ int BorderedDeflatedSolver::SetupDeflation()
   CHECK_ZERO(DenseUtils::MatMul(*deflationVectors_, AV, *deflationMatrix_));
 
   ATV_ = Teuchos::rcp(new Epetra_MultiVector(*deflationVectors_));
-  CHECK_ZERO(matrix_->Multiply(true, *deflationVectors_, *ATV_));
+  CHECK_ZERO(ApplyMatrixTranspose(*deflationVectors_, *ATV_));
 
   Epetra_SerialDenseMatrix tmpMat(n, n);
   CHECK_ZERO(DenseUtils::MatMul(*ATV_, *deflationRhs_, tmpMat));

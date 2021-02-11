@@ -36,7 +36,7 @@ public:
   //!
   //! arguments: matrix, preconditioner and belos params.
   //!
-  DeflatedSolver(Teuchos::RCP<const Epetra_RowMatrix> K,
+  DeflatedSolver(Teuchos::RCP<const Epetra_Operator> K,
     Teuchos::RCP<Epetra_Operator> P,
     Teuchos::RCP<Teuchos::ParameterList> params,
     int numRhs = 1, bool validate = true);

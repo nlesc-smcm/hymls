@@ -38,7 +38,7 @@ using BelosCGType = Belos::BlockCGSolMgr<
 namespace HYMLS {
 
 // constructor
-BaseSolver::BaseSolver(Teuchos::RCP<const Epetra_RowMatrix> K,
+BaseSolver::BaseSolver(Teuchos::RCP<const Epetra_Operator> K,
   Teuchos::RCP<Epetra_Operator> P,
   Teuchos::RCP<Teuchos::ParameterList> params,
   int numRhs, bool validate)
@@ -156,7 +156,7 @@ void BaseSolver::SetMassMatrix(Teuchos::RCP<const Epetra_RowMatrix> mass)
   if (mass == Teuchos::null)
     return;
 
-  if (mass->RowMatrixRowMap().SameAs(matrix_->RowMatrixRowMap()))
+  if (mass->OperatorRangeMap().SameAs(matrix_->OperatorRangeMap()))
     {
     massMatrix_ = mass;
     }
@@ -187,6 +187,16 @@ int BaseSolver::ApplyMatrix(const Epetra_MultiVector& X,
   Epetra_MultiVector& Y) const
   {
   return matrix_->Apply(X,Y);
+  }
+
+int BaseSolver::ApplyMatrixTranspose(const Epetra_MultiVector& X,
+  Epetra_MultiVector& Y) const
+  {
+  Teuchos::RCP<Epetra_Operator> op = Teuchos::rcp_const_cast<Epetra_Operator>(matrix_);
+  CHECK_ZERO(op->SetUseTranspose(!op->UseTranspose()));
+  int ierr = matrix_->Apply(X,Y);
+  CHECK_ZERO(op->SetUseTranspose(!op->UseTranspose()));
+  return ierr;
   }
 
 int BaseSolver::ApplyPrec(const Epetra_MultiVector& X,

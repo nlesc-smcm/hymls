@@ -28,7 +28,7 @@ public:
   //!
   //! arguments: matrix, preconditioner and belos params.
   //!
-  BorderedDeflatedSolver(Teuchos::RCP<const Epetra_RowMatrix> K,
+  BorderedDeflatedSolver(Teuchos::RCP<const Epetra_Operator> K,
     Teuchos::RCP<Epetra_Operator> P,
     Teuchos::RCP<Teuchos::ParameterList> params,
     int numRhs=1, bool validate=true);
