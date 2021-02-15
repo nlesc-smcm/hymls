@@ -57,6 +57,16 @@
         return new HYMLS::Preconditioner(m, p);
     }
 
+    int SetBorder(Teuchos::RCP<Epetra_MultiVector> V)
+    {
+        return self->SetBorder(V);
+    }
+
+    int SetBorder(Teuchos::RCP<Epetra_MultiVector> V, Teuchos::RCP<Epetra_MultiVector> W)
+    {
+        return self->SetBorder(V, W);
+    }
+
     int SetBorder(Teuchos::RCP<Epetra_MultiVector> V, Teuchos::RCP<Epetra_MultiVector> W, Teuchos::RCP<Epetra_SerialDenseMatrix> C)
     {
         return self->SetBorder(V, W, C);
@@ -89,9 +99,24 @@
 
 %extend HYMLS::BorderedSolver
 {
+    BorderedSolver(Teuchos::RCP<Epetra_Operator> m, Teuchos::RCP<Epetra_Operator> o, Teuchos::RCP<Teuchos::ParameterList> p)
+    {
+        return new HYMLS::BorderedSolver(m, o, p);
+    }
+
     BorderedSolver(Teuchos::RCP<Epetra_Operator> m, HYMLS::Preconditioner &o, Teuchos::RCP<Teuchos::ParameterList> p)
     {
         return new HYMLS::BorderedSolver(m, Teuchos::rcp(&o, false), p);
+    }
+
+    int SetBorder(Teuchos::RCP<Epetra_MultiVector> V)
+    {
+        return self->SetBorder(V);
+    }
+
+    int SetBorder(Teuchos::RCP<Epetra_MultiVector> V, Teuchos::RCP<Epetra_MultiVector> W)
+    {
+        return self->SetBorder(V, W);
     }
 
     int SetBorder(Teuchos::RCP<Epetra_MultiVector> V, Teuchos::RCP<Epetra_MultiVector> W, Teuchos::RCP<Epetra_SerialDenseMatrix> C)
