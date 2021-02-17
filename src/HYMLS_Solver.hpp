@@ -52,7 +52,7 @@ public:
   Teuchos::RCP<const Teuchos::ParameterList> getValidParameters() const;
 
   //! set matrix for solve
-  void SetMatrix(Teuchos::RCP<const Epetra_RowMatrix> A);
+  void SetOperator(Teuchos::RCP<const Epetra_Operator> A);
 
   //! set preconditioner for solve
   void SetPrecond(Teuchos::RCP<Epetra_Operator> P);

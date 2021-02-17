@@ -105,18 +105,18 @@ BaseSolver::~BaseSolver()
   HYMLS_PROF3(label_,"Destructor");
   }
 
-void BaseSolver::SetMatrix(Teuchos::RCP<const Epetra_RowMatrix> A)
+void BaseSolver::SetOperator(Teuchos::RCP<const Epetra_Operator> A)
   {
-  HYMLS_PROF3(label_,"SetMatrix");
+  HYMLS_PROF3(label_, "SetOperator");
   matrix_ = A;
-  if (shiftB_!=0.0 || shiftA_!=1.0)
+  if (shiftB_ != 0.0 || shiftA_ != 1.0)
     {
-    Tools::Warning("SetMatrix called while operator used is shifted."
-      "Discarding shifts.",__FILE__,__LINE__);
-    shiftB_=0.0;
-    shiftA_=1.0;
+    Tools::Warning("SetOperator called while operator used is shifted."
+      "Discarding shifts.", __FILE__, __LINE__);
+    shiftB_ = 0.0;
+    shiftA_ = 1.0;
     }
-  operator_=matrix_;
+  operator_ = matrix_;
   belosProblemPtr_->setOperator(operator_);
   }
 

@@ -83,9 +83,9 @@ Teuchos::RCP<const Teuchos::ParameterList> Solver::getValidParameters() const
   return validParams_;
   }
 
-void Solver::SetMatrix(Teuchos::RCP<const Epetra_RowMatrix> A)
+void Solver::SetOperator(Teuchos::RCP<const Epetra_Operator> A)
   {
-  solver_->SetMatrix(A);
+  solver_->SetOperator(A);
   }
 
 void Solver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)

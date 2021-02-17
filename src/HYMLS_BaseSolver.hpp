@@ -66,8 +66,8 @@ public:
   //! get a list of valid parameters for this object
   virtual Teuchos::RCP<const Teuchos::ParameterList> getValidParameters() const;
   
-  //! set matrix for solve
-  virtual void SetMatrix(Teuchos::RCP<const Epetra_RowMatrix> A);
+  //! set operator for solve
+  virtual void SetOperator(Teuchos::RCP<const Epetra_Operator> A);
 
   //! set preconditioner for solve
   virtual void SetPrecond(Teuchos::RCP<Epetra_Operator> P);

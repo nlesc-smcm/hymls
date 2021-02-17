@@ -134,9 +134,9 @@
         self->SetShift(a, b);
     }
 
-    void SetMatrix(Teuchos::RCP<Epetra_RowMatrix> m)
+    void SetOperator(Teuchos::RCP<Epetra_Operator> m)
     {
-        self->SetMatrix(m);
+        self->SetOperator(m);
     }
 
     void SetMassMatrix(Teuchos::RCP<Epetra_RowMatrix> m)
