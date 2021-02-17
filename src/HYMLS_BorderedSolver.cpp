@@ -245,7 +245,7 @@ int BorderedSolver::ApplyInverse(const Epetra_MultiVector& X, const Epetra_Seria
 
   Epetra_BlockMap const &map = X.Map();
   Epetra_MultiVector resid(map, X.NumVectors());
-  CHECK_ZERO(matrix_->Apply(Y, resid));
+  CHECK_ZERO(operator_->Apply(Y, resid));
   CHECK_ZERO(resid.Update(1.0, X, -1.0));
 
   double *resNorm  = new double[resid.NumVectors()];

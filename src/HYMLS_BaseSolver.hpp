@@ -161,11 +161,8 @@ protected:
   //! communicator
   Teuchos::RCP<const Epetra_Comm> comm_;
 
-  //! matrix
-  Teuchos::RCP<const Epetra_Operator> matrix_;
-
-  //! operator for which we solve OP*x=b, typically same as matrix_ or
-  //! beta*A+alpha*B (if SetShift was called)
+  //! operator for which we solve OP * x = b, typically a matrix A or
+  //! beta * A + alpha * B if a ShiftedOperator is used
   Teuchos::RCP<const Epetra_Operator> operator_;
 
   //! preconditioner

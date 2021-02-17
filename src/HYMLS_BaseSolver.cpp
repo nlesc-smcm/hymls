@@ -43,7 +43,7 @@ BaseSolver::BaseSolver(Teuchos::RCP<const Epetra_Operator> K,
   int numRhs, bool validate)
   :
   PLA("Solver"), comm_(Teuchos::rcp(K->Comm().Clone())),
-  matrix_(K), operator_(K), precond_(P),
+  operator_(K), precond_(P),
   massMatrix_(Teuchos::null),
   V_(Teuchos::null), W_(Teuchos::null),
   useTranspose_(false), normInf_(-1.0), numIter_(0),
@@ -106,8 +106,7 @@ BaseSolver::~BaseSolver()
 void BaseSolver::SetOperator(Teuchos::RCP<const Epetra_Operator> A)
   {
   HYMLS_PROF3(label_, "SetOperator");
-  matrix_ = A;
-  operator_ = matrix_;
+  operator_ = A;
   belosProblemPtr_->setOperator(operator_);
   }
 
@@ -147,7 +146,7 @@ void BaseSolver::SetMassMatrix(Teuchos::RCP<const Epetra_RowMatrix> mass)
   if (mass == Teuchos::null)
     return;
 
-  if (mass->OperatorRangeMap().SameAs(matrix_->OperatorRangeMap()))
+  if (mass->OperatorRangeMap().SameAs(operator_->OperatorRangeMap()))
     {
     massMatrix_ = mass;
     }
@@ -156,8 +155,6 @@ void BaseSolver::SetMassMatrix(Teuchos::RCP<const Epetra_RowMatrix> mass)
     Tools::Error("Mass matrix must have same row map as solver",
       __FILE__, __LINE__);
     }
-
-  operator_ = matrix_;
   }
 
 int BaseSolver::Apply(const Epetra_MultiVector& X,
@@ -169,15 +166,15 @@ int BaseSolver::Apply(const Epetra_MultiVector& X,
 int BaseSolver::ApplyMatrix(const Epetra_MultiVector& X,
   Epetra_MultiVector& Y) const
   {
-  return matrix_->Apply(X,Y);
+  return operator_->Apply(X,Y);
   }
 
 int BaseSolver::ApplyMatrixTranspose(const Epetra_MultiVector& X,
   Epetra_MultiVector& Y) const
   {
-  Teuchos::RCP<Epetra_Operator> op = Teuchos::rcp_const_cast<Epetra_Operator>(matrix_);
+  Teuchos::RCP<Epetra_Operator> op = Teuchos::rcp_const_cast<Epetra_Operator>(operator_);
   CHECK_ZERO(op->SetUseTranspose(!op->UseTranspose()));
-  int ierr = matrix_->Apply(X,Y);
+  int ierr = operator_->Apply(X,Y);
   CHECK_ZERO(op->SetUseTranspose(!op->UseTranspose()));
   return ierr;
   }
@@ -202,12 +199,12 @@ int BaseSolver::SetUseTranspose(bool UseTranspose)
 
 const Epetra_Map & BaseSolver::OperatorDomainMap() const
   {
-  return matrix_->OperatorDomainMap();
+  return operator_->OperatorDomainMap();
   }
 
 const Epetra_Map & BaseSolver::OperatorRangeMap() const
   {
-  return matrix_->OperatorRangeMap();
+  return operator_->OperatorRangeMap();
   }
 
 // Sets all parameters for the solver
@@ -365,9 +362,10 @@ int BaseSolver::ApplyInverse(const Epetra_MultiVector& B,
     HYMLS::Tools::Warning("Belos returned "+::Belos::convertReturnTypeToString(ret)+"'!",__FILE__,__LINE__);    
 #ifdef HYMLS_TESTING
     Teuchos::RCP<const Epetra_CrsMatrix> Acrs =
-      Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_);
-    MatrixUtils::Dump(*Acrs,"FailedMatrix.txt");
-    MatrixUtils::Dump(B,"FailedRhs.txt");
+      Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(operator_);
+    if (Acrs != Teuchos::null)
+        MatrixUtils::Dump(*Acrs, "FailedMatrix.txt");
+    MatrixUtils::Dump(B, "FailedRhs.txt");
 #endif
     ierr = -1;
     }
@@ -392,7 +390,7 @@ int BaseSolver::ApplyInverse(const Epetra_MultiVector& B,
 
   Epetra_BlockMap const &map = X.Map();
   Epetra_MultiVector resid(map, X.NumVectors());
-  CHECK_ZERO(matrix_->Apply(X, resid));
+  CHECK_ZERO(operator_->Apply(X, resid));
   CHECK_ZERO(resid.Update(1.0, B, -1.0));
 
   double *resNorm  = new double[resid.NumVectors()];
