@@ -379,10 +379,19 @@ int BaseSolver::ApplyInverse(const Epetra_MultiVector& B,
     }
 
 #ifdef HYMLS_TESTING
+  ComputeResidual(B, X);
+#endif
+
+  return ierr;
+  }
+
+int BaseSolver::ComputeResidual(const Epetra_MultiVector& B, const Epetra_MultiVector& X) const
+  {
+  HYMLS_PROF3(label_, "ComputeResidual");
 
   Tools::Out("explicit residual test");
   Tools::out() << "we were solving A*x=rhs\n"
-               << "   with " << X.NumVectors() << " rhs\n";
+               << "   with " << B.NumVectors() << " rhs\n";
 
   // compute explicit residual
   int dim = PL("Problem").get<int>("Dimension");
@@ -397,8 +406,9 @@ int BaseSolver::ApplyInverse(const Epetra_MultiVector& B,
   double *resNormV = new double[resid.NumVectors()];
   double *resNormP = new double[resid.NumVectors()];
   double *rhsNorm  = new double[resid.NumVectors()];
-  B.Norm2(rhsNorm);
-  resid.Norm2(resNorm);
+
+  CHECK_ZERO(B.Norm2(rhsNorm));
+  CHECK_ZERO(resid.Norm2(resNorm));
 
   if (dof >= dim)
     {
@@ -413,8 +423,8 @@ int BaseSolver::ApplyInverse(const Epetra_MultiVector& B,
         else
           residP[j][i] = 0.0;
         }
-    residV.Norm2(resNormV);
-    residP.Norm2(resNormP);
+    CHECK_ZERO(residV.Norm2(resNormV));
+    CHECK_ZERO(residP.Norm2(resNormP));
     }
 
   if (comm_->MyPID() == 0)
@@ -452,9 +462,8 @@ int BaseSolver::ApplyInverse(const Epetra_MultiVector& B,
   delete [] rhsNorm;
   delete [] resNormV;
   delete [] resNormP;
-#endif
 
-  return ierr;
+  return 0;
   }
 
   }//namespace HYMLS

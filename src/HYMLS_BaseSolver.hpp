@@ -156,7 +156,10 @@ public:
     return -99;
     }
 
-protected: 
+protected:
+
+  //! Compute and print the resual
+  int ComputeResidual(const Epetra_MultiVector& B, const Epetra_MultiVector& X) const;
 
   //! communicator
   Teuchos::RCP<const Epetra_Comm> comm_;
