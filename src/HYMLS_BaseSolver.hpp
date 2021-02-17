@@ -124,9 +124,6 @@ public:
 
   //@}
 
-  //! setup the solver to solve (shiftA*A+shiftB*B)x=b
-  virtual void SetShift(double shiftA, double shiftB);
-
   //! set convergence tolerance for Krylov solver
   virtual void SetTolerance(double tol);
 

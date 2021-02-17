@@ -104,9 +104,6 @@ public:
   const Epetra_Map & OperatorRangeMap() const;
   //@}
 
-  //! setup the solver to solve (shiftA*A+shiftB*B)x=b
-  void SetShift(double shiftA, double shiftB);
-
   void SetTolerance(double tol);
 
   //! get number of iterations performed in last ApplyInverse() call

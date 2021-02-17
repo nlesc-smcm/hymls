@@ -68,9 +68,6 @@ public:
   //! use same preconditioner but operator (I-VV')A
   virtual int setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V,
     Teuchos::RCP<const Epetra_MultiVector> W = Teuchos::null);
-  
-  //! setup the solver to solve (shiftA*A+shiftB*B)x=b
-  void setShift(double shiftA, double shiftB);
 
 private:
 

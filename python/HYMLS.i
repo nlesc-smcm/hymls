@@ -129,11 +129,6 @@
         return self->SetBorder(Teuchos::null);
     }
 
-    void SetShift(double a, double b)
-    {
-        self->SetShift(a, b);
-    }
-
     void SetOperator(Teuchos::RCP<Epetra_Operator> m)
     {
         self->SetOperator(m);

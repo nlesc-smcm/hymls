@@ -372,9 +372,4 @@ int DeflatedSolver::setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> 
   return ret;
   }
 
-void DeflatedSolver::setShift(double shiftA, double shiftB)
-  {
-  Tools::Warning("Shifted DeflatedSolver not yet implemented", __FILE__, __LINE__);
-  }
-
   }//namespace HYMLS
