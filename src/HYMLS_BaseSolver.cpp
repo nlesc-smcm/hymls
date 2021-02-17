@@ -7,7 +7,6 @@
 #include "HYMLS_MatrixUtils.hpp"
 #include "HYMLS_DenseUtils.hpp"
 #include "HYMLS_ProjectedOperator.hpp"
-#include "HYMLS_ShiftedOperator.hpp"
 
 #include "Epetra_Comm.h"
 #include "Epetra_RowMatrix.h"
@@ -45,7 +44,6 @@ BaseSolver::BaseSolver(Teuchos::RCP<const Epetra_Operator> K,
   :
   PLA("Solver"), comm_(Teuchos::rcp(K->Comm().Clone())),
   matrix_(K), operator_(K), precond_(P),
-  shiftA_(1.0), shiftB_(0.0),
   massMatrix_(Teuchos::null),
   V_(Teuchos::null), W_(Teuchos::null),
   useTranspose_(false), normInf_(-1.0), numIter_(0),
@@ -109,13 +107,6 @@ void BaseSolver::SetOperator(Teuchos::RCP<const Epetra_Operator> A)
   {
   HYMLS_PROF3(label_, "SetOperator");
   matrix_ = A;
-  if (shiftB_ != 0.0 || shiftA_ != 1.0)
-    {
-    Tools::Warning("SetOperator called while operator used is shifted."
-      "Discarding shifts.", __FILE__, __LINE__);
-    shiftB_ = 0.0;
-    shiftA_ = 1.0;
-    }
   operator_ = matrix_;
   belosProblemPtr_->setOperator(operator_);
   }
@@ -164,14 +155,6 @@ void BaseSolver::SetMassMatrix(Teuchos::RCP<const Epetra_RowMatrix> mass)
     {
     Tools::Error("Mass matrix must have same row map as solver",
       __FILE__, __LINE__);
-    }
-
-  if (shiftB_ != 0.0 || shiftA_ != 1.0)
-    {
-    Tools::Warning("SetMassMatrix called while solving shifted system. "
-      "Discarding shifts.", __FILE__, __LINE__);
-    shiftB_ = 0.0;
-    shiftA_ = 1.0;
     }
 
   operator_ = matrix_;
@@ -388,7 +371,8 @@ int BaseSolver::ApplyInverse(const Epetra_MultiVector& B,
 #endif
     ierr = -1;
     }
-  if (comm_->MyPID()==0)
+
+  if (comm_->MyPID() == 0)
     {
     Tools::Out("++++++++++++++++++++++++++++++++++++++++++++++++");
     Tools::Out("+ Number of iterations: "+Teuchos::toString(numIter_));
@@ -399,12 +383,8 @@ int BaseSolver::ApplyInverse(const Epetra_MultiVector& B,
 #ifdef HYMLS_TESTING
 
   Tools::Out("explicit residual test");
-  Tools::out() << "we were solving (a*A*x+b*B)*x=rhs\n"
-               << "   with " << X.NumVectors() << " rhs\n"
-               << "        a = " << shiftA_ << "\n"
-               << "        b = " << shiftB_ << "\n";
-  if (massMatrix_ == Teuchos::null)
-    Tools::out() << "        B = I\n";
+  Tools::out() << "we were solving A*x=rhs\n"
+               << "   with " << X.NumVectors() << " rhs\n";
 
   // compute explicit residual
   int dim = PL("Problem").get<int>("Dimension");
@@ -412,20 +392,7 @@ int BaseSolver::ApplyInverse(const Epetra_MultiVector& B,
 
   Epetra_BlockMap const &map = X.Map();
   Epetra_MultiVector resid(map, X.NumVectors());
-  CHECK_ZERO(matrix_->Apply(X,resid));
-  if (shiftB_ != 0.0)
-    {
-    Epetra_MultiVector Bx = X;
-    if (massMatrix_ != Teuchos::null)
-      {
-      CHECK_ZERO(massMatrix_->Apply(X, Bx));
-      }
-    CHECK_ZERO(resid.Update(shiftB_, Bx, shiftA_));
-    }
-  else if (shiftA_ != 1.0)
-    {
-    CHECK_ZERO(resid.Scale(shiftA_));
-    }
+  CHECK_ZERO(matrix_->Apply(X, resid));
   CHECK_ZERO(resid.Update(1.0, B, -1.0));
 
   double *resNorm  = new double[resid.NumVectors()];
@@ -443,7 +410,7 @@ int BaseSolver::ApplyInverse(const Epetra_MultiVector& B,
       for (int i = 0; i < resid.MyLength(); i++)
         {
         hymls_gidx gid = map.GID64(i);
-        if (gid % dof  ==  dim)
+        if (gid % dof == dim)
           residV[j][i] = 0.0;
         else
           residP[j][i] = 0.0;
@@ -482,6 +449,7 @@ int BaseSolver::ApplyInverse(const Epetra_MultiVector& B,
       Tools::out() << std::endl;
       }
     }
+
   delete [] resNorm;
   delete [] rhsNorm;
   delete [] resNormV;

@@ -171,9 +171,6 @@ protected:
   //! preconditioner
   Teuchos::RCP<Epetra_Operator> precond_;
 
-  //! We solve (beta*A+alpha*B)x=b
-  double shiftA_, shiftB_;
-
   //! solver type and start vector type
   std::string solverType_, startVec_;
 
