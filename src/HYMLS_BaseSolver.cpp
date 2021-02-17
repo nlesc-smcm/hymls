@@ -311,12 +311,12 @@ int BaseSolver::setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V,
 int BaseSolver::ApplyInverse(const Epetra_MultiVector& B,
   Epetra_MultiVector& X) const
   {
-  HYMLS_PROF(label_,"ApplyInverse");
-  int ierr = 0;
+  HYMLS_PROF(label_, "ApplyInverse");
+
 #ifdef HYMLS_TESTING
-  if (X.NumVectors()!=B.NumVectors())
+  if (X.NumVectors() != B.NumVectors())
     {
-    Tools::Error("different number of input and output vectors",__FILE__,__LINE__);
+    Tools::Error("different number of input and output vectors", __FILE__, __LINE__);
     }
 #endif
 
@@ -357,16 +357,29 @@ int BaseSolver::ApplyInverse(const Epetra_MultiVector& B,
 
   numIter_ = belosSolverPtr_->getNumIters();
 
+  return ConvergenceStatus(B, X, ret);
+  }
+
+int BaseSolver::ConvergenceStatus(const Epetra_MultiVector& B, const Epetra_MultiVector& X,
+  const ::Belos::ReturnType &ret) const
+  {
+  HYMLS_PROF3(label_, "ConvergenceStatus");
+
+  int ierr = 0;
+
   if (ret != ::Belos::Converged)
     {
-    HYMLS::Tools::Warning("Belos returned "+::Belos::convertReturnTypeToString(ret)+"'!",__FILE__,__LINE__);    
+    HYMLS::Tools::Warning("Belos returned " + ::Belos::convertReturnTypeToString(ret) + "!",
+      __FILE__, __LINE__);
+
 #ifdef HYMLS_TESTING
     Teuchos::RCP<const Epetra_CrsMatrix> Acrs =
       Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(operator_);
     if (Acrs != Teuchos::null)
-        MatrixUtils::Dump(*Acrs, "FailedMatrix.txt");
+      MatrixUtils::Dump(*Acrs, "FailedMatrix.txt");
     MatrixUtils::Dump(B, "FailedRhs.txt");
 #endif
+
     ierr = -1;
     }
 

@@ -174,8 +174,7 @@ int BorderedSolver::ApplyInverse(const Epetra_MultiVector& X,
 int BorderedSolver::ApplyInverse(const Epetra_MultiVector& X, const Epetra_SerialDenseMatrix& S,
   Epetra_MultiVector& Y, Epetra_SerialDenseMatrix& T) const
   {
-  HYMLS_PROF(label_,"ApplyInverse");
-  int ierr = 0;
+  HYMLS_PROF(label_, "ApplyInverse");
 
   if (V_ == Teuchos::null)
     {
@@ -217,27 +216,7 @@ int BorderedSolver::ApplyInverse(const Epetra_MultiVector& X, const Epetra_Seria
 
   numIter_ = belosSolverPtr_->getNumIters();
 
-  if (ret != ::Belos::Converged)
-    {
-    HYMLS::Tools::Warning("Belos returned "+::Belos::convertReturnTypeToString(ret)+
-      "'!", __FILE__, __LINE__);
-
-    ierr = -1;
-    }
-
-  if (comm_->MyPID() == 0)
-    {
-    Tools::Out("++++++++++++++++++++++++++++++++++++++++++++++++");
-    Tools::Out("+ Number of iterations: " + Teuchos::toString(numIter_));
-    Tools::Out("++++++++++++++++++++++++++++++++++++++++++++++++");
-    Tools::Out("");
-    }
-
-#ifdef HYMLS_TESTING
-  ComputeResidual(X, Y);
-#endif
-
-  return ierr;
+  return ConvergenceStatus(X, Y, ret);
   }
 
   }//namespace HYMLS

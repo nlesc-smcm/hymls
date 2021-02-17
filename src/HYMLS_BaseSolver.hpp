@@ -7,6 +7,8 @@
 
 #include "HYMLS_PLA.hpp"
 
+#include "BelosTypes.hpp"
+
 // forward declarations
 class Epetra_MultiVector;
 class Epetra_Comm;
@@ -157,6 +159,10 @@ public:
     }
 
 protected:
+
+  //! Inform the user about the convergence status of the solver
+  int ConvergenceStatus(const Epetra_MultiVector& B, const Epetra_MultiVector& X,
+    const ::Belos::ReturnType &ret) const;
 
   //! Compute and print the resual
   int ComputeResidual(const Epetra_MultiVector& B, const Epetra_MultiVector& X) const;
