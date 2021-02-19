@@ -181,7 +181,7 @@ Teuchos::RCP<Epetra_SerialDenseMatrix> BorderedVector::Border() const
 
 int BorderedVector::SetBorder(const Epetra_SerialDenseMatrix &mv2)
   {
-  if (first_->NumVectors() != mv2.N())
+  if (NumVectors() != mv2.N())
     {
     Tools::Error("Incompatible vectors", __FILE__, __LINE__);
     }
@@ -194,7 +194,7 @@ int BorderedVector::SetBorder(const Epetra_SerialDenseMatrix &mv2)
   }
 
 // Get number of vectors in each multivector
-int BorderedVector::NumVecs() const
+int BorderedVector::NumVectors() const
   {
   if (first_.is_null())
     return 0;
@@ -267,7 +267,7 @@ int BorderedVector::Dot(const BorderedVector& A, std::vector<double> &b1) const
   info += second_->Dot(*A.Second(), &b2[0]);
 
   // combine the results
-  for (int i = 0; i != first_->NumVectors(); ++i)
+  for (int i = 0; i != NumVectors(); ++i)
     b1[i] += b2[i];
 
   return info;
@@ -276,9 +276,9 @@ int BorderedVector::Dot(const BorderedVector& A, std::vector<double> &b1) const
 // result[j] := this[j]^T * A[j]
 int BorderedVector::Dot(const BorderedVector& A, double *result) const
   {
-  std::vector<double> tmp(first_->NumVectors(), 0.0);
+  std::vector<double> tmp(NumVectors(), 0.0);
   int info = Dot(A, tmp);
-  for (int i = 0; i != first_->NumVectors(); ++i)
+  for (int i = 0; i != NumVectors(); ++i)
     result[i] = tmp[i];
   return info;
   }
@@ -301,16 +301,16 @@ int BorderedVector::Norm1(std::vector<double> &result) const
   info += second_->Norm1(&result_tmp[0]);
 
   // combine results
-  for (int i = 0; i != first_->NumVectors(); ++i)
+  for (int i = 0; i != NumVectors(); ++i)
     result[i] += result_tmp[i];
   return info;
   }
 
 int BorderedVector::Norm2(double *result) const
   {
-  std::vector<double> tmp(first_->NumVectors(), 0.0);
+  std::vector<double> tmp(NumVectors(), 0.0);
   int info = Norm2(tmp);
-  for (int i = 0; i != first_->NumVectors(); ++i)
+  for (int i = 0; i != NumVectors(); ++i)
     result[i] = tmp[i];
   return info;
   }
@@ -325,7 +325,7 @@ int BorderedVector::Norm2(std::vector<double> &result) const
   info += second_->Norm2(&result_tmp[0]);
 
   // combine results
-  for (int i = 0; i != first_->NumVectors(); ++i)
+  for (int i = 0; i != NumVectors(); ++i)
     result[i] = sqrt(pow(result[i],2) + pow(result_tmp[i],2));
 
   return info;
@@ -340,7 +340,7 @@ int BorderedVector::NormInf(std::vector<double> &result) const
   info += second_->NormInf(&result_tmp[0]);
 
   // combine results
-  for (int i = 0; i != first_->NumVectors(); ++i)
+  for (int i = 0; i != NumVectors(); ++i)
     result[i] = std::max(result[i], result_tmp[i]);
 
   return info;
@@ -407,7 +407,7 @@ Teuchos::RCP<HYMLS::BorderedVector>
 MultiVecTraits<double, HYMLS::BorderedVector>::CloneCopy(
   const HYMLS::BorderedVector &mv, const std::vector<int> &index)
   {
-  const int inNumVecs  = mv.NumVecs();
+  const int inNumVecs  = mv.NumVectors();
   const int outNumVecs = index.size();
   TEUCHOS_TEST_FOR_EXCEPTION(outNumVecs == 0, std::invalid_argument,
     "Belos::MultiVecTraits<double, HYMLS::BorderedVector>::"
@@ -433,7 +433,7 @@ Teuchos::RCP<HYMLS::BorderedVector>
 MultiVecTraits<double, HYMLS::BorderedVector>::CloneCopy(
   const HYMLS::BorderedVector &mv, const Teuchos::Range1D &index)
   {
-  const int inNumVecs   = mv.NumVecs();
+  const int inNumVecs   = mv.NumVectors();
   const int outNumVecs  = index.size();
   const bool validRange = outNumVecs > 0 && index.lbound() >= 0 &&
     index.ubound() < inNumVecs;
@@ -461,7 +461,7 @@ Teuchos::RCP<HYMLS::BorderedVector>
 MultiVecTraits<double, HYMLS::BorderedVector>::CloneViewNonConst(
   HYMLS::BorderedVector &mv, const std::vector<int> &index)
   {
-  const int inNumVecs  = mv.NumVecs();
+  const int inNumVecs  = mv.NumVectors();
   const int outNumVecs = index.size();
   // Simple, inexpensive tests of the index vector.
 
@@ -490,7 +490,7 @@ MultiVecTraits<double, HYMLS::BorderedVector>::CloneViewNonConst(
   {
   const bool validRange = index.size() > 0 &&
     index.lbound() >= 0 &&
-    index.ubound() < mv.NumVecs();
+    index.ubound() < mv.NumVectors();
 
   if (! validRange)
     {
@@ -502,10 +502,10 @@ MultiVecTraits<double, HYMLS::BorderedVector>::CloneViewNonConst(
       os.str() << "Column index range must be nonempty.");
     TEUCHOS_TEST_FOR_EXCEPTION(index.lbound() < 0, std::invalid_argument,
       os.str() << "Column index range must be nonnegative.");
-    TEUCHOS_TEST_FOR_EXCEPTION(index.ubound() >= mv.NumVecs(),
+    TEUCHOS_TEST_FOR_EXCEPTION(index.ubound() >= mv.NumVectors(),
       std::invalid_argument,
       os.str() << "Column index range must not exceed "
-      "number of vectors " << mv.NumVecs() << " in "
+      "number of vectors " << mv.NumVectors() << " in "
       "the input multivector.");
     }
   return Teuchos::rcp(
@@ -516,7 +516,7 @@ Teuchos::RCP<const HYMLS::BorderedVector>
 MultiVecTraits<double, HYMLS::BorderedVector>::CloneView(
   const HYMLS::BorderedVector& mv, const std::vector<int>& index)
   {
-  const int inNumVecs  = mv.NumVecs();
+  const int inNumVecs  = mv.NumVectors();
   const int outNumVecs = index.size();
 
   // Simple, inexpensive tests of the index vector.
@@ -545,7 +545,7 @@ MultiVecTraits<double, HYMLS::BorderedVector>::CloneView(
   {
   const bool validRange = index.size() > 0 &&
     index.lbound() >= 0 &&
-    index.ubound() < mv.NumVecs();
+    index.ubound() < mv.NumVectors();
   if (! validRange)
     {
     std::ostringstream os;
@@ -556,10 +556,10 @@ MultiVecTraits<double, HYMLS::BorderedVector>::CloneView(
       os.str() << "Column index range must be nonempty.");
     TEUCHOS_TEST_FOR_EXCEPTION(index.lbound() < 0, std::invalid_argument,
       os.str() << "Column index range must be nonnegative.");
-    TEUCHOS_TEST_FOR_EXCEPTION(index.ubound() >= mv.NumVecs(),
+    TEUCHOS_TEST_FOR_EXCEPTION(index.ubound() >= mv.NumVectors(),
       std::invalid_argument,
       os.str() << "Column index range must not exceed "
-      "number of vectors " << mv.NumVecs() << " in "
+      "number of vectors " << mv.NumVectors() << " in "
       "the input multivector.");
     }
   return Teuchos::rcp(new HYMLS::BorderedVector(View, mv, index.lbound(), index.size()));
@@ -574,7 +574,7 @@ int MultiVecTraits<double, HYMLS::BorderedVector>::GetVecLength(
 int MultiVecTraits<double, HYMLS::BorderedVector>::GetNumberVecs(
   const HYMLS::BorderedVector& mv)
   {
-  return mv.NumVecs();
+  return mv.NumVectors();
   }
 
 bool MultiVecTraits<double, HYMLS::BorderedVector>::HasConstantStride(
@@ -644,7 +644,7 @@ void MultiVecTraits<double, HYMLS::BorderedVector>::MvScale(
   {
   // Check to make sure the vector has the same number of entries
   // as the multivector has columns.
-  const int numvecs = mv.NumVecs();
+  const int numvecs = mv.NumVectors();
 
   TEUCHOS_TEST_FOR_EXCEPTION(
     (int) alpha.size () != numvecs, EpetraMultiVecFailure,
@@ -706,7 +706,7 @@ void MultiVecTraits<double, HYMLS::BorderedVector>::MvNorm(
   std::vector<double> &normvec,
   NormType type)
   {
-  if ((int) normvec.size() >= mv.NumVecs())
+  if ((int) normvec.size() >= mv.NumVectors())
     {
     int info = 0;
     switch( type )
@@ -774,8 +774,8 @@ void MultiVecTraits<double, HYMLS::BorderedVector>::SetBlock(
   const Teuchos::Range1D &index,
   HYMLS::BorderedVector &mv)
   {
-  const int numColsA  = A.NumVecs();
-  const int numColsMv = mv.NumVecs();
+  const int numColsA  = A.NumVectors();
+  const int numColsMv = mv.NumVectors();
 
   // 'index' indexes into mv; it's the index set of the target.
   const bool validIndex = index.lbound() >= 0 && index.ubound() < numColsMv;

@@ -81,7 +81,7 @@ public:
   int SetBorder(const Epetra_SerialDenseMatrix &mv2);
 
   // Get number of vectors in each multivector
-  int NumVecs() const;
+  int NumVectors() const;
 
   // Get the global length of the combined multivector
   int GlobalLength() const;
