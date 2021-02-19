@@ -9,7 +9,6 @@
 class Epetra_MultiVector;
 class Epetra_SerialDenseMatrix;
 class Epetra_Operator;
-class Epetra_RowMatrix;
 
 namespace Belos
   {

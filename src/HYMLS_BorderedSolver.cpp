@@ -35,7 +35,7 @@ BorderedSolver::BorderedSolver(Teuchos::RCP<const Epetra_Operator> K,
   label_("HYMLS::BorderedSolver")
   {
   HYMLS_PROF3(label_,"Constructor");
-  belosProblemPtr_=Teuchos::rcp(new ::Belos::LinearProblem<double, BorderedVector, BorderedOperator>);
+  belosProblemPtr_ = Teuchos::rcp(new BelosProblemType());
 
   SetPrecond(precond_);
 
