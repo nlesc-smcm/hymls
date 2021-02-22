@@ -143,6 +143,9 @@ protected:
   //! label
   std::string label_;
 
+  //! Used to determine if we want to use the complex HYMLS solver class
+  bool isComplex_;
+
   //! Used to determine if we want to use the deflated HYMLS solver class
   bool useDeflation_;
 
