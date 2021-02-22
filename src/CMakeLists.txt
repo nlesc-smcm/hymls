@@ -51,6 +51,7 @@ set(HEADERS ${HEADERS}
   HYMLS_no_debug.hpp
   HYMLS_OrthogonalTransform.hpp
   HYMLS_RestrictedOT.hpp
+  HYMLS_ComplexVector.hpp
   )
 
 if ("NOX" IN_LIST Trilinos_PACKAGE_LIST)
