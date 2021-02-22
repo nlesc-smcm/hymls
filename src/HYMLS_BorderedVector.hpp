@@ -58,6 +58,10 @@ public:
   BorderedVector(Epetra_DataAccess CV, BorderedVector &source,
     int startIndex, int numVectors);
 
+  // for the local map vectors
+  BorderedVector(Epetra_DataAccess CV, const Epetra_BlockMap &map, double *A,
+    int myLDA, int numVectors);
+
   virtual ~BorderedVector() {}
 
   // Assignment operator
@@ -102,7 +106,7 @@ public:
 
   // this = alpha*A*B + scalarThis*this
   int Multiply(char transA, char transB, double scalarAB,
-    const BorderedVector &A, const Epetra_MultiVector &B,
+    const BorderedVector &A, const BorderedVector &B,
     double scalarThis);
 
   // this = scalarA*A + scalarThis*this

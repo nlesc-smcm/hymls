@@ -3,6 +3,7 @@
 #include "HYMLS_BaseSolver.hpp"
 #include "HYMLS_ComplexSolver.hpp"
 #include "HYMLS_BorderedSolver.hpp"
+#include "HYMLS_ComplexBorderedSolver.hpp"
 #include "HYMLS_DeflatedSolver.hpp"
 #include "HYMLS_BorderedDeflatedSolver.hpp"
 #include "HYMLS_Macros.hpp"
@@ -25,7 +26,9 @@ Solver::Solver(Teuchos::RCP<const Epetra_Operator> K,
 
   setParameterList(params);
 
-  if (isComplex_)
+  if (isComplex_ && useBordering_)
+    solver_ = Teuchos::rcp(new ComplexBorderedSolver(K, P, params, numRhs, false));
+  else if (isComplex_)
     solver_ = Teuchos::rcp(new ComplexSolver(K, P, params, numRhs, false));
   else if (useDeflation_ && useBordering_)
     solver_ = Teuchos::rcp(new BorderedDeflatedSolver(K, P, params, numRhs, false));

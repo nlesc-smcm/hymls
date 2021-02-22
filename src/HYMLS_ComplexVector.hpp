@@ -95,7 +95,7 @@ public:
 
   // this = alpha*A*B + scalarThis*this
   int Multiply(char transA, char transB, std::complex<double> scalarAB,
-    const ComplexVector &A, const ComplexVector<Epetra_MultiVector> &B,
+    const ComplexVector &A, const ComplexVector &B,
     std::complex<double> scalarThis);
 
   // this = scalarA*A + scalarThis*this
@@ -445,7 +445,7 @@ const Epetra_Comm& ComplexVector<MultiVector>::Comm() const
 // this = alpha*A*B + scalarThis*this
 template<class MultiVector>
 int ComplexVector<MultiVector>::Multiply(char transA, char transB, std::complex<double> scalarAB,
-  const ComplexVector<MultiVector> &A, const ComplexVector<Epetra_MultiVector> &B,
+  const ComplexVector<MultiVector> &A, const ComplexVector &B,
   std::complex<double> scalarThis)
   {
   double conjA = transA == 'T' ? -1.0 : 1.0;
@@ -479,7 +479,7 @@ int ComplexVector<MultiVector>::Update(std::complex<double> scalarA, const Compl
   {
   // Make a copy so we don't overwrite values before using them
   Teuchos::RCP<const ComplexVector<MultiVector> > Acopy = Teuchos::rcp(&A, false);
-  if (real_->Pointers() == A.Real()->Pointers())
+  if (real_.get() == A.Real().get())
     Acopy = Teuchos::rcp(new ComplexVector<MultiVector>(A));
 
   int info = Scale(scalarThis);
@@ -499,11 +499,11 @@ int ComplexVector<MultiVector>::Update(std::complex<double> scalarA, const Compl
   {
   // Make copies so we don't overwrite values before using them
   Teuchos::RCP<const ComplexVector<MultiVector> > Acopy = Teuchos::rcp(&A, false);
-  if (real_->Pointers() == A.Real()->Pointers())
+  if (real_.get() == A.Real().get())
     Acopy = Teuchos::rcp(new ComplexVector<MultiVector>(A));
 
   Teuchos::RCP<const ComplexVector<MultiVector> > Bcopy = Teuchos::rcp(&B, false);
-  if (real_->Pointers() == B.Real()->Pointers())
+  if (real_.get() == B.Real().get())
     Bcopy = Teuchos::rcp(new ComplexVector<MultiVector>(B));
 
   int info = 0;
@@ -566,21 +566,7 @@ int ComplexVector<MultiVector>::Scale(std::complex<double> scalarValue)
 template<class MultiVector>
 int ComplexVector<MultiVector>::Norm1(std::vector<double> &result) const
   {
-  std::vector<double> localresult(result.size(), 0.0);
-  for (int i = 0; i != NumVectors(); ++i)
-    {
-    double *real = (*real_)[i];
-    double *imag = (*imag_)[i];
-    for (int j = 0; j < real_->MyLength(); ++j)
-      localresult[i] += sqrt(real[j] * real[j] + imag[j] * imag[j]);
-    }
-
-  if (DistributedGlobal())
-    Comm().MaxAll(&localresult[0], &result[0], NumVectors());
-  else
-    result = localresult;
-
-  return 0;
+  return -1;
   }
 
 template<class MultiVector>
@@ -613,21 +599,7 @@ int ComplexVector<MultiVector>::Norm2(std::vector<double> &result) const
 template<class MultiVector>
 int ComplexVector<MultiVector>::NormInf(std::vector<double> &result) const
   {
-  std::vector<double> localresult(result.size(), 0.0);
-  for (int i = 0; i != NumVectors(); ++i)
-    {
-    double *real = (*real_)[i];
-    double *imag = (*imag_)[i];
-    for (int j = 0; j < real_->MyLength(); ++j)
-      localresult[i] = std::max(sqrt(real[j] * real[j] + imag[j] * imag[j]), localresult[i]);
-    }
-
-  if (DistributedGlobal())
-    Comm().MaxAll(&localresult[0], &result[0], NumVectors());
-  else
-    result = localresult;
-
-  return 0;
+  return -1;
   }
 
 template<class MultiVector>
@@ -879,10 +851,7 @@ template<class MultiVector>
 ptrdiff_t MultiVecTraits<std::complex<double>, HYMLS::ComplexVector<MultiVector> >::GetGlobalLength(
   const HYMLS::ComplexVector<MultiVector>& mv)
   {
-  if ( mv.Real()->Map().GlobalIndicesLongLong() )
-    return static_cast<ptrdiff_t>( mv.GlobalLength64() );
-  else
-    return static_cast<ptrdiff_t>( mv.GlobalLength() );
+  return MultiVecTraits<double, MultiVector>::GetGlobalLength(*mv.Real());
   }
 
 // Epetra style (we should compare this with just a bunch of updates)
@@ -896,16 +865,22 @@ void MultiVecTraits<std::complex<double>, HYMLS::ComplexVector<MultiVector> >::M
   {
   // Create Epetra_Multivectors from SerialDenseMatrix
   Epetra_LocalMap LocalMap(B.numRows(), 0, mv.Comm());
-  Epetra_MultiVector B_real(LocalMap, B.numCols());
-  Epetra_MultiVector B_imag(LocalMap, B.numCols());
+
+  Teuchos::SerialDenseMatrix<int,double> B_real(B.numRows(), B.numCols());
+  Teuchos::SerialDenseMatrix<int,double> B_imag(B.numRows(), B.numCols());
+
+  MultiVector MV_real(View, LocalMap, B_real.values(), B_real.stride(), B_real.numCols());
+  MultiVector MV_imag(View, LocalMap, B_imag.values(), B_imag.stride(), B_imag.numCols());
+
   for (int i = 0; i < B.numRows(); ++i)
     for (int j = 0; j < B.numCols(); ++j)
       {
-      B_real[j][i] = B(i, j).real();
-      B_imag[j][i] = B(i, j).imag();
+      B_real(i, j) = B(i, j).real();
+      B_imag(i, j) = B(i, j).imag();
       }
 
-  HYMLS::ComplexVector<Epetra_MultiVector> B_Pvec(View, B_real, B_imag);
+  HYMLS::ComplexVector<MultiVector> B_Pvec(View, MV_real, MV_imag);
+
   const int info = mv.Multiply('N', 'N', alpha, A, B_Pvec, beta);
 
   TEUCHOS_TEST_FOR_EXCEPTION(
@@ -982,16 +957,20 @@ void MultiVecTraits<std::complex<double>, HYMLS::ComplexVector<MultiVector> >::M
   {
   // Create MultiVector from SerialDenseMatrix
   Epetra_LocalMap LocalMap(B.numRows(), 0, mv.Comm());
-  Epetra_MultiVector B_real(LocalMap, B.numCols());
-  Epetra_MultiVector B_imag(LocalMap, B.numCols());
 
-  HYMLS::ComplexVector<Epetra_MultiVector> B_Pvec(View, B_real, B_imag);
+  Teuchos::SerialDenseMatrix<int,double> B_real(B.numRows(), B.numCols());
+  Teuchos::SerialDenseMatrix<int,double> B_imag(B.numRows(), B.numCols());
 
-  int info = B_Pvec.Multiply('T', 'N', alpha, A, mv, 0.0);
+  MultiVector MV_real(View, LocalMap, B_real.values(), B_real.stride(), B_real.numCols());
+  MultiVector MV_imag(View, LocalMap, B_imag.values(), B_imag.stride(), B_imag.numCols());
+
+  HYMLS::ComplexVector<MultiVector> B_Pvec(View, MV_real, MV_imag);
+
+  const int info = B_Pvec.Multiply('T', 'N', alpha, A, mv, 0.0);
 
   for (int i = 0; i < B.numRows(); ++i)
     for (int j = 0; j < B.numCols(); ++j)
-      B(i, j) = std::complex<double>(B_real[j][i], B_imag[j][i]);
+      B(i, j) = std::complex<double>(B_real(i, j), B_imag(i, j));
 
   TEUCHOS_TEST_FOR_EXCEPTION(info != 0, EpetraMultiVecFailure,
     "Belos::MultiVecTraits<std::complex<double>,HYMLS::ComplexVector<MultiVector> >::MvTransMv: "
@@ -1200,10 +1179,7 @@ void MultiVecTraits<std::complex<double>, HYMLS::ComplexVector<MultiVector> >::M
 template<class MultiVector>
 ptrdiff_t MultiVecTraitsExt<std::complex<double>, HYMLS::ComplexVector<MultiVector> >::GetGlobalLength(const HYMLS::ComplexVector<MultiVector>& mv)
   {
-  if (mv.Real()->Map().GlobalIndicesLongLong())
-    return static_cast<ptrdiff_t>( mv.GlobalLength64() );
-  else
-    return static_cast<ptrdiff_t>( mv.GlobalLength() );
+  return MultiVecTraitsExt<double, MultiVector>::GetGlobalLength(*mv.Real());
   }
 #endif
 
