@@ -74,26 +74,22 @@ BorderedVector::BorderedVector(Epetra_DataAccess CV, const Epetra_MultiVector &m
 
 // const
 BorderedVector::BorderedVector(Epetra_DataAccess CV, const BorderedVector &source,
-  const std::vector<int> &index)
+  int *indices, int numVectors)
   {
-  // cast to nonconst for Epetra_MultiVector
-  std::vector<int> &tmpInd = const_cast< std::vector<int>& >(index);
   first_  = Teuchos::rcp
-    (new Epetra_MultiVector(CV, *source.First(),  &tmpInd[0], index.size()));
+    (new Epetra_MultiVector(CV, *source.First(),  indices, numVectors));
   second_ = Teuchos::rcp
-    (new Epetra_MultiVector(CV, *source.Second(), &tmpInd[0], index.size()));
+    (new Epetra_MultiVector(CV, *source.Second(), indices, numVectors));
   }
 
 // nonconst
 BorderedVector::BorderedVector(Epetra_DataAccess CV, BorderedVector &source,
-  const std::vector<int> &index)
+  int *indices, int numVectors)
   {
-  // cast to nonconst for Epetra_MultiVector
-  std::vector<int> &tmpInd = const_cast< std::vector<int>& >(index);
   first_  = Teuchos::rcp
-    (new Epetra_MultiVector(CV, *source.First(),  &tmpInd[0], index.size()));
+    (new Epetra_MultiVector(CV, *source.First(),  indices, numVectors));
   second_ = Teuchos::rcp
-    (new Epetra_MultiVector(CV, *source.Second(), &tmpInd[0], index.size()));
+    (new Epetra_MultiVector(CV, *source.Second(), indices, numVectors));
   }
 
 // const
@@ -224,6 +220,16 @@ int BorderedVector::MyLength() const
 bool BorderedVector::ConstantStride() const
   {
   return first_->ConstantStride() && second_->ConstantStride();
+  }
+
+bool BorderedVector::DistributedGlobal() const
+  {
+  return first_->DistributedGlobal();
+  }
+
+const Epetra_Comm& BorderedVector::Comm() const
+  {
+  return first_->Comm();
   }
 
 // this = alpha*A*B + scalarThis*this
@@ -426,7 +432,8 @@ MultiVecTraits<double, HYMLS::BorderedVector>::CloneCopy(
     TEUCHOS_TEST_FOR_EXCEPTION(true, std::invalid_argument, os.str());
     }
 
-  return Teuchos::rcp(new HYMLS::BorderedVector(Copy, mv, index));
+  std::vector<int> &tmpInd = const_cast< std::vector<int>& >(index);
+  return Teuchos::rcp(new HYMLS::BorderedVector(Copy, mv, &tmpInd[0], outNumVecs));
   }
 
 Teuchos::RCP<HYMLS::BorderedVector>
@@ -480,8 +487,9 @@ MultiVecTraits<double, HYMLS::BorderedVector>::CloneViewNonConst(
        << " indices to view, but only " << inNumVecs << " columns of mv.";
     TEUCHOS_TEST_FOR_EXCEPTION(true, std::invalid_argument, os.str());
     }
-  return Teuchos::rcp(
-    new HYMLS::BorderedVector(View, mv, index));
+  
+  std::vector<int> &tmpInd = const_cast< std::vector<int>& >(index);
+  return Teuchos::rcp(new HYMLS::BorderedVector(View, mv, &tmpInd[0], outNumVecs));
   }
 
 Teuchos::RCP<HYMLS::BorderedVector>
@@ -536,7 +544,8 @@ MultiVecTraits<double, HYMLS::BorderedVector>::CloneView(
     TEUCHOS_TEST_FOR_EXCEPTION(true, std::invalid_argument, os.str());
     }
 
-  return Teuchos::rcp(new HYMLS::BorderedVector(View, mv, index));
+  std::vector<int> &tmpInd = const_cast< std::vector<int>& >(index);
+  return Teuchos::rcp(new HYMLS::BorderedVector(Copy, mv, &tmpInd[0], outNumVecs));
   }
 
 Teuchos::RCP<HYMLS::BorderedVector>

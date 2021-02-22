@@ -13,6 +13,7 @@
 
 #include "BelosMultiVec.hpp"
 
+class Epetra_Comm;
 class Epetra_BlockMap;
 class Epetra_MultiVector;
 class Epetra_SerialDenseMatrix;
@@ -43,11 +44,11 @@ public:
 
   // const
   BorderedVector(Epetra_DataAccess CV, const BorderedVector &source,
-    const std::vector<int> &index);
+    int *indices, int numVectors);
 
   // nonconst
   BorderedVector(Epetra_DataAccess CV, BorderedVector &source,
-    const std::vector<int> &index);
+    int *indices, int numVectors);
 
   // const
   BorderedVector(Epetra_DataAccess CV, const BorderedVector &source,
@@ -94,6 +95,10 @@ public:
 
   // Query the stride
   bool ConstantStride() const;
+
+  bool DistributedGlobal() const;
+
+  const Epetra_Comm& Comm() const;
 
   // this = alpha*A*B + scalarThis*this
   int Multiply(char transA, char transB, double scalarAB,
