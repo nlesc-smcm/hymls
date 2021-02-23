@@ -36,7 +36,7 @@ public:
   //!
   //! arguments: matrix, preconditioner and belos params.
   //!
-  DeflatedSolver(Teuchos::RCP<const Epetra_RowMatrix> K,
+  DeflatedSolver(Teuchos::RCP<const Epetra_Operator> K,
     Teuchos::RCP<Epetra_Operator> P,
     Teuchos::RCP<Teuchos::ParameterList> params,
     int numRhs = 1, bool validate = true);
@@ -68,9 +68,6 @@ public:
   //! use same preconditioner but operator (I-VV')A
   virtual int setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V,
     Teuchos::RCP<const Epetra_MultiVector> W = Teuchos::null);
-  
-  //! setup the solver to solve (shiftA*A+shiftB*B)x=b
-  void setShift(double shiftA, double shiftB);
 
 private:
 

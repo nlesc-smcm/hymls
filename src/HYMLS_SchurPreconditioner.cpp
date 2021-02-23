@@ -1482,6 +1482,9 @@ int SchurPreconditioner::SetBorder(Teuchos::RCP<const Epetra_MultiVector> V,
     // Unset the border
     haveBorder_ = false;
 
+    if (reducedSchurSolver_ == Teuchos::null)
+        return 0;
+
     Teuchos::RCP<HYMLS::BorderedOperator> borderedNextLevel =
       Teuchos::rcp_dynamic_cast<HYMLS::BorderedOperator>(reducedSchurSolver_);
     if (Teuchos::is_null(borderedNextLevel))

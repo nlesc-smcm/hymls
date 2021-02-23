@@ -26,7 +26,7 @@
 namespace HYMLS {
 
 // constructor
-BorderedSolver::BorderedSolver(Teuchos::RCP<const Epetra_RowMatrix> K,
+BorderedSolver::BorderedSolver(Teuchos::RCP<const Epetra_Operator> K,
   Teuchos::RCP<Epetra_Operator> P,
   Teuchos::RCP<Teuchos::ParameterList> params,
   int numRhs, bool validate)
@@ -35,7 +35,7 @@ BorderedSolver::BorderedSolver(Teuchos::RCP<const Epetra_RowMatrix> K,
   label_("HYMLS::BorderedSolver")
   {
   HYMLS_PROF3(label_,"Constructor");
-  belosProblemPtr_=Teuchos::rcp(new ::Belos::LinearProblem<double, BorderedVector, BorderedOperator>);
+  belosProblemPtr_ = Teuchos::rcp(new BelosProblemType());
 
   SetPrecond(precond_);
 
@@ -174,8 +174,7 @@ int BorderedSolver::ApplyInverse(const Epetra_MultiVector& X,
 int BorderedSolver::ApplyInverse(const Epetra_MultiVector& X, const Epetra_SerialDenseMatrix& S,
   Epetra_MultiVector& Y, Epetra_SerialDenseMatrix& T) const
   {
-  HYMLS_PROF(label_,"ApplyInverse");
-  int ierr = 0;
+  HYMLS_PROF(label_, "ApplyInverse");
 
   if (V_ == Teuchos::null)
     {
@@ -217,120 +216,7 @@ int BorderedSolver::ApplyInverse(const Epetra_MultiVector& X, const Epetra_Seria
 
   numIter_ = belosSolverPtr_->getNumIters();
 
-  if (ret != ::Belos::Converged)
-    {
-    HYMLS::Tools::Warning("Belos returned "+::Belos::convertReturnTypeToString(ret)+
-      "'!", __FILE__, __LINE__);
-
-    ierr = -1;
-    }
-
-  if (comm_->MyPID() == 0)
-    {
-    Tools::Out("++++++++++++++++++++++++++++++++++++++++++++++++");
-    Tools::Out("+ Number of iterations: " + Teuchos::toString(numIter_));
-    Tools::Out("++++++++++++++++++++++++++++++++++++++++++++++++");
-    Tools::Out("");
-    }
-
-#ifdef HYMLS_TESTING
-  Tools::Out("explicit residual test");
-  Tools::out() << "we were solving (a*A*x+b*B)*x=rhs\n" <<
-    "   with " << X.NumVectors() << " rhs\n" <<
-    "        a = " << shiftA_<<"\n" <<
-    "        b = " << shiftB_<<"\n";
-  if (massMatrix_ == Teuchos::null)
-    Tools::out() <<
-      "        B = I\n";
-  // compute explicit residual
-  int dim = PL("Problem").get<int>("Dimension");
-  int dof = PL("Problem").get<int>("Degrees of Freedom");
-
-  Epetra_MultiVector resid(X.Map(),X.NumVectors());
-  CHECK_ZERO(matrix_->Apply(Y,resid));
-  if (shiftB_ != 0.0)
-    {
-    Epetra_MultiVector Bx=Y;
-
-    if (massMatrix_ != Teuchos::null)
-      {
-      CHECK_ZERO(massMatrix_->Apply(Y, Bx));
-      }
-    CHECK_ZERO(resid.Update(shiftB_, Bx, shiftA_));
-    }
-  else if (shiftA_ != 1.0)
-    {
-    CHECK_ZERO(resid.Scale(shiftA_));
-    }
-  CHECK_ZERO(resid.Update(1.0, X, -1.0));
-  double *resNorm, *rhsNorm, *resNormV, *resNormP;
-  resNorm  = new double[resid.NumVectors()];
-  resNormV = new double[resid.NumVectors()];
-  resNormP = new double[resid.NumVectors()];
-  rhsNorm  = new double[resid.NumVectors()];
-  X.Norm2(rhsNorm);
-  resid.Norm2(resNorm);
-
-  if (dof>=dim)
-    {
-    Epetra_MultiVector residV = resid;
-    Epetra_MultiVector residP = resid;
-    for (int i = 0; i < resid.MyLength(); i += dof)
-      {
-      for (int j = 0; j < resid.NumVectors(); j++)
-        {
-        for (int k = 0; k < dim; k++)
-          {
-          residP[j][i+k]=0.0;
-          }
-        for (int k = dim+1; k < dof; k++)
-          {
-          residP[j][i+k] = 0.0;
-          }
-        residV[j][i+dim] = 0.0;
-        }
-      }
-    residV.Norm2(resNormV);
-    residP.Norm2(resNormP);
-    }
-
-  if (comm_->MyPID() == 0)
-    {
-    Tools::out() << "Exp. res. norm(s): ";
-    for (int ii = 0; ii < resid.NumVectors(); ii++)
-      {
-      Tools::out() << resNorm[ii] << " ";
-      }
-    Tools::out() << std::endl;
-    Tools::out() << "Rhs norm(s): ";
-    for (int ii = 0; ii < resid.NumVectors(); ii++)
-      {
-      Tools::out() << rhsNorm[ii] << " ";
-      }
-    Tools::out() << std::endl;
-    if (dof >= dim)
-      {
-      Tools::out() << "Exp. res. norm(s) of V-part: ";
-      for (int ii = 0; ii < resid.NumVectors(); ii++)
-        {
-        Tools::out() << resNormV[ii] << " ";
-        }
-      Tools::out() << std::endl;
-      Tools::out() << "Exp. res. norm(s) of P-part: ";
-      for (int ii = 0; ii < resid.NumVectors(); ii++)
-        {
-        Tools::out() << resNormP[ii] << " ";
-        }
-      Tools::out() << std::endl;
-      }
-    }
-  delete [] resNorm;
-  delete [] rhsNorm;
-  delete [] resNormV;
-  delete [] resNormP;
-#endif
-
-  return ierr;
+  return ConvergenceStatus(X, Y, ret);
   }
 
   }//namespace HYMLS

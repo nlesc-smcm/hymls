@@ -37,7 +37,7 @@ public:
   //!
   //! arguments: matrix, preconditioner and belos params.
   //!
-  Solver(Teuchos::RCP<const Epetra_RowMatrix> K,
+  Solver(Teuchos::RCP<const Epetra_Operator> K,
     Teuchos::RCP<Epetra_Operator> P,
     Teuchos::RCP<Teuchos::ParameterList> params,
     int numRhs = 1);
@@ -52,7 +52,7 @@ public:
   Teuchos::RCP<const Teuchos::ParameterList> getValidParameters() const;
 
   //! set matrix for solve
-  void SetMatrix(Teuchos::RCP<const Epetra_RowMatrix> A);
+  void SetOperator(Teuchos::RCP<const Epetra_Operator> A);
 
   //! set preconditioner for solve
   void SetPrecond(Teuchos::RCP<Epetra_Operator> P);
@@ -103,9 +103,6 @@ public:
   //! Returns the Epetra_Map object associated with the range of this operator.
   const Epetra_Map & OperatorRangeMap() const;
   //@}
-
-  //! setup the solver to solve (shiftA*A+shiftB*B)x=b
-  void setShift(double shiftA, double shiftB);
 
   void SetTolerance(double tol);
 

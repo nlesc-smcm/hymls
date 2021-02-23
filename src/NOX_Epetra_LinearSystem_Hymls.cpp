@@ -395,7 +395,7 @@ Teuchos::RCP<const Epetra_RowMatrix> matPtr =
         Teuchos::rcp_dynamic_cast<const Epetra_RowMatrix>(jacPtr);
 if (matPtr!=Teuchos::null)
   {
-  hymls_->SetMatrix(matPtr);
+  hymls_->SetOperator(matPtr);
   }
 else
   {

@@ -7,7 +7,6 @@
 #include "HYMLS_MatrixUtils.hpp"
 #include "HYMLS_DenseUtils.hpp"
 #include "HYMLS_ProjectedOperator.hpp"
-#include "HYMLS_ShiftedOperator.hpp"
 
 #include "Epetra_Comm.h"
 #include "Epetra_RowMatrix.h"
@@ -38,14 +37,13 @@ using BelosCGType = Belos::BlockCGSolMgr<
 namespace HYMLS {
 
 // constructor
-BaseSolver::BaseSolver(Teuchos::RCP<const Epetra_RowMatrix> K,
+BaseSolver::BaseSolver(Teuchos::RCP<const Epetra_Operator> K,
   Teuchos::RCP<Epetra_Operator> P,
   Teuchos::RCP<Teuchos::ParameterList> params,
   int numRhs, bool validate)
   :
   PLA("Solver"), comm_(Teuchos::rcp(K->Comm().Clone())),
-  matrix_(K), operator_(K), precond_(P),
-  shiftA_(1.0), shiftB_(0.0),
+  operator_(K), precond_(P),
   massMatrix_(Teuchos::null),
   V_(Teuchos::null), W_(Teuchos::null),
   useTranspose_(false), normInf_(-1.0), numIter_(0),
@@ -105,18 +103,10 @@ BaseSolver::~BaseSolver()
   HYMLS_PROF3(label_,"Destructor");
   }
 
-void BaseSolver::SetMatrix(Teuchos::RCP<const Epetra_RowMatrix> A)
+void BaseSolver::SetOperator(Teuchos::RCP<const Epetra_Operator> A)
   {
-  HYMLS_PROF3(label_,"SetMatrix");
-  matrix_ = A;
-  if (shiftB_!=0.0 || shiftA_!=1.0)
-    {
-    Tools::Warning("SetMatrix called while operator used is shifted."
-      "Discarding shifts.",__FILE__,__LINE__);
-    shiftB_=0.0;
-    shiftA_=1.0;
-    }
-  operator_=matrix_;
+  HYMLS_PROF3(label_, "SetOperator");
+  operator_ = A;
   belosProblemPtr_->setOperator(operator_);
   }
 
@@ -152,25 +142,19 @@ void BaseSolver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)
 
 void BaseSolver::SetMassMatrix(Teuchos::RCP<const Epetra_RowMatrix> mass)
   {
-  if (mass==Teuchos::null) return;
-  HYMLS_PROF3(label_,"SetMassMatrix");
-  if (mass->RowMatrixRowMap().SameAs(matrix_->RowMatrixRowMap()))
+  HYMLS_PROF3(label_, "SetMassMatrix");
+  if (mass == Teuchos::null)
+    return;
+
+  if (mass->OperatorRangeMap().SameAs(operator_->OperatorRangeMap()))
     {
     massMatrix_ = mass;
     }
   else
     {
     Tools::Error("Mass matrix must have same row map as solver",
-      __FILE__,__LINE__);
+      __FILE__, __LINE__);
     }
-  if (shiftB_!=0.0 || shiftA_!=1.0)
-    {
-    Tools::Warning("SetMassMatrix called while solving shifted system."
-      "Discarding shifts.",__FILE__,__LINE__);
-    shiftB_=0.0;
-    shiftA_=1.0;
-    }
-  operator_=matrix_;
   }
 
 int BaseSolver::Apply(const Epetra_MultiVector& X,
@@ -182,7 +166,17 @@ int BaseSolver::Apply(const Epetra_MultiVector& X,
 int BaseSolver::ApplyMatrix(const Epetra_MultiVector& X,
   Epetra_MultiVector& Y) const
   {
-  return matrix_->Apply(X,Y);
+  return operator_->Apply(X,Y);
+  }
+
+int BaseSolver::ApplyMatrixTranspose(const Epetra_MultiVector& X,
+  Epetra_MultiVector& Y) const
+  {
+  Teuchos::RCP<Epetra_Operator> op = Teuchos::rcp_const_cast<Epetra_Operator>(operator_);
+  CHECK_ZERO(op->SetUseTranspose(!op->UseTranspose()));
+  int ierr = operator_->Apply(X,Y);
+  CHECK_ZERO(op->SetUseTranspose(!op->UseTranspose()));
+  return ierr;
   }
 
 int BaseSolver::ApplyPrec(const Epetra_MultiVector& X,
@@ -205,20 +199,12 @@ int BaseSolver::SetUseTranspose(bool UseTranspose)
 
 const Epetra_Map & BaseSolver::OperatorDomainMap() const
   {
-  return matrix_->OperatorDomainMap();
+  return operator_->OperatorDomainMap();
   }
 
 const Epetra_Map & BaseSolver::OperatorRangeMap() const
   {
-  return matrix_->OperatorRangeMap();
-  }
-
-void BaseSolver::setShift(double shiftA, double shiftB)
-  {
-  shiftA_=shiftA;
-  shiftB_=shiftB;
-  operator_=Teuchos::rcp(new ShiftedOperator(matrix_,massMatrix_,shiftA_,shiftB_));
-  belosProblemPtr_->setOperator(operator_);
+  return operator_->OperatorRangeMap();
   }
 
 // Sets all parameters for the solver
@@ -325,12 +311,12 @@ int BaseSolver::setProjectionVectors(Teuchos::RCP<const Epetra_MultiVector> V,
 int BaseSolver::ApplyInverse(const Epetra_MultiVector& B,
   Epetra_MultiVector& X) const
   {
-  HYMLS_PROF(label_,"ApplyInverse");
-  int ierr = 0;
+  HYMLS_PROF(label_, "ApplyInverse");
+
 #ifdef HYMLS_TESTING
-  if (X.NumVectors()!=B.NumVectors())
+  if (X.NumVectors() != B.NumVectors())
     {
-    Tools::Error("different number of input and output vectors",__FILE__,__LINE__);
+    Tools::Error("different number of input and output vectors", __FILE__, __LINE__);
     }
 #endif
 
@@ -371,18 +357,33 @@ int BaseSolver::ApplyInverse(const Epetra_MultiVector& B,
 
   numIter_ = belosSolverPtr_->getNumIters();
 
+  return ConvergenceStatus(B, X, ret);
+  }
+
+int BaseSolver::ConvergenceStatus(const Epetra_MultiVector& B, const Epetra_MultiVector& X,
+  const ::Belos::ReturnType &ret) const
+  {
+  HYMLS_PROF3(label_, "ConvergenceStatus");
+
+  int ierr = 0;
+
   if (ret != ::Belos::Converged)
     {
-    HYMLS::Tools::Warning("Belos returned "+::Belos::convertReturnTypeToString(ret)+"'!",__FILE__,__LINE__);    
+    HYMLS::Tools::Warning("Belos returned " + ::Belos::convertReturnTypeToString(ret) + "!",
+      __FILE__, __LINE__);
+
 #ifdef HYMLS_TESTING
     Teuchos::RCP<const Epetra_CrsMatrix> Acrs =
-      Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(matrix_);
-    MatrixUtils::Dump(*Acrs,"FailedMatrix.txt");
-    MatrixUtils::Dump(B,"FailedRhs.txt");
+      Teuchos::rcp_dynamic_cast<const Epetra_CrsMatrix>(operator_);
+    if (Acrs != Teuchos::null)
+      MatrixUtils::Dump(*Acrs, "FailedMatrix.txt");
+    MatrixUtils::Dump(B, "FailedRhs.txt");
 #endif
+
     ierr = -1;
     }
-  if (comm_->MyPID()==0)
+
+  if (comm_->MyPID() == 0)
     {
     Tools::Out("++++++++++++++++++++++++++++++++++++++++++++++++");
     Tools::Out("+ Number of iterations: "+Teuchos::toString(numIter_));
@@ -391,14 +392,19 @@ int BaseSolver::ApplyInverse(const Epetra_MultiVector& B,
     }
 
 #ifdef HYMLS_TESTING
+  ComputeResidual(B, X);
+#endif
+
+  return ierr;
+  }
+
+int BaseSolver::ComputeResidual(const Epetra_MultiVector& B, const Epetra_MultiVector& X) const
+  {
+  HYMLS_PROF3(label_, "ComputeResidual");
 
   Tools::Out("explicit residual test");
-  Tools::out() << "we were solving (a*A*x+b*B)*x=rhs\n"
-               << "   with " << X.NumVectors() << " rhs\n"
-               << "        a = " << shiftA_ << "\n"
-               << "        b = " << shiftB_ << "\n";
-  if (massMatrix_ == Teuchos::null)
-    Tools::out() << "        B = I\n";
+  Tools::out() << "we were solving A*x=rhs\n"
+               << "   with " << B.NumVectors() << " rhs\n";
 
   // compute explicit residual
   int dim = PL("Problem").get<int>("Dimension");
@@ -406,28 +412,16 @@ int BaseSolver::ApplyInverse(const Epetra_MultiVector& B,
 
   Epetra_BlockMap const &map = X.Map();
   Epetra_MultiVector resid(map, X.NumVectors());
-  CHECK_ZERO(matrix_->Apply(X,resid));
-  if (shiftB_ != 0.0)
-    {
-    Epetra_MultiVector Bx = X;
-    if (massMatrix_ != Teuchos::null)
-      {
-      CHECK_ZERO(massMatrix_->Apply(X, Bx));
-      }
-    CHECK_ZERO(resid.Update(shiftB_, Bx, shiftA_));
-    }
-  else if (shiftA_ != 1.0)
-    {
-    CHECK_ZERO(resid.Scale(shiftA_));
-    }
+  CHECK_ZERO(operator_->Apply(X, resid));
   CHECK_ZERO(resid.Update(1.0, B, -1.0));
 
   double *resNorm  = new double[resid.NumVectors()];
   double *resNormV = new double[resid.NumVectors()];
   double *resNormP = new double[resid.NumVectors()];
   double *rhsNorm  = new double[resid.NumVectors()];
-  B.Norm2(rhsNorm);
-  resid.Norm2(resNorm);
+
+  CHECK_ZERO(B.Norm2(rhsNorm));
+  CHECK_ZERO(resid.Norm2(resNorm));
 
   if (dof >= dim)
     {
@@ -437,13 +431,13 @@ int BaseSolver::ApplyInverse(const Epetra_MultiVector& B,
       for (int i = 0; i < resid.MyLength(); i++)
         {
         hymls_gidx gid = map.GID64(i);
-        if (gid % dof  ==  dim)
+        if (gid % dof == dim)
           residV[j][i] = 0.0;
         else
           residP[j][i] = 0.0;
         }
-    residV.Norm2(resNormV);
-    residP.Norm2(resNormP);
+    CHECK_ZERO(residV.Norm2(resNormV));
+    CHECK_ZERO(residP.Norm2(resNormP));
     }
 
   if (comm_->MyPID() == 0)
@@ -476,13 +470,13 @@ int BaseSolver::ApplyInverse(const Epetra_MultiVector& B,
       Tools::out() << std::endl;
       }
     }
+
   delete [] resNorm;
   delete [] rhsNorm;
   delete [] resNormV;
   delete [] resNormP;
-#endif
 
-  return ierr;
+  return 0;
   }
 
   }//namespace HYMLS

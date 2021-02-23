@@ -9,7 +9,6 @@
 class Epetra_MultiVector;
 class Epetra_SerialDenseMatrix;
 class Epetra_Operator;
-class Epetra_RowMatrix;
 
 namespace Belos
   {
@@ -48,7 +47,7 @@ public:
   //!
   //! arguments: matrix, preconditioner and belos params.
   //!
-  BorderedSolver(Teuchos::RCP<const Epetra_RowMatrix> K,
+  BorderedSolver(Teuchos::RCP<const Epetra_Operator> K,
     Teuchos::RCP<Epetra_Operator> P,
     Teuchos::RCP<Teuchos::ParameterList> params,
     int numRhs=1, bool validate=true);

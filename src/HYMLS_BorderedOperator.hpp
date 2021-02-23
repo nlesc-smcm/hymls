@@ -3,8 +3,6 @@
 
 #include "Teuchos_RCP.hpp"
 
-#include "BelosConfigDefs.hpp"
-#include "BelosTypes.hpp"
 #include "BelosOperator.hpp"
 
 class Epetra_MultiVector;
@@ -60,7 +58,7 @@ private:
 
   };
 
-  }//namespace HYMLS
+  } // namespace HYMLS
 
 namespace Belos
   {
@@ -70,19 +68,12 @@ class OperatorTraits<double, HYMLS::BorderedVector, HYMLS::BorderedOperator>
 public:
   static void
   Apply (HYMLS::BorderedOperator const &Op, HYMLS::BorderedVector const &x,
-    HYMLS::BorderedVector &y, int trans = 0)
-    {
-    int ierr = Op.ApplyInverse(x, y);
-    if (ierr == -99)
-      Op.Apply(x, y);
-    }
+    HYMLS::BorderedVector &y, int trans = 0);
 
   static bool
   HasApplyTranspose (const HYMLS::BorderedOperator &Op) { return false; }
   };
 
-  }
-
-
+  } // namespace Belos
 
 #endif

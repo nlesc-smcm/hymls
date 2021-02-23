@@ -12,67 +12,19 @@
 #include <Epetra_Import.h>
 #include <Epetra_SerialDenseMatrix.h>
 
-#include "HYMLS_Macros.hpp"
 #include "HYMLS_DenseUtils.hpp"
 #include "HYMLS_Preconditioner.hpp"
-#include "HYMLS_CartesianPartitioner.hpp"
 
 #include "Galeri_CrsMatrices.h"
-
 #include "HYMLS_UnitTests.hpp"
-
-Teuchos::RCP<Teuchos::ParameterList> createParameterList()
-  {
-  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(new Teuchos::ParameterList());
-
-  Teuchos::ParameterList &problemList = params->sublist("Problem");
-  problemList.set("Degrees of Freedom", 4);
-  problemList.set("Dimension", 3);
-  problemList.set("nx", 8);
-  problemList.set("ny", 4);
-  problemList.set("nz", 4);
-
-  Teuchos::ParameterList &precList = params->sublist("Preconditioner");
-  precList.set("Separator Length", 4);
-  precList.set("Number of Levels", 0);
-
-  return params;
-  }
-
-Teuchos::RCP<Epetra_CrsMatrix> createMatrix(
-  Teuchos::RCP<Teuchos::ParameterList> &params,
-  Teuchos::RCP<Epetra_Comm> const &comm)
-  {
-  HYMLS::CartesianPartitioner part(Teuchos::null, params, *comm);
-  CHECK_ZERO(part.Partition(true));
-
-  Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(new Epetra_CrsMatrix(Copy, part.Map(), 2));
-
-  Epetra_Util util;
-  for (hymls_gidx i = 0; i < A->NumGlobalRows64(); i++) {
-    // int A_idx = util.RandomInt() % n;
-    // double A_val = -std::abs(util.RandomDouble());
-    double A_val2 = std::abs(util.RandomDouble());
-
-    // Check if we own the index
-    if (A->LRID(i) == -1)
-      continue;
-
-    // CHECK_ZERO(A->InsertGlobalValues(i, 1, &A_val, &A_idx));
-    CHECK_ZERO(A->InsertGlobalValues(i, 1, &A_val2, &i));
-  }
-  CHECK_ZERO(A->FillComplete());
-
-  return A;
-  }
 
 TEUCHOS_UNIT_TEST(BorderedSolver, ApplyInverse)
   {
   Teuchos::RCP<Epetra_MpiComm> comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
   DISABLE_OUTPUT;
 
-  Teuchos::RCP<Teuchos::ParameterList> params = createParameterList();
-  Teuchos::RCP<Epetra_CrsMatrix> A = createMatrix(params, comm);
+  Teuchos::RCP<Teuchos::ParameterList> params = HYMLS::UnitTests::CreateTestParameterList();
+  Teuchos::RCP<Epetra_CrsMatrix> A = HYMLS::UnitTests::CreateTestMatrix(params, *comm);
   Teuchos::RCP<HYMLS::Preconditioner> prec = Teuchos::rcp(new HYMLS::Preconditioner(A, params));
   int ierr = prec->Initialize();
   TEST_EQUALITY(ierr, 0);
@@ -105,8 +57,8 @@ TEUCHOS_UNIT_TEST(BorderedSolver, BorderedApplyInverse)
   Teuchos::RCP<Epetra_MpiComm> comm = Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
   DISABLE_OUTPUT;
 
-  Teuchos::RCP<Teuchos::ParameterList> params = createParameterList();
-  Teuchos::RCP<Epetra_CrsMatrix> A = createMatrix(params, comm);
+  Teuchos::RCP<Teuchos::ParameterList> params = HYMLS::UnitTests::CreateTestParameterList();
+  Teuchos::RCP<Epetra_CrsMatrix> A = HYMLS::UnitTests::CreateTestMatrix(params, *comm);
   Teuchos::RCP<HYMLS::Preconditioner> prec = Teuchos::rcp(new HYMLS::Preconditioner(A, params));
   int ierr = prec->Initialize();
   TEST_EQUALITY(ierr, 0);

@@ -23,7 +23,12 @@ class Epetra_Map;
 
 class Epetra_IntVector;
 class Epetra_MultiVector;
+class Epetra_CrsMatrix;
 class Epetra_SerialDenseMatrix;
+
+namespace Teuchos {
+class ParameterList;
+  }
 
 namespace HYMLS {
 namespace UnitTests {
@@ -59,6 +64,10 @@ double NormInfAminusB(const Epetra_MultiVector& A, const Epetra_MultiVector& B);
 double NormInfAminusB(const Epetra_SerialDenseMatrix& A, const Epetra_SerialDenseMatrix& B);
 
 Teuchos::RCP<Epetra_SerialDenseMatrix> RandomSerialDenseMatrix(int m, int n, const Epetra_Comm& comm);
+
+Teuchos::RCP<Teuchos::ParameterList> CreateTestParameterList();
+
+Teuchos::RCP<Epetra_CrsMatrix> CreateTestMatrix(Teuchos::RCP<Teuchos::ParameterList> &params, const Epetra_Comm& comm);
 
 }} // namespaces HYMLS::UnitTests
 #endif

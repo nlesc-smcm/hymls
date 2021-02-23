@@ -1,12 +1,18 @@
 #include "HYMLS_UnitTests.hpp"
 #include "Galeri_Random.h"
+
 #include "Epetra_Map.h"
 #include "Epetra_Comm.h"
 #include "Epetra_IntVector.h"
 #include "Epetra_MultiVector.h"
 #include "Epetra_SerialDenseMatrix.h"
+#include "Epetra_CrsMatrix.h"
 
+#include "Teuchos_ParameterList.hpp"
+
+#include "HYMLS_CartesianPartitioner.hpp"
 #include "HYMLS_DenseUtils.hpp"
+#include "HYMLS_Macros.hpp"
 #include "HYMLS_Tools.hpp"
 
 namespace HYMLS {
@@ -130,5 +136,50 @@ Teuchos::RCP<Epetra_SerialDenseMatrix> RandomSerialDenseMatrix(int m, int n, con
 
     return A_max;
 }
+
+Teuchos::RCP<Teuchos::ParameterList> CreateTestParameterList()
+  {
+  Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::rcp(new Teuchos::ParameterList());
+
+  Teuchos::ParameterList &problemList = params->sublist("Problem");
+  problemList.set("Degrees of Freedom", 4);
+  problemList.set("Dimension", 3);
+  problemList.set("nx", 8);
+  problemList.set("ny", 4);
+  problemList.set("nz", 4);
+
+  Teuchos::ParameterList &precList = params->sublist("Preconditioner");
+  precList.set("Separator Length", 4);
+  precList.set("Number of Levels", 0);
+
+  return params;
+  }
+
+Teuchos::RCP<Epetra_CrsMatrix> CreateTestMatrix(
+  Teuchos::RCP<Teuchos::ParameterList> &params,
+  const Epetra_Comm& comm)
+  {
+  HYMLS::CartesianPartitioner part(Teuchos::null, params, comm);
+  CHECK_ZERO(part.Partition(true));
+
+  Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcp(new Epetra_CrsMatrix(Copy, part.Map(), 2));
+
+  Epetra_Util util;
+  for (hymls_gidx i = 0; i < A->NumGlobalRows64(); i++) {
+    // int A_idx = util.RandomInt() % n;
+    // double A_val = -std::abs(util.RandomDouble());
+    double A_val2 = std::abs(util.RandomDouble());
+
+    // Check if we own the index
+    if (A->LRID(i) == -1)
+      continue;
+
+    // CHECK_ZERO(A->InsertGlobalValues(i, 1, &A_val, &A_idx));
+    CHECK_ZERO(A->InsertGlobalValues(i, 1, &A_val2, &i));
+  }
+  CHECK_ZERO(A->FillComplete());
+
+  return A;
+  }
 
 }} // namespaces HYMLS::UnitTests

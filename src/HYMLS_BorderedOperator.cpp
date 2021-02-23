@@ -14,6 +14,8 @@
 #include "Epetra_MultiVector.h"
 #include "Epetra_SerialDenseMatrix.h"
 
+#include "BelosEpetraAdapter.hpp"
+
 namespace HYMLS
   {
 BorderedOperator::BorderedOperator()
@@ -124,4 +126,33 @@ int BorderedOperator::ApplyInverse(
   return -99;
   }
 
-  }//namespace HYMLS
+  } // namespace HYMLS
+
+namespace Belos
+  {
+
+void OperatorTraits<double, HYMLS::BorderedVector, HYMLS::BorderedOperator>::Apply(
+  HYMLS::BorderedOperator const &Op, HYMLS::BorderedVector const &x,
+  HYMLS::BorderedVector &y, int trans)
+  {
+  int ierr = Op.ApplyInverse(x, y);
+  if (ierr == -99)
+    {
+    ierr = Op.Apply(x, y);
+
+    TEUCHOS_TEST_FOR_EXCEPTION(ierr != 0, EpetraOpFailure,
+      "Belos::OperatorTraits::Apply: Calling Apply() on the "
+      "underlying BorderedOperator object failed, returning a "
+      "nonzero error code of " << ierr << ".");
+    return;
+    }
+
+  TEUCHOS_TEST_FOR_EXCEPTION(ierr != 0, EpetraOpFailure,
+    "Belos::OperatorTraits::Apply: Calling ApplyInverse() on the "
+    "underlying BorderedOperator object failed, returning a "
+    "nonzero error code of " << ierr << ". This probably means "
+    "that the underlying BorderedOperator object doesn't know "
+    "how to apply.");
+  }
+
+  } // namespace Belos

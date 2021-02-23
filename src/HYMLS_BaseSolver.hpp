@@ -7,6 +7,8 @@
 
 #include "HYMLS_PLA.hpp"
 
+#include "BelosTypes.hpp"
+
 // forward declarations
 class Epetra_MultiVector;
 class Epetra_Comm;
@@ -47,7 +49,7 @@ public:
   //!                                                     
   //! arguments: matrix, preconditioner and belos params. 
   //!                                                     
-  BaseSolver(Teuchos::RCP<const Epetra_RowMatrix> K, 
+  BaseSolver(Teuchos::RCP<const Epetra_Operator> K,
     Teuchos::RCP<Epetra_Operator> P,
     Teuchos::RCP<Teuchos::ParameterList> params,
     int numRhs=1, bool validate=true);
@@ -66,8 +68,8 @@ public:
   //! get a list of valid parameters for this object
   virtual Teuchos::RCP<const Teuchos::ParameterList> getValidParameters() const;
   
-  //! set matrix for solve
-  virtual void SetMatrix(Teuchos::RCP<const Epetra_RowMatrix> A);
+  //! set operator for solve
+  virtual void SetOperator(Teuchos::RCP<const Epetra_Operator> A);
 
   //! set preconditioner for solve
   virtual void SetPrecond(Teuchos::RCP<Epetra_Operator> P);
@@ -81,6 +83,10 @@ public:
 
   //! Applies the matrix
   int ApplyMatrix(const Epetra_MultiVector& X,
+    Epetra_MultiVector& Y) const;
+
+  //! Applies the transpose of the matrix
+  int ApplyMatrixTranspose(const Epetra_MultiVector& X,
     Epetra_MultiVector& Y) const;
 
   //! Applies the preconditioner
@@ -120,9 +126,6 @@ public:
 
   //@}
 
-  //! setup the solver to solve (shiftA*A+shiftB*B)x=b
-  virtual void setShift(double shiftA, double shiftB);
-
   //! set convergence tolerance for Krylov solver
   virtual void SetTolerance(double tol);
 
@@ -155,23 +158,24 @@ public:
     return -99;
     }
 
-protected: 
+protected:
+
+  //! Inform the user about the convergence status of the solver
+  int ConvergenceStatus(const Epetra_MultiVector& B, const Epetra_MultiVector& X,
+    const ::Belos::ReturnType &ret) const;
+
+  //! Compute and print the resual
+  int ComputeResidual(const Epetra_MultiVector& B, const Epetra_MultiVector& X) const;
 
   //! communicator
   Teuchos::RCP<const Epetra_Comm> comm_;
 
-  //! matrix
-  Teuchos::RCP<const Epetra_RowMatrix> matrix_;
-
-  //! operator for which we solve OP*x=b, typically same as matrix_ or
-  //! beta*A+alpha*B (if SetShift was called)
+  //! operator for which we solve OP * x = b, typically a matrix A or
+  //! beta * A + alpha * B if a ShiftedOperator is used
   Teuchos::RCP<const Epetra_Operator> operator_;
 
   //! preconditioner
   Teuchos::RCP<Epetra_Operator> precond_;
-
-  //! We solve (beta*A+alpha*B)x=b
-  double shiftA_, shiftB_;
 
   //! solver type and start vector type
   std::string solverType_, startVec_;
