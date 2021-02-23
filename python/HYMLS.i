@@ -86,6 +86,10 @@
 
 %extend HYMLS::Solver
 {
+    Solver(Teuchos::RCP<Epetra_Operator> m, Teuchos::RCP<Epetra_Operator> o, Teuchos::RCP<Teuchos::ParameterList> p)
+    {
+        return new HYMLS::Solver(m, o, p);
+    }
     Solver(Teuchos::RCP<Epetra_Operator> m, HYMLS::Preconditioner &o, Teuchos::RCP<Teuchos::ParameterList> p)
     {
         return new HYMLS::Solver(m, Teuchos::rcp(&o, false), p);

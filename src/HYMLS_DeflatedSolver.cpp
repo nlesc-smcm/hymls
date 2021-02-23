@@ -32,9 +32,9 @@ namespace HYMLS {
 DeflatedSolver::DeflatedSolver(Teuchos::RCP<const Epetra_Operator> K,
   Teuchos::RCP<Epetra_Operator> P,
   Teuchos::RCP<Teuchos::ParameterList> params,
-  int numRhs, bool validate)
+  bool validate)
   :
-  BaseSolver(K, P, params, numRhs, validate),
+  BaseSolver(K, P, params, validate),
   label_("HYMLS::DeflatedSolver"),
   numEigs_(0),
   deflationComputed_(false)

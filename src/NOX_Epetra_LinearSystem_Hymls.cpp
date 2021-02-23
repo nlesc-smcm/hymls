@@ -182,8 +182,7 @@ reset(Teuchos::ParameterList& p)
     }
   
   hymls_ = Teuchos::rcp(new 
-        HYMLS::Solver(mat,precPtr,Teuchos::rcp(&hymlsList,false),1));
-    
+        HYMLS::Solver(mat,precPtr,Teuchos::rcp(&hymlsList,false)));
 }
 
 int NOX::Epetra::LinearSystemHymls::

@@ -40,7 +40,7 @@ namespace HYMLS {
 BaseSolver::BaseSolver(Teuchos::RCP<const Epetra_Operator> K,
   Teuchos::RCP<Epetra_Operator> P,
   Teuchos::RCP<Teuchos::ParameterList> params,
-  int numRhs, bool validate)
+  bool validate)
   :
   PLA("Solver"), comm_(Teuchos::rcp(K->Comm().Clone())),
   operator_(K), precond_(P),

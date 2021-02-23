@@ -15,8 +15,7 @@ namespace HYMLS {
 // constructor
 Solver::Solver(Teuchos::RCP<const Epetra_Operator> K,
   Teuchos::RCP<Epetra_Operator> P,
-  Teuchos::RCP<Teuchos::ParameterList> params,
-  int numRhs)
+  Teuchos::RCP<Teuchos::ParameterList> params)
   :
   PLA("Solver"),
   solver_(Teuchos::null),
@@ -27,17 +26,17 @@ Solver::Solver(Teuchos::RCP<const Epetra_Operator> K,
   setParameterList(params);
 
   if (isComplex_ && useBordering_)
-    solver_ = Teuchos::rcp(new ComplexBorderedSolver(K, P, params, numRhs, false));
+    solver_ = Teuchos::rcp(new ComplexBorderedSolver(K, P, params, false));
   else if (isComplex_)
-    solver_ = Teuchos::rcp(new ComplexSolver(K, P, params, numRhs, false));
+    solver_ = Teuchos::rcp(new ComplexSolver(K, P, params, false));
   else if (useDeflation_ && useBordering_)
-    solver_ = Teuchos::rcp(new BorderedDeflatedSolver(K, P, params, numRhs, false));
+    solver_ = Teuchos::rcp(new BorderedDeflatedSolver(K, P, params, false));
   else if (useDeflation_)
-    solver_ = Teuchos::rcp(new DeflatedSolver(K, P, params, numRhs, false));
+    solver_ = Teuchos::rcp(new DeflatedSolver(K, P, params, false));
   else if (useBordering_)
-    solver_ = Teuchos::rcp(new BorderedSolver(K, P, params, numRhs, false));
+    solver_ = Teuchos::rcp(new BorderedSolver(K, P, params, false));
   else
-    solver_ = Teuchos::rcp(new BaseSolver(K, P, params, numRhs, false));
+    solver_ = Teuchos::rcp(new BaseSolver(K, P, params, false));
 
   setParameterList(params);
   }

@@ -39,8 +39,7 @@ public:
   //!
   Solver(Teuchos::RCP<const Epetra_Operator> K,
     Teuchos::RCP<Epetra_Operator> P,
-    Teuchos::RCP<Teuchos::ParameterList> params,
-    int numRhs = 1);
+    Teuchos::RCP<Teuchos::ParameterList> params);
 
   //! destructor
   virtual ~Solver();
