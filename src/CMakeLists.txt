@@ -2,6 +2,7 @@ set(HYMLS_SOURCE HYMLS_Solver
     HYMLS_BaseSolver
     HYMLS_ComplexSolver
     HYMLS_ComplexBorderedSolver
+    HYMLS_ComplexOperator
     HYMLS_ComplexVector
     HYMLS_DeflatedSolver
     HYMLS_BorderedSolver
