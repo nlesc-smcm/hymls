@@ -2,6 +2,7 @@ set(HYMLS_SOURCE HYMLS_Solver
     HYMLS_BaseSolver
     HYMLS_ComplexSolver
     HYMLS_ComplexBorderedSolver
+    HYMLS_ComplexVector
     HYMLS_DeflatedSolver
     HYMLS_BorderedSolver
     HYMLS_BorderedDeflatedSolver
@@ -53,7 +54,6 @@ set(HEADERS ${HEADERS}
   HYMLS_no_debug.hpp
   HYMLS_OrthogonalTransform.hpp
   HYMLS_RestrictedOT.hpp
-  HYMLS_ComplexVector.hpp
   )
 
 if ("NOX" IN_LIST Trilinos_PACKAGE_LIST)
