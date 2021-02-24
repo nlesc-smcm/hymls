@@ -21,6 +21,13 @@ set(SOURCES
   HYMLS_FakeComm
   main)
 
+if (HAVE_TEUCHOS_COMPLEX)
+  list(APPEND SOURCES
+    HYMLS_ComplexOperator
+    HYMLS_ComplexSolver
+    )
+endif()
+
 # Configure the data xml file in which we can set parameters (like file names)
 configure_file(data.xml ${CMAKE_CURRENT_BINARY_DIR}/data.xml)
 configure_file(HYMLS_UnitTestData.hpp.in ${CMAKE_CURRENT_BINARY_DIR}/HYMLS_UnitTestData.hpp)

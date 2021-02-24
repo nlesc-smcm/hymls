@@ -336,7 +336,7 @@ HYMLS::MatrixUtils::Dump(*map,"MainMatrixMap.txt");
   HYMLS::Tools::StopMemory("main: Initialize Preconditioner",true);
 
   HYMLS::Tools::Out("Create Solver");
-  solver = Teuchos::rcp(new HYMLS::Solver(K, precond, params,numRhs));
+  solver = Teuchos::rcp(new HYMLS::Solver(K, precond, params));
 
   solver->SetMassMatrix(M);
 

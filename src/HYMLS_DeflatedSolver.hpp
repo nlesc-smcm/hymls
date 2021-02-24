@@ -39,7 +39,7 @@ public:
   DeflatedSolver(Teuchos::RCP<const Epetra_Operator> K,
     Teuchos::RCP<Epetra_Operator> P,
     Teuchos::RCP<Teuchos::ParameterList> params,
-    int numRhs = 1, bool validate = true);
+    bool validate = true);
 
   //! destructor
   virtual ~DeflatedSolver();

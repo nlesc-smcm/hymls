@@ -94,7 +94,10 @@ find_package(Trilinos REQUIRED CONFIG)
 include_directories(${Trilinos_INCLUDE_DIRS})
 include_directories(${Trilinos_TPL_INCLUDE_DIRS})
 list(APPEND include_list ${Trilinos_INCLUDE_DIRS})
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${Trilinos_CXX_COMPILER_FLAGS}")
+
+include(CheckCXXSymbolExists)
+list(APPEND CMAKE_REQUIRED_INCLUDES ${Trilinos_INCLUDE_DIRS})
+check_cxx_symbol_exists(HAVE_TEUCHOS_COMPLEX "Teuchos_config.h" HAVE_TEUCHOS_COMPLEX)
 
 if (HYMLS_USE_PHIST)
   find_package(phist REQUIRED CONFIG)

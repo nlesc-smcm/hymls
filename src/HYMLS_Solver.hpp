@@ -39,8 +39,7 @@ public:
   //!
   Solver(Teuchos::RCP<const Epetra_Operator> K,
     Teuchos::RCP<Epetra_Operator> P,
-    Teuchos::RCP<Teuchos::ParameterList> params,
-    int numRhs = 1);
+    Teuchos::RCP<Teuchos::ParameterList> params);
 
   //! destructor
   virtual ~Solver();
@@ -142,6 +141,9 @@ protected:
 
   //! label
   std::string label_;
+
+  //! Used to determine if we want to use the complex HYMLS solver class
+  bool isComplex_;
 
   //! Used to determine if we want to use the deflated HYMLS solver class
   bool useDeflation_;

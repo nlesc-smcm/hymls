@@ -1,40 +1,40 @@
 set(HYMLS_SOURCE HYMLS_Solver
-    HYMLS_BaseSolver
-    HYMLS_DeflatedSolver
-    HYMLS_BorderedSolver
-    HYMLS_BorderedDeflatedSolver
-    HYMLS_BorderedOperator
-    HYMLS_BorderedVector
-    HYMLS_Preconditioner
-    HYMLS_SchurComplement
-    HYMLS_SchurPreconditioner
-    HYMLS_SeparatorGroup
-    HYMLS_OverlappingPartitioner
-    HYMLS_HierarchicalMap
-    HYMLS_BasePartitioner
-    HYMLS_CartesianPartitioner
-    HYMLS_SkewCartesianPartitioner
-    HYMLS_HyperCube
-    HYMLS_MatrixUtils
-    HYMLS_DenseUtils
-    HYMLS_ProjectedOperator
-    HYMLS_Epetra_Time
-    HYMLS_EpetraExt_ProductOperator
-    HYMLS_SparseDirectSolver
-    HYMLS_CoarseSolver
-    HYMLS_Householder
-    HYMLS_AugmentedMatrix
-    HYMLS_Tools
-    HYMLS_Tester
-    HYMLS_PLA
-    HYMLS_Exception
-    HYMLS_MatrixBlock
-    HYMLS_ShiftedOperator
-    HYMLS_MainUtils
-    GaleriExt_CrsMatrices
-    GaleriExt_Periodic
-    EpetraExt_RestrictedCrsMatrixWrapper
-    EpetraExt_RestrictedMultiVectorWrapper)
+  HYMLS_BaseSolver
+  HYMLS_DeflatedSolver
+  HYMLS_BorderedSolver
+  HYMLS_BorderedDeflatedSolver
+  HYMLS_BorderedOperator
+  HYMLS_BorderedVector
+  HYMLS_Preconditioner
+  HYMLS_SchurComplement
+  HYMLS_SchurPreconditioner
+  HYMLS_SeparatorGroup
+  HYMLS_OverlappingPartitioner
+  HYMLS_HierarchicalMap
+  HYMLS_BasePartitioner
+  HYMLS_CartesianPartitioner
+  HYMLS_SkewCartesianPartitioner
+  HYMLS_HyperCube
+  HYMLS_MatrixUtils
+  HYMLS_DenseUtils
+  HYMLS_ProjectedOperator
+  HYMLS_Epetra_Time
+  HYMLS_EpetraExt_ProductOperator
+  HYMLS_SparseDirectSolver
+  HYMLS_CoarseSolver
+  HYMLS_Householder
+  HYMLS_AugmentedMatrix
+  HYMLS_Tools
+  HYMLS_Tester
+  HYMLS_PLA
+  HYMLS_Exception
+  HYMLS_MatrixBlock
+  HYMLS_ShiftedOperator
+  HYMLS_MainUtils
+  GaleriExt_CrsMatrices
+  GaleriExt_Periodic
+  EpetraExt_RestrictedCrsMatrixWrapper
+  EpetraExt_RestrictedMultiVectorWrapper)
 
 set(HEADERS)
 
@@ -52,6 +52,15 @@ set(HEADERS ${HEADERS}
   HYMLS_OrthogonalTransform.hpp
   HYMLS_RestrictedOT.hpp
   )
+
+if (HAVE_TEUCHOS_COMPLEX)
+  list(APPEND HYMLS_SOURCE
+    HYMLS_ComplexSolver
+    HYMLS_ComplexBorderedSolver
+    HYMLS_ComplexOperator
+    HYMLS_ComplexVector
+    )
+endif()
 
 if ("NOX" IN_LIST Trilinos_PACKAGE_LIST)
   list(APPEND HYMLS_SOURCE NOX_Epetra_LinearSystem_Hymls)

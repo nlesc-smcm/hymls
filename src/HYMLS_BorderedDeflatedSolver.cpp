@@ -30,11 +30,11 @@ namespace HYMLS {
 BorderedDeflatedSolver::BorderedDeflatedSolver(Teuchos::RCP<const Epetra_Operator> K,
   Teuchos::RCP<Epetra_Operator> P,
   Teuchos::RCP<Teuchos::ParameterList> params,
-  int numRhs, bool validate)
+  bool validate)
   :
-  BaseSolver(K, P, params, numRhs, validate),
-  DeflatedSolver(K, P, params, numRhs, validate),
-  BorderedSolver(K, P, params, numRhs, validate),
+  BaseSolver(K, P, params, validate),
+  DeflatedSolver(K, P, params, validate),
+  BorderedSolver(K, P, params, validate),
   label_("BorderedDeflatedSolver")
   {
   HYMLS_PROF3(label_,"Constructor");

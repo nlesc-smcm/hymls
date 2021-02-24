@@ -1,4 +1,3 @@
-//#define BLOCK_IMPLEMENTATION 1
 #include "HYMLS_BaseSolver.hpp"
 
 #include "HYMLS_config.h"
@@ -40,7 +39,7 @@ namespace HYMLS {
 BaseSolver::BaseSolver(Teuchos::RCP<const Epetra_Operator> K,
   Teuchos::RCP<Epetra_Operator> P,
   Teuchos::RCP<Teuchos::ParameterList> params,
-  int numRhs, bool validate)
+  bool validate)
   :
   PLA("Solver"), comm_(Teuchos::rcp(K->Comm().Clone())),
   operator_(K), precond_(P),
@@ -71,10 +70,10 @@ BaseSolver::BaseSolver(Teuchos::RCP<const Epetra_Operator> K,
   belosList.set("Output Stream",Tools::out().getOStream());
 
   // create the solver
-  Teuchos::RCP<Teuchos::ParameterList> belosListPtr=rcp(&belosList,false);
+  Teuchos::RCP<Teuchos::ParameterList> belosListPtr = Teuchos::rcp(&belosList, false);
   if (solverType_=="CG")
     {
-    belosSolverPtr_ = rcp(new BelosCGType(belosProblemPtr_,belosListPtr));
+    belosSolverPtr_ = Teuchos::rcp(new BelosCGType(belosProblemPtr_, belosListPtr));
     }
   else if (solverType_=="PCG")
     {
@@ -87,8 +86,7 @@ BaseSolver::BaseSolver(Teuchos::RCP<const Epetra_Operator> K,
     }
   else if (solverType_=="GMRES")
     {
-    belosSolverPtr_ = Teuchos::rcp(new BelosGmresType(
-        belosProblemPtr_,belosListPtr));
+    belosSolverPtr_ = Teuchos::rcp(new BelosGmresType(belosProblemPtr_, belosListPtr));
     }
   else
     {
@@ -114,7 +112,7 @@ void BaseSolver::SetTolerance(double tol)
   {
   Teuchos::ParameterList& belosList = PL().sublist("Iterative Solver");
   belosList.set("Convergence Tolerance", tol);
-  Teuchos::RCP<Teuchos::ParameterList> belosListPtr = rcp(&belosList, false);
+  Teuchos::RCP<Teuchos::ParameterList> belosListPtr = Teuchos::rcp(&belosList, false);
   belosSolverPtr_->setParameters(belosListPtr);
   }
 
