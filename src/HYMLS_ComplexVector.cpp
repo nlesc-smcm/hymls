@@ -1,5 +1,6 @@
 #include "HYMLS_ComplexVector.hpp"
 
+#include "Epetra_Comm.h"
 #include "Epetra_LocalMap.h"
 #include "Epetra_MultiVector.h"
 

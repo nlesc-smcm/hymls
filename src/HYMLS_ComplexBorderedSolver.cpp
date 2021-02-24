@@ -1,7 +1,5 @@
 #include "HYMLS_ComplexBorderedSolver.hpp"
 
-#include "HYMLS_config.h"
-
 #include "HYMLS_BorderedOperator.hpp"
 #include "HYMLS_BorderedVector.hpp"
 #include "HYMLS_ComplexOperator.hpp"
@@ -9,8 +7,8 @@
 #include "HYMLS_Macros.hpp"
 #include "HYMLS_Tools.hpp"
 
-#include "Epetra_Comm.h"
 #include "Epetra_MultiVector.h"
+#include "Epetra_Operator.h"
 #include "Epetra_SerialDenseMatrix.h"
 
 #include "BelosTypes.hpp"

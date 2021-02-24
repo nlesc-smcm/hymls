@@ -1,4 +1,3 @@
-//#define BLOCK_IMPLEMENTATION 1
 #include "HYMLS_BaseSolver.hpp"
 
 #include "HYMLS_config.h"

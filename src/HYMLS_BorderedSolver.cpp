@@ -1,17 +1,13 @@
 #include "HYMLS_BorderedSolver.hpp"
 
-#include "HYMLS_config.h"
-
 #include "HYMLS_BorderedOperator.hpp"
 #include "HYMLS_BorderedVector.hpp"
 #include "HYMLS_DenseUtils.hpp"
 #include "HYMLS_Macros.hpp"
 #include "HYMLS_Tools.hpp"
 
-#include "Epetra_Comm.h"
 #include "Epetra_MultiVector.h"
 #include "Epetra_Operator.h"
-#include "Epetra_RowMatrix.h"
 #include "Epetra_SerialDenseMatrix.h"
 
 #include "BelosTypes.hpp"

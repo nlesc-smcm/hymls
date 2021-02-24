@@ -1,13 +1,10 @@
 #include "HYMLS_ComplexSolver.hpp"
 
-#include "HYMLS_config.h"
-
 #include "HYMLS_ComplexOperator.hpp"
 #include "HYMLS_ComplexVector.hpp"
 #include "HYMLS_Macros.hpp"
 #include "HYMLS_Tools.hpp"
 
-#include "Epetra_Comm.h"
 #include "Epetra_MultiVector.h"
 #include "Epetra_Operator.h"
 

@@ -1,8 +1,6 @@
 #ifndef HYMLS_COMPLEX_VECTOR_H
 #define HYMLS_COMPLEX_VECTOR_H
 
-#include "HYMLS_config.h"
-
 #include <vector>
 
 #include <Trilinos_version.h>
@@ -10,14 +8,10 @@
 #include <Teuchos_RCP.hpp>
 
 #include "Epetra_DataAccess.h"
-#include "Epetra_LocalMap.h"
-#include "Epetra_MultiVector.h"
 
 #include "BelosMultiVec.hpp"
-#include "BelosEpetraAdapter.hpp"
 
-class Epetra_BlockMap;
-class MultiVector;
+class Epetra_Comm;
 
 namespace HYMLS {
 template<class MultiVector>
