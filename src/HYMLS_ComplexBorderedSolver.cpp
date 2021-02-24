@@ -54,7 +54,7 @@ ComplexBorderedSolver::ComplexBorderedSolver(Teuchos::RCP<const Epetra_Operator>
   Teuchos::RCP<Teuchos::ParameterList> belosListPtr = Teuchos::rcp(&belosList, false);
   if (solverType_ == "CG")
     {
-    belosSolverPtr_ = rcp(new
+    belosSolverPtr_ = Teuchos::rcp(new
       ::Belos::BlockCGSolMgr<std::complex<double>, BelosMultiVectorType, BelosOperatorType>
       (belosProblemPtr_, belosListPtr));
     }
@@ -106,7 +106,7 @@ void ComplexBorderedSolver::SetTolerance(double tol)
   {
   Teuchos::ParameterList& belosList = PL().sublist("Iterative Solver");
   belosList.set("Convergence Tolerance", tol);
-  Teuchos::RCP<Teuchos::ParameterList> belosListPtr = rcp(&belosList, false);
+  Teuchos::RCP<Teuchos::ParameterList> belosListPtr = Teuchos::rcp(&belosList, false);
   belosSolverPtr_->setParameters(belosListPtr);
   }
 
