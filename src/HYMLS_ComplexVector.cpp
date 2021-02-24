@@ -8,11 +8,6 @@
 #include "HYMLS_Tools.hpp"
 #include "HYMLS_BorderedVector.hpp"
 
-template class HYMLS::ComplexVector<Epetra_MultiVector>;
-template class HYMLS::ComplexVector<HYMLS::BorderedVector>;
-template class Belos::MultiVecTraits<std::complex<double>, HYMLS::ComplexVector<Epetra_MultiVector> >;
-template class Belos::MultiVecTraits<std::complex<double>, HYMLS::ComplexVector<HYMLS::BorderedVector> >;
-
 namespace HYMLS {
 
 // Copy constructor
@@ -939,3 +934,8 @@ ptrdiff_t MultiVecTraitsExt<std::complex<double>, HYMLS::ComplexVector<MultiVect
 #endif
 
   } // namespace Belos
+
+template class HYMLS::ComplexVector<Epetra_MultiVector>;
+template class HYMLS::ComplexVector<HYMLS::BorderedVector>;
+template class Belos::MultiVecTraits<std::complex<double>, HYMLS::ComplexVector<Epetra_MultiVector> >;
+template class Belos::MultiVecTraits<std::complex<double>, HYMLS::ComplexVector<HYMLS::BorderedVector> >;

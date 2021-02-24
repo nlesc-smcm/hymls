@@ -8,13 +8,6 @@
 #include "HYMLS_Tools.hpp"
 #include "HYMLS_Macros.hpp"
 
-template class HYMLS::ComplexOperator<Epetra_Operator, Epetra_MultiVector>;
-template class HYMLS::ComplexOperator<HYMLS::BorderedOperator, HYMLS::BorderedVector>;
-template class Belos::OperatorTraits<std::complex<double>, HYMLS::ComplexVector<Epetra_MultiVector>,
-                                     HYMLS::ComplexOperator<Epetra_Operator, Epetra_MultiVector> >;
-template class Belos::OperatorTraits<std::complex<double>, HYMLS::ComplexVector<HYMLS::BorderedVector>,
-                                     HYMLS::ComplexOperator<HYMLS::BorderedOperator, HYMLS::BorderedVector> >;
-
 namespace HYMLS
   {
 
@@ -133,3 +126,10 @@ void OperatorTraits<std::complex<double>, HYMLS::ComplexVector<MultiVector>, HYM
   }
 
   } // namespace Belos
+
+template class HYMLS::ComplexOperator<Epetra_Operator, Epetra_MultiVector>;
+template class HYMLS::ComplexOperator<HYMLS::BorderedOperator, HYMLS::BorderedVector>;
+template class Belos::OperatorTraits<std::complex<double>, HYMLS::ComplexVector<Epetra_MultiVector>,
+                                     HYMLS::ComplexOperator<Epetra_Operator, Epetra_MultiVector> >;
+template class Belos::OperatorTraits<std::complex<double>, HYMLS::ComplexVector<HYMLS::BorderedVector>,
+                                     HYMLS::ComplexOperator<HYMLS::BorderedOperator, HYMLS::BorderedVector> >;
