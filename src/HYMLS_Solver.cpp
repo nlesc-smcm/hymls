@@ -1,9 +1,15 @@
 #include "HYMLS_Solver.hpp"
 
+#include "Teuchos_config.h"
+
 #include "HYMLS_BaseSolver.hpp"
-#include "HYMLS_ComplexSolver.hpp"
 #include "HYMLS_BorderedSolver.hpp"
+
+#ifdef HAVE_TEUCHOS_COMPLEX
+#include "HYMLS_ComplexSolver.hpp"
 #include "HYMLS_ComplexBorderedSolver.hpp"
+#endif
+
 #include "HYMLS_DeflatedSolver.hpp"
 #include "HYMLS_BorderedDeflatedSolver.hpp"
 #include "HYMLS_Macros.hpp"
@@ -25,11 +31,14 @@ Solver::Solver(Teuchos::RCP<const Epetra_Operator> K,
 
   setParameterList(params);
 
+#ifdef HAVE_TEUCHOS_COMPLEX
   if (isComplex_ && useBordering_)
     solver_ = Teuchos::rcp(new ComplexBorderedSolver(K, P, params, false));
   else if (isComplex_)
     solver_ = Teuchos::rcp(new ComplexSolver(K, P, params, false));
-  else if (useDeflation_ && useBordering_)
+  else
+#endif
+  if (useDeflation_ && useBordering_)
     solver_ = Teuchos::rcp(new BorderedDeflatedSolver(K, P, params, false));
   else if (useDeflation_)
     solver_ = Teuchos::rcp(new DeflatedSolver(K, P, params, false));
@@ -53,7 +62,9 @@ void Solver::Solver::setParameterList(const Teuchos::RCP<Teuchos::ParameterList>
 
   setMyParamList(params);
 
+#ifdef HAVE_TEUCHOS_COMPLEX
   isComplex_ = PL().get("Complex", false);
+#endif
 
   useDeflation_ = PL().get("Use Deflation", false);
 
@@ -81,8 +92,10 @@ Teuchos::RCP<const Teuchos::ParameterList> Solver::getValidParameters() const
   Teuchos::RCP<const Teuchos::ParameterList> validParams = solver_->getValidParameters();
   validParams_ = Teuchos::rcp_const_cast<Teuchos::ParameterList>(validParams);
 
+#ifdef HAVE_TEUCHOS_COMPLEX
   VPL().set("Complex", false,
     "Use complex arithmetic by passing two vectors at once.");
+#endif
 
   VPL().set("Use Deflation", false,
     "Use deflation to improve the conditioning of the problem.");

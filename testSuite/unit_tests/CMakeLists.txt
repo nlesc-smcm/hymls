@@ -10,11 +10,9 @@ set(SOURCES
   HYMLS_HierarchicalMap
   HYMLS_OverlappingPartitioner
   HYMLS_Preconditioner
-  HYMLS_ComplexOperator
   HYMLS_ProjectedOperator
   HYMLS_CoarseSolver
   HYMLS_Solver
-  HYMLS_ComplexSolver
   HYMLS_BorderedSolver
   HYMLS_SparseDirectSolver
   HYMLS_Tester
@@ -22,6 +20,13 @@ set(SOURCES
   HYMLS_UnitTests
   HYMLS_FakeComm
   main)
+
+if (HAVE_TEUCHOS_COMPLEX)
+  list(APPEND SOURCES
+    HYMLS_ComplexOperator
+    HYMLS_ComplexSolver
+    )
+endif()
 
 # Configure the data xml file in which we can set parameters (like file names)
 configure_file(data.xml ${CMAKE_CURRENT_BINARY_DIR}/data.xml)

@@ -2,8 +2,13 @@
 #include "HYMLS_DeflatedSolver.hpp"
 #include "HYMLS_BorderedSolver.hpp"
 #include "HYMLS_BorderedDeflatedSolver.hpp"
+
+#include "Teuchos_config.h"
+
+#ifdef HAVE_TEUCHOS_COMPLEX
 #include "HYMLS_ComplexSolver.hpp"
 #include "HYMLS_ComplexBorderedSolver.hpp"
+#endif
 
 #include <Teuchos_RCP.hpp>
 #include <Teuchos_ParameterList.hpp>
@@ -62,6 +67,16 @@ TEUCHOS_UNIT_TEST(Solver, BaseSolver)
   Teuchos::RCP<HYMLS::BorderedDeflatedSolver> bordered_deflated_solver =
     Teuchos::rcp_dynamic_cast<HYMLS::BorderedDeflatedSolver>(solver.Solver());
   TEST_EQUALITY(bordered_deflated_solver, Teuchos::null);
+
+#ifdef HAVE_TEUCHOS_COMPLEX
+  Teuchos::RCP<HYMLS::ComplexSolver> complex_solver =
+    Teuchos::rcp_dynamic_cast<HYMLS::ComplexSolver>(solver.Solver());
+  TEST_EQUALITY(complex_solver, Teuchos::null);
+
+  Teuchos::RCP<HYMLS::ComplexBorderedSolver> complex_bordered_solver =
+    Teuchos::rcp_dynamic_cast<HYMLS::ComplexBorderedSolver>(solver.Solver());
+  TEST_EQUALITY(complex_bordered_solver, Teuchos::null);
+#endif
   }
 
 TEUCHOS_UNIT_TEST(Solver, DeflatedSolver)
@@ -98,6 +113,7 @@ TEUCHOS_UNIT_TEST(Solver, DeflatedSolver)
     Teuchos::rcp_dynamic_cast<HYMLS::BorderedDeflatedSolver>(solver.Solver());
   TEST_EQUALITY(bordered_deflated_solver, Teuchos::null);
 
+#ifdef HAVE_TEUCHOS_COMPLEX
   Teuchos::RCP<HYMLS::ComplexSolver> complex_solver =
     Teuchos::rcp_dynamic_cast<HYMLS::ComplexSolver>(solver.Solver());
   TEST_EQUALITY(complex_solver, Teuchos::null);
@@ -105,6 +121,7 @@ TEUCHOS_UNIT_TEST(Solver, DeflatedSolver)
   Teuchos::RCP<HYMLS::ComplexBorderedSolver> complex_bordered_solver =
     Teuchos::rcp_dynamic_cast<HYMLS::ComplexBorderedSolver>(solver.Solver());
   TEST_EQUALITY(complex_bordered_solver, Teuchos::null);
+#endif
   }
 
 TEUCHOS_UNIT_TEST(Solver, BorderedSolver)
@@ -141,6 +158,7 @@ TEUCHOS_UNIT_TEST(Solver, BorderedSolver)
     Teuchos::rcp_dynamic_cast<HYMLS::BorderedDeflatedSolver>(solver.Solver());
   TEST_EQUALITY(bordered_deflated_solver, Teuchos::null);
 
+#ifdef HAVE_TEUCHOS_COMPLEX
   Teuchos::RCP<HYMLS::ComplexSolver> complex_solver =
     Teuchos::rcp_dynamic_cast<HYMLS::ComplexSolver>(solver.Solver());
   TEST_EQUALITY(complex_solver, Teuchos::null);
@@ -148,6 +166,7 @@ TEUCHOS_UNIT_TEST(Solver, BorderedSolver)
   Teuchos::RCP<HYMLS::ComplexBorderedSolver> complex_bordered_solver =
     Teuchos::rcp_dynamic_cast<HYMLS::ComplexBorderedSolver>(solver.Solver());
   TEST_EQUALITY(complex_bordered_solver, Teuchos::null);
+#endif
   }
 
 TEUCHOS_UNIT_TEST(Solver, BorderedDeflatedSolver)
@@ -185,6 +204,7 @@ TEUCHOS_UNIT_TEST(Solver, BorderedDeflatedSolver)
     Teuchos::rcp_dynamic_cast<HYMLS::BorderedDeflatedSolver>(solver.Solver());
   TEST_INEQUALITY(bordered_deflated_solver, Teuchos::null);
 
+#ifdef HAVE_TEUCHOS_COMPLEX
   Teuchos::RCP<HYMLS::ComplexSolver> complex_solver =
     Teuchos::rcp_dynamic_cast<HYMLS::ComplexSolver>(solver.Solver());
   TEST_EQUALITY(complex_solver, Teuchos::null);
@@ -192,7 +212,10 @@ TEUCHOS_UNIT_TEST(Solver, BorderedDeflatedSolver)
   Teuchos::RCP<HYMLS::ComplexBorderedSolver> complex_bordered_solver =
     Teuchos::rcp_dynamic_cast<HYMLS::ComplexBorderedSolver>(solver.Solver());
   TEST_EQUALITY(complex_bordered_solver, Teuchos::null);
+#endif
   }
+
+#ifdef HAVE_TEUCHOS_COMPLEX
 
 TEUCHOS_UNIT_TEST(Solver, ComplexSolver)
   {
@@ -280,3 +303,5 @@ TEUCHOS_UNIT_TEST(Solver, ComplexBorderedSolver)
     Teuchos::rcp_dynamic_cast<HYMLS::ComplexBorderedSolver>(solver.Solver());
   TEST_INEQUALITY(complex_bordered_solver, Teuchos::null);
   }
+
+#endif // HAVE_TEUCHOS_COMPLEX
