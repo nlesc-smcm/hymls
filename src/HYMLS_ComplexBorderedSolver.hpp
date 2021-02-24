@@ -1,6 +1,8 @@
 #ifndef HYMLS_COMPLEX_BORDERED_SOLVER_H
 #define HYMLS_COMPLEX_BORDERED_SOLVER_H
 
+#include <complex>
+
 #include "Teuchos_RCP.hpp"
 
 #include "HYMLS_BorderedSolver.hpp"

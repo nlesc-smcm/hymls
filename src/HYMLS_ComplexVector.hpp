@@ -1,6 +1,7 @@
 #ifndef HYMLS_COMPLEX_VECTOR_H
 #define HYMLS_COMPLEX_VECTOR_H
 
+#include <complex>
 #include <vector>
 
 #include <Trilinos_version.h>

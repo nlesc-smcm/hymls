@@ -1,6 +1,8 @@
 #ifndef HYMLS_COMPLEX_OPERATOR_H
 #define HYMLS_COMPLEX_OPERATOR_H
 
+#include <complex>
+
 #include "Teuchos_RCP.hpp"
 
 #include "BelosOperator.hpp"
