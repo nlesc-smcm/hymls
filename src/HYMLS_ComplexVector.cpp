@@ -932,6 +932,9 @@ ptrdiff_t MultiVecTraitsExt<std::complex<double>, HYMLS::ComplexVector<MultiVect
   {
   return MultiVecTraitsExt<double, MultiVector>::GetGlobalLength(*mv.Real());
   }
+
+template class MultiVecTraitsExt<std::complex<double>, HYMLS::ComplexVector<Epetra_MultiVector> >;
+template class MultiVecTraitsExt<std::complex<double>, HYMLS::ComplexVector<HYMLS::BorderedVector> >;
 #endif
 
   } // namespace Belos
