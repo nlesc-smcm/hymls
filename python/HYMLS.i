@@ -82,6 +82,11 @@
         return self->SetBorder(V, W, C);
     }
 
+    int UnsetBorder()
+    {
+        return self->SetBorder(Teuchos::null);
+    }
+
     int ApplyInverse(Teuchos::RCP<Epetra_MultiVector> x, Teuchos::RCP<Epetra_MultiVector> y)
     {
         return self->ApplyInverse(*x, *y);
@@ -108,6 +113,26 @@
     int ApplyInverse(Teuchos::RCP<Epetra_MultiVector> x, Teuchos::RCP<Epetra_MultiVector> y)
     {
         return self->ApplyInverse(*x, *y);
+    }
+
+    int SetBorder(Teuchos::RCP<Epetra_MultiVector> V)
+    {
+        return self->SetBorder(V);
+    }
+
+    int SetBorder(Teuchos::RCP<Epetra_MultiVector> V, Teuchos::RCP<Epetra_MultiVector> W)
+    {
+        return self->SetBorder(V, W);
+    }
+
+    int SetBorder(Teuchos::RCP<Epetra_MultiVector> V, Teuchos::RCP<Epetra_MultiVector> W, Teuchos::RCP<Epetra_SerialDenseMatrix> C)
+    {
+        return self->SetBorder(V, W, C);
+    }
+
+    int UnsetBorder()
+    {
+        return self->SetBorder(Teuchos::null);
     }
 }
 
