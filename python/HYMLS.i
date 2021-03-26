@@ -48,6 +48,16 @@
     {
         HYMLS::Tools::InitializeIO(c);
     }
+
+    static void PrintTiming()
+    {
+        HYMLS::Tools::PrintTiming(HYMLS::Tools::out());
+    }
+
+    static void PrintMemUsage()
+    {
+        HYMLS::Tools::PrintMemUsage(HYMLS::Tools::out());
+    }
 }
 
 %extend HYMLS::Preconditioner
