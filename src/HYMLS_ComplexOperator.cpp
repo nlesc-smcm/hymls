@@ -15,6 +15,7 @@ template<class Operator, class MultiVector>
 ComplexOperator<Operator, MultiVector>::ComplexOperator()
   :
   A_(Teuchos::null),
+  isPreconditioner_(false),
   label_("ComplexOperator")
   {
   HYMLS_PROF3("ComplexOperator", "Constructor");
@@ -29,7 +30,6 @@ ComplexOperator<Operator, MultiVector>::ComplexOperator(Teuchos::RCP<const Opera
   {
   HYMLS_PROF3("ComplexOperator", "Constructor");
   }
-
 
 template<class Operator, class MultiVector>
 bool ComplexOperator<Operator, MultiVector>::IsPreconditioner() const
@@ -112,7 +112,7 @@ void OperatorTraits<std::complex<double>, HYMLS::ComplexVector<MultiVector>, HYM
       "underlying ComplexOperator object failed, returning a "
       "nonzero error code of " << ierr << ". This probably means "
       "that the underlying ComplexOperator object doesn't know "
-      "how to apply.");
+      "how to apply its inverse.");
 
     return;
     }

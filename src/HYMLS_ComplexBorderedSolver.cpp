@@ -114,7 +114,11 @@ void ComplexBorderedSolver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)
   precond_ = P;
   if (precond_ == Teuchos::null) return;
 
-  belosPrecPtr_ = Teuchos::rcp(new BelosOperatorType(Teuchos::rcp_dynamic_cast<BorderedOperator>(precond_), true));
+  Teuchos::RCP<BorderedOperator> bprec = Teuchos::rcp_dynamic_cast<BorderedOperator>(precond_);
+  if (bprec == Teuchos::null)
+    bprec = Teuchos::rcp(new BorderedOperator(precond_, true));
+
+  belosPrecPtr_ = Teuchos::rcp(new BelosOperatorType(bprec, true));
   std::string lor = PL().get("Left or Right Preconditioning", lor_default_);
   if (lor == "Left")
     {

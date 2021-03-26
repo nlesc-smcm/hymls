@@ -33,9 +33,9 @@ protected:
   //! original operator
   Teuchos::RCP<const Operator> A_;
 
-private:
   bool isPreconditioner_;
 
+private:
   //! label
   std::string label_;
 

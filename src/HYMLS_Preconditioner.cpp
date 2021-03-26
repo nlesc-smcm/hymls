@@ -64,6 +64,8 @@ Preconditioner::Preconditioner(Teuchos::RCP<const Epetra_RowMatrix> K,
 //    serialComm_=Teuchos::rcp(new Epetra_MpiComm(MPI_COMM_SELF));
   time_=Teuchos::rcp(new Epetra_Time(K->Comm()));
 
+  isPreconditioner_ = true;
+
   setParameterList(params);
 #ifdef HYMLS_DEBUGGING
   dumpVectors_=true;

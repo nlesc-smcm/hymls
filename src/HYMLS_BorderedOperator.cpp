@@ -21,6 +21,17 @@ namespace HYMLS
 BorderedOperator::BorderedOperator()
   :
   A_(Teuchos::null), V_(Teuchos::null), W_(Teuchos::null), C_(Teuchos::null),
+  isPreconditioner_(false),
+  label_("BorderedOperator")
+  {
+  HYMLS_PROF3("BorderedOperator", "Constructor");
+  }
+
+BorderedOperator::BorderedOperator(Teuchos::RCP<const Epetra_Operator> A,
+  bool isPreconditioner)
+  :
+  A_(A), V_(Teuchos::null), W_(Teuchos::null), C_(Teuchos::null),
+  isPreconditioner_(isPreconditioner),
   label_("BorderedOperator")
   {
   HYMLS_PROF3("BorderedOperator", "Constructor");
@@ -29,9 +40,11 @@ BorderedOperator::BorderedOperator()
 BorderedOperator::BorderedOperator(Teuchos::RCP<const Epetra_Operator> A,
   Teuchos::RCP<const Epetra_MultiVector> V,
   Teuchos::RCP<const Epetra_MultiVector> W,
-  Teuchos::RCP<const Epetra_SerialDenseMatrix> C)
+  Teuchos::RCP<const Epetra_SerialDenseMatrix> C,
+  bool isPreconditioner)
   :
   A_(A), V_(V), W_(W), C_(C),
+  isPreconditioner_(isPreconditioner),
   label_("BorderedOperator")
   {
   HYMLS_PROF3("BorderedOperator", "Constructor");
@@ -51,6 +64,11 @@ BorderedOperator::BorderedOperator(Teuchos::RCP<const Epetra_Operator> A,
     {
     W_ = V_;
     }
+  }
+
+bool BorderedOperator::IsPreconditioner() const
+  {
+  return isPreconditioner_;
   }
 
 int BorderedOperator::Apply(const BorderedVector& X, BorderedVector& Y) const
@@ -135,24 +153,26 @@ void OperatorTraits<double, HYMLS::BorderedVector, HYMLS::BorderedOperator>::App
   HYMLS::BorderedOperator const &Op, HYMLS::BorderedVector const &x,
   HYMLS::BorderedVector &y, int trans)
   {
-  int ierr = Op.ApplyInverse(x, y);
-  if (ierr == -99)
+  if (Op.IsPreconditioner())
     {
-    ierr = Op.Apply(x, y);
+    int ierr = Op.ApplyInverse(x, y);
 
     TEUCHOS_TEST_FOR_EXCEPTION(ierr != 0, EpetraOpFailure,
-      "Belos::OperatorTraits::Apply: Calling Apply() on the "
+      "Belos::OperatorTraits::Apply: Calling ApplyInverse() on the "
       "underlying BorderedOperator object failed, returning a "
-      "nonzero error code of " << ierr << ".");
+      "nonzero error code of " << ierr << ". This probably means "
+      "that the underlying BorderedOperator object doesn't know "
+      "how to apply its inverse.");
+
     return;
     }
 
+  int ierr = Op.Apply(x, y);
+
   TEUCHOS_TEST_FOR_EXCEPTION(ierr != 0, EpetraOpFailure,
-    "Belos::OperatorTraits::Apply: Calling ApplyInverse() on the "
+    "Belos::OperatorTraits::Apply: Calling Apply() on the "
     "underlying BorderedOperator object failed, returning a "
-    "nonzero error code of " << ierr << ". This probably means "
-    "that the underlying BorderedOperator object doesn't know "
-    "how to apply.");
+    "nonzero error code of " << ierr << ".");
   }
 
   } // namespace Belos

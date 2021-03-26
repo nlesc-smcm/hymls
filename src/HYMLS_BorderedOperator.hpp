@@ -21,11 +21,17 @@ public:
   BorderedOperator();
 
   BorderedOperator(Teuchos::RCP<const Epetra_Operator> A,
+    bool isPreconditioner=false);
+
+  BorderedOperator(Teuchos::RCP<const Epetra_Operator> A,
     Teuchos::RCP<const Epetra_MultiVector> V,
     Teuchos::RCP<const Epetra_MultiVector> W=Teuchos::null,
-    Teuchos::RCP<const Epetra_SerialDenseMatrix> C=Teuchos::null);
+    Teuchos::RCP<const Epetra_SerialDenseMatrix> C=Teuchos::null,
+    bool isPreconditioner=false);
 
   virtual ~BorderedOperator() {};
+
+  bool IsPreconditioner() const;
 
   int Apply(const BorderedVector& X, BorderedVector& Y) const;
 
@@ -51,6 +57,8 @@ protected:
   Teuchos::RCP<const Epetra_MultiVector> V_, W_;
 
   Teuchos::RCP<const Epetra_SerialDenseMatrix> C_;
+
+  bool isPreconditioner_;
 
 private:
   //! label
