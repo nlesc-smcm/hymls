@@ -294,6 +294,9 @@ int ComplexVector<MultiVector>::Scale(std::complex<double> scalarValue)
   {
   int info = 0;
 
+  if (scalarValue == 1.0)
+      return info;
+
   if (scalarValue == 0.0)
     {
     info =  real_->PutScalar(0.0);
