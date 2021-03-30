@@ -206,20 +206,28 @@ int ComplexVector<MultiVector>::Multiply(char transA, char transB, std::complex<
 
   MultiVector tmp(*real_);
   info += tmp.Multiply(transA, transB, 1.0, *A.Real(), *B.Real(), 0.0);
-  info += real_->Update(scalarAB.real(), tmp, 1.0);
-  info += imag_->Update(scalarAB.imag(), tmp, 1.0);
+  if (scalarAB.real() != 0.0)
+      info += real_->Update(scalarAB.real(), tmp, 1.0);
+  if (scalarAB.imag() != 0.0)
+      info += imag_->Update(scalarAB.imag(), tmp, 1.0);
 
   info += tmp.Multiply(transA, transB, -conjA * conjB, *A.Imag(), *B.Imag(), 0.0);
-  info += real_->Update(scalarAB.real(), tmp, 1.0);
-  info += imag_->Update(scalarAB.imag(), tmp, 1.0);
+  if (scalarAB.real() != 0.0)
+      info += real_->Update(scalarAB.real(), tmp, 1.0);
+  if (scalarAB.imag() != 0.0)
+      info += imag_->Update(scalarAB.imag(), tmp, 1.0);
 
   info += tmp.Multiply(transA, transB, conjB, *A.Real(), *B.Imag(), 0.0);
-  info += real_->Update(-scalarAB.imag(), tmp, 1.0);
-  info += imag_->Update(scalarAB.real(), tmp, 1.0);
+  if (scalarAB.imag() != 0.0)
+      info += real_->Update(-scalarAB.imag(), tmp, 1.0);
+  if (scalarAB.real() != 0.0)
+      info += imag_->Update(scalarAB.real(), tmp, 1.0);
 
   info += tmp.Multiply(transA, transB, conjA, *A.Imag(), *B.Real(), 0.0);
-  info += real_->Update(-scalarAB.imag(), tmp, 1.0);
-  info += imag_->Update(scalarAB.real(), tmp, 1.0);
+  if (scalarAB.imag() != 0.0)
+      info += real_->Update(-scalarAB.imag(), tmp, 1.0);
+  if (scalarAB.real() != 0.0)
+      info += imag_->Update(scalarAB.real(), tmp, 1.0);
 
   return info;
   }
@@ -235,10 +243,14 @@ int ComplexVector<MultiVector>::Update(std::complex<double> scalarA, const Compl
 
   int info = Scale(scalarThis);
 
-  info += real_->Update(scalarA.real(), *Acopy->Real(), 1.0);
-  info += real_->Update(-scalarA.imag(), *Acopy->Imag(), 1.0);
-  info += imag_->Update(scalarA.imag(), *Acopy->Real(), 1.0);
-  info += imag_->Update(scalarA.real(), *Acopy->Imag(), 1.0);
+  if (scalarA.real() != 0.0)
+      info += real_->Update(scalarA.real(), *Acopy->Real(), 1.0);
+  if (scalarA.imag() != 0.0)
+      info += real_->Update(-scalarA.imag(), *Acopy->Imag(), 1.0);
+  if (scalarA.imag() != 0.0)
+      info += imag_->Update(scalarA.imag(), *Acopy->Real(), 1.0);
+  if (scalarA.real() != 0.0)
+      info += imag_->Update(scalarA.real(), *Acopy->Imag(), 1.0);
 
   return info;
   }
