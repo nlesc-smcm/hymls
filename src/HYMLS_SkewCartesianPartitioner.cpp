@@ -302,15 +302,15 @@ int SkewCartesianPartitioner::Partition(bool repart)
 
   std::string s1 = toString(nx_) + "x" + toString(ny_) + "x" + toString(nz_);
   std::string s2 = toString(npx) + "x" + toString(npy) + "x" + toString(npz);
+  std::string s3 = toString(sx_) + "x" + toString(sy_) + "x" + toString(sz_);
 
-  if ((nx_ != npx * sx_) || (ny_ != npy * sy_) || (nz_ != npz * sz_))
+  if (nx_ != npx * sx_ || ny_ != npy * sy_ || nz_ != npz * sz_)
     {
-    std::string msg = "You are trying to partition an " + s1 + " domain into " + s2 + " parts.\n";
+    std::string msg = "You are trying to partition a domain of size " + s1 + " into " + s2 + " parts of size " + s3 + ".\n";
     Tools::Error(msg, __FILE__, __LINE__);
     }
 
   s2 = Teuchos::toString(NumGlobalParts(sx_, sy_, sz_));
-  std::string s3 = toString(sx_)+"x"+toString(sy_)+"x"+toString(sz_);
 
   Tools::Out("Partition domain: ");
   Tools::Out("Grid size: " + s1);
