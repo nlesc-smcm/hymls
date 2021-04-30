@@ -59,7 +59,7 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
   if (yperio) perio_ = (GaleriExt::PERIO_Flag)(perio_ | GaleriExt::Y_PERIO);
   if (zperio) perio_ = (GaleriExt::PERIO_Flag)(perio_ | GaleriExt::Z_PERIO);
 
-  perio_ = probList.get("Periodicity", perio_);
+  perio_ = (GaleriExt::PERIO_Flag)probList.get("Periodicity", (int)perio_);
 
   sx_ = -1;
   sy_ = -1;
