@@ -137,6 +137,9 @@ void BorderedSolver::SetPrecond(Teuchos::RCP<Epetra_Operator> P)
   if (precond_ == Teuchos::null) return;
 
   belosPrecPtr_ = Teuchos::rcp_dynamic_cast<BorderedOperator>(precond_);
+  if (belosPrecPtr_ == Teuchos::null)
+    belosPrecPtr_ = Teuchos::rcp(new BorderedOperator(precond_, true));
+
   std::string lor = PL().get("Left or Right Preconditioning", lor_default_);
   if (lor == "Left")
     {
