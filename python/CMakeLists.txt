@@ -19,6 +19,7 @@ if (SWIG_FOUND)
   set_property(SOURCE HYMLS.i PROPERTY CPLUSPLUS ON)
   swig_add_library(HYMLS LANGUAGE Python SOURCES HYMLS.i)
   swig_link_libraries(HYMLS hymls)
+  swig_link_libraries(HYMLS ${Python_LIBRARIES})
 
   set(SITE_PACKAGE_DIR "lib/python${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}/site-packages/HYMLS")
   install(TARGETS HYMLS DESTINATION ${SITE_PACKAGE_DIR})
