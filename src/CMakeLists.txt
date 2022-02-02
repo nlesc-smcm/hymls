@@ -126,9 +126,6 @@ if (${HYMLS_MEMORY_PROFILING})
   target_link_libraries(hymls ${CMAKE_DL_LIBS})
 endif()
 
-# Link HYMLS to all found libraries
-target_link_libraries(hymls ${found_library_dependencies})
-
 add_executable(hymls_main main.cpp)
 target_link_libraries(hymls_main hymls)
 
