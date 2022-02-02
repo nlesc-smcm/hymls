@@ -95,6 +95,14 @@ include_directories(${Trilinos_INCLUDE_DIRS})
 include_directories(${Trilinos_TPL_INCLUDE_DIRS})
 list(APPEND include_list ${Trilinos_INCLUDE_DIRS})
 
+# Link to OpenMP to prevent errors with EPETRA_HAVE_OMP
+string(FIND ${Trilinos_CXX_COMPILER_FLAGS} "fopenmp" ENABLE_OPENMP)
+if (NOT ${ENABLE_OPENMP} EQUAL -1)
+  find_package(OpenMP)
+  set (CMAKE_CXX_COMPILE_FLAGS ${CMAKE_CXX_COMPILE_FLAGS} ${OpenMP_CXX_FLAGS})
+  include_directories (${OpenMP_CXX_INCLUDE_DIRS})
+endif()
+
 include(CheckCXXSymbolExists)
 list(APPEND CMAKE_REQUIRED_INCLUDES ${Trilinos_INCLUDE_DIRS})
 check_cxx_symbol_exists(HAVE_TEUCHOS_COMPLEX "Teuchos_config.h" HAVE_TEUCHOS_COMPLEX)

@@ -115,6 +115,7 @@ add_library(hymls ${HYMLS_SOURCE})
 target_link_libraries(hymls ${Trilinos_LIBRARIES})
 target_link_libraries(hymls ${Trilinos_TPL_LIBRARIES})
 target_link_libraries(hymls ${MPI_CXX_LIBRARIES})
+target_link_libraries(hymls ${OpenMP_CXX_LIBRARIES})
 
 if (${phist_FOUND})
   target_include_directories(hymls PUBLIC ${PHIST_INCLUDE_DIRS})
