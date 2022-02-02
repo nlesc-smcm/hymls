@@ -95,6 +95,9 @@ include_directories(${Trilinos_INCLUDE_DIRS})
 include_directories(${Trilinos_TPL_INCLUDE_DIRS})
 list(APPEND include_list ${Trilinos_INCLUDE_DIRS})
 
+# The PyTrilinos dependency is broken, see e.g. https://github.com/trilinos/Trilinos/issues/866
+list(FILTER Trilinos_LIBRARIES EXCLUDE REGEX pytrilinos)
+
 # Link to OpenMP to prevent errors with EPETRA_HAVE_OMP
 string(FIND ${Trilinos_CXX_COMPILER_FLAGS} "fopenmp" ENABLE_OPENMP)
 if (NOT ${ENABLE_OPENMP} EQUAL -1)
