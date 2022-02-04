@@ -94,18 +94,6 @@ foreach(i ${HYMLS_SOURCE})
 endforeach()
 unset(header_extensions)
 
-# phist is typically compiled with OpenMP support, add the openmp flag to be able to link.
-# And even if we compile without, I think our Trilinos or MPI installation require it, so
-# set -fopenmp if this is the GNU compiler.
-if (HYMLS_USE_OPENMP)
-  if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-    target_link_libraries(hymls gomp)
-  elseif (CMAKE_C_COMPILER_ID STREQUAL "Intel")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -openmp")  
-  endif()
-endif()
-
 if (${HYMLS_MEMORY_PROFILING})
   list(APPEND HYMLS_SOURCE HYMLS_Malloc)
 endif()
@@ -115,6 +103,7 @@ add_library(hymls ${HYMLS_SOURCE})
 target_link_libraries(hymls ${Trilinos_LIBRARIES})
 target_link_libraries(hymls ${Trilinos_TPL_LIBRARIES})
 target_link_libraries(hymls ${MPI_CXX_LIBRARIES})
+target_link_libraries(hymls ${OpenMP_CXX_LIBRARIES})
 
 if (${phist_FOUND})
   target_include_directories(hymls PUBLIC ${PHIST_INCLUDE_DIRS})
@@ -124,9 +113,6 @@ endif()
 if (${HYMLS_MEMORY_PROFILING})
   target_link_libraries(hymls ${CMAKE_DL_LIBS})
 endif()
-
-# Link HYMLS to all found libraries
-target_link_libraries(hymls ${found_library_dependencies})
 
 add_executable(hymls_main main.cpp)
 target_link_libraries(hymls_main hymls)
