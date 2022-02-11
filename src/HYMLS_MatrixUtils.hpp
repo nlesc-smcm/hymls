@@ -251,13 +251,6 @@ class MatrixUtils
   
     //! returns a string describing the class
     static std::string Label() {return "MatrixUtils";}
-  
-    //! read array from file
-    static void read_fortran_array(int n, int* array, std::string filename);
-    
-    //! read array from file
-    static void read_fortran_array(int n, double* array, std::string filename);
-
   };
 
 }

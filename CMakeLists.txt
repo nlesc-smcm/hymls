@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15.0)
-project(HYMLS C CXX)
+project(HYMLS CXX)
 
 # Some options
 option(HYMLS_USE_OPENMP OFF "allow using multi-threading inside HYMLS")
