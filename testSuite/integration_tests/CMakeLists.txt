@@ -14,12 +14,7 @@ endif()
 target_link_libraries(integration_tests hymls)
 
 if (NOT ${HYMLS_DEBUGGING})
-  execute_process(COMMAND ${MPIEXEC} --oversubscribe echo RESULT_VARIABLE status OUTPUT_QUIET)
-  if (NOT status)
-    set(MPI_OVERSUBSCRIBE "--oversubscribe")
-  endif()
-
-  add_test(NAME integration_tests COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${HYMLS_TEST_NPROCS} ${MPI_OVERSUBSCRIBE} ./integration_tests)
+  add_test(NAME integration_tests COMMAND ${MPI_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${HYMLS_TEST_NPROCS} ${MPI_OVERSUBSCRIBE} ./integration_tests)
   set_tests_properties(integration_tests PROPERTIES PASS_REGULAR_EXPRESSION "ALL TESTS PASSED")
   set_tests_properties(integration_tests PROPERTIES FAIL_REGULAR_EXPRESSION "FAILED")
   set_tests_properties(integration_tests PROPERTIES TIMEOUT 600)

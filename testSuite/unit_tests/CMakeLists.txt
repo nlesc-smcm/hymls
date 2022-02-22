@@ -38,17 +38,12 @@ add_executable(unit_tests ${SOURCES})
 
 target_link_libraries(unit_tests hymls)
 
-execute_process(COMMAND ${MPIEXEC} --oversubscribe echo RESULT_VARIABLE status OUTPUT_QUIET)
-if (NOT status)
-  set(MPI_OVERSUBSCRIBE "--oversubscribe")
-endif()
-
 add_test(NAME unit_tests_1 COMMAND ./unit_tests)
-add_test(NAME unit_tests_2 COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPI_OVERSUBSCRIBE} ./unit_tests)
-add_test(NAME unit_tests_3 COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 3 ${MPI_OVERSUBSCRIBE} ./unit_tests)
-add_test(NAME unit_tests_4 COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPI_OVERSUBSCRIBE} ./unit_tests)
-add_test(NAME unit_tests_5 COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 5 ${MPI_OVERSUBSCRIBE} ./unit_tests)
-add_test(NAME unit_tests_8 COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 8 ${MPI_OVERSUBSCRIBE} ./unit_tests)
+add_test(NAME unit_tests_2 COMMAND ${MPI_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPI_OVERSUBSCRIBE} ./unit_tests)
+add_test(NAME unit_tests_3 COMMAND ${MPI_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 3 ${MPI_OVERSUBSCRIBE} ./unit_tests)
+add_test(NAME unit_tests_4 COMMAND ${MPI_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPI_OVERSUBSCRIBE} ./unit_tests)
+add_test(NAME unit_tests_5 COMMAND ${MPI_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 5 ${MPI_OVERSUBSCRIBE} ./unit_tests)
+add_test(NAME unit_tests_8 COMMAND ${MPI_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 8 ${MPI_OVERSUBSCRIBE} ./unit_tests)
 
 set(test_list unit_tests_1 unit_tests_2 unit_tests_3 unit_tests_4 unit_tests_5 unit_tests_8)
 set_tests_properties(${test_list} PROPERTIES PASS_REGULAR_EXPRESSION "TEST PASSED")

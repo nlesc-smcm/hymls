@@ -41,18 +41,31 @@ else()
 endif()
 
 find_package(MPI REQUIRED)
-if (${MPI_FOUND})
+if (MPI_FOUND)
   set (CMAKE_CXX_COMPILE_FLAGS ${CMAKE_CXX_COMPILE_FLAGS} ${MPI_CXX_COMPILE_FLAGS})
   set (CMAKE_CXX_LINK_FLAGS ${CMAKE_CXX_LINK_FLAGS} ${MPI_CXX_LINK_FLAGS})
-# For now, just include everything
+
+  # For now, just include everything
   include_directories (${MPI_CXX_INCLUDE_PATH})
   include_directories (${MPI_INCLUDE_PATH})
 else()
   message(WARNING "could not find MPI. Trying to compile anyway, presuming the compiler/linker knows where to find it.")
 endif()
 
-set(MPIEXEC "mpirun" CACHE STRING "")
-set(MPIEXEC_NUMPROC_FLAG "-np" CACHE STRING "")
+set(MPI_EXECUTABLE ${MPIEXEC})
+if (NOT MPIEXEC)
+  set(MPI_EXECUTABLE ${MPIEXEC_EXECUTABLE})
+endif()
+
+execute_process(COMMAND mpiexec echo RESULT_VARIABLE status OUTPUT_QUIET)
+if(NOT status)
+  set(MPI_EXECUTABLE mpiexec)
+endif()
+
+execute_process(COMMAND ${MPI_EXECUTABLE} --oversubscribe echo RESULT_VARIABLE status OUTPUT_QUIET)
+if (NOT status)
+  set(MPI_OVERSUBSCRIBE "--oversubscribe")
+endif()
 
 #################
 # find Trilinos #
