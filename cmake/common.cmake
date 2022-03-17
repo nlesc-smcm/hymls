@@ -7,7 +7,9 @@ endif()
 
 set(BUILD_SHARED_LIBS ON CACHE STRING "build shared library for hymls (libhymls.so rather than libhymls.a)")
 
-if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR
+    CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR
+    CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
   message(STATUS "Using GNU compiler flags")
 
   # try to enable CCache as a 'compiler launcher'
