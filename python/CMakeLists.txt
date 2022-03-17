@@ -19,10 +19,6 @@ if (SWIG_FOUND AND PyTrilinos_FOUND)
   include(${SWIG_USE_FILE})
 
   set(SOURCE_FILE HYMLS.i)
-  if (APPLE)
-    add_custom_command(OUTPUT "HYMLS_Apple.i" COMMAND ${Python_EXECUTABLE} ARGS "${CMAKE_CURRENT_SOURCE_DIR}/gen_apple_wrappers.py" "${CMAKE_CURRENT_BINARY_DIR}" DEPENDS "HYMLS.i;gen_apple_wrappers.py")
-    set(SOURCE_FILE "${CMAKE_CURRENT_BINARY_DIR}/HYMLS_Apple.i")
-  endif ()
 
   set_property(SOURCE ${SOURCE_FILE} PROPERTY CPLUSPLUS ON)
   swig_add_library(HYMLS LANGUAGE Python SOURCES ${SOURCE_FILE})
