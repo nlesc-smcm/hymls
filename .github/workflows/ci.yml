@@ -41,6 +41,7 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     env: ${{ matrix.env }}
+    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v2
