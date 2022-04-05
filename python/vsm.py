@@ -5,6 +5,7 @@ import numpy
 import tempfile
 import subprocess
 
+
 def wrtbcsr(beg, jco, co, f):
     n = numpy.int32(len(beg) - 1)
 
@@ -27,6 +28,7 @@ def wrtbcsr(beg, jco, co, f):
     os.write(f, bc.tobytes())
     os.write(f, co.tobytes())
     os.write(f, bc.tobytes())
+
 
 def main():
     if len(sys.argv) < 2:
@@ -53,7 +55,7 @@ def main():
             print(matches)
             groups = []
             for i in matches:
-                s = i[1].replace('...','').replace('{','[').replace('}',']')
+                s = i[1].replace('...', '').replace('{', '[').replace('}', ']')
                 print(eval(s))
                 groups.append(eval(s))
 
@@ -68,7 +70,7 @@ def main():
                         index_map[k] = index
                         index += 1
             for i in groups:
-                for j in range(1,len(i)):
+                for j in range(1, len(i)):
                     for k in i[j]:
                         k += 1
                         if index_map[k] == 0:
@@ -131,11 +133,15 @@ def main():
     n = max(n, len(rows)-1)
     beg = numpy.ndarray(n + 1, numpy.int32)
     jco = numpy.ndarray(nnz, numpy.int32)
-    co = numpy.ndarray(nnz, numpy.float)
+    co = numpy.ndarray(nnz, float)
 
     idx = 0
     for i in range(n):
         beg[i] = idx + 1
+
+        if i + 1 >= len(rows):
+            continue
+
         for j, v in rows[i+1]:
             jco[idx] = j
             co[idx] = v
@@ -149,6 +155,7 @@ def main():
     subprocess.call('vsm ' + fname, shell=True)
 
     os.remove(fname)
+
 
 if __name__ == '__main__':
     main()
