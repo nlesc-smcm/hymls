@@ -1,10 +1,11 @@
-#define _GNU_SOURCE
 #include <dlfcn.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+
+extern "C" {
 
 static char tmpbuf[32768];
 static size_t tmppos = 0;
@@ -358,4 +359,6 @@ void* pvalloc(size_t size)
 
     _printf("pvalloc not implemented: %zu\n", size);
     return real_pvalloc(size);
+}
+
 }

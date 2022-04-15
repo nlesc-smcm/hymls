@@ -95,7 +95,7 @@ endforeach()
 unset(header_extensions)
 
 if (${HYMLS_MEMORY_PROFILING})
-  list(APPEND HYMLS_SOURCE HYMLS_Malloc)
+  list(APPEND HYMLS_SOURCE HYMLS_Malloc.cpp)
 endif()
 
 add_library(hymls ${HYMLS_SOURCE})
