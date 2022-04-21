@@ -430,10 +430,8 @@ std::string mem2string(long long mem)
 size_t (*getMem)() = NULL;
 size_t (*getMaxMem)() = NULL;
 
-std::tuple<long long, long long> Tools::StartMemory(std::string const &fname)
+void InitializeMemoryProfiler()
   {
-  long long memory = -1;
-  long long max_memory = -1;
 #ifdef HYMLS_MEMORY_PROFILING
   if (!getMem)
     {
@@ -446,6 +444,15 @@ std::tuple<long long, long long> Tools::StartMemory(std::string const &fname)
     getMaxMem = [](){ return (size_t)0; };
     Tools::Warning("Memory profiler not loaded correctly", __FILE__, __LINE__);
     }
+#endif
+  }
+
+std::tuple<long long, long long> Tools::StartMemory(std::string const &fname)
+  {
+  long long memory = -1;
+  long long max_memory = -1;
+#ifdef HYMLS_MEMORY_PROFILING
+  InitializeMemoryProfiler();
 
   if (InitializedIO())
     {
@@ -588,6 +595,8 @@ void Tools::PrintTiming(std::ostream& os)
 void Tools::PrintMemUsage(std::ostream& os)
   {
 #ifdef HYMLS_MEMORY_PROFILING
+  InitializeMemoryProfiler();
+
   os << std::setfill('=') << std::setw(137) << centered(" MEMORY USAGE ") << std::endl;
   os << std::setfill(' ') << std::setw(137-17*4) << std::left << "Description"
      << std::setfill(' ') << std::setw(17) << std::left << "# Calls"
