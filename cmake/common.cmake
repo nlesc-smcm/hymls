@@ -20,20 +20,20 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR
   endif(CCACHE_FOUND)
 
   if (NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -DNDEBUG -g -Wall -Wno-unknown-pragmas -Wno-deprecated-declarations")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -g -Wall -Wno-unknown-pragmas -Wno-deprecated-declarations")
   endif()
 
-  set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -ffast-math -march=native")
+  set(CMAKE_CXX_FLAGS_RELEASE "-O3 -ffast-math -march=native")
   set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g -Wall -Wno-unknown-pragmas -Wno-deprecated-declarations")
   set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELEASE} -g")
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
   message(STATUS "Using Intel compiler flags")
 
   if (NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -DNDEBUG -g -mkl")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -g -mkl")
   endif()
 
-  set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -mkl -march=native")
+  set(CMAKE_CXX_FLAGS_RELEASE "-O3 -mkl -march=native")
   set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g -mkl")
   set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELEASE} -g")
 
