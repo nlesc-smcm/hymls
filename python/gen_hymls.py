@@ -7,7 +7,7 @@ replace_table = {'Epetra_Comm': ['Epetra_MpiComm', 'Epetra_SerialComm'],
                  'Epetra_Operator': ['Epetra_FECrsMatrix', 'Epetra_CrsMatrix', 'Epetra_RowMatrix'],
                  'Epetra_MultiVector': ['Epetra_Vector']}
 
-with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'HYMLS.i')) as f:
+with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'HYMLS.i.in')) as f:
     orig = f.read()
 
 new = orig
@@ -38,5 +38,5 @@ for op in replace_table:
             # Remove duplicates if the same method exists in multiple classes
             new = new.replace(new_match + '\n' + new_match, new_match)
 
-with open(os.path.join(sys.argv[1], 'HYMLS_Apple.i'), 'w') as f:
+with open(os.path.join(sys.argv[1], 'HYMLS.i'), 'w') as f:
     f.write(new)
