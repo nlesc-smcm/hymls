@@ -479,13 +479,8 @@ void Tools::StopMemory(std::string const &fname, bool print,
   if (start_memory < 0 || start_max_memory < 0)
     return;
 
-  long long memory = 0;
-  long long local_memory = getMem() - start_memory;
-  comm_->SumAll(&local_memory, &memory, 1);
-
-  long long max_memory = 0;
-  long long local_max_memory = getMaxMem() - start_max_memory;
-  comm_->SumAll(&local_max_memory, &max_memory, 1);
+  long long memory = getMem() - start_memory;
+  long long max_memory = getMaxMem() - start_max_memory;
 
   long long total_used = memList_.sublist("total used").get(fname, (long long)0);
   memList_.sublist("total used").set(fname, total_used + memory);
@@ -609,9 +604,18 @@ void Tools::PrintMemUsage(std::ostream& os)
   for (auto &i: memList_.sublist("total used"))
     {
     std::string label = i.first;
-    long long total = memList_.sublist("total used").get(label, (long long)0);
-    long long maximum = memList_.sublist("maximum used").get(label, (long long)0);
-    long long increase = memList_.sublist("maximum allocated increase").get(label, (long long)0);
+    long long total = 0;
+    long long local_total = memList_.sublist("total used").get(label, (long long)0);
+    comm_->SumAll(&local_total, &total, 1);
+
+    long long maximum = 0;
+    long long local_maximum = memList_.sublist("maximum used").get(label, (long long)0);
+    comm_->SumAll(&local_maximum, &maximum, 1);
+
+    long long increase = 0;
+    long long local_increase = memList_.sublist("maximum allocated increase").get(label, (long long)0);
+    comm_->SumAll(&local_increase, &increase, 1);
+
     int ncalls = memList_.sublist("number of calls").get(label, 1);
     os << std::setfill(' ') << std::setw(137-17*4) << std::left << label
        << std::setfill(' ') << std::setw(17) << std::left << ncalls
