@@ -138,7 +138,7 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
 
   link_retained_nodes_ = precList.get("Eliminate Retained Nodes Together", true);
 
-  link_velocities_ = precList.get("Eliminate Velocities Together", false);
+  link_velocities_ = precList.get("Eliminate Velocities Together", true);
 
   if (probList.isParameter("Equations"))
     {

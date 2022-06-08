@@ -68,6 +68,8 @@
     <!-- you can either set 'Separator Length' or 'Number of Subdomains' -->
     <Parameter name="Separator Length" type="int" value="4"/>
     <Parameter name="Coarsening Factor" type="int" value="2"/>
+
+    <Parameter name="Eliminate Velocities Together" type="bool" value="false"/>
     
     <!-- number of levels to be created (1: direct solver for Schur complement, -->
     <!-- 2: solve Schur iteratively and reduced Schur directly,                 -->
