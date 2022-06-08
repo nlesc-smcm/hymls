@@ -715,9 +715,11 @@ int SkewCartesianPartitioner::GetGroups(int sd, InteriorGroup &interior_group,
 
   // Split separator groups that that do not belong to the same subdomain.
   // This may happen for the w-groups since the w-separators are staggered
+  int type = 1;
   std::copy(groups[0][0].begin(), groups[0][0].end(), std::back_inserter(interior_group.nodes()));
   for (int i = 1; i < (int)groups.size(); i++)
     {
+    type++;
     for (auto const &group: groups[i])
       {
       std::map<int, SeparatorGroup> newGroups;
@@ -730,6 +732,9 @@ int SkewCartesianPartitioner::GetGroups(int sd, InteriorGroup &interior_group,
         else
           {
           SeparatorGroup group;
+          if (link_velocities_)
+              group.set_type(type);
+
           group.append(node);
           newGroups.emplace(gsd, group);
           }
