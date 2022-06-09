@@ -743,12 +743,18 @@ int SkewCartesianPartitioner::GetGroups(int sd, InteriorGroup &interior_group,
         {
         if (rx_ > 1)
           {
+          if (!link_velocities_)
+            type++;
+
           int len = newGroup.second.length();
           int newLen = std::max((len + rx_ - 1) / rx_, 1);
           int numParts = (len - 1) / newLen + 1;
           for (int j = 0; j < numParts; j++)
             {
             SeparatorGroup newGroup2;
+            if (link_velocities_ || link_retained_nodes_)
+              newGroup2.set_type(type);
+
             for (int i = j * newLen; i < (j + 1) * newLen && i < len; i++)
               newGroup2.append(newGroup.second[i]);
             separator_groups.append(newGroup2);
