@@ -50,8 +50,8 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
   bool yperio = false;
   bool zperio = false;
   xperio = probList.get("x-periodic", xperio);
-  if (dim_ >= 1) yperio = probList.get("y-periodic", yperio);
-  if (dim_ >= 2) zperio = probList.get("z-periodic", zperio);
+  if (dim_ > 1) yperio = probList.get("y-periodic", yperio);
+  if (dim_ > 2) zperio = probList.get("z-periodic", zperio);
 
   perio_ = GaleriExt::NO_PERIO;
 
@@ -124,15 +124,15 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
     rz_ = precList.get(retainAtLevel + " (z)", rz_);
 
   if (rx_ == -1 && precList.isParameter(retainAtLevel))
-      rx_ = precList.get(retainAtLevel, rx_);
+    rx_ = precList.get(retainAtLevel, rx_);
   if (rx_ == -1)
     rx_ = precList.get("Retain Nodes", rx_);
   if (ry_ == -1 && precList.isParameter(retainAtLevel))
-      ry_ = precList.get(retainAtLevel, ry_);
+    ry_ = precList.get(retainAtLevel, ry_);
   if (ry_ == -1)
     ry_ = precList.get("Retain Nodes", ry_);
   if (rz_ == -1 && precList.isParameter(retainAtLevel))
-      rz_ = precList.get(retainAtLevel, rz_);
+    rz_ = precList.get(retainAtLevel, rz_);
   if (rz_ == -1)
     rz_ = precList.get("Retain Nodes", rz_);
 
@@ -298,7 +298,7 @@ void BasePartitioner::SetParameters(Teuchos::ParameterList& params)
       variableType_[i] = VariableType::Interior;
     else
       Tools::Error("Variable type " + variableType + " does not exist",
-                   __FILE__, __LINE__);
+        __FILE__, __LINE__);
     }
 
   if (pcount > 1)
